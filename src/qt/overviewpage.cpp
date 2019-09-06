@@ -242,7 +242,7 @@ void OverviewPage::setWalletModel(WalletModel *model)
         });
     }
 
-    // update the display unit, to not use the default ("BTC")
+    // update the display unit, to not use the default ("DFI")
     updateDisplayUnit();
 }
 
