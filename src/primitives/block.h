@@ -9,6 +9,9 @@
 #include <primitives/transaction.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <pubkey.h>
+
+#include <boost/optional.hpp>
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -20,6 +23,30 @@
 class CBlockHeader
 {
 public:
+    struct PoS {
+        COutPoint coinstakePrevout;
+
+        CKeyID pubKeyHash; // only for sanity checks
+
+        CAmount coinstakeAmount; // only for sanity checks
+
+        // PoS: block signature - signed by staker's privkey
+        std::vector<unsigned char> sig;
+
+        ADD_SERIALIZE_METHODS;
+
+        template <typename Stream, typename Operation>
+        inline void SerializationOp(Stream& s, Operation ser_action) {
+            READWRITE(coinstakePrevout);
+            READWRITE(pubKeyHash);
+            READWRITE(coinstakeAmount);
+            bool hashToSignAction = s.GetType() & SER_GETSIGNHASH;
+            if (!hashToSignAction) {
+                READWRITE(sig);
+            }
+        }
+    };
+
     // header
     int32_t nVersion;
     uint256 hashPrevBlock;
@@ -27,6 +54,9 @@ public:
     uint32_t nTime;
     uint32_t nBits;
     uint32_t nNonce;
+
+    uint256 stakeModifier; // only for sanity checks
+    boost::optional<PoS> proofOfStakeBody;
 
     CBlockHeader()
     {
@@ -59,6 +89,13 @@ public:
     {
         return (nBits == 0);
     }
+
+    bool IsProofOfStake() const
+    {
+        return (bool) proofOfStakeBody;
+    }
+
+    uint256 GetHashToSign() const;
 
     uint256 GetHash() const;
 
@@ -102,6 +139,16 @@ public:
         CBlockHeader::SetNull();
         vtx.clear();
         fChecked = false;
+    }
+
+    bool HasCoinstakeTx() const
+    {
+        return vtx.size() > 1 && vtx[1]->IsCoinStake();
+    }
+
+    bool IsCompleteProofOfStake() const
+    {
+        return IsProofOfStake() && HasCoinstakeTx();
     }
 
     CBlockHeader GetBlockHeader() const

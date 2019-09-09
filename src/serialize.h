@@ -175,6 +175,7 @@ enum
     SER_NETWORK         = (1 << 0),
     SER_DISK            = (1 << 1),
     SER_GETHASH         = (1 << 2),
+    SER_GETSIGNHASH     = (1 << 3),
 };
 
 //! Convert the reference base type to X, without changing constness or reference type.

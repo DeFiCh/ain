@@ -14,6 +14,7 @@
 #include <uint256.h>
 
 #include <vector>
+#include <boost/optional.hpp>
 
 /**
  * Maximum amount of time that a block timestamp is allowed to exceed the
@@ -181,6 +182,10 @@ public:
     uint32_t nTime;
     uint32_t nBits;
     uint32_t nNonce;
+    boost::optional<CBlockHeader::PoS> proofOfStakeBody;
+
+    // proof-of-stake specific fields
+    uint256 stakeModifier; // hash modifier for proof-of-stake
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -327,6 +332,11 @@ public:
             return true;
         }
         return false;
+    }
+
+    bool IsProofOfStake() const
+    {
+        return (bool) proofOfStakeBody;
     }
 
     //! Build the skiplist pointer for this entry.
