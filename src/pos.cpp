@@ -11,10 +11,8 @@ static bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlock& bloc
     if (block.hashPrevBlock.IsNull())
         return block.stakeModifier.IsNull();
 
-    if (block.IsProofOfStake())
         return block.stakeModifier == pos::ComputeStakeModifier_PoS(pindexPrev->stakeModifier,
                                                                     block.proofOfStakeBody->coinstakePrevout);
-    return block.stakeModifier == pos::ComputeStakeModifier_PoW(pindexPrev->stakeModifier, block.hashPrevBlock);
 }
 
 bool CheckBlockProof_headerOnly(const CBlockHeader& block, const Consensus::Params& params) {
