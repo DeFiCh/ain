@@ -8,6 +8,7 @@
 #include <chainparams.h>
 #include <interfaces/handler.h>
 #include <interfaces/wallet.h>
+#include <masternodes/masternodes.h>
 #include <net.h>
 #include <net_processing.h>
 #include <node/coin.h>
@@ -270,6 +271,12 @@ public:
         return true;
     }
     void findCoins(std::map<COutPoint, Coin>& coins) override { return FindCoins(coins); }
+    bool mnCanSpend(const uint256 & nodeId, int height) override
+    {
+        LOCK(cs_main);
+        return pmasternodesview->CanSpend(nodeId, height);
+    }
+
     double guessVerificationProgress(const uint256& block_hash) override
     {
         LOCK(cs_main);
