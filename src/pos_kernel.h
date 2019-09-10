@@ -39,9 +39,4 @@ namespace pos {
 /// of transaction confirmation. To meet kernel protocol, the txout
 /// must hash with a future stake modifier to generate the proof.
     uint256 ComputeStakeModifier_PoS(uint256 prevStakeModifier, const COutPoint& prevout);
-
-/// Theoretically, blockHash can be used by miner to make next PoS block easier for him.
-/// However, PoW blocks are not supported in mainnet.
-    uint256 ComputeStakeModifier_PoW(uint256 prevStakeModifier, const uint256& prevBlockHash);
-
 }
