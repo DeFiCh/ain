@@ -42,12 +42,4 @@ namespace pos {
         ss << prevStakeModifier << prevout.hash << prevout.n;
         return Hash(ss.begin(), ss.end());
     }
-
-    uint256 ComputeStakeModifier_PoW(uint256 prevStakeModifier, const uint256& prevBlockHash) {
-        // Calculate hash
-        CDataStream ss(SER_GETHASH, 0);
-        ss << prevStakeModifier << prevBlockHash;
-        return Hash(ss.begin(), ss.end());
-    }
-
 }

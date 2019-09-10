@@ -9,10 +9,6 @@ class CBlockIndex;
 
 class CBlockHeader;
 
-class CTransaction;
-
-class COutPoint;
-
 class CCoinsViewCache;
 
 namespace pos {
