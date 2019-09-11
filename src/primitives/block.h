@@ -40,10 +40,10 @@ public:
             READWRITE(coinstakePrevout);
             READWRITE(pubKeyHash);
             READWRITE(coinstakeAmount);
-            bool hashToSignAction = s.GetType() & SER_GETSIGNHASH;
-            if (!hashToSignAction) {
-                READWRITE(sig);
-            }
+//            bool hashToSignAction = s.GetType() & SER_GETSIGNHASH;
+//            if (!hashToSignAction) {
+//                READWRITE(sig);
+//            }
         }
     };
 
@@ -73,6 +73,12 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+        READWRITE(stakeModifier);
+
+        //PoS serialization
+        PoS loc_proofOfStake = proofOfStakeBody ? *proofOfStakeBody : PoS{};
+        READWRITE(loc_proofOfStake);
+        proofOfStakeBody = loc_proofOfStake;
     }
 
     void SetNull()
@@ -83,6 +89,8 @@ public:
         nTime = 0;
         nBits = 0;
         nNonce = 0;
+        stakeModifier.SetNull();
+        proofOfStakeBody = boost::optional<PoS>{};
     }
 
     bool IsNull() const
@@ -160,6 +168,8 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.stakeModifier  = stakeModifier;
+        block.proofOfStakeBody = proofOfStakeBody;
         return block;
     }
 

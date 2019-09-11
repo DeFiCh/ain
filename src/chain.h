@@ -209,6 +209,10 @@ public:
         nSequenceId = 0;
         nTimeMax = 0;
 
+        // PoS
+        proofOfStakeBody = boost::optional<CBlockHeader::PoS>{};
+        stakeModifier = uint256{};
+
         nVersion       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
@@ -230,6 +234,8 @@ public:
         nTime          = block.nTime;
         nBits          = block.nBits;
         nNonce         = block.nNonce;
+        stakeModifier  = block.stakeModifier;
+        proofOfStakeBody = block.proofOfStakeBody;
     }
 
     FlatFilePos GetBlockPos() const {
@@ -260,6 +266,8 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.stakeModifier   = stakeModifier;
+        block.proofOfStakeBody = proofOfStakeBody;
         return block;
     }
 
@@ -305,8 +313,9 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, hashBlock=%s)",
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, stakeModifier=(%s), merkle=%s, hashBlock=%s)",
             pprev, nHeight,
+            stakeModifier.ToString(),
             hashMerkleRoot.ToString(),
             GetBlockHash().ToString());
     }
@@ -386,6 +395,11 @@ public:
         if (nStatus & BLOCK_HAVE_UNDO)
             READWRITE(VARINT(nUndoPos));
 
+        //PoS serialization
+        CBlockHeader::PoS loc_proofOfStake = proofOfStakeBody ? *proofOfStakeBody : CBlockHeader::PoS{};
+        READWRITE(loc_proofOfStake);
+        proofOfStakeBody = loc_proofOfStake;
+
         // block header
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
@@ -404,6 +418,8 @@ public:
         block.nTime           = nTime;
         block.nBits           = nBits;
         block.nNonce          = nNonce;
+        block.stakeModifier    = stakeModifier;
+        block.proofOfStakeBody = proofOfStakeBody;
         return block.GetHash();
     }
 
