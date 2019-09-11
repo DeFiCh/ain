@@ -274,6 +274,10 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
 
+                //PoS
+                pindexNew->stakeModifier = diskindex.stakeModifier;
+                pindexNew->proofOfStakeBody = diskindex.proofOfStakeBody;
+
                 if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, consensusParams))
                     return error("%s: CheckProofOfWork failed: %s", __func__, pindexNew->ToString());
 
