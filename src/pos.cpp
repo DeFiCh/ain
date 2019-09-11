@@ -125,10 +125,4 @@ namespace pos {
         }
         return CheckHeaderSignature(block);
     }
-
-    uint32_t GetNextTargetRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock,
-                                   const Consensus::Params& params) {
-        return ::GetNextWorkRequired(pindexLast, pblock, params);
-    }
-
 }

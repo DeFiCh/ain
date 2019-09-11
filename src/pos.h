@@ -23,9 +23,5 @@ namespace pos {
     bool CheckProofOfStake(const CBlockIndex* pindexPrev, const CBlock& block, CCoinsViewCache& view,
                            const Consensus::Params& params);
 
-/// @return nBits
-    uint32_t GetNextTargetRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock,
-                                   const Consensus::Params& params);
-
 }
 
