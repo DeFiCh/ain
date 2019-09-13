@@ -7,11 +7,17 @@
 
 #include <hash.h>
 #include <tinyformat.h>
+#include <util/strencodings.h>
 #include <crypto/common.h>
 
 uint256 CBlockHeader::GetHash() const
 {
     return SerializeHash(*this);
+}
+
+uint256 CBlockHeader::GetHashToSign() const
+{
+    return SerializeHash(*this, SER_GETSIGNHASH);
 }
 
 std::string CBlock::ToString() const
@@ -23,6 +29,7 @@ std::string CBlock::ToString() const
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         nTime, nBits, nNonce,
+        proofOfStakeBody ? HexStr(proofOfStakeBody->sig.begin(), proofOfStakeBody->sig.end()) : "Empty",
         vtx.size());
     for (const auto& tx : vtx) {
         s << "  " << tx->ToString() << "\n";
