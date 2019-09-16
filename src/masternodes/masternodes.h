@@ -57,8 +57,11 @@ class CMasternode
 public:
     //! Owner auth address == collateral address. Can be used as an ID.
     CKeyID ownerAuthAddress;
+    char ownerType;
+
     //! Operator auth address. Can be equal to ownerAuthAddress. Can be used as an ID
     CKeyID operatorAuthAddress;
+    char operatorType;
 
     //! MN creation block height
     int32_t height;
@@ -93,7 +96,9 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action)
     {
         READWRITE(ownerAuthAddress);
+        READWRITE(ownerType);
         READWRITE(operatorAuthAddress);
+        READWRITE(operatorType);
 
         READWRITE(height);
         READWRITE(resignHeight);
@@ -180,10 +185,11 @@ public:
         return lastHeight;
     }
 
-//    CMasternodes const & GetMasternodes() const
-//    {
-//        return allNodes;
-//    }
+    CMasternodes const & GetMasternodes() const
+    {
+        /// for tests now, will be changed
+        return allNodes;
+    }
 
 //    CActiveMasternodes const & GetActiveMasternodes() const
 //    {
