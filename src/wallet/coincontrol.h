@@ -45,6 +45,8 @@ public:
     int m_min_depth = DEFAULT_MIN_DEPTH;
     //! Maximum chain depth value for coin availability
     int m_max_depth = DEFAULT_MAX_DEPTH;
+    //! Match coin with this destination
+    CTxDestination matchDestination;
 
     CCoinControl()
     {
