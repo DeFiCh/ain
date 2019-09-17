@@ -7,21 +7,17 @@
 #include <wallet/wallet.h>
 #include <txdb.h>
 
-static bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlock& block, const Consensus::Params& params) {
+static bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlock& block) {
     if (block.hashPrevBlock.IsNull())
         return block.stakeModifier.IsNull();
 
-        return block.stakeModifier == pos::ComputeStakeModifier_PoS(pindexPrev->stakeModifier,
-                                                                    block.proofOfStakeBody->coinstakePrevout);
-}
-
-bool CheckBlockProof_headerOnly(const CBlockHeader& block, const Consensus::Params& params) {
-    return pos::CheckProofOfStake_headerOnly(block, params);
+    uint256 id = block.ExtractMasternodeID();
+    return block.stakeModifier == pos::ComputeStakeModifier(pindexPrev->stakeModifier, id);
 }
 
 bool CheckBlockProof(const CBlockIndex* pindexPrev, const CBlock& block, CCoinsViewCache& view,
                      const Consensus::Params& params) {
-    if (!CheckStakeModifier(pindexPrev, block, params)) {
+    if (!CheckStakeModifier(pindexPrev, block)) {
         return false;
     }
 
@@ -64,8 +60,7 @@ namespace pos {
         const auto& body = *block.proofOfStakeBody; // checked to exist after IsProofOfStake
 
         // checking PoS kernel is faster, so check it first
-        if (!CheckKernelHash(block.stakeModifier, block.nBits, coinstakeTime, body.coinstakeAmount,
-                             body.coinstakePrevout, params).hashOk) {
+        if (!CheckKernelHash(block.stakeModifier, block.nBits, coinstakeTime, params).hashOk) {
             return false;
         }
         return CheckHeaderSignature(block);
@@ -81,9 +76,6 @@ namespace pos {
         }
 
         const auto& body = *block.proofOfStakeBody; // checked to exist after IsProofOfStake
-
-        if (body.coinstakePrevout != block.vtx[1]->vin[0].prevout)
-            return error("CheckProofOfStake(): block claimed PoS prevout doesn't match coinstakeTx (%s != %s)", body.coinstakePrevout.ToString(), block.vtx[1]->vin[0].prevout.ToString());
 
         // check staker's pubKeyHash
         {
@@ -102,25 +94,15 @@ namespace pos {
 
         // check staker's coin
         {
-            const Coin& stakeCoin = view.AccessCoin(body.coinstakePrevout);
-            if (stakeCoin.IsSpent())
-                return error("CheckProofOfStake : Could not find previous transaction for PoS %s\n",
-                             body.coinstakePrevout.hash.ToString());
-            if ((pindexPrev->nHeight - stakeCoin.nHeight) < params.pos.coinstakeMaturity)
-                return error("CheckProofOfStake(): coinstakeTx input must have at least 100 confirmations");
-
-            if (body.coinstakeAmount != stakeCoin.out.nValue)
-                return error("CheckProofOfStake(): coinstakeTx amount and block coinstakeAmount mismatch");
-            // it's vital for security that we use the same scriptPubKey
-            if (block.vtx[1]->vout[1].scriptPubKey != stakeCoin.out.scriptPubKey)
-                return error("CheckProofOfStake(): coinstakeTx scriptPubKey and prev. scriptPubKey mismatch");
+//            if (stakeCoin.IsSpent()) // TODO: SS check collateral don't spend
+//                return error("CheckProofOfStake : Could not find previous transaction for PoS %s\n",
+//                             body.coinstakePrevout.hash.ToString());
         }
-
         const int64_t coinstakeTime = (int64_t) block.GetBlockTime();
 
+
         // checking PoS kernel is faster, so check it first
-        if (!CheckKernelHash(block.stakeModifier, block.nBits, coinstakeTime, body.coinstakeAmount, body.coinstakePrevout,
-                             params).hashOk) {
+        if (!CheckKernelHash(block.stakeModifier, block.nBits, coinstakeTime, params).hashOk) {
             return false;
         }
         return CheckHeaderSignature(block);
