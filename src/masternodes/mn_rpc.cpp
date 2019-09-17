@@ -318,7 +318,7 @@ UniValue mn_resign(const JSONRPCRequest& request)
             {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
         },
         RPCResult{
-            "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
+            "\"hex\"                      (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
             HelpExampleCli("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
@@ -396,49 +396,38 @@ UniValue mn_resign(const JSONRPCRequest& request)
 UniValue mnToJSON(CMasternode const & node)
 {
     UniValue ret(UniValue::VOBJ);
-    /// @todo @max implement WitnessV0KeyHash! (type 4)
-
     ret.pushKV("ownerAuthAddress", EncodeDestination(node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress))));
     ret.pushKV("operatorAuthAddress", EncodeDestination(node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress))));
 
-    ret.pushKV("height", static_cast<uint64_t>(node.height));
-    ret.pushKV("resignHeight", static_cast<int>(node.resignHeight));
+    ret.pushKV("height", node.height);
+    ret.pushKV("resignHeight", node.resignHeight);
 
     ret.pushKV("resignTx", node.resignTx.GetHex());
+    ret.pushKV("status", node.GetHumanReadableStatus());
 
     return ret;
 }
 
-UniValue dumpnode(uint256 const & id, CMasternode const & node, bool verbose)
-{
-    UniValue entry(UniValue::VOBJ);
-    entry.pushKV("id", id.GetHex());
-    entry.pushKV("status", node.GetHumanReadableStatus());
-    if (verbose)
-    {
-        entry.pushKV("mn", mnToJSON(node));
-    }
-    return entry;
-}
-
 UniValue mn_list(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() > 2)
-        throw std::runtime_error(
-                "mn_list [\"MN-id\",...]\n"
-                "\nReturns information about specified masternodes (or all, if list of ids is empty).\n"
-                "\nArguments:\n"
-                "1.   [\n"
-                "         \"id\"            (string, optional) A json array of masternode ids\n"
-                "       ,...\n"
-                "     ]\n"
-                "2. \"verbose\"             (bool, optional) Flag to specify verbose list\n"
-                "\nResult:\n"
-                "[{...},...]                (array) Json array of json objects with masternodes information\n"
-                "\nExamples\n"
-                + HelpExampleCli("mn_list", "\"[]\"")
-                + HelpExampleRpc("mn_list", "\"[]\"")
-    );
+    RPCHelpMan{"mn_list",
+        "\nReturns information about specified masternodes (or all, if list of ids is empty).\n",
+        {
+            {"ids", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of masternode ids",
+                {
+                    {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Masternode's id"},
+                },
+            },
+            {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Flag for verbose list (default = true), otherwise only ids and statuses listed"},
+        },
+        RPCResult{
+            "{id:{...},...}     (array) Json object with masternodes information\n"
+        },
+        RPCExamples{
+            HelpExampleCli("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+            + HelpExampleRpc("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+        },
+    }.Check(request);
 
     LOCK(cs_main);
 
@@ -449,20 +438,21 @@ UniValue mn_list(const JSONRPCRequest& request)
     {
         inputs = request.params[0].get_array();
     }
-    bool verbose = false;
+    bool verbose = true;
     if (request.params.size() > 1)
     {
         verbose = request.params[1].get_bool();
     }
 
-    UniValue ret(UniValue::VARR);
+    UniValue ret(UniValue::VOBJ);
     CMasternodes const & mns = pmasternodesview->GetMasternodes();
     if (inputs.empty())
     {
         // Dumps all!
         for (auto it = mns.begin(); it != mns.end(); ++it)
         {
-            ret.push_back(dumpnode(it->first, it->second, verbose));
+            if (it->second != CMasternode())
+                ret.pushKV(it->first.GetHex(), verbose ? mnToJSON(it->second) : it->second.GetHumanReadableStatus());
         }
     }
     else
@@ -471,9 +461,9 @@ UniValue mn_list(const JSONRPCRequest& request)
         {
             uint256 id = ParseHashV(inputs[idx], "masternode id");
             auto const & node = pmasternodesview->ExistMasternode(id);
-            if (node)
+            if (node && *node != CMasternode())
             {
-                ret.push_back(dumpnode(id, *node, verbose));
+                ret.pushKV(id.GetHex(), verbose ? mnToJSON(*node) : node->GetHumanReadableStatus());
             }
         }
     }

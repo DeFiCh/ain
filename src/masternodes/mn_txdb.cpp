@@ -139,7 +139,7 @@ bool CMasternodesViewDB::Flush()
 
     /// @todo @max optimize with new diff model of view
     int nMasternodes{0};
-    for (auto && it = allNodes.begin(); it != allNodes.end(); ++it) {
+    for (auto && it = allNodes.begin(); it != allNodes.end(); ) {
         if (it->second == CMasternode()) {
             EraseMasternode(it->first);
             it = allNodes.erase(it);
@@ -147,11 +147,12 @@ bool CMasternodesViewDB::Flush()
         else {
             WriteMasternode(it->first, it->second);
             ++nMasternodes;
+            ++it;
         }
     }
 
     int nUndo{0};
-    for (auto && it = txsUndo.begin(); it != txsUndo.end(); ++it)
+    for (auto && it = txsUndo.begin(); it != txsUndo.end(); )
     {
         if (it->second.first == uint256()) {
             EraseUndo(it->first.first, it->first.second);
@@ -160,6 +161,7 @@ bool CMasternodesViewDB::Flush()
         else {
             WriteUndo(it->first.first, it->first.second, it->second.first, static_cast<unsigned char>(it->second.second));
             ++nUndo;
+            ++it;
         }
     }
 
