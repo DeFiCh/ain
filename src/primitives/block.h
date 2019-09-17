@@ -24,11 +24,7 @@ class CBlockHeader
 {
 public:
     struct PoS {
-        COutPoint coinstakePrevout;
-
         CKeyID pubKeyHash; // only for sanity checks
-
-        CAmount coinstakeAmount; // only for sanity checks
 
         // PoS: block signature - signed by staker's privkey
         std::vector<unsigned char> sig;
@@ -37,9 +33,7 @@ public:
 
         template <typename Stream, typename Operation>
         inline void SerializationOp(Stream& s, Operation ser_action) {
-            READWRITE(coinstakePrevout);
             READWRITE(pubKeyHash);
-            READWRITE(coinstakeAmount);
 //            bool hashToSignAction = s.GetType() & SER_GETSIGNHASH;
 //            if (!hashToSignAction) {
 //                READWRITE(sig);
@@ -53,7 +47,6 @@ public:
     uint256 hashMerkleRoot;
     uint32_t nTime;
     uint32_t nBits;
-    uint32_t nNonce;
 
     uint256 stakeModifier; // only for sanity checks
     boost::optional<PoS> proofOfStakeBody;
@@ -72,7 +65,6 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
-        READWRITE(nNonce);
         READWRITE(stakeModifier);
 
         //PoS serialization
@@ -88,7 +80,6 @@ public:
         hashMerkleRoot.SetNull();
         nTime = 0;
         nBits = 0;
-        nNonce = 0;
         stakeModifier.SetNull();
         proofOfStakeBody = boost::optional<PoS>{};
     }
@@ -110,6 +101,11 @@ public:
     int64_t GetBlockTime() const
     {
         return (int64_t)nTime;
+    }
+
+    uint256 ExtractMasternodeID() const
+    {
+        return uint256{}; // TODO: SS
     }
 };
 
@@ -167,7 +163,6 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
         block.nBits          = nBits;
-        block.nNonce         = nNonce;
         block.stakeModifier  = stakeModifier;
         block.proofOfStakeBody = proofOfStakeBody;
         return block;

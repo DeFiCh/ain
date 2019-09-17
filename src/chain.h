@@ -181,7 +181,6 @@ public:
     uint256 hashMerkleRoot;
     uint32_t nTime;
     uint32_t nBits;
-    uint32_t nNonce;
     boost::optional<CBlockHeader::PoS> proofOfStakeBody;
 
     // proof-of-stake specific fields
@@ -217,7 +216,6 @@ public:
         hashMerkleRoot = uint256();
         nTime          = 0;
         nBits          = 0;
-        nNonce         = 0;
     }
 
     CBlockIndex()
@@ -233,7 +231,6 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         nTime          = block.nTime;
         nBits          = block.nBits;
-        nNonce         = block.nNonce;
         stakeModifier  = block.stakeModifier;
         proofOfStakeBody = block.proofOfStakeBody;
     }
@@ -265,7 +262,6 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
         block.nBits          = nBits;
-        block.nNonce         = nNonce;
         block.stakeModifier   = stakeModifier;
         block.proofOfStakeBody = proofOfStakeBody;
         return block;
@@ -406,7 +402,6 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
-        READWRITE(nNonce);
     }
 
     uint256 GetBlockHash() const
@@ -417,7 +412,6 @@ public:
         block.hashMerkleRoot  = hashMerkleRoot;
         block.nTime           = nTime;
         block.nBits           = nBits;
-        block.nNonce          = nNonce;
         block.stakeModifier    = stakeModifier;
         block.proofOfStakeBody = proofOfStakeBody;
         return block.GetHash();
