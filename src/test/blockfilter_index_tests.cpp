@@ -87,7 +87,7 @@ static CBlock CreateBlock(const CBlockIndex* prev,
     unsigned int extraNonce = 0;
     IncrementExtraNonce(&block, prev, extraNonce);
 
-    while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())) ++block.nNonce;
+  //  while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())) ++block.nNonce;
 
     return block;
 }
