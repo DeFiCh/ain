@@ -185,7 +185,7 @@ public:
         return lastHeight;
     }
 
-    CMasternodes const & GetMasternodes() const
+    virtual CMasternodes GetMasternodes() const
     {
         /// for tests now, will be changed
         return allNodes;
@@ -264,6 +264,13 @@ public:
 
     ~CMasternodesViewCache() override {}
 
+    CMasternodes GetMasternodes() const override
+    {
+        auto const baseNodes = base->GetMasternodes();
+        CMasternodes result(allNodes);
+        result.insert(baseNodes.begin(), baseNodes.end());
+        return result;
+    }
 
     boost::optional<CMasternodesByAuth::const_iterator>
     ExistMasternode(AuthIndex where, CKeyID const & auth) const override
@@ -274,13 +281,17 @@ public:
         {
             return base->ExistMasternode(where, auth);
         }
+        if (it->second == uint256())
+        {
+            return {};
+        }
         return {it};
     }
 
     CMasternode const * ExistMasternode(uint256 const & id) const override
     {
         CMasternodes::const_iterator it = allNodes.find(id);
-        return it == allNodes.end() ? base->ExistMasternode(id) : &it->second;
+        return it == allNodes.end() ? base->ExistMasternode(id) : it->second != CMasternode() ? &it->second : nullptr;
     }
 
     std::pair<uint256, MasternodesTxType> GetUndo(CTxUndo::key_type key) const override
