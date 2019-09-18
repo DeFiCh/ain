@@ -181,10 +181,12 @@ public:
     uint256 hashMerkleRoot;
     uint32_t nTime;
     uint32_t nBits;
-    boost::optional<CBlockHeader::PoS> proofOfStakeBody;
 
     // proof-of-stake specific fields
+    uint64_t height;
+    uint64_t mintedBlocks;
     uint256 stakeModifier; // hash modifier for proof-of-stake
+    std::vector<unsigned char> sig;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -208,14 +210,14 @@ public:
         nSequenceId = 0;
         nTimeMax = 0;
 
-        // PoS
-        proofOfStakeBody = boost::optional<CBlockHeader::PoS>{};
-        stakeModifier = uint256{};
-
         nVersion       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
         nBits          = 0;
+        stakeModifier  = uint256{};
+        height         = 0;
+        mintedBlocks   = 0;
+        sig            = {};
     }
 
     CBlockIndex()
@@ -231,8 +233,10 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         nTime          = block.nTime;
         nBits          = block.nBits;
+        height         = block.height;
+        mintedBlocks   = block.mintedBlocks;
         stakeModifier  = block.stakeModifier;
-        proofOfStakeBody = block.proofOfStakeBody;
+        sig            = block.sig;
     }
 
     FlatFilePos GetBlockPos() const {
@@ -263,7 +267,9 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.stakeModifier   = stakeModifier;
-        block.proofOfStakeBody = proofOfStakeBody;
+        block.height         = height;
+        block.mintedBlocks   = mintedBlocks;
+        block.sig            = sig;
         return block;
     }
 
@@ -339,11 +345,6 @@ public:
         return false;
     }
 
-    bool IsProofOfStake() const
-    {
-        return (bool) proofOfStakeBody;
-    }
-
     //! Build the skiplist pointer for this entry.
     void BuildSkip();
 
@@ -391,17 +392,15 @@ public:
         if (nStatus & BLOCK_HAVE_UNDO)
             READWRITE(VARINT(nUndoPos));
 
-        //PoS serialization
-        CBlockHeader::PoS loc_proofOfStake = proofOfStakeBody ? *proofOfStakeBody : CBlockHeader::PoS{};
-        READWRITE(loc_proofOfStake);
-        proofOfStakeBody = loc_proofOfStake;
-
         // block header
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
+        READWRITE(height);
+        READWRITE(mintedBlocks);
+        READWRITE(sig);
     }
 
     uint256 GetBlockHash() const
@@ -412,8 +411,11 @@ public:
         block.hashMerkleRoot  = hashMerkleRoot;
         block.nTime           = nTime;
         block.nBits           = nBits;
-        block.stakeModifier    = stakeModifier;
-        block.proofOfStakeBody = proofOfStakeBody;
+        block.stakeModifier   = stakeModifier;
+        block.height          = height;
+        block.mintedBlocks    = mintedBlocks;
+        block.sig             = sig;
+
         return block.GetHash();
     }
 
