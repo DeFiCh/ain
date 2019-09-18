@@ -23,24 +23,6 @@
 class CBlockHeader
 {
 public:
-    struct PoS {
-        CKeyID pubKeyHash; // only for sanity checks
-
-        // PoS: block signature - signed by staker's privkey
-        std::vector<unsigned char> sig;
-
-        ADD_SERIALIZE_METHODS;
-
-        template <typename Stream, typename Operation>
-        inline void SerializationOp(Stream& s, Operation ser_action) {
-            READWRITE(pubKeyHash);
-//            bool hashToSignAction = s.GetType() & SER_GETSIGNHASH;
-//            if (!hashToSignAction) {
-//                READWRITE(sig);
-//            }
-        }
-    };
-
     // header
     int32_t nVersion;
     uint256 hashPrevBlock;
@@ -48,8 +30,10 @@ public:
     uint32_t nTime;
     uint32_t nBits;
 
-    uint256 stakeModifier; // only for sanity checks
-    boost::optional<PoS> proofOfStakeBody;
+    uint64_t height;
+    uint64_t mintedBlocks;
+    uint256 stakeModifier;
+    std::vector<unsigned char> sig;
 
     CBlockHeader()
     {
@@ -66,11 +50,9 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(stakeModifier);
-
-        //PoS serialization
-        PoS loc_proofOfStake = proofOfStakeBody ? *proofOfStakeBody : PoS{};
-        READWRITE(loc_proofOfStake);
-        proofOfStakeBody = loc_proofOfStake;
+        READWRITE(height);
+        READWRITE(mintedBlocks);
+        READWRITE(sig);
     }
 
     void SetNull()
@@ -81,17 +63,14 @@ public:
         nTime = 0;
         nBits = 0;
         stakeModifier.SetNull();
-        proofOfStakeBody = boost::optional<PoS>{};
+        height = 0;
+        mintedBlocks = 0;
+        sig = {};
     }
 
     bool IsNull() const
     {
         return (nBits == 0);
-    }
-
-    bool IsProofOfStake() const
-    {
-        return (bool) proofOfStakeBody;
     }
 
     uint256 GetHashToSign() const;
@@ -150,11 +129,6 @@ public:
         return vtx.size() > 1 && vtx[1]->IsCoinStake();
     }
 
-    bool IsCompleteProofOfStake() const
-    {
-        return IsProofOfStake() && HasCoinstakeTx();
-    }
-
     CBlockHeader GetBlockHeader() const
     {
         CBlockHeader block;
@@ -164,7 +138,10 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.stakeModifier  = stakeModifier;
-        block.proofOfStakeBody = proofOfStakeBody;
+        block.height         = height;
+        block.mintedBlocks   = mintedBlocks;
+        block.sig            = sig;
+
         return block;
     }
 
