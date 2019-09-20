@@ -10,6 +10,7 @@
 #include "logging.h"
 #include "primitives/block.h"
 #include "primitives/transaction.h"
+#include "txmempool.h"
 #include "univalue/include/univalue.h"
 #include "streams.h"
 
@@ -161,4 +162,11 @@ bool CheckInputsForCollateralSpent(CMasternodesViewCache & mnview, CTransaction 
         }
     }
     return total;
+}
+
+bool IsMempooledMnCreate(const CTxMemPool & pool, const uint256 & txid)
+{
+    CTransactionRef ptx = pool.get(txid);
+    std::vector<unsigned char> dummy;
+    return (ptx && GuessMasternodeTxType(*ptx, dummy) == MasternodesTxType::CreateMasternode);
 }
