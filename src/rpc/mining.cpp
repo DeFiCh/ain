@@ -14,7 +14,7 @@
 #include <miner.h>
 #include <net.h>
 #include <policy/fees.h>
-#include <pow.h>
+#include <pos.h>
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/util.h>

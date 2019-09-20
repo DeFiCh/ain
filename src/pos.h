@@ -20,8 +20,10 @@ namespace pos {
     bool CheckProofOfStake_headerOnly(const CBlockHeader& block, const Consensus::Params& params);
 
 /// Check kernel hash target and coinstake signature. Check that block coinstakeTx matches header
-    bool CheckProofOfStake(const CBlockIndex* pindexPrev, const CBlock& block, CCoinsViewCache& view,
-                           const Consensus::Params& params);
+    bool CheckProofOfStake(const CBlock& block, const Consensus::Params& params);
 
+    unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params::PoS& params);
+
+    unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params);
 }
 

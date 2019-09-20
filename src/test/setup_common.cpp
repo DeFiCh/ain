@@ -14,7 +14,7 @@
 #include <miner.h>
 #include <net.h>
 #include <noui.h>
-#include <pow.h>
+#include <pos.h>
 #include <rpc/register.h>
 #include <rpc/server.h>
 #include <script/sigcache.h>

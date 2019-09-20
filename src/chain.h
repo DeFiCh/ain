@@ -10,6 +10,7 @@
 #include <consensus/params.h>
 #include <flatfile.h>
 #include <primitives/block.h>
+#include <streams.h>
 #include <tinyformat.h>
 #include <uint256.h>
 
@@ -187,6 +188,7 @@ public:
     uint64_t mintedBlocks;
     uint256 stakeModifier; // hash modifier for proof-of-stake
     std::vector<unsigned char> sig;
+    CKeyID minter; // memory only
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -347,6 +349,13 @@ public:
 
     //! Build the skiplist pointer for this entry.
     void BuildSkip();
+
+    uint256 GetHashToSign() const
+    {
+        CDataStream ss(SER_GETHASH, 0);
+        ss << nVersion << pprev->GetBlockHash() << hashMerkleRoot << nTime << nBits << height << mintedBlocks << stakeModifier;
+        return Hash(ss.begin(), ss.end());
+    }
 
     //! Efficiently find an ancestor of this block.
     CBlockIndex* GetAncestor(int height);

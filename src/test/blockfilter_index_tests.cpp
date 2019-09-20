@@ -7,7 +7,7 @@
 #include <consensus/validation.h>
 #include <index/blockfilterindex.h>
 #include <miner.h>
-#include <pow.h>
+#include <pos.h>
 #include <test/setup_common.h>
 #include <script/standard.h>
 #include <util/time.h>
