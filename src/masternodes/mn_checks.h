@@ -10,6 +10,7 @@
 
 class CBlock;
 class CTransaction;
+class CTxMemPool;
 
 class CMasternodesView;
 class CMasternodesViewCache;
@@ -22,5 +23,6 @@ bool CheckInputsForCollateralSpent(CMasternodesViewCache & mnview, CTransaction 
 //! Deep check (and write)
 bool CheckCreateMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, bool isCheck);
 bool CheckResignMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, bool isCheck);
+bool IsMempooledMnCreate(const CTxMemPool& pool, const uint256 & txid);
 
 #endif // MN_CHECKS_H
