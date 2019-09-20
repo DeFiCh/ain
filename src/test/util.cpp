@@ -9,7 +9,7 @@
 #include <key_io.h>
 #include <miner.h>
 #include <outputtype.h>
-#include <pow.h>
+#include <pos.h>
 #include <script/standard.h>
 #include <validation.h>
 #include <validationinterface.h>
