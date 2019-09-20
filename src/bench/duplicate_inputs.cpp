@@ -7,7 +7,7 @@
 #include <coins.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
-#include <pow.h>
+#include <pos.h>
 #include <txmempool.h>
 #include <validation.h>
 
@@ -28,7 +28,7 @@ static void DuplicateInputs(benchmark::State& state)
     LOCK(cs_main);
     CBlockIndex* pindexPrev = ::ChainActive().Tip();
     assert(pindexPrev != nullptr);
-    block.nBits = GetNextWorkRequired(pindexPrev, &block, chainparams.GetConsensus().pos);
+    block.nBits = pos::GetNextWorkRequired(pindexPrev, &block, chainparams.GetConsensus().pos);
     // block.nNonce = 0;
     auto nHeight = pindexPrev->nHeight + 1;
 

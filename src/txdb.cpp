@@ -5,7 +5,7 @@
 
 #include <txdb.h>
 
-#include <pow.h>
+#include <pos.h>
 #include <random.h>
 #include <shutdown.h>
 #include <ui_interface.h>
@@ -279,8 +279,14 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->mintedBlocks = diskindex.mintedBlocks;
                 pindexNew->sig = diskindex.sig;
 
-                if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, consensusParams))
-                    return error("%s: CheckProofOfWork failed: %s", __func__, pindexNew->ToString());
+                CPubKey recoveredPubKey{};
+                if (!recoveredPubKey.RecoverCompact(diskindex.GetHashToSign(), diskindex.sig)) {
+                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
+                }
+                pindexNew->minter = recoveredPubKey.GetID();
+
+                if (pindexNew->nHeight > 0 && pindexNew->stakeModifier == uint256{})
+                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
 
                 pcursor->Next();
             } else {
