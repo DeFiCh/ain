@@ -15,14 +15,13 @@ class CTxMemPool;
 class CMasternodesView;
 class CMasternodesViewCache;
 
-bool CheckMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, const Consensus::Params& consensusParams, int height, bool isCheck = true);
-//bool ProcessMasternodeTxsOnConnect(CMasternodesViewCache & mnview, CBlock const & block, int nHeight);
-//bool ProcessMasternodeTxsOnDisconnect(CMasternodesViewCache & mnview, CBlock const & block, int height);
+bool CheckMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, const Consensus::Params& consensusParams, int height, int txn, bool isCheck = true);
 
 bool CheckInputsForCollateralSpent(CMasternodesViewCache & mnview, CTransaction const & tx, int nHeight, bool isCheck);
 //! Deep check (and write)
-bool CheckCreateMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, bool isCheck);
-bool CheckResignMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, bool isCheck);
+bool CheckCreateMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, int height, int txn, std::vector<unsigned char> const & metadata, bool isCheck);
+bool CheckResignMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, int height, int txn, std::vector<unsigned char> const & metadata, bool isCheck);
+
 bool IsMempooledMnCreate(const CTxMemPool& pool, const uint256 & txid);
 
 #endif // MN_CHECKS_H

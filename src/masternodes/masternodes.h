@@ -49,12 +49,16 @@ inline void Unserialize(Stream& s, MasternodesTxType & txType) {
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
 int GetMnActivationDelay();
 int GetMnCollateralUnlockDelay();
+int GetMnHistoryFrame();
 CAmount GetMnCollateralAmount();
 CAmount GetMnCreationFee(int height);
 
 class CMasternode
 {
 public:
+    //! Minted blocks counter
+    uint32_t mintedBlocks;
+
     //! Owner auth address == collateral address. Can be used as an ID.
     CKeyID ownerAuthAddress;
     char ownerType;
@@ -64,7 +68,7 @@ public:
     char operatorType;
 
     //! MN creation block height
-    int32_t height;
+    int32_t creationHeight;
     //! Resign height
     int32_t resignHeight;
 
@@ -83,9 +87,13 @@ public:
         FromTx(tx, heightIn, metadata);
     }
 
-    bool IsActive() const
+    bool IsActive(int h = ::ChainActive().Height()) const
     {
-        return  height + GetMnActivationDelay() <= ::ChainActive().Height() && resignTx == uint256() && resignHeight == -1;
+        // Special case for genesis block
+        if (creationHeight == 0)
+            return h > 0 && (resignHeight == -1 || resignHeight > h);
+
+        return  creationHeight + GetMnActivationDelay() <= h && (resignHeight == -1 || resignHeight > h);
     }
 
     std::string GetHumanReadableStatus() const;
@@ -95,12 +103,13 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action)
     {
+        READWRITE(mintedBlocks);
         READWRITE(ownerAuthAddress);
         READWRITE(ownerType);
         READWRITE(operatorAuthAddress);
         READWRITE(operatorType);
 
-        READWRITE(height);
+        READWRITE(creationHeight);
         READWRITE(resignHeight);
 
         READWRITE(resignTx);
@@ -124,6 +133,7 @@ typedef std::map<CKeyID, uint256> CMasternodesByAuth; // for two indexes, owner-
 //typedef std::map<uint256, TeamData> CTeam;   // nodeId -> <joinHeight, operatorAuth> - masternodes' team
 
 class CMasternodesViewCache;
+class CMasternodesViewHistory;
 
 class CMasternodesView
 {
@@ -135,11 +145,11 @@ public:
         CKeyID operatorAuthAddress;
         CKeyID ownerAuthAddress;
     };
-    typedef std::map<std::pair<int, uint256>, std::pair<uint256, MasternodesTxType> > CTxUndo;
+    typedef std::map<int, std::pair<uint256, MasternodesTxType> > CMnTxsUndo; // txn, undoRec
+    typedef std::map<int, CMnTxsUndo> CMnBlocksUndo;
 //    typedef std::map<int, CTeam> CTeams;
 
     enum class AuthIndex { ByOwner, ByOperator };
-    enum class VoteIndex { From, Against };
 
 protected:
     int lastHeight;
@@ -148,31 +158,23 @@ protected:
     CMasternodesByAuth nodesByOwner;
     CMasternodesByAuth nodesByOperator;
 
-    CTxUndo txsUndo;
+    CMnBlocksUndo blocksUndo;
 //    CTeams teams;
 
     CMasternodesView() : lastHeight(0) {}
 
-    CMasternodesView(CMasternodesView const & other) = delete;
-
-//    void Init(CMasternodesView * other)
-//    {
-//        lastHeight = other->lastHeight;
-//        allNodes = other->allNodes;
-////        activeNodes = other->activeNodes;
-//        nodesByOwner = other->nodesByOwner;
-//        nodesByOperator = other->nodesByOperator;
-
-//        txsUndo = other->txsUndo;
-
-//        // on-demand
-////        teams = other->teams;
-//    }
+//    CMasternodesView(CMasternodesView const & other) = delete;
 
 public:
     CMasternodesView & operator=(CMasternodesView const & other) = delete;
 
+    void ApplyCache(CMasternodesView const * cache);
     void Clear();
+
+    bool IsEmpty() const
+    {
+        return allNodes.empty() && nodesByOwner.empty() && nodesByOperator.empty() && blocksUndo.empty();
+    }
 
     virtual ~CMasternodesView() {}
 
@@ -180,9 +182,31 @@ public:
     {
         lastHeight = h;
     }
-    int GetLastHeight()
+    int GetLastHeight() const
     {
         return lastHeight;
+    }
+
+    void IncrementMintedBy(CKeyID const & minter)
+    {
+        auto it = ExistMasternode(AuthIndex::ByOperator, minter);
+        assert(it);
+        auto const & nodeId = (*it)->second;
+        auto nodePtr = ExistMasternode(nodeId);
+        assert(nodePtr);
+        auto & node = allNodes[nodeId] = *nodePtr; // cause may be cached!!
+        ++node.mintedBlocks;
+    }
+
+    void DecrementMintedBy(CKeyID const & minter)
+    {
+        auto it = ExistMasternode(AuthIndex::ByOperator, minter);
+        assert(it);
+        auto const & nodeId = (*it)->second;
+        auto nodePtr = ExistMasternode(nodeId);
+        assert(nodePtr);
+        auto & node = allNodes[nodeId] = *nodePtr; // cause may be cached!!
+        --node.mintedBlocks;
     }
 
     virtual CMasternodes GetMasternodes() const
@@ -190,21 +214,6 @@ public:
         /// for tests now, will be changed
         return allNodes;
     }
-
-//    CActiveMasternodes const & GetActiveMasternodes() const
-//    {
-//        return activeNodes;
-//    }
-
-//    CMasternodesByAuth const & GetMasternodesByOperator() const
-//    {
-//        return nodesByOperator;
-//    }
-
-//    CMasternodesByAuth const & GetMasternodesByOwner() const
-//    {
-//        return nodesByOwner;
-//    }
 
     //! Initial load of all data
     virtual bool Load() { assert(false); }
@@ -218,9 +227,12 @@ public:
     bool CanSpend(uint256 const & nodeId, int height) const;
     bool IsAnchorInvolved(uint256 const & nodeId, int height) const;
 
-    bool OnMasternodeCreate(uint256 const & nodeId, CMasternode const & node);
-    bool OnMasternodeResign(uint256 const & nodeId, uint256 const & txid, int height);
-    void OnUndo(int height, uint256 const & txid);
+    bool OnMasternodeCreate(uint256 const & nodeId, CMasternode const & node, int txn);
+    bool OnMasternodeResign(uint256 const & nodeId, uint256 const & txid, int height, int txn);
+    CMasternodesViewCache OnUndoBlock(int height);
+
+//    bool OnConnectBlock(int height, CKeyID const & minter);
+//    bool OnDisconnectBlock(int height, CKeyID const & minter);
 
     void PruneOlder(int height);
 
@@ -228,8 +240,9 @@ public:
 //    CTeam CalcNextDposTeam(CActiveMasternodes const & activeNodes, CMasternodes const & allNodes, uint256 const & blockHash, int height);
 //    virtual CTeam const & ReadDposTeam(int height) const;
 
+
 protected:
-    virtual std::pair<uint256, MasternodesTxType> GetUndo(CTxUndo::key_type key) const;
+    virtual CMnBlocksUndo::mapped_type const & GetBlockUndo(CMnBlocksUndo::key_type key) const;
 
 //    virtual void WriteDposTeam(int height, CTeam const & team);
 
@@ -243,22 +256,23 @@ public:
 //    boost::optional<CMasternodeIDs> AmIActiveOwner() const;
 
     friend class CMasternodesViewCache;
+    friend class CMasternodesViewHistory;
 };
+
 
 class CMasternodesViewCache : public CMasternodesView
 {
-private:
+protected:
     CMasternodesView * base;
-    CMasternodesViewCache() {}
+//    CMasternodesViewCache() {}
 
 public:
     CMasternodesViewCache(CMasternodesView * other)
         : CMasternodesView()
         , base(other)
     {
+        assert(base);
         lastHeight = base->lastHeight;
-//        Init(other);
-
         // cached items are empty!
     }
 
@@ -281,7 +295,7 @@ public:
         {
             return base->ExistMasternode(where, auth);
         }
-        if (it->second == uint256())
+        if (it->second.IsNull())
         {
             return {};
         }
@@ -294,42 +308,18 @@ public:
         return it == allNodes.end() ? base->ExistMasternode(id) : it->second != CMasternode() ? &it->second : nullptr;
     }
 
-    std::pair<uint256, MasternodesTxType> GetUndo(CTxUndo::key_type key) const override
+    CMnBlocksUndo::mapped_type const & GetBlockUndo(CMnBlocksUndo::key_type key) const override
     {
-        CTxUndo::const_iterator it = txsUndo.find(key);
-        return it == txsUndo.end() ? base->GetUndo(key) : it->second;
+        CMnBlocksUndo::const_iterator it = blocksUndo.find(key);
+        return it == blocksUndo.end() ? base->GetBlockUndo(key) : it->second;
     }
 
 
     bool Flush() override
     {
-        base->lastHeight = lastHeight;
+        base->ApplyCache(this);
+        Clear();
 
-        for (auto const & pair : allNodes) {
-            base->allNodes[pair.first] = pair.second; // possible empty (if deleted/applyed)
-        }
-        allNodes.clear();
-
-        for (auto const & pair : nodesByOwner) {
-            base->nodesByOwner[pair.first] = pair.second; // possible empty (if deleted/applyed)
-        }
-        nodesByOwner.clear();
-
-        for (auto const & pair : nodesByOperator) {
-            base->nodesByOperator[pair.first] = pair.second; // possible empty (if deleted/applyed)
-        }
-        nodesByOperator.clear();
-
-        for (auto const & pair : txsUndo) {
-            base->txsUndo[pair.first] = pair.second; // possible empty (if deleted/applyed)
-        }
-        txsUndo.clear();
-
-//        for (auto const & pair : teams)
-//        {
-//            base->WriteDposTeam(pair.first, pair.second);
-//        }
-//        teams.clear();
         return true;
     }
 
@@ -339,7 +329,60 @@ public:
 //        // return cached (new) or original value
 //        return it != teams.end() ? it->second : base->ReadDposTeam(height);
 //    }
+//    friend class CMasternodesViewHistory;
+};
 
+
+class CMasternodesViewHistory : public CMasternodesViewCache
+{
+protected:
+    std::map<int, CMasternodesViewCache> historyDiff;
+
+public:
+    CMasternodesViewHistory(CMasternodesView * top) : CMasternodesViewCache(top) { assert(top); }
+
+    bool Flush() override { assert(false); } // forbidden!!!
+
+    CMasternodesViewHistory & GetState(int targetHeight)
+    {
+        int const topHeight = base->GetLastHeight();
+        assert(targetHeight >= topHeight - GetMnHistoryFrame() && targetHeight <= topHeight);
+
+        if (lastHeight > targetHeight)
+        {
+            // go backward (undo)
+
+            for (; lastHeight >= targetHeight; )
+            {
+                auto it = historyDiff.find(lastHeight);
+                if (it != historyDiff.end())
+                {
+                    historyDiff.erase(it);
+                }
+                historyDiff.emplace(std::make_pair(lastHeight, OnUndoBlock(lastHeight)));
+
+//                DecrementMintedBy();
+
+                --lastHeight;
+            }
+        }
+        else if (lastHeight < targetHeight)
+        {
+            // go forward (redo)
+            for (; lastHeight < targetHeight; )
+            {
+                ++lastHeight;
+
+                // redo states should be cached!
+                assert(historyDiff.find(lastHeight) != historyDiff.end());
+                ApplyCache(&historyDiff.at(lastHeight));
+
+//                IncrementMintedBy();
+            }
+
+        }
+        return *this;
+    }
 };
 
 /** Global variable that points to the CMasternodeView (should be protected by cs_main) */

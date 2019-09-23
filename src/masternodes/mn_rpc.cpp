@@ -349,7 +349,7 @@ UniValue mn_resign(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("You are not the owner of masternode %s, or it does not exist", nodeIdStr));
     }
     auto nodePtr = pmasternodesview->ExistMasternode(nodeId);
-    if (nodePtr->resignTx != uint256())
+    if (!nodePtr->resignTx.IsNull())
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight+GetMnActivationDelay()));
     }
@@ -399,7 +399,7 @@ UniValue mnToJSON(CMasternode const & node)
     ret.pushKV("ownerAuthAddress", EncodeDestination(node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress))));
     ret.pushKV("operatorAuthAddress", EncodeDestination(node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress))));
 
-    ret.pushKV("height", node.height);
+    ret.pushKV("creationHeight", node.creationHeight);
     ret.pushKV("resignHeight", node.resignHeight);
 
     ret.pushKV("resignTx", node.resignTx.GetHex());
