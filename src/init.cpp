@@ -24,6 +24,7 @@
 #include <index/txindex.h>
 #include <interfaces/chain.h>
 #include <key.h>
+#include <key_io.h>
 #include <miner.h>
 #include <net.h>
 #include <net_permissions.h>
@@ -54,6 +55,7 @@
 #include <validation.h>
 #include <validationinterface.h>
 #include <walletinitinterface.h>
+#include <wallet/wallet.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -1822,6 +1824,38 @@ bool AppInitMain(InitInterfaces& interfaces)
     scheduler.scheduleEvery([]{
         g_banman->DumpBanlist();
     }, DUMP_BANS_INTERVAL * 1000);
+
+
+    // ********************************************************* Step 14: start minter thread
+    pos::ThreadStaker::Args stakerParams{};
+    {
+        CTxDestination destination = DecodeDestination(gArgs.GetArg("-minterAddress", ""));
+        if (!IsValidDestination(destination)) {
+            LogPrintf("coinstake destination is invalid");
+            return false;
+        }
+
+        CKey key;
+        std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+        if (wallets.size() == 0 || !wallets[0]->GetKey( CKeyID(*boost::get<PKHash>(&destination)), key)) {
+            LogPrintf("priv key not found");
+            return false;
+        }
+
+        stakerParams.coinbaseScript = GetScriptForDestination(destination);
+        stakerParams.minterKey = key;
+    }
+
+    // Mint proof-of-stake blocks in background
+    threadGroup.create_thread([=]() {
+        TraceThread("CoinStaker", [=]() {
+            // Fill Staker Args
+
+            // Run ThreadStaker
+            pos::ThreadStaker threadStaker{};
+            threadStaker(stakerParams, chainparams);
+        });
+    });
 
     return true;
 }
