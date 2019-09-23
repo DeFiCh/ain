@@ -2,17 +2,24 @@
 #include <pos_kernel.h>
 #include <chain.h>
 #include <validation.h>
-
+#include <key.h>
 #include <wallet/wallet.h>
 #include <txdb.h>
 
-namespace pos {
-static bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlock& block) {
-    if (block.hashPrevBlock.IsNull())
-        return block.stakeModifier.IsNull();
+std::unique_ptr<CMasternodesView> pmasternodesview; // TODO: (SS) Change to real
 
-    uint256 id = block.ExtractMasternodeID();
-    return block.stakeModifier == pos::ComputeStakeModifier(pindexPrev->stakeModifier, id);
+namespace pos {
+static bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& blockHeader) {
+    if (blockHeader.hashPrevBlock.IsNull())
+        return blockHeader.stakeModifier.IsNull();
+
+    CKeyID key;
+    if (!blockHeader.ExtractMinterKey(key)) {
+        LogPrintf("CheckStakeModifier: Can't extract minter key\n");
+        return false;
+    }
+
+    return blockHeader.stakeModifier == pos::ComputeStakeModifier(pindexPrev->stakeModifier, key);
 }
 
 /// Check PoS signatures (PoS block hashes are signed with coinstake out pubkey)
@@ -31,40 +38,23 @@ bool CheckHeaderSignature(const CBlockHeader& block) {
     return true;
 }
 
-bool CheckProofOfStake_headerOnly(const CBlockHeader& block, const Consensus::Params& params) {
-    const int64_t coinstakeTime = (int64_t) block.GetBlockTime();
-
+bool CheckProofOfStake_headerOnly(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView) {
     // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(block.stakeModifier, block.nBits, coinstakeTime, params).hashOk) {
+    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, (int64_t) blockHeader.GetBlockTime(), params, mnView).hashOk) {
         return false;
     }
-    return CheckHeaderSignature(block);
+
+    // TODO: (SS) check address masternode operator in mnView
+
+    return CheckHeaderSignature(blockHeader);
 }
 
-bool CheckProofOfStake(const CBlock& block, const Consensus::Params& params) {
-    if (!block.HasCoinstakeTx()) {
-        return error("CheckProofOfStake(): called on a non-PoS block %s", block.GetHash().ToString());
-    }
-
-    {
-        std::vector<CTxDestination> addressRet;
-        txnouttype typeRet;
-        int nRet;
-        if (!ExtractDestinations(block.vtx[1]->vout[1].scriptPubKey, typeRet, addressRet, nRet))
-            return error("CheckProofOfStake(): coinstakeTx scriptPubKey must be P2PKH");
-        if (!(typeRet == txnouttype::TX_PUBKEYHASH && addressRet.size() == 1))
-            return error("CheckProofOfStake(): coinstakeTx scriptPubKey must be P2PKH");
-
-        // TODO: SS check address masternode operator
-    }
-
-    const int64_t coinstakeTime = (int64_t) block.GetBlockTime();
-
-    // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(block.stakeModifier, block.nBits, coinstakeTime, params).hashOk) {
+bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CMasternodesView* mnView) {
+    if (!pos::CheckStakeModifier(pindexPrev, blockHeader)) {
         return false;
     }
-    return CheckHeaderSignature(block);
+
+    return CheckProofOfStake_headerOnly(blockHeader, params, mnView);
 }
 
 unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params)
@@ -127,14 +117,5 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
 
     return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params);
 }
-
-}
-
-bool CheckBlockProof(const CBlockIndex* pindexPrev, const CBlock& block, const Consensus::Params& params) {
-    if (!pos::CheckStakeModifier(pindexPrev, block)) {
-        return false;
-    }
-
-    return pos::CheckProofOfStake(block, params);
 
 }
