@@ -1913,6 +1913,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         int64_t nTime;
         CAddress addrMe;
         CAddress addrFrom;
+        uint64_t nNonce = 1;
         uint64_t nServiceInt;
         ServiceFlags nServices;
         int nVersion;
@@ -1951,7 +1952,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         }
 
         if (!vRecv.empty())
-            vRecv >> addrFrom;
+            vRecv >> addrFrom >> nNonce;
         if (!vRecv.empty()) {
             std::string strSubVer;
             vRecv >> LIMITED_STRING(strSubVer, MAX_SUBVERSION_LENGTH);
@@ -1963,7 +1964,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         if (!vRecv.empty())
             vRecv >> fRelay;
         // Disconnect if we connected to ourself
-        if (pfrom->fInbound) // TODO: (SS) && !connman->CheckIncomingNonce(nNonce)
+        if (pfrom->fInbound && !connman->CheckIncomingNonce(nNonce))
         {
             LogPrintf("connected to self at %s, disconnecting\n", pfrom->addr.ToString());
             pfrom->fDisconnect = true;
