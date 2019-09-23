@@ -965,7 +965,7 @@ bool ReadBlockFromDisk(CBlock& block, const FlatFilePos& pos, const Consensus::P
     }
 
     // Check the header
-    if (!pos::CheckProofOfStake_headerOnly(block, consensusParams))
+    if (!pos::CheckProofOfStake_headerOnly(block, consensusParams, pmasternodesview.get()))
         return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
 
     return true;
@@ -3017,7 +3017,7 @@ static bool FindUndoPos(CValidationState &state, int nFile, FlatFilePos &pos, un
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
-    if (fCheckPOW && !pos::CheckProofOfStake_headerOnly(block, consensusParams))
+    if (fCheckPOW && !pos::CheckProofOfStake_headerOnly(block, consensusParams, pmasternodesview.get()))
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of stake failed");
     return true;
 }
@@ -3317,7 +3317,7 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             return true;
         }
 
-        if (!pos::CheckProofOfStake_headerOnly(block, chainparams.GetConsensus()))
+        if (!pos::CheckProofOfStake_headerOnly(block, chainparams.GetConsensus(), pmasternodesview.get()))
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
         // Get prev block index

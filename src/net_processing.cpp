@@ -1963,7 +1963,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         if (!vRecv.empty())
             vRecv >> fRelay;
         // Disconnect if we connected to ourself
-        if (pfrom->fInbound) // TODO: SS && !connman->CheckIncomingNonce(nNonce)
+        if (pfrom->fInbound) // TODO: (SS) && !connman->CheckIncomingNonce(nNonce)
         {
             LogPrintf("connected to self at %s, disconnecting\n", pfrom->addr.ToString());
             pfrom->fDisconnect = true;
