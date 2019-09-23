@@ -82,9 +82,15 @@ public:
         return (int64_t)nTime;
     }
 
-    uint256 ExtractMasternodeID() const
+    bool ExtractMinterKey(CKeyID &key) const
     {
-        return uint256{}; // TODO: SS
+        CPubKey recoveredPubKey{};
+        if (!recoveredPubKey.RecoverCompact(GetHashToSign(), sig)) {
+            return false;
+        }
+
+        key = recoveredPubKey.GetID();
+        return true;
     }
 };
 
@@ -122,11 +128,6 @@ public:
         CBlockHeader::SetNull();
         vtx.clear();
         fChecked = false;
-    }
-
-    bool HasCoinstakeTx() const
-    {
-        return vtx.size() > 1 && vtx[1]->IsCoinStake();
     }
 
     CBlockHeader GetBlockHeader() const
