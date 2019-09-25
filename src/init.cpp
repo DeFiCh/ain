@@ -1825,25 +1825,43 @@ bool AppInitMain(InitInterfaces& interfaces)
         g_banman->DumpBanlist();
     }, DUMP_BANS_INTERVAL * 1000);
 
-
     // ********************************************************* Step 14: start minter thread
     pos::ThreadStaker::Args stakerParams{};
     {
-        CTxDestination destination = DecodeDestination(gArgs.GetArg("-minterAddress", ""));
-        if (!IsValidDestination(destination)) {
-            LogPrintf("coinstake destination is invalid");
-            return false;
-        }
-
         CKey key;
         std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-        if (wallets.size() == 0 || !wallets[0]->GetKey( CKeyID(*boost::get<PKHash>(&destination)), key)) {
-            LogPrintf("priv key not found");
+        if (wallets.size() == 0) {
+            LogPrintf("Warning! wallets not found");
+            return true;
+        }
+        std::shared_ptr<CWallet> defaultWallet = wallets[0];
+
+        CTxDestination destination;
+
+        std::string minterAddress = gArgs.GetArg("-minterAddress", "");
+        if (minterAddress != "") {
+            destination = DecodeDestination(minterAddress);
+            if (!IsValidDestination(destination)) {
+                LogPrintf("Error: coinstake destination is invalid");
+                return false;
+            }
+        } else {
+            std::string strErr;
+            if(!defaultWallet->GetNewDestination(OutputType::LEGACY, "", destination, strErr)) {
+                LogPrintf("%s\n", strErr);
+                return false;
+            }
+        }
+
+        CScript coinbaseScript = GetScriptForDestination(destination);
+        CKey minterKey;
+        if (!defaultWallet->GetKey(CKeyID(*boost::get<PKHash>(&destination)), minterKey)) {
+            LogPrintf("Error: private key not found");
             return false;
         }
 
-        stakerParams.coinbaseScript = GetScriptForDestination(destination);
-        stakerParams.minterKey = key;
+        stakerParams.coinbaseScript = coinbaseScript;
+        stakerParams.minterKey = minterKey;
     }
 
     // Mint proof-of-stake blocks in background

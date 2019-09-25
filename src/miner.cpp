@@ -469,7 +469,7 @@ public:
             if(!g_connman)
                 throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
 
-            if (g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
+            if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers && g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
                 return Status::initWaiting;
         }
 
@@ -545,6 +545,11 @@ public:
             err = CheckSignedBlock(pblock, tip, chainparams);
             if (err) {
                 LogPrint(BCLog::STAKING, "CheckSignedBlock(): %s \n", *err);
+                return;
+            }
+
+            if (!ProcessNewBlock(chainparams, pblock, true, nullptr)) {
+                LogPrintf("PoS block was checked, but wasn't accepted by ProcessNewBlock\n");
                 return;
             }
 
