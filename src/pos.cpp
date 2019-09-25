@@ -23,14 +23,17 @@ static bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader
 }
 
 /// Check PoS signatures (PoS block hashes are signed with coinstake out pubkey)
-bool CheckHeaderSignature(const CBlockHeader& block) {
-    if (block.sig.empty()) {
+bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
+    if (blockHeader.sig.empty()) {
+        if (blockHeader.height == 0) {
+            return true;
+        }
         LogPrintf("CheckBlockSignature: Bad Block - PoS signature is empty\n");
         return false;
     }
 
     CPubKey recoveredPubKey{};
-    if (!recoveredPubKey.RecoverCompact(block.GetHashToSign(), block.sig)) {
+    if (!recoveredPubKey.RecoverCompact(blockHeader.GetHashToSign(), blockHeader.sig)) {
         LogPrintf("CheckBlockSignature: Bad Block - malformed signature\n");
         return false;
     }
