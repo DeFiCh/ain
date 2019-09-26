@@ -13,9 +13,10 @@
 #include <consensus/merkle.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <net.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
-#include <pow.h>
+#include <pos.h>
 #include <pos_kernel.h>
 #include <primitives/transaction.h>
 #include <script/standard.h>
@@ -37,8 +38,8 @@ int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParam
         pblock->nTime = nNewTime;
 
     // Updating time can change work required on testnet:
-    if (consensusParams.fPowAllowMinDifficultyBlocks)
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, consensusParams);
+    if (consensusParams.pos.fAllowMinDifficultyBlocks)
+        pblock->nBits = pos::GetNextWorkRequired(pindexPrev, pblock, consensusParams.pos);
 
     return nNewTime - nOldTime;
 }
@@ -161,8 +162,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-    pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
-    pblock->nNonce         = 0;
+    pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus().pos);
     pblock->stakeModifier = uint256{}; // SS
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
@@ -445,4 +445,224 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
 
     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+}
+
+namespace pos {
+
+class Staker {
+private:
+    std::chrono::system_clock::time_point nLastSystemTime;
+    std::chrono::steady_clock::time_point nLastSteadyTime;
+
+    int64_t nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
+
+public:
+    enum class Status {
+        error,
+        initWaiting,
+        stakeWaiting,
+        minted,
+    };
+
+    Status stake(CChainParams chainparams, const ThreadStaker::Args& args) {
+        if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
+            if(!g_connman)
+                throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
+
+            if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers && g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
+                return Status::initWaiting;
+        }
+
+        if (nLastSystemTime.time_since_epoch().count() != 0 && nLastSteadyTime.time_since_epoch().count() != 0) {
+            using namespace std::chrono;
+            const auto systemNow = system_clock::now();
+            const auto steadyNow = steady_clock::now();
+            const auto nSystemClockDifference = duration_cast<milliseconds>(systemNow - nLastSystemTime);
+            const auto nSteadyClockDifference = duration_cast<milliseconds>(steadyNow - nLastSteadyTime);
+
+            if(std::abs((nSystemClockDifference - nSteadyClockDifference).count()) > 1000) { //1s
+                //LogPrintf("*** System clock change detected. Staking will be paused until the clock is synced again.\n");
+                // TODO: call a NTP syncing routine
+                //return Status::initWaiting;
+            }
+        }
+
+        nLastSystemTime = std::chrono::system_clock::now();
+        nLastSteadyTime = std::chrono::steady_clock::now();
+
+        bool minted = false;
+
+        CBlockIndex* tip = getTip();
+
+        withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
+            //
+            // Create block template
+            //
+            std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(args.coinbaseScript));
+            if (!pblocktemplate.get()) {
+                throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
+            }
+            std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(pblocktemplate->block);
+
+            LogPrint(BCLog::STAKING, "Running Staker with %u common transactions in block (%u bytes)\n", pblock->vtx.size() - 1,
+                     ::GetSerializeSize(*pblock, PROTOCOL_VERSION));
+
+            // find matching Hash
+            pblock->height = tip->nHeight + 1;
+            pblock->mintedBlocks = 0; // TODO: (SS) rewrite "0" to actual master nodes mintedBlocks
+            pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
+
+            bool found = false;
+            for (uint32_t t = 0; t < nSearchInterval; t++) {
+                boost::this_thread::interruption_point();
+
+                pblock->nTime = ((uint32_t)coinstakeTime - t);
+
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, chainparams.GetConsensus(), pmasternodesview.get()).hashOk) {
+                    LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                return;
+            }
+
+            //
+            // Trying to sign a block
+            //
+            auto err = SignPosBlock(pblock, args.minterKey);
+            if (err) {
+                LogPrint(BCLog::STAKING, "SignPosBlock(): %s \n", *err);
+                return;
+            }
+
+            //
+            // Final checks
+            //
+            err = CheckSignedBlock(pblock, tip, chainparams);
+            if (err) {
+                LogPrint(BCLog::STAKING, "CheckSignedBlock(): %s \n", *err);
+                return;
+            }
+
+            if (!ProcessNewBlock(chainparams, pblock, true, nullptr)) {
+                LogPrintf("PoS block was checked, but wasn't accepted by ProcessNewBlock\n");
+                return;
+            }
+
+            minted = true;
+        });
+
+        return minted ? Status::minted : Status::stakeWaiting;
+    }
+
+private:
+    CBlockIndex* getTip() {
+        LOCK(cs_main);
+        return ::ChainActive().Tip();
+    }
+
+    template <typename F>
+    bool withSearchInterval(F&& f) {
+        const int64_t nTime = GetAdjustedTime();
+
+        if (nTime > nLastCoinStakeSearchTime) {
+            f(nTime, nTime - nLastCoinStakeSearchTime);
+            nLastCoinStakeSearchTime = nTime;
+            return true;
+        }
+        return false;
+    }
+
+    boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
+        // if we are trying to sign a signed proof-of-stake block
+        if (!pblock->sig.empty()) {
+            throw std::logic_error{"Only non-complete PoS block templates are accepted"};
+        }
+
+        // coinstakeTx
+        CMutableTransaction coinstakeTx{*pblock->vtx[0]};
+
+        // Update coinstakeTx after signing
+        pblock->vtx[0] = MakeTransactionRef(coinstakeTx);
+
+        pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+
+        bool signingRes = key.SignCompact(pblock->GetHashToSign(), pblock->sig);
+        if (!signingRes) {
+            return {std::string{} + "Block signing error"};
+        }
+
+        return {};
+    }
+
+    boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams) {
+        uint256 hashBlock = pblock->GetHash();
+
+        // verify hash target and signature of coinstake tx
+        if (!pos::CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pmasternodesview.get()))
+            return {std::string{} + "proof-of-stake checking failed"};
+
+        LogPrint(BCLog::STAKING, "new proof-of-stake block found hash: %s\n", hashBlock.GetHex());
+
+        // Found a solution
+        if (pblock->hashPrevBlock != getTip()->GetBlockHash())
+            return {std::string{} + "minted block is stale"};
+
+        return {};
+    }
+};
+
+int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainparams) {
+    Staker staker{};
+    int32_t nMinted = 0;
+    int32_t nTried = 0;
+
+    auto trying = [&]() {
+        return args.nMaxTries == -1 || nTried < args.nMaxTries;
+    };
+
+    auto notDone = [&]() {
+        return args.nMint == -1 || nMinted < args.nMint;
+    };
+
+    while (true) {
+        boost::this_thread::interruption_point();
+
+        try {
+            Staker::Status status = staker.stake(chainparams, args);
+            if (status == Staker::Status::error) {
+                LogPrintf("ThreadStaker terminated due to a staking error\n");
+                return nMinted;
+            }
+            if (status == Staker::Status::minted) {
+                LogPrintf("ThreadStaker minted a block!\n");
+                nMinted++;
+            }
+            if (status == Staker::Status::initWaiting) {
+                LogPrintf("ThreadStaker: initial waiting\n");
+            }
+            if (status == Staker::Status::stakeWaiting) {
+                LogPrint(BCLog::STAKING, "Staked, but no kernel found yet\n");
+            }
+        }
+        catch (const std::runtime_error &e) {
+            LogPrintf("ThreadStaker runtime error: %s\n", e.what());
+            return nMinted;
+        }
+
+        nTried++;
+        if (trying() && notDone()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(900));
+        } else {
+            break;
+        }
+    }
+
+    return nMinted;
+}
+
 }
