@@ -6,6 +6,7 @@
 #ifndef BITCOIN_CONSENSUS_PARAMS_H
 #define BITCOIN_CONSENSUS_PARAMS_H
 
+#include <amount.h>
 #include <uint256.h>
 #include <limits>
 #include <map>
@@ -91,6 +92,15 @@ struct Params {
 
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
+
+    struct MnParams {
+        CAmount creationFee;
+        CAmount collateralAmount;
+        int activationDelay;
+        int collateralUnlockDelay;
+        int historyFrame;
+    };
+    MnParams mn;
 };
 } // namespace Consensus
 
