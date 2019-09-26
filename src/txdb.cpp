@@ -278,15 +278,19 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->height = diskindex.height;
                 pindexNew->mintedBlocks = diskindex.mintedBlocks;
                 pindexNew->sig = diskindex.sig;
-
-                CPubKey recoveredPubKey{};
-                if (!recoveredPubKey.RecoverCompact(diskindex.GetHashToSign(), diskindex.sig)) {
-                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
+                if (pindexNew->nHeight) {
+                    CPubKey recoveredPubKey{};
+                    if (!recoveredPubKey.RecoverCompact(pindexNew->GetBlockHeader().GetHashToSign(), pindexNew->sig)) {
+                        return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
+                    }
+                    pindexNew->minter = recoveredPubKey.GetID();
+                } else {
+                    pindexNew->minter = CKeyID();
                 }
-                pindexNew->minter = recoveredPubKey.GetID();
 
-                if (pindexNew->nHeight > 0 && pindexNew->stakeModifier == uint256{})
-                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
+
+//                if (pindexNew->nHeight > 0 && pindexNew->stakeModifier == uint256{}) // TODO: (SS) uncomment me
+//                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
 
                 pcursor->Next();
             } else {
