@@ -8,6 +8,7 @@
 
 #include <optional.h>
 #include <primitives/block.h>
+#include <key.h>
 #include <txmempool.h>
 #include <validation.h>
 
@@ -201,5 +202,27 @@ private:
 /** Modify the extranonce in a block */
 void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev);
+
+namespace pos {
+
+// The main staking routine.
+// Creates stakes using CWallet API, creates PoS kernels and mints blocks.
+// Uses Args.getWallets() to receive and update wallets list.
+    class ThreadStaker {
+    public:
+
+        struct Args {
+            int32_t nMint = -1;
+            int64_t nMaxTries = -1;
+            CScript coinbaseScript = CScript();
+            CKey minterKey = CKey();
+        };
+
+        /// always forward by value to avoid dangling pointers
+        /// @return number of minted blocks
+        int32_t operator()(Args stakerParams, CChainParams chainparams);
+    };
+
+}
 
 #endif // BITCOIN_MINER_H
