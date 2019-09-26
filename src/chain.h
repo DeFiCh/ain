@@ -350,13 +350,6 @@ public:
     //! Build the skiplist pointer for this entry.
     void BuildSkip();
 
-    uint256 GetHashToSign() const
-    {
-        CDataStream ss(SER_GETHASH, 0);
-        ss << nVersion << pprev->GetBlockHash() << hashMerkleRoot << nTime << nBits << height << mintedBlocks << stakeModifier;
-        return Hash(ss.begin(), ss.end());
-    }
-
     //! Efficiently find an ancestor of this block.
     CBlockIndex* GetAncestor(int height);
     const CBlockIndex* GetAncestor(int height) const;
@@ -407,6 +400,7 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
+        READWRITE(stakeModifier);
         READWRITE(height);
         READWRITE(mintedBlocks);
         READWRITE(sig);
