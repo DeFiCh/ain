@@ -7,7 +7,7 @@
 #include <consensus/validation.h>
 #include <index/blockfilterindex.h>
 #include <miner.h>
-#include <pow.h>
+#include <pos.h>
 #include <test/setup_common.h>
 #include <script/standard.h>
 #include <util/time.h>
@@ -87,7 +87,7 @@ static CBlock CreateBlock(const CBlockIndex* prev,
     unsigned int extraNonce = 0;
     IncrementExtraNonce(&block, prev, extraNonce);
 
-    while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())) ++block.nNonce;
+  //  while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())) ++block.nNonce;
 
     return block;
 }
