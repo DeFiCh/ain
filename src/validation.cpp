@@ -1780,6 +1780,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!fJustCheck) {
             view.SetBestBlock(pindex->GetBlockHash());
             /// @todo @maxb init view|db with genesis here
+            for (int i = 1; i < block.vtx.size(); ++i) {
+                CheckMasternodeTx(mnview, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
+            }
         }
         return true;
     }
@@ -1998,7 +2001,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             // we will never fail, but skip
-            CheckMasternodeTx(mnview, tx, chainparams.GetConsensus(), pindex->nHeight, fJustCheck);
+            CheckMasternodeTx(mnview, tx, chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
 
             control.Add(vChecks);
         }
@@ -3102,15 +3105,22 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // First transaction must be coinbase, the rest must not be
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-missing", "first tx is not coinbase");
-    for (unsigned int i = 1; i < block.vtx.size(); i++)
-        if (block.vtx[i]->IsCoinBase())
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
+
+    /// @todo @max skip this validation if it is Genesis (due to mn creation txs)
+    if (block.GetHash() != consensusParams.hashGenesisBlock) {
+        for (unsigned int i = 1; i < block.vtx.size(); i++)
+            if (block.vtx[i]->IsCoinBase())
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
+    }
 
     // Check transactions
-    for (const auto& tx : block.vtx)
-        if (!CheckTransaction(*tx, state, true))
-            return state.Invalid(state.GetReason(), false, state.GetRejectCode(), state.GetRejectReason(),
-                                 strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
+    /// @todo @max skip this validation if it is Genesis (due to mn creation txs)
+    if (block.GetHash() != consensusParams.hashGenesisBlock) {
+        for (const auto& tx : block.vtx)
+            if (!CheckTransaction(*tx, state, true))
+                return state.Invalid(state.GetReason(), false, state.GetRejectCode(), state.GetRejectReason(),
+                                     strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
+    }
 
     unsigned int nSigOps = 0;
     for (const auto& tx : block.vtx)
@@ -4097,7 +4107,7 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
         AddCoins(inputs, *tx, pindex->nHeight, true);
 
         /// @todo @maxb turn it on when you are sure it is safe
-//        CheckMasternodeTx(mnview, *tx, params.GetConsensus(), pindex->nHeight, false);
+//        CheckMasternodeTx(mnview, *tx, params.GetConsensus(), pindex->nHeight, i, false);
     }
     return true;
 }
