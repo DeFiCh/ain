@@ -82,7 +82,7 @@ public:
 
         consensus.pos.allowMintingWithoutPeers = false; // don't mint if no peers connected
 
-        consensus.CSVHeight = 0; // 000000000000000004a1b34462cb8aeebd5799177f7a29cf28f2d1961716b5b5
+        consensus.CSVHeight = 1; // 000000000000000004a1b34462cb8aeebd5799177f7a29cf28f2d1961716b5b5
         consensus.SegwitHeight = 0; // 0000000000000000001c8018d9cb3b742ef25114f27563e3fc4a1902167f9893
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 2016; // nTargetTimespan / nTargetSpacing
@@ -195,7 +195,7 @@ public:
 
         consensus.pos.allowMintingWithoutPeers = true;
 
-        consensus.CSVHeight = 0; // 00000000025e930139bac5c6c31a403776da130831ab85be56578f3fa75369bb
+        consensus.CSVHeight = 1; // 00000000025e930139bac5c6c31a403776da130831ab85be56578f3fa75369bb
         consensus.SegwitHeight = 0; // 00000000002b980fcd729daaa248fd9316a5200e9b367f4ff2c42453e84201ca
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 2016; // nTargetTimespan / nTargetSpacing
@@ -283,9 +283,9 @@ public:
 
         consensus.pos.coinstakeMaturity = 100;
 
-        consensus.pos.allowMintingWithoutPeers = false; // don't mint if no peers connected
+        consensus.pos.allowMintingWithoutPeers = true; // don't mint if no peers connected
 
-        consensus.CSVHeight = 0; // CSV activated on regtest (Used in rpc activation tests)
+        consensus.CSVHeight = 1; // CSV activated on regtest (Used in rpc activation tests)
         consensus.SegwitHeight = 0; // SEGWIT is always activated on regtest unless overridden
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
