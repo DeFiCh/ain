@@ -6,8 +6,6 @@
 #include <wallet/wallet.h>
 #include <txdb.h>
 
-std::unique_ptr<CMasternodesView> pmasternodesview; // TODO: (SS) Change to real
-
 namespace pos {
 static bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& blockHeader) {
     if (blockHeader.hashPrevBlock.IsNull())
