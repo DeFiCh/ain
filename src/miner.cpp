@@ -494,6 +494,20 @@ public:
 
         CBlockIndex* tip = getTip();
 
+        // this part of code stay valid until tip got changed
+        /// @todo @maxb is 'tip' can be changed here? is it possible to pull 'getTip()' and mnview access to the upper (calling 'stake()') block?
+        uint32_t mintedBlocks(0);
+        {
+            LOCK(cs_main);
+            auto nodePtr = pmasternodesview->ExistMasternode(args.masternodeID);
+            if (!nodePtr || !nodePtr->IsActive(tip->height))
+            {
+                /// @todo @maxb may be new status for not activated (or already resigned) MN??
+                return Status::initWaiting;
+            }
+            mintedBlocks = nodePtr->mintedBlocks;
+        }
+
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
             //
             // Create block template
@@ -509,7 +523,7 @@ public:
 
             // find matching Hash
             pblock->height = tip->nHeight + 1;
-            pblock->mintedBlocks = 0; // TODO: (SS) rewrite "0" to actual master nodes mintedBlocks
+            pblock->mintedBlocks = mintedBlocks + 1; // TODO: (SS) rewrite "0" to actual master nodes mintedBlocks
             pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
 
             bool found = false;
@@ -518,7 +532,7 @@ public:
 
                 pblock->nTime = ((uint32_t)coinstakeTime - t);
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, chainparams.GetConsensus(), pmasternodesview.get()).hashOk) {
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, chainparams.GetConsensus(), args.masternodeID).hashOk) {
                     LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                     found = true;

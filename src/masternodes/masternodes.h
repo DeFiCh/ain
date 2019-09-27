@@ -361,7 +361,9 @@ public:
                 }
                 historyDiff.emplace(std::make_pair(lastHeight, OnUndoBlock(lastHeight)));
 
-//                DecrementMintedBy();
+                CBlockIndex* pindex = ::ChainActive()[lastHeight];
+                assert(pindex);
+                DecrementMintedBy(pindex->minter);
 
                 --lastHeight;
             }
@@ -377,7 +379,9 @@ public:
                 assert(historyDiff.find(lastHeight) != historyDiff.end());
                 ApplyCache(&historyDiff.at(lastHeight));
 
-//                IncrementMintedBy();
+                CBlockIndex* pindex = ::ChainActive()[lastHeight];
+                assert(pindex);
+                IncrementMintedBy(pindex->minter);
             }
 
         }

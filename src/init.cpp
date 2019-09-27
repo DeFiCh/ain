@@ -1835,54 +1835,49 @@ bool AppInitMain(InitInterfaces& interfaces)
     }, DUMP_BANS_INTERVAL * 1000);
 
     // ********************************************************* Step 14: start minter thread
-    pos::ThreadStaker::Args stakerParams{};
     {
-        CKey key;
-        std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-        if (wallets.size() == 0) {
-            LogPrintf("Warning! wallets not found");
-            return true;
-        }
-        std::shared_ptr<CWallet> defaultWallet = wallets[0];
+        LOCK(cs_main);
 
-        CTxDestination destination;
+        auto myIDs = pmasternodesview->AmIOperator();
+        if (myIDs)
+        {
+            pos::ThreadStaker::Args stakerParams{};
+            {
+                std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+                if (wallets.size() == 0) {
+                    LogPrintf("Warning! wallets not found");
+                    return true;
+                }
+                std::shared_ptr<CWallet> defaultWallet = wallets[0];
 
-        std::string minterAddress = gArgs.GetArg("-minterAddress", "");
-        if (minterAddress != "") {
-            destination = DecodeDestination(minterAddress);
-            if (!IsValidDestination(destination)) {
-                LogPrintf("Error: coinstake destination is invalid");
-                return false;
+                CKey minterKey;
+                if (!defaultWallet->GetKey(myIDs->operatorAuthAddress, minterKey)) {
+                    LogPrintf("Error: private key not found");
+                    return false;
+                }
+
+                CMasternode const & node = *pmasternodesview->ExistMasternode(myIDs->id);
+                CTxDestination destination = node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress));
+
+                CScript coinbaseScript = GetScriptForDestination(destination);
+
+                stakerParams.coinbaseScript = coinbaseScript;
+                stakerParams.minterKey = minterKey;
+                stakerParams.masternodeID = myIDs->id;
             }
-        } else {
-            std::string strErr;
-            if(!defaultWallet->GetNewDestination(OutputType::LEGACY, "", destination, strErr)) {
-                LogPrintf("%s\n", strErr);
-                return false;
-            }
-        }
 
-        CScript coinbaseScript = GetScriptForDestination(destination);
-        CKey minterKey;
-        if (!defaultWallet->GetKey(CKeyID(*boost::get<PKHash>(&destination)), minterKey)) {
-            LogPrintf("Error: private key not found");
-            return false;
-        }
+            // Mint proof-of-stake blocks in background
+            threadGroup.create_thread([=]() {
+                TraceThread("CoinStaker", [=]() {
+                    // Fill Staker Args
 
-        stakerParams.coinbaseScript = coinbaseScript;
-        stakerParams.minterKey = minterKey;
+                    // Run ThreadStaker
+                    pos::ThreadStaker threadStaker{};
+                    threadStaker(stakerParams, chainparams);
+                });
+            });
+        }
     }
-
-    // Mint proof-of-stake blocks in background
-    threadGroup.create_thread([=]() {
-        TraceThread("CoinStaker", [=]() {
-            // Fill Staker Args
-
-            // Run ThreadStaker
-            pos::ThreadStaker threadStaker{};
-            threadStaker(stakerParams, chainparams);
-        });
-    });
 
     return true;
 }
