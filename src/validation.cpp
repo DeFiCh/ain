@@ -1570,8 +1570,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
-    /// @todo @maxb temp removed due to assertion
-//    mnview.DecrementMintedBy(CKeyID()); /// @todo @maxb pindex->pprev->minter or smth
+    mnview.DecrementMintedBy(pindex->minter);
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
@@ -2041,8 +2040,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(pindex->phashBlock);
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
-    /// @todo @maxb temp removed due to assertion
-//    mnview.IncrementMintedBy(CKeyID()); /// @todo @maxb pindex->minter or smth
+    mnview.IncrementMintedBy(pindex->minter);
     mnview.SetLastHeight(pindex->nHeight);
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
