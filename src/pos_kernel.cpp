@@ -18,12 +18,12 @@ namespace pos {
     }
 
     CheckKernelHashRes
-    CheckKernelHash(uint256 stakeModifier, uint32_t nBits, int64_t coinstakeTime, const Consensus::Params& params, CMasternodesView* mnView) {
+    CheckKernelHash(uint256 stakeModifier, uint32_t nBits, int64_t coinstakeTime, const Consensus::Params& params, uint256 masternodeID) {
         // Base target
         arith_uint256 targetProofOfStake;
         targetProofOfStake.SetCompact(nBits);
 
-        uint256 masternodeID = uint256S("0"); // TODO: (SS) change to masternode activation tx hash
+//        uint256 masternodeID = uint256S("0"); // TODO: (SS) change to masternode activation tx hash
         const arith_uint256 hashProofOfStake = UintToArith256(
                 CalcKernelHash(stakeModifier, coinstakeTime, masternodeID, params));
 

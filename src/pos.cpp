@@ -40,12 +40,46 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
 }
 
 bool CheckProofOfStake_headerOnly(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView) {
-    // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, (int64_t) blockHeader.GetBlockTime(), params, mnView).hashOk) {
-        return false;
+
+    /// @todo @maxb may be this is tooooo optimistic? need more validation?
+    if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
+        return true;
     }
 
     // TODO: (SS) check address masternode operator in mnView
+    /// @todo @maxb check 'mintedBlocks' counter for this minter at this block height!!!
+    CKeyID minter;
+    if (!blockHeader.ExtractMinterKey(minter)) {
+        return false;
+    }
+    uint256 masternodeID;
+    {
+        // check that block minter exists and active at the height of the block
+        AssertLockHeld(cs_main); /// @todo @maxb or lock it
+        auto it = mnView->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, minter);
+        if (!it || !mnView->ExistMasternode((*it)->second)->IsActive(blockHeader.height))
+        {
+            return false;
+        }
+        masternodeID = (*it)->second;
+    }
+    // checking PoS kernel is faster, so check it first
+    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, (int64_t) blockHeader.GetBlockTime(), params, masternodeID).hashOk) {
+        return false;
+    }
+
+    /// @todo @maxb this is just an example how to get 'mintedBlocks' for given minter from the mn history.
+    /// I can't find in te code any checks of this counter for headers, so I leave it here.
+    /// But this is EXTREMELY UNOPTIMAL! Need to be moved to the upper levels to check headers in batches!!!
+    {
+        AssertLockHeld(cs_main); /// @todo @maxb or lock it
+        CMasternodesViewHistory history(mnView);
+        // minter exists and active at the height of the block - it was checked before
+        if (history.GetState(blockHeader.height-1).ExistMasternode(masternodeID)->mintedBlocks + 1 != blockHeader.mintedBlocks)
+        {
+            return false;
+        }
+    }
 
     return CheckHeaderSignature(blockHeader);
 }
