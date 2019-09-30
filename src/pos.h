@@ -19,7 +19,7 @@ namespace pos {
     bool CheckHeaderSignature(const CBlockHeader& block);
 
 /// Check kernel hash target and coinstake signature
-    bool CheckProofOfStake_headerOnly(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView);
+    bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView);
 
 /// Check kernel hash target and coinstake signature. Check that block coinstakeTx matches header
     bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CMasternodesView* mnView);
