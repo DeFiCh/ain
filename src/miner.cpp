@@ -20,7 +20,6 @@
 #include <pos_kernel.h>
 #include <primitives/transaction.h>
 #include <script/standard.h>
-#include <timedata.h>
 #include <util/moneystr.h>
 #include <util/system.h>
 #include <util/validation.h>
@@ -448,23 +447,7 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
 }
 
 namespace pos {
-
-class Staker {
-private:
-    std::chrono::system_clock::time_point nLastSystemTime;
-    std::chrono::steady_clock::time_point nLastSteadyTime;
-
-    int64_t nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
-
-public:
-    enum class Status {
-        error,
-        initWaiting,
-        stakeWaiting,
-        minted,
-    };
-
-    Status stake(CChainParams chainparams, const ThreadStaker::Args& args) {
+    Staker::Status Staker::stake(CChainParams chainparams, const ThreadStaker::Args& args) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
             if(!g_connman)
                 throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
@@ -576,14 +559,13 @@ public:
         return minted ? Status::minted : Status::stakeWaiting;
     }
 
-private:
-    CBlockIndex* getTip() {
+    CBlockIndex* Staker::getTip() {
         LOCK(cs_main);
         return ::ChainActive().Tip();
     }
 
     template <typename F>
-    bool withSearchInterval(F&& f) {
+    bool Staker::withSearchInterval(F&& f) {
         const int64_t nTime = GetAdjustedTime();
 
         if (nTime > nLastCoinStakeSearchTime) {
@@ -594,7 +576,7 @@ private:
         return false;
     }
 
-    boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
+    boost::optional<std::string> Staker::SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
         // if we are trying to sign a signed proof-of-stake block
         if (!pblock->sig.empty()) {
             throw std::logic_error{"Only non-complete PoS block templates are accepted"};
@@ -616,7 +598,7 @@ private:
         return {};
     }
 
-    boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter) {
+    boost::optional<std::string> Staker::CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter) {
         uint256 hashBlock = pblock->GetHash();
 
         // verify hash target and signature of coinstake tx
@@ -631,10 +613,9 @@ private:
 
         return {};
     }
-};
 
 int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainparams) {
-    Staker staker{};
+    pos::Staker staker{};
     int32_t nMinted = 0;
     int32_t nTried = 0;
 
