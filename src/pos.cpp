@@ -11,6 +11,7 @@ static bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader
     if (blockHeader.hashPrevBlock.IsNull())
         return blockHeader.stakeModifier.IsNull();
 
+    /// @todo @maxb is it possible to pass minter key here, or we really need to extract it srom sig???
     CKeyID key;
     if (!blockHeader.ExtractMinterKey(key)) {
         LogPrintf("CheckStakeModifier: Can't extract minter key\n");
@@ -39,7 +40,7 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
     return true;
 }
 
-bool CheckProofOfStake_headerOnly(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView) {
+bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView) {
 
     /// @todo @maxb may be this is tooooo optimistic? need more validation?
     if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
@@ -89,7 +90,8 @@ bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pinde
         return false;
     }
 
-    return CheckProofOfStake_headerOnly(blockHeader, params, mnView);
+    /// @todo @max this is our own check of own minted block (just to remember)
+    return ContextualCheckProofOfStake(blockHeader, params, mnView);
 }
 
 unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params)

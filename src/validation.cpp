@@ -975,7 +975,11 @@ bool ReadBlockFromDisk(CBlock& block, const FlatFilePos& pos, const Consensus::P
     }
 
     // Check the header
-    if (!pos::CheckProofOfStake_headerOnly(block, consensusParams, pmasternodesview.get()))
+
+    /// @maxb @todo del me:
+//    if (!pos::ContextualCheckProofOfStake(block, consensusParams, pmasternodesview.get()))
+
+    if (!pos::CheckHeaderSignature(block))
         return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
 
     return true;
@@ -2040,6 +2044,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(pindex->phashBlock);
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
+
+    block.ExtractMinterKey(pindex->minter);
     mnview.IncrementMintedBy(pindex->minter);
     mnview.SetLastHeight(pindex->nHeight);
 
@@ -3059,7 +3065,7 @@ static bool FindUndoPos(CValidationState &state, int nFile, FlatFilePos &pos, un
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
-    if (fCheckPOW && !pos::CheckProofOfStake_headerOnly(block, consensusParams, pmasternodesview.get()))
+    if (fCheckPOW && !pos::ContextualCheckProofOfStake(block, consensusParams, pmasternodesview.get()))
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of stake failed");
     return true;
 }
@@ -3366,7 +3372,7 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             return true;
         }
 
-        if (!pos::CheckProofOfStake_headerOnly(block, chainparams.GetConsensus(), pmasternodesview.get()))
+        if (!pos::ContextualCheckProofOfStake(block, chainparams.GetConsensus(), pmasternodesview.get()))
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
         // Get prev block index

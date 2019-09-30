@@ -43,27 +43,27 @@ extern bool DecodeHexTx(CTransaction & tx, std::string const & strHexTx); // in 
 
 extern void ScriptPubKeyToJSON(CScript const & scriptPubKey, UniValue & out, bool fIncludeHex); // in rawtransaction.cpp
 
-namespace {
-// stolen from rpc_tests.cpp, can't import cause it's in tests module (not linked in main binary)
-UniValue CallRPC(std::string args)
-{
-    std::vector<std::string> vArgs;
-    boost::split(vArgs, args, boost::is_any_of(" \t"));
-    std::string strMethod = vArgs[0];
-    vArgs.erase(vArgs.begin());
-    JSONRPCRequest request;
-    request.strMethod = strMethod;
-    request.params = RPCConvertValues(strMethod, vArgs);
-    request.fHelp = false;
+//namespace {
+//// stolen from rpc_tests.cpp, can't import cause it's in tests module (not linked in main binary)
+//UniValue CallRPC(std::string args)
+//{
+//    std::vector<std::string> vArgs;
+//    boost::split(vArgs, args, boost::is_any_of(" \t"));
+//    std::string strMethod = vArgs[0];
+//    vArgs.erase(vArgs.begin());
+//    JSONRPCRequest request;
+//    request.strMethod = strMethod;
+//    request.params = RPCConvertValues(strMethod, vArgs);
+//    request.fHelp = false;
 
-    if (RPCIsInWarmup(nullptr)) SetRPCWarmupFinished();
+//    if (RPCIsInWarmup(nullptr)) SetRPCWarmupFinished();
 
-    // nothing to "try/catch" here, will be passed over
-    UniValue result = tableRPC.execute(request);
-    return result;
-}
+//    // nothing to "try/catch" here, will be passed over
+//    UniValue result = tableRPC.execute(request);
+//    return result;
+//}
 
-} // namespace
+//} // namespace
 
 void EnsureBlocksDownloaded()
 {
