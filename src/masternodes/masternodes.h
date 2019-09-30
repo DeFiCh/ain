@@ -91,7 +91,7 @@ public:
     {
         // Special case for genesis block
         if (creationHeight == 0)
-            return h > 0 && (resignHeight == -1 || resignHeight > h);
+            return resignHeight == -1 || resignHeight > h;
 
         return  creationHeight + GetMnActivationDelay() <= h && (resignHeight == -1 || resignHeight > h);
     }

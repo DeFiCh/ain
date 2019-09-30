@@ -556,10 +556,13 @@ public:
             //
             // Final checks
             //
-            err = CheckSignedBlock(pblock, tip, chainparams);
-            if (err) {
-                LogPrint(BCLog::STAKING, "CheckSignedBlock(): %s \n", *err);
-                return;
+            {
+                LOCK(cs_main);
+                err = CheckSignedBlock(pblock, tip, chainparams, args.minterKey.GetPubKey().GetID());
+                if (err) {
+                    LogPrint(BCLog::STAKING, "CheckSignedBlock(): %s \n", *err);
+                    return;
+                }
             }
 
             if (!ProcessNewBlock(chainparams, pblock, true, nullptr)) {
@@ -613,7 +616,7 @@ private:
         return {};
     }
 
-    boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams) {
+    boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter) {
         uint256 hashBlock = pblock->GetHash();
 
         // verify hash target and signature of coinstake tx
