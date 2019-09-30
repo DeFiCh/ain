@@ -15,6 +15,7 @@
 #include <net.h>
 #include <policy/fees.h>
 #include <pos.h>
+#include <pos_kernel.h>
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
@@ -99,42 +100,56 @@ static UniValue getnetworkhashps(const JSONRPCRequest& request)
     return GetNetworkHashPS(!request.params[0].isNull() ? request.params[0].get_int() : 120, !request.params[1].isNull() ? request.params[1].get_int() : -1);
 }
 
-static UniValue generateBlocks(const CScript& coinbase_script, int nGenerate, uint64_t nMaxTries)
+static UniValue generateBlocks(const CScript& coinbase_script, const CKey minterKey, int nGenerate, uint64_t nMaxTries)
 {
-    int nHeightEnd = 0;
-    int nHeight = 0;
+    using namespace pos;
+    UniValue nMintedBlocksCount(UniValue::VNUM);
 
-    {   // Don't keep cs_main locked
-        LOCK(cs_main);
-        nHeight = ::ChainActive().Height();
-        nHeightEnd = nHeight+nGenerate;
-    }
-    unsigned int nExtraNonce = 0;
-    UniValue blockHashes(UniValue::VARR);
-    while (nHeight < nHeightEnd && !ShutdownRequested())
-    {
-        std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbase_script));
-        if (!pblocktemplate.get())
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
-        CBlock *pblock = &pblocktemplate->block;
-        {
-            LOCK(cs_main);
-            IncrementExtraNonce(pblock, ::ChainActive().Tip(), nExtraNonce);
+    ThreadStaker::Args stakerParams{};
+    stakerParams.nMint = nGenerate;
+    stakerParams.nMaxTries = nMaxTries;
+    stakerParams.coinbaseScript = coinbase_script;
+    stakerParams.minterKey = minterKey;
+
+    pos::Staker staker{};
+    int32_t nMinted = 0;
+    int32_t nTried = 0;
+
+    while (true) {
+        boost::this_thread::interruption_point();
+
+        try {
+            Staker::Status status = staker.stake(Params(), stakerParams);
+            if (status == Staker::Status::error) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: Terminated due to a staking error");
+            }
+            if (status == Staker::Status::minted) {
+                LogPrintf("ThreadStaker minted a block!\n");
+                nMinted++;
+            }
+            if (status == Staker::Status::initWaiting) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: initial waiting");
+            }
+            if (status == Staker::Status::stakeWaiting) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: Staked, but no kernel found yet");
+            }
         }
-//        while (nMaxTries > 0 && !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()) && !ShutdownRequested()) {
-//            ++pblock->nNonce;
-//            --nMaxTries;
-//        }
-        if (nMaxTries == 0 || ShutdownRequested()) {
+        catch (const std::runtime_error &e) {
+            LogPrintf("GenerateBlocks runtime error: %s\n", e.what());
+            nMintedBlocksCount.setInt(nMinted);
+            return nMintedBlocksCount;
+        }
+
+        nTried++;
+        if (nTried < nMaxTries && nMinted < nGenerate) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(900));
+        } else {
             break;
         }
-        std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
-        if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
-        ++nHeight;
-        blockHashes.push_back(pblock->GetHash().GetHex());
     }
-    return blockHashes;
+
+    nMintedBlocksCount.setInt(nMinted);
+    return nMintedBlocksCount;
 }
 
 static UniValue generatetoaddress(const JSONRPCRequest& request)
@@ -170,7 +185,9 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
 
     CScript coinbase_script = GetScriptForDestination(destination);
 
-    return generateBlocks(coinbase_script, nGenerate, nMaxTries);
+    CKey minterKey;
+
+    return generateBlocks(coinbase_script, minterKey, nGenerate, nMaxTries);
 }
 
 static UniValue getmininginfo(const JSONRPCRequest& request)

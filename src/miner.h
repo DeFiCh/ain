@@ -9,6 +9,7 @@
 #include <optional.h>
 #include <primitives/block.h>
 #include <key.h>
+#include <timedata.h>
 #include <txmempool.h>
 #include <validation.h>
 
@@ -204,7 +205,6 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev);
 
 namespace pos {
-
 // The main staking routine.
 // Creates stakes using CWallet API, creates PoS kernels and mints blocks.
 // Uses Args.getWallets() to receive and update wallets list.
@@ -224,6 +224,30 @@ namespace pos {
         int32_t operator()(Args stakerParams, CChainParams chainparams);
     };
 
+    class Staker {
+    private:
+        std::chrono::system_clock::time_point nLastSystemTime;
+        std::chrono::steady_clock::time_point nLastSteadyTime;
+
+        int64_t nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
+
+    public:
+        enum class Status {
+            error,
+            initWaiting,
+            stakeWaiting,
+            minted,
+        };
+
+        Staker::Status stake(CChainParams chainparams, const ThreadStaker::Args& args);
+
+    private:
+        CBlockIndex* getTip();
+        template <typename F>
+        bool withSearchInterval(F&& f);
+        boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key);
+        boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter);
+    };
 }
 
 #endif // BITCOIN_MINER_H
