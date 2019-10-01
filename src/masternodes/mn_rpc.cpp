@@ -351,7 +351,8 @@ UniValue mn_resign(const JSONRPCRequest& request)
     auto nodePtr = pmasternodesview->ExistMasternode(nodeId);
     if (!nodePtr->resignTx.IsNull())
     {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight+GetMnActivationDelay()));
+        /// @todo @max adjust delays and heights!
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight + GetMnCollateralUnlockDelay() /*+ GetMnResignDelay() ???*/));
     }
 
     CMutableTransaction rawTx;
@@ -404,6 +405,7 @@ UniValue mnToJSON(CMasternode const & node)
 
     ret.pushKV("resignTx", node.resignTx.GetHex());
     ret.pushKV("status", node.GetHumanReadableStatus());
+    /// @todo @maxb add unlock height and|or real resign height
 
     return ret;
 }
