@@ -1852,8 +1852,15 @@ bool AppInitMain(InitInterfaces& interfaces)
                 std::shared_ptr<CWallet> defaultWallet = wallets[0];
 
                 CKey minterKey;
-                if (!defaultWallet->GetKey(myIDs->operatorAuthAddress, minterKey)) {
-                    LogPrintf("Error: private key not found");
+                bool found =false;
+                for (auto&& wallet : wallets) {
+                    if (wallet->GetKey(myIDs->operatorAuthAddress, minterKey)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    LogPrintf("Error: masternode operator private key not found");
                     return false;
                 }
 
