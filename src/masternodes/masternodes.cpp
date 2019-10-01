@@ -28,6 +28,11 @@ int GetMnActivationDelay()
     return Params().GetConsensus().mn.activationDelay;
 }
 
+int GetMnResignDelay()
+{
+    return Params().GetConsensus().mn.resignDelay;
+}
+
 int GetMnCollateralUnlockDelay()
 {
     return Params().GetConsensus().mn.collateralUnlockDelay;
@@ -91,15 +96,15 @@ void CMasternode::FromTx(CTransaction const & tx, int heightIn, std::vector<unsi
     mintedBlocks = 0;
 }
 
-std::string CMasternode::GetHumanReadableStatus() const
+std::string CMasternode::GetHumanReadableStatus(int h) const
 {
     std::string status;
-    if (IsActive())
+    if (IsActive(h))
     {
         return "active";
     }
-    status += ((creationHeight == 0 || creationHeight + GetMnActivationDelay() <= ::ChainActive().Height())) ? "activated" : "created";
-    if (resignHeight != -1 || !resignTx.IsNull())
+    status += ((creationHeight == 0 || creationHeight + GetMnActivationDelay() <= h)) ? "activated" : "created";
+    if (resignHeight != -1 && resignHeight + GetMnResignDelay() > h)
     {
         status += ", resigned";
     }
@@ -264,7 +269,9 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
         blocksUndo[height] = {};
     }
     backup.lastHeight = lastHeight;
-    --lastHeight;
+
+    /// @attention do NOT do THIS!!! it will be done separately by outer SetLastHeight()!
+//    --lastHeight;
 
     return backup; // it is new value diff for height+1
 }
@@ -321,30 +328,31 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
 /// Call it only for "clear" and "full" (not cached) view
 void CMasternodesView::PruneOlder(int height)
 {
+    return; /// @todo @max temporary off
+//    /// @todo @max add foolproof (for heights, teams and collateral)
+//    if (height < 0)
+//    {
+//        return;
+//    }
 
-    /// @todo @max add foolproof (for heights, teams and collateral)
-    if (height < 0)
-    {
-        return;
-    }
+//    // erase dead nodes
+//    for (auto && it = allNodes.begin(); it != allNodes.end(); )
+//    {
+//        CMasternode const & node = it->second;
+//        /// @todo @maxb adjust heights (prune delay method?)
+//        if(node.resignHeight != -1 && node.resignHeight + < height)
+//        {
+//            nodesByOwner.erase(node.ownerAuthAddress);
+//            nodesByOperator.erase(node.operatorAuthAddress);
+//            it = allNodes.erase(it);
+//        }
+//        else ++it;
+//    }
 
-    // erase dead nodes
-    for (auto && it = allNodes.begin(); it != allNodes.end(); )
-    {
-        CMasternode const & node = it->second;
-        if(node.resignHeight != -1 && node.resignHeight < height)
-        {
-            nodesByOwner.erase(node.ownerAuthAddress);
-            nodesByOperator.erase(node.operatorAuthAddress);
-            it = allNodes.erase(it);
-        }
-        else ++it;
-    }
-
-    // erase undo info
-    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
-    // erase old teams info
-//    teams.erase(teams.begin(), teams.lower_bound(height));
+//    // erase undo info
+//    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
+//    // erase old teams info
+////    teams.erase(teams.begin(), teams.lower_bound(height));
 }
 
 boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmI(AuthIndex where) const
@@ -462,4 +470,3 @@ MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<uns
     metadata.erase(metadata.begin(), metadata.begin() + MnTxMarker.size() + 1);
     return it->second;
 }
-
