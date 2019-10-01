@@ -30,6 +30,7 @@
 #include <validation.h>
 #include <validationinterface.h>
 #include <versionbitsinfo.h>
+#include <wallet/wallet.h>
 #include <warnings.h>
 
 #include <memory>
@@ -100,7 +101,7 @@ static UniValue getnetworkhashps(const JSONRPCRequest& request)
     return GetNetworkHashPS(!request.params[0].isNull() ? request.params[0].get_int() : 120, !request.params[1].isNull() ? request.params[1].get_int() : -1);
 }
 
-static UniValue generateBlocks(const CScript& coinbase_script, const CKey minterKey, int nGenerate, uint64_t nMaxTries)
+static UniValue generateBlocks(const CScript& coinbase_script, const CKey minterKey, uint256 masternodeID, int nGenerate, int64_t nMaxTries)
 {
     using namespace pos;
     UniValue nMintedBlocksCount(UniValue::VNUM);
@@ -110,10 +111,11 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey minter
     stakerParams.nMaxTries = nMaxTries;
     stakerParams.coinbaseScript = coinbase_script;
     stakerParams.minterKey = minterKey;
+    stakerParams.masternodeID = masternodeID;
 
     pos::Staker staker{};
     int32_t nMinted = 0;
-    int32_t nTried = 0;
+    int64_t nTried = 0;
 
     while (true) {
         boost::this_thread::interruption_point();
@@ -124,14 +126,14 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey minter
                 throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: Terminated due to a staking error");
             }
             if (status == Staker::Status::minted) {
-                LogPrintf("ThreadStaker minted a block!\n");
+                LogPrintf("GenerateBlocks: minted a block!\n");
                 nMinted++;
             }
             if (status == Staker::Status::initWaiting) {
-                throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: initial waiting");
+                LogPrintf("GenerateBlocks: initial waiting\n");
             }
             if (status == Staker::Status::stakeWaiting) {
-                throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: Staked, but no kernel found yet");
+                LogPrint(BCLog::STAKING, "Staked, but no kernel found yet\n");
             }
         }
         catch (const std::runtime_error &e) {
@@ -141,7 +143,7 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey minter
         }
 
         nTried++;
-        if (nTried < nMaxTries && nMinted < nGenerate) {
+        if ((nMaxTries == -1 || nTried < nMaxTries) && nMinted < nGenerate) {
             std::this_thread::sleep_for(std::chrono::milliseconds(900));
         } else {
             break;
@@ -159,7 +161,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
                 {
                     {"nblocks", RPCArg::Type::NUM, RPCArg::Optional::NO, "How many blocks are generated immediately."},
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The address to send the newly generated bitcoin to."},
-                    {"maxtries", RPCArg::Type::NUM, /* default */ "1000000", "How many iterations to try."},
+                    {"maxtries", RPCArg::Type::NUM, /* default */ "-1", "How many iterations to try."},
                 },
                 RPCResult{
             "[ blockhashes ]     (array) hashes of blocks generated\n"
@@ -173,7 +175,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             }.Check(request);
 
     int nGenerate = request.params[0].get_int();
-    uint64_t nMaxTries = 1000000;
+    int64_t nMaxTries = -1;
     if (!request.params[2].isNull()) {
         nMaxTries = request.params[2].get_int();
     }
@@ -183,11 +185,31 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
+    auto myIDs = pmasternodesview->AmIOperator();
+    if (!myIDs) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Warning: I am not masternode operator");
+    }
+
     CScript coinbase_script = GetScriptForDestination(destination);
 
     CKey minterKey;
+    {
+        std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+        if (wallets.size() == 0)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Warning! wallets not found");
 
-    return generateBlocks(coinbase_script, minterKey, nGenerate, nMaxTries);
+        bool found =false;
+        for (auto&& wallet : wallets) {
+            if (wallet->GetKey(myIDs->operatorAuthAddress, minterKey)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode operator private key not found");
+
+    }
+    return generateBlocks(coinbase_script, minterKey, myIDs->id, nGenerate, nMaxTries);
 }
 
 static UniValue getmintinginfo(const JSONRPCRequest& request)
