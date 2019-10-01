@@ -97,6 +97,7 @@ struct Params {
         CAmount creationFee;
         CAmount collateralAmount;
         int activationDelay;
+        int resignDelay;
         int collateralUnlockDelay;
         int historyFrame;
     };
