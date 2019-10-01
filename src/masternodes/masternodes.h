@@ -48,6 +48,7 @@ inline void Unserialize(Stream& s, MasternodesTxType & txType) {
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
 int GetMnActivationDelay();
+int GetMnResignDelay();
 int GetMnCollateralUnlockDelay();
 int GetMnHistoryFrame();
 CAmount GetMnCollateralAmount();
@@ -91,12 +92,12 @@ public:
     {
         // Special case for genesis block
         if (creationHeight == 0)
-            return resignHeight == -1 || resignHeight > h;
+            return resignHeight == -1 || resignHeight + GetMnResignDelay() > h;
 
-        return  creationHeight + GetMnActivationDelay() <= h && (resignHeight == -1 || resignHeight > h);
+        return  creationHeight + GetMnActivationDelay() <= h && (resignHeight == -1 || resignHeight + GetMnResignDelay() > h);
     }
 
-    std::string GetHumanReadableStatus() const;
+    std::string GetHumanReadableStatus(int h = ::ChainActive().Height()) const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -352,7 +353,7 @@ public:
         {
             // go backward (undo)
 
-            for (; lastHeight >= targetHeight; )
+            for (; lastHeight > targetHeight; )
             {
                 auto it = historyDiff.find(lastHeight);
                 if (it != historyDiff.end())
