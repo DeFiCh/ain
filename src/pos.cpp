@@ -7,7 +7,8 @@
 #include <txdb.h>
 
 namespace pos {
-static bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& blockHeader) {
+
+bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& blockHeader) {
     if (blockHeader.hashPrevBlock.IsNull())
         return blockHeader.stakeModifier.IsNull();
 
@@ -47,8 +48,6 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         return true;
     }
 
-    // TODO: (SS) check address masternode operator in mnView
-    /// @todo @maxb check 'mintedBlocks' counter for this minter at this block height!!!
     CKeyID minter;
     if (!blockHeader.ExtractMinterKey(minter)) {
         return false;
@@ -56,9 +55,10 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     uint256 masternodeID;
     {
         // check that block minter exists and active at the height of the block
-        AssertLockHeld(cs_main); /// @todo @maxb or lock it
-//        assert(mnView->GetLastHeight() + 1 == blockHeader.height);
+        AssertLockHeld(cs_main);
         auto it = mnView->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, minter);
+
+        /// @todo @maxb check height of history frame here (future and past)
         if (!it || !mnView->ExistMasternode((*it)->second)->IsActive(blockHeader.height))
         {
             return false;
@@ -70,17 +70,18 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         return false;
     }
 
-    /// @todo @maxb this is just an example how to get 'mintedBlocks' for given minter from the mn history.
-    /// I can't find in te code any checks of this counter for headers, so I leave it here.
-    /// But this is EXTREMELY UNOPTIMAL! Need to be moved to the upper levels to check headers in batches!!!
     {
-        AssertLockHeld(cs_main); /// @todo @maxb or lock it
-        CMasternodesViewHistory history(mnView);
+        AssertLockHeld(cs_main);
+        uint32_t const mintedBlocksMaxDiff = static_cast<uint64_t>(mnView->GetLastHeight()) > blockHeader.height ? mnView->GetLastHeight() - blockHeader.height : blockHeader.height - mnView->GetLastHeight();
         // minter exists and active at the height of the block - it was checked before
-        if (history.GetState(blockHeader.height-1).ExistMasternode(masternodeID)->mintedBlocks + 1 != blockHeader.mintedBlocks)
-        {
-            return false;
-        }
+        uint32_t const mintedBlocks = mnView->ExistMasternode(masternodeID)->mintedBlocks;
+        uint32_t const mintedBlocksDiff = mintedBlocks > blockHeader.mintedBlocks ? mintedBlocks - blockHeader.mintedBlocks : blockHeader.mintedBlocks - mintedBlocks;
+
+        /// @todo @maxb this is not so trivial as it seems! implement!!!
+//        if (mintedBlocksDiff > mintedBlocksMaxDiff)
+//        {
+//            return false;
+//        }
     }
 
     return CheckHeaderSignature(blockHeader);
