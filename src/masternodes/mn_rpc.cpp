@@ -65,25 +65,11 @@ extern void ScriptPubKeyToJSON(CScript const & scriptPubKey, UniValue & out, boo
 
 //} // namespace
 
-void EnsureBlocksDownloaded()
-{
-//    if (::ChainstateActive().IsInitialBlockDownload() && Params().NetworkIDString() != "regtest")
-//    {
-//        throw JSONRPCError(RPC_IN_WARMUP, "Try it later. It is initial block download!");
-//    }
-}
 
 extern void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options);
 
-static UniValue fundsignsend(CMutableTransaction & mtx, JSONRPCRequest const & request)
+static UniValue fundsignsend(CMutableTransaction & mtx, JSONRPCRequest const & request, CWallet* const pwallet)
 {
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
-
-    if (!EnsureWalletIsAvailable(pwallet, false)) {
-        return NullUniValue;
-    }
-
     CAmount fee;
     int change_position;
     UniValue options(UniValue::VOBJ);
@@ -167,14 +153,19 @@ void FillInputs(UniValue const & inputs, CMutableTransaction & rawTx)
     }
 }
 
-UniValue mn_create(const JSONRPCRequest& request)
+CWallet* const GetWallet(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 
-    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
-        return NullUniValue;
-    }
+    EnsureWalletIsAvailable(pwallet, false);
+    EnsureWalletIsUnlocked(pwallet);
+    return pwallet;
+}
+
+UniValue mn_create(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"mn_create",
         "\nCreates (and submits to local node and network) a masternode creation transaction with given metadata, spending the given inputs..\n"
@@ -214,25 +205,15 @@ UniValue mn_create(const JSONRPCRequest& request)
     }.Check(request);
 
 
-
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create Masternode while still in Initial Block Download");
     }
-
-    // Make sure the results are valid at least up to the most recent block
-    // the user could have gotten from another RPC command prior to now
-    pwallet->BlockUntilSyncedToCurrentChain();
-
-    auto locked_chain = pwallet->chain().lock(); /// @todo @maxb is it enough? (i mean cs_main)
-    LOCK(pwallet->cs_wallet);
-
-    EnsureWalletIsUnlocked(pwallet);
 
     RPCTypeCheck(request.params, { UniValue::VARR, UniValue::VOBJ }, true);
     if (request.params[0].isNull() || request.params[1].isNull())
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 and 2 must be non-null, and argument 2 expected as object with "
-                                                  "{\"name\",\"ownerAuthAddress\",\"operatorAuthAddress\",\"ownerRewardAddress\",\"collateralAddress\"}");
+                                                  "{\"operatorAuthAddress\",\"collateralAddress\"}");
     }
     UniValue metaObj = request.params[1].get_obj();
     RPCTypeCheckObj(metaObj, {
@@ -244,33 +225,33 @@ UniValue mn_create(const JSONRPCRequest& request)
     std::string collateralAddress =         metaObj["collateralAddress"].getValStr();
     std::string operatorAuthAddressBase58 = metaObj["operatorAuthAddress"].getValStr();
 
-    // Parameters validation block
     CTxDestination collateralDest = DecodeDestination(collateralAddress);
-    /// @todo @max implement WitnessV0KeyHash! (type 4)
     if (collateralDest.which() != 1 && collateralDest.which() != 4)
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "collateralAddress (" + collateralAddress + ") does not refer to a P2PKH or P2WPKH address");
     }
     CKeyID ownerAuthKey = collateralDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&collateralDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&collateralDest));
-    if (pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOwner, ownerAuthKey) ||
-        pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, ownerAuthKey))
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Masternode with collateralAddress == " + collateralAddress + " already exists");
-    }
 
-    // owner and operator check
     CTxDestination operatorDest = operatorAuthAddressBase58 == "" ? collateralDest : DecodeDestination(operatorAuthAddressBase58);
-    /// @todo @max implement WitnessV0KeyHash! (type 4)
-
     if (operatorDest.which() != 1 && operatorDest.which() != 4)
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAuthAddress (" + operatorAuthAddressBase58 + ") does not refer to a P2PKH or P2WPKH address");
     }
     CKeyID operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest)) ;
-    if (pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOwner, operatorAuthKey) ||
-        pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, operatorAuthKey))
+
     {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Masternode with operatorAuthAddress == " + EncodeDestination(operatorDest) + " already exists");
+        auto locked_chain = pwallet->chain().lock();
+
+        if (pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOwner, ownerAuthKey) ||
+            pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, ownerAuthKey))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Masternode with collateralAddress == " + collateralAddress + " already exists");
+        }
+        if (pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOwner, operatorAuthKey) ||
+            pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, operatorAuthKey))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Masternode with operatorAuthAddress == " + EncodeDestination(operatorDest) + " already exists");
+        }
     }
 
     CDataStream metadata(MnTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -287,18 +268,13 @@ UniValue mn_create(const JSONRPCRequest& request)
     rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(), GetScriptForDestination(collateralDest)));
 
-    return fundsignsend(rawTx, request);
+    return fundsignsend(rawTx, request, pwallet);
 }
 
 
 UniValue mn_resign(const JSONRPCRequest& request)
 {
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
-
-    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
-        return NullUniValue;
-    }
+    CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"mn_resign",
         "\nCreates (and submits to local node and network) a transaction resigning your masternode. Collateral will be unlocked after " + std::to_string(GetMnCollateralUnlockDelay()) + " blocks.\n"
@@ -330,29 +306,25 @@ UniValue mn_resign(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot resign Masternode while still in Initial Block Download");
     }
 
-    // Make sure the results are valid at least up to the most recent block
-    // the user could have gotten from another RPC command prior to now
-    pwallet->BlockUntilSyncedToCurrentChain();
-
-    auto locked_chain = pwallet->chain().lock();  /// @todo @maxb is it enough? (i mean cs_main)
-    LOCK(pwallet->cs_wallet);
-
-    EnsureWalletIsUnlocked(pwallet);
-
     RPCTypeCheck(request.params, { UniValue::VARR, UniValue::VSTR }, true);
 
     std::string const nodeIdStr = request.params[1].getValStr();
     uint256 nodeId = uint256S(nodeIdStr);
-    auto optIDs = pmasternodesview->AmIOwner();
-    if (!optIDs)
+    CTxDestination ownerDest;
     {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("You are not the owner of masternode %s, or it does not exist", nodeIdStr));
-    }
-    auto nodePtr = pmasternodesview->ExistMasternode(nodeId);
-    if (!nodePtr->resignTx.IsNull())
-    {
-        /// @todo @max adjust delays and heights!
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight + GetMnCollateralUnlockDelay() /*+ GetMnResignDelay() ???*/));
+        auto locked_chain = pwallet->chain().lock();
+        auto optIDs = pmasternodesview->AmIOwner();
+        if (!optIDs)
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("You are not the owner of masternode %s, or it does not exist", nodeIdStr));
+        }
+        auto nodePtr = pmasternodesview->ExistMasternode(nodeId);
+        if (!nodePtr->resignTx.IsNull())
+        {
+            /// @todo @max adjust delays and heights!
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight + GetMnCollateralUnlockDelay() /*+ GetMnResignDelay() ???*/));
+        }
+        ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
     }
 
     CMutableTransaction rawTx;
@@ -364,13 +336,14 @@ UniValue mn_resign(const JSONRPCRequest& request)
     }
     else
     {
-        CTxDestination ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
         std::vector<COutput> vecOutputs;
         CCoinControl cctl;
         cctl.m_avoid_address_reuse = false;
         cctl.m_min_depth = 1;
         cctl.m_max_depth = 9999999;
         cctl.matchDestination = ownerDest;
+        auto locked_chain = pwallet->chain().lock();
+        LOCK(pwallet->cs_wallet);
         pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, MAX_MONEY, 1);
 
         if (vecOutputs.size() == 0)
@@ -389,7 +362,7 @@ UniValue mn_resign(const JSONRPCRequest& request)
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    return fundsignsend(rawTx, request);
+    return fundsignsend(rawTx, request, pwallet);
 }
 
 
