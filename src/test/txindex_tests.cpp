@@ -15,6 +15,7 @@ BOOST_AUTO_TEST_SUITE(txindex_tests)
 
 BOOST_FIXTURE_TEST_CASE(txindex_initial_sync, TestChain100Setup)
 {
+    uint256 masternodesID = testMasternodeKeys.begin()->first;
     TxIndex txindex(1 << 20, true);
 
     CTransactionRef tx_disk;
@@ -57,7 +58,7 @@ BOOST_FIXTURE_TEST_CASE(txindex_initial_sync, TestChain100Setup)
     for (int i = 0; i < 10; i++) {
         CScript coinbase_script_pub_key = GetScriptForDestination(PKHash(coinbaseKey.GetPubKey()));
         std::vector<CMutableTransaction> no_txns;
-        const CBlock& block = CreateAndProcessBlock(no_txns, coinbase_script_pub_key);
+        const CBlock& block = CreateAndProcessBlock(no_txns, coinbase_script_pub_key, masternodesID);
         const CTransaction& txn = *block.vtx[0];
 
         BOOST_CHECK(txindex.BlockUntilSyncedToCurrentChain());
