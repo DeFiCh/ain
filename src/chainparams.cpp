@@ -338,7 +338,7 @@ public:
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
-        consensus.pos.fNoRetargeting = false; // only for regtest
+        consensus.pos.fNoRetargeting = true; // only for regtest
 
         consensus.pos.coinstakeMaturity = 100;
 

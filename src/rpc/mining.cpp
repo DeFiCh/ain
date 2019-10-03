@@ -144,7 +144,7 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey minter
 
         nTried++;
         if ((nMaxTries == -1 || nTried < nMaxTries) && nMinted < nGenerate) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(900));
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
         } else {
             break;
         }
