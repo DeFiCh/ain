@@ -61,16 +61,15 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
 
 
     def setup_nodes(self):
-        # pp = pprint.PrettyPrinter(indent=4)
         self.add_nodes(self.num_nodes)
         self.start_nodes()
 
         self.mocktime = self.nodes[0].getblockheader(self.nodes[0].getbestblockhash())["time"]  + 1
-        print("Initial mocktime (genesis)", self.mocktime)
+        # print("Initial mocktime (genesis)", self.mocktime)
 
         self.set_genesis_keys()
         for i in range(self.num_nodes):
-            print (self.genesis[i]['operatorPrivKey'])
+            # print (self.genesis[i]['operatorPrivKey'])
             self.nodes[i].importprivkey(self.genesis[i]['operatorPrivKey'])
             self.nodes[i].importprivkey(self.genesis[i]['ownerPrivKey'])
             self.restart_node(i, extra_args=['-masternode_operator='+self.genesis[i]['operatorAuthAddress']])
@@ -86,7 +85,6 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
 
         # Stop node #2 for future revert
         self.stop_node(2)
-        self.num_nodes=2
 
         # CREATION:
         #========================
@@ -102,8 +100,6 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Insufficient funds" in errorString)
-
-        pp.pprint(self.nodes[0].getblockcount())
 
         # Create node0
         self.gen(1)
@@ -185,13 +181,8 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         # Check that collateral spending tx is still in the mempool
         assert_equal(sendedTxHash, self.nodes[0].getrawmempool()[0]);
 
-        pp.pprint(self.nodes[1].getblock(self.nodes[1].getbestblockhash()))
-
         connect_nodes_bi(self.nodes, 0, 1)
-        pp.pprint("=========")
-        input("Pause...")
         self.sync_blocks(self.nodes[0:2])
-        pp.pprint("=========")
 
         # Check that collateral spending tx was deleted
         # print ("CreateTx", idnode0)
@@ -206,7 +197,7 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         self.gen(25, 2)
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
-        assert_equal(self.nodes[0].mn_list(), {})
+        assert_equal(len(self.nodes[0].mn_list()), 4)
         assert_equal(self.nodes[0].getrawmempool(), [idnode0, fundingTx, resignTx]);
 
 if __name__ == '__main__':

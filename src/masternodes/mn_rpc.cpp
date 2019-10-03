@@ -153,7 +153,7 @@ void FillInputs(UniValue const & inputs, CMutableTransaction & rawTx)
     }
 }
 
-CWallet* const GetWallet(const JSONRPCRequest& request)
+CWallet* GetWallet(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();

@@ -15,6 +15,8 @@ class CCoinsViewCache;
 
 namespace pos {
 
+    bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& blockHeader);
+
 /// Check PoS signatures (PoS block hashes are signed with privkey of  first coinstake out pubkey)
     bool CheckHeaderSignature(const CBlockHeader& block);
 
