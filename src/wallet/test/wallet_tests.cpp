@@ -34,10 +34,11 @@ static void AddKey(CWallet& wallet, const CKey& key)
 
 BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
 {
+    uint256 masternodesID = testMasternodeKeys.begin()->first;
     // Cap last block file size, and mine new block in a new block file.
     CBlockIndex* oldTip = ::ChainActive().Tip();
     GetBlockFileInfo(oldTip->GetBlockPos().nFile)->nSize = MAX_BLOCKFILE_SIZE;
-    CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
+    CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID);
     CBlockIndex* newTip = ::ChainActive().Tip();
 
     auto chain = interfaces::MakeChain();
@@ -113,10 +114,11 @@ BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
 
 BOOST_FIXTURE_TEST_CASE(importmulti_rescan, TestChain100Setup)
 {
+    uint256 masternodesID = testMasternodeKeys.begin()->first;
     // Cap last block file size, and mine new block in a new block file.
     CBlockIndex* oldTip = ::ChainActive().Tip();
     GetBlockFileInfo(oldTip->GetBlockPos().nFile)->nSize = MAX_BLOCKFILE_SIZE;
-    CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
+    CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID);
     CBlockIndex* newTip = ::ChainActive().Tip();
 
     auto chain = interfaces::MakeChain();
@@ -173,18 +175,19 @@ BOOST_FIXTURE_TEST_CASE(importmulti_rescan, TestChain100Setup)
 // than or equal to key birthday.
 BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
 {
+    uint256 masternodesID = testMasternodeKeys.begin()->first;
     // Create two blocks with same timestamp to verify that importwallet rescan
     // will pick up both blocks, not just the first.
     const int64_t BLOCK_TIME = ::ChainActive().Tip()->GetBlockTimeMax() + 5;
     SetMockTime(BLOCK_TIME);
-    m_coinbase_txns.emplace_back(CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey())).vtx[0]);
-    m_coinbase_txns.emplace_back(CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey())).vtx[0]);
+    m_coinbase_txns.emplace_back(CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID).vtx[0]);
+    m_coinbase_txns.emplace_back(CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID).vtx[0]);
 
     // Set key birthday to block time increased by the timestamp window, so
     // rescan will start at the block time.
     const int64_t KEY_TIME = BLOCK_TIME + TIMESTAMP_WINDOW;
     SetMockTime(KEY_TIME);
-    m_coinbase_txns.emplace_back(CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey())).vtx[0]);
+    m_coinbase_txns.emplace_back(CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID).vtx[0]);
 
     auto chain = interfaces::MakeChain();
     auto locked_chain = chain->lock();
@@ -339,7 +342,8 @@ class ListCoinsTestingSetup : public TestChain100Setup
 public:
     ListCoinsTestingSetup()
     {
-        CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
+        uint256 masternodesID = testMasternodeKeys.begin()->first;
+        CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID);
         wallet = MakeUnique<CWallet>(m_chain.get(), WalletLocation(), WalletDatabase::CreateMock());
         bool firstRun;
         wallet->LoadWallet(firstRun);
@@ -360,6 +364,7 @@ public:
 
     CWalletTx& AddTx(CRecipient recipient)
     {
+        uint256 masternodesID = testMasternodeKeys.begin()->first;
         CTransactionRef tx;
         CAmount fee;
         int changePos = -1;
@@ -376,7 +381,7 @@ public:
             LOCK(wallet->cs_wallet);
             blocktx = CMutableTransaction(*wallet->mapWallet.at(tx->GetHash()).tx);
         }
-        CreateAndProcessBlock({CMutableTransaction(blocktx)}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
+        CreateAndProcessBlock({CMutableTransaction(blocktx)}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID);
 
         LOCK(cs_main);
         LOCK(wallet->cs_wallet);

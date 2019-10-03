@@ -242,13 +242,10 @@ namespace pos {
         };
 
         Staker::Status stake(CChainParams chainparams, const ThreadStaker::Args& args);
-
     private:
         CBlockIndex* getTip();
         template <typename F>
         bool withSearchInterval(F&& f);
-        boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key);
-        boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter);
     };
 }
 
