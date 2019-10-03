@@ -530,7 +530,7 @@ namespace pos {
             //
             // Trying to sign a block
             //
-            auto err = SignPosBlock(pblock, args.minterKey);
+            auto err = pos::SignPosBlock(pblock, args.minterKey);
             if (err) {
                 LogPrint(BCLog::STAKING, "SignPosBlock(): %s \n", *err);
                 return;
@@ -541,7 +541,7 @@ namespace pos {
             //
             {
                 LOCK(cs_main);
-                err = CheckSignedBlock(pblock, tip, chainparams, args.minterKey.GetPubKey().GetID());
+                err = pos::CheckSignedBlock(pblock, tip, chainparams, args.minterKey.GetPubKey().GetID());
                 if (err) {
                     LogPrint(BCLog::STAKING, "CheckSignedBlock(): %s \n", *err);
                     return;
@@ -566,7 +566,7 @@ namespace pos {
 
     template <typename F>
     bool Staker::withSearchInterval(F&& f) {
-        const int64_t nTime = GetAdjustedTime();
+        const int64_t nTime = GetAdjustedTime(); // TODO: (SS) GetAdjustedTime() + period minting block
 
         if (nTime > nLastCoinStakeSearchTime) {
             f(nTime, nTime - nLastCoinStakeSearchTime);
@@ -574,44 +574,6 @@ namespace pos {
             return true;
         }
         return false;
-    }
-
-    boost::optional<std::string> Staker::SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
-        // if we are trying to sign a signed proof-of-stake block
-        if (!pblock->sig.empty()) {
-            throw std::logic_error{"Only non-complete PoS block templates are accepted"};
-        }
-
-        // coinstakeTx
-        CMutableTransaction coinstakeTx{*pblock->vtx[0]};
-
-        // Update coinstakeTx after signing
-        pblock->vtx[0] = MakeTransactionRef(coinstakeTx);
-
-        pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-
-        bool signingRes = key.SignCompact(pblock->GetHashToSign(), pblock->sig);
-        if (!signingRes) {
-            return {std::string{} + "Block signing error"};
-        }
-
-        return {};
-    }
-
-    boost::optional<std::string> Staker::CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter) {
-        uint256 hashBlock = pblock->GetHash();
-
-        // verify hash target and signature of coinstake tx
-        if (!pos::CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pmasternodesview.get()))
-            return {std::string{} + "proof-of-stake checking failed"};
-
-        LogPrint(BCLog::STAKING, "new proof-of-stake block found hash: %s\n", hashBlock.GetHex());
-
-        // Found a solution
-        if (pblock->hashPrevBlock != getTip()->GetBlockHash())
-            return {std::string{} + "minted block is stale"};
-
-        return {};
     }
 
 int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainparams) {

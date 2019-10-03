@@ -6,6 +6,7 @@
 #include <consensus/merkle.h>
 #include <chainparams.h>
 #include <pos.h>
+#include <pos_kernel.h>
 #include <streams.h>
 
 #include <test/setup_common.h>
@@ -34,6 +35,30 @@ static CBlock BuildBlockTestCase() {
     block.hashPrevBlock = InsecureRand256();
     block.nBits = 0x207fffff;
 
+    uint256 masternodeID = testMasternodeKeys.begin()->first;
+    uint32_t mintedBlocks(0);
+    CKey minterKey;
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    if (pos == testMasternodeKeys.end())
+        return {};
+
+    minterKey = pos->second.operatorKey;
+    CBlockIndex *tip;
+    {
+        LOCK(cs_main);
+        tip = ::ChainActive().Tip();
+
+        auto nodePtr = pmasternodesview->ExistMasternode(masternodeID);
+        if (!nodePtr || !nodePtr->IsActive(tip->height))
+            return {};
+
+        mintedBlocks = nodePtr->mintedBlocks;
+    }
+
+    block.height = tip->nHeight + 1;
+    block.mintedBlocks = mintedBlocks + 1;
+    block.stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
+
     tx.vin[0].prevout.hash = InsecureRand256();
     tx.vin[0].prevout.n = 0;
     block.vtx[1] = MakeTransactionRef(tx);
@@ -48,8 +73,17 @@ static CBlock BuildBlockTestCase() {
     bool mutated;
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     assert(!mutated);
+    block.nTime = 0;
+
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, Params().GetConsensus(), masternodeID).hashOk) block.nTime++;
   //  while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
-    return block;
+
+    std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
+    auto err = pos::SignPosBlock(pblock, minterKey);
+    if (err)
+        return {};
+
+    return *pblock;
 }
 
 // Number of shared use_counts we expect for a tx we haven't touched

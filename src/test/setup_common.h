@@ -51,6 +51,12 @@ static inline bool InsecureRandBool() { return g_insecure_rand_ctx.randbool(); }
 
 static constexpr CAmount CENT{1000000};
 
+struct TestMasternodeKeys {
+    CKey ownerKey;
+    CKey operatorKey;
+};
+extern std::map<uint256, TestMasternodeKeys> testMasternodeKeys;
+
 /** Basic testing setup.
  * This just configures logging, data dir and chain parameters.
  */
@@ -88,7 +94,8 @@ struct TestChain100Setup : public TestingSetup {
     // Create a new block with just given transactions, coinbase paying to
     // scriptPubKey, and try to add it to the current chain.
     CBlock CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns,
-                                 const CScript& scriptPubKey);
+                                 const CScript& scriptPubKey,
+                                 const uint256 masternodeID);
 
     ~TestChain100Setup();
 
