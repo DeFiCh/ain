@@ -57,6 +57,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     {
         // check that block minter exists and active at the height of the block
         AssertLockHeld(cs_main); /// @todo @maxb or lock it
+//        assert(mnView->GetLastHeight() + 1 == blockHeader.height);
         auto it = mnView->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, minter);
         if (!it || !mnView->ExistMasternode((*it)->second)->IsActive(blockHeader.height))
         {
