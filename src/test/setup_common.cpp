@@ -11,10 +11,13 @@
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
 #include <init.h>
+#include <key_io.h>
+#include <masternodes/mn_txdb.h>
 #include <miner.h>
 #include <net.h>
 #include <noui.h>
 #include <pos.h>
+#include <pos_kernel.h>
 #include <rpc/register.h>
 #include <rpc/server.h>
 #include <script/sigcache.h>
@@ -33,6 +36,8 @@
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 FastRandomContext g_insecure_rand_ctx;
+
+std::map<uint256, TestMasternodeKeys> testMasternodeKeys;
 
 std::ostream& operator<<(std::ostream& os, const uint256& num)
 {
@@ -62,6 +67,13 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         noui_connect();
         noui_connected = true;
     }
+
+    testMasternodeKeys[uint256S("0x7c4ae2e8361ad2db8a45e99f9483672fd4288485a4de700b565923270e2119ea")] =
+                        TestMasternodeKeys{DecodeSecret("cSCmN1tjcR2yR1eaQo9WmjTMR85SjEoNPqMPWGAApQiTLJH8JF7W"),
+                                           DecodeSecret("cVNTRYV43guugJoDgaiPZESvNtnfnUW19YEjhybihwDbLKjyrZNV")};
+    testMasternodeKeys[uint256S("0xa0f5ec92bdf313a003c4d7f83bd207fac90d28220bfd3f9526f79791665381c5")] =
+                        TestMasternodeKeys{DecodeSecret("cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz"),
+                                           DecodeSecret("cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC")};
 }
 
 BasicTestingSetup::~BasicTestingSetup()
@@ -91,6 +103,11 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
     assert(!::ChainstateActive().CanFlushToDisk());
     ::ChainstateActive().InitCoinsCache();
     assert(::ChainstateActive().CanFlushToDisk());
+
+    pmasternodesview.reset();
+    pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, false, true);
+    pmasternodesview->Load();
+
     if (!LoadGenesisBlock(chainparams)) {
         throw std::runtime_error("LoadGenesisBlock failed.");
     }
@@ -128,13 +145,15 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
     gArgs.ForceSetArg("-segwitheight", "432");
     SelectParams(CBaseChainParams::REGTEST);
 
+    uint256 masternodeID = testMasternodeKeys.begin()->first;
+
     // Generate a 100-block chain:
     coinbaseKey.MakeNewKey(true);
     CScript scriptPubKey = CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
     for (int i = 0; i < COINBASE_MATURITY; i++)
     {
         std::vector<CMutableTransaction> noTxns;
-        CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
+        CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey, masternodeID);
         m_coinbase_txns.push_back(b.vtx[0]);
     }
 }
@@ -144,11 +163,33 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
 // scriptPubKey, and try to add it to the current chain.
 //
 CBlock
-TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
+TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey, const uint256 masternodeID)
 {
     const CChainParams& chainparams = Params();
     std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
     CBlock& block = pblocktemplate->block;
+
+    uint32_t mintedBlocks(0);
+    CKey minterKey;
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    if (pos == testMasternodeKeys.end())
+        throw std::runtime_error(std::string(__func__) + ": masternodeID not found");
+
+    minterKey = pos->second.operatorKey;
+    CBlockIndex *tip;
+    {
+        LOCK(cs_main);
+        tip = ::ChainActive().Tip();
+
+        auto nodePtr = pmasternodesview->ExistMasternode(masternodeID);
+        if (!nodePtr || !nodePtr->IsActive(tip->height))
+            throw std::runtime_error(std::string(__func__) + ": nodePtr does not exist");
+
+        mintedBlocks = nodePtr->mintedBlocks;
+    }
+    block.height = tip->nHeight + 1;
+    block.mintedBlocks = mintedBlocks + 1;
+    block.stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
 
     // Replace mempool-selected txns with just coinbase plus passed-in txns:
     block.vtx.resize(1);

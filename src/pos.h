@@ -4,6 +4,7 @@
 #include <arith_uint256.h>
 #include <memory>
 #include <masternodes/masternodes.h>
+#include <key.h>
 
 class CBlock;
 
@@ -29,5 +30,9 @@ namespace pos {
     unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params::PoS& params);
 
     unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params);
+
+    boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key);
+
+    boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter);
 }
 

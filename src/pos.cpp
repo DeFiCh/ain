@@ -1,6 +1,8 @@
 #include <pos.h>
 #include <pos_kernel.h>
 #include <chain.h>
+#include <chainparams.h>
+#include <consensus/merkle.h>
 #include <validation.h>
 #include <key.h>
 #include <wallet/wallet.h>
@@ -155,6 +157,44 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     assert(pindexFirst);
 
     return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params);
+}
+
+boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
+    // if we are trying to sign a signed proof-of-stake block
+    if (!pblock->sig.empty()) {
+        throw std::logic_error{"Only non-complete PoS block templates are accepted"};
+    }
+
+    // coinstakeTx
+    CMutableTransaction coinstakeTx{*pblock->vtx[0]};
+
+    // Update coinstakeTx after signing
+    pblock->vtx[0] = MakeTransactionRef(coinstakeTx);
+
+    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+
+    bool signingRes = key.SignCompact(pblock->GetHashToSign(), pblock->sig);
+    if (!signingRes) {
+        return {std::string{} + "Block signing error"};
+    }
+
+    return {};
+}
+
+boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter) {
+    uint256 hashBlock = pblock->GetHash();
+
+    // verify hash target and signature of coinstake tx
+    if (!pos::CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pmasternodesview.get()))
+        return {std::string{} + "proof-of-stake checking failed"};
+
+    LogPrint(BCLog::STAKING, "new proof-of-stake block found hash: %s\n", hashBlock.GetHex());
+
+    // Found a solution
+    if (pblock->hashPrevBlock != pindexPrev->GetBlockHash())
+        return {std::string{} + "minted block is stale"};
+
+    return {};
 }
 
 }
