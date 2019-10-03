@@ -78,7 +78,9 @@ class AuthServiceProxy():
         passwd = None if self.__url.password is None else self.__url.password.encode('utf8')
         authpair = user + b':' + passwd
         self.__auth_header = b'Basic ' + base64.b64encode(authpair)
-        self.timeout = timeout
+        # self.timeout = timeout
+        # @todo temp changed for debugging 
+        self.timeout = 600
         self._set_conn(connection)
 
     def __getattr__(self, name):
