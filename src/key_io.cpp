@@ -2,8 +2,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <key_io.h>
-
 #include <base58.h>
 #include <bech32.h>
 #include <chainparams.h>

@@ -18,9 +18,7 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
-#include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/mn_txdb.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/settings.h>
