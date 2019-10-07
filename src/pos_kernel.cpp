@@ -1,11 +1,7 @@
 #include <pos_kernel.h>
 #include <amount.h>
-#include <wallet/wallet.h>
-#include <txdb.h>
-#include <validation.h>
 #include <arith_uint256.h>
 #include <key.h>
-#include <pos.h>
 
 namespace pos {
     const uint64_t COINSTAKE_AMOUNT = 1000 * COIN;

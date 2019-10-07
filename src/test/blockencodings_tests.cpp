@@ -5,6 +5,7 @@
 #include <blockencodings.h>
 #include <consensus/merkle.h>
 #include <chainparams.h>
+#include <masternodes/masternodes.h>
 #include <pos.h>
 #include <pos_kernel.h>
 #include <streams.h>

@@ -76,7 +76,7 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
             set_node_times(self.nodes, self.mocktime)
 
     def run_test(self):
-        pp = pprint.PrettyPrinter(indent=4)
+        pprint.PrettyPrinter(indent=4)
 
         assert_equal(len(self.nodes[0].mn_list()), 4)
         self.gen(100)
@@ -155,7 +155,7 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
             errorString = e.error['message']
         assert("Can't find any UTXO's" in errorString)
 
-        # Funding auth address and successful resign        
+        # Funding auth address and successful resign
         fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
         self.gen()
         resignTx = self.nodes[0].mn_resign([], idnode0)
