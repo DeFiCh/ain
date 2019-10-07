@@ -11,12 +11,10 @@
 from test_framework.test_framework import BitcoinTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, assert_greater_than, \
-    connect_nodes_bi, disconnect_nodes, \
-    sync_blocks, sync_mempools, \
+from test_framework.util import assert_equal, \
+    connect_nodes_bi, \
     set_node_times
 
-from decimal import Decimal
 import pprint
 import time
 
@@ -179,7 +177,7 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         self.start_node(1, extra_args=['-masternode_operator='+self.genesis[1]['operatorAuthAddress']])
         self.gen(20, 1)
         # Check that collateral spending tx is still in the mempool
-        assert_equal(sendedTxHash, self.nodes[0].getrawmempool()[0]);
+        assert_equal(sendedTxHash, self.nodes[0].getrawmempool()[0])
 
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_blocks(self.nodes[0:2])
@@ -189,7 +187,7 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         # print ("ResignTx", resignTx)
         # print ("FundingTx", fundingTx)
         # print ("SpendTx", sendedTxHash)
-        assert_equal(self.nodes[0].getrawmempool(), [fundingTx, resignTx]);
+        assert_equal(self.nodes[0].getrawmempool(), [fundingTx, resignTx])
         assert_equal(self.nodes[0].mn_list()[idnode0]['status'], "active")
 
         # Revert creation!
@@ -198,7 +196,7 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
         assert_equal(len(self.nodes[0].mn_list()), 4)
-        assert_equal(self.nodes[0].getrawmempool(), [idnode0, fundingTx, resignTx]);
+        assert_equal(self.nodes[0].getrawmempool(), [idnode0, fundingTx, resignTx])
 
 if __name__ == '__main__':
     MasternodesRpcBasicTest ().main ()
