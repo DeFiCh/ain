@@ -78,6 +78,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
 
 BasicTestingSetup::~BasicTestingSetup()
 {
+    testMasternodeKeys.clear();
     LogInstance().DisconnectTestLogger();
     fs::remove_all(m_path_root);
     ECC_Stop();
