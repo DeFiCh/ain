@@ -79,7 +79,7 @@ class AuthServiceProxy():
         authpair = user + b':' + passwd
         self.__auth_header = b'Basic ' + base64.b64encode(authpair)
         # self.timeout = timeout
-        # @todo temp changed for debugging 
+        # @todo temp changed for debugging
         self.timeout = 600
         self._set_conn(connection)
 
