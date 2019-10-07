@@ -2,10 +2,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef MN_CHECKS_H
-#define MN_CHECKS_H
+#ifndef BITCOIN_MASTERNODES_MN_CHECKS_H
+#define BITCOIN_MASTERNODES_MN_CHECKS_H
 
-#include "consensus/params.h"
+#include <consensus/params.h>
 #include <vector>
 
 class CBlock;
@@ -24,4 +24,4 @@ bool CheckResignMasternodeTx(CMasternodesViewCache & mnview, CTransaction const 
 
 bool IsMempooledMnCreate(const CTxMemPool& pool, const uint256 & txid);
 
-#endif // MN_CHECKS_H
+#endif // BITCOIN_MASTERNODES_MN_CHECKS_H

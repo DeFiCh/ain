@@ -1,10 +1,12 @@
-#pragma once
+#ifndef BITCOIN_POS_H
+#define BITCOIN_POS_H
 
 #include <consensus/params.h>
 #include <arith_uint256.h>
 #include <memory>
-#include <masternodes/masternodes.h>
 #include <key.h>
+
+#include <boost/optional.hpp>
 
 class CBlock;
 
@@ -12,7 +14,11 @@ class CBlockIndex;
 
 class CBlockHeader;
 
+class CChainParams;
+
 class CCoinsViewCache;
+
+class CMasternodesView;
 
 namespace pos {
 
@@ -36,3 +42,4 @@ namespace pos {
     boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter);
 }
 
+#endif // BITCOIN_POS_H

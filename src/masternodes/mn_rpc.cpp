@@ -2,8 +2,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "masternodes.h"
+#include <masternodes/masternodes.h>
 
+#include <chainparams.h>
 #include <core_io.h>
 //#include "../init.h"       // pwalletMain
 #include <consensus/validation.h>
@@ -172,7 +173,7 @@ UniValue mn_create(const JSONRPCRequest& request)
         "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
-            {"prevouts", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects. Provide it if you want to spent specific UTXOs",
+            {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                 {
                     {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
@@ -281,16 +282,6 @@ UniValue mn_resign(const JSONRPCRequest& request)
         "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the MN's owner (collateral) address" +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
-            {"prevouts", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects. Provide it if you want to spent specific UTXOs",
-                {
-                    {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                        },
-                    },
-                },
-            },
             {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
         },
         RPCResult{
@@ -388,7 +379,7 @@ UniValue mn_list(const JSONRPCRequest& request)
     RPCHelpMan{"mn_list",
         "\nReturns information about specified masternodes (or all, if list of ids is empty).\n",
         {
-            {"ids", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of masternode ids",
+            {"list", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of masternode ids",
                 {
                     {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Masternode's id"},
                 },
