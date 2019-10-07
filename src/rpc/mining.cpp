@@ -10,7 +10,6 @@
 #include <consensus/params.h>
 #include <consensus/validation.h>
 #include <core_io.h>
-#include <key_io.h>
 #include <masternodes/masternodes.h>
 #include <miner.h>
 #include <net.h>

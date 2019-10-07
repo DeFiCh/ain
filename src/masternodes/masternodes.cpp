@@ -5,9 +5,11 @@
 #include <masternodes/masternodes.h>
 
 #include <chainparams.h>
-#include <key_io.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <script/script.h>
+#include <script/standard.h>
+#include <validation.h>
 
 #include <algorithm>
 #include <functional>
@@ -93,6 +95,25 @@ void CMasternode::FromTx(CTransaction const & tx, int heightIn, std::vector<unsi
 
     resignTx = {};
     mintedBlocks = 0;
+}
+
+bool CMasternode::IsActive() const
+{
+    return IsActive(::ChainActive().Height());
+}
+
+bool CMasternode::IsActive(int h) const
+{
+    // Special case for genesis block
+    if (creationHeight == 0)
+        return resignHeight == -1 || resignHeight + GetMnResignDelay() > h;
+
+    return  creationHeight + GetMnActivationDelay() <= h && (resignHeight == -1 || resignHeight + GetMnResignDelay() > h);
+}
+
+std::string CMasternode::GetHumanReadableStatus() const
+{
+    return GetHumanReadableStatus(::ChainActive().Height());
 }
 
 std::string CMasternode::GetHumanReadableStatus(int h) const
@@ -468,4 +489,49 @@ MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<uns
     }
     metadata.erase(metadata.begin(), metadata.begin() + MnTxMarker.size() + 1);
     return it->second;
+}
+
+CMasternodesViewHistory& CMasternodesViewHistory::GetState(int targetHeight)
+{
+    int const topHeight = base->GetLastHeight();
+    assert(targetHeight >= topHeight - GetMnHistoryFrame() && targetHeight <= topHeight);
+
+    if (lastHeight > targetHeight)
+    {
+        // go backward (undo)
+
+        for (; lastHeight > targetHeight; )
+        {
+            auto it = historyDiff.find(lastHeight);
+            if (it != historyDiff.end())
+            {
+                historyDiff.erase(it);
+            }
+            historyDiff.emplace(std::make_pair(lastHeight, OnUndoBlock(lastHeight)));
+
+            CBlockIndex* pindex = ::ChainActive()[lastHeight];
+            assert(pindex);
+            DecrementMintedBy(pindex->minter);
+
+            --lastHeight;
+        }
+    }
+    else if (lastHeight < targetHeight)
+    {
+        // go forward (redo)
+        for (; lastHeight < targetHeight; )
+        {
+            ++lastHeight;
+
+            // redo states should be cached!
+            assert(historyDiff.find(lastHeight) != historyDiff.end());
+            ApplyCache(&historyDiff.at(lastHeight));
+
+            CBlockIndex* pindex = ::ChainActive()[lastHeight];
+            assert(pindex);
+            IncrementMintedBy(pindex->minter);
+        }
+
+    }
+    return *this;
 }

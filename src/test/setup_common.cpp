@@ -11,7 +11,6 @@
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
 #include <init.h>
-#include <key_io.h>
 #include <masternodes/mn_txdb.h>
 #include <miner.h>
 #include <net.h>

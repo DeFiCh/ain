@@ -25,7 +25,6 @@
 #include <interfaces/chain.h>
 #include <key.h>
 #include <key_io.h>
-#include <masternodes/masternodes.h>
 #include <masternodes/mn_txdb.h>
 #include <miner.h>
 #include <net.h>

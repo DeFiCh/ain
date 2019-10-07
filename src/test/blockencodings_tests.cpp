@@ -9,6 +9,7 @@
 #include <pos.h>
 #include <pos_kernel.h>
 #include <streams.h>
+#include <validation.h>
 
 #include <test/setup_common.h>
 

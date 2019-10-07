@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/mn_checks.h>
-#include <masternodes/masternodes.h>
 
 #include <arith_uint256.h>
 #include <chainparams.h>
@@ -11,8 +10,8 @@
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <txmempool.h>
-#include <univalue/include/univalue.h>
 #include <streams.h>
+#include <univalue/include/univalue.h>
 
 #include <algorithm>
 #include <sstream>

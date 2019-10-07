@@ -5,7 +5,11 @@
 #include <chainparams.h>
 #include <consensus/merkle.h>
 #include <key.h>
+#include <logging.h>
 #include <masternodes/masternodes.h>
+#include <sync.h>
+
+extern RecursiveMutex cs_main;
 
 namespace pos {
 
