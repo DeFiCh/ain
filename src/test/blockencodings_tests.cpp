@@ -330,8 +330,36 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
     bool mutated;
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     assert(!mutated);
-   // while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
 
+    uint256 masternodeID = testMasternodeKeys.begin()->first;
+    uint32_t mintedBlocks(0);
+    CKey minterKey;
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    BOOST_CHECK(pos != testMasternodeKeys.end());
+
+    minterKey = pos->second.operatorKey;
+    CBlockIndex *tip;
+    {
+        LOCK(cs_main);
+        tip = ::ChainActive().Tip();
+
+        auto nodePtr = pmasternodesview->ExistMasternode(masternodeID);
+        BOOST_CHECK(nodePtr && nodePtr->IsActive(tip->height));
+
+        mintedBlocks = nodePtr->mintedBlocks;
+    }
+
+    block.height = tip->nHeight + 1;
+    block.mintedBlocks = mintedBlocks + 1;
+    block.stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
+    block.nTime = 0;
+
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, Params().GetConsensus(), masternodeID).hashOk) block.nTime++;
+
+// while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
+    std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
+    BOOST_CHECK(!pos::SignPosBlock(pblock, minterKey));
+    block = *pblock;
     // Test simple header round-trip with only coinbase
     {
         CBlockHeaderAndShortTxIDs shortIDs(block, false);
