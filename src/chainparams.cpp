@@ -7,8 +7,8 @@
 
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
-#include <key_io.h>
 #include <masternodes/masternodes.h>
+#include <streams.h>
 #include <tinyformat.h>
 #include <util/system.h>
 #include <util/strencodings.h>

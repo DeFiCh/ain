@@ -6,6 +6,7 @@
 #define BITCOIN_MASTERNODES_MN_CHECKS_H
 
 #include <consensus/params.h>
+#include <masternodes/masternodes.h>
 #include <vector>
 
 class CBlock;

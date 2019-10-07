@@ -7,7 +7,6 @@
 
 #include <chainparams.h>
 #include <key.h>
-#include <key_io.h>
 #include <script/script.h>
 #include <util/strencodings.h>
 #include <test/setup_common.h>

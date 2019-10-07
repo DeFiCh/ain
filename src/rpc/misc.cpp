@@ -5,7 +5,6 @@
 
 #include <chainparams.h>
 #include <crypto/ripemd160.h>
-#include <key_io.h>
 #include <httpserver.h>
 #include <outputtype.h>
 #include <rpc/blockchain.h>
