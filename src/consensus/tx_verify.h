@@ -12,6 +12,7 @@
 
 class CBlockIndex;
 class CCoinsViewCache;
+class CMasternodesView;
 class CTransaction;
 class CValidationState;
 
@@ -24,7 +25,7 @@ namespace Consensus {
  * @param[out] txfee Set to the transaction fee if successful.
  * Preconditions: tx.IsCoinBase() is false.
  */
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee);
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, const CMasternodesView * mnview, int nSpendHeight, CAmount& txfee);
 } // namespace Consensus
 
 /** Auxiliary functions for transaction validation (ideally should not be exposed) */

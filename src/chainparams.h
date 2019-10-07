@@ -104,6 +104,14 @@ protected:
     bool m_is_test_chain;
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
+
+    struct MasternodeKeys
+    {
+        std::string ownerAddress;
+        std::string operatorAddress;
+    };
+    std::vector<MasternodeKeys> vMasternodes;
+    std::vector<CTransactionRef> CreateGenesisMasternodes() const;
 };
 
 /**

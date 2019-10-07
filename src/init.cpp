@@ -25,6 +25,8 @@
 #include <interfaces/chain.h>
 #include <key.h>
 #include <key_io.h>
+#include <masternodes/masternodes.h>
+#include <masternodes/mn_txdb.h>
 #include <miner.h>
 #include <net.h>
 #include <net_permissions.h>
@@ -261,6 +263,7 @@ void Shutdown(InitInterfaces& interfaces)
             g_chainstate->ForceFlushStateToDisk();
             g_chainstate->ResetCoinsViews();
         }
+        pmasternodesview.reset();
         pblocktree.reset();
     }
     for (const auto& client : interfaces.chain_clients) {
@@ -431,6 +434,8 @@ void SetupServerArgs()
     gArgs.AddArg("-peertimeout=<n>", strprintf("Specify p2p connection timeout in seconds. This option determines the amount of time a peer may be inactive before the connection to it is dropped. (minimum: 1, default: %d)", DEFAULT_PEER_CONNECT_TIMEOUT), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-torcontrol=<ip>:<port>", strprintf("Tor control port to use if onion listening enabled (default: %s)", DEFAULT_TOR_CONTROL), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-torpassword=<pass>", "Tor control port password (default: empty)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
+    gArgs.AddArg("-masternode_owner=<address>", "Masternode owner address (default: empty)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-masternode_operator=<address>", "Masternode operator address (default: empty)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1538,6 +1543,10 @@ bool AppInitMain(InitInterfaces& interfaces)
                         _("Error reading from database, shutting down.").translated,
                         "", CClientUIInterface::MSG_ERROR);
                 });
+                pmasternodesview.reset();
+                pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, false, fReset || fReindexChainState);
+                pmasternodesview->Load();
+
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
@@ -1547,7 +1556,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB())) {
+                if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pmasternodesview.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
                     break;
                 }
