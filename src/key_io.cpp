@@ -69,6 +69,7 @@ public:
 
     std::string operator()(const CNoDestination& no) const { return {}; }
 };
+} // namespace
 
 CTxDestination DecodeDestination(const std::string& str, const CChainParams& params)
 {
@@ -128,7 +129,6 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
     }
     return CNoDestination();
 }
-} // namespace
 
 CKey DecodeSecret(const std::string& str)
 {
