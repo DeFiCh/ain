@@ -3,6 +3,7 @@
 #include <consensus/params.h>
 #include <arith_uint256.h>
 #include <memory>
+#include <masternodes/masternodes.h>
 
 class CBlock;
 
@@ -11,9 +12,6 @@ class CBlockIndex;
 class CBlockHeader;
 
 class CCoinsViewCache;
-
-class CMasternodesView {}; // TODO: (SS) Change to real CMasternodesView class
-extern std::unique_ptr<CMasternodesView> pmasternodesview; // TODO: (SS) Change to real
 
 namespace pos {
 
