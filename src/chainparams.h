@@ -8,6 +8,7 @@
 
 #include <chainparamsbase.h>
 #include <consensus/params.h>
+#include <key_io.h>
 #include <primitives/block.h>
 #include <protocol.h>
 

@@ -8,7 +8,6 @@
 #include <core_io.h>
 //#include "../init.h"       // pwalletMain
 #include <consensus/validation.h>
-#include <key_io.h>
 #include <net.h>
 #include <rpc/client.h>
 #include <rpc/server.h>

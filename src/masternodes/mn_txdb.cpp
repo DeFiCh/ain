@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/mn_txdb.h>
-#include <masternodes/masternodes.h>
 
 #include <chainparams.h>
 #include <uint256.h>
