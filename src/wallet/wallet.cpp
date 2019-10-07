@@ -13,6 +13,7 @@
 #include <interfaces/wallet.h>
 #include <key.h>
 #include <key_io.h>
+#include <masternodes/masternodes.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <primitives/block.h>
@@ -2542,6 +2543,19 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             if (!allow_used_addresses && IsUsedDestination(wtxid, i)) {
                 continue;
             }
+
+            if (i == 1 && locked_chain.getHeight() && !chain().mnCanSpend(wtx.tx->GetHash(), *locked_chain.getHeight())) {
+                continue;
+            }
+
+            if (coinControl && coinControl->matchDestination.which() != 0) {
+                CTxDestination dest;
+                ExtractDestination(wtx.tx->vout[i].scriptPubKey, dest);
+                if (dest != coinControl->matchDestination) {
+                    continue;
+                }
+            }
+
 
             bool solvable = IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
