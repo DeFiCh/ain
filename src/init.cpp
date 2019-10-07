@@ -1846,7 +1846,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             {
                 std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
                 if (wallets.size() == 0) {
-                    LogPrintf("Warning! wallets not found");
+                    LogPrintf("Warning! wallets not found\n");
                     return true;
                 }
                 std::shared_ptr<CWallet> defaultWallet = wallets[0];
@@ -1860,7 +1860,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                     }
                 }
                 if (!found) {
-                    LogPrintf("Error: masternode operator private key not found");
+                    LogPrintf("Error: masternode operator private key not found\n");
                     return false;
                 }
 

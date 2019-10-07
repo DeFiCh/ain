@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BITCOIN_POS_KERNEL_H
+#define BITCOIN_POS_KERNEL_H
 
 #include <uint256.h>
 #include <arith_uint256.h>
@@ -39,3 +40,5 @@ namespace pos {
 /// Stake Modifier (hash modifier of proof-of-stake)
     uint256 ComputeStakeModifier(uint256 prevStakeModifier, const CKeyID& key);
 }
+
+#endif // BITCOIN_POS_KERNEL_H

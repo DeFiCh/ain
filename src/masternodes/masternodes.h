@@ -2,17 +2,17 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef MASTERNODES_H
-#define MASTERNODES_H
+#ifndef BITCOIN_MASTERNODES_MASTERNODES_H
+#define BITCOIN_MASTERNODES_MASTERNODES_H
 
-#include "amount.h"
-#include "primitives/transaction.h"
-#include "pubkey.h"
-#include "script/script.h"
-#include "script/standard.h"
-#include "serialize.h"
-#include "uint256.h"
-#include "validation.h"
+#include <amount.h>
+#include <primitives/transaction.h>
+#include <pubkey.h>
+#include <script/script.h>
+#include <script/standard.h>
+#include <serialize.h>
+#include <uint256.h>
+#include <validation.h>
 
 #include <map>
 #include <set>
@@ -396,4 +396,4 @@ extern std::unique_ptr<CMasternodesView> pmasternodesview;
 //! Checks if given tx is probably one of custom 'MasternodeTx', returns tx type and serialized metadata in 'data'
 MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
-#endif // MASTERNODES_H
+#endif // BITCOIN_MASTERNODES_MASTERNODES_H

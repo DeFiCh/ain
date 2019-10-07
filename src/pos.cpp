@@ -1,12 +1,11 @@
 #include <pos.h>
 #include <pos_kernel.h>
+
 #include <chain.h>
 #include <chainparams.h>
 #include <consensus/merkle.h>
-#include <validation.h>
 #include <key.h>
-#include <wallet/wallet.h>
-#include <txdb.h>
+#include <masternodes/masternodes.h>
 
 namespace pos {
 

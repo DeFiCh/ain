@@ -6,6 +6,7 @@
 #include <chainparams.h>
 #include <consensus/validation.h>
 #include <index/blockfilterindex.h>
+#include <masternodes/masternodes.h>
 #include <miner.h>
 #include <pos.h>
 #include <pos_kernel.h>
