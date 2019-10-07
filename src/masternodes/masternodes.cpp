@@ -2,13 +2,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "masternodes.h"
+#include <masternodes/masternodes.h>
 
-#include "chainparams.h"
-#include "key_io.h"
-//#include "mn_txdb.h"
-#include "primitives/block.h"
-#include "primitives/transaction.h"
+#include <chainparams.h>
+#include <key_io.h>
+#include <primitives/block.h>
+#include <primitives/transaction.h>
 
 #include <algorithm>
 #include <functional>
