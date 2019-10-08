@@ -330,21 +330,21 @@ public:
         strNetworkID = "regtest";
         consensus.nSubsidyHalvingInterval = 150;
         consensus.BIP16Exception = uint256();
-        consensus.BIP34Height = 0; // BIP34 activated on regtest (Used in functional tests)
+        consensus.BIP34Height = 500; // BIP34 activated on regtest (Used in functional tests)
         consensus.BIP34Hash = uint256();
-        consensus.BIP65Height = 0; // BIP65 activated on regtest (Used in functional tests)
-        consensus.BIP66Height = 0; // BIP66 activated on regtest (Used in functional tests)
+        consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in functional tests)
+        consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
-        consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
+        consensus.pos.fAllowMinDifficultyBlocks = true; // only for regtest
         consensus.pos.fNoRetargeting = true; // only for regtest
 
         consensus.pos.coinstakeMaturity = 100;
 
         consensus.pos.allowMintingWithoutPeers = true; // don't mint if no peers connected
 
-        consensus.CSVHeight = 1; // CSV activated on regtest (Used in rpc activation tests)
+        consensus.CSVHeight = 432; // CSV activated on regtest (Used in rpc activation tests)
         consensus.SegwitHeight = 0; // SEGWIT is always activated on regtest unless overridden
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
