@@ -258,7 +258,7 @@ public:
         consensus.nMinimumChainWork = uint256S("0x00");
 
         // By default assume that the signatures in ancestors of this block are valid.
-        consensus.defaultAssumeValid = uint256S("0x0000000000000037a8cd3e06cd5edbfe9dd1dbcc5dacab279376ef7cfc2b4c75"); //1354312
+        consensus.defaultAssumeValid = uint256S("0x00");
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
@@ -285,11 +285,14 @@ public:
 
         bech32_hrp = "tf";
 
-        genesis = CreateGenesisBlock(1569396815, 0x1e0fffff, 1, 50 * COIN, CreateGenesisMasternodes());
+        // owner base58, operator base58
+        vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
+
+        genesis = CreateGenesisBlock(1297994616, 0x207fffff, 1, 50 * COIN, CreateGenesisMasternodes()); // 0x1e0fffff
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("0xc0f410a59e9aa22afd67ee4671d41c2e3135c0efc589446e4b393cc534d178ac"));
-        assert(genesis.hashMerkleRoot == uint256S("0x800c7581a09c96d98bdad848db8fc027e8869d28d890ca21f6c25124baf53afe"));
+        assert(consensus.hashGenesisBlock == uint256S("0x000003c3f00c4222f32de9afe32aa760b09f52edb54c6b61454a1fcf772bb380"));
+        assert(genesis.hashMerkleRoot == uint256S("0x15f74c6ddf938f37af6ae5646693f9d89bb064e93291d2247ab4bccadc34c2e0"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
@@ -313,8 +316,7 @@ public:
         };
 
         chainTxData = ChainTxData{
-            // Data from rpc: getchaintxstats 4096 0000000000000037a8cd3e06cd5edbfe9dd1dbcc5dacab279376ef7cfc2b4c75
-            /* nTime    */ 1569396815,
+            /* nTime    */ 0,
             /* nTxCount */ 0,
             /* dTxRate  */ 0
         };
