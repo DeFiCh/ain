@@ -28,7 +28,7 @@ import struct
 import time
 
 from test_framework.siphash import siphash256
-from test_framework.util import hex_str_to_bytes, assert_equal
+from test_framework.util import hex_str_to_bytes, assert_equal, assert_greater_than
 
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -522,7 +522,7 @@ class CTransaction:
 
 
 class CBlockHeader:
-    __slots__ = ("hash", "hashMerkleRoot", "hashPrevBlock", "nBits", "nNonce",
+    __slots__ = ("hash", "hashMerkleRoot", "hashPrevBlock", "nBits", "stakeModifier", "nHeight", "nMintedBlocks", "sig",
                  "nTime", "nVersion", "sha256")
 
     def __init__(self, header=None):
@@ -534,7 +534,12 @@ class CBlockHeader:
             self.hashMerkleRoot = header.hashMerkleRoot
             self.nTime = header.nTime
             self.nBits = header.nBits
-            self.nNonce = header.nNonce
+            # self.nNonce = header.nNonce
+            self.stakeModifier = header.stakeModifier
+            self.nHeight = header.nHeight
+            self.nMintedBlocks = header.nMintedBlocks
+            self.sig = header.sig
+
             self.sha256 = header.sha256
             self.hash = header.hash
             self.calc_sha256()
@@ -545,7 +550,12 @@ class CBlockHeader:
         self.hashMerkleRoot = 0
         self.nTime = 0
         self.nBits = 0
-        self.nNonce = 0
+        # self.nNonce = 0
+        self.stakeModifier = 0
+        self.nHeight = 0
+        self.nMintedBlocks = 0
+        self.sig = b""
+
         self.sha256 = None
         self.hash = None
 
@@ -555,7 +565,13 @@ class CBlockHeader:
         self.hashMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
         self.nBits = struct.unpack("<I", f.read(4))[0]
-        self.nNonce = struct.unpack("<I", f.read(4))[0]
+        # self.nNonce = struct.unpack("<I", f.read(4))[0]
+
+        self.stakeModifier = deser_uint256(f)
+        self.nHeight = struct.unpack("<Q", f.read(8))[0]
+        self.nMintedBlocks = struct.unpack("<Q", f.read(8))[0]
+        self.sig = deser_string(f)
+
         self.sha256 = None
         self.hash = None
 
@@ -566,7 +582,13 @@ class CBlockHeader:
         r += ser_uint256(self.hashMerkleRoot)
         r += struct.pack("<I", self.nTime)
         r += struct.pack("<I", self.nBits)
-        r += struct.pack("<I", self.nNonce)
+        
+        r += ser_uint256(self.stakeModifier)
+        r += struct.pack("<Q", self.nHeight)
+        r += struct.pack("<Q", self.nMintedBlocks)
+        r += ser_string(self.sig)
+
+        # r += struct.pack("<I", self.nNonce)
         return r
 
     def calc_sha256(self):
@@ -577,7 +599,11 @@ class CBlockHeader:
             r += ser_uint256(self.hashMerkleRoot)
             r += struct.pack("<I", self.nTime)
             r += struct.pack("<I", self.nBits)
-            r += struct.pack("<I", self.nNonce)
+            # r += struct.pack("<I", self.nNonce)
+            r += struct.pack("<Q", self.nHeight)
+            r += struct.pack("<Q", self.nMintedBlocks)
+            r += ser_uint256(self.stakeModifier)
+
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
 
@@ -587,12 +613,12 @@ class CBlockHeader:
         return self.sha256
 
     def __repr__(self):
-        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
+        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x stakeModifier=%064x nHeight=%i nMintedBlocks=%i sig=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.nNonce)
+               time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks, "0x".join("{:02x}".format(c) for c in self.sig))
 
 BLOCK_HEADER_SIZE = len(CBlockHeader().serialize())
-assert_equal(BLOCK_HEADER_SIZE, 80)
+assert_greater_than(BLOCK_HEADER_SIZE, 124) # 124 - w\o sig
 
 class CBlock(CBlockHeader):
     __slots__ = ("vtx",)
@@ -657,15 +683,16 @@ class CBlock(CBlockHeader):
 
     def solve(self):
         self.rehash()
-        target = uint256_from_compact(self.nBits)
-        while self.sha256 > target:
-            self.nNonce += 1
-            self.rehash()
+        # Commented out due to PoS
+        # target = uint256_from_compact(self.nBits)
+        # while self.sha256 > target:
+        #     self.nNonce += 1
+        #     self.rehash()
 
     def __repr__(self):
-        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x vtx=%s)" \
+        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x stakeModifier=%064x nHeight=%i nMintedBlocks=%i sig=%s vtx=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.nNonce, repr(self.vtx))
+               time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks, "0x".join("{:02x}".format(c) for c in self.sig), repr(self.vtx))
 
 
 class PrefilledTransaction:
