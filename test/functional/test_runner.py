@@ -71,6 +71,7 @@ EXTENDED_SCRIPTS = [
     # Longest test should go first, to favor running tests in parallel
     'feature_pruning.py',
     'feature_dbcrash.py',
+    'rpc_mn_basic.py',
 ]
 
 BASE_SCRIPTS = [
