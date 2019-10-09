@@ -28,8 +28,9 @@ class BlocksdirTest(BitcoinTestFramework):
         os.mkdir(blocksdir_path)
         self.log.info("Starting with existing blocksdir ...")
         self.start_node(0, ["-blocksdir=" + blocksdir_path])
+        self.import_deterministic_coinbase_privkeys()   # cause initial datadir with predefined wallets was removed
         self.log.info("mining blocks..")
-        self.nodes[0].generatetoaddress(10, self.nodes[0].get_deterministic_priv_key().address)
+        self.nodes[0].generate(10)
         assert os.path.isfile(os.path.join(blocksdir_path, self.chain, "blocks", "blk00000.dat"))
         assert os.path.isdir(os.path.join(self.nodes[0].datadir, self.chain, "blocks", "index"))
 
