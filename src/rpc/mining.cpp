@@ -187,7 +187,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
 
     auto myIDs = pmasternodesview->AmIOperator();
     if (!myIDs) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Warning: I am not masternode operator");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
     }
 
     CScript coinbase_script = GetScriptForDestination(destination);
@@ -196,7 +196,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     {
         std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
         if (wallets.size() == 0)
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Warning! wallets not found");
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: wallets not found");
 
         bool found =false;
         for (auto&& wallet : wallets) {
