@@ -28,7 +28,7 @@ import struct
 import time
 
 from test_framework.siphash import siphash256
-from test_framework.util import hex_str_to_bytes, assert_equal, assert_greater_than
+from test_framework.util import hex_str_to_bytes, assert_greater_than
 
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -582,7 +582,7 @@ class CBlockHeader:
         r += ser_uint256(self.hashMerkleRoot)
         r += struct.pack("<I", self.nTime)
         r += struct.pack("<I", self.nBits)
-        
+
         r += ser_uint256(self.stakeModifier)
         r += struct.pack("<Q", self.nHeight)
         r += struct.pack("<Q", self.nMintedBlocks)
