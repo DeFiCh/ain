@@ -115,7 +115,7 @@ class TestNode():
         self.p2ps = []
 
     MnKeys = collections.namedtuple('MnKeys', ['ownerAuthAddress', 'ownerPrivKey', 'operatorAuthAddress', 'operatorPrivKey'])
-    PRIV_KEYS = [ 
+    PRIV_KEYS = [
         MnKeys("bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "cR4qgUdPhANDVF3bprcp5N9PNW2zyogDx6DGu2wHh2qtJB1L1vQj", "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv", "cVsa2wQvCjZZ54jGteQ8qiQbQLJQmZSBWriYUYyXbcaqUJFqK5HR"),
         MnKeys("mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",           "cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy",           "cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC"),
         MnKeys("bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "cUX8AEUZYsZxNUh5fTS7ZGnF6SPQuTeTDTABGrp5dbPftCga2zcp", "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r", "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW"),
