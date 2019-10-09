@@ -12,8 +12,7 @@ from test_framework.test_framework import BitcoinTestFramework
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
-    connect_nodes_bi, \
-    set_node_times
+    connect_nodes_bi
 
 import pprint
 import time
