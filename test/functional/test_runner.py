@@ -141,6 +141,7 @@ EXTENDED_SCRIPTS = [
     'wallet_importprunedfunds.py',
     'rpc_net.py',
     'p2p_fingerprint.py',
+    'feature_includeconf.py',
     'p2p_permissions.py'
 ]
 
@@ -151,7 +152,6 @@ BASE_SCRIPTS = [
     'feature_blocksdir.py',
     'feature_filelock.py',
     'feature_help.py',
-    'feature_includeconf.py',
     'feature_logging.py',
     'feature_proxy.py',
     'feature_rbf.py',
