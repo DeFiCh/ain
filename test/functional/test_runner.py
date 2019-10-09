@@ -142,35 +142,13 @@ EXTENDED_SCRIPTS = [
     'rpc_net.py',
     'p2p_fingerprint.py',
     'feature_includeconf.py',
-    'p2p_permissions.py'
-]
-
-BASE_SCRIPTS = [
-    # Scripts that are run by default.
-    # Longest test should go first, to favor running tests in parallel
-    'feature_abortnode.py',
-    'feature_blocksdir.py',
-    'feature_filelock.py',
-    'feature_help.py',
+    'p2p_permissions.py',
     'feature_logging.py',
     'feature_proxy.py',
     'feature_rbf.py',
     'feature_reindex.py',
     'feature_shutdown.py',
     'feature_uacomment.py',
-
-    'interface_bitcoin_cli.py',
-    'interface_http.py',
-    'interface_rpc.py',
-
-    'mining_getblocktemplate_longpoll.py',
-
-    'p2p_feefilter.py',
-    'p2p_invalid_messages.py',
-    'p2p_leak.py',
-    'p2p_leak_tx.py',
-    'p2p_mempool.py',
-    'p2p_timeouts.py',
 
     'rpc_decodescript.py',
     'rpc_deprecated.py',
@@ -203,6 +181,28 @@ BASE_SCRIPTS = [
     'wallet_listtransactions.py',
     'wallet_watchonly.py',
     'wallet_zapwallettxes.py',
+]
+
+BASE_SCRIPTS = [
+    # Scripts that are run by default.
+    # Longest test should go first, to favor running tests in parallel
+    'feature_abortnode.py',
+    'feature_blocksdir.py',
+    'feature_filelock.py',
+    'feature_help.py',
+
+    'interface_bitcoin_cli.py',
+    'interface_http.py',
+    'interface_rpc.py',
+
+    'mining_getblocktemplate_longpoll.py',
+
+    'p2p_feefilter.py',
+    'p2p_invalid_messages.py',
+    'p2p_leak.py',
+    'p2p_leak_tx.py',
+    'p2p_mempool.py',
+    'p2p_timeouts.py',
 
     # 'wallet_hd.py',
     # 'wallet_backup.py',
