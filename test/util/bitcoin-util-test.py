@@ -10,14 +10,14 @@ Runs automatically during `make check`.
 Can also be run manually."""
 
 import argparse
-import binascii
+#import binascii # TODO: (temp) it's used in bctest
 import configparser
-import difflib
+#import difflib # TODO: (temp) it's used in bctest
 import json
 import logging
 import os
 import pprint
-import subprocess
+#import subprocess  # TODO: (temp) it's used in bctest
 import sys
 
 def main():
