@@ -287,12 +287,15 @@ public:
 
         // owner base58, operator base58
         vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
+        vMasternodes.push_back({"7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", "773MiaEtQK2HAwWj55gyuRiU8tSwowRTTW"});
+        vMasternodes.push_back({"75Wramp2iARchHedXcn1qRkQtMpSt9Mi3V", "7Ku81yvqbPkxpWjZpZWZZnWydXyzJozZfN"});
+        vMasternodes.push_back({"7LfqHbyh9dBQDjWB6MxcWvH2PBC5iY4wPa", "75q6ftr3QGfBT3DBu15fVfetP6duAgfhNH"});
 
-        genesis = CreateGenesisBlock(1297994616, 0x207fffff, 1, 50 * COIN, CreateGenesisMasternodes()); // 0x1e0fffff
+        genesis = CreateGenesisBlock(1297053593, 0x207fffff, 1, 50 * COIN, CreateGenesisMasternodes()); // 0x1e0fffff
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("0x000003c3f00c4222f32de9afe32aa760b09f52edb54c6b61454a1fcf772bb380"));
-        assert(genesis.hashMerkleRoot == uint256S("0x15f74c6ddf938f37af6ae5646693f9d89bb064e93291d2247ab4bccadc34c2e0"));
+        assert(consensus.hashGenesisBlock == uint256S("0x00000e04e92efbd4a99b9f38abd22bc1e97651ab194a72a6390687f99c4d1555"));
+        assert(genesis.hashMerkleRoot == uint256S("0xc4b5095034837015551b4ef0eb56eab6706b3d102cc44a910c0eee084932ef5b"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
