@@ -159,6 +159,7 @@ class FullBlockTest(BitcoinTestFramework):
                 self.sign_tx(badtx, attempt_spend_tx)
             badtx.rehash()
             badblock = self.update_block(blockname, [badtx])
+
             self.send_blocks(
                 [badblock], success=False,
                 reject_reason=(template.block_reject_reason or template.reject_reason),
@@ -628,14 +629,15 @@ class FullBlockTest(BitcoinTestFramework):
         self.blocks[46] = b46
         self.send_blocks([b46], success=False, reject_reason='bad-blk-length', reconnect=True)
 
-        self.log.info("Reject a block with invalid work")
-        self.move_tip(44)
-        b47 = self.next_block(47, solve=False)
-        target = uint256_from_compact(b47.nBits)
-        while b47.sha256 < target:
-            b47.nNonce += 1
-            b47.rehash()
-        self.send_blocks([b47], False, force_send=True, reject_reason='high-hash', reconnect=True)
+        # Disabled due to POS complexity emulation
+        # self.log.info("Reject a block with invalid work")
+        # self.move_tip(44)
+        # b47 = self.next_block(47, solve=False)
+        # target = uint256_from_compact(b47.nBits)
+        # while b47.sha256 < target:
+        #     b47.stakeModifier += 1
+        #     b47.rehash()
+        # self.send_blocks([b47], False, force_send=True, reject_reason='high-hash', reconnect=True)
 
         self.log.info("Reject a block with a timestamp >2 hours in the future")
         self.move_tip(44)

@@ -218,9 +218,6 @@ class WalletTest(BitcoinTestFramework):
         node_0_bal = self.check_fee_amount(self.nodes[0].getbalance(), node_0_bal + Decimal('10'), fee_per_byte, self.get_vsize(self.nodes[2].gettransaction(txid)['hex']))
 
         self.start_node(3)
-        print (self.nodes[0].getblockcount())
-        print (self.nodes[3].getblockcount())
-        input ("Pause...")
         connect_nodes_bi(self.nodes, 0, 3)
         self.sync_all()
 
@@ -314,7 +311,8 @@ class WalletTest(BitcoinTestFramework):
         assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].sendtoaddress, self.nodes[2].getnewaddress(), "1f-4")
 
         # This will raise an exception since generate does not accept a string
-        assert_raises_rpc_error(-1, "not an integer", self.nodes[0].generate, "2")
+        # we have no more "generate" rpc
+        # assert_raises_rpc_error(-1, "not an integer", self.nodes[0].generate, "2") 
 
         # This will raise an exception for the invalid private key format
         assert_raises_rpc_error(-5, "Invalid private key encoding", self.nodes[0].importprivkey, "invalid")

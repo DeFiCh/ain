@@ -5,7 +5,8 @@
 """Test the listsincelast RPC."""
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_array_result, assert_raises_rpc_error
+from test_framework.test_node import TestNode
+from test_framework.util import assert_equal, assert_array_result, assert_raises_rpc_error, set_node_times
 
 class ListSinceBlockTest (BitcoinTestFramework):
     def set_test_params(self):
@@ -17,6 +18,7 @@ class ListSinceBlockTest (BitcoinTestFramework):
 
     def run_test(self):
         self.nodes[2].generate(101)
+        # set_node_times(self.nodes, TestNode.Mocktime)
         self.sync_all()
 
         self.test_no_blockhash()
@@ -38,15 +40,15 @@ class ListSinceBlockTest (BitcoinTestFramework):
             "confirmations": 1,
         })
         assert_equal(
-            self.nodes[0].listsinceblock(),
-            {"lastblock": blockhash,
+            sorted(self.nodes[0].listsinceblock()),
+            sorted({"lastblock": blockhash,
              "removed": [],
-             "transactions": txs})
+             "transactions": txs}))
         assert_equal(
-            self.nodes[0].listsinceblock(""),
-            {"lastblock": blockhash,
+            sorted(self.nodes[0].listsinceblock("")),
+            sorted({"lastblock": blockhash,
              "removed": [],
-             "transactions": txs})
+             "transactions": txs}))
 
     def test_invalid_blockhash(self):
         assert_raises_rpc_error(-5, "Block not found", self.nodes[0].listsinceblock,
