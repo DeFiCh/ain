@@ -11,11 +11,13 @@ and that it responds to getdata requests for blocks correctly:
 from test_framework.messages import CInv, msg_getdata, msg_verack, NODE_NETWORK_LIMITED, NODE_WITNESS
 from test_framework.mininode import P2PInterface, mininode_lock
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_node import TestNode
 from test_framework.util import (
     assert_equal,
     disconnect_nodes,
     connect_nodes_bi,
     wait_until,
+    set_node_times,
 )
 
 
@@ -38,7 +40,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
-        self.extra_args = [['-prune=550', '-addrmantest'], [], []]
+        self.extra_args = [['-prune=550', '-addrmantest', '-dummypos=1'], ['-dummypos=1'], ['-dummypos=1']]
 
     def disconnect_all(self):
         disconnect_nodes(self.nodes[0], 1)
@@ -67,6 +69,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
         self.log.info("Mine enough blocks to reach the NODE_NETWORK_LIMITED range.")
         connect_nodes_bi(self.nodes, 0, 1)
         blocks = self.nodes[1].generate(292)
+        set_node_times(self.nodes, TestNode.Mocktime)
         self.sync_blocks([self.nodes[0], self.nodes[1]])
 
         self.log.info("Make sure we can max retrieve block at tip-288.")

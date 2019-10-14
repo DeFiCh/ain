@@ -296,9 +296,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.start_nodes()
 
         self.import_deterministic_coinbase_privkeys()
-
-        self.mocktime = self.nodes[0].getblockheader(self.nodes[0].getbestblockhash())["time"]  + 1
-        set_node_times(self.nodes, self.mocktime)
+        # TestNode.Mocktime = int(time.time())
 
         if not self.setup_clean_chain:
             for n in self.nodes:
@@ -307,6 +305,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # must have a timestamp not too old (see IsInitialBlockDownload()).
             self.log.debug('Generate a block with current time')
             # block_hash = self.nodes[0].generate(1)[0]
+            # TestNode.Mocktime = int(time.time())
             self.nodes[0].generate(1)
             block_hash = self.nodes[0].getbestblockhash()
 
@@ -326,24 +325,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 assert str(e).startswith('Method not found')
                 continue
 
-            n.importprivkey(privkey=n.get_genesis_keys().ownerPrivKey, label='coinbase')
-            n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase')
-
-    # def gen_mt(self, count=1, node_id=0, address=None):
-    #     if address is None:
-    #         address = self.nodes[node_id].get_genesis_keys().operatorAuthAddress
-
-    #     minted = 0
-    #     while minted < count:
-    #         # minted += node.mint(1, 1)
-    #         self.nodes[node_id].setmocktime(self.mocktime)
-
-    #         minted += self.nodes[node_id].generatetoaddress(1, address)
-    #         self.mocktime += 2 # 2s per try
-
-    #         # set time only for one node!!!
-    #         self.nodes[node_id].setmocktime(self.mocktime)
-    #         # set_node_times(self.nodes, self.mocktime)
+            n.importprivkey(privkey=n.get_genesis_keys().ownerPrivKey, label='coinbase', rescan=True)
+            n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase', rescan=True)
 
     def run_test(self):
         """Tests must override this method to define test logic"""
@@ -391,6 +374,9 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
         node.start(*args, **kwargs)
         node.wait_for_rpc_connection()
+
+        if not TestNode.Mocktime is None:
+            node.setmocktime(TestNode.Mocktime)
 
         if self.options.coveragedir is not None:
             coverage.write_all_rpc_commands(self.options.coveragedir, node.rpc)
@@ -454,10 +440,19 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_all()
 
+    def sync_mocktimes(self, nodes):
+        for node in nodes:
+            if node.running and not TestNode.Mocktime is None:
+                node.setmocktime(TestNode.Mocktime)
+
     def sync_blocks(self, nodes=None, **kwargs):
+        # self.sync_mocktimes(nodes or self.nodes)
+        # [ node.setmocktime(0) for node in (nodes or self.nodes) ]
         sync_blocks(nodes or self.nodes, **kwargs)
 
     def sync_mempools(self, nodes=None, **kwargs):
+        # self.sync_mocktimes(nodes or self.nodes)
+        # [ node.setmocktime(0) for node in (nodes or self.nodes) ]
         sync_mempools(nodes or self.nodes, **kwargs)
 
     def sync_all(self, nodes=None, **kwargs):
@@ -504,12 +499,11 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         cache_node_dir = get_datadir_path(self.options.cachedir, CACHE_NODE_ID)
         assert self.num_nodes <= MAX_NODES
 
-        print (cache_node_dir)
+        self.log.info("This test uses premined chain")
         if not os.path.isdir(cache_node_dir):
             self.log.debug("Creating cache directory {}".format(cache_node_dir))
 
             initialize_datadir(self.options.cachedir, CACHE_NODE_ID, self.chain)
-            print (len(self.nodes))
             self.nodes.append(
                 TestNode(
                     CACHE_NODE_ID,

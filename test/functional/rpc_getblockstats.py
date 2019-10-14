@@ -42,7 +42,7 @@ class GetblockstatsTest(BitcoinTestFramework):
         self.nodes[0].setmocktime(mocktime)
         self.nodes[0].generate(101)
 
-        address = self.nodes[0].get_genesis_keys().address
+        address = self.nodes[0].get_genesis_keys().operatorAuthAddress
         self.nodes[0].sendtoaddress(address=address, amount=10, subtractfeefromamount=True)
         self.nodes[0].generate(1)
         self.sync_all()

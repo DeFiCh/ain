@@ -126,6 +126,7 @@ class MultiWalletTest(BitcoinTestFramework):
         self.start_node(0, ['-wallet=w4', '-wallet=w5'])
         assert_equal(set(node.listwallets()), {"w4", "w5"})
         w5 = wallet("w5")
+        w5.importprivkey(privkey=node.get_genesis_keys().operatorPrivKey)
         node.generate(nblocks=1, address=w5.getnewaddress())
 
         # now if wallets/ exists again, but the rootdir is specified as the walletdir, w4 and w5 should still be loaded
