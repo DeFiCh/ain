@@ -92,8 +92,8 @@ class ToolWalletTest(BitcoinTestFramework):
             Encrypted: no
             HD (hd seed available): yes
             Keypool Size: 2
-            Transactions: 0
-            Address Book: 3
+            Transactions: 1
+            Address Book: 6
         ''')
         self.assert_tool_output(out, '-wallet=wallet.dat', 'info')
         timestamp_after = self.wallet_timestamp()
@@ -131,8 +131,8 @@ class ToolWalletTest(BitcoinTestFramework):
             Encrypted: no
             HD (hd seed available): yes
             Keypool Size: 2
-            Transactions: 1
-            Address Book: 3
+            Transactions: 2
+            Address Book: 6
         ''')
         self.assert_tool_output(out, '-wallet=wallet.dat', 'info')
         shasum_after = self.wallet_shasum()

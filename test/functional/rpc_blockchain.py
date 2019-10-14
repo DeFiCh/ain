@@ -67,7 +67,7 @@ class BlockchainTest(BitcoinTestFramework):
     def mine_chain(self):
         self.log.info('Create some old blocks')
         address = self.nodes[0].get_genesis_keys().operatorAuthAddress
-        for t in range(TIME_GENESIS_BLOCK, TIME_GENESIS_BLOCK + 200 * 600, 600):
+        for t in range(TIME_GENESIS_BLOCK+1, TIME_GENESIS_BLOCK + 200 * 600 +1, 600):
             # ten-minute steps from genesis block time
             self.nodes[0].setmocktime(t)
             self.nodes[0].generatetoaddress(1, address)
@@ -171,7 +171,7 @@ class BlockchainTest(BitcoinTestFramework):
 
         chaintxstats = self.nodes[0].getchaintxstats(nblocks=1)
         # 200 txs plus genesis tx
-        assert_equal(chaintxstats['txcount'], 201)
+        assert_equal(chaintxstats['txcount'], 201 +8) # +8 due to genesis mn txs
         # tx rate should be 1 per 10 minutes, or 1/600
         # we have to round because of binary math
         assert_equal(round(chaintxstats['txrate'] * 600, 10), Decimal(1))
@@ -184,7 +184,7 @@ class BlockchainTest(BitcoinTestFramework):
 
         chaintxstats = self.nodes[0].getchaintxstats()
         assert_equal(chaintxstats['time'], b200['time'])
-        assert_equal(chaintxstats['txcount'], 201)
+        assert_equal(chaintxstats['txcount'], 201 +8) # +8 due to genesis mn txs
         assert_equal(chaintxstats['window_final_block_hash'], b200_hash)
         assert_equal(chaintxstats['window_final_block_height'], 200)
         assert_equal(chaintxstats['window_block_count'], 199)
@@ -194,7 +194,7 @@ class BlockchainTest(BitcoinTestFramework):
 
         chaintxstats = self.nodes[0].getchaintxstats(blockhash=b1_hash)
         assert_equal(chaintxstats['time'], b1['time'])
-        assert_equal(chaintxstats['txcount'], 2)
+        assert_equal(chaintxstats['txcount'], 2 +8) # +8 due to genesis mn txs
         assert_equal(chaintxstats['window_final_block_hash'], b1_hash)
         assert_equal(chaintxstats['window_final_block_height'], 1)
         assert_equal(chaintxstats['window_block_count'], 0)
@@ -263,7 +263,7 @@ class BlockchainTest(BitcoinTestFramework):
         assert_is_hash_string(header['bits'], length=None)
         assert isinstance(header['time'], int)
         assert isinstance(header['mediantime'], int)
-        assert isinstance(header['nonce'], int)
+        # assert isinstance(header['nonce'], int) # no 'nonce'!
         assert isinstance(header['version'], int)
         assert isinstance(int(header['versionHex'], 16), int)
         assert isinstance(header['difficulty'], Decimal)

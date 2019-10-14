@@ -23,12 +23,11 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         self.setup_clean_chain = True
 
     def run_test(self):
-        pprint.PrettyPrinter(indent=4)
+        pp = pprint.PrettyPrinter(indent=4)
 
-        assert_equal(len(self.nodes[0].mn_list()), 4)
+        assert_equal(len(self.nodes[0].mn_list()), 8)
         self.nodes[0].generate(100)
-        time.sleep(2)
-        self.sync_blocks()
+        self.sync_all()
 
         # Stop node #2 for future revert
         self.stop_node(2)
@@ -144,7 +143,7 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         self.nodes[2].generate(25)
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
-        assert_equal(len(self.nodes[0].mn_list()), 4)
+        assert_equal(len(self.nodes[0].mn_list()), 8)
         assert_equal(self.nodes[0].getrawmempool(), [idnode0, fundingTx, resignTx])
 
 if __name__ == '__main__':

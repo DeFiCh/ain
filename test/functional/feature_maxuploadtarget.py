@@ -47,8 +47,9 @@ class MaxUploadTest(BitcoinTestFramework):
         # Before we connect anything, we first set the time on the node
         # to be in the past, otherwise things break because the CNode
         # time counters can't be reset backward after initialization
-        old_time = int(time.time() - 2*60*60*24*7)
-        self.nodes[0].setmocktime(old_time)
+        from test_framework.test_node import TestNode
+        # TestNode.Mocktime is required now for successful 'generate'
+        TestNode.Mocktime = int(time.time() - 2*60*60*24*7)
 
         # Generate some old blocks
         self.nodes[0].generate(130)
@@ -70,7 +71,7 @@ class MaxUploadTest(BitcoinTestFramework):
         big_old_block = int(big_old_block, 16)
 
         # Advance to two days ago
-        self.nodes[0].setmocktime(int(time.time()) - 2*60*60*24)
+        TestNode.Mocktime = int(time.time()) - 2*60*60*24
 
         # Mine one more block, so that the prior block looks old
         mine_large_block(self.nodes[0], self.utxo_cache)
@@ -129,6 +130,7 @@ class MaxUploadTest(BitcoinTestFramework):
 
         # If we advance the time by 24 hours, then the counters should reset,
         # and p2p_conns[2] should be able to retrieve the old block.
+        # 'setmocktime' here (instead of TestNode.Mocktime) due to no 'generate' after it
         self.nodes[0].setmocktime(int(time.time()))
         p2p_conns[2].sync_with_ping()
         p2p_conns[2].send_message(getdata_request)
