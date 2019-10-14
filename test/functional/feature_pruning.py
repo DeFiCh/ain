@@ -59,7 +59,6 @@ def mine_large_blocks(node, n):
         block.hashPrevBlock = previousblockhash
         block.nTime = mine_large_blocks.nTime
         block.nBits = int('207fffff', 16)
-        # block.nNonce = 0
         block.vtx = [coinbase_tx]
         block.hashMerkleRoot = block.calc_merkle_root()
         block.solve()
@@ -112,7 +111,7 @@ class PruneTest(BitcoinTestFramework):
         self.add_nodes(self.num_nodes, self.extra_args)
         self.start_nodes()
         for n in self.nodes:
-            n.importprivkey(privkey=n.get_genesis_keys().key, label='coinbase', rescan=False)
+            n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase', rescan=False)
 
     def create_big_chain(self):
         # Start by creating some coinbases we can spend later
@@ -191,6 +190,7 @@ class PruneTest(BitcoinTestFramework):
         disconnect_nodes(self.nodes[1], 2)
 
         self.log.info("Generating new longer chain of 300 more blocks")
+        self.nodes[1].pullup_mocktime() # Pull mocktime to last block due to previous manual block submitting
         self.nodes[1].generate(300)
 
         self.log.info("Reconnect nodes")
