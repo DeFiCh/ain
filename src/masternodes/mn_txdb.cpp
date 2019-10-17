@@ -19,6 +19,38 @@ static const char DB_MASTERNODESUNDO = 'U'; // undo table
 static const char DB_MN_HEIGHT = 'H';       // single record with last processed chain height
 static const char DB_PRUNE_HEIGHT = 'P';    // single record with pruned height (for validation of reachable data window)
 
+static const char DB_MN_BLOCK_HEADERS = 'h';
+
+struct DBMNBlockHeadersSearchKey {
+    uint256 masternodeID;
+    uint64_t mintedBlocks;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(masternodeID);
+        READWRITE(mintedBlocks);
+    }
+};
+
+struct DBMNBlockHeadersKey {
+    char prefix;
+    DBMNBlockHeadersSearchKey searchKey;
+    uint256 blockHash;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(prefix);
+        READWRITE(searchKey);
+        READWRITE(blockHash);
+    }
+};
+
 CMasternodesViewDB::CMasternodesViewDB(size_t nCacheSize, bool fMemory, bool fWipe)
     : db(new CDBWrapper(GetDataDir() / "masternodes", nCacheSize, fMemory, fWipe))
 {
@@ -63,6 +95,58 @@ void CMasternodesViewDB::EraseMasternode(uint256 const & txid)
 {
     BatchErase(make_pair(DB_MASTERNODES, txid));
 }
+
+void CMasternodesViewDB::WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader)
+{
+    BatchWrite(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash}, blockHeader);
+}
+
+bool CMasternodesViewDB::FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders)
+{
+    if (blockHeaders.size() != 0) {
+        blockHeaders.clear();
+    }
+
+    pair<char, DBMNBlockHeadersSearchKey> prefix{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}};
+    boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
+    pcursor->Seek(prefix);
+
+    while (pcursor->Valid())
+    {
+        boost::this_thread::interruption_point();
+        DBMNBlockHeadersKey key;
+        if (pcursor->GetKey(key) &&
+            key.prefix == DB_MN_BLOCK_HEADERS &&
+            key.searchKey.masternodeID == txid &&
+            key.searchKey.mintedBlocks == mintedBlocks) {
+            CBlockHeader blockHeader;
+            if (pcursor->GetValue(blockHeader)) {
+                blockHeaders.emplace(key.blockHash, std::move(blockHeader));
+            } else {
+                return error("MNDB::FoundMintedBlockHeader() : unable to read value");
+            }
+        } else {
+            break;
+        }
+        pcursor->Next();
+    }
+    return true;
+}
+
+void CMasternodesViewDB::EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash)
+{
+    BatchErase(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash});
+}
+
+//void CMasternodesViewDB::WriteDeadIndex(int height, uint256 const & txid, char type)
+//{
+//    BatchWrite(make_pair(make_pair(DB_PRUNEDEAD, static_cast<int32_t>(height)), txid), type);
+//}
+
+//void CMasternodesViewDB::EraseDeadIndex(int height, uint256 const & txid)
+//{
+//    BatchErase(make_pair(make_pair(DB_PRUNEDEAD, static_cast<int32_t>(height)), txid));
+//}
 
 void CMasternodesViewDB::WriteUndo(int height, CMnTxsUndo const & undo)
 {
