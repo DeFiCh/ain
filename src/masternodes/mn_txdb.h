@@ -17,6 +17,8 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 
+class CBlockHeader;
+
 /** Access to the masternodes database (masternodes/) */
 class CMasternodesViewDB : public CMasternodesView
 {
@@ -92,6 +94,13 @@ protected:
 
     void WriteMasternode(uint256 const & txid, CMasternode const & node);
     void EraseMasternode(uint256 const & txid);
+
+    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader);
+    bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders);
+    void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash);
+
+//    void WriteDeadIndex(int height, uint256 const & txid, char type);
+//    void EraseDeadIndex(int height, uint256 const & txid);
 
     void WriteUndo(int height, CMnTxsUndo const & undo);
     void EraseUndo(int height);
