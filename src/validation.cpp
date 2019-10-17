@@ -3383,6 +3383,27 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
         if (!fIsFakeNet && !pos::ContextualCheckProofOfStake(block, chainparams.GetConsensus(), pmasternodesview.get())) {
             return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: Consensus::ContextualCheckProofOfStake: block %s: bad-pos-header (MN not exist or can't stake)", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
         }
+
+        // Add MintedBlockHeader entity to DB
+        CKeyID mintersKey;
+        if (!block.ExtractMinterKey(mintersKey)) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: minters key for external blockHeader not found", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
+        }
+        auto it = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
+        if (!it) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: active masternode for external blockHeader not found", __func__, hash.ToString()), REJECT_INVALID, " ");
+        }
+        auto const & nodeId = (*it)->second;
+
+        std::map<uint256, CBlockHeader> blockHeaders{};
+
+        pmasternodesview->FindMintedBlockHeader(nodeId, block.mintedBlocks, blockHeaders);
+
+        auto existingBlockHeader = blockHeaders.find(hash);
+        if (existingBlockHeader == blockHeaders.end()) {
+            pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block);
+        }
+
         // Get prev block index
         CBlockIndex* pindexPrev = nullptr;
         BlockMap::iterator mi = m_block_index.find(block.hashPrevBlock);
