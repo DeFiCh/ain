@@ -23,6 +23,9 @@ class CBlockHeader;
 
 static const std::vector<unsigned char> MnTxMarker = {'M', 'n', 'T', 'x'};  // 4d6e5478
 
+static const unsigned int DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL = 100;
+
+
 enum class MasternodesTxType : unsigned char
 {
     None = 0,
@@ -129,6 +132,8 @@ public:
     };
     typedef std::map<int, std::pair<uint256, MasternodesTxType> > CMnTxsUndo; // txn, undoRec
     typedef std::map<int, CMnTxsUndo> CMnBlocksUndo;
+    typedef std::map<uint256, std::pair<CBlockHeader, CBlockHeader>> CMnCriminals;
+//    typedef std::map<int, CTeam> CTeams;
 
     enum class AuthIndex { ByOwner, ByOperator };
 
@@ -137,6 +142,8 @@ protected:
     CMasternodes allNodes;
     CMasternodesByAuth nodesByOwner;
     CMasternodesByAuth nodesByOperator;
+
+    CMnCriminals criminals;
 
     CMnBlocksUndo blocksUndo;
 
@@ -192,6 +199,11 @@ public:
         return allNodes;
     }
 
+    virtual CMnCriminals GetCriminals() const
+    {
+        return criminals;
+    }
+
     //! Initial load of all data
     virtual bool Load() { assert(false); }
     virtual bool Flush() { assert(false); }
@@ -213,6 +225,14 @@ public:
     CMasternodesViewCache OnUndoBlock(int height);
 
     void PruneOlder(int height);
+
+//    bool IsTeamMember(int height, CKeyID const & operatorAuth) const;
+//    CTeam CalcNextDposTeam(CActiveMasternodes const & activeNodes, CMasternodes const & allNodes, uint256 const & blockHash, int height);
+//    virtual CTeam const & ReadDposTeam(int height) const;
+
+    bool CheckDoubleSignProof(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
+    void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
+    CMasternodesView::CMnCriminals::iterator RemoveMasternodeFromCriminals(CMnCriminals::iterator it);
 
 protected:
     virtual CMnBlocksUndo::mapped_type const & GetBlockUndo(CMnBlocksUndo::key_type key) const;

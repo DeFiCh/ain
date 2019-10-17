@@ -323,6 +323,25 @@ void CMasternodesView::PruneOlder(int height)
 //    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
 }
 
+bool CMasternodesView::CheckDoubleSignProof(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)
+{
+    if (fabs(oneHeader.height - twoHeader.height) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL &&
+        oneHeader.GetHash() != twoHeader.GetHash()) {
+        return false;
+    }
+    return true;
+}
+
+void CMasternodesView::MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader)
+{
+    criminals.emplace(std::make_pair(id, std::make_pair(blockHeader, conflictBlockHeader)));
+}
+
+CMasternodesView::CMnCriminals::iterator CMasternodesView::RemoveMasternodeFromCriminals(CMnCriminals::iterator it)
+{
+    return criminals.erase(it);
+}
+
 boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmI(AuthIndex where) const
 {
     std::string addressBase58 = (where == AuthIndex::ByOperator) ? gArgs.GetArg("-masternode_operator", "") : gArgs.GetArg("-masternode_owner", "");
