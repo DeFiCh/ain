@@ -3404,6 +3404,12 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block);
         }
 
+        for (std::pair<uint256, CBlockHeader> blockHeader : blockHeaders) {
+            if(!pmasternodesview->CheckDoubleSignProof(block, blockHeader.second)) {
+                pmasternodesview->MarkMasternodeAsCriminals(blockHeader.first, block, blockHeader.second);
+            }
+        }
+
         // Get prev block index
         CBlockIndex* pindexPrev = nullptr;
         BlockMap::iterator mi = m_block_index.find(block.hashPrevBlock);
