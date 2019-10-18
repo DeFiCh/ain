@@ -22,8 +22,6 @@ static const std::map<char, MasternodesTxType> MasternodesTxTypeToCode =
     {'R', MasternodesTxType::ResignMasternode }
 };
 
-//extern CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams); // in main.cpp
-
 int GetMnActivationDelay()
 {
     return Params().GetConsensus().mn.activationDelay;
@@ -53,8 +51,6 @@ CAmount GetMnCollateralAmount()
 CAmount GetMnCreationFee(int height)
 {
     return Params().GetConsensus().mn.creationFee;
-
-//    CAmount blockSubsidy = GetBlockSubsidy(height, Params().GetConsensus());
 }
 
 CMasternode::CMasternode()
@@ -222,7 +218,6 @@ bool CMasternodesView::OnMasternodeCreate(uint256 const & nodeId, CMasternode co
     nodesByOwner[node.ownerAuthAddress] = nodeId;
     nodesByOperator[node.operatorAuthAddress] = nodeId;
 
-//    blocksUndo[std::make_pair(node.height, txn)] = std::make_pair(nodeId, MasternodesTxType::CreateMasternode);
     blocksUndo[node.creationHeight][txn] = std::make_pair(nodeId, MasternodesTxType::CreateMasternode);
 
     return true;
@@ -241,7 +236,6 @@ bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const 
     allNodes[nodeId].resignTx = txid;
     allNodes[nodeId].resignHeight = height;
 
-//    blocksUndo[std::make_pair(height, txn)] = std::make_pair(nodeId, MasternodesTxType::ResignMasternode);
     blocksUndo[height][txn] = std::make_pair(nodeId, MasternodesTxType::ResignMasternode);
 
     return true;
@@ -301,55 +295,6 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
     return backup; // it is new value diff for height+1
 }
 
-//bool CMasternodesView::OnConnectBlock(int height, const CKeyID & minter)
-//{
-//    lastHeight = height;
-
-//    auto nodePtr = ExistMasternode(minter);
-//    assert(nodePtr);
-
-//    if (nodePtr)
-//    {
-//        allNodes[minter] = *nodePtr; // !! cause may be cached!
-//        ++allNodes[minter].mintedBlocks;
-
-//        return true;
-//    }
-//    return false;
-//}
-
-
-//bool CMasternodesView::IsTeamMember(int height, CKeyID const & operatorAuth) const
-//{
-//    CTeam const & team = ReadDposTeam(height);
-//    for (auto const & member : team)
-//    {
-//        if (member.second.operatorAuth == operatorAuth)
-//            return true;
-//    }
-//    return false;
-//}
-
-//CTeam const & CMasternodesView::ReadDposTeam(int height) const
-//{
-//    static CTeam const Empty{};
-
-//    auto const it = teams.find(height);
-//    if (it != teams.end())
-//        return it->second;
-
-//    // Nothing to complain here, cause teams not exists before dPoS activation!
-////    LogPrintf("MN ERROR: Fail to get team at height %d! May be already pruned!\n", height);
-//    return Empty;
-//}
-
-//void CMasternodesView::WriteDposTeam(int height, const CTeam & team)
-//{
-//    assert(height >= 0);
-//    teams[height] = team;
-//}
-
-
 /// Call it only for "clear" and "full" (not cached) view
 void CMasternodesView::PruneOlder(int height)
 {
@@ -376,8 +321,6 @@ void CMasternodesView::PruneOlder(int height)
 
 //    // erase undo info
 //    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
-//    // erase old teams info
-////    teams.erase(teams.begin(), teams.lower_bound(height));
 }
 
 boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmI(AuthIndex where) const
@@ -410,26 +353,6 @@ boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmIOwner() c
     return AmI(AuthIndex::ByOwner);
 }
 
-//boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmIActiveOperator() const
-//{
-//    auto result = AmI(AuthIndex::ByOperator);
-//    if (result && ExistMasternode(result->id)->IsActive())
-//    {
-//        return result;
-//    }
-//    return {};
-//}
-
-//boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmIActiveOwner() const
-//{
-//    auto result = AmI(AuthIndex::ByOwner);
-//    if (result && ExistMasternode(result->id)->IsActive())
-//    {
-//        return result;
-//    }
-//    return {};
-//}
-
 void CMasternodesView::ApplyCache(const CMasternodesView * cache)
 {
     lastHeight = cache->lastHeight;
@@ -459,7 +382,6 @@ void CMasternodesView::Clear()
     nodesByOperator.clear();
 
     blocksUndo.clear();
-//    teams.clear();
 }
 
 CMasternodesViewHistory & CMasternodesViewHistory::GetState(int targetHeight)
@@ -470,7 +392,6 @@ CMasternodesViewHistory & CMasternodesViewHistory::GetState(int targetHeight)
     if (lastHeight > targetHeight)
     {
         // go backward (undo)
-
         for (; lastHeight > targetHeight; )
         {
             auto it = historyDiff.find(lastHeight);
