@@ -31,7 +31,6 @@ from .util import (
     initialize_datadir,
     sync_blocks,
     sync_mempools,
-    set_node_times,
 )
 
 
@@ -100,7 +99,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.supports_cli = False
         self.bind_to_localhost_only = True
         self.set_test_params()
-        self.mocktime = 0
 
         assert hasattr(self, "num_nodes"), "Test must set self.num_nodes in set_test_params()"
 
@@ -375,7 +373,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         node.start(*args, **kwargs)
         node.wait_for_rpc_connection()
 
-        if not TestNode.Mocktime is None:
+        if TestNode.Mocktime is not None:
             node.setmocktime(TestNode.Mocktime)
 
         if self.options.coveragedir is not None:
@@ -440,19 +438,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_all()
 
-    def sync_mocktimes(self, nodes):
-        for node in nodes:
-            if node.running and not TestNode.Mocktime is None:
-                node.setmocktime(TestNode.Mocktime)
-
     def sync_blocks(self, nodes=None, **kwargs):
-        # self.sync_mocktimes(nodes or self.nodes)
-        # [ node.setmocktime(0) for node in (nodes or self.nodes) ]
         sync_blocks(nodes or self.nodes, **kwargs)
 
     def sync_mempools(self, nodes=None, **kwargs):
-        # self.sync_mocktimes(nodes or self.nodes)
-        # [ node.setmocktime(0) for node in (nodes or self.nodes) ]
         sync_mempools(nodes or self.nodes, **kwargs)
 
     def sync_all(self, nodes=None, **kwargs):
@@ -526,9 +515,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.nodes[CACHE_NODE_ID].importprivkey(privkey=self.nodes[CACHE_NODE_ID].get_genesis_keys().ownerPrivKey, label='coinbase')
             self.nodes[CACHE_NODE_ID].importprivkey(privkey=self.nodes[CACHE_NODE_ID].get_genesis_keys().operatorPrivKey, label='coinbase')
 
-            # self.mocktime = self.nodes[CACHE_NODE_ID].getblockheader(self.nodes[CACHE_NODE_ID].getbestblockhash())["time"]  + 1
-            # self.nodes[CACHE_NODE_ID].setmocktime(self.mocktime)
-
             # Create a 199-block-long chain; each of the 4 first nodes
             # gets 25 mature blocks and 25 immature.
             # The 4th node gets only 24 immature blocks so that the very last
@@ -536,7 +522,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # This is needed so that we are out of IBD when the test starts,
             # see the tip age check in IsInitialBlockDownload().
             for i in range(8):
-                # self.gen_mt(count=25 if i != 7 else 24, node_id=CACHE_NODE_ID, address=TestNode.PRIV_KEYS[i % 4].operatorAuthAddress)
                 self.nodes[CACHE_NODE_ID].generate(
                     nblocks=25 if i != 7 else 24,
                     address=TestNode.PRIV_KEYS[i % 4].operatorAuthAddress,

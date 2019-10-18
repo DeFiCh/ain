@@ -312,7 +312,7 @@ class WalletTest(BitcoinTestFramework):
 
         # This will raise an exception since generate does not accept a string
         # we have no more "generate" rpc
-        # assert_raises_rpc_error(-1, "not an integer", self.nodes[0].generate, "2") 
+        # assert_raises_rpc_error(-1, "not an integer", self.nodes[0].generate, "2")
 
         # This will raise an exception for the invalid private key format
         assert_raises_rpc_error(-5, "Invalid private key encoding", self.nodes[0].importprivkey, "invalid")

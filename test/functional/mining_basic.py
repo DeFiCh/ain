@@ -9,7 +9,6 @@
 - submitblock"""
 
 import copy
-from decimal import Decimal
 
 from test_framework.blocktools import (
     create_coinbase,
@@ -51,7 +50,7 @@ class MiningTest(BitcoinTestFramework):
             self.nodes[0].setmocktime(t)
             self.nodes[0].generatetoaddress(1, address)
 
-        # We have no RPC 'getmininginfo'! 
+        # We have no RPC 'getmininginfo'!
         # mining_info = self.nodes[0].getmininginfo()
         # assert_equal(mining_info['blocks'], 200)
         # assert_equal(mining_info['currentblocktx'], 0)
@@ -69,7 +68,7 @@ class MiningTest(BitcoinTestFramework):
             assert_equal(result_str_1, node.submitblock(hexdata=block.serialize().hex()))
             assert_equal(result_str_2, node.submitblock(hexdata=block.serialize().hex()))
 
-        # We have no RPC 'getmininginfo'! 
+        # We have no RPC 'getmininginfo'!
         # self.log.info('getmininginfo')
         # mining_info = node.getmininginfo()
         # assert_equal(mining_info['blocks'], 200)

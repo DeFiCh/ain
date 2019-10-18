@@ -380,7 +380,7 @@ def submit_block_with_tx(node, tx):
     block.hashMerkleRoot = block.calc_merkle_root()
     add_witness_commitment(block)
     block.solve()
-    res = node.submitblock(block.serialize().hex())
+    node.submitblock(block.serialize().hex())
     return block
 
 def test_no_more_inputs_fails(rbf_node, dest_address):
