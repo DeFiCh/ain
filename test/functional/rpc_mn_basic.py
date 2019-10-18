@@ -84,7 +84,6 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
 
         # RESIGNING:
         #========================
-
         # Fail to resign: Forget to place params in config
         try:
             self.nodes[0].mn_resign([], idnode0)

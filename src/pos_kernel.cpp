@@ -3,6 +3,8 @@
 #include <arith_uint256.h>
 #include <key.h>
 
+extern CAmount GetMnCollateralAmount(); // from masternodes.h
+
 namespace pos {
     uint256 CalcKernelHash(uint256 stakeModifier, int64_t coinstakeTime, uint256 masternodeID, const Consensus::Params& params) {
         // Calculate hash
