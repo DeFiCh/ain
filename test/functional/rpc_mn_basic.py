@@ -14,17 +14,12 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
-import pprint
-import time
-
 class MasternodesRpcBasicTest (BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
 
     def run_test(self):
-        pp = pprint.PrettyPrinter(indent=4)
-
         assert_equal(len(self.nodes[0].mn_list()), 8)
         self.nodes[0].generate(100)
         self.sync_all()

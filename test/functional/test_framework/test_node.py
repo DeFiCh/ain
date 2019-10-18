@@ -130,23 +130,6 @@ class TestNode():
     ]
     Mocktime = None
 
-    # AddressKeyPair = collections.namedtuple('AddressKeyPair', ['address', 'key'])
-    # PRIV_KEYS = [
-    #         # address , privkey
-    #         AddressKeyPair('mjTkW3DjgyZck4KbiRusZsqTgaYTxdSz6z', 'cVpF924EspNh8KjYsfhgY96mmxvT6DgdWiTYMtMjuM74hJaU5psW'),
-    #         AddressKeyPair('msX6jQXvxiNhx3Q62PKeLPrhrqZQdSimTg', 'cUxsWyKyZ9MAQTaAhUQWJmBbSvHMwSmuv59KgxQV7oZQU3PXN3KE'),
-    #         AddressKeyPair('mnonCMyH9TmAsSj3M59DsbH8H63U3RKoFP', 'cTrh7dkEAeJd6b3MRX9bZK8eRmNqVCMH3LSUkE3dSFDyzjU38QxK'),
-    #         AddressKeyPair('mqJupas8Dt2uestQDvV2NH3RU8uZh2dqQR', 'cVuKKa7gbehEQvVq717hYcbE9Dqmq7KEBKqWgWrYBa2CKKrhtRim'),
-    #         AddressKeyPair('msYac7Rvd5ywm6pEmkjyxhbCDKqWsVeYws', 'cQDCBuKcjanpXDpCqacNSjYfxeQj8G6CAtH1Dsk3cXyqLNC4RPuh'),
-    #         AddressKeyPair('n2rnuUnwLgXqf9kk2kjvVm8R5BZK1yxQBi', 'cQakmfPSLSqKHyMFGwAqKHgWUiofJCagVGhiB4KCainaeCSxeyYq'),
-    #         AddressKeyPair('myzuPxRwsf3vvGzEuzPfK9Nf2RfwauwYe6', 'cQMpDLJwA8DBe9NcQbdoSb1BhmFxVjWD5gRyrLZCtpuF9Zi3a9RK'),
-    #         AddressKeyPair('mumwTaMtbxEPUswmLBBN3vM9oGRtGBrys8', 'cSXmRKXVcoouhNNVpcNKFfxsTsToY5pvB9DVsFksF1ENunTzRKsy'),
-    #         AddressKeyPair('mpV7aGShMkJCZgbW7F6iZgrvuPHjZjH9qg', 'cSoXt6tm3pqy43UMabY6eUTmR3eSUYFtB2iNQDGgb3VUnRsQys2k'),
-    #         AddressKeyPair('mq4fBNdckGtvY2mijd9am7DRsbRB4KjUkf', 'cN55daf1HotwBAgAKWVgDcoppmUNDtQSfb7XLutTLeAgVc3u8hik'),
-    #         AddressKeyPair('mpFAHDjX7KregM3rVotdXzQmkbwtbQEnZ6', 'cT7qK7g1wkYEMvKowd2ZrX1E5f6JQ7TM246UfqbCiyF7kZhorpX3'),
-    #         AddressKeyPair('mzRe8QZMfGi58KyWCse2exxEFry2sfF2Y7', 'cPiRWE8KMjTRxH1MWkPerhfoHFn5iHPWVK5aPqjW8NxmdwenFinJ'),
-    # ]
-
     def get_genesis_keys(self):
         """Return a deterministic priv key in base58, that only depends on the node's index"""
         assert len(self.PRIV_KEYS) == MAX_NODES
@@ -165,23 +148,16 @@ class TestNode():
         if address is None:
             address = self.get_genesis_keys().operatorAuthAddress
 
-        # if TestNode.Mocktime is None:
-        #     TestNode.Mocktime = self.getblockheader(self.getbestblockhash())["time"]  + 1
-            # TestNode.Mocktime = int(time.time())
-
         height = self.getblockcount()
         minted = 0
         mintedHashes = []
         while minted < nblocks:
-            if not TestNode.Mocktime is None:
+            if TestNode.Mocktime is not None:
                 self.setmocktime(TestNode.Mocktime + 1)
-            # self.setmocktime(self.mocktime)
             res = self.generatetoaddress(nblocks=1, address=address, maxtries=maxtries)
             if res == 1:
                 minted += 1
                 self.pullup_mocktime()
-                # TestNode.Mocktime = self.getblockheader(self.getbestblockhash())["time"] + 1 # 2s per block
-                # self.mocktime += 2 # 2s per block
                 mintedHashes.append(self.getblockhash(height+minted))
         return mintedHashes
 
@@ -295,10 +271,6 @@ class TestNode():
                     raise
             time.sleep(1.0 / poll_per_s)
         self._raise_assertion_error("Unable to connect to bitcoind")
-
-    # def generate(self, nblocks, maxtries=1000000):
-    #     self.log.debug("TestNode.generate() dispatches `generate` call to `generatetoaddress`")
-    #     return self.generatetoaddress(nblocks=nblocks, address=self.get_genesis_keys().address, maxtries=maxtries)
 
     def get_wallet_rpc(self, wallet_name):
         if self.use_cli:

@@ -6,12 +6,7 @@
 """Test the masternodes RPC.
 """
 
-# import time
-
-# from decimal import Decimal
-# import io
-
-from test_framework.blocktools import add_witness_commitment, create_block, create_coinbase 
+from test_framework.blocktools import add_witness_commitment, create_block, create_coinbase
 from test_framework.test_framework import BitcoinTestFramework
 
 class SimpleHashTest (BitcoinTestFramework):
@@ -29,12 +24,12 @@ class SimpleHashTest (BitcoinTestFramework):
         # block.vtx.append(ctx)
         block.stakeModifier = 1
         block.nHeight = height
-        block.nMintedBlocks = 100 
+        block.nMintedBlocks = 100
         block.rehash()
         block.hashMerkleRoot = block.calc_merkle_root()
         add_witness_commitment(block)
         block.solve()
-        res = node.submitblock(block.serialize().hex())
+        node.submitblock(block.serialize().hex())
 
         self.log.info("Python hash: {}".format(block.hash))
         self.log.info("C++ hash:    {}".format(node.getbestblockhash()))
