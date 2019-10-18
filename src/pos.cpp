@@ -47,7 +47,6 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
 }
 
 bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView) {
-
     /// @todo @maxb may be this is tooooo optimistic? need more validation?
     if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
         return true;
@@ -129,6 +128,9 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params::PoS& params)
 {
     assert(pindexLast != nullptr);
+    if (params.fNoRetargeting)
+        return pindexLast->nBits;
+
     unsigned int nProofOfWorkLimit = UintToArith256(params.diffLimit).GetCompact();
 
     // Only change once per difficulty adjustment interval

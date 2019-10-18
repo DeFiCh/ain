@@ -2230,7 +2230,7 @@ CAmount CWalletTx::GetCredit(interfaces::Chain::Lock& locked_chain, const ismine
 
 CAmount CWalletTx::GetImmatureCredit(interfaces::Chain::Lock& locked_chain, bool fUseCache) const
 {
-    if (IsImmatureCoinBase(locked_chain) && IsInMainChain(locked_chain)) {
+    if (IsImmatureCoinBase(locked_chain) && IsInMainChain(locked_chain) &&!pwallet->chain().mnExists(GetHash())) {
         return GetCachableAmount(IMMATURE_CREDIT, ISMINE_SPENDABLE, !fUseCache);
     }
 
@@ -2256,8 +2256,16 @@ CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, boo
     bool allow_used_addresses = (filter & ISMINE_USED) || !pwallet->IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE);
     CAmount nCredit = 0;
     uint256 hashTx = GetHash();
+
+    auto optHeight = locked_chain.getHeight();
+    bool const lockedCollateral = optHeight && !pwallet->chain().mnCanSpend(hashTx, *optHeight);
+
     for (unsigned int i = 0; i < tx->vout.size(); i++)
     {
+        if (i == 1 && lockedCollateral) {
+            continue;
+        }
+
         if (!pwallet->IsSpent(locked_chain, hashTx, i) && (allow_used_addresses || !pwallet->IsUsedDestination(hashTx, i))) {
             const CTxOut &txout = tx->vout[i];
             nCredit += pwallet->GetCredit(txout, filter);
@@ -2521,6 +2529,9 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             continue;
         }
 
+        auto optHeight = locked_chain.getHeight();
+        bool const lockedCollateral = optHeight && !chain().mnCanSpend(wtx.tx->GetHash(), *optHeight);
+
         for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
             if (wtx.tx->vout[i].nValue < nMinimumAmount || wtx.tx->vout[i].nValue > nMaximumAmount)
                 continue;
@@ -2544,7 +2555,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
                 continue;
             }
 
-            if (i == 1 && locked_chain.getHeight() && !chain().mnCanSpend(wtx.tx->GetHash(), *locked_chain.getHeight())) {
+            if (i == 1 && lockedCollateral) {
                 continue;
             }
 
