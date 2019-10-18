@@ -69,6 +69,11 @@ CMasternode::CMasternode()
 {
 }
 
+CMasternode::CMasternode(const CTransaction & tx, int heightIn, const std::vector<unsigned char> & metadata)
+{
+    FromTx(tx, heightIn, metadata);
+}
+
 void CMasternode::FromTx(CTransaction const & tx, int heightIn, std::vector<unsigned char> const & metadata)
 {
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -457,41 +462,7 @@ void CMasternodesView::Clear()
 //    teams.clear();
 }
 
-/*
- * Checks if given tx is probably one of 'MasternodeTx', returns tx type and serialized metadata in 'data'
-*/
-MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<unsigned char> & metadata)
-{
-    if (tx.vout.size() == 0)
-    {
-        return MasternodesTxType::None;
-    }
-    CScript const & memo = tx.vout[0].scriptPubKey;
-    CScript::const_iterator pc = memo.begin();
-    opcodetype opcode;
-    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN)
-    {
-        return MasternodesTxType::None;
-    }
-    if (!memo.GetOp(pc, opcode, metadata) ||
-            (opcode > OP_PUSHDATA1 &&
-             opcode != OP_PUSHDATA2 &&
-             opcode != OP_PUSHDATA4) ||
-            metadata.size() < MnTxMarker.size() + 1 ||     // i don't know how much exactly, but at least MnTxSignature + type prefix
-            memcmp(&metadata[0], &MnTxMarker[0], MnTxMarker.size()) != 0)
-    {
-        return MasternodesTxType::None;
-    }
-    auto const & it = MasternodesTxTypeToCode.find(metadata[MnTxMarker.size()]);
-    if (it == MasternodesTxTypeToCode.end())
-    {
-        return MasternodesTxType::None;
-    }
-    metadata.erase(metadata.begin(), metadata.begin() + MnTxMarker.size() + 1);
-    return it->second;
-}
-
-CMasternodesViewHistory& CMasternodesViewHistory::GetState(int targetHeight)
+CMasternodesViewHistory & CMasternodesViewHistory::GetState(int targetHeight)
 {
     int const topHeight = base->GetLastHeight();
     assert(targetHeight >= topHeight - GetMnHistoryFrame() && targetHeight <= topHeight);
@@ -534,4 +505,38 @@ CMasternodesViewHistory& CMasternodesViewHistory::GetState(int targetHeight)
 
     }
     return *this;
+}
+
+/*
+ * Checks if given tx is probably one of 'MasternodeTx', returns tx type and serialized metadata in 'data'
+*/
+MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<unsigned char> & metadata)
+{
+    if (tx.vout.size() == 0)
+    {
+        return MasternodesTxType::None;
+    }
+    CScript const & memo = tx.vout[0].scriptPubKey;
+    CScript::const_iterator pc = memo.begin();
+    opcodetype opcode;
+    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN)
+    {
+        return MasternodesTxType::None;
+    }
+    if (!memo.GetOp(pc, opcode, metadata) ||
+            (opcode > OP_PUSHDATA1 &&
+             opcode != OP_PUSHDATA2 &&
+             opcode != OP_PUSHDATA4) ||
+            metadata.size() < MnTxMarker.size() + 1 ||     // i don't know how much exactly, but at least MnTxSignature + type prefix
+            memcmp(&metadata[0], &MnTxMarker[0], MnTxMarker.size()) != 0)
+    {
+        return MasternodesTxType::None;
+    }
+    auto const & it = MasternodesTxTypeToCode.find(metadata[MnTxMarker.size()]);
+    if (it == MasternodesTxTypeToCode.end())
+    {
+        return MasternodesTxType::None;
+    }
+    metadata.erase(metadata.begin(), metadata.begin() + MnTxMarker.size() + 1);
+    return it->second;
 }

@@ -245,7 +245,7 @@ bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
     return true;
 }
 
-bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex)
+bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex, bool skipSigCheck)
 {
     std::unique_ptr<CDBIterator> pcursor(NewIterator());
 
@@ -278,7 +278,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->height = diskindex.height;
                 pindexNew->mintedBlocks = diskindex.mintedBlocks;
                 pindexNew->sig = diskindex.sig;
-                if (pindexNew->nHeight) {
+                if (pindexNew->nHeight && !skipSigCheck) {
                     CPubKey recoveredPubKey{};
                     if (!recoveredPubKey.RecoverCompact(pindexNew->GetBlockHeader().GetHashToSign(), pindexNew->sig)) {
                         return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
