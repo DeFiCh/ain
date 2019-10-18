@@ -6,7 +6,6 @@
 
 #include <chainparams.h>
 #include <core_io.h>
-//#include "../init.h"       // pwalletMain
 #include <consensus/validation.h>
 #include <net.h>
 #include <rpc/client.h>
@@ -39,32 +38,8 @@ extern UniValue sendrawtransaction(UniValue const & params, bool fHelp); // in r
 extern UniValue getnewaddress(UniValue const & params, bool fHelp); // in rpcwallet.cpp
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction & tx, std::string const & strHexTx); // in core_io.h
-//extern std::string EncodeHexTx(CTransaction const & tx);
 
 extern void ScriptPubKeyToJSON(CScript const & scriptPubKey, UniValue & out, bool fIncludeHex); // in rawtransaction.cpp
-
-//namespace {
-//// stolen from rpc_tests.cpp, can't import cause it's in tests module (not linked in main binary)
-//UniValue CallRPC(std::string args)
-//{
-//    std::vector<std::string> vArgs;
-//    boost::split(vArgs, args, boost::is_any_of(" \t"));
-//    std::string strMethod = vArgs[0];
-//    vArgs.erase(vArgs.begin());
-//    JSONRPCRequest request;
-//    request.strMethod = strMethod;
-//    request.params = RPCConvertValues(strMethod, vArgs);
-//    request.fHelp = false;
-
-//    if (RPCIsInWarmup(nullptr)) SetRPCWarmupFinished();
-
-//    // nothing to "try/catch" here, will be passed over
-//    UniValue result = tableRPC.execute(request);
-//    return result;
-//}
-
-//} // namespace
-
 
 extern void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options);
 
@@ -108,30 +83,8 @@ CAmount EstimateMnCreationFee()
 {
     // Current height + (1 day blocks) to avoid rejection;
     int targetHeight = ::ChainActive().Height() + 1 + (60 * 60 / Params().GetConsensus().pos.nTargetSpacing);
-//    size_t targetMnCount = pmasternodesview->GetActiveMasternodes().size() < 4 ? 0 : pmasternodesview->GetActiveMasternodes().size() - 4;
     return GetMnCreationFee(targetHeight);
 }
-
-//UniValue mn_estimatemncreationfee(UniValue const & params, bool fHelp)
-//{
-//    if (fHelp || params.size() != 0)
-//        throw std::runtime_error(
-//            "mn_estimateannouncementfee\n"
-//            "\nEstimates the approximate masternode announcement fee\n"
-//            "\nResult:\n"
-//            "n :    (numeric) estimated fee\n"
-//            "\n"
-//            "\nExample:\n"
-//            + HelpExampleCli("mn_estimatemncreationfee", ""));
-
-//    LOCK(cs_main);
-//    return ValueFromAmount(EstimateMnCreationFee());
-//}
-
-/*
- *
- *  Issued by: any
-*/
 
 void FillInputs(UniValue const & inputs, CMutableTransaction & rawTx)
 {
@@ -163,6 +116,10 @@ CWallet* GetWallet(const JSONRPCRequest& request)
     return pwallet;
 }
 
+/*
+ *
+ *  Issued by: any
+*/
 UniValue mn_create(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
@@ -449,7 +406,6 @@ UniValue mn_list(const JSONRPCRequest& request)
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
   //  ----------------- ------------------------    -----------------------     ----------
-//  { "masternodes",    "mn_estimateannouncementfee", &mn_estimateannouncementfee, {}  },
   { "masternodes",      "mn_create",                &mn_create,                 { "inputs", "metadata" }  },
   { "masternodes",      "mn_resign",                &mn_resign,                 { "inputs", "mn_id" }  },
 

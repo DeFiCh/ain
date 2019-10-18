@@ -111,16 +111,7 @@ public:
 };
 
 typedef std::map<uint256, CMasternode> CMasternodes;  // nodeId -> masternode object,
-//typedef std::set<uint256> CActiveMasternodes;         // just nodeId's,
 typedef std::map<CKeyID, uint256> CMasternodesByAuth; // for two indexes, owner->nodeId, operator->nodeId
-
-//struct TeamData
-//{
-//    int32_t joinHeight;
-//    CKeyID  operatorAuth;
-//};
-
-//typedef std::map<uint256, TeamData> CTeam;   // nodeId -> <joinHeight, operatorAuth> - masternodes' team
 
 class CMasternodesViewCache;
 class CMasternodesViewHistory;
@@ -137,23 +128,18 @@ public:
     };
     typedef std::map<int, std::pair<uint256, MasternodesTxType> > CMnTxsUndo; // txn, undoRec
     typedef std::map<int, CMnTxsUndo> CMnBlocksUndo;
-//    typedef std::map<int, CTeam> CTeams;
 
     enum class AuthIndex { ByOwner, ByOperator };
 
 protected:
     int lastHeight;
     CMasternodes allNodes;
-//    CActiveMasternodes activeNodes;
     CMasternodesByAuth nodesByOwner;
     CMasternodesByAuth nodesByOperator;
 
     CMnBlocksUndo blocksUndo;
-//    CTeams teams;
 
     CMasternodesView() : lastHeight(0) {}
-
-//    CMasternodesView(CMasternodesView const & other) = delete;
 
 public:
     CMasternodesView & operator=(CMasternodesView const & other) = delete;
@@ -221,29 +207,16 @@ public:
     bool OnMasternodeResign(uint256 const & nodeId, uint256 const & txid, int height, int txn);
     CMasternodesViewCache OnUndoBlock(int height);
 
-//    bool OnConnectBlock(int height, CKeyID const & minter);
-//    bool OnDisconnectBlock(int height, CKeyID const & minter);
-
     void PruneOlder(int height);
-
-//    bool IsTeamMember(int height, CKeyID const & operatorAuth) const;
-//    CTeam CalcNextDposTeam(CActiveMasternodes const & activeNodes, CMasternodes const & allNodes, uint256 const & blockHash, int height);
-//    virtual CTeam const & ReadDposTeam(int height) const;
-
 
 protected:
     virtual CMnBlocksUndo::mapped_type const & GetBlockUndo(CMnBlocksUndo::key_type key) const;
-
-//    virtual void WriteDposTeam(int height, CTeam const & team);
-
 
 private:
     boost::optional<CMasternodeIDs> AmI(AuthIndex where) const;
 public:
     boost::optional<CMasternodeIDs> AmIOperator() const;
     boost::optional<CMasternodeIDs> AmIOwner() const;
-//    boost::optional<CMasternodeIDs> AmIActiveOperator() const;
-//    boost::optional<CMasternodeIDs> AmIActiveOwner() const;
 
     friend class CMasternodesViewCache;
     friend class CMasternodesViewHistory;
@@ -254,7 +227,6 @@ class CMasternodesViewCache : public CMasternodesView
 {
 protected:
     CMasternodesView * base;
-//    CMasternodesViewCache() {}
 
 public:
     CMasternodesViewCache(CMasternodesView * other)
@@ -304,7 +276,6 @@ public:
         return it == blocksUndo.end() ? base->GetBlockUndo(key) : it->second;
     }
 
-
     bool Flush() override
     {
         base->ApplyCache(this);
@@ -312,14 +283,6 @@ public:
 
         return true;
     }
-
-//    virtual CTeam const & ReadDposTeam(int height) const
-//    {
-//        auto const it = teams.find(height);
-//        // return cached (new) or original value
-//        return it != teams.end() ? it->second : base->ReadDposTeam(height);
-//    }
-//    friend class CMasternodesViewHistory;
 };
 
 
