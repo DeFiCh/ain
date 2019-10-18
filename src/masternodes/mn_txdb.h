@@ -86,7 +86,6 @@ private:
 
 protected:
     void CommitBatch();
-//    void DropBatch();
 
     bool ReadHeight(int & h);
     void WriteHeight(int h);
@@ -94,13 +93,8 @@ protected:
     void WriteMasternode(uint256 const & txid, CMasternode const & node);
     void EraseMasternode(uint256 const & txid);
 
-//    void WriteDeadIndex(int height, uint256 const & txid, char type);
-//    void EraseDeadIndex(int height, uint256 const & txid);
-
     void WriteUndo(int height, CMnTxsUndo const & undo);
     void EraseUndo(int height);
-
-//    void WriteTeam(int blockHeight, CTeam const & team);
 
 public:
     bool Load() override;
