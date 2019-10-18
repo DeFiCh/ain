@@ -281,6 +281,16 @@ UniValue mn_resign(const JSONRPCRequest& request)
         "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the MN's owner (collateral) address" +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
+            {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects. Provide it if you want to spent specific UTXOs",
+                {
+                    {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                        },
+                    },
+                },
+            },
             {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
         },
         RPCResult{
@@ -441,7 +451,7 @@ static const CRPCCommand commands[] =
   //  ----------------- ------------------------    -----------------------     ----------
 //  { "masternodes",    "mn_estimateannouncementfee", &mn_estimateannouncementfee, {}  },
   { "masternodes",      "mn_create",                &mn_create,                 { "inputs", "metadata" }  },
-  { "masternodes",      "mn_resign",                &mn_resign,                 { "mn_id" }  },
+  { "masternodes",      "mn_resign",                &mn_resign,                 { "inputs", "mn_id" }  },
 
   { "masternodes",      "mn_list",                  &mn_list,                   { "list", "verbose" } },
 
