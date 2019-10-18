@@ -120,7 +120,7 @@ BASE_SCRIPTS = [
     'wallet_txn_clone.py --segwit',
     'rpc_getchaintips.py',
     'rpc_misc.py',
-    'rpc_mn_basic.py'
+    'rpc_mn_basic.py',
     'interface_rest.py',
     'mempool_spend_coinbase.py',
     'wallet_avoidreuse.py',
@@ -173,7 +173,7 @@ BASE_SCRIPTS = [
     'wallet_balance.py',
     'feature_nulldummy.py',
     'mempool_accept.py',
-#    'wallet_import_rescan.py', NODES!
+    'wallet_import_rescan.py', # nodes = 6
     'wallet_import_with_label.py',
     'rpc_bind.py --ipv4',
     'rpc_bind.py --ipv6',
