@@ -4,12 +4,10 @@
 #include <key.h>
 
 namespace pos {
-    const uint64_t COINSTAKE_AMOUNT = 1000 * COIN;
-
     uint256 CalcKernelHash(uint256 stakeModifier, int64_t coinstakeTime, uint256 masternodeID, const Consensus::Params& params) {
         // Calculate hash
         CDataStream ss(SER_GETHASH, 0);
-        ss << stakeModifier << coinstakeTime << COINSTAKE_AMOUNT << masternodeID;
+        ss << stakeModifier << coinstakeTime << GetMnCollateralAmount() << masternodeID;
         return Hash(ss.begin(), ss.end());
     }
 
@@ -19,12 +17,11 @@ namespace pos {
         arith_uint256 targetProofOfStake;
         targetProofOfStake.SetCompact(nBits);
 
-//        uint256 masternodeID = uint256S("0"); // TODO: (SS) change to masternode activation tx hash
         const arith_uint256 hashProofOfStake = UintToArith256(
                 CalcKernelHash(stakeModifier, coinstakeTime, masternodeID, params));
 
         // Now check if proof-of-stake hash meets target protocol
-        if ((hashProofOfStake / (uint64_t) COINSTAKE_AMOUNT) > targetProofOfStake) {
+        if ((hashProofOfStake / (uint64_t) GetMnCollateralAmount()) > targetProofOfStake) {
             return {false, hashProofOfStake};
         }
 

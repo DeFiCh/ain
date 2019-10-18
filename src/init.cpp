@@ -435,6 +435,7 @@ void SetupServerArgs()
     gArgs.AddArg("-torpassword=<pass>", "Tor control port password (default: empty)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-masternode_owner=<address>", "Masternode owner address (default: empty)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-masternode_operator=<address>", "Masternode operator address (default: empty)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-dummypos", "Flag to skip PoS-related checks (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1165,7 +1166,7 @@ bool AppInitParameterInteraction()
         return InitError("unknown rpcserialversion requested.");
 
     nMaxTipAge = gArgs.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
-
+    fIsFakeNet = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-dummypos", false);
     return true;
 }
 
