@@ -617,7 +617,7 @@ class CBlockHeader:
                time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks, "0x".join("{:02x}".format(c) for c in self.sig))
 
 BLOCK_HEADER_SIZE = len(CBlockHeader().serialize())
-assert_equal(BLOCK_HEADER_SIZE, 190) 
+assert_equal(BLOCK_HEADER_SIZE, 190)
 
 class CBlock(CBlockHeader):
     __slots__ = ("vtx",)
@@ -683,10 +683,10 @@ class CBlock(CBlockHeader):
     def solve(self):
         self.rehash()
         # Commented out due to PoS
-        target = uint256_from_compact(self.nBits)
+        # target = uint256_from_compact(self.nBits)
         # while self.sha256 > target:
-        #     # increment stakeModifier here (instead of nTime) due to very complex control of nTime 
-        #     self.stakeModifier += 1 
+        #     # increment stakeModifier here (instead of nTime) due to very complex control of nTime
+        #     self.stakeModifier += 1
         #     self.rehash()
 
     def __repr__(self):
