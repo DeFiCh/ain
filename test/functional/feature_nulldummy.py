@@ -12,8 +12,6 @@ Generate 427 more blocks.
 [Consensus] Check that the new NULLDUMMY rules are not enforced on the 431st block.
 [Policy/Consensus] Check that the new NULLDUMMY rules are enforced on the 432nd block.
 """
-import time
-
 from test_framework.blocktools import create_coinbase, create_block, create_transaction, add_witness_commitment
 from test_framework.messages import CTransaction
 from test_framework.script import CScript
@@ -60,7 +58,6 @@ class NULLDUMMYTest(BitcoinTestFramework):
         self.lastblockhash = self.nodes[0].getbestblockhash()
         self.tip = int("0x" + self.lastblockhash, 0)
         self.lastblockheight = 429
-        # self.lastblocktime = int(time.time()) + 429
         self.lastblocktime = self.nodes[0].getblockheader(self.lastblockhash)["time"]
 
         self.log.info("Test 1: NULLDUMMY compliant base transactions should be accepted to mempool and mined before activation [430]")

@@ -77,7 +77,7 @@ class KeypoolRestoreTest(BitcoinTestFramework):
 
             self.log.info("Verify keypool is restored and balance is correct")
             assert_equal(self.nodes[idx].getbalance(), 15)
-            assert_equal(self.nodes[idx].listtransactions()[1]['category'], "receive") # cause [0] is genesis mn tx 
+            assert_equal(self.nodes[idx].listtransactions()[1]['category'], "receive") # cause [0] is genesis mn tx
             assert_equal(self.nodes[idx].listtransactions()[2]['category'], "receive")
             # Check that we have marked all keys up to the used keypool key as used
             assert_equal(self.nodes[idx].getaddressinfo(self.nodes[idx].getnewaddress())['hdkeypath'], "m/0'/0'/110'")
