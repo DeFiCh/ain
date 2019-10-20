@@ -220,6 +220,7 @@ public:
         height         = 0;
         mintedBlocks   = 0;
         sig            = {};
+        minter         = CKeyID();
     }
 
     CBlockIndex()
@@ -239,6 +240,7 @@ public:
         mintedBlocks   = block.mintedBlocks;
         stakeModifier  = block.stakeModifier;
         sig            = block.sig;
+        block.ExtractMinterKey(minter);
     }
 
     FlatFilePos GetBlockPos() const {

@@ -1,11 +1,7 @@
 #include <pos_kernel.h>
 #include <amount.h>
-#include <wallet/wallet.h>
-#include <txdb.h>
-#include <validation.h>
 #include <arith_uint256.h>
 #include <key.h>
-#include <pos.h>
 
 namespace pos {
     const uint64_t COINSTAKE_AMOUNT = 1000 * COIN;
@@ -18,12 +14,12 @@ namespace pos {
     }
 
     CheckKernelHashRes
-    CheckKernelHash(uint256 stakeModifier, uint32_t nBits, int64_t coinstakeTime, const Consensus::Params& params, CMasternodesView* mnView) {
+    CheckKernelHash(uint256 stakeModifier, uint32_t nBits, int64_t coinstakeTime, const Consensus::Params& params, uint256 masternodeID) {
         // Base target
         arith_uint256 targetProofOfStake;
         targetProofOfStake.SetCompact(nBits);
 
-        uint256 masternodeID = uint256S("0"); // TODO: (SS) change to masternode activation tx hash
+//        uint256 masternodeID = uint256S("0"); // TODO: (SS) change to masternode activation tx hash
         const arith_uint256 hashProofOfStake = UintToArith256(
                 CalcKernelHash(stakeModifier, coinstakeTime, masternodeID, params));
 

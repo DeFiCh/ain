@@ -77,7 +77,7 @@ class ZMQTest (BitcoinTestFramework):
 
         num_blocks = 5
         self.log.info("Generate %(n)d blocks (and %(n)d coinbase txes)" % {"n": num_blocks})
-        genhashes = self.nodes[0].generatetoaddress(num_blocks, ADDRESS_BCRT1_UNSPENDABLE)
+        genhashes = self.nodes[0].generate(nblocks=num_blocks, address=ADDRESS_BCRT1_UNSPENDABLE)
 
         self.sync_all()
 
@@ -140,11 +140,11 @@ class ZMQTest (BitcoinTestFramework):
         sleep(0.2)
 
         # Generate 1 block in nodes[0] and receive all notifications
-        self.nodes[0].generatetoaddress(1, ADDRESS_BCRT1_UNSPENDABLE)
+        self.nodes[0].generate(nblocks=1, address=ADDRESS_BCRT1_UNSPENDABLE)
         assert_equal(self.nodes[0].getbestblockhash(), hashblock.receive().hex())
 
         # Generate 2 blocks in nodes[1]
-        self.nodes[1].generatetoaddress(2, ADDRESS_BCRT1_UNSPENDABLE)
+        self.nodes[1].generate(nblocks=2, address=ADDRESS_BCRT1_UNSPENDABLE)
 
         # nodes[0] will reorg chain after connecting back nodes[1]
         connect_nodes(self.nodes[0], 1)
