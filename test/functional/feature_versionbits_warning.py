@@ -64,14 +64,13 @@ class VersionBitsWarningTest(BitcoinTestFramework):
         node = self.nodes[0]
         node.add_p2p_connection(P2PInterface())
 
-        node_deterministic_address = node.get_deterministic_priv_key().address
         # Mine one period worth of blocks
-        node.generatetoaddress(VB_PERIOD, node_deterministic_address)
+        node.generate(VB_PERIOD)
 
         self.log.info("Check that there is no warning if previous VB_BLOCKS have <VB_THRESHOLD blocks with unknown versionbits version.")
         # Build one period of blocks with < VB_THRESHOLD blocks signaling some unknown bit
         self.send_blocks_with_version(node.p2p, VB_THRESHOLD - 1, VB_UNKNOWN_VERSION)
-        node.generatetoaddress(VB_PERIOD - VB_THRESHOLD + 1, node_deterministic_address)
+        node.generate(VB_PERIOD - VB_THRESHOLD + 1)
 
         # Check that we're not getting any versionbit-related errors in get*info()
         assert not VB_PATTERN.match(node.getmininginfo()["warnings"])
@@ -79,21 +78,21 @@ class VersionBitsWarningTest(BitcoinTestFramework):
 
         # Build one period of blocks with VB_THRESHOLD blocks signaling some unknown bit
         self.send_blocks_with_version(node.p2p, VB_THRESHOLD, VB_UNKNOWN_VERSION)
-        node.generatetoaddress(VB_PERIOD - VB_THRESHOLD, node_deterministic_address)
+        node.generate(VB_PERIOD - VB_THRESHOLD)
 
         self.log.info("Check that there is a warning if previous VB_BLOCKS have >=VB_THRESHOLD blocks with unknown versionbits version.")
         # Mine a period worth of expected blocks so the generic block-version warning
         # is cleared. This will move the versionbit state to ACTIVE.
-        node.generatetoaddress(VB_PERIOD, node_deterministic_address)
+        node.generate(VB_PERIOD)
 
         # Stop-start the node. This is required because bitcoind will only warn once about unknown versions or unknown rules activating.
         self.restart_node(0)
 
         # Generating one block guarantees that we'll get out of IBD
-        node.generatetoaddress(1, node_deterministic_address)
+        node.generate(1)
         wait_until(lambda: not node.getblockchaininfo()['initialblockdownload'], timeout=10, lock=mininode_lock)
         # Generating one more block will be enough to generate an error.
-        node.generatetoaddress(1, node_deterministic_address)
+        node.generate(1)
         # Check that get*info() shows the versionbits unknown rules warning
         assert WARN_UNKNOWN_RULES_ACTIVE in node.getmininginfo()["warnings"]
         assert WARN_UNKNOWN_RULES_ACTIVE in node.getnetworkinfo()["warnings"]
