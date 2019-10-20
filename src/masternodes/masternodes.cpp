@@ -2,13 +2,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "masternodes.h"
+#include <masternodes/masternodes.h>
 
-#include "chainparams.h"
-#include "key_io.h"
-//#include "mn_txdb.h"
-#include "primitives/block.h"
-#include "primitives/transaction.h"
+#include <chainparams.h>
+#include <primitives/block.h>
+#include <primitives/transaction.h>
+#include <script/script.h>
+#include <script/standard.h>
+#include <validation.h>
 
 #include <algorithm>
 #include <functional>
@@ -26,6 +27,11 @@ static const std::map<char, MasternodesTxType> MasternodesTxTypeToCode =
 int GetMnActivationDelay()
 {
     return Params().GetConsensus().mn.activationDelay;
+}
+
+int GetMnResignDelay()
+{
+    return Params().GetConsensus().mn.resignDelay;
 }
 
 int GetMnCollateralUnlockDelay()
@@ -91,15 +97,34 @@ void CMasternode::FromTx(CTransaction const & tx, int heightIn, std::vector<unsi
     mintedBlocks = 0;
 }
 
+bool CMasternode::IsActive() const
+{
+    return IsActive(::ChainActive().Height());
+}
+
+bool CMasternode::IsActive(int h) const
+{
+    // Special case for genesis block
+    if (creationHeight == 0)
+        return resignHeight == -1 || resignHeight + GetMnResignDelay() > h;
+
+    return  creationHeight + GetMnActivationDelay() <= h && (resignHeight == -1 || resignHeight + GetMnResignDelay() > h);
+}
+
 std::string CMasternode::GetHumanReadableStatus() const
 {
+    return GetHumanReadableStatus(::ChainActive().Height());
+}
+
+std::string CMasternode::GetHumanReadableStatus(int h) const
+{
     std::string status;
-    if (IsActive())
+    if (IsActive(h))
     {
         return "active";
     }
-    status += ((creationHeight == 0 || creationHeight + GetMnActivationDelay() <= ::ChainActive().Height())) ? "activated" : "created";
-    if (resignHeight != -1 || !resignTx.IsNull())
+    status += ((creationHeight == 0 || creationHeight + GetMnActivationDelay() <= h)) ? "activated" : "created";
+    if (resignHeight != -1 && resignHeight + GetMnResignDelay() > h)
     {
         status += ", resigned";
     }
@@ -264,7 +289,9 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
         blocksUndo[height] = {};
     }
     backup.lastHeight = lastHeight;
-    --lastHeight;
+
+    /// @attention do NOT do THIS!!! it will be done separately by outer SetLastHeight()!
+//    --lastHeight;
 
     return backup; // it is new value diff for height+1
 }
@@ -321,30 +348,31 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
 /// Call it only for "clear" and "full" (not cached) view
 void CMasternodesView::PruneOlder(int height)
 {
+    return; /// @todo @max temporary off
+//    /// @todo @max add foolproof (for heights, teams and collateral)
+//    if (height < 0)
+//    {
+//        return;
+//    }
 
-    /// @todo @max add foolproof (for heights, teams and collateral)
-    if (height < 0)
-    {
-        return;
-    }
+//    // erase dead nodes
+//    for (auto && it = allNodes.begin(); it != allNodes.end(); )
+//    {
+//        CMasternode const & node = it->second;
+//        /// @todo @maxb adjust heights (prune delay method?)
+//        if(node.resignHeight != -1 && node.resignHeight + < height)
+//        {
+//            nodesByOwner.erase(node.ownerAuthAddress);
+//            nodesByOperator.erase(node.operatorAuthAddress);
+//            it = allNodes.erase(it);
+//        }
+//        else ++it;
+//    }
 
-    // erase dead nodes
-    for (auto && it = allNodes.begin(); it != allNodes.end(); )
-    {
-        CMasternode const & node = it->second;
-        if(node.resignHeight != -1 && node.resignHeight < height)
-        {
-            nodesByOwner.erase(node.ownerAuthAddress);
-            nodesByOperator.erase(node.operatorAuthAddress);
-            it = allNodes.erase(it);
-        }
-        else ++it;
-    }
-
-    // erase undo info
-    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
-    // erase old teams info
-//    teams.erase(teams.begin(), teams.lower_bound(height));
+//    // erase undo info
+//    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
+//    // erase old teams info
+////    teams.erase(teams.begin(), teams.lower_bound(height));
 }
 
 boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmI(AuthIndex where) const
@@ -463,3 +491,47 @@ MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<uns
     return it->second;
 }
 
+CMasternodesViewHistory& CMasternodesViewHistory::GetState(int targetHeight)
+{
+    int const topHeight = base->GetLastHeight();
+    assert(targetHeight >= topHeight - GetMnHistoryFrame() && targetHeight <= topHeight);
+
+    if (lastHeight > targetHeight)
+    {
+        // go backward (undo)
+
+        for (; lastHeight > targetHeight; )
+        {
+            auto it = historyDiff.find(lastHeight);
+            if (it != historyDiff.end())
+            {
+                historyDiff.erase(it);
+            }
+            historyDiff.emplace(std::make_pair(lastHeight, OnUndoBlock(lastHeight)));
+
+            CBlockIndex* pindex = ::ChainActive()[lastHeight];
+            assert(pindex);
+            DecrementMintedBy(pindex->minter);
+
+            --lastHeight;
+        }
+    }
+    else if (lastHeight < targetHeight)
+    {
+        // go forward (redo)
+        for (; lastHeight < targetHeight; )
+        {
+            ++lastHeight;
+
+            // redo states should be cached!
+            assert(historyDiff.find(lastHeight) != historyDiff.end());
+            ApplyCache(&historyDiff.at(lastHeight));
+
+            CBlockIndex* pindex = ::ChainActive()[lastHeight];
+            assert(pindex);
+            IncrementMintedBy(pindex->minter);
+        }
+
+    }
+    return *this;
+}

@@ -2,11 +2,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "mn_txdb.h"
-#include "masternodes/masternodes.h"
+#include <masternodes/mn_txdb.h>
 
-#include "chainparams.h"
-#include "uint256.h"
+#include <chainparams.h>
+#include <uint256.h>
 
 #include <stdint.h>
 
@@ -128,7 +127,7 @@ bool CMasternodesViewDB::Load()
 //        LogPrintf("MN: db loaded: last height: %d; masternodes: %d; common undo: %d; teams: %d\n", lastHeight, allNodes.size(), txsUndo.size(), teams.size());
         LogPrintf("MN: db loaded: last height: %d; masternodes: %d; common undo: %d\n", lastHeight, allNodes.size(), blocksUndo.size());
     else {
-        LogPrintf("MN: fail to load database!");
+        LogPrintf("MN: fail to load database!\n");
     }
     return result;
 }

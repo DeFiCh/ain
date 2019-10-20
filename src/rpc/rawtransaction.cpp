@@ -3,13 +3,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chainparams.h>
 #include <chain.h>
 #include <coins.h>
 #include <compat/byteswap.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <index/txindex.h>
-#include <key_io.h>
 #include <merkleblock.h>
 #include <node/coin.h>
 #include <node/psbt.h>

@@ -18,9 +18,7 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
-#include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/mn_txdb.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/settings.h>
@@ -158,7 +156,7 @@ namespace {
 
 CBlockIndex* LookupBlockIndex(const uint256& hash)
 {
-    std::cout << "!!!LookupBlockIndex : " << hash.ToString() << std::endl;
+    //std::cout << "!!!LookupBlockIndex : " << hash.ToString() << std::endl;
     AssertLockHeld(cs_main);
     BlockMap::const_iterator it = g_blockman.m_block_index.find(hash);
     return it == g_blockman.m_block_index.end() ? nullptr : it->second;
@@ -975,7 +973,11 @@ bool ReadBlockFromDisk(CBlock& block, const FlatFilePos& pos, const Consensus::P
     }
 
     // Check the header
-    if (!pos::CheckProofOfStake_headerOnly(block, consensusParams, pmasternodesview.get()))
+
+    /// @maxb @todo del me:
+//    if (!pos::ContextualCheckProofOfStake(block, consensusParams, pmasternodesview.get()))
+
+    if (!pos::CheckHeaderSignature(block))
         return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
 
     return true;
@@ -1570,8 +1572,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
-    /// @todo @maxb temp removed due to assertion
-//    mnview.DecrementMintedBy(CKeyID()); /// @todo @maxb pindex->pprev->minter or smth
+    mnview.DecrementMintedBy(pindex->minter);
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
@@ -1785,6 +1786,20 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
         }
         return true;
+    }
+
+    // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
+    if (!fJustCheck)
+    {
+        // Check only that mintedBlocks counter is correct (MN existence and activation was partially checked before in CheckBlock()->ContextualCheckProofOfStake(), but not in the case of fJustCheck)
+        auto it = mnview.ExistMasternode(CMasternodesView::AuthIndex::ByOperator, pindex->minter);
+        assert(it);
+        auto const & node = *mnview.ExistMasternode((*it)->second);
+        if (node.mintedBlocks + 1 != block.mintedBlocks)
+        {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("ConnectBlock(): masternode's %s mintedBlocks should be %d, got %d!",
+                                                                           (*it)->second.ToString(), node.mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
+        }
     }
 
     nBlocksTotal++;
@@ -2041,8 +2056,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(pindex->phashBlock);
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
-    /// @todo @maxb temp removed due to assertion
-//    mnview.IncrementMintedBy(CKeyID()); /// @todo @maxb pindex->minter or smth
+
+    mnview.IncrementMintedBy(pindex->minter); // pindex->minter was extracted before
     mnview.SetLastHeight(pindex->nHeight);
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
@@ -3059,14 +3074,7 @@ static bool FindUndoPos(CValidationState &state, int nFile, FlatFilePos &pos, un
     return true;
 }
 
-static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
-{
-    if (fCheckPOW && !pos::CheckProofOfStake_headerOnly(block, consensusParams, pmasternodesview.get()))
-        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of stake failed");
-    return true;
-}
-
-bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW, bool fCheckMerkleRoot)
+bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOS, bool fCheckMerkleRoot)
 {
     // These are checks that are independent of context.
 
@@ -3075,8 +3083,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!CheckBlockHeader(block, state, consensusParams, fCheckPOW))
-        return false;
+
+    if (fCheckPOS && !pos::ContextualCheckProofOfStake(block, consensusParams, pmasternodesview.get()))
+        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of stake failed");
 
     // Check the merkle root.
     if (fCheckMerkleRoot) {
@@ -3130,7 +3139,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (nSigOps * WITNESS_SCALE_FACTOR > MAX_BLOCK_SIGOPS_COST)
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-blk-sigops", "out-of-bounds SigOpCount");
 
-    if (fCheckPOW && fCheckMerkleRoot)
+    if (fCheckPOS && fCheckMerkleRoot)
         block.fChecked = true;
 
     return true;
@@ -3271,7 +3280,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
 static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
-    std::cout << "!!!ContextualCheckBlock  : " << nHeight << std::endl;
+    //std::cout << "!!!ContextualCheckBlock  : " << nHeight << std::endl;
     // Start enforcing BIP113 (Median Time Past).
     int nLockTimeFlags = 0;
     if (nHeight >= consensusParams.CSVHeight) {
@@ -3368,9 +3377,9 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             return true;
         }
 
-        if (!pos::CheckProofOfStake_headerOnly(block, chainparams.GetConsensus(), pmasternodesview.get()))
-            return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
-
+        if (!pos::ContextualCheckProofOfStake(block, chainparams.GetConsensus(), pmasternodesview.get())) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: Consensus::ContextualCheckProofOfStake: block %s: bad-pos-header (MN not exist or can't stake)", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
+        }
         // Get prev block index
         CBlockIndex* pindexPrev = nullptr;
         BlockMap::iterator mi = m_block_index.find(block.hashPrevBlock);
@@ -3381,6 +3390,11 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_PREV, error("%s: prev block invalid", __func__), REJECT_INVALID, "bad-prevblk");
         if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
             return error("%s: Consensus::ContextualCheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
+
+        // Now with pindexPrev we can check stake modifier
+        if (!pos::CheckStakeModifier(pindexPrev, block)) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: bad PoS stake modifier", __func__, hash.ToString()), REJECT_INVALID, "bad-stakemodifier");
+        }
 
         /* Determine if this block descends from any block which has been found
          * invalid (m_failed_blocks), then mark pindexPrev and any blocks between
@@ -3435,9 +3449,11 @@ bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidatio
     if (first_invalid != nullptr) first_invalid->SetNull();
     {
         LOCK(cs_main);
+
+        CMasternodesViewHistory history(pmasternodesview.get());
         for (const CBlockHeader& header : headers) {
             CBlockIndex *pindex = nullptr; // Use a temp pindex instead of ppindex to avoid a const_cast
-            bool accepted = g_blockman.AcceptBlockHeader(header, state, chainparams, &pindex);
+            bool accepted = g_blockman.AcceptBlockHeader(header, state, chainparams, &pindex/*, &history.GetState(header.height)*/);
             ::ChainstateActive().CheckBlockIndex(chainparams.GetConsensus());
 
             if (!accepted) {
@@ -3597,7 +3613,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
     return true;
 }
 
-bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot)
+bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOS, bool fCheckMerkleRoot)
 {
     AssertLockHeld(cs_main);
     assert(pindexPrev && pindexPrev == ::ChainActive().Tip());
@@ -3609,10 +3625,10 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     indexDummy.nHeight = pindexPrev->nHeight + 1;
     indexDummy.phashBlock = &block_hash;
 
-    // NOTE: CheckBlockHeader is called by CheckBlock
+    // NOTE: ContextualCheckProofOfStake is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, chainparams.GetConsensus(), fCheckPOW, fCheckMerkleRoot))
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), fCheckPOS, fCheckMerkleRoot))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));

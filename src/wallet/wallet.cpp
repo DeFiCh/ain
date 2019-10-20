@@ -5,6 +5,7 @@
 
 #include <wallet/wallet.h>
 
+#include <chainparams.h>
 #include <chain.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
@@ -12,7 +13,6 @@
 #include <interfaces/chain.h>
 #include <interfaces/wallet.h>
 #include <key.h>
-#include <key_io.h>
 #include <masternodes/masternodes.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
