@@ -119,7 +119,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         block = self.build_block_on_tip(self.nodes[0])
         self.segwit_node.send_and_ping(msg_no_witness_block(block))
         assert int(self.nodes[0].getbestblockhash(), 16) == block.sha256
-        self.nodes[0].generatetoaddress(100, self.nodes[0].getnewaddress(address_type="bech32"))
+        self.nodes[0].generate(nblocks=100, address=self.nodes[0].getnewaddress(address_type="bech32"))
 
         total_value = block.vtx[0].vout[0].nValue
         out_value = total_value // 10
