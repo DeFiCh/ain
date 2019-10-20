@@ -7,8 +7,8 @@
 
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
-#include <key_io.h>
 #include <masternodes/masternodes.h>
+#include <streams.h>
 #include <tinyformat.h>
 #include <util/system.h>
 #include <util/strencodings.h>
@@ -142,6 +142,7 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 1500;
+        consensus.mn.resignDelay = 300;
         consensus.mn.collateralUnlockDelay = 300;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 100 * COIN;
@@ -257,10 +258,11 @@ public:
         consensus.nMinimumChainWork = uint256S("0x00");
 
         // By default assume that the signatures in ancestors of this block are valid.
-        consensus.defaultAssumeValid = uint256S("0x0000000000000037a8cd3e06cd5edbfe9dd1dbcc5dacab279376ef7cfc2b4c75"); //1354312
+        consensus.defaultAssumeValid = uint256S("0x00");
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
+        consensus.mn.resignDelay = 10;
         consensus.mn.collateralUnlockDelay = 10;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
@@ -283,11 +285,17 @@ public:
 
         bech32_hrp = "tf";
 
-        genesis = CreateGenesisBlock(1569396815, 0x1e0fffff, 1, 50 * COIN, CreateGenesisMasternodes());
+        // owner base58, operator base58
+        vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
+        vMasternodes.push_back({"7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", "773MiaEtQK2HAwWj55gyuRiU8tSwowRTTW"});
+        vMasternodes.push_back({"75Wramp2iARchHedXcn1qRkQtMpSt9Mi3V", "7Ku81yvqbPkxpWjZpZWZZnWydXyzJozZfN"});
+        vMasternodes.push_back({"7LfqHbyh9dBQDjWB6MxcWvH2PBC5iY4wPa", "75q6ftr3QGfBT3DBu15fVfetP6duAgfhNH"});
+
+        genesis = CreateGenesisBlock(1297053593, 0x207fffff, 1, 50 * COIN, CreateGenesisMasternodes()); // 0x1e0fffff
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("0xc0f410a59e9aa22afd67ee4671d41c2e3135c0efc589446e4b393cc534d178ac"));
-        assert(genesis.hashMerkleRoot == uint256S("0x800c7581a09c96d98bdad848db8fc027e8869d28d890ca21f6c25124baf53afe"));
+        assert(consensus.hashGenesisBlock == uint256S("0x00000e04e92efbd4a99b9f38abd22bc1e97651ab194a72a6390687f99c4d1555"));
+        assert(genesis.hashMerkleRoot == uint256S("0xc4b5095034837015551b4ef0eb56eab6706b3d102cc44a910c0eee084932ef5b"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
@@ -311,8 +319,7 @@ public:
         };
 
         chainTxData = ChainTxData{
-            // Data from rpc: getchaintxstats 4096 0000000000000037a8cd3e06cd5edbfe9dd1dbcc5dacab279376ef7cfc2b4c75
-            /* nTime    */ 1569396815,
+            /* nTime    */ 0,
             /* nTxCount */ 0,
             /* dTxRate  */ 0
         };
@@ -328,21 +335,21 @@ public:
         strNetworkID = "regtest";
         consensus.nSubsidyHalvingInterval = 150;
         consensus.BIP16Exception = uint256();
-        consensus.BIP34Height = 0; // BIP34 activated on regtest (Used in functional tests)
+        consensus.BIP34Height = 500; // BIP34 activated on regtest (Used in functional tests)
         consensus.BIP34Hash = uint256();
-        consensus.BIP65Height = 0; // BIP65 activated on regtest (Used in functional tests)
-        consensus.BIP66Height = 0; // BIP66 activated on regtest (Used in functional tests)
+        consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in functional tests)
+        consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
-        consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
-        consensus.pos.fNoRetargeting = false; // only for regtest
+        consensus.pos.fAllowMinDifficultyBlocks = true; // only for regtest
+        consensus.pos.fNoRetargeting = true; // only for regtest
 
         consensus.pos.coinstakeMaturity = 100;
 
         consensus.pos.allowMintingWithoutPeers = true; // don't mint if no peers connected
 
-        consensus.CSVHeight = 1; // CSV activated on regtest (Used in rpc activation tests)
+        consensus.CSVHeight = 432; // CSV activated on regtest (Used in rpc activation tests)
         consensus.SegwitHeight = 0; // SEGWIT is always activated on regtest unless overridden
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
@@ -358,6 +365,7 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
+        consensus.mn.resignDelay = 10;
         consensus.mn.collateralUnlockDelay = 10;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
@@ -390,8 +398,9 @@ public:
 
         genesis = CreateGenesisBlock(1296688602, 0x207fffff, 1, 50 * COIN, CreateGenesisMasternodes());
         consensus.hashGenesisBlock = genesis.GetHash();
-        assert(consensus.hashGenesisBlock == uint256S("0x000006772a3244d0a5a4911a5cb1d7e910e175f4e4b77c755018459122fa7a89"));
-        assert(genesis.hashMerkleRoot == uint256S("0x2faeba8cd467cb0df14c48d30b57736f1ed3275790401d127a03d55037df7b5c"));
+
+        assert(consensus.hashGenesisBlock == uint256S("0x5deed118789bf5acdce79974f15b9a1cffb924875f52e702ca93d926d290b31f"));
+        assert(genesis.hashMerkleRoot == uint256S("0x955d1c4074ccd34639cae5d1234bbef645b34866bfd18f083dd80928618e80fb"));
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
