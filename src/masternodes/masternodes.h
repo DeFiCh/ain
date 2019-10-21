@@ -22,6 +22,7 @@ class CTransaction;
 class CBlockHeader;
 
 static const std::vector<unsigned char> MnTxMarker = {'M', 'n', 'T', 'x'};  // 4d6e5478
+static const std::vector<unsigned char> MnCriminalTxMarker = {'M', 'n', 'C', 'r'};
 
 static const unsigned int DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL = 100;
 
