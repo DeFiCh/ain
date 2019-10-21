@@ -325,7 +325,28 @@ void CMasternodesView::PruneOlder(int height)
 
 bool CMasternodesView::CheckDoubleSignProof(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)
 {
+    CKeyID firstKey, secondKey;
+    if (!oneHeader.ExtractMinterKey(firstKey)) {
+        // TODO: (ss) may be throw exception
+        return false;
+    }
+    auto itFirstMN = ExistMasternode(AuthIndex::ByOperator, firstKey);
+    if (!itFirstMN) {
+        // TODO: (ss) may be throw exception
+        return false;
+    }
+    if (!twoHeader.ExtractMinterKey(secondKey)) {
+        // TODO: (ss) may be throw exception
+        return false;
+    }
+    auto itSecondMN = ExistMasternode(AuthIndex::ByOperator, firstKey);
+    if (!itSecondMN) {
+        // TODO: (ss) may be throw exception
+        return false;
+    }
+
     if (fabs(oneHeader.height - twoHeader.height) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL &&
+        itFirstMN == itSecondMN &&
         oneHeader.GetHash() != twoHeader.GetHash()) {
         return false;
     }
