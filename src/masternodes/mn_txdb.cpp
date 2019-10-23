@@ -20,8 +20,10 @@ static const char DB_MN_HEIGHT = 'H';       // single record with last processed
 static const char DB_PRUNE_HEIGHT = 'P';    // single record with pruned height (for validation of reachable data window)
 
 static const char DB_MN_BLOCK_HEADERS = 'h';
+static const char DB_MN_BLOCKED_CRIMINAL_COINS = 'C';
 
-struct DBMNBlockHeadersSearchKey {
+struct DBMNBlockHeadersSearchKey
+{
     uint256 masternodeID;
     uint64_t mintedBlocks;
 
@@ -35,7 +37,8 @@ struct DBMNBlockHeadersSearchKey {
     }
 };
 
-struct DBMNBlockHeadersKey {
+struct DBMNBlockHeadersKey
+{
     char prefix;
     DBMNBlockHeadersSearchKey searchKey;
     uint256 blockHash;
@@ -48,6 +51,23 @@ struct DBMNBlockHeadersKey {
         READWRITE(prefix);
         READWRITE(searchKey);
         READWRITE(blockHash);
+    }
+};
+
+struct DBMNBlockedCriminalCoins
+{
+    char prefix;
+    uint256 txid;
+    uint32_t index;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(prefix);
+        READWRITE(txid);
+        READWRITE(index);
     }
 };
 
@@ -136,6 +156,36 @@ bool CMasternodesViewDB::FindMintedBlockHeader(uint256 const & txid, uint64_t co
 void CMasternodesViewDB::EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash)
 {
     BatchErase(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash});
+}
+
+void CMasternodesViewDB::WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index)
+{
+    BatchWrite(DBMNBlockedCriminalCoins{DB_MN_BLOCKED_CRIMINAL_COINS, txid, index}, true);
+}
+
+bool CMasternodesViewDB::FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index)
+{
+    DBMNBlockedCriminalCoins prefix{DB_MN_BLOCKED_CRIMINAL_COINS, txid, index};
+    boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
+    pcursor->Seek(prefix);
+
+    if (pcursor->Valid()){
+        DBMNBlockedCriminalCoins key;
+        if (pcursor->GetKey(key)) {
+            bool active;
+            if (pcursor->GetValue(active)) {
+                return active;
+            } else {
+                return error("MNDB::FindBlockedCriminalCoins() : unable to read value");
+            }
+        }
+    }
+    return false;
+}
+
+void CMasternodesViewDB::EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index)
+{
+    BatchErase(DBMNBlockedCriminalCoins{DB_MN_BLOCKED_CRIMINAL_COINS, txid});
 }
 
 //void CMasternodesViewDB::WriteDeadIndex(int height, uint256 const & txid, char type)
