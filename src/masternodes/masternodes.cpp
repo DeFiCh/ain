@@ -323,7 +323,7 @@ void CMasternodesView::PruneOlder(int height)
 //    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
 }
 
-bool CMasternodesView::CheckDoubleSignProof(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)
+bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)
 {
     CKeyID firstKey, secondKey;
     if (!oneHeader.ExtractMinterKey(firstKey)) {
@@ -361,6 +361,46 @@ void CMasternodesView::MarkMasternodeAsCriminals(uint256 const & id, CBlockHeade
 CMasternodesView::CMnCriminals::iterator CMasternodesView::RemoveMasternodeFromCriminals(CMnCriminals::iterator it)
 {
     return criminals.erase(it);
+}
+
+void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metadata)
+{
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    std::pair<CBlockHeader, CBlockHeader> criminal;
+    uint256 txid;
+    uint32_t index;
+    ss >> criminal.first >> criminal.second >> txid >> index;
+
+    if (!CheckDoubleSign(criminal.first, criminal.second)) {
+        if (!FindBlockedCriminalCoins(txid, index)) {
+            WriteBlockedCriminalCoins(txid, index);
+        }
+
+        // TODO: (SS) may be need add blockheaders to DB ?
+    }
+}
+
+bool CMasternodesView::ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
+{
+    if (tx.vout.size() == 0) {
+        return false;
+    }
+    CScript const & memo = tx.vout[0].scriptPubKey;
+    CScript::const_iterator pc = memo.begin();
+    opcodetype opcode;
+    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return false;
+    }
+    if (!memo.GetOp(pc, opcode, metadata) ||
+        (opcode > OP_PUSHDATA1 &&
+         opcode != OP_PUSHDATA2 &&
+         opcode != OP_PUSHDATA4) ||
+        metadata.size() < MnCriminalTxMarker.size() + 1 ||
+        memcmp(&metadata[0], &MnCriminalTxMarker[0], MnCriminalTxMarker.size()) != 0) {
+        return false;
+    }
+    metadata.erase(metadata.begin(), metadata.begin() + MnCriminalTxMarker.size() + 1);
+    return true;
 }
 
 boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmI(AuthIndex where) const

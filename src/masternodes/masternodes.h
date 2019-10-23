@@ -214,9 +214,13 @@ public:
 
     virtual CMasternode const * ExistMasternode(uint256 const & id) const;
 
-    virtual void WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader)  { assert(false); }
-    virtual bool FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders)  { assert(false); }
-    virtual void EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash)  { assert(false); }
+    virtual void WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader) { assert(false); }
+    virtual bool FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders) { assert(false); }
+    virtual void EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash) { assert(false); }
+
+    virtual void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index) { assert(false); }
+    virtual bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index) { assert(false); }
+    virtual void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index) { assert(false); }
 
     bool CanSpend(uint256 const & nodeId, int height) const;
     bool IsAnchorInvolved(uint256 const & nodeId, int height) const;
@@ -231,9 +235,11 @@ public:
 //    CTeam CalcNextDposTeam(CActiveMasternodes const & activeNodes, CMasternodes const & allNodes, uint256 const & blockHash, int height);
 //    virtual CTeam const & ReadDposTeam(int height) const;
 
-    bool CheckDoubleSignProof(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
+    bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
     void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
     CMasternodesView::CMnCriminals::iterator RemoveMasternodeFromCriminals(CMnCriminals::iterator it);
+    void BlockedCriminalMnCoins(std::vector<unsigned char> & metadata);
+    static bool ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
 protected:
     virtual CMnBlocksUndo::mapped_type const & GetBlockUndo(CMnBlocksUndo::key_type key) const;

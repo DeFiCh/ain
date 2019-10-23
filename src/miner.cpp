@@ -159,13 +159,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         CMasternodesView::CMnCriminals criminals = pmasternodesview->GetCriminals();
         CMasternodesView::CMnCriminals::iterator itCriminalMN = criminals.begin();
         std::pair<CBlockHeader, CBlockHeader> criminal = itCriminalMN->second;
-        assert(!pmasternodesview->CheckDoubleSignProof(criminal.first, criminal.second));
+        assert(!pmasternodesview->CheckDoubleSign(criminal.first, criminal.second));
         CKeyID key;
         if (criminal.first.ExtractMinterKey(key)) {
             auto itFirstMN = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, key);
             if (itFirstMN) {
                 CDataStream metadata(MnCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-                metadata << criminal.first.GetHash() << criminal.second.GetHash() << (*itFirstMN)->second << 0; // 0 - number output for blocking
+                metadata << criminal.first << criminal.second << (*itFirstMN)->second << 0; // 0 - number output for blocking
                 coinbaseTx.vin[0].scriptSig = CScript() << OP_RETURN << ToByteVector(metadata);
 
                 baseScript = false;
