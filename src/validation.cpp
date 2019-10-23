@@ -2021,6 +2021,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             CheckMasternodeTx(mnview, tx, chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
 
             control.Add(vChecks);
+        } else {
+            std::vector<unsigned char> metadata;
+            if (tx.vout.size() > 0 && CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
+                pmasternodesview->BlockedCriminalMnCoins(metadata);
+            }
         }
 
         CTxUndo undoDummy;
@@ -3405,7 +3410,7 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
         }
 
         for (std::pair<uint256, CBlockHeader> blockHeader : blockHeaders) {
-            if(!pmasternodesview->CheckDoubleSignProof(block, blockHeader.second)) {
+            if(!pmasternodesview->CheckDoubleSign(block, blockHeader.second)) {
                 pmasternodesview->MarkMasternodeAsCriminals(blockHeader.first, block, blockHeader.second);
             }
         }
