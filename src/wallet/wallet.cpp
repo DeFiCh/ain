@@ -2266,6 +2266,10 @@ CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, boo
             continue;
         }
 
+        if (pwallet->chain().mnFindBlockedCriminalCoins(hashTx ,i)) {
+            continue;
+        }
+
         if (!pwallet->IsSpent(locked_chain, hashTx, i) && (allow_used_addresses || !pwallet->IsUsedDestination(hashTx, i))) {
             const CTxOut &txout = tx->vout[i];
             nCredit += pwallet->GetCredit(txout, filter);
@@ -2552,6 +2556,10 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             }
 
             if (!allow_used_addresses && IsUsedDestination(wtxid, i)) {
+                continue;
+            }
+
+            if (chain().mnFindBlockedCriminalCoins(wtxid ,i)) {
                 continue;
             }
 

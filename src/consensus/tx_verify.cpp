@@ -188,6 +188,11 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "mn-collateral-locked",
                 strprintf("tried to spend locked collateral for %s", prevout.hash.ToString())); /// @todo @max may be somehow place the height of unlocking?
         }
+
+        if (pmasternodesview->FindBlockedCriminalCoins(prevout.hash, prevout.n)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "mn-using-criminal-coins",
+                strprintf("tried to spend criminal coins for %s", prevout.hash.ToString()));
+        }
     }
 
     const CAmount value_out = tx.GetValueOut();
