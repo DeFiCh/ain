@@ -99,6 +99,10 @@ protected:
     bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders);
     void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash);
 
+    void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index);
+    bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index);
+    void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index);
+
 //    void WriteDeadIndex(int height, uint256 const & txid, char type);
 //    void EraseDeadIndex(int height, uint256 const & txid);
 
