@@ -2023,7 +2023,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             control.Add(vChecks);
         } else {
             std::vector<unsigned char> metadata;
-            if (tx.vout.size() > 0 && CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
+            if (CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
                 pmasternodesview->BlockedCriminalMnCoins(metadata);
             }
         }
@@ -3405,13 +3405,13 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
         pmasternodesview->FindMintedBlockHeader(nodeId, block.mintedBlocks, blockHeaders);
 
         auto existingBlockHeader = blockHeaders.find(hash);
-        if (existingBlockHeader == blockHeaders.end()) {
+        if (!blockHeaders.size() || existingBlockHeader == blockHeaders.end()) {
             pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block);
         }
 
         for (std::pair<uint256, CBlockHeader> blockHeader : blockHeaders) {
             if(!pmasternodesview->CheckDoubleSign(block, blockHeader.second)) {
-                pmasternodesview->MarkMasternodeAsCriminals(blockHeader.first, block, blockHeader.second);
+                pmasternodesview->MarkMasternodeAsCriminals(nodeId, block, blockHeader.second);
             }
         }
 
