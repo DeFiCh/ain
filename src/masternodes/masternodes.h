@@ -237,7 +237,7 @@ public:
 
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
     void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
-    CMasternodesView::CMnCriminals::iterator RemoveMasternodeFromCriminals(CMnCriminals::iterator it);
+    void RemoveMasternodeFromCriminals(uint256 const &criminalID);
     void BlockedCriminalMnCoins(std::vector<unsigned char> & metadata);
     static bool ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
