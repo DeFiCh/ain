@@ -345,9 +345,14 @@ bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHea
         return false;
     }
 
-    if (fabs(oneHeader.height - twoHeader.height) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL &&
+    uint64_t maxHeight = oneHeader.height > twoHeader.height? oneHeader.height : twoHeader.height;
+    uint64_t minHeight = oneHeader.height > twoHeader.height? twoHeader.height : oneHeader.height;
+
+    if ((maxHeight - minHeight) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL &&
         itFirstMN == itSecondMN &&
-        oneHeader.GetHash() != twoHeader.GetHash()) {
+        oneHeader.mintedBlocks == twoHeader.mintedBlocks &&
+        oneHeader.GetHash() != twoHeader.GetHash()
+        ) {
         return false;
     }
     return true;
@@ -358,9 +363,12 @@ void CMasternodesView::MarkMasternodeAsCriminals(uint256 const & id, CBlockHeade
     criminals.emplace(std::make_pair(id, std::make_pair(blockHeader, conflictBlockHeader)));
 }
 
-CMasternodesView::CMnCriminals::iterator CMasternodesView::RemoveMasternodeFromCriminals(CMnCriminals::iterator it)
+void CMasternodesView::RemoveMasternodeFromCriminals(uint256 const &criminalID)
 {
-    return criminals.erase(it);
+    auto it = criminals.find(criminalID);
+    if (it != criminals.end()) {
+        criminals.erase(it);
+    }
 }
 
 void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metadata)
@@ -382,10 +390,10 @@ void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metad
 
 bool CMasternodesView::ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
 {
-    if (tx.vout.size() == 0) {
+    if (tx.vin.size() == 0) {
         return false;
     }
-    CScript const & memo = tx.vout[0].scriptPubKey;
+    CScript const & memo = tx.vin[0].scriptSig;
     CScript::const_iterator pc = memo.begin();
     opcodetype opcode;
     if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
@@ -399,7 +407,7 @@ bool CMasternodesView::ExtractCriminalCoinsFromTx(CTransaction const & tx, std::
         memcmp(&metadata[0], &MnCriminalTxMarker[0], MnCriminalTxMarker.size()) != 0) {
         return false;
     }
-    metadata.erase(metadata.begin(), metadata.begin() + MnCriminalTxMarker.size() + 1);
+    metadata.erase(metadata.begin(), metadata.begin() + MnCriminalTxMarker.size());
     return true;
 }
 

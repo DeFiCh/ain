@@ -118,7 +118,7 @@ void CMasternodesViewDB::EraseMasternode(uint256 const & txid)
 
 void CMasternodesViewDB::WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader)
 {
-    BatchWrite(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash}, blockHeader);
+    db->Write(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash}, blockHeader);
 }
 
 bool CMasternodesViewDB::FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders)
@@ -155,12 +155,12 @@ bool CMasternodesViewDB::FindMintedBlockHeader(uint256 const & txid, uint64_t co
 
 void CMasternodesViewDB::EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash)
 {
-    BatchErase(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash});
+    db->Erase(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash});
 }
 
 void CMasternodesViewDB::WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index)
 {
-    BatchWrite(DBMNBlockedCriminalCoins{DB_MN_BLOCKED_CRIMINAL_COINS, txid, index}, true);
+    db->Write(DBMNBlockedCriminalCoins{DB_MN_BLOCKED_CRIMINAL_COINS, txid, index}, true);
 }
 
 bool CMasternodesViewDB::FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index)
@@ -169,7 +169,7 @@ bool CMasternodesViewDB::FindBlockedCriminalCoins(uint256 const & txid, uint32_t
     boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
     pcursor->Seek(prefix);
 
-    if (pcursor->Valid()){
+    if (pcursor->Valid()) {
         DBMNBlockedCriminalCoins key;
         if (pcursor->GetKey(key)) {
             bool active;
@@ -185,7 +185,7 @@ bool CMasternodesViewDB::FindBlockedCriminalCoins(uint256 const & txid, uint32_t
 
 void CMasternodesViewDB::EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index)
 {
-    BatchErase(DBMNBlockedCriminalCoins{DB_MN_BLOCKED_CRIMINAL_COINS, txid});
+    db->Erase(DBMNBlockedCriminalCoins{DB_MN_BLOCKED_CRIMINAL_COINS, txid});
 }
 
 //void CMasternodesViewDB::WriteDeadIndex(int height, uint256 const & txid, char type)
