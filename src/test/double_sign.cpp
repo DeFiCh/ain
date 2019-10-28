@@ -16,7 +16,7 @@ static const std::vector<unsigned char> V_OP_TRUE{OP_TRUE};
 struct RegtestingSetup : public TestingSetup {
     RegtestingSetup() : TestingSetup(CBaseChainParams::REGTEST) {}
 };
-BOOST_FIXTURE_TEST_SUITE(double_sign_tests, RegtestingSetup)
+BOOST_FIXTURE_TEST_SUITE(double_sign, RegtestingSetup)
 
 std::shared_ptr<CBlock> Block( const uint256& prev_hash, const uint64_t& height, const uint64_t& mintedBlocks)
 {
