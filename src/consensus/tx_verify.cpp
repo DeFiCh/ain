@@ -9,12 +9,13 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
-#include <validation.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
 #include <coins.h>
 #include <util/moneystr.h>
+
+extern bool fIsFakeNet;
 
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
 {
