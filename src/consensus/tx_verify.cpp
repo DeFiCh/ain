@@ -9,6 +9,7 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
+#include <validation.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -189,7 +190,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
                 strprintf("tried to spend locked collateral for %s", prevout.hash.ToString())); /// @todo @max may be somehow place the height of unlocking?
         }
 
-        if (pmasternodesview->FindBlockedCriminalCoins(prevout.hash, prevout.n)) {
+        if (pmasternodesview->FindBlockedCriminalCoins(prevout.hash, prevout.n, fIsFakeNet)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "mn-using-criminal-coins",
                 strprintf("tried to spend criminal coins for %s", prevout.hash.ToString()));
         }

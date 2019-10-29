@@ -214,12 +214,12 @@ public:
 
     virtual CMasternode const * ExistMasternode(uint256 const & id) const;
 
-    virtual void WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader) { assert(false); }
-    virtual bool FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders) { assert(false); }
+    virtual void WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true) { assert(false); }
+    virtual bool FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true) { assert(false); }
     virtual void EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash) { assert(false); }
 
-    virtual void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index) { assert(false); }
-    virtual bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index) { assert(false); }
+    virtual void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) { assert(false); }
+    virtual bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) { assert(false); }
     virtual void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index) { assert(false); }
 
     bool CanSpend(uint256 const & nodeId, int height) const;
