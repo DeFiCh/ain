@@ -116,13 +116,21 @@ void CMasternodesViewDB::EraseMasternode(uint256 const & txid)
     BatchErase(make_pair(DB_MASTERNODES, txid));
 }
 
-void CMasternodesViewDB::WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader)
+void CMasternodesViewDB::WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet)
 {
+    if (fIsFakeNet) {
+        return;
+    }
+
     db->Write(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash}, blockHeader);
 }
 
-bool CMasternodesViewDB::FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders)
+bool CMasternodesViewDB::FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet)
 {
+    if (fIsFakeNet) {
+        return false;
+    }
+
     if (blockHeaders.size() != 0) {
         blockHeaders.clear();
     }
@@ -158,13 +166,21 @@ void CMasternodesViewDB::EraseMintedBlockHeader(uint256 const & txid, uint64_t c
     db->Erase(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash});
 }
 
-void CMasternodesViewDB::WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index)
+void CMasternodesViewDB::WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet)
 {
+    if (fIsFakeNet) {
+        return;
+    }
+
     db->Write(DBMNBlockedCriminalCoins{DB_MN_BLOCKED_CRIMINAL_COINS, txid, index}, true);
 }
 
-bool CMasternodesViewDB::FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index)
+bool CMasternodesViewDB::FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet)
 {
+    if (fIsFakeNet) {
+        return false;
+    }
+
     DBMNBlockedCriminalCoins prefix{DB_MN_BLOCKED_CRIMINAL_COINS, txid, index};
     boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
     pcursor->Seek(prefix);
