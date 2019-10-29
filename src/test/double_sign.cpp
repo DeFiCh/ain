@@ -81,12 +81,12 @@ BOOST_AUTO_TEST_CASE(check_doublesign)
     uint64_t mintedBlocks = 0;
     std::vector<CBlockHeader> criminalsBlockHeaders = GenerateTwoCriminalsHeaders(minterKey, mintedBlocks, masternodeID);
 
-    pmasternodesview->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[0].GetHash(), criminalsBlockHeaders[0]);
-    pmasternodesview->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[1].GetHash(), criminalsBlockHeaders[1]);
+    pmasternodesview->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[0].GetHash(), criminalsBlockHeaders[0], false);
+    pmasternodesview->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[1].GetHash(), criminalsBlockHeaders[1], false);
     BOOST_CHECK(!pmasternodesview->CheckDoubleSign(criminalsBlockHeaders[0], criminalsBlockHeaders[1]));
 
     std::map<uint256, CBlockHeader> blockHeaders;
-    BOOST_CHECK(pmasternodesview->FindMintedBlockHeader(masternodeID, mintedBlocks, blockHeaders));
+    BOOST_CHECK(pmasternodesview->FindMintedBlockHeader(masternodeID, mintedBlocks, blockHeaders, false));
     BOOST_CHECK(blockHeaders.size() == 2);
 }
 
@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(check_blocking_criminal_coins)
 
     BOOST_CHECK(ProcessNewBlockHeaders({block->GetBlockHeader()}, state, Params()));
 
-    BOOST_CHECK(pmasternodesview->FindBlockedCriminalCoins(masternodeID, 0));
+    BOOST_CHECK(pmasternodesview->FindBlockedCriminalCoins(masternodeID, 0, false));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

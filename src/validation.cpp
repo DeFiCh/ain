@@ -3402,11 +3402,11 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
 
         std::map<uint256, CBlockHeader> blockHeaders{};
 
-        pmasternodesview->FindMintedBlockHeader(nodeId, block.mintedBlocks, blockHeaders);
+        pmasternodesview->FindMintedBlockHeader(nodeId, block.mintedBlocks, blockHeaders, fIsFakeNet);
 
         auto existingBlockHeader = blockHeaders.find(hash);
         if (!blockHeaders.size() || existingBlockHeader == blockHeaders.end()) {
-            pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block);
+            pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block, fIsFakeNet);
         }
 
         for (std::pair<uint256, CBlockHeader> blockHeader : blockHeaders) {

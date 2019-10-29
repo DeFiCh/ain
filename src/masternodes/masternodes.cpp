@@ -380,8 +380,8 @@ void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metad
     ss >> criminal.first >> criminal.second >> txid >> index;
 
     if (!CheckDoubleSign(criminal.first, criminal.second)) {
-        if (!FindBlockedCriminalCoins(txid, index)) {
-            WriteBlockedCriminalCoins(txid, index);
+        if (!FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
+            WriteBlockedCriminalCoins(txid, index, fIsFakeNet);
         }
 
         // TODO: (SS) may be need add blockheaders to DB ?
