@@ -95,12 +95,12 @@ protected:
     void WriteMasternode(uint256 const & txid, CMasternode const & node);
     void EraseMasternode(uint256 const & txid);
 
-    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader);
-    bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders);
+    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true);
+    bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true);
     void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash);
 
-    void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index);
-    bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index);
+    void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true);
+    bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true);
     void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index);
 
 //    void WriteDeadIndex(int height, uint256 const & txid, char type);
