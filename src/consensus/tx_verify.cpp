@@ -15,6 +15,8 @@
 #include <coins.h>
 #include <util/moneystr.h>
 
+extern bool fIsFakeNet;
+
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
 {
     if (tx.nLockTime == 0)
@@ -187,6 +189,11 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "mn-collateral-locked",
                 strprintf("tried to spend locked collateral for %s", prevout.hash.ToString())); /// @todo @max may be somehow place the height of unlocking?
+        }
+
+        if (pmasternodesview->FindBlockedCriminalCoins(prevout.hash, prevout.n, fIsFakeNet)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "mn-using-criminal-coins",
+                strprintf("tried to spend criminal coins for %s", prevout.hash.ToString()));
         }
     }
 

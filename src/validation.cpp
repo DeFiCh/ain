@@ -121,6 +121,7 @@ bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
+bool fIsFakeNet = false;
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
 
 uint256 hashAssumeValid;
@@ -1572,7 +1573,9 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
-    mnview.DecrementMintedBy(pindex->minter);
+    if (!fIsFakeNet) {
+        mnview.DecrementMintedBy(pindex->minter);
+    }
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
@@ -1789,8 +1792,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
-    if (!fJustCheck)
-    {
+    if (!fJustCheck && !fIsFakeNet) {
         // Check only that mintedBlocks counter is correct (MN existence and activation was partially checked before in CheckBlock()->ContextualCheckProofOfStake(), but not in the case of fJustCheck)
         auto it = mnview.ExistMasternode(CMasternodesView::AuthIndex::ByOperator, pindex->minter);
         assert(it);
@@ -2019,6 +2021,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             CheckMasternodeTx(mnview, tx, chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
 
             control.Add(vChecks);
+        } else {
+            std::vector<unsigned char> metadata;
+            if (CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
+                pmasternodesview->BlockedCriminalMnCoins(metadata);
+            }
         }
 
         CTxUndo undoDummy;
@@ -2057,7 +2064,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    mnview.IncrementMintedBy(pindex->minter); // pindex->minter was extracted before
+    if (!fIsFakeNet) {
+        mnview.IncrementMintedBy(pindex->minter); // pindex->minter was extracted before
+    }
     mnview.SetLastHeight(pindex->nHeight);
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
@@ -3083,8 +3092,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-
-    if (fCheckPOS && !pos::ContextualCheckProofOfStake(block, consensusParams, pmasternodesview.get()))
+    if (!fIsFakeNet && fCheckPOS && !pos::ContextualCheckProofOfStake(block, consensusParams, pmasternodesview.get()))
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of stake failed");
 
     // Check the merkle root.
@@ -3377,9 +3385,36 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             return true;
         }
 
-        if (!pos::ContextualCheckProofOfStake(block, chainparams.GetConsensus(), pmasternodesview.get())) {
+        if (!fIsFakeNet && !pos::ContextualCheckProofOfStake(block, chainparams.GetConsensus(), pmasternodesview.get())) {
             return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: Consensus::ContextualCheckProofOfStake: block %s: bad-pos-header (MN not exist or can't stake)", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
         }
+
+        // Add MintedBlockHeader entity to DB
+        CKeyID mintersKey;
+        if (!block.ExtractMinterKey(mintersKey)) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: minters key for external blockHeader not found", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
+        }
+        auto it = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
+        if (!it) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: active masternode for external blockHeader not found", __func__, hash.ToString()), REJECT_INVALID, " ");
+        }
+        auto const & nodeId = (*it)->second;
+
+        std::map<uint256, CBlockHeader> blockHeaders{};
+
+        pmasternodesview->FindMintedBlockHeader(nodeId, block.mintedBlocks, blockHeaders, fIsFakeNet);
+
+        auto existingBlockHeader = blockHeaders.find(hash);
+        if (!blockHeaders.size() || existingBlockHeader == blockHeaders.end()) {
+            pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block, fIsFakeNet);
+        }
+
+        for (std::pair<uint256, CBlockHeader> blockHeader : blockHeaders) {
+            if(!pmasternodesview->CheckDoubleSign(block, blockHeader.second)) {
+                pmasternodesview->MarkMasternodeAsCriminals(nodeId, block, blockHeader.second);
+            }
+        }
+
         // Get prev block index
         CBlockIndex* pindexPrev = nullptr;
         BlockMap::iterator mi = m_block_index.find(block.hashPrevBlock);
@@ -3392,7 +3427,7 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             return error("%s: Consensus::ContextualCheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
         // Now with pindexPrev we can check stake modifier
-        if (!pos::CheckStakeModifier(pindexPrev, block)) {
+        if (!fIsFakeNet && !pos::CheckStakeModifier(pindexPrev, block)) {
             return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: bad PoS stake modifier", __func__, hash.ToString()), REJECT_INVALID, "bad-stakemodifier");
         }
 
@@ -3853,8 +3888,8 @@ bool BlockManager::LoadBlockIndex(
     CBlockTreeDB& blocktree,
     std::set<CBlockIndex*, CBlockIndexWorkComparator>& block_index_candidates)
 {
-    if (!blocktree.LoadBlockIndexGuts(consensus_params, [this](const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return this->InsertBlockIndex(hash); }))
-        return false;
+    if (!blocktree.LoadBlockIndexGuts(consensus_params, [this](const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return this->InsertBlockIndex(hash); }, fIsFakeNet))
+         return false;
 
     // Calculate nChainWork
     std::vector<std::pair<int, CBlockIndex*> > vSortedByHeight;

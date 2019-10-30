@@ -19,8 +19,13 @@
 #include <boost/scoped_ptr.hpp>
 
 class CTransaction;
+class CBlockHeader;
 
 static const std::vector<unsigned char> MnTxMarker = {'M', 'n', 'T', 'x'};  // 4d6e5478
+static const std::vector<unsigned char> MnCriminalTxMarker = {'M', 'n', 'C', 'r'};
+
+static const unsigned int DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL = 100;
+
 
 enum class MasternodesTxType : unsigned char
 {
@@ -76,15 +81,11 @@ public:
 
     //! empty constructor
     CMasternode();
+    //! construct a CMasternode from a CTransaction, at a given height
+    CMasternode(CTransaction const & tx, int heightIn, std::vector<unsigned char> const & metadata);
 
     //! constructor helper, runs without any checks
     void FromTx(CTransaction const & tx, int heightIn, std::vector<unsigned char> const & metadata);
-
-    //! construct a CMasternode from a CTransaction, at a given height
-    CMasternode(CTransaction const & tx, int heightIn, std::vector<unsigned char> const & metadata)
-    {
-        FromTx(tx, heightIn, metadata);
-    }
 
     bool IsActive() const;
     bool IsActive(int h) const;
@@ -115,16 +116,7 @@ public:
 };
 
 typedef std::map<uint256, CMasternode> CMasternodes;  // nodeId -> masternode object,
-//typedef std::set<uint256> CActiveMasternodes;         // just nodeId's,
 typedef std::map<CKeyID, uint256> CMasternodesByAuth; // for two indexes, owner->nodeId, operator->nodeId
-
-//struct TeamData
-//{
-//    int32_t joinHeight;
-//    CKeyID  operatorAuth;
-//};
-
-//typedef std::map<uint256, TeamData> CTeam;   // nodeId -> <joinHeight, operatorAuth> - masternodes' team
 
 class CMasternodesViewCache;
 class CMasternodesViewHistory;
@@ -141,6 +133,7 @@ public:
     };
     typedef std::map<int, std::pair<uint256, MasternodesTxType> > CMnTxsUndo; // txn, undoRec
     typedef std::map<int, CMnTxsUndo> CMnBlocksUndo;
+    typedef std::map<uint256, std::pair<CBlockHeader, CBlockHeader>> CMnCriminals;
 //    typedef std::map<int, CTeam> CTeams;
 
     enum class AuthIndex { ByOwner, ByOperator };
@@ -148,16 +141,14 @@ public:
 protected:
     int lastHeight;
     CMasternodes allNodes;
-//    CActiveMasternodes activeNodes;
     CMasternodesByAuth nodesByOwner;
     CMasternodesByAuth nodesByOperator;
 
+    CMnCriminals criminals;
+
     CMnBlocksUndo blocksUndo;
-//    CTeams teams;
 
     CMasternodesView() : lastHeight(0) {}
-
-//    CMasternodesView(CMasternodesView const & other) = delete;
 
 public:
     CMasternodesView & operator=(CMasternodesView const & other) = delete;
@@ -209,6 +200,11 @@ public:
         return allNodes;
     }
 
+    virtual CMnCriminals GetCriminals() const
+    {
+        return criminals;
+    }
+
     //! Initial load of all data
     virtual bool Load() { assert(false); }
     virtual bool Flush() { assert(false); }
@@ -218,6 +214,14 @@ public:
 
     virtual CMasternode const * ExistMasternode(uint256 const & id) const;
 
+    virtual void WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true) { assert(false); }
+    virtual bool FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true) { assert(false); }
+    virtual void EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash) { assert(false); }
+
+    virtual void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) { assert(false); }
+    virtual bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) { assert(false); }
+    virtual void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index) { assert(false); }
+
     bool CanSpend(uint256 const & nodeId, int height) const;
     bool IsAnchorInvolved(uint256 const & nodeId, int height) const;
 
@@ -225,29 +229,26 @@ public:
     bool OnMasternodeResign(uint256 const & nodeId, uint256 const & txid, int height, int txn);
     CMasternodesViewCache OnUndoBlock(int height);
 
-//    bool OnConnectBlock(int height, CKeyID const & minter);
-//    bool OnDisconnectBlock(int height, CKeyID const & minter);
-
     void PruneOlder(int height);
 
 //    bool IsTeamMember(int height, CKeyID const & operatorAuth) const;
 //    CTeam CalcNextDposTeam(CActiveMasternodes const & activeNodes, CMasternodes const & allNodes, uint256 const & blockHash, int height);
 //    virtual CTeam const & ReadDposTeam(int height) const;
 
+    bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
+    void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
+    void RemoveMasternodeFromCriminals(uint256 const &criminalID);
+    void BlockedCriminalMnCoins(std::vector<unsigned char> & metadata);
+    static bool ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
 protected:
     virtual CMnBlocksUndo::mapped_type const & GetBlockUndo(CMnBlocksUndo::key_type key) const;
-
-//    virtual void WriteDposTeam(int height, CTeam const & team);
-
 
 private:
     boost::optional<CMasternodeIDs> AmI(AuthIndex where) const;
 public:
     boost::optional<CMasternodeIDs> AmIOperator() const;
     boost::optional<CMasternodeIDs> AmIOwner() const;
-//    boost::optional<CMasternodeIDs> AmIActiveOperator() const;
-//    boost::optional<CMasternodeIDs> AmIActiveOwner() const;
 
     friend class CMasternodesViewCache;
     friend class CMasternodesViewHistory;
@@ -258,7 +259,6 @@ class CMasternodesViewCache : public CMasternodesView
 {
 protected:
     CMasternodesView * base;
-//    CMasternodesViewCache() {}
 
 public:
     CMasternodesViewCache(CMasternodesView * other)
@@ -308,7 +308,6 @@ public:
         return it == blocksUndo.end() ? base->GetBlockUndo(key) : it->second;
     }
 
-
     bool Flush() override
     {
         base->ApplyCache(this);
@@ -316,14 +315,6 @@ public:
 
         return true;
     }
-
-//    virtual CTeam const & ReadDposTeam(int height) const
-//    {
-//        auto const it = teams.find(height);
-//        // return cached (new) or original value
-//        return it != teams.end() ? it->second : base->ReadDposTeam(height);
-//    }
-//    friend class CMasternodesViewHistory;
 };
 
 

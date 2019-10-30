@@ -23,7 +23,7 @@ class CreateTxWalletTest(BitcoinTestFramework):
 
     def run_test(self):
         self.log.info('Create some old blocks')
-        self.nodes[0].setmocktime(TIME_GENESIS_BLOCK)
+        self.nodes[0].setmocktime(TIME_GENESIS_BLOCK+1)
         self.nodes[0].generate(200)
         self.nodes[0].setmocktime(0)
 
