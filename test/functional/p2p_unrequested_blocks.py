@@ -86,7 +86,8 @@ class AcceptBlockTest(BitcoinTestFramework):
         min_work_node = self.nodes[1].add_p2p_connection(P2PInterface())
 
         # 1. Have nodes mine a block (leave IBD)
-        [n.generate(1) for n in self.nodes]
+        # [n.generate(1) for n in self.nodes] # not `generate` here!!! cant understand the logic, but if we touch mocktime here, everything fails!!
+        [n.generatetoaddress(1, n.get_genesis_keys().operatorAuthAddress) for n in self.nodes]
         tips = [int("0x" + n.getbestblockhash(), 0) for n in self.nodes]
 
         # 2. Send one block that builds on each tip.

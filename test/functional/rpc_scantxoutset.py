@@ -56,6 +56,7 @@ class ScantxoutsetTest(BitcoinTestFramework):
         self.stop_node(0)
         shutil.rmtree(os.path.join(self.nodes[0].datadir, "regtest", 'wallets'))
         self.start_node(0)
+        self.import_deterministic_coinbase_privkeys()
         self.nodes[0].generate(110)
 
         self.restart_node(0, ['-nowallet'])

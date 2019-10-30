@@ -22,8 +22,6 @@ static const std::map<char, MasternodesTxType> MasternodesTxTypeToCode =
     {'R', MasternodesTxType::ResignMasternode }
 };
 
-//extern CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams); // in main.cpp
-
 int GetMnActivationDelay()
 {
     return Params().GetConsensus().mn.activationDelay;
@@ -53,8 +51,6 @@ CAmount GetMnCollateralAmount()
 CAmount GetMnCreationFee(int height)
 {
     return Params().GetConsensus().mn.creationFee;
-
-//    CAmount blockSubsidy = GetBlockSubsidy(height, Params().GetConsensus());
 }
 
 CMasternode::CMasternode()
@@ -67,6 +63,11 @@ CMasternode::CMasternode()
     , resignHeight(-1)
     , resignTx()
 {
+}
+
+CMasternode::CMasternode(const CTransaction & tx, int heightIn, const std::vector<unsigned char> & metadata)
+{
+    FromTx(tx, heightIn, metadata);
 }
 
 void CMasternode::FromTx(CTransaction const & tx, int heightIn, std::vector<unsigned char> const & metadata)
@@ -217,7 +218,6 @@ bool CMasternodesView::OnMasternodeCreate(uint256 const & nodeId, CMasternode co
     nodesByOwner[node.ownerAuthAddress] = nodeId;
     nodesByOperator[node.operatorAuthAddress] = nodeId;
 
-//    blocksUndo[std::make_pair(node.height, txn)] = std::make_pair(nodeId, MasternodesTxType::CreateMasternode);
     blocksUndo[node.creationHeight][txn] = std::make_pair(nodeId, MasternodesTxType::CreateMasternode);
 
     return true;
@@ -236,7 +236,6 @@ bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const 
     allNodes[nodeId].resignTx = txid;
     allNodes[nodeId].resignHeight = height;
 
-//    blocksUndo[std::make_pair(height, txn)] = std::make_pair(nodeId, MasternodesTxType::ResignMasternode);
     blocksUndo[height][txn] = std::make_pair(nodeId, MasternodesTxType::ResignMasternode);
 
     return true;
@@ -296,55 +295,6 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
     return backup; // it is new value diff for height+1
 }
 
-//bool CMasternodesView::OnConnectBlock(int height, const CKeyID & minter)
-//{
-//    lastHeight = height;
-
-//    auto nodePtr = ExistMasternode(minter);
-//    assert(nodePtr);
-
-//    if (nodePtr)
-//    {
-//        allNodes[minter] = *nodePtr; // !! cause may be cached!
-//        ++allNodes[minter].mintedBlocks;
-
-//        return true;
-//    }
-//    return false;
-//}
-
-
-//bool CMasternodesView::IsTeamMember(int height, CKeyID const & operatorAuth) const
-//{
-//    CTeam const & team = ReadDposTeam(height);
-//    for (auto const & member : team)
-//    {
-//        if (member.second.operatorAuth == operatorAuth)
-//            return true;
-//    }
-//    return false;
-//}
-
-//CTeam const & CMasternodesView::ReadDposTeam(int height) const
-//{
-//    static CTeam const Empty{};
-
-//    auto const it = teams.find(height);
-//    if (it != teams.end())
-//        return it->second;
-
-//    // Nothing to complain here, cause teams not exists before dPoS activation!
-////    LogPrintf("MN ERROR: Fail to get team at height %d! May be already pruned!\n", height);
-//    return Empty;
-//}
-
-//void CMasternodesView::WriteDposTeam(int height, const CTeam & team)
-//{
-//    assert(height >= 0);
-//    teams[height] = team;
-//}
-
-
 /// Call it only for "clear" and "full" (not cached) view
 void CMasternodesView::PruneOlder(int height)
 {
@@ -371,8 +321,94 @@ void CMasternodesView::PruneOlder(int height)
 
 //    // erase undo info
 //    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
-//    // erase old teams info
-////    teams.erase(teams.begin(), teams.lower_bound(height));
+}
+
+bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)
+{
+    CKeyID firstKey, secondKey;
+    if (!oneHeader.ExtractMinterKey(firstKey)) {
+        // TODO: (ss) may be throw exception
+        return false;
+    }
+    auto itFirstMN = ExistMasternode(AuthIndex::ByOperator, firstKey);
+    if (!itFirstMN) {
+        // TODO: (ss) may be throw exception
+        return false;
+    }
+    if (!twoHeader.ExtractMinterKey(secondKey)) {
+        // TODO: (ss) may be throw exception
+        return false;
+    }
+    auto itSecondMN = ExistMasternode(AuthIndex::ByOperator, firstKey);
+    if (!itSecondMN) {
+        // TODO: (ss) may be throw exception
+        return false;
+    }
+
+    uint64_t maxHeight = oneHeader.height > twoHeader.height? oneHeader.height : twoHeader.height;
+    uint64_t minHeight = oneHeader.height > twoHeader.height? twoHeader.height : oneHeader.height;
+
+    if ((maxHeight - minHeight) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL &&
+        itFirstMN == itSecondMN &&
+        oneHeader.mintedBlocks == twoHeader.mintedBlocks &&
+        oneHeader.GetHash() != twoHeader.GetHash()
+        ) {
+        return false;
+    }
+    return true;
+}
+
+void CMasternodesView::MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader)
+{
+    criminals.emplace(std::make_pair(id, std::make_pair(blockHeader, conflictBlockHeader)));
+}
+
+void CMasternodesView::RemoveMasternodeFromCriminals(uint256 const &criminalID)
+{
+    auto it = criminals.find(criminalID);
+    if (it != criminals.end()) {
+        criminals.erase(it);
+    }
+}
+
+void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metadata)
+{
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    std::pair<CBlockHeader, CBlockHeader> criminal;
+    uint256 txid;
+    uint32_t index;
+    ss >> criminal.first >> criminal.second >> txid >> index;
+
+    if (!CheckDoubleSign(criminal.first, criminal.second)) {
+        if (!FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
+            WriteBlockedCriminalCoins(txid, index, fIsFakeNet);
+        }
+
+        // TODO: (SS) may be need add blockheaders to DB ?
+    }
+}
+
+bool CMasternodesView::ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
+{
+    if (tx.vin.size() == 0) {
+        return false;
+    }
+    CScript const & memo = tx.vin[0].scriptSig;
+    CScript::const_iterator pc = memo.begin();
+    opcodetype opcode;
+    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return false;
+    }
+    if (!memo.GetOp(pc, opcode, metadata) ||
+        (opcode > OP_PUSHDATA1 &&
+         opcode != OP_PUSHDATA2 &&
+         opcode != OP_PUSHDATA4) ||
+        metadata.size() < MnCriminalTxMarker.size() + 1 ||
+        memcmp(&metadata[0], &MnCriminalTxMarker[0], MnCriminalTxMarker.size()) != 0) {
+        return false;
+    }
+    metadata.erase(metadata.begin(), metadata.begin() + MnCriminalTxMarker.size());
+    return true;
 }
 
 boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmI(AuthIndex where) const
@@ -405,26 +441,6 @@ boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmIOwner() c
     return AmI(AuthIndex::ByOwner);
 }
 
-//boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmIActiveOperator() const
-//{
-//    auto result = AmI(AuthIndex::ByOperator);
-//    if (result && ExistMasternode(result->id)->IsActive())
-//    {
-//        return result;
-//    }
-//    return {};
-//}
-
-//boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmIActiveOwner() const
-//{
-//    auto result = AmI(AuthIndex::ByOwner);
-//    if (result && ExistMasternode(result->id)->IsActive())
-//    {
-//        return result;
-//    }
-//    return {};
-//}
-
 void CMasternodesView::ApplyCache(const CMasternodesView * cache)
 {
     lastHeight = cache->lastHeight;
@@ -454,44 +470,9 @@ void CMasternodesView::Clear()
     nodesByOperator.clear();
 
     blocksUndo.clear();
-//    teams.clear();
 }
 
-/*
- * Checks if given tx is probably one of 'MasternodeTx', returns tx type and serialized metadata in 'data'
-*/
-MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<unsigned char> & metadata)
-{
-    if (tx.vout.size() == 0)
-    {
-        return MasternodesTxType::None;
-    }
-    CScript const & memo = tx.vout[0].scriptPubKey;
-    CScript::const_iterator pc = memo.begin();
-    opcodetype opcode;
-    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN)
-    {
-        return MasternodesTxType::None;
-    }
-    if (!memo.GetOp(pc, opcode, metadata) ||
-            (opcode > OP_PUSHDATA1 &&
-             opcode != OP_PUSHDATA2 &&
-             opcode != OP_PUSHDATA4) ||
-            metadata.size() < MnTxMarker.size() + 1 ||     // i don't know how much exactly, but at least MnTxSignature + type prefix
-            memcmp(&metadata[0], &MnTxMarker[0], MnTxMarker.size()) != 0)
-    {
-        return MasternodesTxType::None;
-    }
-    auto const & it = MasternodesTxTypeToCode.find(metadata[MnTxMarker.size()]);
-    if (it == MasternodesTxTypeToCode.end())
-    {
-        return MasternodesTxType::None;
-    }
-    metadata.erase(metadata.begin(), metadata.begin() + MnTxMarker.size() + 1);
-    return it->second;
-}
-
-CMasternodesViewHistory& CMasternodesViewHistory::GetState(int targetHeight)
+CMasternodesViewHistory & CMasternodesViewHistory::GetState(int targetHeight)
 {
     int const topHeight = base->GetLastHeight();
     assert(targetHeight >= topHeight - GetMnHistoryFrame() && targetHeight <= topHeight);
@@ -499,7 +480,6 @@ CMasternodesViewHistory& CMasternodesViewHistory::GetState(int targetHeight)
     if (lastHeight > targetHeight)
     {
         // go backward (undo)
-
         for (; lastHeight > targetHeight; )
         {
             auto it = historyDiff.find(lastHeight);
@@ -534,4 +514,38 @@ CMasternodesViewHistory& CMasternodesViewHistory::GetState(int targetHeight)
 
     }
     return *this;
+}
+
+/*
+ * Checks if given tx is probably one of 'MasternodeTx', returns tx type and serialized metadata in 'data'
+*/
+MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<unsigned char> & metadata)
+{
+    if (tx.vout.size() == 0)
+    {
+        return MasternodesTxType::None;
+    }
+    CScript const & memo = tx.vout[0].scriptPubKey;
+    CScript::const_iterator pc = memo.begin();
+    opcodetype opcode;
+    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN)
+    {
+        return MasternodesTxType::None;
+    }
+    if (!memo.GetOp(pc, opcode, metadata) ||
+            (opcode > OP_PUSHDATA1 &&
+             opcode != OP_PUSHDATA2 &&
+             opcode != OP_PUSHDATA4) ||
+            metadata.size() < MnTxMarker.size() + 1 ||     // i don't know how much exactly, but at least MnTxSignature + type prefix
+            memcmp(&metadata[0], &MnTxMarker[0], MnTxMarker.size()) != 0)
+    {
+        return MasternodesTxType::None;
+    }
+    auto const & it = MasternodesTxTypeToCode.find(metadata[MnTxMarker.size()]);
+    if (it == MasternodesTxTypeToCode.end())
+    {
+        return MasternodesTxType::None;
+    }
+    metadata.erase(metadata.begin(), metadata.begin() + MnTxMarker.size() + 1);
+    return it->second;
 }

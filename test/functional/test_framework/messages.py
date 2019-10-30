@@ -28,7 +28,7 @@ import struct
 import time
 
 from test_framework.siphash import siphash256
-from test_framework.util import hex_str_to_bytes, assert_greater_than
+from test_framework.util import hex_str_to_bytes, assert_equal
 
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -550,11 +550,11 @@ class CBlockHeader:
         self.hashMerkleRoot = 0
         self.nTime = 0
         self.nBits = 0
-        # self.nNonce = 0
+
         self.stakeModifier = 0
         self.nHeight = 0
         self.nMintedBlocks = 0
-        self.sig = b""
+        self.sig = b"0" * 65 # dummy sig to make header fixed length
 
         self.sha256 = None
         self.hash = None
@@ -565,7 +565,6 @@ class CBlockHeader:
         self.hashMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
         self.nBits = struct.unpack("<I", f.read(4))[0]
-        # self.nNonce = struct.unpack("<I", f.read(4))[0]
 
         self.stakeModifier = deser_uint256(f)
         self.nHeight = struct.unpack("<Q", f.read(8))[0]
@@ -588,7 +587,6 @@ class CBlockHeader:
         r += struct.pack("<Q", self.nMintedBlocks)
         r += ser_string(self.sig)
 
-        # r += struct.pack("<I", self.nNonce)
         return r
 
     def calc_sha256(self):
@@ -599,10 +597,11 @@ class CBlockHeader:
             r += ser_uint256(self.hashMerkleRoot)
             r += struct.pack("<I", self.nTime)
             r += struct.pack("<I", self.nBits)
-            # r += struct.pack("<I", self.nNonce)
+
+            r += ser_uint256(self.stakeModifier)
             r += struct.pack("<Q", self.nHeight)
             r += struct.pack("<Q", self.nMintedBlocks)
-            r += ser_uint256(self.stakeModifier)
+            r += ser_string(self.sig)
 
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
@@ -618,7 +617,7 @@ class CBlockHeader:
                time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks, "0x".join("{:02x}".format(c) for c in self.sig))
 
 BLOCK_HEADER_SIZE = len(CBlockHeader().serialize())
-assert_greater_than(BLOCK_HEADER_SIZE, 124) # 124 - w\o sig
+assert_equal(BLOCK_HEADER_SIZE, 190)
 
 class CBlock(CBlockHeader):
     __slots__ = ("vtx",)
@@ -686,7 +685,8 @@ class CBlock(CBlockHeader):
         # Commented out due to PoS
         # target = uint256_from_compact(self.nBits)
         # while self.sha256 > target:
-        #     self.nNonce += 1
+        #     # increment stakeModifier here (instead of nTime) due to very complex control of nTime
+        #     self.stakeModifier += 1
         #     self.rehash()
 
     def __repr__(self):

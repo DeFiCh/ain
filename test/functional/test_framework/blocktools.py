@@ -44,7 +44,7 @@ from io import BytesIO
 MAX_BLOCK_SIGOPS = 20000
 
 # Genesis block time (regtest)
-TIME_GENESIS_BLOCK = 1296688602
+TIME_GENESIS_BLOCK = 1298732709
 
 # From BIP141
 WITNESS_COMMITMENT_HEADER = b"\xaa\x21\xa9\xed"
@@ -60,6 +60,7 @@ def create_block(hashprev, coinbase, ntime=None, *, version=1):
     else:
         block.nTime = ntime
     block.hashPrevBlock = hashprev
+
     block.nBits = 0x207fffff  # difficulty retargeting is disabled in REGTEST chainparams
     block.vtx.append(coinbase)
     block.hashMerkleRoot = block.calc_merkle_root()

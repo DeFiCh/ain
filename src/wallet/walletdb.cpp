@@ -219,8 +219,10 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CWalletTx wtx(nullptr /* pwallet */, MakeTransactionRef());
             ssValue >> wtx;
             CValidationState state;
-            if (!(CheckTransaction(*wtx.tx, state) && (wtx.GetHash() == hash) && state.IsValid()))
-                return false;
+            /// @todo @maxb temporary disabled due to genesis mn txs. RESOLVE!
+            /// we can't get genesis hash at wallet's load time
+//            if (!(CheckTransaction(*wtx.tx, state) && (wtx.GetHash() == hash) && state.IsValid()))
+//                return false;
 
             // Undo serialize changes in 31600
             if (31404 <= wtx.fTimeReceivedIsTxTime && wtx.fTimeReceivedIsTxTime <= 31703)

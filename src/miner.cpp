@@ -152,7 +152,32 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
     coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
-    coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+
+    bool baseScript = true;
+
+    if (pmasternodesview->GetCriminals().size() != 0) {
+        CMasternodesView::CMnCriminals criminals = pmasternodesview->GetCriminals();
+        CMasternodesView::CMnCriminals::iterator itCriminalMN = criminals.begin();
+        std::pair<CBlockHeader, CBlockHeader> criminal = itCriminalMN->second;
+        assert(!pmasternodesview->CheckDoubleSign(criminal.first, criminal.second));
+        CKeyID key;
+        if (criminal.first.ExtractMinterKey(key)) {
+            auto itFirstMN = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, key);
+            if (itFirstMN) {
+                CDataStream metadata(MnCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+                metadata << criminal.first << criminal.second << (*itFirstMN)->second << 0; // 0 - number output for blocking
+                coinbaseTx.vin[0].scriptSig = CScript() << OP_RETURN << ToByteVector(metadata);
+
+                baseScript = false;
+            }
+        }
+    }
+
+    if (baseScript) {
+        coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+    }
+
+
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;
@@ -172,6 +197,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
     int64_t nTime2 = GetTimeMicros();
+
+    if (pmasternodesview->GetCriminals().size() != 0) {
+        pmasternodesview->RemoveMasternodeFromCriminals(pmasternodesview->GetCriminals().begin()->first);
+    }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
 

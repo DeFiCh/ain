@@ -17,6 +17,8 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 
+class CBlockHeader;
+
 /** Access to the masternodes database (masternodes/) */
 class CMasternodesViewDB : public CMasternodesView
 {
@@ -86,7 +88,6 @@ private:
 
 protected:
     void CommitBatch();
-//    void DropBatch();
 
     bool ReadHeight(int & h);
     void WriteHeight(int h);
@@ -94,13 +95,19 @@ protected:
     void WriteMasternode(uint256 const & txid, CMasternode const & node);
     void EraseMasternode(uint256 const & txid);
 
+    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true);
+    bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true);
+    void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash);
+
+    void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true);
+    bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true);
+    void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index);
+
 //    void WriteDeadIndex(int height, uint256 const & txid, char type);
 //    void EraseDeadIndex(int height, uint256 const & txid);
 
     void WriteUndo(int height, CMnTxsUndo const & undo);
     void EraseUndo(int height);
-
-//    void WriteTeam(int blockHeight, CTeam const & team);
 
 public:
     bool Load() override;
