@@ -96,6 +96,7 @@ class TestNode():
             "-debugexclude=leveldb",
             "-uacomment=testnode%d" % i,
             "-masternode_operator="+self.get_genesis_keys().operatorAuthAddress,
+            "-dummypos=1",
         ]
 
         self.cli = TestNodeCLI(bitcoin_cli, self.datadir)
@@ -115,49 +116,48 @@ class TestNode():
         self.p2ps = []
 
     MnKeys = collections.namedtuple('MnKeys', ['ownerAuthAddress', 'ownerPrivKey', 'operatorAuthAddress', 'operatorPrivKey'])
-    PRIV_KEYS = [
-        MnKeys("bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "cR4qgUdPhANDVF3bprcp5N9PNW2zyogDx6DGu2wHh2qtJB1L1vQj", "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv", "cVsa2wQvCjZZ54jGteQ8qiQbQLJQmZSBWriYUYyXbcaqUJFqK5HR"),
+    PRIV_KEYS = [ # at least node0&1 operator should be non-witness!!! (feature_bip68_sequence.py,interface_zmq,rpc_psbt  fails)
+        # legacy:
         MnKeys("mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",           "cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy",           "cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC"),
-        MnKeys("bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "cUX8AEUZYsZxNUh5fTS7ZGnF6SPQuTeTDTABGrp5dbPftCga2zcp", "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r", "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW"),
         MnKeys("msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7",           "cSCmN1tjcR2yR1eaQo9WmjTMR85SjEoNPqMPWGAApQiTLJH8JF7W", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ",           "cVNTRYV43guugJoDgaiPZESvNtnfnUW19YEjhybihwDbLKjyrZNV"),
+        MnKeys("myF3aHuxtEuqqTw44EurtVs6mjyc1QnGUS",           "cSXiqwTiYzECugcvCT4PyPKz2yKaTST8HowFVBBjccZCPkX6wsE9", "mtbWisYQmw9wcaecvmExeuixG7rYGqKEU4",           "cPh5YaousYQ92tNd9FkiiS26THjSVBDHUMHZzUiBFbtGNS4Uw9AD"),
+        MnKeys("mwyaBGGE7ka58F7aavH5hjMVdJENP9ZEVz",           "cVA52y8ABsUYNuXVJ17d44N1wuSmeyPtke9urw4LchTyKsaGDMbY", "n1n6Z5Zdoku4oUnrXeQ2feLz3t7jmVLG9t",           "cV9tJBgAnSfFmPaC6fWWvA9StLKkU3DKV7eXJHjWMUENQ8cKJDkL"),
+        MnKeys("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu",           "cRJyBuQPuUhYzN5F2Uf35958oK9AzZ5UscRfVmaRr8ktWq6Ac23u", "mzqdipBJcKX9rXXxcxw2kTHC3Xjzd3siKg",           "cQYJ87qk39i3uFsXBZ2EkwdX1h72q1RQcX9V8X7PPydFPgujxrCy"),
+        MnKeys("mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c",           "cPjeCNka7omVbKKfywPVQyBig9eopBHy6eJqLzrdJqMP4DXApkcb", "mk5DkY4qcV6CUpuxDVyD3AHzRq5XK9kbRN",           "cV6Hjhutf11RvFHaERkp52QNynm2ifNmtUfP8EwRRMg6NaaQsHTe"),
+        # bech32:
+        MnKeys("bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "cR4qgUdPhANDVF3bprcp5N9PNW2zyogDx6DGu2wHh2qtJB1L1vQj", "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv", "cVsa2wQvCjZZ54jGteQ8qiQbQLJQmZSBWriYUYyXbcaqUJFqK5HR"),
+        MnKeys("bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "cUX8AEUZYsZxNUh5fTS7ZGnF6SPQuTeTDTABGrp5dbPftCga2zcp", "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r", "cUp5EVEjuAGpemSuejP36TWWuFKzuCbUJ4QAKJTiSSB2vXzDLsJW"),
     ]
-
-    # AddressKeyPair = collections.namedtuple('AddressKeyPair', ['address', 'key'])
-    # PRIV_KEYS = [
-    #         # address , privkey
-    #         AddressKeyPair('mjTkW3DjgyZck4KbiRusZsqTgaYTxdSz6z', 'cVpF924EspNh8KjYsfhgY96mmxvT6DgdWiTYMtMjuM74hJaU5psW'),
-    #         AddressKeyPair('msX6jQXvxiNhx3Q62PKeLPrhrqZQdSimTg', 'cUxsWyKyZ9MAQTaAhUQWJmBbSvHMwSmuv59KgxQV7oZQU3PXN3KE'),
-    #         AddressKeyPair('mnonCMyH9TmAsSj3M59DsbH8H63U3RKoFP', 'cTrh7dkEAeJd6b3MRX9bZK8eRmNqVCMH3LSUkE3dSFDyzjU38QxK'),
-    #         AddressKeyPair('mqJupas8Dt2uestQDvV2NH3RU8uZh2dqQR', 'cVuKKa7gbehEQvVq717hYcbE9Dqmq7KEBKqWgWrYBa2CKKrhtRim'),
-    #         AddressKeyPair('msYac7Rvd5ywm6pEmkjyxhbCDKqWsVeYws', 'cQDCBuKcjanpXDpCqacNSjYfxeQj8G6CAtH1Dsk3cXyqLNC4RPuh'),
-    #         AddressKeyPair('n2rnuUnwLgXqf9kk2kjvVm8R5BZK1yxQBi', 'cQakmfPSLSqKHyMFGwAqKHgWUiofJCagVGhiB4KCainaeCSxeyYq'),
-    #         AddressKeyPair('myzuPxRwsf3vvGzEuzPfK9Nf2RfwauwYe6', 'cQMpDLJwA8DBe9NcQbdoSb1BhmFxVjWD5gRyrLZCtpuF9Zi3a9RK'),
-    #         AddressKeyPair('mumwTaMtbxEPUswmLBBN3vM9oGRtGBrys8', 'cSXmRKXVcoouhNNVpcNKFfxsTsToY5pvB9DVsFksF1ENunTzRKsy'),
-    #         AddressKeyPair('mpV7aGShMkJCZgbW7F6iZgrvuPHjZjH9qg', 'cSoXt6tm3pqy43UMabY6eUTmR3eSUYFtB2iNQDGgb3VUnRsQys2k'),
-    #         AddressKeyPair('mq4fBNdckGtvY2mijd9am7DRsbRB4KjUkf', 'cN55daf1HotwBAgAKWVgDcoppmUNDtQSfb7XLutTLeAgVc3u8hik'),
-    #         AddressKeyPair('mpFAHDjX7KregM3rVotdXzQmkbwtbQEnZ6', 'cT7qK7g1wkYEMvKowd2ZrX1E5f6JQ7TM246UfqbCiyF7kZhorpX3'),
-    #         AddressKeyPair('mzRe8QZMfGi58KyWCse2exxEFry2sfF2Y7', 'cPiRWE8KMjTRxH1MWkPerhfoHFn5iHPWVK5aPqjW8NxmdwenFinJ'),
-    # ]
+    Mocktime = None
 
     def get_genesis_keys(self):
         """Return a deterministic priv key in base58, that only depends on the node's index"""
         assert len(self.PRIV_KEYS) == MAX_NODES
         return self.PRIV_KEYS[self.index]
 
+    def pullup_mocktime(self):
+        TestNode.Mocktime = self.getblockheader(self.getbestblockhash())["time"]
+
+    def set_mocktime(self, time):
+        TestNode.Mocktime = time
+
+    def reset_mocktime(self):
+        TestNode.Mocktime = None
+
     def generate(self, nblocks, maxtries=1000000, address=None):
         if address is None:
             address = self.get_genesis_keys().operatorAuthAddress
 
-        self.mocktime = self.getblockheader(self.getbestblockhash())["time"]  + 1
         height = self.getblockcount()
         minted = 0
         mintedHashes = []
         while minted < nblocks:
-            self.setmocktime(self.mocktime)
+            if TestNode.Mocktime is not None:
+                self.setmocktime(TestNode.Mocktime + 1)
             res = self.generatetoaddress(nblocks=1, address=address, maxtries=maxtries)
             if res == 1:
                 minted += 1
-                self.mocktime += 2 # 2s per block
+                self.pullup_mocktime()
                 mintedHashes.append(self.getblockhash(height+minted))
         return mintedHashes
 
@@ -271,10 +271,6 @@ class TestNode():
                     raise
             time.sleep(1.0 / poll_per_s)
         self._raise_assertion_error("Unable to connect to bitcoind")
-
-    # def generate(self, nblocks, maxtries=1000000):
-    #     self.log.debug("TestNode.generate() dispatches `generate` call to `generatetoaddress`")
-    #     return self.generatetoaddress(nblocks=nblocks, address=self.get_genesis_keys().address, maxtries=maxtries)
 
     def get_wallet_rpc(self, wallet_name):
         if self.use_cli:
