@@ -38,15 +38,15 @@ class ListSinceBlockTest (BitcoinTestFramework):
             "confirmations": 1,
         })
         assert_equal(
-            self.nodes[0].listsinceblock(),
-            {"lastblock": blockhash,
+            sorted(self.nodes[0].listsinceblock()),
+            sorted({"lastblock": blockhash,
              "removed": [],
-             "transactions": txs})
+             "transactions": txs}))
         assert_equal(
-            self.nodes[0].listsinceblock(""),
-            {"lastblock": blockhash,
+            sorted(self.nodes[0].listsinceblock("")),
+            sorted({"lastblock": blockhash,
              "removed": [],
-             "transactions": txs})
+             "transactions": txs}))
 
     def test_invalid_blockhash(self):
         assert_raises_rpc_error(-5, "Block not found", self.nodes[0].listsinceblock,

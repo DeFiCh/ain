@@ -14,21 +14,15 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
-import pprint
-import time
-
 class MasternodesRpcBasicTest (BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
 
     def run_test(self):
-        pprint.PrettyPrinter(indent=4)
-
-        assert_equal(len(self.nodes[0].mn_list()), 4)
+        assert_equal(len(self.nodes[0].mn_list()), 8)
         self.nodes[0].generate(100)
-        time.sleep(2)
-        self.sync_blocks()
+        self.sync_all()
 
         # Stop node #2 for future revert
         self.stop_node(2)
@@ -85,7 +79,6 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
 
         # RESIGNING:
         #========================
-
         # Fail to resign: Forget to place params in config
         try:
             self.nodes[0].mn_resign([], idnode0)
@@ -144,7 +137,7 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         self.nodes[2].generate(25)
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
-        assert_equal(len(self.nodes[0].mn_list()), 4)
+        assert_equal(len(self.nodes[0].mn_list()), 8)
         assert_equal(self.nodes[0].getrawmempool(), [idnode0, fundingTx, resignTx])
 
 if __name__ == '__main__':

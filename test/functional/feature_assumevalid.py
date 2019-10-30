@@ -79,17 +79,15 @@ class AssumeValidTest(BitcoinTestFramework):
     def assert_blockchain_height(self, node, height):
         """Wait until the blockchain is no longer advancing and verify it's reached the expected height."""
         last_height = node.getblock(node.getbestblockhash())['height']
-        print (last_height)
         timeout = 10
         while True:
             time.sleep(0.25)
+            timeout -= 0.25
             current_height = node.getblock(node.getbestblockhash())['height']
-            print ("current_height", current_height)
+            if timeout < 0:
+                assert False, "blockchain too short after timeout: %d" % current_height
             if current_height != last_height:
                 last_height = current_height
-                if timeout < 0:
-                    assert False, "blockchain too short after timeout: %d" % current_height
-                timeout -= 0.25
                 continue
             elif current_height > height:
                 assert False, "blockchain too long: %d" % current_height
@@ -176,16 +174,12 @@ class AssumeValidTest(BitcoinTestFramework):
 
         # Send blocks to node0. Block 102 will be rejected.
         self.send_blocks_until_disconnected(p2p0)
-        print('==========')
         self.assert_blockchain_height(self.nodes[0], 101)
 
-        print('==========')
         # Send all blocks to node1. All blocks will be accepted.
         for i in range(2202):
-            print (i)
             p2p1.send_message(msg_block(self.blocks[i]))
         # Syncing 2200 blocks can take a while on slow systems. Give it plenty of time to sync.
-        print('==========')
         p2p1.sync_with_ping(200)
         assert_equal(self.nodes[1].getblock(self.nodes[1].getbestblockhash())['height'], 2202)
 

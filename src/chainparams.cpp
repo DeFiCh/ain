@@ -239,7 +239,7 @@ public:
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
-        consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
+        consensus.pos.fAllowMinDifficultyBlocks = true;
         consensus.pos.fNoRetargeting = false; // only for regtest
 
         consensus.pos.coinstakeMaturity = 100;
@@ -393,14 +393,18 @@ public:
         // owner base58, operator base58
         vMasternodes.push_back({"mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy"});
         vMasternodes.push_back({"msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ"});
+        vMasternodes.push_back({"myF3aHuxtEuqqTw44EurtVs6mjyc1QnGUS", "mtbWisYQmw9wcaecvmExeuixG7rYGqKEU4"});
+        vMasternodes.push_back({"mwyaBGGE7ka58F7aavH5hjMVdJENP9ZEVz", "n1n6Z5Zdoku4oUnrXeQ2feLz3t7jmVLG9t"});
+        vMasternodes.push_back({"mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu", "mzqdipBJcKX9rXXxcxw2kTHC3Xjzd3siKg"});
+        vMasternodes.push_back({"mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c", "mk5DkY4qcV6CUpuxDVyD3AHzRq5XK9kbRN"});
         vMasternodes.push_back({"bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv"});
         vMasternodes.push_back({"bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r"});
 
-        genesis = CreateGenesisBlock(1296688602, 0x207fffff, 1, 50 * COIN, CreateGenesisMasternodes());
+        genesis = CreateGenesisBlock(1298732709, 0x207fffff, 1, 50 * COIN, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("0x5deed118789bf5acdce79974f15b9a1cffb924875f52e702ca93d926d290b31f"));
-        assert(genesis.hashMerkleRoot == uint256S("0x955d1c4074ccd34639cae5d1234bbef645b34866bfd18f083dd80928618e80fb"));
+        assert(consensus.hashGenesisBlock == uint256S("0x00000089a42802dfd816d0986339546b1f33a8d0e8ce2b9a4844a301407bac13"));
+        assert(genesis.hashMerkleRoot == uint256S("0xd43efce4ced3bacf52a958ae189ba1dd977031910cbeb72eb5e7f56a59ca4f52"));
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
