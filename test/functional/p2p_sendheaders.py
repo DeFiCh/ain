@@ -212,6 +212,7 @@ class SendHeadersTest(BitcoinTestFramework):
 
         # Clear out block announcements from each p2p listener
         [x.clear_block_announcements() for x in self.nodes[0].p2ps]
+        self.nodes[0].pullup_mocktime() # Need to! Cause 'generate' interleaved with manual block's creation/sending
         self.nodes[0].generate(count)
         return int(self.nodes[0].getbestblockhash(), 16)
 
@@ -322,14 +323,13 @@ class SendHeadersTest(BitcoinTestFramework):
         prev_tip = int(self.nodes[0].getbestblockhash(), 16)
         test_node.send_get_headers(locator=[prev_tip], hashstop=0)
         test_node.sync_with_ping()
-
         # Now that we've synced headers, headers announcements should work
         tip = self.mine_blocks(1)
         inv_node.check_last_inv_announcement(inv=[tip])
         test_node.check_last_headers_announcement(headers=[tip])
 
         height = self.nodes[0].getblockcount() + 1
-        block_time += 10  # Advance far enough ahead
+        block_time += 10  # Advance far enough ahead (in fact, `block_time` isn't consistent here. it'll be better to get last block time in the case of 'generate()' interleaving 'create_block()' )
         for i in range(10):
             self.log.debug("Part 2.{}: starting...".format(i))
             # Mine i blocks, and alternate announcing either via
