@@ -39,8 +39,6 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock, const uint
 
     pblock->stakeModifier = pos::ComputeStakeModifier(prevStakeModifier, minterKey.GetPubKey().GetID());
 
-    GenerateCoinbaseCommitment(*pblock, LookupBlockIndex(pblock->hashPrevBlock), Params().GetConsensus());
-
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
 
     do {
