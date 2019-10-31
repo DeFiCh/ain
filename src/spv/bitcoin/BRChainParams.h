@@ -45,6 +45,11 @@ typedef struct {
     int (*verifyDifficulty)(const BRMerkleBlock *block, const BRSet *blockSet); // blockSet must have last 2016 blocks
     const BRCheckPoint *checkpoints;
     size_t checkpointsCount;
+    // prefixes
+    uint8_t privkey, base58_p2pkh, base58_p2sh;
+    char const * const bip32_xprv;
+    char const * const bip32_xpub;
+    char const * const bech32;
 } BRChainParams;
 
 extern const BRChainParams *BRMainNetParams;
@@ -53,8 +58,10 @@ extern const BRChainParams *BRTestNetParams;
 extern BRCheckPoint BRMainNetCheckpoints[30];
 extern BRCheckPoint BRTestNetCheckpoints[15];
 
-static inline const BRChainParams *BRChainParamsGetBitcoin (int mainnet) {
-    return mainnet ? BRMainNetParams : BRTestNetParams;
+extern int spv_mainnet;
+
+static inline const BRChainParams *BRGetChainParams () {
+    return spv_mainnet ? BRMainNetParams : BRTestNetParams;
 }
 
 #endif // BRChainParams_h
