@@ -23,20 +23,13 @@
 //  THE SOFTWARE.
 
 #include "BRBIP32Sequence.h"
+#include "bitcoin/BRChainParams.h"
 #include "BRCrypto.h"
 #include "BRBase58.h"
 #include <string.h>
 #include <assert.h>
 
 #define BIP32_SEED_KEY "Bitcoin seed"
-//#define BIP32_XPRV     "\x04\x88\xAD\xE4"
-//#define BIP32_XPUB     "\x04\x88\xB2\x1E"
-
-//base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
-//base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
-
-#define BIP32_XPRV     "\x04\x35\x83\x94"
-#define BIP32_XPUB     "\x04\x35\x87\xCF"
 
 // BIP32 is a scheme for deriving chains of addresses from a seed value
 // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
@@ -241,7 +234,7 @@ size_t _BRBIP32Serialize(char *str, size_t strLen, uint8_t depth, uint32_t finge
     size_t len, off = 0;
     uint8_t data[4 + sizeof(depth) + sizeof(fingerprint) + sizeof(child) + sizeof(chain) + 1 + keyLen];
     
-    memcpy(&data[off], (keyLen < 33 ? BIP32_XPRV : BIP32_XPUB), 4);
+    memcpy(&data[off], (keyLen < 33 ? BRGetChainParams()->bip32_xprv : BRGetChainParams()->bip32_xpub), 4);
     off += 4;
     data[off] = depth;
     off += sizeof(depth);
@@ -289,8 +282,7 @@ BRMasterPubKey BRBIP32ParseMasterPubKey(const char *str)
     BRMasterPubKey mpk = BR_MASTER_PUBKEY_NONE;
     uint8_t data[4 + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(UInt256) + 33];
     size_t dataLen = BRBase58CheckDecode(data, sizeof(data), str);
-    
-    if (dataLen == sizeof(data) && memcmp(data, BIP32_XPUB, 4) == 0) {
+    if (dataLen == sizeof(data) && memcmp(data, BRGetChainParams()->bip32_xpub, 4) == 0) {
         mpk.fingerPrint = ((union { uint8_t u8[4]; uint32_t u32; }){ data[5], data[6], data[7], data[8] }).u32;
         mpk.chainCode = UInt256Get(&data[13]);
         memcpy(mpk.pubKey, &data[45], sizeof(mpk.pubKey));
