@@ -43,6 +43,7 @@
 #include <script/sigcache.h>
 #include <script/standard.h>
 #include <shutdown.h>
+#include <spv/spv_wrapper.h>
 #include <timedata.h>
 #include <torcontrol.h>
 #include <txdb.h>
@@ -262,6 +263,9 @@ void Shutdown(InitInterfaces& interfaces)
             g_chainstate->ForceFlushStateToDisk();
             g_chainstate->ResetCoinsViews();
         }
+        pspv->Disconnect();
+        pspv.reset();
+
         pmasternodesview.reset();
         pblocktree.reset();
     }
@@ -1548,6 +1552,9 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, false, fReset || fReindexChainState);
                 pmasternodesview->Load();
 
+                pspv.reset();
+                pspv = MakeUnique<CSpvWrapper>(nMinDbCache << 20, false, fReset || fReindexChainState); /// @todo @maxb different flag (arg) here
+                pspv->Connect();
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
