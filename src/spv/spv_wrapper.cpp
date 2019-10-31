@@ -162,7 +162,7 @@ CSpvWrapper::CSpvWrapper(size_t nCacheSize, bool fMemory, bool fWipe)
 {
     SetCheckpoints();
 
-    UInt512 seed = UINT512_ZERO;
+//    UInt512 seed = UINT512_ZERO;
     BRMasterPubKey mpk = BR_MASTER_PUBKEY_NONE;
 
     // Configuring spv logs:
@@ -171,6 +171,7 @@ CSpvWrapper::CSpvWrapper(size_t nCacheSize, bool fMemory, bool fWipe)
     spv_logfilename = spv_internal_logfilename.c_str();
     LogPrintf("spv: internal logs set to %s\n", spv_logfilename);
     spv_log2console = 1;
+    spv_mainnet = 0;
 
     // mainnet:
 //    BRBIP39DeriveKey(seed.u8, "axis husband project any sea patch drip tip spirit tide bring belt", NULL);
@@ -211,7 +212,7 @@ CSpvWrapper::CSpvWrapper(size_t nCacheSize, bool fMemory, bool fWipe)
 //    LoadTable(DB_SPVPEERS, onLoadPeer);
 
 //    manager = BRPeerManagerNew(BRMainNetParams, wallet, BIP39_CREATION_TIME, blocks.data(), blocks.size(), NULL, 0);
-    manager = BRPeerManagerNew(BRTestNetParams, wallet, BIP39_CREATION_TIME, blocks.data(), blocks.size(), NULL, 0);
+    manager = BRPeerManagerNew(BRGetChainParams(), wallet, BIP39_CREATION_TIME, blocks.data(), blocks.size(), NULL, 0);
 
     // can't wrap member function as static "C" function here:
     BRPeerManagerSetCallbacks(manager, this, syncStarted, syncStopped, txStatusUpdate,
@@ -255,6 +256,7 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
 {
     // UInt256Reverse cause doesn't match with block explorer output
     LogPrintf("spv: tx added: %s, at block %d\n", u256hex(UInt256Reverse(tx->txHash)), tx->blockHeight);
+
 }
 
 void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
@@ -296,14 +298,15 @@ void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blo
 
 void CSpvWrapper::OnSavePeers(int replace, const BRPeer peers[], size_t peersCount)
 {
-    if (replace)
-    {
-        DeleteTable<UInt128>(DB_SPVPEERS);
-    }
-    for (size_t i = 0; i < peersCount; ++i) {
-        WritePeer(&peers[i]);
-        LogPrintf("spv: PEER: %s saved\n", BRPeerHost(const_cast<BRPeer*>(&peers[i])));
-    }
+    // this is useless :(
+//    if (replace)
+//    {
+//        DeleteTable<UInt128>(DB_SPVPEERS);
+//    }
+//    for (size_t i = 0; i < peersCount; ++i) {
+//        WritePeer(&peers[i]);
+//        LogPrintf("spv: PEER: %s saved\n", BRPeerHost(const_cast<BRPeer*>(&peers[i])));
+//    }
 }
 
 int CSpvWrapper::OnNetworkIsReachable()

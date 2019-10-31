@@ -120,6 +120,14 @@ static int BRTestNetVerifyDifficulty(const BRMerkleBlock *block, const BRSet *bl
     return 1; // XXX skip testnet difficulty check for now
 }
 
+static const char BRMainBip32xprv[] = "\x04\x88\xAD\xE4";
+static const char BRMainBip32xpub[] = "\x04\x88\xB2\x1E";
+static const char BRMainBech32[] = "bc";
+
+static const char BRTestBip32xprv[] = "\x04\x35\x83\x94";
+static const char BRTestBip32xpub[] = "\x04\x35\x87\xCF";
+static const char BRTestBech32[] = "tb";
+
 static const BRChainParams BRMainNetParamsRecord = {
     BRMainNetDNSSeeds,
     8333,                  // standardPort
@@ -127,7 +135,13 @@ static const BRChainParams BRMainNetParamsRecord = {
     SERVICES_NODE_WITNESS, // services
     BRMainNetVerifyDifficulty,
     BRMainNetCheckpoints,
-    sizeof(BRMainNetCheckpoints)/sizeof(*BRMainNetCheckpoints)
+    sizeof(BRMainNetCheckpoints)/sizeof(*BRMainNetCheckpoints),
+    128,
+    0,
+    5,
+    BRMainBip32xprv,
+    BRMainBip32xpub,
+    BRMainBech32
 };
 const BRChainParams *BRMainNetParams = &BRMainNetParamsRecord;
 
@@ -138,6 +152,15 @@ static const BRChainParams BRTestNetParamsRecord = {
     SERVICES_NODE_WITNESS, // services
     BRTestNetVerifyDifficulty,
     BRTestNetCheckpoints,
-    sizeof(BRTestNetCheckpoints)/sizeof(*BRTestNetCheckpoints)
+    sizeof(BRTestNetCheckpoints)/sizeof(*BRTestNetCheckpoints),
+    239,
+    111,
+    196,
+    BRTestBip32xprv,
+    BRTestBip32xpub,
+    BRTestBech32
 };
 const BRChainParams *BRTestNetParams = &BRTestNetParamsRecord;
+
+int spv_mainnet = 1;
+

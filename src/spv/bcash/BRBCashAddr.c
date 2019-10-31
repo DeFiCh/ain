@@ -38,6 +38,11 @@
 #define BCASH_PUBKEY_ADDRESS 28
 #define BCASH_SCRIPT_ADDRESS 40
 
+#define BITCOIN_PUBKEY_ADDRESS      0
+#define BITCOIN_SCRIPT_ADDRESS      5
+#define BITCOIN_PUBKEY_ADDRESS_TEST 111
+#define BITCOIN_SCRIPT_ADDRESS_TEST 196
+
 #define polymod(x) ((((x) & 0x07ffffffff) << 5) ^ (-(((x) >> 35) & 1) & 0x98f2bc8e61) ^\
     (-(((x) >> 36) & 1) & 0x79b76d99e2) ^ (-(((x) >> 37) & 1) & 0xf33e5fb3c4) ^\
     (-(((x) >> 38) & 1) & 0xae2eabe2a8) ^ (-(((x) >> 39) & 1) & 0x1e4f43e470))
