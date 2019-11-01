@@ -192,14 +192,14 @@ BOOST_AUTO_TEST_CASE(sign_pos_block)
     block->stakeModifier = pos::ComputeStakeModifier(prev_hash, minterKey.GetPubKey().GetID());
 
     block->hashMerkleRoot = BlockMerkleRoot(*block);
-//
-//    BOOST_CHECK(pos::SignPosBlock(block, CKey()) == std::string{"Block signing error"});
-//    BOOST_CHECK(!pos::SignPosBlock(block, minterKey));
-//    BOOST_CHECK_THROW(pos::SignPosBlock(block, minterKey), std::logic_error);
-//
-//    BOOST_CHECK(!pos::CheckProofOfStake(*(CBlockHeader*)block.get(), ::ChainActive().Tip(), Params().GetConsensus(), pmasternodesview.get()));
-//
-//    uint256 prevStakeModifier = Params().GenesisBlock().stakeModifier;
+
+    BOOST_CHECK(pos::SignPosBlock(block, CKey()) == std::string{"Block signing error"});
+    BOOST_CHECK(!pos::SignPosBlock(block, minterKey));
+    BOOST_CHECK_THROW(pos::SignPosBlock(block, minterKey), std::logic_error);
+
+    BOOST_CHECK(!pos::CheckProofOfStake(*(CBlockHeader*)block.get(), ::ChainActive().Tip(), Params().GetConsensus(), pmasternodesview.get()));
+
+    uint256 prevStakeModifier = Params().GenesisBlock().stakeModifier;
 //    std::shared_ptr<CBlock> correctBlock = FinalizeBlock(
 //            Block(Params().GenesisBlock().GetHash(), 1, 1),
 //            masternodeID,
