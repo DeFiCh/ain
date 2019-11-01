@@ -440,6 +440,9 @@ void SetupServerArgs()
     gArgs.AddArg("-masternode_owner=<address>", "Masternode owner address (default: empty)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-masternode_operator=<address>", "Masternode operator address (default: empty)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dummypos", "Flag to skip PoS-related checks (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 1)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-spv_resync", "Flag to reset spv database and resync from zero block (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-spv_rescanblock", "Block height to rescan from (default: 0 = off)", ArgsManager::ALLOW_INT, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1552,9 +1555,13 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, false, fReset || fReindexChainState);
                 pmasternodesview->Load();
 
-                pspv.reset();
-                pspv = MakeUnique<CSpvWrapper>(nMinDbCache << 20, false, fReset || fReindexChainState); /// @todo @maxb different flag (arg) here
-                pspv->Connect();
+                if (gArgs.GetBoolArg("-spv", true))
+                {
+                    pspv.reset();
+                    /// @todo @maxb retrieve xpub from genesis or chainparams
+                    pspv = MakeUnique<CSpvWrapper>(gArgs.GetBoolArg("-spv_testnet", false), "", nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
+                    pspv->Connect();
+                }
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate

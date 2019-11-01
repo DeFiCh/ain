@@ -66,7 +66,7 @@ private:
 
 
 public:
-    CSpvWrapper(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    CSpvWrapper(bool isMainnet, std::string const & xpub, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
     ~CSpvWrapper();
 
     void Connect();

@@ -157,13 +157,10 @@ static void SetCheckpoints()
     BRTestNetCheckpoints[14] = { 1411200, uint256("00000000000000008b3baea0c3de24b9333c169e1543874f4202397f5b8502cb"), 1535535770, 0x194ac105 };
 }
 
-CSpvWrapper::CSpvWrapper(size_t nCacheSize, bool fMemory, bool fWipe)
-    : db(new CDBWrapper(GetDataDir() / "spv", nCacheSize, fMemory, fWipe))
+CSpvWrapper::CSpvWrapper(bool isMainnet, std::string const & xpub, size_t nCacheSize, bool fMemory, bool fWipe)
+    : db(new CDBWrapper(GetDataDir() / (isMainnet ?  "spv" : "spv_testnet"), nCacheSize, fMemory, fWipe))
 {
     SetCheckpoints();
-
-//    UInt512 seed = UINT512_ZERO;
-    BRMasterPubKey mpk = BR_MASTER_PUBKEY_NONE;
 
     // Configuring spv logs:
     // (we need intermediate persistent storage for filename here)
@@ -171,7 +168,10 @@ CSpvWrapper::CSpvWrapper(size_t nCacheSize, bool fMemory, bool fWipe)
     spv_logfilename = spv_internal_logfilename.c_str();
     LogPrintf("spv: internal logs set to %s\n", spv_logfilename);
     spv_log2console = 1;
-    spv_mainnet = 0;
+    spv_mainnet = isMainnet ? 1 : 0;
+
+    //    UInt512 seed = UINT512_ZERO;
+    BRMasterPubKey mpk = BR_MASTER_PUBKEY_NONE;
 
     // mainnet:
 //    BRBIP39DeriveKey(seed.u8, "axis husband project any sea patch drip tip spirit tide bring belt", NULL);
@@ -183,9 +183,9 @@ CSpvWrapper::CSpvWrapper(size_t nCacheSize, bool fMemory, bool fWipe)
 //    char xprv[120];
 //    BRBIP32SerializeMasterPrivKey(xprv, 120, &seed, sizeof(seed));
 //    LogPrintf("spv: debug xprv: %s\n", xprv);
-    char xpub[120];
-    BRBIP32SerializeMasterPubKey(xpub, 120, mpk);
-    LogPrintf("spv: debug xpub: %s\n", xpub);
+    char xpub_buf[120];
+    BRBIP32SerializeMasterPubKey(xpub_buf, 120, mpk);
+    LogPrintf("spv: debug xpub: %s\n", xpub_buf);
 
 
     wallet = BRWalletNew(NULL, 0, mpk, 0);
@@ -235,9 +235,9 @@ CSpvWrapper::~CSpvWrapper()
 void CSpvWrapper::Connect()
 {
     BRPeerManagerConnect(manager);
-    while (BRPeerManagerConnectStatus(manager) != BRPeerStatusConnected )
-        sleep(1);
-    BRPeerManagerRescanFromBlockNumber(manager, 1584558-100);
+//    while (BRPeerManagerConnectStatus(manager) != BRPeerStatusConnected )
+//        sleep(1);
+//    BRPeerManagerRescanFromBlockNumber(manager, 1584558-100);
 }
 
 void CSpvWrapper::Disconnect()
