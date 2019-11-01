@@ -82,83 +82,80 @@ BOOST_AUTO_TEST_CASE(calc_kernel)
 
 BOOST_AUTO_TEST_CASE(check_stake_modifier)
 {
-        BOOST_CHECK(true);
-//    uint256 masternodeID = testMasternodeKeys.begin()->first;
-//    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
-//    BOOST_CHECK(pos != testMasternodeKeys.end());
-//    CKey minterKey = pos->second.operatorKey;
-//
-//    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
-//    uint64_t height = 1;
-//    uint64_t mintedBlocks = 1;
-//    std::shared_ptr<CBlock> block = Block(prev_hash, height, mintedBlocks);
-//    BOOST_CHECK(!pos::CheckStakeModifier(::ChainActive().Tip(), *(CBlockHeader*)block.get()));
-//
-//    uint256 prevStakeModifier = Params().GenesisBlock().stakeModifier;
-//    block->stakeModifier = pos::ComputeStakeModifier(prevStakeModifier, minterKey.GetPubKey().GetID());
-//    BOOST_CHECK(!pos::CheckStakeModifier(::ChainActive().Tip(), *(CBlockHeader*)block.get()));
-//
-//    std::shared_ptr<CBlock> correctBlock = FinalizeBlock(
-//        Block(Params().GenesisBlock().GetHash(), height, mintedBlocks),
-//        masternodeID,
-//        minterKey,
-//        prevStakeModifier);
-//    BOOST_CHECK(pos::CheckStakeModifier(::ChainActive().Tip(), *(CBlockHeader*)correctBlock.get()));
-//
-//    correctBlock->sig = {};
-//    BOOST_CHECK(!pos::CheckStakeModifier(::ChainActive().Tip(), *(CBlockHeader*)correctBlock.get()));
+    uint256 masternodeID = testMasternodeKeys.begin()->first;
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    BOOST_CHECK(pos != testMasternodeKeys.end());
+    CKey minterKey = pos->second.operatorKey;
+
+    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+    uint64_t height = 1;
+    uint64_t mintedBlocks = 1;
+    std::shared_ptr<CBlock> block = Block(prev_hash, height, mintedBlocks);
+    BOOST_CHECK(!pos::CheckStakeModifier(::ChainActive().Tip(), *(CBlockHeader*)block.get()));
+
+    uint256 prevStakeModifier = Params().GenesisBlock().stakeModifier;
+    block->stakeModifier = pos::ComputeStakeModifier(prevStakeModifier, minterKey.GetPubKey().GetID());
+    BOOST_CHECK(!pos::CheckStakeModifier(::ChainActive().Tip(), *(CBlockHeader*)block.get()));
+
+    std::shared_ptr<CBlock> correctBlock = FinalizeBlock(
+        Block(Params().GenesisBlock().GetHash(), height, mintedBlocks),
+        masternodeID,
+        minterKey,
+        prevStakeModifier);
+    BOOST_CHECK(pos::CheckStakeModifier(::ChainActive().Tip(), *(CBlockHeader*)correctBlock.get()));
+
+    correctBlock->sig = {};
+    BOOST_CHECK(!pos::CheckStakeModifier(::ChainActive().Tip(), *(CBlockHeader*)correctBlock.get()));
 }
 
 BOOST_AUTO_TEST_CASE(check_header_signature)
 {
-        BOOST_CHECK(true);
-//    uint256 masternodeID = testMasternodeKeys.begin()->first;
-//    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
-//    BOOST_CHECK(pos != testMasternodeKeys.end());
-//    CKey minterKey = pos->second.operatorKey;
-//
-//    BOOST_CHECK(pos::CheckHeaderSignature((CBlockHeader)Params().GenesisBlock()));
-//
-//    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
-//    uint64_t height = 1;
-//    uint64_t mintedBlocks = 1;
-//    std::shared_ptr<CBlock> block = Block(prev_hash, height, mintedBlocks);
-//
+    uint256 masternodeID = testMasternodeKeys.begin()->first;
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    BOOST_CHECK(pos != testMasternodeKeys.end());
+    CKey minterKey = pos->second.operatorKey;
+
+    BOOST_CHECK(pos::CheckHeaderSignature((CBlockHeader)Params().GenesisBlock()));
+
+    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+    uint64_t height = 1;
+    uint64_t mintedBlocks = 1;
+    std::shared_ptr<CBlock> block = Block(prev_hash, height, mintedBlocks);
+
+    BOOST_CHECK(!pos::CheckHeaderSignature(*(CBlockHeader*)block.get()));
+
+    FinalizeBlock(
+        block,
+        masternodeID,
+        minterKey,
+        prev_hash);
+
+    BOOST_CHECK(pos::CheckHeaderSignature(*(CBlockHeader*)block.get()));
+
+//    block->sig[0] = 0xff;
+//    block->sig[1] = 0xff;
 //    BOOST_CHECK(!pos::CheckHeaderSignature(*(CBlockHeader*)block.get()));
-//
-//    FinalizeBlock(
-//        block,
-//        masternodeID,
-//        minterKey,
-//        prev_hash);
-//
-//    BOOST_CHECK(pos::CheckHeaderSignature(*(CBlockHeader*)block.get()));
-//
-////    block->sig[0] = 0xff;
-////    block->sig[1] = 0xff;
-////    BOOST_CHECK(!pos::CheckHeaderSignature(*(CBlockHeader*)block.get()));
 }
 
 BOOST_AUTO_TEST_CASE(contextual_check_pos)
 {
-        BOOST_CHECK(true);
-//    uint256 masternodeID = testMasternodeKeys.begin()->first;
-//    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
-//    BOOST_CHECK(pos != testMasternodeKeys.end());
-//    CKey minterKey = pos->second.operatorKey;
-//
-//    BOOST_CHECK(pos::ContextualCheckProofOfStake((CBlockHeader)Params().GenesisBlock(), Params().GetConsensus(), pmasternodesview.get()));
-//
-//    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
-//    uint64_t height = 0;
-//    uint64_t mintedBlocks = 1;
-//    std::shared_ptr<CBlock> block = Block(Params().GenesisBlock().GetHash(), height, mintedBlocks);
-//
-//    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pmasternodesview.get()));
-//
-//    block->height = 1;
-//    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pmasternodesview.get()));
-//
+    uint256 masternodeID = testMasternodeKeys.begin()->first;
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    BOOST_CHECK(pos != testMasternodeKeys.end());
+    CKey minterKey = pos->second.operatorKey;
+
+    BOOST_CHECK(pos::ContextualCheckProofOfStake((CBlockHeader)Params().GenesisBlock(), Params().GetConsensus(), pmasternodesview.get()));
+
+    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+    uint64_t height = 0;
+    uint64_t mintedBlocks = 1;
+    std::shared_ptr<CBlock> block = Block(Params().GenesisBlock().GetHash(), height, mintedBlocks);
+
+    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pmasternodesview.get()));
+
+    block->height = 1;
+    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pmasternodesview.get()));
+
 //    std::shared_ptr<CBlock> finalizeBlock = FinalizeBlock(
 //        block,
 //        masternodeID,
@@ -180,22 +177,21 @@ BOOST_AUTO_TEST_CASE(contextual_check_pos)
 
 BOOST_AUTO_TEST_CASE(sign_pos_block)
 {
-        BOOST_CHECK(true);
-//    uint256 masternodeID = testMasternodeKeys.begin()->first;
-//    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
-//    BOOST_CHECK(pos != testMasternodeKeys.end());
-//    CKey minterKey = pos->second.operatorKey;
-//
-//    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
-//    uint64_t height = 1;
-//    uint64_t mintedBlocks = 1;
-//    std::shared_ptr<CBlock> block = Block(prev_hash, height, mintedBlocks);
-//
-//    static uint64_t time = Params().GenesisBlock().nTime;
-//
-//    block->stakeModifier = pos::ComputeStakeModifier(prev_hash, minterKey.GetPubKey().GetID());
-//
-//    block->hashMerkleRoot = BlockMerkleRoot(*block);
+    uint256 masternodeID = testMasternodeKeys.begin()->first;
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    BOOST_CHECK(pos != testMasternodeKeys.end());
+    CKey minterKey = pos->second.operatorKey;
+
+    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+    uint64_t height = 1;
+    uint64_t mintedBlocks = 1;
+    std::shared_ptr<CBlock> block = Block(prev_hash, height, mintedBlocks);
+
+    static uint64_t time = Params().GenesisBlock().nTime;
+
+    block->stakeModifier = pos::ComputeStakeModifier(prev_hash, minterKey.GetPubKey().GetID());
+
+    block->hashMerkleRoot = BlockMerkleRoot(*block);
 //
 //    BOOST_CHECK(pos::SignPosBlock(block, CKey()) == std::string{"Block signing error"});
 //    BOOST_CHECK(!pos::SignPosBlock(block, minterKey));
