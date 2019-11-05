@@ -2023,7 +2023,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             control.Add(vChecks);
         } else {
             std::vector<unsigned char> metadata;
-            if (CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
+            if (!fIsFakeNet && CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
                 pmasternodesview->BlockedCriminalMnCoins(metadata);
             }
         }
@@ -3390,28 +3390,30 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
         }
 
         // Add MintedBlockHeader entity to DB
-        CKeyID mintersKey;
-        if (!block.ExtractMinterKey(mintersKey)) {
-            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: minters key for external blockHeader not found", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
-        }
-        auto it = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
-        if (!it) {
-            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: active masternode for external blockHeader not found", __func__, hash.ToString()), REJECT_INVALID, " ");
-        }
-        auto const & nodeId = (*it)->second;
+        if (!fIsFakeNet) {
+            CKeyID mintersKey;
+            if (!block.ExtractMinterKey(mintersKey)) {
+                return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: minters key for external blockHeader not found", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
+            }
+            auto it = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
+            if (!it) {
+                return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: active masternode for external blockHeader not found", __func__, hash.ToString()), REJECT_INVALID, " ");
+            }
+            auto const & nodeId = (*it)->second;
 
-        std::map<uint256, CBlockHeader> blockHeaders{};
+            std::map <uint256, CBlockHeader> blockHeaders{};
 
-        pmasternodesview->FindMintedBlockHeader(nodeId, block.mintedBlocks, blockHeaders, fIsFakeNet);
+            pmasternodesview->FindMintedBlockHeader(nodeId, block.mintedBlocks, blockHeaders, fIsFakeNet);
 
-        auto existingBlockHeader = blockHeaders.find(hash);
-        if (!blockHeaders.size() || existingBlockHeader == blockHeaders.end()) {
-            pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block, fIsFakeNet);
-        }
+            auto existingBlockHeader = blockHeaders.find(hash);
+            if (!blockHeaders.size() || existingBlockHeader == blockHeaders.end()) {
+                pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block, fIsFakeNet);
+            }
 
-        for (std::pair<uint256, CBlockHeader> blockHeader : blockHeaders) {
-            if(!pmasternodesview->CheckDoubleSign(block, blockHeader.second)) {
-                pmasternodesview->MarkMasternodeAsCriminals(nodeId, block, blockHeader.second);
+            for (std::pair <uint256, CBlockHeader> blockHeader : blockHeaders) {
+                if (!pmasternodesview->CheckDoubleSign(block, blockHeader.second)) {
+                    pmasternodesview->MarkMasternodeAsCriminals(nodeId, block, blockHeader.second);
+                }
             }
         }
 
