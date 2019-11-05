@@ -41,7 +41,7 @@ from .script import (
 from .util import assert_equal
 from io import BytesIO
 
-MAX_BLOCK_SIGOPS = 20000
+MAX_BLOCK_SIGOPS = 20000 * 16
 
 # Genesis block time (regtest)
 TIME_GENESIS_BLOCK = 1298732709

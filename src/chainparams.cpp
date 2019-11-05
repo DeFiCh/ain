@@ -110,6 +110,7 @@ public:
     CMainParams() {
         strNetworkID = "main";
         consensus.nSubsidyHalvingInterval = 210000;
+        consensus.baseBlockSubsidy = 200 * COIN;
         consensus.BIP16Exception = uint256S("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22");
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
@@ -117,8 +118,10 @@ public:
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
-        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
+//        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+//        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
+        consensus.pos.nTargetTimespan = 12 * 60 * 60;
+        consensus.pos.nTargetSpacing = 30; // seconds
         consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
         consensus.pos.fNoRetargeting = false; // only for regtest
 
@@ -128,8 +131,8 @@ public:
 
         consensus.CSVHeight = 1; // 000000000000000004a1b34462cb8aeebd5799177f7a29cf28f2d1961716b5b5
         consensus.SegwitHeight = 0; // 0000000000000000001c8018d9cb3b742ef25114f27563e3fc4a1902167f9893
-        consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
-        consensus.nMinerConfirmationWindow = 2016; // nTargetTimespan / nTargetSpacing
+        consensus.nRuleChangeActivationThreshold = 1368; //1916; // 95% of 2016
+        consensus.nMinerConfirmationWindow = 1440; //2016; // nTargetTimespan / nTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601; // January 1, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999; // December 31, 2008
@@ -169,6 +172,10 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
 
         bech32_hrp = "df";
+
+        // (!) after prefixes set
+        consensus.foundationAddress = CNoDestination();
+        consensus.foundationShare = 10;
 
         genesis = CreateGenesisBlock(1569396815, 0x1e0fffff, 1, 50 * COIN, CreateGenesisMasternodes());
         consensus.hashGenesisBlock = genesis.GetHash();
@@ -230,6 +237,7 @@ public:
     CTestNetParams() {
         strNetworkID = "test";
         consensus.nSubsidyHalvingInterval = 210000;
+        consensus.baseBlockSubsidy = 200 * COIN;
         consensus.BIP16Exception = uint256S("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
@@ -237,8 +245,10 @@ public:
         consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
-        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
+//        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+//        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
+        consensus.pos.nTargetTimespan = 5 * 60; // 5 min
+        consensus.pos.nTargetSpacing = 30;
         consensus.pos.fAllowMinDifficultyBlocks = true;
         consensus.pos.fNoRetargeting = false; // only for regtest
 
@@ -248,8 +258,8 @@ public:
 
         consensus.CSVHeight = 1; // 00000000025e930139bac5c6c31a403776da130831ab85be56578f3fa75369bb
         consensus.SegwitHeight = 0; // 00000000002b980fcd729daaa248fd9316a5200e9b367f4ff2c42453e84201ca
-        consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
-        consensus.nMinerConfirmationWindow = 2016; // nTargetTimespan / nTargetSpacing
+        consensus.nRuleChangeActivationThreshold = 8; //1512; // 75% for testchains
+        consensus.nMinerConfirmationWindow = 10; //2016; // nTargetTimespan / nTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601; // January 1, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999; // December 31, 2008
@@ -284,6 +294,10 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
         bech32_hrp = "tf";
+
+        // (!) after prefixes set
+        consensus.foundationAddress = DecodeDestination("774LCfQ7TAypxBcoTqhPtrnixL53bFK1Gt", *this);
+        consensus.foundationShare = 10;
 
         // owner base58, operator base58
         vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
@@ -334,6 +348,7 @@ public:
     explicit CRegTestParams(const ArgsManager& args) {
         strNetworkID = "regtest";
         consensus.nSubsidyHalvingInterval = 150;
+        consensus.baseBlockSubsidy = 50 * COIN;
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 500; // BIP34 activated on regtest (Used in functional tests)
         consensus.BIP34Hash = uint256();
@@ -389,6 +404,10 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
         bech32_hrp = "bcrt";
+
+        // (!) after prefixes set
+        consensus.foundationAddress = CNoDestination();
+        consensus.foundationShare = 0;
 
         // owner base58, operator base58
         vMasternodes.push_back({"mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy"});
