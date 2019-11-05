@@ -655,8 +655,10 @@ int CNetMessage::readHeader(const char *pch, unsigned int nBytes)
     }
 
     // reject messages larger than MAX_SIZE
-    if (hdr.nMessageSize > MAX_SIZE)
+    if (hdr.nMessageSize > MAX_DESER_SIZE) {
+        error("Reject messages larger than max deserialization size: (%u > %u)", hdr.nMessageSize, MAX_DESER_SIZE);
         return -1;
+    }
 
     // switch state to reading message data
     in_data = true;
