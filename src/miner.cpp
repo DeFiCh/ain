@@ -155,7 +155,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     bool baseScript = true;
 
-    if (pmasternodesview->GetCriminals().size() != 0) {
+    if (!fIsFakeNet && pmasternodesview->GetCriminals().size() != 0) {
         CMasternodesView::CMnCriminals criminals = pmasternodesview->GetCriminals();
         CMasternodesView::CMnCriminals::iterator itCriminalMN = criminals.begin();
         std::pair<CBlockHeader, CBlockHeader> criminal = itCriminalMN->second;
