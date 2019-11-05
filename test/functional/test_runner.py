@@ -79,10 +79,11 @@ BASE_SCRIPTS = [
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py',
     'wallet_backup.py',
+    'feature_block.py',
+    'mempool_accept.py',
     # vv Tests less than 5m vv
     'mining_getblocktemplate_longpoll.py',
     'feature_maxuploadtarget.py',
-    'feature_block.py',
     'rpc_fundrawtransaction.py',
     'p2p_compactblocks.py',
     'feature_segwit.py',
@@ -90,12 +91,13 @@ BASE_SCRIPTS = [
     'wallet_basic.py',
     'wallet_labels.py',
     'p2p_segwit.py',
+    'p2p_segwit2.py',
     'p2p_timeouts.py',
     'p2p_tx_download.py',
     'wallet_dump.py',
-    'wallet_listtransactions.py',
     # vv Tests less than 60s vv
     'p2p_sendheaders.py',
+    'wallet_listtransactions.py',
     'wallet_zapwallettxes.py',
     'wallet_importmulti.py',
     'mempool_limit.py',
@@ -173,7 +175,6 @@ BASE_SCRIPTS = [
     'rpc_signmessage.py',
     'wallet_balance.py',
     'feature_nulldummy.py',
-    'mempool_accept.py',
     'wallet_import_rescan.py', # nodes = 6
     'wallet_import_with_label.py',
     'rpc_bind.py --ipv4',
@@ -510,7 +511,7 @@ class TestHandler:
             tmpdir_arg = ["--tmpdir={}".format(testdir)]
             self.jobs.append((test,
                               time.time(),
-                              subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + portseed_arg + tmpdir_arg,
+                              subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + tmpdir_arg, # `+ portseed_arg` removed due to not enough "randomness"
                                                universal_newlines=True,
                                                stdout=log_stdout,
                                                stderr=log_stderr),
