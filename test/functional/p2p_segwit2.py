@@ -3,16 +3,10 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test segwit transactions and blocks on P2P network."""
-import math
-import random
-import struct
 import time
 
-from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment, get_witness_script, WITNESS_COMMITMENT_HEADER
-from test_framework.key import ECKey
+from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment
 from test_framework.messages import (
-    BIP125_SEQUENCE_NUMBER,
-    CBlock,
     CBlockHeader,
     CInv,
     COutPoint,
@@ -20,9 +14,7 @@ from test_framework.messages import (
     CTxIn,
     CTxInWitness,
     CTxOut,
-    CTxWitness,
     MAX_BLOCK_BASE_SIZE,
-    MSG_WITNESS_FLAG,
     NODE_NETWORK,
     NODE_WITNESS,
     msg_no_witness_block,
@@ -33,10 +25,8 @@ from test_framework.messages import (
     msg_block,
     msg_witness_tx,
     ser_uint256,
-    ser_vector,
     sha256,
     uint256_from_str,
-    FromHex,
 )
 from test_framework.mininode import (
     P2PInterface,
@@ -44,42 +34,23 @@ from test_framework.mininode import (
 )
 from test_framework.script import (
     CScript,
-    CScriptNum,
     CScriptOp,
-    MAX_SCRIPT_ELEMENT_SIZE,
     OP_0,
-    OP_1,
-    OP_16,
     OP_2DROP,
-    OP_CHECKMULTISIG,
     OP_CHECKSIG,
     OP_DROP,
     OP_DUP,
-    OP_ELSE,
-    OP_ENDIF,
-    OP_EQUAL,
     OP_EQUALVERIFY,
     OP_HASH160,
-    OP_IF,
-    OP_RETURN,
     OP_TRUE,
-    SIGHASH_ALL,
-    SIGHASH_ANYONECANPAY,
-    SIGHASH_NONE,
-    SIGHASH_SINGLE,
     SegwitVersion1SignatureHash,
-    SignatureHash,
-    hash160,
 )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
     connect_nodes,
-    disconnect_nodes,
     softfork_active,
-    hex_str_to_bytes,
-    assert_raises_rpc_error,
 )
 
 # The versionbit bit used to signal activation of SegWit
@@ -182,7 +153,7 @@ class TestP2PConn(P2PInterface):
         self.wait_for_block(blockhash, timeout)
         return self.last_message["block"].block
 
-class SegWitTest(BitcoinTestFramework):
+class SegWitTest2(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
@@ -388,4 +359,4 @@ class SegWitTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    SegWitTest().main()
+    SegWitTest2().main()
