@@ -503,7 +503,7 @@ class TestHandler:
             self.num_running += 1
             test = self.test_list.pop(0)
             portseed = len(self.test_list)
-            portseed_arg = ["--portseed={}".format(portseed)]
+            # portseed_arg = ["--portseed={}".format(portseed)]
             log_stdout = tempfile.SpooledTemporaryFile(max_size=2**16)
             log_stderr = tempfile.SpooledTemporaryFile(max_size=2**16)
             test_argv = test.split()
