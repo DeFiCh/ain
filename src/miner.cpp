@@ -171,7 +171,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if (criminal.first.ExtractMinterKey(key)) {
             auto itFirstMN = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, key);
             if (itFirstMN) {
-                CDataStream metadata(MnCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+                CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
                 metadata << criminal.first << criminal.second << (*itFirstMN)->second << 0; // 0 - number output for blocking
                 coinbaseTx.vin[0].scriptSig = CScript() << OP_RETURN << ToByteVector(metadata);
 
