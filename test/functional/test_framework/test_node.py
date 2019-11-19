@@ -23,7 +23,6 @@ import sys
 
 from .authproxy import JSONRPCException
 from .util import (
-    MAX_NODES,
     append_config,
     delete_cookie_file,
     get_rpc_proxy,
@@ -132,7 +131,7 @@ class TestNode():
 
     def get_genesis_keys(self):
         """Return a deterministic priv key in base58, that only depends on the node's index"""
-        assert len(self.PRIV_KEYS) == MAX_NODES
+        assert self.index <= len(self.PRIV_KEYS)
         return self.PRIV_KEYS[self.index]
 
     def pullup_mocktime(self):
