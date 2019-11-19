@@ -69,18 +69,18 @@ TEST_EXIT_SKIPPED = 77
 EXTENDED_SCRIPTS = [
     # These tests are not run by default.
     # Longest test should go first, to favor running tests in parallel
+    'example_block_hash.py',
     'feature_pruning.py',
     'feature_dbcrash.py',
-    'example_block_hash.py',
+    'feature_block.py', # moved to ext due to heavy load for trevis
+    'wallet_hd.py',     # moved to ext due to heavy load for trevis
+    'mempool_accept.py',# moved to ext due to heavy load for trevis
 ]
 
 BASE_SCRIPTS = [
     # Scripts that are run by default.
     # Longest test should go first, to favor running tests in parallel
-    'wallet_hd.py',
     'wallet_backup.py',
-    'feature_block.py',
-    'mempool_accept.py',
     # vv Tests less than 5m vv
     'mining_getblocktemplate_longpoll.py',
     'feature_maxuploadtarget.py',
@@ -95,9 +95,9 @@ BASE_SCRIPTS = [
     'p2p_timeouts.py',
     'p2p_tx_download.py',
     'wallet_dump.py',
+    'wallet_listtransactions.py',
     # vv Tests less than 60s vv
     'p2p_sendheaders.py',
-    'wallet_listtransactions.py',
     'wallet_zapwallettxes.py',
     'wallet_importmulti.py',
     'mempool_limit.py',
@@ -503,7 +503,7 @@ class TestHandler:
             self.num_running += 1
             test = self.test_list.pop(0)
             portseed = len(self.test_list)
-            # portseed_arg = ["--portseed={}".format(portseed)]
+            portseed_arg = ["--portseed={}".format(portseed)]
             log_stdout = tempfile.SpooledTemporaryFile(max_size=2**16)
             log_stderr = tempfile.SpooledTemporaryFile(max_size=2**16)
             test_argv = test.split()
@@ -511,7 +511,7 @@ class TestHandler:
             tmpdir_arg = ["--tmpdir={}".format(testdir)]
             self.jobs.append((test,
                               time.time(),
-                              subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + tmpdir_arg, # `+ portseed_arg` removed due to not enough "randomness"
+                              subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + portseed_arg + tmpdir_arg,
                                                universal_newlines=True,
                                                stdout=log_stdout,
                                                stderr=log_stderr),
