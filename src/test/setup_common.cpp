@@ -67,10 +67,10 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         noui_connected = true;
     }
 
-    testMasternodeKeys[uint256S("0x7c4ae2e8361ad2db8a45e99f9483672fd4288485a4de700b565923270e2119ea")] =
+    testMasternodeKeys[uint256S("0x18a2c79448e8feeed9ee3e6a5ea9b2640062557ddac8e9ac2ee04f62ed484f24")] =
                         TestMasternodeKeys{DecodeSecret("cSCmN1tjcR2yR1eaQo9WmjTMR85SjEoNPqMPWGAApQiTLJH8JF7W"),
                                            DecodeSecret("cVNTRYV43guugJoDgaiPZESvNtnfnUW19YEjhybihwDbLKjyrZNV")};
-    testMasternodeKeys[uint256S("0xa0f5ec92bdf313a003c4d7f83bd207fac90d28220bfd3f9526f79791665381c5")] =
+    testMasternodeKeys[uint256S("0xe86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4")] =
                         TestMasternodeKeys{DecodeSecret("cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz"),
                                            DecodeSecret("cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC")};
 }
