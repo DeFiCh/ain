@@ -314,6 +314,7 @@ libbitcoin_server_a_SOURCES = \
   script/sigcache.cpp \
   shutdown.cpp \
   spv/spv_wrapper.cpp \
+  spv/spv_rpc.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \

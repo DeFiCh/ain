@@ -148,6 +148,10 @@ public:
         consensus.mn.collateralAmount = 100 * COIN;
         consensus.mn.historyFrame = 300;
 
+        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
+        consensus.spv.wallet_xpub = "";
+        consensus.spv.anchors_address = "";
+
         /**
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
@@ -275,6 +279,10 @@ public:
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.historyFrame = 300;
 
+        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
+        consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";
+        consensus.spv.anchors_address = "n1h1kShnyiw3qRR6MM1FnwShaNVoVwBTnF";
+
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
         pchMessageStart[2] = 0x09;
@@ -382,6 +390,10 @@ public:
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.historyFrame = 300;
+
+        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
+        consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";
+        consensus.spv.anchors_address = "n1h1kShnyiw3qRR6MM1FnwShaNVoVwBTnF";
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
