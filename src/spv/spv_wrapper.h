@@ -47,12 +47,29 @@ typedef struct BRPeerManagerStruct BRPeerManager;
 typedef struct BRMerkleBlockStruct BRMerkleBlock;
 typedef struct BRTransactionStruct BRTransaction;
 typedef struct BRPeerStruct BRPeer;
+//struct BRChainParams;
 
 //extern "C" {
 //    extern size_t BRMerkleBlockSerialize(const BRMerkleBlock *block, uint8_t *buf, size_t bufLen);
 //    extern BRMerkleBlock *BRMerkleBlockParse(const uint8_t *buf, size_t bufLen);
 //}
 
+namespace spv
+{
+
+typedef std::vector<uint8_t> TBytes;
+
+struct TxInput {
+    UInt256 txHash;
+    int32_t index;
+    uint64_t amount;
+    TBytes script;
+};
+
+struct TxOutput {
+    uint64_t amount;
+    TBytes script;
+};
 
 class CSpvWrapper
 {
@@ -66,11 +83,15 @@ private:
 
 
 public:
-    CSpvWrapper(bool isMainnet, std::string const & xpub, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
     ~CSpvWrapper();
 
     void Connect();
     void Disconnect();
+    BRPeerManager const * GetPeerManager() const;
+    uint8_t GetPKHashPrefix() const;
+    BRWallet const * GetWallet() const;
+    bool SendRawTx(TBytes rawtx);
 
 public:
     /// Wallet callbacks
@@ -174,4 +195,7 @@ protected:
 
 extern std::unique_ptr<CSpvWrapper> pspv;
 
+TBytes CreateAnchorTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, TBytes const & meta);
+
+}
 #endif // BITCOIN_SPV_SPV_WRAPPER_H

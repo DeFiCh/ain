@@ -106,6 +106,14 @@ struct Params {
         int historyFrame;
     };
     MnParams mn;
+
+    struct SpvParams {
+        CAmount creationFee;
+        std::string wallet_xpub;
+        std::string anchors_address;
+    };
+    SpvParams spv;
+
 };
 } // namespace Consensus
 
