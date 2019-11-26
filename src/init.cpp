@@ -263,8 +263,8 @@ void Shutdown(InitInterfaces& interfaces)
             g_chainstate->ForceFlushStateToDisk();
             g_chainstate->ResetCoinsViews();
         }
-        pspv->Disconnect();
-        pspv.reset();
+        spv::pspv->Disconnect();
+        spv::pspv.reset();
 
         pmasternodesview.reset();
         pblocktree.reset();
@@ -1557,10 +1557,10 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 if (gArgs.GetBoolArg("-spv", true))
                 {
-                    pspv.reset();
+                    spv::pspv.reset();
                     /// @todo @maxb retrieve xpub from genesis or chainparams
-                    pspv = MakeUnique<CSpvWrapper>(gArgs.GetBoolArg("-spv_testnet", false), "", nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
-                    pspv->Connect();
+                    spv::pspv = MakeUnique<spv::CSpvWrapper>(gArgs.GetBoolArg("-spv_testnet", false), nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
+                    spv::pspv->Connect();
                 }
 
                 // If necessary, upgrade from older database format.
