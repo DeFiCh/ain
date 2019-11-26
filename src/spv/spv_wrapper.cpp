@@ -4,36 +4,18 @@
 
 #include <spv/spv_wrapper.h>
 
-//#include <chainparams.h>
+#include <chainparams.h>
 //#include <uint256.h>
 
-//#include <stdint.h>
-
-//#include <boost/thread.hpp>
-
-//#include <spv/support/BRCrypto.h>
-//#include <spv/bitcoin/BRBloomFilter.h>
-//#include <spv/bitcoin/BRMerkleBlock.h>
-//#include <spv/bitcoin/BRWallet.h>
 #include <spv/support/BRKey.h>
-//#include <spv/bitcoin/BRBIP38Key.h>
-//#include <spv/support/BRKeyECIES.h>
-//#include <spv/support/BRAddress.h>
-//#include <spv/support/BRBase58.h>
-//#include <spv/support/BRBech32.h>
+#include <spv/support/BRAddress.h>
 #include <spv/support/BRBIP39Mnemonic.h>
-//#include <spv/support/BRBIP39WordsEn.h>
 #include <spv/support/BRBIP32Sequence.h>
-//#include <spv/bitcoin/BRPeer.h>
 #include <spv/bitcoin/BRPeerManager.h>
 #include <spv/bitcoin/BRChainParams.h>
 #include <spv/bcash/BRBCashParams.h>
-//#include <spv/bcash/BRBCashAddr.h>
-//#include <spv/bitcoin/BRPaymentProtocol.h>
-//#include <spv/support/BRArray.h>
-//#include <spv/support/BRSet.h>
-//#include <spv/bitcoin/BRTransaction.h>
-//#include <spv/bitcoin/BRWalletManager.h>
+
+#include <util/strencodings.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,6 +29,8 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 
+namespace spv
+{
 
 std::unique_ptr<CSpvWrapper> pspv;
 
@@ -157,7 +141,7 @@ static void SetCheckpoints()
     BRTestNetCheckpoints[14] = { 1411200, uint256("00000000000000008b3baea0c3de24b9333c169e1543874f4202397f5b8502cb"), 1535535770, 0x194ac105 };
 }
 
-CSpvWrapper::CSpvWrapper(bool isMainnet, std::string const & xpub, size_t nCacheSize, bool fMemory, bool fWipe)
+CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool fWipe)
     : db(new CDBWrapper(GetDataDir() / (isMainnet ?  "spv" : "spv_testnet"), nCacheSize, fMemory, fWipe))
 {
     SetCheckpoints();
@@ -170,23 +154,22 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, std::string const & xpub, size_t nCache
     spv_log2console = 1;
     spv_mainnet = isMainnet ? 1 : 0;
 
-    //    UInt512 seed = UINT512_ZERO;
     BRMasterPubKey mpk = BR_MASTER_PUBKEY_NONE;
 
     // mainnet:
+//    UInt512 seed = UINT512_ZERO;
 //    BRBIP39DeriveKey(seed.u8, "axis husband project any sea patch drip tip spirit tide bring belt", NULL);
 //    mpk = BRBIP32MasterPubKey(&seed, sizeof(seed));
 
     // testnet:
-    mpk = BRBIP32ParseMasterPubKey("tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9");
+    mpk = BRBIP32ParseMasterPubKey(Params().GetConsensus().spv.wallet_xpub.c_str());
 
 //    char xprv[120];
 //    BRBIP32SerializeMasterPrivKey(xprv, 120, &seed, sizeof(seed));
 //    LogPrintf("spv: debug xprv: %s\n", xprv);
-    char xpub_buf[120];
-    BRBIP32SerializeMasterPubKey(xpub_buf, 120, mpk);
-    LogPrintf("spv: debug xpub: %s\n", xpub_buf);
-
+    char xpub_buf[BRBIP32SerializeMasterPubKey(NULL, 0, mpk)];
+    BRBIP32SerializeMasterPubKey(xpub_buf, sizeof(xpub_buf), mpk);
+    LogPrintf("spv: debug xpub: %s\n", &xpub_buf[0]);
 
     wallet = BRWalletNew(NULL, 0, mpk, 0);
     BRWalletSetCallbacks(wallet, this, balanceChanged, txAdded, txUpdated, txDeleted);
@@ -245,6 +228,22 @@ void CSpvWrapper::Disconnect()
     BRPeerManagerDisconnect(manager);
     uint64_t balance = BRWalletBalance(wallet);
     LogPrintf("spv: balance on disconnect: %lu\n", balance);
+}
+
+BRPeerManager const * CSpvWrapper::GetPeerManager() const
+{
+    return manager;
+}
+
+// we cant return the whole params itself due to conflicts in include files
+uint8_t CSpvWrapper::GetPKHashPrefix() const
+{
+    return BRPeerManagerChainParams(manager)->base58_p2pkh;
+}
+
+BRWallet const * CSpvWrapper::GetWallet() const
+{
+    return wallet;
 }
 
 void CSpvWrapper::OnBalanceChanged(uint64_t balance)
@@ -355,3 +354,115 @@ void CSpvWrapper::WritePeer(const BRPeer * peer)
 
 }
 
+void publishedTxCallback(void *info, int error)
+{
+    UInt256 hash = UInt256Reverse(*(UInt256 *)info);
+    std::string const hex = HexStr((unsigned char*)&hash, (unsigned char*)&hash + 32);
+    LogPrintf("spv: publishedTxCallback: tx: %s, error: %d\n", hex.c_str(), error);
+}
+
+
+TBytes CreateRawTx(std::vector<TxInput> const & inputs, std::vector<TxOutput> const & outputs)
+{
+    BRTransaction *tx = BRTransactionNew();
+    for (auto input : inputs) {
+        BRTransactionAddInput(tx, input.txHash, input.index, input.amount, input.script.data(), input.script.size(), NULL, 0, NULL, 0, TXIN_SEQUENCE);
+    }
+    for (auto output : outputs) {
+        BRTransactionAddOutput(tx, output.amount, output.script.data(), output.script.size());
+    }
+    size_t len = BRTransactionSerialize(tx, NULL, 0);
+    TBytes buf(len);
+    len = BRTransactionSerialize(tx, buf.data(), buf.size());
+    BRTransactionFree(tx);
+    return len ? buf : TBytes{};
+}
+
+TBytes CreateAnchorTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, TBytes const & meta)
+{
+    /// @todo @max calculate minimum fee
+    uint64_t fee = 100000;
+    UInt256 inHash = UInt256Reverse(uint256(hash.c_str()));
+
+    // creating key(priv/pub) from WIF priv
+    BRKey inputKey;
+    BRKeySetPrivKey(&inputKey, privkey_wif.c_str());
+    BRKeyPubKey(&inputKey, NULL, 0);
+
+    BRAddress address = BR_ADDRESS_NONE;
+    BRKeyLegacyAddr(&inputKey, address.s, sizeof(address));
+    size_t inputScriptLen = BRAddressScriptPubKey(NULL, 0, address.s);
+    TBytes inputScript(inputScriptLen);
+    BRAddressScriptPubKey(inputScript.data(), inputScript.size(), address.s);
+
+    std::vector<TxInput> inputs;
+    std::vector<TxOutput> outputs;
+
+    // create single input (current restriction)
+    inputs.push_back({ inHash, index, inputAmount, inputScript});
+
+    auto consensus = Params().GetConsensus();
+
+    // for the case of unused new anchor address from the wallet:
+//    BRWallet * wallet = pspv->GetWallet();
+//    auto anchorAddr = BRWalletLegacyAddress(wallet);
+    BRAddress anchorAddr = BR_ADDRESS_NONE;
+    consensus.spv.anchors_address.copy(anchorAddr.s, consensus.spv.anchors_address.size());
+
+    size_t anchorScriptLen = BRAddressScriptPubKey(NULL, 0, anchorAddr.s);
+    TBytes anchorScript(anchorScriptLen);
+    BRAddressScriptPubKey(anchorScript.data(), anchorScript.size(), anchorAddr.s);
+
+    // output[0] - metadata
+    outputs.push_back({ 0, meta});
+    // output[1] - anchor address with creation fee
+    outputs.push_back({ (uint64_t) consensus.spv.creationFee, anchorScript });
+    // output[2] (optional) - change
+    auto change = inputAmount - consensus.spv.creationFee - fee;
+    if (change > 0) {
+        outputs.push_back({ change, inputScript });
+    }
+    auto rawtx = CreateRawTx(inputs, outputs);
+    LogPrintf("spv: TXunsigned: %s\n", HexStr(rawtx));
+
+    BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
+
+    if (! tx || tx->inCount != 1 || tx->outCount != 3)
+        LogPrintf("spv: ***FAILED*** %s: BRTransactionParse(): tx->inCount: %lu tx->outCount %lu\n", __func__, tx ? tx->inCount : 0, tx ? tx->outCount: 0);
+    else {
+        LogPrintf("spv: ***OK*** %s: BRTransactionParse() \n", __func__);
+    }
+
+    BRTransactionSign(tx, 0, &inputKey, 1);
+    {   // just check
+        BRAddress addr;
+        BRAddressFromScriptSig(addr.s, sizeof(addr), tx->inputs[0].signature, tx->inputs[0].sigLen);
+        if (!BRTransactionIsSigned(tx) || !BRAddressEq(&address, &addr))
+            LogPrintf("spv: ***FAILED*** %s: BRTransactionSign()\n", __func__);
+    }
+    TBytes signedTx(BRTransactionSerialize(tx, NULL, 0));
+    BRTransactionSerialize(tx, signedTx.data(), signedTx.size());
+
+    LogPrintf("spv: TXsigned: %s\n", HexStr(signedTx));
+    BRTransactionFree(tx);
+
+    return signedTx;
+}
+
+bool CSpvWrapper::SendRawTx(TBytes rawtx)
+{
+    if (!BRPeerManagerPeerCount(manager) > 0) {
+        return false; // not connected
+    }
+
+    BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
+    if (tx && BRTransactionIsSigned(tx)) {
+        BRPeerManagerPublishTx(manager, tx, &tx->txHash, publishedTxCallback); // just note that txHash is wrong here (need to be reversed)
+    }
+    else {
+        tx = NULL;
+    }
+    return tx;
+}
+
+}

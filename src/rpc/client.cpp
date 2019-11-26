@@ -175,6 +175,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "mn_resign", 1, "mn_id" },
     { "mn_list", 0, "list" },
     { "mn_list", 1, "verbose" },
+//    { "spv_createanchor", 0, "verbose" },
 };
 // clang-format on
 
