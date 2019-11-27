@@ -7,6 +7,7 @@
 #define BITCOIN_CONSENSUS_PARAMS_H
 
 #include <amount.h>
+#include <script/standard.h>
 #include <uint256.h>
 #include <limits>
 #include <map>
@@ -49,6 +50,9 @@ struct BIP9Deployment {
 struct Params {
     uint256 hashGenesisBlock;
     int nSubsidyHalvingInterval;
+    CAmount baseBlockSubsidy;
+    CTxDestination foundationAddress;
+    uint32_t foundationShare;
     /* Block hash that is excepted from BIP16 enforcement */
     uint256 BIP16Exception;
     /** Block height and hash at which BIP34 becomes active */

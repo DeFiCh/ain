@@ -211,7 +211,7 @@ UniValue mn_create(const JSONRPCRequest& request)
         }
     }
 
-    CDataStream metadata(MnTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(MasternodesTxType::CreateMasternode)
              << static_cast<char>(operatorDest.which()) << operatorAuthKey;
 
@@ -310,7 +310,7 @@ UniValue mn_resign(const JSONRPCRequest& request)
         rawTx.vin.push_back(CTxIn(vecOutputs[0].tx->GetHash(), vecOutputs[0].i));
     }
 
-    CDataStream metadata(MnTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(MasternodesTxType::ResignMasternode)
              << nodeId;
 
