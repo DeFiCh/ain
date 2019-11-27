@@ -222,7 +222,7 @@ def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf'), lock=N
 ############################################
 
 # The maximum number of nodes a single test can spawn
-MAX_NODES = 8
+MAX_NODES = 12
 # Don't assign rpc or p2p ports lower than this
 PORT_MIN = 11000
 # The number of ports to "reserve" for p2p and rpc, each
@@ -506,15 +506,13 @@ def gen_return_txouts():
     # Some pre-processing to create a bunch of OP_RETURN txouts to insert into transactions we create
     # So we have big transactions (and therefore can't fit very many into each block)
     # create one script_pubkey
-    script_pubkey = "6a4d0200"  # OP_RETURN OP_PUSH2 512 bytes
-    for i in range(512):
-        script_pubkey = script_pubkey + "01"
+    script_pubkey = b'\x6a\x4d\x02\x00' + b'\x01' * 512  # OP_RETURN OP_PUSH2 512 bytes
     # concatenate 128 txouts of above script_pubkey which we'll insert before the txout for change
     txouts = []
     from .messages import CTxOut
     txout = CTxOut()
     txout.nValue = 0
-    txout.scriptPubKey = hex_str_to_bytes(script_pubkey)
+    txout.scriptPubKey = script_pubkey
     for k in range(128):
         txouts.append(txout)
     return txouts
@@ -543,16 +541,21 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
     return txids
 
 def mine_large_block(node, utxos=None):
-    # generate a 66k transaction,
-    # and 14 of them is close to the 1MB block limit
-    num = 14
-    txouts = gen_return_txouts()
+    # generate a ~1M transaction,
+    # and 16 of them is close to the 16MB block limit
+    num = 16 # old value 14
+
+    from .messages import CTxOut
+    from .script import CScript, OP_RETURN, OP_NOP
+    big_script = CScript([OP_RETURN] + [OP_NOP] * 980000)
+    big_txout = CTxOut(0, big_script)
+
     utxos = utxos if utxos is not None else []
     if len(utxos) < num:
         utxos.clear()
         utxos.extend(node.listunspent())
-    fee = 100 * node.getnetworkinfo()["relayfee"]
-    create_lots_of_big_transactions(node, txouts, utxos, num, fee=fee)
+    fee = 1000 * node.getnetworkinfo()["relayfee"]
+    create_lots_of_big_transactions(node, [big_txout], utxos, num, fee=fee)
     node.generate(1)
 
 def find_vout_for_address(node, txid, addr):
