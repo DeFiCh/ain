@@ -1021,9 +1021,9 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const FlatFilePos& pos, c
                     HexStr(message_start, message_start + CMessageHeader::MESSAGE_START_SIZE));
         }
 
-        if (blk_size > MAX_SIZE) {
+        if (blk_size > MAX_DESER_SIZE) {
             return error("%s: Block data is larger than maximum deserialization size for %s: %s versus %s", __func__, pos.ToString(),
-                    blk_size, MAX_SIZE);
+                    blk_size, MAX_DESER_SIZE);
         }
 
         block.resize(blk_size); // Zeroing of memory is intentional here
@@ -1053,7 +1053,7 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     if (halvings >= 64)
         return 0;
 
-    CAmount nSubsidy = 50 * COIN;
+    CAmount nSubsidy = consensusParams.baseBlockSubsidy;
     // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
     nSubsidy >>= halvings;
     return nSubsidy;

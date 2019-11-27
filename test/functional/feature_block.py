@@ -462,7 +462,7 @@ class FullBlockTest(BitcoinTestFramework):
         #           redeem_script = COINBASE_PUBKEY, (OP_2DUP+OP_CHECKSIGVERIFY) * 5, OP_CHECKSIG
         #           p2sh_script = OP_HASH160, ripemd160(sha256(script)), OP_EQUAL
         #
-        self.log.info("Check P2SH SIGOPS are correctly counted")
+        self.log.info("Check P2SH SIGOPS are correctly counted (keep calm, sloooww)")
         self.move_tip(35)
         b39 = self.next_block(39)
         b39_outputs = 0
@@ -503,6 +503,7 @@ class FullBlockTest(BitcoinTestFramework):
         # Make sure we didn't accidentally make too big a block. Note that the
         # size of the block has non-determinism due to the ECDSA signature in
         # the first transaction.
+
         while (len(b39.serialize()) >= MAX_BLOCK_BASE_SIZE):
             del b39.vtx[-1]
 
@@ -517,7 +518,7 @@ class FullBlockTest(BitcoinTestFramework):
         #
         # b41 does the same, less one, so it has the maximum sigops permitted.
         #
-        self.log.info("Reject a block with too many P2SH sigops")
+        self.log.info("Reject a block with too many P2SH sigops (keep calm, sloooww)")
         self.move_tip(39)
         b40 = self.next_block(40, spend=out[12])
         sigops = get_legacy_sigopcount_block(b40)
@@ -1249,21 +1250,22 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(88)
         LARGE_REORG_SIZE = 1088
         blocks = []
+        BLOCK_SIZE = 1000000 # old value was MAX_BLOCK_BASE_SIZE, changed due to EXTREMELY big chain and slow operation
         spend = out[32]
         for i in range(89, LARGE_REORG_SIZE + 89):
             b = self.next_block(i, spend, version=4)
             tx = CTransaction()
-            script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
+            script_length = BLOCK_SIZE - len(b.serialize()) - 69
             script_output = CScript([b'\x00' * script_length])
             tx.vout.append(CTxOut(0, script_output))
             tx.vin.append(CTxIn(COutPoint(b.vtx[1].sha256, 0)))
             b = self.update_block(i, [tx])
-            assert_equal(len(b.serialize()), MAX_BLOCK_BASE_SIZE)
+            assert_equal(len(b.serialize()), BLOCK_SIZE)
             blocks.append(b)
             self.save_spendable_output()
             spend = self.get_spendable_output()
 
-        self.send_blocks(blocks, True, timeout=480)
+        self.send_blocks(blocks, True, timeout=960)
         chain1_tip = i
 
         # now create alt chain of same length
@@ -1275,14 +1277,14 @@ class FullBlockTest(BitcoinTestFramework):
 
         # extend alt chain to trigger re-org
         block = self.next_block("alt" + str(chain1_tip + 1), version=4)
-        self.send_blocks([block], True, timeout=480)
+        self.send_blocks([block], True, timeout=960)
 
         # ... and re-org back to the first chain
         self.move_tip(chain1_tip)
         block = self.next_block(chain1_tip + 1, version=4)
         self.send_blocks([block], False, force_send=True)
         block = self.next_block(chain1_tip + 2, version=4)
-        self.send_blocks([block], True, timeout=480)
+        self.send_blocks([block], True, timeout=960)
 
         self.log.info("Reject a block with an invalid block header version")
         b_v1 = self.next_block('b_v1', version=1)
