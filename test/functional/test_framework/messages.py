@@ -36,9 +36,10 @@ MY_SUBVERSION = b"/python-mininode-tester:0.0.3/"
 MY_RELAY = 1 # from version 70001 onwards, fRelay should be appended to version messages (BIP37)
 
 MAX_LOCATOR_SZ = 101
-MAX_BLOCK_BASE_SIZE = 1000000
+MAX_BLOCK_BASE_SIZE = 1000000 * 16
 
 COIN = 100000000  # 1 btc in satoshis
+MAXMONEY = 21000000 * 4 * COIN
 
 BIP125_SEQUENCE_NUMBER = 0xfffffffd  # Sequence number that is BIP 125 opt-in and BIP 68-opt-out
 
@@ -512,7 +513,7 @@ class CTransaction:
     def is_valid(self):
         self.calc_sha256()
         for tout in self.vout:
-            if tout.nValue < 0 or tout.nValue > 21000000 * COIN:
+            if tout.nValue < 0 or tout.nValue > MAXMONEY:
                 return False
         return True
 
@@ -614,7 +615,7 @@ class CBlockHeader:
     def __repr__(self):
         return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x stakeModifier=%064x nHeight=%i nMintedBlocks=%i sig=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks, "0x".join("{:02x}".format(c) for c in self.sig))
+               time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks, "".join("{:02x}".format(c) for c in self.sig))
 
 BLOCK_HEADER_SIZE = len(CBlockHeader().serialize())
 assert_equal(BLOCK_HEADER_SIZE, 190)

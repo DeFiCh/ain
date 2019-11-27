@@ -69,20 +69,21 @@ TEST_EXIT_SKIPPED = 77
 EXTENDED_SCRIPTS = [
     # These tests are not run by default.
     # Longest test should go first, to favor running tests in parallel
+    'example_block_hash.py',
     'feature_pruning.py',
     'feature_dbcrash.py',
-    'example_block_hash.py',
+    'feature_block.py', # moved to ext due to heavy load for trevis
+    'wallet_hd.py',     # moved to ext due to heavy load for trevis
+    'mempool_accept.py',# moved to ext due to heavy load for trevis
 ]
 
 BASE_SCRIPTS = [
     # Scripts that are run by default.
     # Longest test should go first, to favor running tests in parallel
-    'wallet_hd.py',
     'wallet_backup.py',
     # vv Tests less than 5m vv
     'mining_getblocktemplate_longpoll.py',
     'feature_maxuploadtarget.py',
-    'feature_block.py',
     'rpc_fundrawtransaction.py',
     'p2p_compactblocks.py',
     'feature_segwit.py',
@@ -90,6 +91,7 @@ BASE_SCRIPTS = [
     'wallet_basic.py',
     'wallet_labels.py',
     'p2p_segwit.py',
+    'p2p_segwit2.py',
     'p2p_timeouts.py',
     'p2p_tx_download.py',
     'wallet_dump.py',
@@ -173,7 +175,6 @@ BASE_SCRIPTS = [
     'rpc_signmessage.py',
     'wallet_balance.py',
     'feature_nulldummy.py',
-    'mempool_accept.py',
     'wallet_import_rescan.py', # nodes = 6
     'wallet_import_with_label.py',
     'rpc_bind.py --ipv4',
