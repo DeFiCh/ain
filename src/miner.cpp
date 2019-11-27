@@ -152,6 +152,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
     coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    // Pinch off foundation share
+    if (IsValidDestination(chainparams.GetConsensus().foundationAddress) && chainparams.GetConsensus().foundationShare != 0) {
+        coinbaseTx.vout.resize(2);
+        coinbaseTx.vout[1].scriptPubKey = GetScriptForDestination(chainparams.GetConsensus().foundationAddress);
+        coinbaseTx.vout[1].nValue = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
+        coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
+    }
 
     bool baseScript = true;
 
@@ -164,7 +171,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if (criminal.first.ExtractMinterKey(key)) {
             auto itFirstMN = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, key);
             if (itFirstMN) {
-                CDataStream metadata(MnCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+                CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
                 metadata << criminal.first << criminal.second << (*itFirstMN)->second << 0; // 0 - number output for blocking
                 coinbaseTx.vin[0].scriptSig = CScript() << OP_RETURN << ToByteVector(metadata);
 

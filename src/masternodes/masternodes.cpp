@@ -403,11 +403,11 @@ bool CMasternodesView::ExtractCriminalCoinsFromTx(CTransaction const & tx, std::
         (opcode > OP_PUSHDATA1 &&
          opcode != OP_PUSHDATA2 &&
          opcode != OP_PUSHDATA4) ||
-        metadata.size() < MnCriminalTxMarker.size() + 1 ||
-        memcmp(&metadata[0], &MnCriminalTxMarker[0], MnCriminalTxMarker.size()) != 0) {
+        metadata.size() < DfCriminalTxMarker.size() + 1 ||
+        memcmp(&metadata[0], &DfCriminalTxMarker[0], DfCriminalTxMarker.size()) != 0) {
         return false;
     }
-    metadata.erase(metadata.begin(), metadata.begin() + MnCriminalTxMarker.size());
+    metadata.erase(metadata.begin(), metadata.begin() + DfCriminalTxMarker.size());
     return true;
 }
 
@@ -536,16 +536,16 @@ MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<uns
             (opcode > OP_PUSHDATA1 &&
              opcode != OP_PUSHDATA2 &&
              opcode != OP_PUSHDATA4) ||
-            metadata.size() < MnTxMarker.size() + 1 ||     // i don't know how much exactly, but at least MnTxSignature + type prefix
-            memcmp(&metadata[0], &MnTxMarker[0], MnTxMarker.size()) != 0)
+            metadata.size() < DfTxMarker.size() + 1 ||     // i don't know how much exactly, but at least MnTxSignature + type prefix
+            memcmp(&metadata[0], &DfTxMarker[0], DfTxMarker.size()) != 0)
     {
         return MasternodesTxType::None;
     }
-    auto const & it = MasternodesTxTypeToCode.find(metadata[MnTxMarker.size()]);
+    auto const & it = MasternodesTxTypeToCode.find(metadata[DfTxMarker.size()]);
     if (it == MasternodesTxTypeToCode.end())
     {
         return MasternodesTxType::None;
     }
-    metadata.erase(metadata.begin(), metadata.begin() + MnTxMarker.size() + 1);
+    metadata.erase(metadata.begin(), metadata.begin() + DfTxMarker.size() + 1);
     return it->second;
 }
