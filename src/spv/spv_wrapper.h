@@ -47,7 +47,6 @@ typedef struct BRPeerManagerStruct BRPeerManager;
 typedef struct BRMerkleBlockStruct BRMerkleBlock;
 typedef struct BRTransactionStruct BRTransaction;
 typedef struct BRPeerStruct BRPeer;
-//struct BRChainParams;
 
 //extern "C" {
 //    extern size_t BRMerkleBlockSerialize(const BRMerkleBlock *block, uint8_t *buf, size_t bufLen);
@@ -58,6 +57,8 @@ namespace spv
 {
 
 typedef std::vector<uint8_t> TBytes;
+
+static const TBytes BtcAnchorMarker = { 'D', 'F', 'A'}; // 0x444641
 
 struct TxInput {
     UInt256 txHash;
@@ -179,8 +180,6 @@ private:
     }
 
 
-    void LoadBlocks();
-
 protected:
 //    void CommitBatch();
 
@@ -196,6 +195,7 @@ protected:
 extern std::unique_ptr<CSpvWrapper> pspv;
 
 TBytes CreateAnchorTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, TBytes const & meta);
+TBytes CreateScriptForAddress(std::string const & address);
 
 }
 #endif // BITCOIN_SPV_SPV_WRAPPER_H

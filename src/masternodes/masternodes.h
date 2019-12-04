@@ -7,6 +7,7 @@
 
 #include <amount.h>
 #include <pubkey.h>
+#include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
 
@@ -16,7 +17,6 @@
 #include <iostream>
 
 #include <boost/optional.hpp>
-#include <boost/scoped_ptr.hpp>
 
 class CTransaction;
 class CBlockHeader;
@@ -134,6 +134,7 @@ public:
     typedef std::map<int, std::pair<uint256, MasternodesTxType> > CMnTxsUndo; // txn, undoRec
     typedef std::map<int, CMnTxsUndo> CMnBlocksUndo;
     typedef std::map<uint256, std::pair<CBlockHeader, CBlockHeader>> CMnCriminals;
+    typedef std::set<CKeyID> CTeam;
 //    typedef std::map<int, CTeam> CTeams;
 
     enum class AuthIndex { ByOwner, ByOperator };
@@ -231,8 +232,8 @@ public:
 
     void PruneOlder(int height);
 
-//    bool IsTeamMember(int height, CKeyID const & operatorAuth) const;
-//    CTeam CalcNextDposTeam(CActiveMasternodes const & activeNodes, CMasternodes const & allNodes, uint256 const & blockHash, int height);
+    CTeam GetCurrentTeam();
+    CTeam CalcNextTeam();
 //    virtual CTeam const & ReadDposTeam(int height) const;
 
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
