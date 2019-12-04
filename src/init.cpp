@@ -25,6 +25,7 @@
 #include <interfaces/chain.h>
 #include <key.h>
 #include <key_io.h>
+#include <masternodes/anchors.h>
 #include <masternodes/mn_txdb.h>
 #include <miner.h>
 #include <net.h>
@@ -265,7 +266,8 @@ void Shutdown(InitInterfaces& interfaces)
         }
         spv::pspv->Disconnect();
         spv::pspv.reset();
-
+        panchorauths.reset();
+        panchors.reset();
         pmasternodesview.reset();
         pblocktree.reset();
     }
@@ -1554,6 +1556,11 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pmasternodesview.reset();
                 pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, false, fReset || fReindexChainState);
                 pmasternodesview->Load();
+
+                panchorauths.reset();
+                panchorauths = MakeUnique<CAnchorAuthIndex>();
+                panchors.reset();
+                panchors = MakeUnique<CAnchorIndex>();
 
                 if (gArgs.GetBoolArg("-spv", true))
                 {
