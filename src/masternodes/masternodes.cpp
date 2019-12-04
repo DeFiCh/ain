@@ -320,7 +320,25 @@ void CMasternodesView::PruneOlder(int height)
 //    }
 
 //    // erase undo info
-//    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
+    //    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
+}
+
+CMasternodesView::CTeam CMasternodesView::GetCurrentTeam()
+{
+    /// @todo @maxb temp, implement
+    CMasternodesView::CTeam team;
+    for (auto const & mn : nodesByOperator) {
+        if (ExistMasternode(mn.second)->IsActive()) {
+            team.insert(mn.first);
+        }
+    }
+    return team;
+}
+
+CMasternodesView::CTeam CMasternodesView::CalcNextTeam()
+{
+    /// @todo @maxb temp, implement
+    return GetCurrentTeam();
 }
 
 bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)

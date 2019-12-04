@@ -96,7 +96,7 @@ bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pinde
         return false;
     }
 
-    /// @todo @max this is our own check of own minted block (just to remember)
+    // this is our own check of own minted block (just to remember)
     return ContextualCheckProofOfStake(blockHeader, params, mnView);
 }
 

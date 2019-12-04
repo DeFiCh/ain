@@ -18,6 +18,7 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <masternodes/anchors.h>
 #include <masternodes/mn_checks.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
@@ -46,6 +47,9 @@
 #include <util/validation.h>
 #include <validationinterface.h>
 #include <warnings.h>
+
+#include <wallet/wallet.h>
+#include <net_processing.h>
 
 #include <future>
 #include <sstream>
@@ -1783,10 +1787,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
         if (!fJustCheck) {
             view.SetBestBlock(pindex->GetBlockHash());
-            /// @todo @maxb init view|db with genesis here
+            // init view|db with genesis here
             for (int i = 1; i < block.vtx.size(); ++i) {
                 CheckMasternodeTx(mnview, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
             }
+            /// @todo @maxb init genesis team/anchor
+
         }
         return true;
     }
@@ -3123,7 +3129,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-missing", "first tx is not coinbase");
 
-    /// @todo @max skip this validation if it is Genesis (due to mn creation txs)
+    // skip this validation if it is Genesis (due to mn creation txs)
     if (block.GetHash() != consensusParams.hashGenesisBlock) {
         for (unsigned int i = 1; i < block.vtx.size(); i++)
             if (block.vtx[i]->IsCoinBase())
@@ -3131,7 +3137,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     }
 
     // Check transactions
-    /// @todo @max skip this validation if it is Genesis (due to mn creation txs)
+    // skip this validation if it is Genesis (due to mn creation txs)
     if (block.GetHash() != consensusParams.hashGenesisBlock) {
         for (const auto& tx : block.vtx)
             if (!CheckTransaction(*tx, state, true))
@@ -3646,6 +3652,46 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
     CValidationState state; // Only used to report errors, not invalidity - ignore it
     if (!::ChainstateActive().ActivateBestChain(state, chainparams, pblock))
         return error("%s: ActivateBestChain failed (%s)", __func__, FormatStateMessage(state));
+
+    /// @max @todo subst with chainparams anchoring frequency!
+    if (!::ChainstateActive().IsInitialBlockDownload() && (::ChainActive().Height() % 15 == 0))
+    {
+        LOCK(cs_main);
+        LogPrintf("Anchor auth prepare, block: %d\n", ::ChainActive().Height());
+        auto const mnId = pmasternodesview->AmIOperator();
+        if (mnId && pmasternodesview->ExistMasternode(mnId->id)->IsActive()) { // this is safe due to prev call `AmIOperator`
+            /// @todo @maxb subst 'previousAnchor' and 'nextTeam'
+            CAnchorAuthMessage auth(uint256() /*previousAnchor*/, ::ChainActive().Height(), ::ChainActive().Tip()->GetBlockHash(), pmasternodesview->CalcNextTeam());
+
+            std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+            CKey masternodeKey{};
+            for (auto const wallet : wallets) {
+                if (wallet->GetKey(mnId.get().operatorAuthAddress, masternodeKey)) {
+                    break;
+                }
+                masternodeKey = CKey{};
+            }
+
+            if (!masternodeKey.IsValid()) {
+                return error("%s: Can't read masternode operator private key", __func__);
+            }
+
+            auth.SignWithKey(masternodeKey);
+            LogPrintf("Anchor auth message signed, hash: %s, height: %d\n", auth.GetHash().ToString(), auth.height);
+            panchorauths->AddAuth(auth);
+            RelayAnchorAuth(auth.GetHash(), *g_connman);
+        }
+
+        /// @todo @max temp for debug
+        CAnchorMessage anc = panchorauths->CreateBestAnchor();
+        if (anc.sigs.size() >= panchorauths->GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
+//            anc.rewardScript = CScript();
+        }
+
+
+        LogPrintf("Anchor auths: trying to create anchor: sigs: %d, height: %d, blockHash: %s\n", anc.sigs.size(), anc.height, anc.blockHash.ToString());
+//        if ()
+    }
 
     return true;
 }
