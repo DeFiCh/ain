@@ -39,8 +39,8 @@ using namespace std;
 // Prefixes to the masternodes database (masternodes/)
 static const char DB_SPVBLOCKS = 'B';     // spv "blocks" table
 static const char DB_SPVPEERS  = 'P';     // spv "peers" table
-static const char DB_SPVTXS    = 'T';     // spv "txs" table
-
+static const char DB_SPVTXS    = 'T';     // spv "tx2msg" table
+static const char DB_SPVMSG    = 'M';     // spv "msg2tx" table
 
 /// spv wallet manager's callbacks wrappers:
 void balanceChanged(void *info, uint64_t balance)
@@ -251,21 +251,56 @@ void CSpvWrapper::OnBalanceChanged(uint64_t balance)
     LogPrintf("spv: balance changed: %lu\n", balance);
 }
 
+bool IsAnchorTx(BRTransaction *tx, TBytes & anchorMsgHash)
+{
+    /// @todo @maxb do not check amounts here?
+    if (tx->outCount < 2 || strcmp(tx->outputs[1].address, Params().GetConsensus().spv.anchors_address.c_str()) != 0) {
+        return false;
+    }
+
+    CScript const & memo = CScript(tx->outputs[0].script, tx->outputs[0].script+tx->outputs[0].scriptLen);
+    CScript::const_iterator pc = memo.begin();
+    opcodetype opcode;
+    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return false;
+    }
+    spv::TBytes metadata;
+    if (!memo.GetOp(pc, opcode, metadata) ||
+            opcode != BtcAnchorMarker.size() ||
+            memcmp(&metadata[0], &BtcAnchorMarker[0], BtcAnchorMarker.size()) != 0) {
+        return false;
+    }
+    if (!memo.GetOp(pc, opcode, anchorMsgHash) || opcode != 32) {
+        return false;
+    }
+    return true;
+}
+
 void CSpvWrapper::OnTxAdded(BRTransaction * tx)
 {
     // UInt256Reverse cause doesn't match with block explorer output
     LogPrintf("spv: tx added: %s, at block %d\n", u256hex(UInt256Reverse(tx->txHash)), tx->blockHeight);
 
+    TBytes msgHash;
+    if (IsAnchorTx(tx, msgHash)) {
+        LogPrintf("spv: GOT POSSIBLE ANCHOR TX, msg: %s\n", HexStr(msgHash));
+        /// @todo @max write in batch, refactor
+        db->Write(make_pair(DB_SPVTXS, tx->txHash), msgHash);
+//        db->Write(make_pair(DB_SPVMSG, msgHash), make_pair(tx->txHash, ' ');
+    }
 }
 
 void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
 {
-    LogPrintf("spv: txs updated (TODO)\n");
+    LogPrintf("spv: txs updated:\n");
+    for (size_t i = 0; i < txCount; ++i) {
+        LogPrintf("spv: tx updated, hash: %s\n", u256hex(UInt256Reverse(txHashes[i])));
+    }
 }
 
 void CSpvWrapper::OnTxDeleted(UInt256 txHash, int notifyUser, int recommendRescan)
 {
-    LogPrintf("spv: tx deleted (TODO)\n");
+    LogPrintf("spv: tx deleted: %s\n", u256hex(UInt256Reverse(txHash)));
 }
 
 void CSpvWrapper::OnSyncStarted()
@@ -315,13 +350,6 @@ int CSpvWrapper::OnNetworkIsReachable()
 
 void CSpvWrapper::OnThreadCleanup()
 {
-
-}
-
-void CSpvWrapper::LoadBlocks()
-{
-//    std::map<UInt256, BRMerkleBlock>
-//    LoadTable(DB_SPVBLOCKS, );
 
 }
 
@@ -463,6 +491,14 @@ bool CSpvWrapper::SendRawTx(TBytes rawtx)
         tx = NULL;
     }
     return tx;
+}
+
+TBytes CreateScriptForAddress(std::string const & address)
+{
+    TBytes script;
+    script.resize(BRAddressScriptPubKey(NULL, 0, address.c_str()));
+    BRAddressScriptPubKey(script.data(), script.size(), address.c_str());
+    return script;
 }
 
 }
