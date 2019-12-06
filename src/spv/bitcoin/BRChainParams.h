@@ -56,7 +56,7 @@ extern const BRChainParams *BRMainNetParams;
 extern const BRChainParams *BRTestNetParams;
 
 extern BRCheckPoint BRMainNetCheckpoints[30];
-extern BRCheckPoint BRTestNetCheckpoints[15];
+extern BRCheckPoint BRTestNetCheckpoints[17];
 
 extern int spv_mainnet;
 

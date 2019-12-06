@@ -44,17 +44,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 
-//extern UniValue createrawtransaction(UniValue const & params, bool fHelp); // in rawtransaction.cpp
-//extern UniValue fundrawtransaction(UniValue const & params, bool fHelp); // in rpcwallet.cpp
-//extern UniValue signrawtransaction(UniValue const & params, bool fHelp); // in rawtransaction.cpp
-//extern UniValue sendrawtransaction(UniValue const & params, bool fHelp); // in rawtransaction.cpp
-//extern UniValue getnewaddress(UniValue const & params, bool fHelp); // in rpcwallet.cpp
-//extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
-//extern bool DecodeHexTx(CTransaction & tx, std::string const & strHexTx); // in core_io.h
 
 //extern void ScriptPubKeyToJSON(CScript const & scriptPubKey, UniValue & out, bool fIncludeHex); // in rawtransaction.cpp
-
-//extern void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options);
 
 static CWallet* GetWallet(const JSONRPCRequest& request)
 {
@@ -184,7 +175,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     /// @todo @maxb temporary, tests
     auto rawtx = spv::CreateAnchorTx("b51644d042d3eaf99863c6113d303ddc2ff90aad0f0e0d2cada9c669a7f6dc95", 0, 2863303, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(scriptMeta));
 
-    bool send = false;
+    bool send = true;
     if (send)
         spv::pspv->SendRawTx(rawtx);
 
@@ -193,6 +184,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
+    result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
     result.pushKV("txHex", HexStr(rawtx));
     return result;
 }
@@ -271,10 +263,106 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
+    result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
     result.pushKV("txHex", EncodeHexTx(CTransaction(rawTx)));
     return result;
 }
 
+UniValue spv_rescan(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_rescan",
+        "\nRescan from block height...\n",
+        {
+            {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Block height or (tip-height) if negative."},
+        },
+        RPCResult{
+            "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
+        },
+        RPCExamples{
+            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
+                                               "\\\"collateralAddress\\\":\\\"address\\\""
+                                            "}\"")
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
+                                             "\\\"collateralAddress\\\":\\\"address\\\""
+                                            "}\"")
+        },
+    }.Check(request);
+
+    int height = request.params[0].isNull() ? 0 : request.params[0].get_int();
+
+    if (!spv::pspv->Rescan(height))
+        throw JSONRPCError(RPC_MISC_ERROR, "SPV not connected");
+
+    return {};
+}
+
+UniValue spv_syncstatus(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_syncstatus",
+        "\nRescan from block height...\n",
+        {
+            {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Block height or (tip-height) if negative."},
+        },
+        RPCResult{
+            "{                           (json object)\n"
+            "   \"connected\"                (bool) Last synced block\n"
+            "   \"current\"                  (num) Last synced block\n"
+            "   \"estimated\"                (num) Last synced block\n"
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
+                                               "\\\"collateralAddress\\\":\\\"address\\\""
+                                            "}\"")
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
+                                             "\\\"collateralAddress\\\":\\\"address\\\""
+                                            "}\"")
+        },
+    }.Check(request);
+
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("connected", spv::pspv->IsConnected());
+    result.pushKV("current", static_cast<int>(spv::pspv->GetLastBlockHeight()));
+    result.pushKV("estimated", static_cast<int>(spv::pspv->GetEstimatedBlockHeight()));
+    result.pushKV("txCount", static_cast<int>(spv::pspv->GetWalletTxs().size()));
+    return result;
+}
+
+UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_gettxconfirmations",
+        "\nRescan from block height...\n",
+        {
+            {"txhash", RPCArg::Type::STR, RPCArg::Optional::NO, "Block height or (tip-height) if negative."},
+        },
+        RPCResult{
+            "{                           (json object)\n"
+            "   \"connected\"                (bool) Last synced block\n"
+            "   \"current\"                  (num) Last synced block\n"
+            "   \"estimated\"                (num) Last synced block\n"
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
+                                               "\\\"collateralAddress\\\":\\\"address\\\""
+                                            "}\"")
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
+                                             "\\\"collateralAddress\\\":\\\"address\\\""
+                                            "}\"")
+        },
+    }.Check(request);
+
+    uint256 txHash;
+    ParseHashStr(request.params[0].getValStr(), txHash);
+    return UniValue(spv::pspv->GetTxConfirmations(txHash));
+}
 
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
@@ -282,6 +370,10 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_sendrawtx",              &spv_sendrawtx,             { "rawtx" }  },
   { "spv",      "spv_createanchor",           &spv_createanchor,          { /*"inputs", "hash", "rewardaddress", "privkey" */}  },
   { "spv",      "spv_createanchortemplate",   &spv_createanchortemplate,  { /*"inputs", "hash", "rewardaddress", "privkey" */}  },
+  { "spv",      "spv_rescan",                 &spv_rescan,                { "height"}  },
+  { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
+  { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
+
 //  { "spv",      "mn_resign",                &mn_resign,                 { "inputs", "mn_id" }  },
 
 //  { "spv",      "mn_list",                  &mn_list,                   { "list", "verbose" } },
