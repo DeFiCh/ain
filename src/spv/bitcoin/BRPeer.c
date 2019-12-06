@@ -1299,6 +1299,8 @@ void BRPeerSetNeedsFilterUpdate(BRPeer *peer, int needsFilterUpdate)
 const char *BRPeerHost(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
+    if (!ctx)
+        return "";
 
     if (ctx->host[0] == '\0') {
         if (_BRPeerIsIPv4(peer)) {

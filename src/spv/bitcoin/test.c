@@ -1134,7 +1134,7 @@ int BRAesTests()
     "\x9c\x9e\xb7\x6f\xac\x45\xaf\x8e\x51\x30\xc8\x1c\x46\xa3\x5c\xe4\x11\xe5\xfb\xc1\x19\x1a\x0a\x52\xef\xf6\x9f\x24"
     "\x45\xdf\x4f\x9b\x17\xad\x2b\x41\x7b\xe6\x6c\x37\x10";
     char buf[sizeof(plain)];
-    UInt256 key1 = uint256("2b7e151628aed2a6abf7158809cf4f3c00000000000000000000000000000000");
+    UInt256 key1 = toUInt256("2b7e151628aed2a6abf7158809cf4f3c00000000000000000000000000000000");
     const char cipher1[] = "\x3a\xd7\x7b\xb4\x0d\x7a\x36\x60\xa8\x9e\xca\xf3\x24\x66\xef\x97";
     const char in1[] = "\x87\x4d\x61\x91\xb6\x20\xe3\x26\x1b\xef\x68\x64\x99\x0d\xb6\xce\x98\x06\xf6\x6b\x79\x70\xfd"
     "\xff\x86\x17\x18\x7b\xb9\xff\xfd\xff\x5a\xe4\xdf\x3e\xdb\xd5\xd3\x5e\x5b\x4f\x09\x02\x0d\xb0\x3e\xab\x1e\x03\x1d"
@@ -1151,7 +1151,7 @@ int BRAesTests()
     BRAESCTR(buf, &key1, 16, iv, in1, 64);
     if (memcmp(buf, plain, 64) != 0) r = 0, fprintf(stderr, "\n***FAILED*** %s: BRAESCTR() test 1", __func__);
     
-    UInt256 key2 = uint256("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b0000000000000000");
+    UInt256 key2 = toUInt256("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b0000000000000000");
     const char cipher2[] = "\xbd\x33\x4f\x1d\x6e\x45\xf2\x5f\xf7\x12\xa2\x14\x57\x1f\xa5\xcc";
     const char in2[] = "\x1a\xbc\x93\x24\x17\x52\x1c\xa2\x4f\x2b\x04\x59\xfe\x7e\x6e\x0b\x09\x03\x39\xec\x0a\xa6\xfa"
     "\xef\xd5\xcc\xc2\xc6\xf4\xce\x8e\x94\x1e\x36\xb2\x6b\xd1\xeb\xc6\x70\xd1\xbd\x1d\x66\x56\x20\xab\xf7\x4f\x78\xa7"
@@ -1168,7 +1168,7 @@ int BRAesTests()
     BRAESCTR(buf, &key2, 24, iv, in2, 64);
     if (memcmp(buf, plain, 64) != 0) r = 0, fprintf(stderr, "\n***FAILED*** %s: BRAESCTR() test 2", __func__);
 
-    UInt256 key3 = uint256("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4");
+    UInt256 key3 = toUInt256("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4");
     const char cipher3[] = "\xf3\xee\xd1\xbd\xb5\xd2\xa0\x3c\x06\x4b\x5a\x7e\x3d\xb1\x81\xf8";
     const char in3[] = "\x60\x1e\xc3\x13\x77\x57\x89\xa5\xb7\xa7\xf5\x04\xbb\xf3\xd2\x28\xf4\x43\xe3\xca\x4d\x62\xb5"
     "\x9a\xca\x84\xe9\x90\xca\xca\xf5\xc5\x2b\x09\x30\xda\xa2\x3d\xe9\x4c\xe8\x70\x17\xba\x2d\x84\x98\x8d\xdf\xc9\xc5"
@@ -1334,7 +1334,7 @@ int BRKeyTests()
         r = 0, fprintf(stderr, "***FAILED*** %s: BRKeyPrivKey() test 5.3.2\n", __func__);
 
     // signing
-    BRKeySetSecret(&key, &uint256("0000000000000000000000000000000000000000000000000000000000000001"), 1);
+    BRKeySetSecret(&key, &toUInt256("0000000000000000000000000000000000000000000000000000000000000001"), 1);
     msg = "Everything should be made as simple as possible, but not simpler.";
     BRSHA256(&md, msg, strlen(msg));
     sigLen = BRKeySign(&key, sig, sizeof(sig), md);
@@ -1349,7 +1349,7 @@ int BRKeyTests()
     if (! BRKeyVerify(&key, md, sig, sigLen))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRKeyVerify() test 1\n", __func__);
 
-    BRKeySetSecret(&key, &uint256("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140"), 1);
+    BRKeySetSecret(&key, &toUInt256("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140"), 1);
     msg = "Equations are more important to me, because politics is for the present, but an equation is something for "
     "eternity.";
     BRSHA256(&md, msg, strlen(msg));
@@ -1365,7 +1365,7 @@ int BRKeyTests()
     if (! BRKeyVerify(&key, md, sig, sigLen))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRKeyVerify() test 2\n", __func__);
 
-    BRKeySetSecret(&key, &uint256("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140"), 1);
+    BRKeySetSecret(&key, &toUInt256("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140"), 1);
     msg = "Not only is the Universe stranger than we think, it is stranger than we can think.";
     BRSHA256(&md, msg, strlen(msg));
     sigLen = BRKeySign(&key, sig, sizeof(sig), md);
@@ -1380,7 +1380,7 @@ int BRKeyTests()
     if (! BRKeyVerify(&key, md, sig, sigLen))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRKeyVerify() test 3\n", __func__);
 
-    BRKeySetSecret(&key, &uint256("0000000000000000000000000000000000000000000000000000000000000001"), 1);
+    BRKeySetSecret(&key, &toUInt256("0000000000000000000000000000000000000000000000000000000000000001"), 1);
     msg = "How wonderful that we have met with a paradox. Now we have some hope of making progress.";
     BRSHA256(&md, msg, strlen(msg));
     sigLen = BRKeySign(&key, sig, sizeof(sig), md);
@@ -1395,7 +1395,7 @@ int BRKeyTests()
     if (! BRKeyVerify(&key, md, sig, sigLen))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRKeyVerify() test 4\n", __func__);
 
-    BRKeySetSecret(&key, &uint256("69ec59eaa1f4f2e36b639716b7c30ca86d9a5375c7b38d8918bd9c0ebc80ba64"), 1);
+    BRKeySetSecret(&key, &toUInt256("69ec59eaa1f4f2e36b639716b7c30ca86d9a5375c7b38d8918bd9c0ebc80ba64"), 1);
     msg = "Computer science is no more about computers than astronomy is about telescopes.";
     BRSHA256(&md, msg, strlen(msg));
     sigLen = BRKeySign(&key, sig, sizeof(sig), md);
@@ -1410,7 +1410,7 @@ int BRKeyTests()
     if (! BRKeyVerify(&key, md, sig, sigLen))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRKeyVerify() test 5\n", __func__);
 
-    BRKeySetSecret(&key, &uint256("00000000000000000000000000007246174ab1e92e9149c6e446fe194d072637"), 1);
+    BRKeySetSecret(&key, &toUInt256("00000000000000000000000000007246174ab1e92e9149c6e446fe194d072637"), 1);
     msg = "...if you aren't, at any given time, scandalized by code you wrote five or even three years ago, you're not"
     " learning anywhere near enough";
     BRSHA256(&md, msg, strlen(msg));
@@ -1426,7 +1426,7 @@ int BRKeyTests()
     if (! BRKeyVerify(&key, md, sig, sigLen))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRKeyVerify() test 6\n", __func__);
 
-    BRKeySetSecret(&key, &uint256("000000000000000000000000000000000000000000056916d0f9b31dc9b637f3"), 1);
+    BRKeySetSecret(&key, &toUInt256("000000000000000000000000000000000000000000056916d0f9b31dc9b637f3"), 1);
     msg = "The question of whether computers can think is like the question of whether submarines can swim.";
     BRSHA256(&md, msg, strlen(msg));
     sigLen = BRKeySign(&key, sig, sizeof(sig), md);
@@ -1442,7 +1442,7 @@ int BRKeyTests()
         r = 0, fprintf(stderr, "***FAILED*** %s: BRKeyVerify() test 7\n", __func__);
 
     // compact signing
-    BRKeySetSecret(&key, &uint256("0000000000000000000000000000000000000000000000000000000000000001"), 1);
+    BRKeySetSecret(&key, &toUInt256("0000000000000000000000000000000000000000000000000000000000000001"), 1);
     msg = "foo";
     BRSHA256(&md, msg, strlen(msg));
     sigLen = BRKeyCompactSign(&key, sig, sizeof(sig), md);
@@ -1455,7 +1455,7 @@ int BRKeyTests()
     if (pkLen1 != pkLen || memcmp(pubKey, pubKey1, pkLen) != 0)
         r = 0, fprintf(stderr, "***FAILED*** %s: BRKeyCompactSign() test 1\n", __func__);
 
-    BRKeySetSecret(&key, &uint256("0000000000000000000000000000000000000000000000000000000000000001"), 0);
+    BRKeySetSecret(&key, &toUInt256("0000000000000000000000000000000000000000000000000000000000000001"), 0);
     msg = "foo";
     BRSHA256(&md, msg, strlen(msg));
     sigLen = BRKeyCompactSign(&key, sig, sizeof(sig), md);
@@ -1626,8 +1626,8 @@ int BRKeyECIESTests()
     char plain[] = "All decent, reasonable men are horrified by the idea that the government might control the press. "
     "None of them seem concerned at all that the press might control the government.";
     
-    BRKeySetSecret(&key, &uint256("0000000000000000000000000000000000000000000000000000000000000001"), 0);
-    BRKeySetSecret(&ephem, &uint256("0000000000000000000000000000000000000000000000000000000000000002"), 0);
+    BRKeySetSecret(&key, &toUInt256("0000000000000000000000000000000000000000000000000000000000000001"), 0);
+    BRKeySetSecret(&ephem, &toUInt256("0000000000000000000000000000000000000000000000000000000000000002"), 0);
     char dec[sizeof(plain)], cipher[sizeof(plain) + 65 + 16 + 32];
     
     len = BRKeyECIESAES128SHA256Encrypt(&key, cipher, sizeof(cipher), &ephem, plain, sizeof(plain) - 1);
@@ -1644,7 +1644,7 @@ int BRKeyECIESTests()
     "\xaf\xfd\xac\x23\xde\x10";
     char dec2[2];
     
-    BRKeySetSecret(&key, &uint256("57baf2c62005ddec64c357d96183ebc90bf9100583280e848aa31d683cad73cb"), 0);
+    BRKeySetSecret(&key, &toUInt256("57baf2c62005ddec64c357d96183ebc90bf9100583280e848aa31d683cad73cb"), 0);
     len = BRKeyECIESAES128SHA256Decrypt(&key, dec2, sizeof(dec2), cipher2, sizeof(cipher2) - 1);
     if (len != 1 || strncmp(dec2, "a", 1) != 0)
         r = 0, fprintf(stderr, "\n***FAILED*** %s: BRKeyECIESAES128SHA256Decrypt() test2", __func__);
@@ -1656,7 +1656,7 @@ int BRKeyECIESTests()
 int BRAddressTests()
 {
     int r = 1;
-    UInt256 secret = uint256("0000000000000000000000000000000000000000000000000000000000000001");
+    UInt256 secret = toUInt256("0000000000000000000000000000000000000000000000000000000000000001");
     BRKey k;
     BRAddress addr, addr2;
     
@@ -1845,13 +1845,13 @@ int BRBIP32SequenceTests()
 
     BRBIP32PrivKey(&key, &seed, sizeof(seed), SEQUENCE_INTERNAL_CHAIN, 2 | 0x80000000);
     printf("000102030405060708090a0b0c0d0e0f/0H/1/2H prv = %s\n", u256hex(key.secret));
-    if (! UInt256Eq(key.secret, uint256("cbce0d719ecf7431d88e6a89fa1483e02e35092af60c042b1df2ff59fa424dca")))
+    if (! UInt256Eq(key.secret, toUInt256("cbce0d719ecf7431d88e6a89fa1483e02e35092af60c042b1df2ff59fa424dca")))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRBIP32PrivKey() test 1\n", __func__);
     
     // test for correct zero padding of private keys
     BRBIP32PrivKey(&key, &seed, sizeof(seed), SEQUENCE_EXTERNAL_CHAIN, 97);
     printf("000102030405060708090a0b0c0d0e0f/0H/0/97 prv = %s\n", u256hex(key.secret));
-    if (! UInt256Eq(key.secret, uint256("00136c1ad038f9a00871895322a487ed14f1cdc4d22ad351cfa1a0d235975dd7")))
+    if (! UInt256Eq(key.secret, toUInt256("00136c1ad038f9a00871895322a487ed14f1cdc4d22ad351cfa1a0d235975dd7")))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRBIP32PrivKey() test 2\n", __func__);
     
     BRMasterPubKey mpk = BRBIP32MasterPubKey(&seed, sizeof(seed));
@@ -1859,10 +1859,10 @@ int BRBIP32SequenceTests()
 //    printf("000102030405060708090a0b0c0d0e0f/0H fp:%08x chain:%s pubkey:%02x%s\n", be32(mpk.fingerPrint),
 //           u256hex(mpk.chainCode), mpk.pubKey[0], u256hex(*(UInt256 *)&mpk.pubKey[1]));
 //    if (be32(mpk.fingerPrint) != 0x3442193e ||
-//        ! UInt256Eq(mpk.chainCode, uint256("47fdacbd0f1097043b78c63c20c34ef4ed9a111d980047ad16282c7ae6236141")) ||
+//        ! UInt256Eq(mpk.chainCode, toUInt256("47fdacbd0f1097043b78c63c20c34ef4ed9a111d980047ad16282c7ae6236141")) ||
 //        mpk.pubKey[0] != 0x03 ||
 //        ! UInt256Eq(*(UInt256 *)&mpk.pubKey[1],
-//                    uint256("5a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56")))
+//                    toUInt256("5a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56")))
 //        r = 0, fprintf(stderr, "***FAILED*** %s: BRBIP32MasterPubKey() test\n", __func__);
 
     uint8_t pubKey[33];
@@ -1871,7 +1871,7 @@ int BRBIP32SequenceTests()
     printf("000102030405060708090a0b0c0d0e0f/0H/0/0 pub = %02x%s\n", pubKey[0], u256hex(*(UInt256 *)&pubKey[1]));
     if (pubKey[0] != 0x02 ||
         ! UInt256Eq(*(UInt256 *)&pubKey[1],
-                    uint256("7b6a7dd645507d775215a9035be06700e1ed8c541da9351b4bd14bd50ab61428")))
+                    toUInt256("7b6a7dd645507d775215a9035be06700e1ed8c541da9351b4bd14bd50ab61428")))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRBIP32PubKey() test\n", __func__);
 
     UInt512 dk;
@@ -1956,8 +1956,8 @@ static int BRTransactionEqual (BRTransaction *tx1, BRTransaction *tx2) {
 int BRTransactionTests()
 {
     int r = 1;
-    UInt256 secret = uint256("0000000000000000000000000000000000000000000000000000000000000001"),
-            inHash = uint256("0000000000000000000000000000000000000000000000000000000000000001");
+    UInt256 secret = toUInt256("0000000000000000000000000000000000000000000000000000000000000001"),
+            inHash = toUInt256("0000000000000000000000000000000000000000000000000000000000000001");
     BRKey k[2];
     BRAddress address, addr;
     
@@ -2098,14 +2098,14 @@ int BRTransactionTests()
     BRTransactionFree(tx);
     
     tx = BRTransactionNew();
-    BRTransactionAddInput(tx, uint256("fff7f7881a8099afa6940d42d1e7f6362bec38171ea3edf433541db4e4ad969f"), 0, 625000000,
+    BRTransactionAddInput(tx, toUInt256("fff7f7881a8099afa6940d42d1e7f6362bec38171ea3edf433541db4e4ad969f"), 0, 625000000,
                           (uint8_t *)"\x21\x03\xc9\xf4\x83\x6b\x9a\x4f\x77\xfc\x0d\x81\xf7\xbc\xb0\x1b\x7f\x1b\x35\x91"
                           "\x68\x64\xb9\x47\x6c\x24\x1c\xe9\xfc\x19\x8b\xd2\x54\x32\xac", 35,
                           (uint8_t *)"\x48\x30\x45\x02\x21\x00\x8b\x9d\x1d\xc2\x6b\xa6\xa9\xcb\x62\x12\x7b\x02\x74\x2f"
                           "\xa9\xd7\x54\xcd\x3b\xeb\xf3\x37\xf7\xa5\x5d\x11\x4c\x8e\x5c\xdd\x30\xbe\x02\x20\x40\x52\x9b"
                           "\x19\x4b\xa3\xf9\x28\x1a\x99\xf2\xb1\xc0\xa1\x9c\x04\x89\xbc\x22\xed\xe9\x44\xcc\xf4\xec\xba"
                           "\xb4\xcc\x61\x8e\xf3\xed\x01", 73, (uint8_t *)"", 0, 0xffffffee);
-    BRTransactionAddInput(tx, uint256("ef51e1b804cc89d182d279655c3aa89e815b1b309fe287d9b2b55d57b90ec68a"), 1, 600000000,
+    BRTransactionAddInput(tx, toUInt256("ef51e1b804cc89d182d279655c3aa89e815b1b309fe287d9b2b55d57b90ec68a"), 1, 600000000,
                           (uint8_t *)"\x00\x14\x1d\x0f\x17\x2a\x0e\xcb\x48\xae\xe1\xbe\x1f\x26\x87\xd2\x96\x3a\xe3\x3f"
                           "\x71\xa1", 22, NULL, 0, NULL, 0, 0xffffffff);
     BRTransactionAddOutput(tx, 0x06b22c20, (uint8_t *)"\x76\xa9\x14\x82\x80\xb3\x7d\xf3\x78\xdb\x99\xf6\x6f\x85\xc9"
@@ -2113,7 +2113,7 @@ int BRTransactionTests()
     BRTransactionAddOutput(tx, 0x0d519390, (uint8_t *)"\x76\xa9\x14\x3b\xde\x42\xdb\xee\x7e\x4d\xbe\x6a\x21\xb2\xd5"
                            "\x0c\xe2\xf0\x16\x7f\xaa\x81\x59\x88\xac", 25);
     tx->lockTime = 0x00000011;
-    BRKeySetSecret(k, &uint256("619c335025c7f4012e556c2a58b2506e30b8511b53ade95ea316fd8c3286feb9"), 1);
+    BRKeySetSecret(k, &toUInt256("619c335025c7f4012e556c2a58b2506e30b8511b53ade95ea316fd8c3286feb9"), 1);
     BRTransactionSign(tx, 0, k, 1);
     
     uint8_t buf8[BRTransactionSerialize(tx, NULL, 0)];
@@ -2230,8 +2230,8 @@ int BRWalletTests()
 
     BRMasterPubKey mpk = BRBIP32MasterPubKey(&seed, sizeof(seed));
     BRWallet *w = BRWalletNew(NULL, 0, mpk, 0);
-    UInt256 secret = uint256("0000000000000000000000000000000000000000000000000000000000000001"),
-            inHash = uint256("0000000000000000000000000000000000000000000000000000000000000001");
+    UInt256 secret = toUInt256("0000000000000000000000000000000000000000000000000000000000000001"),
+            inHash = toUInt256("0000000000000000000000000000000000000000000000000000000000000001");
     BRKey k;
     BRAddress addr, recvAddr = BRWalletReceiveAddress(w);
     BRTransaction *tx;
@@ -2500,7 +2500,7 @@ int BRMerkleBlockTests()
     b = BRMerkleBlockParse((uint8_t *)block, sizeof(block) - 1);
     
     if (! UInt256Eq(b->blockHash,
-                    UInt256Reverse(uint256("00000000000080b66c911bd5ba14a74260057311eaeb1982802f7010f1a9f090"))))
+                    UInt256Reverse(toUInt256("00000000000080b66c911bd5ba14a74260057311eaeb1982802f7010f1a9f090"))))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRMerkleBlockParse() test\n", __func__);
 
     if (! BRMerkleBlockIsValid(b, (uint32_t)time(NULL)))
@@ -2510,7 +2510,7 @@ int BRMerkleBlockTests()
         memcmp(block, block2, sizeof(block2)) != 0)
         r = 0, fprintf(stderr, "***FAILED*** %s: BRMerkleBlockSerialize() test\n", __func__);
     
-    if (! BRMerkleBlockContainsTxHash(b, uint256("4c30b63cfcdc2d35e3329421b9805ef0c6565d35381ca857762ea0b3a5a128bb")))
+    if (! BRMerkleBlockContainsTxHash(b, toUInt256("4c30b63cfcdc2d35e3329421b9805ef0c6565d35381ca857762ea0b3a5a128bb")))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRMerkleBlockContainsTxHash() test\n", __func__);
     
     if (BRMerkleBlockTxHashes(b, NULL, 0) != 4)
@@ -2520,16 +2520,16 @@ int BRMerkleBlockTests()
     
     BRMerkleBlockTxHashes(b, txHashes, 4);
     
-    if (! UInt256Eq(txHashes[0], uint256("4c30b63cfcdc2d35e3329421b9805ef0c6565d35381ca857762ea0b3a5a128bb")))
+    if (! UInt256Eq(txHashes[0], toUInt256("4c30b63cfcdc2d35e3329421b9805ef0c6565d35381ca857762ea0b3a5a128bb")))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRMerkleBlockTxHashes() test 1\n", __func__);
     
-    if (! UInt256Eq(txHashes[1], uint256("ca5065ff9617cbcba45eb23726df6498a9b9cafed4f54cbab9d227b0035ddefb")))
+    if (! UInt256Eq(txHashes[1], toUInt256("ca5065ff9617cbcba45eb23726df6498a9b9cafed4f54cbab9d227b0035ddefb")))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRMerkleBlockTxHashes() test 2\n", __func__);
     
-    if (! UInt256Eq(txHashes[2], uint256("bb15ac1d57d0182aaee61c74743a9c4f785895e563909bafec45c9a2b0ff3181")))
+    if (! UInt256Eq(txHashes[2], toUInt256("bb15ac1d57d0182aaee61c74743a9c4f785895e563909bafec45c9a2b0ff3181")))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRMerkleBlockTxHashes() test 3\n", __func__);
     
-    if (! UInt256Eq(txHashes[3], uint256("c9ab658448c10b6921b7a4ce3021eb22ed6bb6a7fde1e5bcc4b1db6615c6abc5")))
+    if (! UInt256Eq(txHashes[3], toUInt256("c9ab658448c10b6921b7a4ce3021eb22ed6bb6a7fde1e5bcc4b1db6615c6abc5")))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRMerkleBlockTxHashes() test 4\n", __func__);
     
     // TODO: test a block with an odd number of tree rows both at the tx level and merkle node level
@@ -2917,8 +2917,8 @@ int BRPaymentProtocolEncryptionTests()
     uint8_t id[32] = { 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00,
                        0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00 };
     
-    BRKeySetSecret(&senderKey, &uint256("0000000000000000000000000000000000000000000000000000000000000001"), 1);
-    BRKeySetSecret(&receiverKey, &uint256("0000000000000000000000000000000000000000000000000000000000000002"), 1);
+    BRKeySetSecret(&senderKey, &toUInt256("0000000000000000000000000000000000000000000000000000000000000001"), 1);
+    BRKeySetSecret(&receiverKey, &toUInt256("0000000000000000000000000000000000000000000000000000000000000002"), 1);
     
     BRPaymentProtocolInvoiceRequest *req = BRPaymentProtocolInvoiceRequestNew(&senderKey, 0, NULL, NULL, 0, NULL, NULL,
                                                                               NULL, 0);
@@ -3313,8 +3313,8 @@ int main(int argc, const char *argv[])
 {
 //    int r = BRRunTests();
 
-    BRMainNetCheckpoints[0] = (BRCheckPoint) {      0, uint256("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"), 1231006505, 0x1d00ffff };
-    BRMainNetCheckpoints[1] = (BRCheckPoint) { 584640, uint256("0000000000000000000e5af6f531133eb548fe3854486ade75523002a1a27687"), 1562663868, 0x171f0d9b };
+    BRMainNetCheckpoints[0] = (BRCheckPoint) {      0, toUInt256("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"), 1231006505, 0x1d00ffff };
+    BRMainNetCheckpoints[1] = (BRCheckPoint) { 584640, toUInt256("0000000000000000000e5af6f531133eb548fe3854486ade75523002a1a27687"), 1562663868, 0x171f0d9b };
 
 
     BRRunTestWalletManagerSync("axis husband project any sea patch drip tip spirit tide bring belt", "./testspv/", 1, 1);
@@ -3324,12 +3324,12 @@ int main(int argc, const char *argv[])
 
     
 ////    BRMainNetCheckpoints[0].height = 0;
-////    BRMainNetCheckpoints[0].hash = uint256("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
+////    BRMainNetCheckpoints[0].hash = toUInt256("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
 ////    BRMainNetCheckpoints[0].timestamp = 1231006505;
 ////    BRMainNetCheckpoints[0].target = 0x1d00ffff;
 
 ////    BRTestNetCheckpoints[0].height = 0;
-////    BRTestNetCheckpoints[0].hash = uint256("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943");
+////    BRTestNetCheckpoints[0].hash = toUInt256("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943");
 ////    BRTestNetCheckpoints[0].timestamp = 1296688602;
 ////    BRTestNetCheckpoints[0].target = 0x1d00ffff;
 

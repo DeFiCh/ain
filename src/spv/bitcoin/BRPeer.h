@@ -32,14 +32,24 @@
 #include <stddef.h>
 #include <inttypes.h>
 
-//#define peer_log(peer, ...) _peer_log("%s:%"PRIu16" " _va_first(__VA_ARGS__, NULL) "\n", BRPeerHost(peer), (peer)->port, _va_rest(__VA_ARGS__, NULL))
-
+#ifndef __cplusplus
+/// define logs
 #define console_log(peer, ...) { if (spv_log2console) _peer_log("%s:%"PRIu16" " _va_first(__VA_ARGS__, NULL) "\n", BRPeerHost(peer), (peer)->port, _va_rest(__VA_ARGS__, NULL)); }
 
 #define peer_log(peer, ...) { console_log(peer, __VA_ARGS__); file_peer_log(peer, __VA_ARGS__); }
 
 #define _va_first(first, ...) first
 #define _va_rest(first, ...) __VA_ARGS__
+
+#define file_peer_log(peer, ...) { \
+    FILE* logfile = NULL; \
+    if (spv_logfilename && (logfile = fopen(spv_logfilename, "a"))) { \
+        setbuf(logfile, NULL); \
+        fprintf(logfile, "%s:%"PRIu16" " _va_first(__VA_ARGS__, NULL) "\n", BRPeerHost(peer), (peer)->port, _va_rest(__VA_ARGS__, NULL)); \
+        fclose(logfile); \
+    } \
+}
+#endif
 
 #if defined(TARGET_OS_MAC)
 #include <Foundation/Foundation.h>
@@ -223,26 +233,6 @@ void BRPeerFree(BRPeer *peer);
 
 
 #ifdef __cplusplus
-}
-// C++ style:
-//void file_peer_log(BRPeer *peer, char const * fmt, ...) {
-//    va_list args;
-//    FILE* new_fileout = fsbridge::fopen("spv.log", "a");
-//    if (new_fileout) {
-//        setbuf(new_fileout, nullptr); // unbuffered
-//        fprintf(new_fileout, (std::string("%s:%u")+fmt).c_str(), BRPeerHost(peer), (peer)->port, args);
-//        fclose(new_fileout);
-//    }
-//}
-#else
-//void file_peer_log(BRPeer *peer, ...) {
-#define file_peer_log(peer, ...) { \
-    FILE* logfile = NULL; \
-    if (spv_logfilename && (logfile = fopen(spv_logfilename, "a"))) { \
-        setbuf(logfile, NULL); \
-        fprintf(logfile, "%s:%"PRIu16" " _va_first(__VA_ARGS__, NULL) "\n", BRPeerHost(peer), (peer)->port, _va_rest(__VA_ARGS__, NULL)); \
-        fclose(logfile); \
-    } \
 }
 #endif
 
