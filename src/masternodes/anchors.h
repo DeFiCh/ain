@@ -148,8 +148,42 @@ class CAnchorIndex
 
 };
 
+class CAnchorConfirmMessage
+{
+    using Signature = std::vector<unsigned char>;
+public:
+    uint256 hashAnchorMessage;
+    Signature signature;
+
+    CAnchorConfirmMessage() {}
+
+    static CAnchorConfirmMessage Create(CAnchorMessage const & anchorMessage, CKey const & key);
+    uint256 GetHash() const;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(hashAnchorMessage);
+        READWRITE(signature);
+    }
+};
+
+class CAnchorConfirms
+{
+    using Hash = uint256;
+private:
+    std::map<Hash, CAnchorConfirmMessage> confirms;
+
+public:
+    const CAnchorConfirmMessage *Exist(uint256 const &hash);
+    void Add(CAnchorConfirmMessage const &newMessage);
+    bool Validate(CAnchorConfirmMessage const &message);
+};
+
 /** Global variables that points to the anchors and their auths (should be protected by cs_main) */
 extern std::unique_ptr<CAnchorAuthIndex> panchorauths;
 extern std::unique_ptr<CAnchorIndex> panchors;
+extern std::unique_ptr<CAnchorConfirms> panchorconfirms;
 
 #endif // BITCOIN_MASTERNODES_ANCHORS_H
