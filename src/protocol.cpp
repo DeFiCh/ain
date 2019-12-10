@@ -42,7 +42,7 @@ const char *CMPCTBLOCK="cmpctblock";
 const char *GETBLOCKTXN="getblocktxn";
 const char *BLOCKTXN="blocktxn";
 const char *ANCHORAUTH="anchorauth";
-const char *ANCHORANNOUNCE="gotanchor";
+const char *ANCHOR="gotanchor";
 } // namespace NetMsgType
 
 /** All known message types. Keep this in the same order as the list of
@@ -76,7 +76,7 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::GETBLOCKTXN,
     NetMsgType::BLOCKTXN,
     NetMsgType::ANCHORAUTH,
-    NetMsgType::ANCHORANNOUNCE,
+    NetMsgType::ANCHOR,
 };
 const static std::vector<std::string> allNetMessageTypesVec(allNetMessageTypes, allNetMessageTypes+ARRAYLEN(allNetMessageTypes));
 
@@ -188,7 +188,7 @@ std::string CInv::GetCommand() const
     case MSG_FILTERED_BLOCK: return cmd.append(NetMsgType::MERKLEBLOCK);
     case MSG_CMPCT_BLOCK:    return cmd.append(NetMsgType::CMPCTBLOCK);
     case MSG_ANCHOR_AUTH:    return cmd.append(NetMsgType::ANCHORAUTH);
-    case MSG_ANCHOR:         return cmd.append(NetMsgType::ANCHORANNOUNCE);
+    case MSG_ANCHOR:         return cmd.append(NetMsgType::ANCHOR);
     default:
         throw std::out_of_range(strprintf("CInv::GetCommand(): type=%d unknown type", type));
     }
