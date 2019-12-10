@@ -240,6 +240,7 @@ extern const char *GETBLOCKTXN;
 extern const char *BLOCKTXN;
 
 extern const char *ANCHORAUTH;
+extern const char *ANCHORCONFIRM;
 extern const char *ANCHOR;
 };
 
@@ -378,6 +379,7 @@ enum GetDataMsg
     MSG_CMPCT_BLOCK = 4,     //!< Defined in BIP152
     MSG_ANCHOR_AUTH = 5,
     MSG_ANCHOR = 6,
+    MSG_ANCHOR_CONFIRM = 7,
     MSG_WITNESS_BLOCK = MSG_BLOCK | MSG_WITNESS_FLAG, //!< Defined in BIP144
     MSG_WITNESS_TX = MSG_TX | MSG_WITNESS_FLAG,       //!< Defined in BIP144
     MSG_FILTERED_WITNESS_BLOCK = MSG_FILTERED_BLOCK | MSG_WITNESS_FLAG,
