@@ -2334,7 +2334,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     LogPrint(BCLog::NET, "getheaders (%d) %s to peer=%d\n", pindexBestHeader->nHeight, inv.hash.ToString(), pfrom->GetId());
                 }
             }
-            else if (inv.type == MSG_ANCHOR_AUTH || inv.type == MSG_ANCHOR) { /// @maxb @todo possible split them
+            else if (inv.type == MSG_ANCHOR_AUTH || inv.type == MSG_ANCHOR || inv.type == MSG_ANCHOR_CONFIRM) { /// @maxb @todo possible split them
                 if (!fAlreadyHave && !fImporting && !fReindex) {
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::GETDATA, std::vector<CInv>{inv}));
                 }
