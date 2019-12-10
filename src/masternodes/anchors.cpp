@@ -20,6 +20,7 @@
 
 std::unique_ptr<CAnchorAuthIndex> panchorauths;
 std::unique_ptr<CAnchorIndex> panchors;
+std::unique_ptr<CAnchorConfirms> panchorconfirms;
 
 CAnchorAuthMessage::CAnchorAuthMessage(uint256 const & previousAnchor, int height, uint256 const & hash, CTeam const & nextTeam)
     : previousAnchor(previousAnchor)
@@ -172,6 +173,43 @@ CAnchorMessage CAnchorAuthIndex::CreateBestAnchor(uint256 const & forBlock, CScr
     }
     return CAnchorMessage::Create(freshestConsensus, rewardScript);
 }
+
+CAnchorConfirmMessage CAnchorConfirmMessage::Create(CAnchorMessage const & anchorMessage, CKey const & key)
+{
+    CAnchorConfirmMessage message;
+    message.hashAnchorMessage = anchorMessage.GetHash();
+
+    if (!key.SignCompact(message.hashAnchorMessage, message.signature)) {
+        message.signature.clear();
+    }
+    return message;
+}
+
+uint256 CAnchorConfirmMessage::GetHash() const
+{
+    CDataStream ss{SER_NETWORK, PROTOCOL_VERSION};
+    ss << *this;
+    return Hash(ss.begin(), ss.end());
+}
+
+const CAnchorConfirmMessage *CAnchorConfirms::Exist(uint256 const &hash)
+{
+    auto it = confirms.find(hash);
+    return it != confirms.end() ? &(it->second) : nullptr;
+}
+
+bool CAnchorConfirms::Validate(CAnchorConfirmMessage const &message)
+{
+    return true;
+}
+
+void CAnchorConfirms::Add(CAnchorConfirmMessage const &newMessage)
+{
+    confirms.insert(std::make_pair(newMessage.GetHash(), newMessage));
+}
+
+
+
 
 static const char DB_ANCHORS = 'A';
 
