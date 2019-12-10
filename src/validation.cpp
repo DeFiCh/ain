@@ -3683,14 +3683,11 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
         }
 
         /// @todo @max temp for debug
-        CAnchorMessage anc = panchorauths->CreateBestAnchor();
-        if (anc.sigs.size() >= panchorauths->GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
-//            anc.rewardScript = CScript();
-        }
+//        CAnchorMessage anc = panchorauths->CreateBestAnchor();
+//        if (anc.sigs.size() >= panchorauths->GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
 
+//        }
 
-        LogPrintf("Anchor auths: trying to create anchor: sigs: %d, height: %d, blockHash: %s\n", anc.sigs.size(), anc.height, anc.blockHash.ToString());
-//        if ()
     }
 
     return true;

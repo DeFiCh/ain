@@ -13,6 +13,7 @@
 #include <rpc/util.h>
 #include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
+#include <net_processing.h>
 #include <spv/spv_wrapper.h>
 //#include <script/script_error.h>
 //#include <script/sign.h>
@@ -173,7 +174,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     CScript scriptMeta = CScript() << OP_RETURN << spv::BtcAnchorMarker << ToByteVector(anchor.GetHash());
 
     /// @todo @maxb temporary, tests
-    auto rawtx = spv::CreateAnchorTx("b51644d042d3eaf99863c6113d303ddc2ff90aad0f0e0d2cada9c669a7f6dc95", 0, 2863303, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(scriptMeta));
+    auto rawtx = spv::CreateAnchorTx("8c7a0268364d5a5a0696ba50e51e2b23c2f288acdca1e0188324fe3caee720b6", 2, 2663303, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(scriptMeta));
 
     bool send = true;
     if (send)
@@ -182,10 +183,17 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << anchor;
 
+    CMutableTransaction mtx;
+    /// @todo @maxb implement separated bitcoin serialize/deserialize
+    DecodeHexTx(mtx, std::string(rawtx.begin(), rawtx.end()), true);
+
     UniValue result(UniValue::VOBJ);
     result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
     result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
     result.pushKV("txHex", HexStr(rawtx));
+    /// @attention WRONG HASH!!!
+    result.pushKV("txHash", CTransaction(mtx).GetHash().ToString());
+
     return result;
 }
 
@@ -265,6 +273,7 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
     result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
     result.pushKV("txHex", EncodeHexTx(CTransaction(rawTx)));
+    result.pushKV("txHash", CTransaction(rawTx).GetHash().ToString());
     return result;
 }
 
@@ -364,6 +373,61 @@ UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
     return UniValue(spv::pspv->GetTxConfirmations(txHash));
 }
 
+UniValue spv_sendanchormessage(const JSONRPCRequest& request)
+{
+    // only for lock
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_sendanchormessage",
+        "\nSending anchor message (if TX with anchored hash of this message exists and confirmed on BTC chain)...\n",
+        {
+            {"msghex", RPCArg::Type::STR, RPCArg::Optional::NO, "Serialized message in hex."},
+        },
+        RPCResult{
+            "msghex                      (str) Message hash\n"
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_sendanchormessage", "txhex")
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
+                                             "\\\"collateralAddress\\\":\\\"address\\\""
+                                            "}\"")
+        },
+    }.Check(request);
+
+    std::vector<unsigned char> anchor_data{ParseHex(request.params[0].getValStr())};
+    CAnchorMessage anchor;
+    CDataStream ser_anchor(anchor_data, SER_NETWORK, PROTOCOL_VERSION);
+    try {
+        ser_anchor >> anchor;
+    } catch (const std::exception&) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can't deserialize message");
+    }
+
+    uint256 const msgHash{anchor.GetHash()};
+    {
+        auto locked_chain = pwallet->chain().lock();
+        if (panchors->ExistsAnchor(msgHash)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Anchor message with hash " + msgHash.ToString() + " already exists!");
+        }
+    }
+
+    try {
+        ValidateAnchor(anchor);
+    } catch (std::runtime_error const & e) {
+        throw JSONRPCError(RPC_MISC_ERROR, e.what());
+    }
+
+    {
+        auto locked_chain = pwallet->chain().lock();
+        if (panchors->WriteAnchor(anchor)) {
+            RelayAnchor(msgHash, *g_connman);
+        }
+    }
+    return UniValue(msgHash.ToString());
+}
+
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
   //  ----------------- ------------------------    -----------------------     ----------
@@ -373,6 +437,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_rescan",                 &spv_rescan,                { "height"}  },
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
+  { "spv",      "spv_sendanchormessage",      &spv_sendanchormessage,    { "msghex" }  },
 
 //  { "spv",      "mn_resign",                &mn_resign,                 { "inputs", "mn_id" }  },
 

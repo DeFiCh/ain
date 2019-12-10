@@ -20,7 +20,7 @@
 #include <boost/algorithm/string/split.hpp>
 
 
-std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes() const
+std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
 {
     std::vector<CTransactionRef> mnTxs;
     for (auto const & addrs : vMasternodes)
@@ -37,6 +37,7 @@ std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes() const
         assert(ownerDest.which() == 1 || ownerDest.which() == 4);
 
         CKeyID operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest)) ;
+        genesisTeam.insert(operatorAuthKey);
         CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
         metadata << static_cast<unsigned char>(MasternodesTxType::CreateMasternode)
                  << static_cast<char>(operatorDest.which()) << operatorAuthKey;

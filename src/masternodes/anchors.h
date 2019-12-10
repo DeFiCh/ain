@@ -12,6 +12,9 @@
 
 #include <vector>
 
+#include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
+
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
@@ -19,6 +22,9 @@
 #include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+
+#include <dbwrapper.h>
+
 
 class CKey;
 class CPubkey;
@@ -41,6 +47,7 @@ public:
     uint256 GetHash() const;
     bool SignWithKey(const CKey& key);
     bool GetPubKey(CPubKey& pubKey) const;
+    uint256 GetSignHash() const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -61,7 +68,6 @@ public:
 
 private:
     Signature signature;
-    uint256 GetSignHash() const;
 };
 
 class CAnchorMessage
@@ -77,12 +83,12 @@ public:
     std::vector<Signature> sigs;
     CScript rewardScript;
 
-private:
+public:
     CAnchorMessage() : height(0) {}
 
-public:
     static CAnchorMessage Create(std::vector<CAnchorAuthMessage> const & auths, CScript const & rewardScript);
     uint256 GetHash() const;
+    bool CheckSigs(CTeam const & team) const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -145,8 +151,22 @@ public:
 
 class CAnchorIndex
 {
+private:
+    boost::shared_ptr<CDBWrapper> db;
+    boost::scoped_ptr<CDBBatch> batch;
+public:
+    CAnchorIndex(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
 
+    bool ExistsAnchor(uint256 const & hash) const;
+    bool ReadAnchor(uint256 const & hash, CAnchorMessage & anchor) const;
+    bool WriteAnchor(CAnchorMessage const & anchor);
+    bool EraseAnchor(uint256 const & hash);
 };
+
+// thowing exceptions (not a bool due to more verbose rpc errors. may be 'status' or smth? )
+void ValidateAnchor(CAnchorMessage const & anchor);
+CMasternodesView::CTeam GetNextTeamFromPrev(uint256 const & btcPrevTx);
+
 
 /** Global variables that points to the anchors and their auths (should be protected by cs_main) */
 extern std::unique_ptr<CAnchorAuthIndex> panchorauths;
