@@ -56,11 +56,6 @@ typedef struct BRMerkleBlockStruct BRMerkleBlock;
 typedef struct BRTransactionStruct BRTransaction;
 typedef struct BRPeerStruct BRPeer;
 
-//extern "C" {
-//    extern size_t BRMerkleBlockSerialize(const BRMerkleBlock *block, uint8_t *buf, size_t bufLen);
-//    extern BRMerkleBlock *BRMerkleBlockParse(const uint8_t *buf, size_t bufLen);
-//}
-
 namespace spv
 {
 
@@ -82,54 +77,22 @@ struct TxOutput {
     TBytes script;
 };
 
-/*
-class CAnchorAuthIndex
-{
-    using CTeam = CMasternodesView::CTeam;
-
-public:
-    using Auth = CAnchorAuthMessage;
-
-    typedef boost::multi_index_container<Auth,
-        indexed_by<
-            ordered_unique<
-                tag<Auth::ByMsgHash>, const_mem_fun<Auth, uint256, &Auth::GetHash>
-            >,
-            ordered_non_unique<
-                tag<Auth::ByHeight>, member<Auth, THeight, &Auth::height>
-            >,
-            ordered_non_unique<
-                tag<Auth::ByBlockHash>, member<Auth, uint256, &Auth::blockHash>
-            >,
-
-            ordered_non_unique<
-                tag<Auth::ByKey>, composite_key<
-                    Auth,
-                    member<Auth, THeight, &Auth::height>,
-                    member<Auth, uint256, &Auth::blockHash>
-                >
-            >
-        >
-    > Auths;
-
-    Auth const * ExistAuth(uint256 const & hash) const;
-    bool ValidateAuth(Auth const & auth) const;
-    bool AddAuth(Auth const & auth);
-
-    /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')
-    /// even may be not here, but in CMasternodesView
-    uint32_t GetMinAnchorQuorum(CMasternodesView::CTeam const & team) const;
-
-    CAnchorMessage CreateBestAnchor(uint256 const & forBlock = uint256(), CScript const & rewardScript = {}) const;
-
-    Auths auths;
-};
-*/
-
 using namespace boost::multi_index;
 
 class CSpvWrapper
 {
+public:
+    struct BtcAnchorTx {
+        uint256 txHash;
+        uint256 msgHash;
+        uint32_t blockHeight;
+
+        // tags for multiindex
+        struct ByTxHash{};
+        struct ByMsgHash{};
+        struct ByHeight{};
+    };
+
 private:
     boost::shared_ptr<CDBWrapper> db;
     boost::scoped_ptr<CDBBatch> batch;
@@ -140,18 +103,6 @@ private:
 
     using db_tx_rec    = std::pair<TBytes, std::pair<uint32_t, uint32_t>>; // serialized tx, blockHeight, timeStamp
     using db_block_rec = std::pair<TBytes, uint32_t>; // serialized block, blockHeight
-
-    struct BtcAnchorTx {
-        uint256 txHash;
-        uint256 msgHash;
-        uint32_t blockHeight;
-
-        // tags for multiindex
-        struct ByTxHash{};
-        struct ByMsgHash{};
-        struct ByHeight{};
-//        struct ByKey{};         // composite, by height and txHash
-    };
 
     typedef boost::multi_index_container<BtcAnchorTx,
         indexed_by<
@@ -181,7 +132,11 @@ public:
 
     std::vector<BRTransaction *> GetWalletTxs() const;
     bool SendRawTx(TBytes rawtx);
-    int GetTxConfirmations(uint256 const & txHash);
+    int GetTxConfirmations(uint256 const & txHash) const;
+
+    BtcAnchorTx const * GetAnchorTx(uint256 const & txHash) const;
+    BtcAnchorTx const * GetAnchorTxByMsg(uint256 const & msgHash) const;
+    CCriticalSection & GetCS() {return cs_txIndex; }
 
 public:
     /// Wallet callbacks

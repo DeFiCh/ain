@@ -1308,8 +1308,7 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     case MSG_ANCHOR_AUTH:
         return panchorauths->ExistAuth(inv.hash) != nullptr;
     case MSG_ANCHOR:
-//        return LookupAnchorAuth(inv.hash) != nullptr;
-        return true;
+        return panchors->ExistsAnchor(inv.hash);
     }
     // Don't know what it is, just say we already got one
     return true;
@@ -1323,6 +1322,20 @@ void RelayAnchorAuth(const uint256& hash, CConnman& connman, CNode* skipNode)
         if (pnode != skipNode) {
         const CNetMsgMaker msgMaker(pnode->GetSendVersion());
         LogPrintf("send inv: auth, hash: %s, peer=%d\n", inv.hash.ToString(), pnode->GetId());
+        connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
+//        pnode->PushInventory(inv);
+        }
+    });
+}
+
+void RelayAnchor(const uint256& hash, CConnman& connman, CNode* skipNode)
+{
+    CInv inv(MSG_ANCHOR, hash);
+    connman.ForEachNode([&inv, &connman, &skipNode](CNode* pnode)
+    {
+        if (pnode != skipNode) {
+        const CNetMsgMaker msgMaker(pnode->GetSendVersion());
+        LogPrintf("send inv: anchor, hash: %s, peer=%d\n", inv.hash.ToString(), pnode->GetId());
         connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
 //        pnode->PushInventory(inv);
         }
@@ -1586,19 +1599,19 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
             const CInv &inv = *it;
             it++;
 
-            if (it->type == MSG_ANCHOR_AUTH) {
+            if (inv.type == MSG_ANCHOR_AUTH) {
                 CAnchorAuthMessage const * auth = panchorauths->ExistAuth(inv.hash);
                 if (auth) {
                     LogPrintf("PushMessage anchorauth, hash: %s\n", auth->GetHash().ToString());
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHORAUTH, *auth));
                 }
             }
-            /// @todo @max implement
-            if (it->type == MSG_ANCHOR) {
-//                CAnchorAuthMessage const * auth = panchorauths->ExistAuth(inv.hash);
-//                if (auth) {
-//                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHORAUTH, *auth));
-//                }
+            if (inv.type == MSG_ANCHOR) {
+                CAnchorMessage anchor;
+                if (panchors->ReadAnchor(inv.hash, anchor)) {
+                    LogPrintf("PushMessage anchor, hash: %s\n", anchor.GetHash().ToString());
+                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHOR, anchor));
+                }
             }
         }
     }
@@ -2345,20 +2358,55 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         CAnchorAuthMessage auth;
         vRecv >> auth;
 
-        LOCK(cs_main);
-
-        if (panchorauths->ExistAuth(auth.GetHash())) {
-            // reject ? or just skip&
-        }
-        else {
-            LogPrintf("Got anchor auth, hash %s, blockheight: %d\n", auth.GetHash().ToString(), auth.height);
-            // if valid, add and rebroadcast
-            if (panchorauths->ValidateAuth(auth)) {
-                panchorauths->AddAuth(auth);
-                RelayAnchorAuth(auth.GetHash(), *connman, pfrom);
+        {
+            LOCK(cs_main);
+            if (panchorauths->ExistAuth(auth.GetHash())) {
+                // reject ? or just skip&
+                return false;
             }
         }
 
+        LogPrintf("Got anchor auth, hash %s, blockheight: %d\n", auth.GetHash().ToString(), auth.height);
+        // if valid, add and rebroadcast
+        if (panchorauths->ValidateAuth(auth)) {
+            LOCK(cs_main);
+
+            panchorauths->AddAuth(auth);
+            RelayAnchorAuth(auth.GetHash(), *connman, pfrom);
+            return true;
+        }
+        return false;
+    }
+
+    if (strCommand == NetMsgType::ANCHOR) {
+        /// @todo @maxb temporary off
+//        if (!fImporting && !fReindex /*::ChainstateActive().IsInitialBlockDownload()*/) {
+//            LogPrint(BCLog::NET, "Ignoring anchorauth from peer=%d because node is in initial block download\n", pfrom->GetId());
+//            return true;
+//        }
+        CAnchorMessage anchor;
+        vRecv >> anchor;
+
+        {
+            LOCK(cs_main);
+
+            if (panchors->ExistsAnchor(anchor.GetHash())) {
+                // reject ? or just skip&
+                return false;
+            }
+        }
+
+        LogPrintf("Got anchor, hash %s, blockheight: %d\n", anchor.GetHash().ToString(), anchor.height);
+        // if valid, add and rebroadcast
+        try {
+            ValidateAnchor(anchor);
+        } catch (std::runtime_error const & e) {
+            LogPrintf("%s\n", e.what());
+            return false;
+        }
+        LOCK(cs_main);
+        panchors->WriteAnchor(anchor);
+        RelayAnchor(anchor.GetHash(), *connman, pfrom);
         return true;
     }
 

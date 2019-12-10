@@ -319,20 +319,14 @@ std::vector<BRTransaction *> CSpvWrapper::GetWalletTxs() const
     return txs;
 }
 
-int CSpvWrapper::GetTxConfirmations(const uint256 & txHash)
+int CSpvWrapper::GetTxConfirmations(const uint256 & txHash) const
 {
     LogPrintf("spv: trying to find: %s\n", txHash.ToString());
-    auto & list = txIndex.get<BtcAnchorTx::ByTxHash>();
+    auto const tx = GetAnchorTx(txHash);
 
-    // dump
-//    for (auto tx : list) {
-//        LogPrintf("spv: dump tx: %s %s %d\n", tx.txHash.ToString(), tx.msgHash.ToString(), tx.blockHeight);
-//    }
-
-    auto it = list.find(txHash);
-    if (it != list.end() && it->blockHeight != TX_UNCONFIRMED) {
-        LogPrintf("spv: found confirmed tx: %s %s %d\n", it->txHash.ToString(), it->msgHash.ToString(), it->blockHeight);
-        return static_cast<int>(GetLastBlockHeight()) - it->blockHeight;
+    if (tx && tx->blockHeight != TX_UNCONFIRMED) {
+        LogPrintf("spv: found confirmed tx: %s %s %d\n", tx->txHash.ToString(), tx->msgHash.ToString(), tx->blockHeight);
+        return static_cast<int>(GetLastBlockHeight()) - tx->blockHeight;
     }
     return 0;
 }
@@ -618,6 +612,20 @@ bool IsAnchorTx(BRTransaction *tx, uint256 & anchorMsgHash)
     }
     anchorMsgHash = uint256(metadata);
     return true;
+}
+
+CSpvWrapper::BtcAnchorTx const* CSpvWrapper::GetAnchorTxByMsg(const uint256 & msgHash) const
+{
+    auto const & list = txIndex.get<BtcAnchorTx::ByMsgHash>();
+    auto const it = list.find(msgHash);
+    return it != list.end() ? &(*it) : nullptr;
+}
+
+CSpvWrapper::BtcAnchorTx const* CSpvWrapper::GetAnchorTx(const uint256 & txHash) const
+{
+    auto const & list = txIndex.get<BtcAnchorTx::ByTxHash>();
+    auto const it = list.find(txHash);
+    return it != list.end() ? &(*it) : nullptr;
 }
 
 }
