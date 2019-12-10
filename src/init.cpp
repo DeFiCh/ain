@@ -1560,7 +1560,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 panchorauths.reset();
                 panchorauths = MakeUnique<CAnchorAuthIndex>();
                 panchors.reset();
-                panchors = MakeUnique<CAnchorIndex>();
+                panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, fReset || fReindexChainState); /// @todo @maxb should it be linked to the 'defi reindex' or 'spv resync'?????
 
                 if (gArgs.GetBoolArg("-spv", true))
                 {

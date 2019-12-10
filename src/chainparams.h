@@ -85,6 +85,7 @@ public:
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
+    const std::set<CKeyID>& GetGenesisTeam() const { return genesisTeam; }
 protected:
     CChainParams() {}
 
@@ -112,7 +113,8 @@ protected:
         std::string operatorAddress;
     };
     std::vector<MasternodeKeys> vMasternodes;
-    std::vector<CTransactionRef> CreateGenesisMasternodes() const;
+    std::vector<CTransactionRef> CreateGenesisMasternodes();
+    std::set<CKeyID> genesisTeam;
 };
 
 /**
