@@ -293,6 +293,11 @@ BRWallet const * CSpvWrapper::GetWallet() const
     return wallet;
 }
 
+bool CSpvWrapper::IsInitialSync() const
+{
+    return initialSync;
+}
+
 uint32_t CSpvWrapper::GetLastBlockHeight() const
 {
     return BRPeerManagerLastBlockHeight(manager);
@@ -319,17 +324,36 @@ std::vector<BRTransaction *> CSpvWrapper::GetWalletTxs() const
     return txs;
 }
 
+
+
 int CSpvWrapper::GetTxConfirmations(const uint256 & txHash) const
 {
-    LogPrintf("spv: trying to find: %s\n", txHash.ToString());
+    LogPrintf("spv: trying to find tx: %s\n", txHash.ToString());
     auto const tx = GetAnchorTx(txHash);
 
-    if (tx && tx->blockHeight != TX_UNCONFIRMED) {
-        LogPrintf("spv: found confirmed tx: %s %s %d\n", tx->txHash.ToString(), tx->msgHash.ToString(), tx->blockHeight);
-        return static_cast<int>(GetLastBlockHeight()) - tx->blockHeight;
+    if (!tx) {
+        LogPrintf("spv: tx: %s not found!\n", txHash.ToString());
+        return -1;
     }
-    return 0;
+    uint32_t const last = GetLastBlockHeight();
+    // for cases when tx->blockHeight == TX_UNCONFIRMED _or_ GetLastBlockHeight() less than already _confirmed_ tx (rescan in progress)
+    return last < tx->blockHeight ? 0 : last - tx->blockHeight + 1;
 }
+
+int CSpvWrapper::GetTxConfirmationsByMsg(const uint256 & msgHash) const
+{
+    LogPrintf("spv: trying to find tx by msg: %s\n", msgHash.ToString());
+    auto const tx = GetAnchorTxByMsg(msgHash);
+
+    if (!tx) {
+        LogPrintf("spv: tx with msg: %s not found!\n", msgHash.ToString());
+        return -1;
+    }
+    uint32_t const last = GetLastBlockHeight();
+    // for cases when tx->blockHeight == TX_UNCONFIRMED _or_ GetLastBlockHeight() less than already _confirmed_ tx (rescan in progress)
+    return last < tx->blockHeight ? 0 : last - tx->blockHeight + 1;
+}
+
 
 void CSpvWrapper::IndexDeleteTx(const uint256 & hash)
 {
@@ -388,6 +412,7 @@ void CSpvWrapper::OnSyncStarted()
 
 void CSpvWrapper::OnSyncStopped(int error)
 {
+    initialSync = false;
     LogPrintf("spv: sync stopped!\n");
 }
 
@@ -614,18 +639,49 @@ bool IsAnchorTx(BRTransaction *tx, uint256 & anchorMsgHash)
     return true;
 }
 
-CSpvWrapper::BtcAnchorTx const* CSpvWrapper::GetAnchorTxByMsg(const uint256 & msgHash) const
+BtcAnchorTx const* CSpvWrapper::GetAnchorTxByMsg(const uint256 & msgHash) const
 {
     auto const & list = txIndex.get<BtcAnchorTx::ByMsgHash>();
     auto const it = list.find(msgHash);
     return it != list.end() ? &(*it) : nullptr;
 }
 
-CSpvWrapper::BtcAnchorTx const* CSpvWrapper::GetAnchorTx(const uint256 & txHash) const
+BtcAnchorTx const* CSpvWrapper::GetAnchorTx(const uint256 & txHash) const
 {
     auto const & list = txIndex.get<BtcAnchorTx::ByTxHash>();
     auto const it = list.find(txHash);
     return it != list.end() ? &(*it) : nullptr;
+}
+
+const BtcAnchorTx * CSpvWrapper::CheckConfirmations(const uint256 & prevTx, const uint256 & msgHash, bool noThrow) const
+{
+    try {
+        int confs{0};
+        if (!prevTx.IsNull()) {
+            confs = GetTxConfirmations(prevTx);
+            if (confs < 0) {
+                throw std::runtime_error("Previous anchor tx " + prevTx.ToString() + ") does not exist!");
+            }
+            else if (confs < 6) {
+                throw std::runtime_error("Previous anchor tx " + prevTx.ToString() + " has not enough confirmations: " + std::to_string(confs));
+            }
+        }
+
+        confs = GetTxConfirmationsByMsg(msgHash);
+        if (confs < 0) {
+            throw std::runtime_error("Anchor tx with message hash " + msgHash.ToString() + ") does not exist!");
+        }
+        else if (confs < 6) {
+            throw std::runtime_error("Anchor tx with message hash " + msgHash.ToString() + " has not enough confirmations: " + std::to_string(confs));
+        }
+    } catch (std::runtime_error const & e) {
+        if (noThrow) {
+            LogPrintf("%s\n", e.what());
+            return nullptr;
+        }
+        throw e;
+    }
+    return GetAnchorTxByMsg(msgHash);
 }
 
 }

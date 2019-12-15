@@ -13,6 +13,10 @@
 #include <util/system.h>
 #include <validation.h>
 
+// for anchor processing
+#include <net_processing.h>
+#include <wallet/wallet.h>
+
 #include <algorithm>
 #include <functional>
 
@@ -21,6 +25,17 @@
 std::unique_ptr<CAnchorAuthIndex> panchorauths;
 std::unique_ptr<CAnchorIndex> panchors;
 std::unique_ptr<CAnchorConfirms> panchorconfirms;
+
+template <typename TContainer>
+bool CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID> const & keys)
+{
+    for (auto const & sig : sigs) {
+        CPubKey pubkey;
+        if (!pubkey.RecoverCompact(sigHash, sig) || keys.find(pubkey.GetID()) == keys.end())
+            return false;
+    }
+    return true;
+}
 
 CAnchorAuthMessage::CAnchorAuthMessage(uint256 const & previousAnchor, int height, uint256 const & hash, CTeam const & nextTeam)
     : previousAnchor(previousAnchor)
@@ -88,17 +103,11 @@ uint256 CAnchorMessage::GetHash() const
     return Hash(ss.begin(), ss.end());
 }
 
-bool CAnchorMessage::CheckSigs(CTeam const & team) const
+bool CAnchorMessage::CheckAuthSigs(CTeam const & team) const
 {
     // create tmp auth
     CAnchorAuthMessage auth(previousAnchor, height, blockHash, nextTeam);
-    uint256 sigHash{auth.GetSignHash()};
-    for (auto const & sig : sigs) {
-        CPubKey pubkey;
-        if (!pubkey.RecoverCompact(sigHash, sig) || team.find(pubkey.GetID()) == team.end())
-            return false;
-    }
-    return true;
+    return CheckSigs(auth.GetSignHash(), sigs, team);
 }
 
 const CAnchorAuthIndex::Auth * CAnchorAuthIndex::ExistAuth(uint256 const & hash) const
@@ -110,20 +119,47 @@ const CAnchorAuthIndex::Auth * CAnchorAuthIndex::ExistAuth(uint256 const & hash)
 
 bool CAnchorAuthIndex::ValidateAuth(const CAnchorAuthIndex::Auth & auth) const
 {
-    CPubKey pubKey;
+    // 1. common (prev and top checks)
+    if (!auth.previousAnchor.IsNull()) {
+        auto prev = panchors->ExistAnchorByTx(auth.previousAnchor);
+        if (!prev) {
+            return error("%s: Got anchor auth, hash %s, blockheight: %d, but can't find previousAnchor %s", __func__, auth.GetHash().ToString(), auth.height, auth.previousAnchor.ToString());
+        }
+        if (auth.height <= prev->anchor.height) {
+            return error("%s: Auth blockHeight should be higher than previousAnchor height! %d > %d !", __func__, auth.height, prev->anchor.height);
+        }
+    }
+    auto const * topAnchor = panchors->GetActiveAnchor();
+    if (topAnchor && auth.height <= topAnchor->anchor.height) {
+        return error("%s: Auth blockHeight should be higher than top anchor height! %d > %d !", __func__, auth.height, topAnchor->anchor.height);
+    }
 
+    // 2. chain context:
+    /// @todo @max check that blockHash is in active chain!!!
+
+
+    // 3. team context and signs:
+    CTeam const team = panchors->GetNextTeam(auth.previousAnchor);
+    if (team.empty()) {
+        return error("%s: Can't get team for previousAnchor tx %s !", __func__, auth.previousAnchor.ToString());
+    }
+    /// @todo @max check that auth next team calculated correctly. add log
+    if (team != pmasternodesview->CalcNextTeam()) {
+        return error("%s: Wrong nextTeam for auth %s!!!", __func__, auth.GetHash().ToString());
+    }
+
+    CPubKey pubKey;
     if (!auth.GetPubKey(pubKey)) {
         return error("%s: Can't recover pubkey from sig, auth: ", __func__, auth.GetHash().ToString());
     }
-    CTeam const team = GetNextTeamFromPrev(auth.previousAnchor); //pmasternodesview->GetCurrentTeam();
-    if (team.empty()) {
-        return error("%s: Can't get team for previousAnchor %s !", __func__, auth.previousAnchor.ToString());
-    }
-
     const CKeyID masternodeKey{pubKey.GetID()};
     if (team.find(masternodeKey) == team.end()) {
         return error("%s: Recovered keyID %s is not a current team member!", __func__, masternodeKey.ToString());
     }
+
+    /// @todo @maxb should we match here:
+    /// 3. and that previous anchor is active for THIS chain?
+
     return true;
 }
 
@@ -132,7 +168,7 @@ bool CAnchorAuthIndex::AddAuth(const CAnchorAuthIndex::Auth & auth)
     return auths.insert(auth).second;
 }
 
-uint32_t CAnchorAuthIndex::GetMinAnchorQuorum(CMasternodesView::CTeam const & team) const
+uint32_t GetMinAnchorQuorum(CMasternodesView::CTeam const & team)
 {
     if (Params().NetworkIDString() == "regtest") {
         return 1;
@@ -158,7 +194,8 @@ CAnchorMessage CAnchorAuthIndex::CreateBestAnchor(uint256 const & forBlock, CScr
             curHeight = it->height;
             curHash = it->blockHash;
             auto count = list.count(std::make_tuple(curHeight, curHash));
-            if (count >= GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
+            /// @todo @maxb replace pmasternodesview->GetCurrentTeam() with actual team
+            if (count >= GetMinAnchorQuorum(panchors->GetCurrentTeam(panchors->GetActiveAnchor()))) {
                 KList::iterator it0, it1;
                 std::tie(it0,it1) = list.equal_range(std::make_tuple(curHeight, curHash));
                 while(it0 != it1) {
@@ -216,86 +253,246 @@ static const char DB_ANCHORS = 'A';
 CAnchorIndex::CAnchorIndex(size_t nCacheSize, bool fMemory, bool fWipe)
     : db(new CDBWrapper(GetDataDir() / "anchors", nCacheSize, fMemory, fWipe))
 {
+}
+
+bool CAnchorIndex::Load()
+{
+    AnchorIndexImpl().swap(anchors);
+
+    std::function<void (uint256 const &, AnchorRec &)> onLoad = [this] (uint256 const &, AnchorRec & rec) {
+        // just for debug
+        LogPrintf("anchor load: msg: %s, btc height: %d\n", rec.msgHash.ToString(), rec.btcHeight);
+
+        anchors.insert(std::move(rec));
+    };
+    bool result = IterateTable(DB_ANCHORS, onLoad);
+    if (result)
+        ActivateBestAnchor();
+
+    return result;
+}
+
+
+const CAnchorIndex::AnchorRec * CAnchorIndex::GetActiveAnchor() const
+{
+    return top;
+}
+
+const CAnchorIndex::AnchorRec * CAnchorIndex::ExistAnchorByMsg(const uint256 & hash, bool isMainIndex) const
+{
+    AnchorIndexImpl const & index = isMainIndex ? anchors : orphans;
+    auto & list = index.get<AnchorRec::ByMsgHash>();
+    auto it = list.find(hash);
+    return it != list.end() ? &(*it) : nullptr;
+}
+
+const CAnchorIndex::AnchorRec * CAnchorIndex::ExistAnchorByTx(const uint256 & hash, bool isMainIndex) const
+{
+    AnchorIndexImpl const & index = isMainIndex ? anchors : orphans;
+    auto & list = index.get<AnchorRec::ByBtcTxHash>();
+    auto it = list.find(hash);
+    return it != list.end() ? &(*it) : nullptr;
+}
+
+bool CAnchorIndex::AddAnchor(CAnchorMessage const & msg, spv::BtcAnchorTx const * btcTx, ConfirmationSigs const & confirm_sigs, bool isMainIndex)
+{
+    AnchorIndexImpl & index = isMainIndex ? anchors : orphans;
+    AnchorRec rec{ msg, msg.GetHash(), btcTx->txHash, btcTx->blockHeight, btcTx->txIndex, confirm_sigs };
+    bool result = index.insert(rec).second;
+    if (isMainIndex)
+        DbWrite(rec);
+    return result;
+}
+
+bool CAnchorIndex::UpdateAnchorConfirmations(AnchorRec const * rec, ConfirmationSigs const & confirm_sigs)
+{
+
+    if (CheckSigs(rec->msgHash, confirm_sigs, GetCurrentTeam(rec))) {
+        AnchorRec new_rec(*rec);
+        new_rec.confirm_sigs.insert(confirm_sigs.begin(), confirm_sigs.end());
+
+        auto & list = anchors.get<AnchorRec::ByMsgHash>();
+        list.erase(rec->msgHash);
+        anchors.insert(new_rec);
+        DbWrite(new_rec);
+        return true;
+    }
+
+    return false;
+}
+
+CMasternodesView::CTeam CAnchorIndex::GetNextTeam(const uint256 & btcPrevTx) const
+{
+    if (btcPrevTx.IsNull())
+        return Params().GetGenesisTeam();
+
+    AnchorRec const * prev = ExistAnchorByTx(btcPrevTx);
+    if (!prev) {
+        LogPrintf("Can't get previous anchor with btc hash %s\n",  btcPrevTx.ToString());
+        return CMasternodesView::CTeam{};
+    }
+    return prev->anchor.nextTeam;
+}
+
+CMasternodesView::CTeam CAnchorIndex::GetCurrentTeam(const CAnchorIndex::AnchorRec * anchor) const
+{
+    if (!anchor)
+        return Params().GetGenesisTeam();
+
+    return GetNextTeam(anchor->anchor.previousAnchor);
+}
+
+void CAnchorIndex::ActivateBestAnchor()
+{
 
 }
 
-bool CAnchorIndex::ExistsAnchor(const uint256 & hash) const
+bool CAnchorIndex::DbExists(const uint256 & hash) const
 {
     return db->Exists(std::make_pair(DB_ANCHORS, hash));
 }
 
-bool CAnchorIndex::ReadAnchor(uint256 const & hash, CAnchorMessage & anchor) const
+bool CAnchorIndex::DbRead(uint256 const & hash, AnchorRec & rec) const
 {
-    return db->Read(std::make_pair(DB_ANCHORS, hash), anchor);
+    return db->Read(std::make_pair(DB_ANCHORS, hash), rec);
 }
 
-bool CAnchorIndex::WriteAnchor(CAnchorMessage const & anchor)
+bool CAnchorIndex::DbWrite(AnchorRec const & rec)
 {
-    return db->Write(std::make_pair(DB_ANCHORS, anchor.GetHash()), anchor);
+    return db->Write(std::make_pair(DB_ANCHORS, rec.msgHash), rec);
 }
 
-bool CAnchorIndex::EraseAnchor(uint256 const & hash)
+bool CAnchorIndex::DbErase(uint256 const & hash)
 {
     return db->Erase(std::make_pair(DB_ANCHORS, hash));
 }
 
 
-void ValidateAnchor(const CAnchorMessage & anchor)
+
+/// Validate NOT ORPHANED anchor (anchor that has valid previousAnchor or null(first) )
+bool ValidateAnchor(const CAnchorMessage & anchor, CAnchorIndex::ConfirmationSigs const & conf_sigs, bool noThrow)
 {
     uint256 const msgHash = anchor.GetHash();
-    // checking spv txs:
-    {
-        LOCK(spv::pspv->GetCS());
-        // check spv anchor existance
-        auto const spv_anc = spv::pspv->GetAnchorTxByMsg(msgHash);
-        if (!spv_anc)
-        {
-            throw std::runtime_error("Anchor tx with message hash " + msgHash.ToString() + ") does not exist!");
+    try {
+        // common: check heights
+        if (!anchor.previousAnchor.IsNull()) {
+            auto prev = panchors->ExistAnchorByTx(anchor.previousAnchor);
+
+            assert (prev); // we should not got here with empty prev -> should be added to orphans before
+
+            if (anchor.height <= prev->anchor.height) {
+                throw std::runtime_error("Anchor blockHeight should be higher than previousAnchor height! " + std::to_string(anchor.height) + " > " + std::to_string(prev->anchor.height) + " !");
+            }
         }
-        int confs = spv::pspv->GetTxConfirmations(spv_anc->txHash);
-        if (confs < 6)
-        {
-            throw std::runtime_error("Anchor tx with message hash " + msgHash.ToString() + " has not enough confirmations: " + std::to_string(confs));
+
+        // team context:
+        // current team for THIS message extracted from PREV anchor message, overwise "genesis" team
+        CMasternodesView::CTeam curTeam = panchors->GetNextTeam(anchor.previousAnchor);
+        assert(!curTeam.empty()); // we should not got empty team with valid prev!
+
+        if (!anchor.CheckAuthSigs(curTeam)) {
+            throw std::runtime_error("Message auth sigs doesn't match current team (extracted from previousAnchor)");
         }
+        // check confirmation sigs
+        if (!CheckSigs(msgHash, conf_sigs, curTeam)) {
+            throw std::runtime_error("Message confirmation sigs doesn't match current team (extracted from previousAnchor)");
+        }
+    } catch (std::runtime_error const & e) {
+        if (noThrow) {
+            LogPrintf("%s\n", e.what());
+            return false;
+        }
+        throw e;
     }
-
-    // get current anchor team from previous anchor message
-    // current team for THIS message extracted from PREV anchor message, overwise "genesis" team
-    CMasternodesView::CTeam curTeam = GetNextTeamFromPrev(anchor.previousAnchor);
-    if (curTeam.empty()) {
-        throw std::runtime_error("Can't get current team for anchor message" + msgHash.ToString());
-    }
-
-    /// @todo @maxb check that it is based on the latest finalized anchor or smth ???
-    /// or the 'current team' (extracted from prev anchor) == current team from pmasternodesview (and next == next too)??
-
-    if (!anchor.CheckSigs(curTeam)) {
-        throw std::runtime_error("Message sigs doesn't match current team (extracted from previousAnchor)");
-    }
+    return true;
 }
 
-CMasternodesView::CTeam GetNextTeamFromPrev(uint256 const & btcPrevTx)
+bool TryToVoteAnchor(CAnchorIndex::AnchorRec const * anchor_rec, CConnman& connman)
 {
-    if (btcPrevTx.IsNull())
-        return Params().GetGenesisTeam(); /// @todo @maxb replace with genesis team
+    if (!anchor_rec)
+        return false;
 
-    uint256 prevMsgHash;
-    {
-        LOCK(spv::pspv->GetCS());
-        spv::CSpvWrapper::BtcAnchorTx const * prevBtcTxRec = spv::pspv->GetAnchorTx(btcPrevTx);
-        if (!prevBtcTxRec) {
-            LogPrintf("Previous anchor tx %s does not exist!\n", btcPrevTx.ToString());
-            return CMasternodesView::CTeam{};
+    // if this anchor not older than top->prev
+    uint64_t prevBtcHeight{0};
+    auto top = panchors->GetActiveAnchor();
+    if (top) {
+        auto prevTxHash = top->anchor.previousAnchor;
+        if (!prevTxHash.IsNull()) {
+            prevBtcHeight = panchors->ExistAnchorByTx(prevTxHash)->GetBtcHeight();
         }
-        prevMsgHash = prevBtcTxRec->msgHash;
     }
-    {
-        LOCK (cs_main);
-        CAnchorMessage prevAnchorMessage;
-        if (!panchors->ReadAnchor(prevMsgHash, prevAnchorMessage)) {
-            LogPrintf("Can't read previous anchor message %s\n",  prevMsgHash.ToString());
-            return CMasternodesView::CTeam{};
+
+    if (anchor_rec->GetBtcHeight() > prevBtcHeight) {
+        // VOTE?
+        auto team = panchors->GetNextTeam(anchor_rec->anchor.previousAnchor);
+        auto const mnId = pmasternodesview->AmIOperator();
+        /// @todo @maxb should we check for IsActive() here? i think it is redundant
+        if (mnId && pmasternodesview->ExistMasternode(mnId->id)->IsActive() && team.find(mnId->operatorAuthAddress) != team.end()) { // this is safe due to prev call `AmIOperator`
+
+            CKey masternodeKey = GetWalletsKey(mnId->operatorAuthAddress);
+            if (!masternodeKey.IsValid()) {
+                return error("%s: Can't read masternode operator private key", __func__);
+            }
+            CAnchorConfirmMessage confirmMessage = CAnchorConfirmMessage::Create(anchor_rec->anchor, masternodeKey);
+            if (!confirmMessage.signature.empty()) {
+                RelayAnchorConfirm(confirmMessage.GetHash(), connman, nullptr);
+
+                panchors->UpdateAnchorConfirmations(anchor_rec, {confirmMessage.signature});
+            }
         }
-        return std::move(prevAnchorMessage.nextTeam);
     }
+    return true;
 }
+
+bool ProcessNewAnchor(CAnchorMessage const & anchor, CAnchorIndex::ConfirmationSigs const & conf_sigs, bool noThrow, CConnman& connman, CNode* skipNode)
+{
+    AssertLockHeld(cs_main);
+    AssertLockHeld(spv::pspv->GetCS());
+
+    uint256 const msgHash{anchor.GetHash()};
+
+    // checking spv txs:
+    spv::BtcAnchorTx const * spv_anc = spv::pspv->CheckConfirmations(anchor.previousAnchor, msgHash, noThrow);
+    if (!spv_anc)
+        return false;
+
+    /// @todo @maxb there should be NO orphans due to sequental request/response!
+    if (!anchor.previousAnchor.IsNull() && !panchors->ExistAnchorByTx(anchor.previousAnchor)) {
+//        // add to ORPHANS, unchecked!
+//        panchors->AddAnchor(anchor, spv_anc, conf_sigs, false);
+
+//        /// @todo @maxb relay orphaned or does NOT???
+//        // return true;
+        return false;
+    }
+    else
+    {
+        if (!ValidateAnchor(anchor, conf_sigs, noThrow))
+            return false;
+
+        if (panchors->AddAnchor(anchor, spv_anc, conf_sigs)) {
+            RelayAnchor(msgHash, connman, skipNode);
+        }
+
+        /// @todo @maxb check and move orphans where orphan.previousAnchor == this spv_anc.txHash
+//        panchors->ConnectOrphans(anchor.previousAnchor);
+
+        /// @todo @maxb WHERE VOTING SHOULD BE PLACED?????
+        /// ? after addition and relaying cause anchor does not exist on the other nodes
+        /// @todo @maxb how to deny voting on old anchors??
+        if (!spv::pspv->IsInitialSync()) {
+            TryToVoteAnchor(panchors->ExistAnchorByMsg(msgHash), connman);
+        }
+    }
+
+    // new request to index here cause confirm_sigs.size() could be changed by voting
+    if (panchors->ExistAnchorByMsg(msgHash)->confirm_sigs.size() >= GetMinAnchorQuorum(panchors->GetNextTeam(anchor.previousAnchor))) {
+        /// @todo @maxb implement
+        // TRIGGER "Confirmed" - replay from this point
+        panchors->ActivateBestAnchor();
+    }
+
+
+    return true;
+}
+

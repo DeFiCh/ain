@@ -79,20 +79,22 @@ struct TxOutput {
 
 using namespace boost::multi_index;
 
+struct BtcAnchorTx {
+    uint256 txHash;
+    uint256 msgHash;
+    uint32_t blockHeight;
+    uint32_t txIndex;
+
+    uint64_t GetBtcHeight() const { return (static_cast<uint64_t>(blockHeight) << 32) + txIndex; }
+
+    // tags for multiindex
+    struct ByTxHash{};
+    struct ByMsgHash{};
+    struct ByHeight{};
+};
+
 class CSpvWrapper
 {
-public:
-    struct BtcAnchorTx {
-        uint256 txHash;
-        uint256 msgHash;
-        uint32_t blockHeight;
-
-        // tags for multiindex
-        struct ByTxHash{};
-        struct ByMsgHash{};
-        struct ByHeight{};
-    };
-
 private:
     boost::shared_ptr<CDBWrapper> db;
     boost::scoped_ptr<CDBBatch> batch;
@@ -108,10 +110,11 @@ private:
         indexed_by<
             ordered_unique    < tag<BtcAnchorTx::ByTxHash>,  member<BtcAnchorTx, uint256,  &BtcAnchorTx::txHash> >,
             ordered_unique    < tag<BtcAnchorTx::ByMsgHash>, member<BtcAnchorTx, uint256,  &BtcAnchorTx::msgHash> >,
-            ordered_non_unique< tag<BtcAnchorTx::ByHeight>,  member<BtcAnchorTx, uint32_t, &BtcAnchorTx::blockHeight> >
+            ordered_unique    < tag<BtcAnchorTx::ByHeight>,  const_mem_fun<BtcAnchorTx, uint64_t, &BtcAnchorTx::GetBtcHeight> >
         >
     > BtcAnchorTxIndex;
 
+    bool initialSync = true;
     BtcAnchorTxIndex txIndex;
     mutable CCriticalSection cs_txIndex;
 
@@ -126,6 +129,8 @@ public:
 
     BRPeerManager const * GetPeerManager() const;
     BRWallet const * GetWallet() const;
+
+    bool IsInitialSync() const;
     uint32_t GetLastBlockHeight() const;
     uint32_t GetEstimatedBlockHeight() const;
     uint8_t GetPKHashPrefix() const;
@@ -133,9 +138,13 @@ public:
     std::vector<BRTransaction *> GetWalletTxs() const;
     bool SendRawTx(TBytes rawtx);
     int GetTxConfirmations(uint256 const & txHash) const;
+    int GetTxConfirmationsByMsg(uint256 const & msgHash) const;
 
     BtcAnchorTx const * GetAnchorTx(uint256 const & txHash) const;
     BtcAnchorTx const * GetAnchorTxByMsg(uint256 const & msgHash) const;
+
+    BtcAnchorTx const * CheckConfirmations(uint256 const & prevTx, uint256 const & msgHash, bool noThrow) const;
+
     CCriticalSection & GetCS() {return cs_txIndex; }
 
 public:
