@@ -66,8 +66,9 @@ CAnchorMessage createAnchorMessage(std::string const & rewardAddress, uint256 co
     }
     CAnchorMessage const anchor = panchorauths->CreateBestAnchor(forBlock, CScript(rawscript.begin(), rawscript.end()));
 
-    if (anchor.sigs.size() < panchorauths->GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
-        throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached (" + std::to_string(anchor.sigs.size()) + ", need "+ std::to_string(panchorauths->GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) + ") ");
+    auto minQuorum = GetMinAnchorQuorum(panchors->GetCurrentTeam(panchors->GetActiveAnchor()));
+    if (anchor.sigs.size() < minQuorum) {
+        throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached (" + std::to_string(anchor.sigs.size()) + ", need "+ std::to_string(minQuorum) + ") ");
     }
     return anchor;
 }
@@ -408,23 +409,48 @@ UniValue spv_sendanchormessage(const JSONRPCRequest& request)
     uint256 const msgHash{anchor.GetHash()};
     {
         auto locked_chain = pwallet->chain().lock();
-        if (panchors->ExistsAnchor(msgHash)) {
+        if (panchors->ExistAnchorByMsg(msgHash)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Anchor message with hash " + msgHash.ToString() + " already exists!");
         }
     }
+    using ConfirmationSigs = CAnchorIndex::ConfirmationSigs;
+    ProcessNewAnchor(anchor, {}, false, *g_connman, nullptr);
 
-    try {
-        ValidateAnchor(anchor);
-    } catch (std::runtime_error const & e) {
-        throw JSONRPCError(RPC_MISC_ERROR, e.what());
-    }
+//    try {
+//        // check spv anchor existance
+//        spv::BtcAnchorTx spv_anc{};
+//        {
+//            LOCK(spv::pspv->GetCS());
 
-    {
-        auto locked_chain = pwallet->chain().lock();
-        if (panchors->WriteAnchor(anchor)) {
-            RelayAnchor(msgHash, *g_connman);
-        }
-    }
+//            int confs{0};
+//            if (!anchor.previousAnchor.IsNull()) {
+//                confs = spv::pspv->GetTxConfirmations(anchor.previousAnchor);
+//                if (confs < 0) {
+//                    throw std::runtime_error("Previous anchor tx " + anchor.previousAnchor.ToString() + ") does not exist!");
+//                }
+//                else if (confs < 6) {
+//                    throw std::runtime_error("Previous anchor tx " + anchor.previousAnchor.ToString() + " has not enough confirmations: " + std::to_string(confs));
+//                }
+//            }
+//            confs = spv::pspv->GetTxConfirmationsByMsg(msgHash);
+//            if (confs < 0) {
+//                throw std::runtime_error("Anchor tx with message hash " + msgHash.ToString() + ") does not exist!");
+//            }
+//            else if (confs < 6) {
+//                throw std::runtime_error("Anchor tx with message hash " + msgHash.ToString() + " has not enough confirmations: " + std::to_string(confs));
+//            }
+//            spv_anc = *spv::pspv->GetAnchorTxByMsg(msgHash);
+//        }
+//        auto locked_chain = pwallet->chain().lock();
+
+//        ValidateAnchor(anchor);
+//        if (panchors->AddAnchor(anchor, &spv_anc, {})) {
+//            RelayAnchor(msgHash, *g_connman);
+//        }
+
+//    } catch (std::runtime_error const & e) {
+//        throw JSONRPCError(RPC_MISC_ERROR, e.what());
+//    }
     return UniValue(msgHash.ToString());
 }
 

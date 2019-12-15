@@ -22,6 +22,7 @@
 #include <policy/policy.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <spv/spv_wrapper.h>
 #include <random.h>
 #include <reverse_iterator.h>
 #include <scheduler.h>
@@ -1308,7 +1309,7 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     case MSG_ANCHOR_AUTH:
         return panchorauths->ExistAuth(inv.hash) != nullptr;
     case MSG_ANCHOR:
-        return panchors->ExistsAnchor(inv.hash);
+        return panchors->ExistAnchorByMsg(inv.hash) != nullptr;
     case MSG_ANCHOR_CONFIRM:
        return panchorconfirms->Exist(inv.hash) != nullptr;
     }
@@ -1623,10 +1624,10 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
                 }
             }
             else if (inv.type == MSG_ANCHOR) {
-                CAnchorMessage anchor;
-                if (panchors->ReadAnchor(inv.hash, anchor)) {
-                    LogPrintf("PushMessage anchor, hash: %s\n", anchor.GetHash().ToString());
-                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHOR, anchor));
+                auto const * anchor = panchors->ExistAnchorByMsg(inv.hash);
+                if (anchor) {
+                    LogPrintf("PushMessage anchor, hash: %s\n", anchor->msgHash.ToString());
+                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHOR, anchor->anchor, anchor->confirm_sigs));
                 }
             }
             else if (inv.type == MSG_ANCHOR_CONFIRM) {
@@ -2382,22 +2383,21 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         CAnchorAuthMessage auth;
         vRecv >> auth;
 
+        // don't check spv here, but only our anchor index!
         {
             LOCK(cs_main);
             if (panchorauths->ExistAuth(auth.GetHash())) {
                 // reject ? or just skip&
                 return false;
             }
-        }
+            LogPrintf("Got anchor auth, hash %s, blockheight: %d\n", auth.GetHash().ToString(), auth.height);
 
-        LogPrintf("Got anchor auth, hash %s, blockheight: %d\n", auth.GetHash().ToString(), auth.height);
-        // if valid, add and rebroadcast
-        if (panchorauths->ValidateAuth(auth)) {
-            LOCK(cs_main);
-
-            panchorauths->AddAuth(auth);
-            RelayAnchorAuth(auth.GetHash(), *connman, pfrom);
-            return true;
+            // if valid, add and rebroadcast
+            if (panchorauths->ValidateAuth(auth)) {
+                panchorauths->AddAuth(auth);
+                RelayAnchorAuth(auth.GetHash(), *connman, pfrom);
+                return true;
+            }
         }
         return false;
     }
@@ -2411,26 +2411,58 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         CAnchorMessage anchor;
         vRecv >> anchor;
 
-        {
-            LOCK(cs_main);
+        CAnchorIndex::ConfirmationSigs conf_sigs;
+        try {
+            vRecv >> conf_sigs;
+        } catch (...) {
+        }
 
-            if (panchors->ExistsAnchor(anchor.GetHash())) {
+        uint256 const msgHash{anchor.GetHash()};
+
+        LOCK2(cs_main, spv::pspv->GetCS());
+
+        // search in main index:
+        auto anchor_rec = panchors->ExistAnchorByMsg(msgHash);
+        // ... or in orphans:
+//        if (!anchor_rec) {
+//            anchor_rec = panchors->ExistAnchorByMsg(msgHash, false);
+//        }
+
+
+        LogPrintf("Got anchor, hash %s, blockheight: %d\n", msgHash.ToString(), anchor.height);
+
+        if (!anchor_rec) {
+            // if this is new anchor (add, relay, VOTE, TRIGGER)
+            if (ProcessNewAnchor(anchor, conf_sigs, true, *connman, pfrom)) {
+                return true;
+            }
+
+        }
+        else {
+            // only update sigs. relay and maybe TRIGGER
+            CAnchorIndex::ConfirmationSigs new_sigs;
+            std::set_difference(conf_sigs.begin(), conf_sigs.end(), anchor_rec->confirm_sigs.begin(), anchor_rec->confirm_sigs.end(), std::inserter(new_sigs, new_sigs.begin()));
+
+            if (new_sigs.empty()) {
                 // reject ? or just skip&
                 return false;
             }
+            bool old_quorum = anchor_rec->confirm_sigs.size() >= GetMinAnchorQuorum(panchors->GetCurrentTeam(anchor_rec));
+            // confirmations accepted by whole batch or nothing
+            if (panchors->UpdateAnchorConfirmations(anchor_rec, new_sigs)) {
+                for (auto sig : new_sigs) {
+                    CAnchorConfirmMessage confirmMessage{ msgHash, sig };
+                    RelayAnchorConfirm(confirmMessage.GetHash(), *connman, pfrom);
+                }
+                // new request to index here cause confirm_sigs.size() could be changed by update
+                if (!old_quorum && panchors->ExistAnchorByMsg(msgHash)->confirm_sigs.size() >= GetMinAnchorQuorum(panchors->GetNextTeam(anchor.previousAnchor))) {
+                    /// @todo @maxb implement
+                    // TRIGGER "Confirmed" - replay from this point
+                    panchors->ActivateBestAnchor();
+                }
+            }
         }
 
-        LogPrintf("Got anchor, hash %s, blockheight: %d\n", anchor.GetHash().ToString(), anchor.height);
-        // if valid, add and rebroadcast
-        try {
-            ValidateAnchor(anchor);
-        } catch (std::runtime_error const & e) {
-            LogPrintf("%s\n", e.what());
-            return false;
-        }
-        LOCK(cs_main);
-        panchors->WriteAnchor(anchor);
-        RelayAnchor(anchor.GetHash(), *connman, pfrom);
         return true;
     }
 
