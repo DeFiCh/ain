@@ -4966,3 +4966,16 @@ bool CWallet::AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vector<uns
     ImplicitlyLearnRelatedKeyScripts(vchPubKey);
     return true;
 }
+
+CKey GetWalletsKey(const CKeyID & keyid)
+{
+    std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+    CKey key{};
+    for (auto const wallet : wallets) {
+        if (wallet->GetKey(keyid, key)) {
+            break;
+        }
+        key = CKey{};
+    }
+    return key;
+}

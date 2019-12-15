@@ -3660,8 +3660,9 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
         LogPrintf("Anchor auth prepare, block: %d\n", ::ChainActive().Height());
         auto const mnId = pmasternodesview->AmIOperator();
         if (mnId && pmasternodesview->ExistMasternode(mnId->id)->IsActive()) { // this is safe due to prev call `AmIOperator`
-            /// @todo @maxb subst 'previousAnchor' and 'nextTeam'
-            CAnchorAuthMessage auth(uint256() /*previousAnchor*/, ::ChainActive().Height(), ::ChainActive().Tip()->GetBlockHash(), pmasternodesview->CalcNextTeam());
+            /// @todo @maxb subst 'nextTeam'
+            auto topAnchor = panchors->GetActiveAnchor();
+            CAnchorAuthMessage auth(topAnchor ? topAnchor->txHash : uint256(), ::ChainActive().Height(), ::ChainActive().Tip()->GetBlockHash(), pmasternodesview->CalcNextTeam());
 
             std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
             CKey masternodeKey{};
