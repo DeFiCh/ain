@@ -99,4 +99,6 @@ void RelayAnchorAuth(const uint256&, CConnman& connman, CNode* skipNode = nullpt
 /** Relay anchor msg to every node, possible skipping the source (rebroadcasting) */
 void RelayAnchor(const uint256& hash, CConnman& connman, CNode* skipNode = nullptr);
 
+void RelayAnchorConfirm(const uint256& hash, CConnman& connman, CNode* skipNode = nullptr);
+
 #endif // BITCOIN_NET_PROCESSING_H

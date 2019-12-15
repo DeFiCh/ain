@@ -326,19 +326,21 @@ void CMasternodesView::PruneOlder(int height)
 CMasternodesView::CTeam CMasternodesView::GetCurrentTeam()
 {
     /// @todo @maxb temp, implement
-    CMasternodesView::CTeam team;
-    for (auto const & mn : nodesByOperator) {
-        if (ExistMasternode(mn.second)->IsActive()) {
-            team.insert(mn.first);
-        }
-    }
-    return team;
+
+    return Params().GetGenesisTeam();
+//    CMasternodesView::CTeam team;
+//    for (auto const & mn : nodesByOperator) {
+//        if (ExistMasternode(mn.second)->IsActive()) {
+//            team.insert(mn.first);
+//        }
+//    }
+//    return team;
 }
 
 CMasternodesView::CTeam CMasternodesView::CalcNextTeam()
 {
     /// @todo @maxb temp, implement
-    return GetCurrentTeam();
+    return Params().GetGenesisTeam();
 }
 
 bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)
