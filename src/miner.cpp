@@ -92,6 +92,13 @@ Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn)
 {
+    auto myIDs = pmasternodesview->AmIOperator();
+    if (!myIDs)
+        return nullptr;
+    auto nodePtr = pmasternodesview->ExistMasternode(myIDs->id);
+    if (!nodePtr || !nodePtr->IsActive())
+        return nullptr;
+
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
@@ -172,7 +179,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             auto itFirstMN = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, key);
             if (itFirstMN) {
                 CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-                metadata << criminal.first << criminal.second << (*itFirstMN)->second << 0; // 0 - number output for blocking
+                metadata << criminal.first << criminal.second << (*itFirstMN)->second << 0; // SS 0 - number output for blocking
                 coinbaseTx.vin[0].scriptSig = CScript() << OP_RETURN << ToByteVector(metadata);
 
                 baseScript = false;
@@ -195,7 +202,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus().pos);
-    pblock->stakeModifier = uint256{}; // SS
+    pblock->stakeModifier = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->operatorAuthAddress);
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 
@@ -543,7 +550,7 @@ namespace pos {
 
             // find matching Hash
             pblock->height = tip->nHeight + 1;
-            pblock->mintedBlocks = mintedBlocks + 1; // TODO: (SS) rewrite "0" to actual master nodes mintedBlocks
+            pblock->mintedBlocks = mintedBlocks + 1;
             pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
 
             bool found = false;
