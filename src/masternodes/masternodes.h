@@ -2,17 +2,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef MASTERNODES_H
-#define MASTERNODES_H
+#ifndef BITCOIN_MASTERNODES_MASTERNODES_H
+#define BITCOIN_MASTERNODES_MASTERNODES_H
 
-#include "amount.h"
-#include "primitives/transaction.h"
-#include "pubkey.h"
-#include "script/script.h"
-#include "script/standard.h"
-#include "serialize.h"
-#include "uint256.h"
-#include "validation.h"
+#include <amount.h>
+#include <pubkey.h>
+#include <serialize.h>
+#include <uint256.h>
 
 #include <map>
 #include <set>
@@ -21,6 +17,8 @@
 
 #include <boost/optional.hpp>
 #include <boost/scoped_ptr.hpp>
+
+class CTransaction;
 
 static const std::vector<unsigned char> MnTxMarker = {'M', 'n', 'T', 'x'};  // 4d6e5478
 
@@ -48,6 +46,7 @@ inline void Unserialize(Stream& s, MasternodesTxType & txType) {
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
 int GetMnActivationDelay();
+int GetMnResignDelay();
 int GetMnCollateralUnlockDelay();
 int GetMnHistoryFrame();
 CAmount GetMnCollateralAmount();
@@ -87,16 +86,11 @@ public:
         FromTx(tx, heightIn, metadata);
     }
 
-    bool IsActive(int h = ::ChainActive().Height()) const
-    {
-        // Special case for genesis block
-        if (creationHeight == 0)
-            return h > 0 && (resignHeight == -1 || resignHeight > h);
-
-        return  creationHeight + GetMnActivationDelay() <= h && (resignHeight == -1 || resignHeight > h);
-    }
+    bool IsActive() const;
+    bool IsActive(int h) const;
 
     std::string GetHumanReadableStatus() const;
+    std::string GetHumanReadableStatus(int h) const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -343,46 +337,7 @@ public:
 
     bool Flush() override { assert(false); } // forbidden!!!
 
-    CMasternodesViewHistory & GetState(int targetHeight)
-    {
-        int const topHeight = base->GetLastHeight();
-        assert(targetHeight >= topHeight - GetMnHistoryFrame() && targetHeight <= topHeight);
-
-        if (lastHeight > targetHeight)
-        {
-            // go backward (undo)
-
-            for (; lastHeight >= targetHeight; )
-            {
-                auto it = historyDiff.find(lastHeight);
-                if (it != historyDiff.end())
-                {
-                    historyDiff.erase(it);
-                }
-                historyDiff.emplace(std::make_pair(lastHeight, OnUndoBlock(lastHeight)));
-
-//                DecrementMintedBy();
-
-                --lastHeight;
-            }
-        }
-        else if (lastHeight < targetHeight)
-        {
-            // go forward (redo)
-            for (; lastHeight < targetHeight; )
-            {
-                ++lastHeight;
-
-                // redo states should be cached!
-                assert(historyDiff.find(lastHeight) != historyDiff.end());
-                ApplyCache(&historyDiff.at(lastHeight));
-
-//                IncrementMintedBy();
-            }
-
-        }
-        return *this;
-    }
+    CMasternodesViewHistory & GetState(int targetHeight);
 };
 
 /** Global variable that points to the CMasternodeView (should be protected by cs_main) */
@@ -391,4 +346,4 @@ extern std::unique_ptr<CMasternodesView> pmasternodesview;
 //! Checks if given tx is probably one of custom 'MasternodeTx', returns tx type and serialized metadata in 'data'
 MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
-#endif // MASTERNODES_H
+#endif // BITCOIN_MASTERNODES_MASTERNODES_H

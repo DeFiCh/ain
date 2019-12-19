@@ -20,7 +20,6 @@
 
 #include <chainparams.h>
 #include <interfaces/node.h>
-#include <key_io.h>
 #include <wallet/coincontrol.h>
 #include <ui_interface.h>
 #include <txmempool.h>

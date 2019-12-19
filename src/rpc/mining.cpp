@@ -10,11 +10,12 @@
 #include <consensus/params.h>
 #include <consensus/validation.h>
 #include <core_io.h>
-#include <key_io.h>
+#include <masternodes/masternodes.h>
 #include <miner.h>
 #include <net.h>
 #include <policy/fees.h>
 #include <pos.h>
+#include <pos_kernel.h>
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
@@ -29,6 +30,7 @@
 #include <validation.h>
 #include <validationinterface.h>
 #include <versionbitsinfo.h>
+#include <wallet/wallet.h>
 #include <warnings.h>
 
 #include <memory>
@@ -99,42 +101,57 @@ static UniValue getnetworkhashps(const JSONRPCRequest& request)
     return GetNetworkHashPS(!request.params[0].isNull() ? request.params[0].get_int() : 120, !request.params[1].isNull() ? request.params[1].get_int() : -1);
 }
 
-static UniValue generateBlocks(const CScript& coinbase_script, int nGenerate, uint64_t nMaxTries)
+static UniValue generateBlocks(const CScript& coinbase_script, const CKey minterKey, uint256 masternodeID, int nGenerate, int64_t nMaxTries)
 {
-    int nHeightEnd = 0;
-    int nHeight = 0;
+    using namespace pos;
+    UniValue nMintedBlocksCount(UniValue::VNUM);
 
-    {   // Don't keep cs_main locked
-        LOCK(cs_main);
-        nHeight = ::ChainActive().Height();
-        nHeightEnd = nHeight+nGenerate;
-    }
-    unsigned int nExtraNonce = 0;
-    UniValue blockHashes(UniValue::VARR);
-    while (nHeight < nHeightEnd && !ShutdownRequested())
-    {
-        std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbase_script));
-        if (!pblocktemplate.get())
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
-        CBlock *pblock = &pblocktemplate->block;
-        {
-            LOCK(cs_main);
-            IncrementExtraNonce(pblock, ::ChainActive().Tip(), nExtraNonce);
+    ThreadStaker::Args stakerParams{};
+    stakerParams.nMint = nGenerate;
+    stakerParams.nMaxTries = nMaxTries;
+    stakerParams.coinbaseScript = coinbase_script;
+    stakerParams.minterKey = minterKey;
+    stakerParams.masternodeID = masternodeID;
+
+    pos::Staker staker{};
+    int32_t nMinted = 0;
+    int64_t nTried = 0;
+
+    while (true) {
+        boost::this_thread::interruption_point();
+
+        try {
+            Staker::Status status = staker.stake(Params(), stakerParams);
+            if (status == Staker::Status::error) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: Terminated due to a staking error");
+            }
+            if (status == Staker::Status::minted) {
+                LogPrintf("GenerateBlocks: minted a block!\n");
+                nMinted++;
+            }
+            if (status == Staker::Status::initWaiting) {
+                LogPrintf("GenerateBlocks: initial waiting\n");
+            }
+            if (status == Staker::Status::stakeWaiting) {
+                LogPrint(BCLog::STAKING, "Staked, but no kernel found yet\n");
+            }
         }
-//        while (nMaxTries > 0 && !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()) && !ShutdownRequested()) {
-//            ++pblock->nNonce;
-//            --nMaxTries;
-//        }
-        if (nMaxTries == 0 || ShutdownRequested()) {
+        catch (const std::runtime_error &e) {
+            LogPrintf("GenerateBlocks runtime error: %s\n", e.what());
+            nMintedBlocksCount.setInt(nMinted);
+            return nMintedBlocksCount;
+        }
+
+        nTried++;
+        if ((nMaxTries == -1 || nTried < nMaxTries) && nMinted < nGenerate) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        } else {
             break;
         }
-        std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
-        if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
-        ++nHeight;
-        blockHashes.push_back(pblock->GetHash().GetHex());
     }
-    return blockHashes;
+
+    nMintedBlocksCount.setInt(nMinted);
+    return nMintedBlocksCount;
 }
 
 static UniValue generatetoaddress(const JSONRPCRequest& request)
@@ -144,7 +161,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
                 {
                     {"nblocks", RPCArg::Type::NUM, RPCArg::Optional::NO, "How many blocks are generated immediately."},
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The address to send the newly generated bitcoin to."},
-                    {"maxtries", RPCArg::Type::NUM, /* default */ "1000000", "How many iterations to try."},
+                    {"maxtries", RPCArg::Type::NUM, /* default */ "-1", "How many iterations to try."},
                 },
                 RPCResult{
             "[ blockhashes ]     (array) hashes of blocks generated\n"
@@ -158,7 +175,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             }.Check(request);
 
     int nGenerate = request.params[0].get_int();
-    uint64_t nMaxTries = 1000000;
+    int64_t nMaxTries = -1;
     if (!request.params[2].isNull()) {
         nMaxTries = request.params[2].get_int();
     }
@@ -168,14 +185,36 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
+    auto myIDs = pmasternodesview->AmIOperator();
+    if (!myIDs) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
+    }
+
     CScript coinbase_script = GetScriptForDestination(destination);
 
-    return generateBlocks(coinbase_script, nGenerate, nMaxTries);
+    CKey minterKey;
+    {
+        std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+        if (wallets.size() == 0)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: wallets not found");
+
+        bool found =false;
+        for (auto&& wallet : wallets) {
+            if (wallet->GetKey(myIDs->operatorAuthAddress, minterKey)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode operator private key not found");
+
+    }
+    return generateBlocks(coinbase_script, minterKey, myIDs->id, nGenerate, nMaxTries);
 }
 
-static UniValue getmininginfo(const JSONRPCRequest& request)
+static UniValue getmintinginfo(const JSONRPCRequest& request)
 {
-            RPCHelpMan{"getmininginfo",
+            RPCHelpMan{"getmintinginfo",
                 "\nReturns a json object containing mining-related information.",
                 {},
                 RPCResult{
@@ -183,6 +222,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
                     "  \"blocks\": nnn,             (numeric) The current block\n"
                     "  \"currentblockweight\": nnn, (numeric, optional) The block weight of the last assembled block (only present if a block was ever assembled)\n"
                     "  \"currentblocktx\": nnn,     (numeric, optional) The number of block transactions of the last assembled block (only present if a block was ever assembled)\n"
+                    "  \"generate\": true|false     (boolean) If the generation is on or off (see getgenerate or setgenerate calls)\n"
                     "  \"difficulty\": xxx.xxxxx    (numeric) The current difficulty\n"
                     "  \"networkhashps\": nnn,      (numeric) The network hashes per second\n"
                     "  \"pooledtx\": n              (numeric) The size of the mempool\n"
@@ -191,8 +231,8 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
                     "}\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("getmininginfo", "")
-            + HelpExampleRpc("getmininginfo", "")
+                    HelpExampleCli("getmintinginfo", "")
+            + HelpExampleRpc("getmintinginfo", "")
                 },
             }.Check(request);
 
@@ -203,6 +243,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
     obj.pushKV("difficulty",       (double)GetDifficulty(::ChainActive().Tip()));
+    obj.pushKV("generate",         gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
     obj.pushKV("networkhashps",    getnetworkhashps(request));
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
     obj.pushKV("chain",            Params().NetworkIDString());
@@ -949,7 +990,7 @@ static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
     { "mining",             "getnetworkhashps",       &getnetworkhashps,       {"nblocks","height"} },
-    { "mining",             "getmininginfo",          &getmininginfo,          {} },
+    { "mining",             "getmintinginfo",         &getmintinginfo,         {} },
     { "mining",             "prioritisetransaction",  &prioritisetransaction,  {"txid","dummy","fee_delta"} },
     { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
     { "mining",             "submitblock",            &submitblock,            {"hexdata","dummy"} },
