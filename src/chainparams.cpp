@@ -69,6 +69,17 @@ public:
         consensus.BIP34Hash = uint256S("0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8");
         consensus.BIP65Height = 388381; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
         consensus.BIP66Height = 363725; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
+
+        consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
+        consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
+        consensus.pos.fNoRetargeting = false; // only for regtest
+
+        consensus.pos.coinstakeMaturity = 100;
+
+        consensus.pos.allowMintingWithoutPeers = false; // don't mint if no peers connected
+
         consensus.CSVHeight = 419328; // 000000000000000004a1b34462cb8aeebd5799177f7a29cf28f2d1961716b5b5
         consensus.SegwitHeight = 481824; // 0000000000000000001c8018d9cb3b742ef25114f27563e3fc4a1902167f9893
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -175,6 +186,17 @@ public:
         consensus.BIP34Hash = uint256S("0x0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8");
         consensus.BIP65Height = 581885; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
         consensus.BIP66Height = 330776; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
+
+        consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
+        consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
+        consensus.pos.fNoRetargeting = false; // only for regtest
+
+        consensus.pos.coinstakeMaturity = 100;
+
+        consensus.pos.allowMintingWithoutPeers = false; // don't mint if no peers connected
+
         consensus.CSVHeight = 770112; // 00000000025e930139bac5c6c31a403776da130831ab85be56578f3fa75369bb
         consensus.SegwitHeight = 834624; // 00000000002b980fcd729daaa248fd9316a5200e9b367f4ff2c42453e84201ca
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -259,6 +281,16 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in functional tests)
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
+        consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
+        consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
+        consensus.pos.fNoRetargeting = false; // only for regtest
+
+        consensus.pos.coinstakeMaturity = 100;
+
+        consensus.pos.allowMintingWithoutPeers = false; // don't mint if no peers connected
+
         consensus.CSVHeight = 432; // CSV activated on regtest (Used in rpc activation tests)
         consensus.SegwitHeight = 0; // SEGWIT is always activated on regtest unless overridden
         consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
