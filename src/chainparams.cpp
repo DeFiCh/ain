@@ -281,8 +281,8 @@ public:
         consensus.mn.historyFrame = 300;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
-        consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";
-        consensus.spv.anchors_address = "n1h1kShnyiw3qRR6MM1FnwShaNVoVwBTnF";
+        consensus.spv.wallet_xpub = "tpubD9xBH3AzwzMyY8yxoWdiopHE5FJEkLHoxumYGqvYFmHbJBC7zajSt9J2yTg7YPQSU8JL3nRohxXgdsvzsBcj2TZEiikUPCiUwstTDH3PPzy";
+        consensus.spv.anchors_address = "mysX5XnqsUedid4JWGenbEg6DuRraqTNYh";
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -392,7 +392,7 @@ public:
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.historyFrame = 300;
 
-        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
+        consensus.spv.creationFee = 1000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";
         consensus.spv.anchors_address = "n1h1kShnyiw3qRR6MM1FnwShaNVoVwBTnF";
 
