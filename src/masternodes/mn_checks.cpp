@@ -37,6 +37,29 @@ CPubKey GetPubkeyFromScriptSig(CScript const & scriptSig)
     return CPubKey(data);
 }
 
+bool HasAuth(CTransaction const & tx, CKeyID const & auth)
+{
+    for (auto input : tx.vin)
+    {
+        if (input.scriptWitness.IsNull()) {
+            if (GetPubkeyFromScriptSig(input.scriptSig).GetID() == auth)
+               return true;
+        }
+        else
+        {
+            /// @todo EXTEND IT TO SUPPORT WITNESS!!
+            auto test = CPubKey(input.scriptWitness.stack.back());
+            auto addr = test.GetID();
+            (void) addr;
+            std::cout << addr.ToString();
+
+            if (test.GetID() == auth)
+               return true;
+        }
+    }
+    return false;
+}
+
 bool CheckMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, Consensus::Params const & consensusParams, int height, bool isCheck)
 {
     bool result = true;
@@ -97,10 +120,12 @@ bool CheckResignMasternodeTx(CMasternodesViewCache & mnview, CTransaction const 
 {
     uint256 nodeId(metadata);
     auto const node = mnview.ExistMasternode(nodeId);
-    if (!node || node->resignHeight != -1 || node->resignTx != uint256() )
+    if (!node || node->resignHeight != -1 || node->resignTx != uint256() || !HasAuth(tx, node->ownerAuthAddress))
     {
+        /// @todo @maxb more verbose? at least, auth?
         return false;
     }
+
     bool result = mnview.OnMasternodeResign(nodeId, tx.GetHash(), height);
     if (!isCheck)
     {

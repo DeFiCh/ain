@@ -17,6 +17,7 @@
 #include <version.h>
 
 //#ifdef ENABLE_WALLET
+#include <wallet/coincontrol.h>
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 //#endif
@@ -141,6 +142,27 @@ CAmount EstimateMnCreationFee()
  *
  *  Issued by: any
 */
+
+void FillInputs(UniValue const & inputs, CMutableTransaction & rawTx)
+{
+    for (unsigned int idx = 0; idx < inputs.size(); idx++)
+    {
+        const UniValue& input = inputs[idx];
+        const UniValue& o = input.get_obj();
+
+        uint256 txid = ParseHashO(o, "txid");
+
+        const UniValue& vout_v = find_value(o, "vout");
+        if (!vout_v.isNum())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
+        int nOutput = vout_v.get_int();
+        if (nOutput < 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
+
+        rawTx.vin.push_back(CTxIn(txid, nOutput));
+    }
+}
+
 UniValue mn_create(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -225,31 +247,39 @@ UniValue mn_create(const JSONRPCRequest& request)
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "collateralAddress (" + collateralAddress + ") does not refer to a P2PKH or P2WPKH address");
     }
+    CKeyID ownerAuthKey = collateralDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&collateralDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&collateralDest));
+    if (pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOwner, ownerAuthKey) ||
+        pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, ownerAuthKey))
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Masternode with collateralAddress == " + collateralAddress + " already exists");
+    }
 
     // owner and operator check
-    CTxDestination destOperator = operatorAuthAddressBase58 == "" ? collateralDest : DecodeDestination(operatorAuthAddressBase58);
+    CTxDestination operatorDest = operatorAuthAddressBase58 == "" ? collateralDest : DecodeDestination(operatorAuthAddressBase58);
     /// @todo @max implement WitnessV0KeyHash! (type 4)
-    PKHash const * operatorAuthAddress = boost::get<PKHash>(&destOperator);
-    if (!operatorAuthAddress || operatorAuthAddress->IsNull())
+
+    if (operatorDest.which() != 1 && operatorDest.which() != 4)
     {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAuthAddress (" + operatorAuthAddressBase58 + ") does not refer to a P2KH address");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAuthAddress (" + operatorAuthAddressBase58 + ") does not refer to a P2PKH or P2WPKH address");
     }
-    CKeyID operatorAuthKey = CKeyID(*operatorAuthAddress);
+    CKeyID operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest)) ;
     if (pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOwner, operatorAuthKey) ||
         pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, operatorAuthKey))
     {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Masternode with operatorAuthAddress already exists");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Masternode with operatorAuthAddress == " + EncodeDestination(operatorDest) + " already exists");
     }
 
     CDataStream metadata(MnTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(MasternodesTxType::CreateMasternode)
-             << operatorAuthKey
-             ;
+             << static_cast<char>(operatorDest.which()) << operatorAuthKey;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
     CMutableTransaction rawTx;
+
+    FillInputs(request.params[0].get_array(), rawTx);
+
     rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(), GetScriptForDestination(collateralDest)));
 
@@ -320,7 +350,30 @@ UniValue mn_resign(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight+GetMnActivationDelay()));
     }
 
-    /// @todo @maxb get coin, check auth (script of coin) matching current wallet
+    CMutableTransaction rawTx;
+
+    UniValue inputs = request.params[0].get_array();
+    if (inputs.size() > 0)
+    {
+        FillInputs(request.params[0].get_array(), rawTx);
+    }
+    else
+    {
+        CTxDestination ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+        std::vector<COutput> vecOutputs;
+        CCoinControl cctl;
+        cctl.m_avoid_address_reuse = false;
+        cctl.m_min_depth = 1;
+        cctl.m_max_depth = 9999999;
+        cctl.matchDestination = ownerDest;
+        pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, MAX_MONEY, 1);
+
+        if (vecOutputs.size() == 0)
+        {
+            throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strprintf("Can't find any UTXO's for ownerAuthAddress (%s). Send some coins and try again!", EncodeDestination(ownerDest)));
+        }
+        rawTx.vin.push_back(CTxIn(vecOutputs[0].tx->GetHash(), vecOutputs[0].i));
+    }
 
     CDataStream metadata(MnTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(MasternodesTxType::ResignMasternode)
@@ -329,7 +382,6 @@ UniValue mn_resign(const JSONRPCRequest& request)
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    CMutableTransaction rawTx;
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     return fundsignsend(rawTx, request);
@@ -342,8 +394,8 @@ UniValue mnToJSON(CMasternode const & node)
     UniValue ret(UniValue::VOBJ);
     /// @todo @max implement WitnessV0KeyHash! (type 4)
 
-    ret.pushKV("ownerAuthAddress", EncodeDestination(PKHash(node.ownerAuthAddress)));
-    ret.pushKV("operatorAuthAddress", EncodeDestination(PKHash(node.operatorAuthAddress)));
+    ret.pushKV("ownerAuthAddress", EncodeDestination(node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress))));
+    ret.pushKV("operatorAuthAddress", EncodeDestination(node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress))));
 
     ret.pushKV("height", static_cast<uint64_t>(node.height));
     ret.pushKV("resignHeight", static_cast<int>(node.resignHeight));
@@ -365,64 +417,64 @@ UniValue dumpnode(uint256 const & id, CMasternode const & node, bool verbose)
     return entry;
 }
 
-//UniValue mn_list(const JSONRPCRequest& request)
-//{
-//    if (request.fHelp || request.params.size() > 2)
-//        throw std::runtime_error(
-//                "mn_list [\"MN-id\",...]\n"
-//                "\nReturns information about specified masternodes (or all, if list of ids is empty).\n"
-//                "\nArguments:\n"
-//                "1.   [\n"
-//                "         \"id\"            (string, optional) A json array of masternode ids\n"
-//                "       ,...\n"
-//                "     ]\n"
-//                "2. \"verbose\"             (bool, optional) Flag to specify verbose list\n"
-//                "\nResult:\n"
-//                "[{...},...]                (array) Json array of json objects with masternodes information\n"
-//                "\nExamples\n"
-//                + HelpExampleCli("mn_list", "\"[]\"")
-//                + HelpExampleRpc("mn_list", "\"[]\"")
-//    );
+UniValue mn_list(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() > 2)
+        throw std::runtime_error(
+                "mn_list [\"MN-id\",...]\n"
+                "\nReturns information about specified masternodes (or all, if list of ids is empty).\n"
+                "\nArguments:\n"
+                "1.   [\n"
+                "         \"id\"            (string, optional) A json array of masternode ids\n"
+                "       ,...\n"
+                "     ]\n"
+                "2. \"verbose\"             (bool, optional) Flag to specify verbose list\n"
+                "\nResult:\n"
+                "[{...},...]                (array) Json array of json objects with masternodes information\n"
+                "\nExamples\n"
+                + HelpExampleCli("mn_list", "\"[]\"")
+                + HelpExampleRpc("mn_list", "\"[]\"")
+    );
 
-//    LOCK(cs_main);
+    LOCK(cs_main);
 
-//    RPCTypeCheck(request.params, { UniValue::VARR, UniValue::VBOOL }, true);
+    RPCTypeCheck(request.params, { UniValue::VARR, UniValue::VBOOL }, true);
 
-//    UniValue inputs(UniValue::VARR);
-//    if (request.params.size() > 0)
-//    {
-//        inputs = request.params[0].get_array();
-//    }
-//    bool verbose = false;
-//    if (request.params.size() > 1)
-//    {
-//        verbose = request.params[1].get_bool();
-//    }
+    UniValue inputs(UniValue::VARR);
+    if (request.params.size() > 0)
+    {
+        inputs = request.params[0].get_array();
+    }
+    bool verbose = false;
+    if (request.params.size() > 1)
+    {
+        verbose = request.params[1].get_bool();
+    }
 
-//    UniValue ret(UniValue::VARR);
-//    CMasternodes const & mns = pmasternodesview->GetMasternodes();
-//    if (inputs.empty())
-//    {
-//        // Dumps all!
-//        for (auto it = mns.begin(); it != mns.end(); ++it)
-//        {
-//            ret.push_back(dumpnode(it->first, it->second, verbose));
-//        }
-//    }
-//    else
-//    {
-//        for (size_t idx = 0; idx < inputs.size(); ++idx)
-//        {
-//            uint256 id = ParseHashV(inputs[idx], "masternode id");
-//            auto const & node = pmasternodesview->ExistMasternode(id);
-//            if (node)
-//            {
-//                ret.push_back(dumpnode(id, *node, verbose));
-//            }
-//        }
-//    }
-//    return ret;
-//}
+    UniValue ret(UniValue::VARR);
+    CMasternodes const & mns = pmasternodesview->GetMasternodes();
+    if (inputs.empty())
+    {
+        // Dumps all!
+        for (auto it = mns.begin(); it != mns.end(); ++it)
+        {
+            ret.push_back(dumpnode(it->first, it->second, verbose));
+        }
+    }
+    else
+    {
+        for (size_t idx = 0; idx < inputs.size(); ++idx)
+        {
+            uint256 id = ParseHashV(inputs[idx], "masternode id");
+            auto const & node = pmasternodesview->ExistMasternode(id);
+            if (node)
+            {
+                ret.push_back(dumpnode(id, *node, verbose));
+            }
+        }
+    }
+    return ret;
+}
 
 
 static const CRPCCommand commands[] =
@@ -432,7 +484,7 @@ static const CRPCCommand commands[] =
   { "masternodes",      "mn_create",                &mn_create,                 { "inputs", "metadata" }  },
   { "masternodes",      "mn_resign",                &mn_resign,                 { "mn_id" }  },
 
-//    { "masternodes",    "mn_list",                    &mn_list,                     true  },
+  { "masternodes",      "mn_list",                  &mn_list,                   { "list", "verbose" } },
 
 };
 
