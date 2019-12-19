@@ -65,7 +65,7 @@ bool HasAuth(CTransaction const & tx, CKeyID const & auth)
     return false;
 }
 
-bool CheckMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, Consensus::Params const & consensusParams, int height, bool isCheck)
+bool CheckMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, Consensus::Params const & consensusParams, int height, int txn, bool isCheck)
 {
     bool result = true;
     if (tx.IsCoinBase())
@@ -81,10 +81,10 @@ bool CheckMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, 
         switch (guess)
         {
             case MasternodesTxType::CreateMasternode:
-                result = result && CheckCreateMasternodeTx(mnview, tx, height, metadata, isCheck);
+                result = result && CheckCreateMasternodeTx(mnview, tx, height, txn, metadata, isCheck);
             break;
             case MasternodesTxType::ResignMasternode:
-                result = result && CheckResignMasternodeTx(mnview, tx, height, metadata, isCheck);
+                result = result && CheckResignMasternodeTx(mnview, tx, height, txn, metadata, isCheck);
             break;
             default:
                 break;
@@ -98,7 +98,7 @@ bool CheckMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, 
  * Checks if given tx is 'txCreateMasternode'. Creates new MN if all checks are passed
  * Issued by: any
  */
-bool CheckCreateMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, bool isCheck)
+bool CheckCreateMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, int height, int txn, std::vector<unsigned char> const & metadata, bool isCheck)
 {
     // Check quick conditions first
     if (tx.vout.size() < 2 ||
@@ -113,7 +113,7 @@ bool CheckCreateMasternodeTx(CMasternodesViewCache & mnview, CTransaction const 
     {
         return false;
     }
-    bool result = mnview.OnMasternodeCreate(tx.GetHash(), node);
+    bool result = mnview.OnMasternodeCreate(tx.GetHash(), node, txn);
     if (!isCheck)
     {
         LogPrintf("MN %s: Creation by tx %s at block %d\n", result ? "APPLYED" : "SKIPPED", tx.GetHash().GetHex(), height);
@@ -121,17 +121,17 @@ bool CheckCreateMasternodeTx(CMasternodesViewCache & mnview, CTransaction const 
     return result;
 }
 
-bool CheckResignMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, int height, const std::vector<unsigned char> & metadata, bool isCheck)
+bool CheckResignMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, int height, int txn, const std::vector<unsigned char> & metadata, bool isCheck)
 {
     uint256 nodeId(metadata);
     auto const node = mnview.ExistMasternode(nodeId);
-    if (!node || node->resignHeight != -1 || node->resignTx != uint256() || !HasAuth(tx, node->ownerAuthAddress))
+    if (!node || node->resignHeight != -1 || !node->resignTx.IsNull() || !HasAuth(tx, node->ownerAuthAddress))
     {
         /// @todo @maxb more verbose? at least, auth?
         return false;
     }
 
-    bool result = mnview.OnMasternodeResign(nodeId, tx.GetHash(), height);
+    bool result = mnview.OnMasternodeResign(nodeId, tx.GetHash(), height, txn);
     if (!isCheck)
     {
         LogPrintf("MN %s: Resign by tx %s at block %d\n", result ? "APPLYED" : "SKIPPED", tx.GetHash().GetHex(), height);
