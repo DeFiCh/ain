@@ -169,7 +169,6 @@ BITCOIN_CORE_H = \
   policy/settings.h \
   pos.h \
   pos_kernel.h \
-  pow.h \
   protocol.h \
   psbt.h \
   random.h \
@@ -290,7 +289,6 @@ libbitcoin_server_a_SOURCES = \
   policy/settings.cpp \
   pos.cpp \
   pos_kernel.cpp \
-  pow.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
   rpc/mining.cpp \
