@@ -13,6 +13,7 @@
 #include <interfaces/wallet.h>
 #include <key.h>
 #include <key_io.h>
+#include <masternodes/masternodes.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <primitives/block.h>
@@ -2540,6 +2541,11 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             }
 
             if (!allow_used_addresses && IsUsedDestination(wtxid, i)) {
+                continue;
+            }
+
+            if (i == 1 && locked_chain.getHeight() && chain().mnCanSpend(wtx.tx->GetHash(), *locked_chain.getHeight()))
+            {
                 continue;
             }
 
