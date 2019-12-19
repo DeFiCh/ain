@@ -62,7 +62,9 @@ CAmount GetMnCreationFee(int height)
 
 CMasternode::CMasternode()
     : ownerAuthAddress()
+    , ownerType(0)
     , operatorAuthAddress()
+    , operatorType(0)
     , height(0)
     , resignHeight(-1)
     , resignTx()
@@ -72,17 +74,22 @@ CMasternode::CMasternode()
 void CMasternode::FromTx(CTransaction const & tx, int heightIn, std::vector<unsigned char> const & metadata)
 {
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> operatorType;
     ss >> operatorAuthAddress;
 
+    ownerType = 0;
     ownerAuthAddress = {};
 
     CTxDestination dest;
     if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
         if (dest.which() == 1) {
+            ownerType = 1;
             ownerAuthAddress = CKeyID(*boost::get<PKHash>(&dest));
         }
-        else if (dest.which() == 4)
+        else if (dest.which() == 4) {
+            ownerType = 4;
             ownerAuthAddress = CKeyID(*boost::get<WitnessV0KeyHash>(&dest));
+        }
     }
 
     height = heightIn;
@@ -108,7 +115,9 @@ std::string CMasternode::GetHumanReadableStatus() const
 
 bool operator==(CMasternode const & a, CMasternode const & b)
 {
-    return (a.ownerAuthAddress == b.ownerAuthAddress &&
+    return (a.ownerType == b.ownerType &&
+            a.ownerAuthAddress == b.ownerAuthAddress &&
+            a.operatorType == b.operatorType &&
             a.operatorAuthAddress == b.operatorAuthAddress &&
             a.height == b.height &&
             a.resignHeight == b.resignHeight &&
@@ -174,10 +183,12 @@ std::pair<uint256, MasternodesTxType> CMasternodesView::GetUndo(CTxUndo::key_typ
 
 bool CMasternodesView::OnMasternodeCreate(uint256 const & nodeId, CMasternode const & node)
 {
-    // Check, that there in no MN with such 'ownerAuthAddress' or 'operatorAuthAddress'
-    if (ExistMasternode(nodeId) ||
-            ExistMasternode(AuthIndex::ByOwner, node.ownerAuthAddress) ||
-            ExistMasternode(AuthIndex::ByOperator, node.operatorAuthAddress)
+    // Check auth addresses and that there in no MN with such owner or operator
+    if ((node.operatorType != 1 && node.operatorType != 4 && node.ownerType != 1 && node.ownerType != 4) ||
+        node.ownerAuthAddress.IsNull() || node.operatorAuthAddress.IsNull() ||
+        ExistMasternode(nodeId) ||
+        ExistMasternode(AuthIndex::ByOwner, node.ownerAuthAddress) ||
+        ExistMasternode(AuthIndex::ByOperator, node.operatorAuthAddress)
         )
     {
         return false;
@@ -194,6 +205,7 @@ bool CMasternodesView::OnMasternodeCreate(uint256 const & nodeId, CMasternode co
 
 bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const & txid, int height)
 {
+    // auth already checked!
     auto const node = ExistMasternode(nodeId);
     if (!node || node->resignHeight != -1 || node->resignTx != uint256() || IsAnchorInvolved(nodeId, height))
     {
@@ -318,13 +330,11 @@ boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmI(AuthInde
     std::string addressBase58 = (where == AuthIndex::ByOperator) ? gArgs.GetArg("-masternode_operator", "") : gArgs.GetArg("-masternode_owner", "");
     if (addressBase58 != "")
     {
-        /// @todo @max implement WitnessV0KeyHash! (type 4)
-
         CTxDestination dest = DecodeDestination(addressBase58);
-        PKHash const * authAddress = boost::get<PKHash>(&dest);
-        if (authAddress)
+        auto const authAddress = dest.which() == 1 ? CKeyID(*boost::get<PKHash>(&dest)) : (dest.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&dest)) : CKeyID());
+        if (!authAddress.IsNull())
         {
-            auto const it = ExistMasternode(where, CKeyID(*authAddress));
+            auto const it = ExistMasternode(where, authAddress);
             if (it)
             {
                 uint256 const & id = (*it)->second;
