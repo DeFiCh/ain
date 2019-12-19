@@ -83,7 +83,7 @@ class RESTTest (BitcoinTestFramework):
 
         self.nodes[0].generate(1)
         self.sync_all()
-        self.nodes[1].generatetoaddress(100, not_related_address)
+        self.nodes[1].generate(nblocks=100, address=not_related_address)
         self.sync_all()
 
         assert_equal(self.nodes[0].getbalance(), 50)
@@ -108,7 +108,7 @@ class RESTTest (BitcoinTestFramework):
 
         self.log.info("Query an unspent TXO using the /getutxos URI")
 
-        self.nodes[1].generatetoaddress(1, not_related_address)
+        self.nodes[1].generate(nblocks=1, address=not_related_address)
         self.sync_all()
         bb_hash = self.nodes[0].getbestblockhash()
 

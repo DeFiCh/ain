@@ -25,7 +25,6 @@
 #include <interfaces/chain.h>
 #include <key.h>
 #include <key_io.h>
-#include <masternodes/masternodes.h>
 #include <masternodes/mn_txdb.h>
 #include <miner.h>
 #include <net.h>
@@ -503,6 +502,7 @@ void SetupServerArgs()
     gArgs.AddArg("-debug=<category>", "Output debugging information (default: -nodebug, supplying <category> is optional). "
         "If <category> is not supplied or if <category> = 1, output all debugging information. <category> can be: " + ListLogCategories() + ".", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-debugexclude=<category>", strprintf("Exclude debugging information for a category. Can be used in conjunction with -debug=1 to output debug logs for all categories except one or more specified categories."), ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-gen", strprintf("Generate coins (default: %u)", DEFAULT_GENERATE), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-logips", strprintf("Include IP addresses in debug output (default: %u)", DEFAULT_LOGIPS), ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-logtimestamps", strprintf("Prepend debug output with timestamp (default: %u)", DEFAULT_LOGTIMESTAMPS), ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-logthreadnames", strprintf("Prepend debug output with name of the originating thread (only available on platforms supporting thread_local) (default: %u)", DEFAULT_LOGTHREADNAMES), ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
@@ -1835,54 +1835,56 @@ bool AppInitMain(InitInterfaces& interfaces)
     }, DUMP_BANS_INTERVAL * 1000);
 
     // ********************************************************* Step 14: start minter thread
-    pos::ThreadStaker::Args stakerParams{};
-    {
-        CKey key;
-        std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-        if (wallets.size() == 0) {
-            LogPrintf("Warning! wallets not found");
-            return true;
-        }
-        std::shared_ptr<CWallet> defaultWallet = wallets[0];
+    if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
+        LOCK(cs_main);
 
-        CTxDestination destination;
+        auto myIDs = pmasternodesview->AmIOperator();
+        if (myIDs)
+        {
+            pos::ThreadStaker::Args stakerParams{};
+            {
+                std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+                if (wallets.size() == 0) {
+                    LogPrintf("Warning! wallets not found\n");
+                    return true;
+                }
+                std::shared_ptr<CWallet> defaultWallet = wallets[0];
 
-        std::string minterAddress = gArgs.GetArg("-minterAddress", "");
-        if (minterAddress != "") {
-            destination = DecodeDestination(minterAddress);
-            if (!IsValidDestination(destination)) {
-                LogPrintf("Error: coinstake destination is invalid");
-                return false;
+                CKey minterKey;
+                bool found =false;
+                for (auto&& wallet : wallets) {
+                    if (wallet->GetKey(myIDs->operatorAuthAddress, minterKey)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    LogPrintf("Error: masternode operator private key not found\n");
+                    return false;
+                }
+
+                CMasternode const & node = *pmasternodesview->ExistMasternode(myIDs->id);
+                CTxDestination destination = node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress));
+
+                CScript coinbaseScript = GetScriptForDestination(destination);
+
+                stakerParams.coinbaseScript = coinbaseScript;
+                stakerParams.minterKey = minterKey;
+                stakerParams.masternodeID = myIDs->id;
             }
-        } else {
-            std::string strErr;
-            if(!defaultWallet->GetNewDestination(OutputType::LEGACY, "", destination, strErr)) {
-                LogPrintf("%s\n", strErr);
-                return false;
-            }
-        }
 
-        CScript coinbaseScript = GetScriptForDestination(destination);
-        CKey minterKey;
-        if (!defaultWallet->GetKey(CKeyID(*boost::get<PKHash>(&destination)), minterKey)) {
-            LogPrintf("Error: private key not found");
-            return false;
-        }
+            // Mint proof-of-stake blocks in background
+            threadGroup.create_thread([=]() {
+                TraceThread("CoinStaker", [=]() {
+                    // Fill Staker Args
 
-        stakerParams.coinbaseScript = coinbaseScript;
-        stakerParams.minterKey = minterKey;
+                    // Run ThreadStaker
+                    pos::ThreadStaker threadStaker{};
+                    threadStaker(stakerParams, chainparams);
+                });
+            });
+        }
     }
-
-    // Mint proof-of-stake blocks in background
-    threadGroup.create_thread([=]() {
-        TraceThread("CoinStaker", [=]() {
-            // Fill Staker Args
-
-            // Run ThreadStaker
-            pos::ThreadStaker threadStaker{};
-            threadStaker(stakerParams, chainparams);
-        });
-    });
 
     return true;
 }
