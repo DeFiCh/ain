@@ -2544,10 +2544,18 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
                 continue;
             }
 
-            if (i == 1 && locked_chain.getHeight() && chain().mnCanSpend(wtx.tx->GetHash(), *locked_chain.getHeight()))
-            {
+            if (i == 1 && locked_chain.getHeight() && !chain().mnCanSpend(wtx.tx->GetHash(), *locked_chain.getHeight())) {
                 continue;
             }
+
+            if (coinControl && coinControl->matchDestination.which() != 0) {
+                CTxDestination dest;
+                ExtractDestination(wtx.tx->vout[i].scriptPubKey, dest);
+                if (dest != coinControl->matchDestination) {
+                    continue;
+                }
+            }
+
 
             bool solvable = IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
