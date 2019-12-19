@@ -68,10 +68,11 @@ bool HasAuth(CTransaction const & tx, CKeyID const & auth)
 bool CheckMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, Consensus::Params const & consensusParams, int height, int txn, bool isCheck)
 {
     bool result = true;
-    if (tx.IsCoinBase())
-    {
-        return true;
-    }
+    /// @todo @maxb txn?
+//    if (tx.IsCoinBase())
+//    {
+//        return true;
+//    }
 
     if (tx.vout.size() > 0)
     {

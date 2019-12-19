@@ -25,53 +25,30 @@ static const std::map<char, MasternodesTxType> MasternodesTxTypeToCode =
 
 int GetMnActivationDelay()
 {
-    static const int MN_ACTIVATION_DELAY = 1500;
-    if (Params().NetworkIDString() == "regtest")
-    {
-        return 10;
-    }
-    return MN_ACTIVATION_DELAY;
+    return Params().GetConsensus().mn.activationDelay;
 }
 
 int GetMnCollateralUnlockDelay()
 {
-    /// @todo @maxb adjust the delay
-    static const int MN_COLLATERAL_DELAY = 100;
-    if (Params().NetworkIDString() == "regtest")
-    {
-        return 10;
-    }
-    return MN_COLLATERAL_DELAY;
+    return Params().GetConsensus().mn.collateralUnlockDelay;
 }
 
 int GetMnHistoryFrame()
 {
-    static const int MN_HISTORY_FRAME = 300;
-    if (Params().NetworkIDString() == "regtest")
-    {
-        return 300;
-    }
-    return MN_HISTORY_FRAME;
+    return Params().GetConsensus().mn.historyFrame;
 }
 
 
 CAmount GetMnCollateralAmount()
 {
-    static const CAmount MN_COLLATERAL_AMOUNT = 1000000 * COIN;
-
-    if (Params().NetworkIDString() == "regtest")
-    {
-        return 10 * COIN;
-    }
-    return MN_COLLATERAL_AMOUNT;
+    return Params().GetConsensus().mn.collateralAmount;
 }
 
 CAmount GetMnCreationFee(int height)
 {
-    return 42 * COIN; // dummy
+    return Params().GetConsensus().mn.creationFee;
 
 //    CAmount blockSubsidy = GetBlockSubsidy(height, Params().GetConsensus());
-
 }
 
 CMasternode::CMasternode()
