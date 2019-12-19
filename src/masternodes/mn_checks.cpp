@@ -2,17 +2,16 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "mn_checks.h"
-#include "masternodes.h"
+#include <masternodes/mn_checks.h>
 
-#include "arith_uint256.h"
-#include "chainparams.h"
-#include "logging.h"
-#include "primitives/block.h"
-#include "primitives/transaction.h"
-#include "txmempool.h"
-#include "univalue/include/univalue.h"
-#include "streams.h"
+#include <arith_uint256.h>
+#include <chainparams.h>
+#include <logging.h>
+#include <primitives/block.h>
+#include <primitives/transaction.h>
+#include <txmempool.h>
+#include <streams.h>
+#include <univalue/include/univalue.h>
 
 #include <algorithm>
 #include <sstream>

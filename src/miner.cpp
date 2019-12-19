@@ -13,6 +13,7 @@
 #include <consensus/merkle.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <masternodes/masternodes.h>
 #include <net.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
@@ -20,7 +21,6 @@
 #include <pos_kernel.h>
 #include <primitives/transaction.h>
 #include <script/standard.h>
-#include <timedata.h>
 #include <util/moneystr.h>
 #include <util/system.h>
 #include <util/validation.h>
@@ -448,23 +448,7 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
 }
 
 namespace pos {
-
-class Staker {
-private:
-    std::chrono::system_clock::time_point nLastSystemTime;
-    std::chrono::steady_clock::time_point nLastSteadyTime;
-
-    int64_t nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
-
-public:
-    enum class Status {
-        error,
-        initWaiting,
-        stakeWaiting,
-        minted,
-    };
-
-    Status stake(CChainParams chainparams, const ThreadStaker::Args& args) {
+    Staker::Status Staker::stake(CChainParams chainparams, const ThreadStaker::Args& args) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
             if(!g_connman)
                 throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
@@ -494,6 +478,20 @@ public:
 
         CBlockIndex* tip = getTip();
 
+        // this part of code stay valid until tip got changed
+        /// @todo @maxb is 'tip' can be changed here? is it possible to pull 'getTip()' and mnview access to the upper (calling 'stake()') block?
+        uint32_t mintedBlocks(0);
+        {
+            LOCK(cs_main);
+            auto nodePtr = pmasternodesview->ExistMasternode(args.masternodeID);
+            if (!nodePtr || !nodePtr->IsActive(tip->height))
+            {
+                /// @todo @maxb may be new status for not activated (or already resigned) MN??
+                return Status::initWaiting;
+            }
+            mintedBlocks = nodePtr->mintedBlocks;
+        }
+
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
             //
             // Create block template
@@ -509,7 +507,7 @@ public:
 
             // find matching Hash
             pblock->height = tip->nHeight + 1;
-            pblock->mintedBlocks = 0; // TODO: (SS) rewrite "0" to actual master nodes mintedBlocks
+            pblock->mintedBlocks = mintedBlocks + 1; // TODO: (SS) rewrite "0" to actual master nodes mintedBlocks
             pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
 
             bool found = false;
@@ -518,7 +516,7 @@ public:
 
                 pblock->nTime = ((uint32_t)coinstakeTime - t);
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, chainparams.GetConsensus(), pmasternodesview.get()).hashOk) {
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, chainparams.GetConsensus(), args.masternodeID).hashOk) {
                     LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                     found = true;
@@ -533,7 +531,7 @@ public:
             //
             // Trying to sign a block
             //
-            auto err = SignPosBlock(pblock, args.minterKey);
+            auto err = pos::SignPosBlock(pblock, args.minterKey);
             if (err) {
                 LogPrint(BCLog::STAKING, "SignPosBlock(): %s \n", *err);
                 return;
@@ -542,10 +540,13 @@ public:
             //
             // Final checks
             //
-            err = CheckSignedBlock(pblock, tip, chainparams);
-            if (err) {
-                LogPrint(BCLog::STAKING, "CheckSignedBlock(): %s \n", *err);
-                return;
+            {
+                LOCK(cs_main);
+                err = pos::CheckSignedBlock(pblock, tip, chainparams, args.minterKey.GetPubKey().GetID());
+                if (err) {
+                    LogPrint(BCLog::STAKING, "CheckSignedBlock(): %s \n", *err);
+                    return;
+                }
             }
 
             if (!ProcessNewBlock(chainparams, pblock, true, nullptr)) {
@@ -559,15 +560,14 @@ public:
         return minted ? Status::minted : Status::stakeWaiting;
     }
 
-private:
-    CBlockIndex* getTip() {
+    CBlockIndex* Staker::getTip() {
         LOCK(cs_main);
         return ::ChainActive().Tip();
     }
 
     template <typename F>
-    bool withSearchInterval(F&& f) {
-        const int64_t nTime = GetAdjustedTime();
+    bool Staker::withSearchInterval(F&& f) {
+        const int64_t nTime = GetAdjustedTime(); // TODO: (SS) GetAdjustedTime() + period minting block
 
         if (nTime > nLastCoinStakeSearchTime) {
             f(nTime, nTime - nLastCoinStakeSearchTime);
@@ -577,47 +577,8 @@ private:
         return false;
     }
 
-    boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
-        // if we are trying to sign a signed proof-of-stake block
-        if (!pblock->sig.empty()) {
-            throw std::logic_error{"Only non-complete PoS block templates are accepted"};
-        }
-
-        // coinstakeTx
-        CMutableTransaction coinstakeTx{*pblock->vtx[0]};
-
-        // Update coinstakeTx after signing
-        pblock->vtx[0] = MakeTransactionRef(coinstakeTx);
-
-        pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-
-        bool signingRes = key.SignCompact(pblock->GetHashToSign(), pblock->sig);
-        if (!signingRes) {
-            return {std::string{} + "Block signing error"};
-        }
-
-        return {};
-    }
-
-    boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams) {
-        uint256 hashBlock = pblock->GetHash();
-
-        // verify hash target and signature of coinstake tx
-        if (!pos::CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pmasternodesview.get()))
-            return {std::string{} + "proof-of-stake checking failed"};
-
-        LogPrint(BCLog::STAKING, "new proof-of-stake block found hash: %s\n", hashBlock.GetHex());
-
-        // Found a solution
-        if (pblock->hashPrevBlock != getTip()->GetBlockHash())
-            return {std::string{} + "minted block is stale"};
-
-        return {};
-    }
-};
-
 int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainparams) {
-    Staker staker{};
+    pos::Staker staker{};
     int32_t nMinted = 0;
     int32_t nTried = 0;
 

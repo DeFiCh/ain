@@ -12,7 +12,6 @@
 #include <base58.h>
 #include <chainparams.h>
 #include <interfaces/node.h>
-#include <key_io.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <protocol.h>

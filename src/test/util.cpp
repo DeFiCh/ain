@@ -6,7 +6,6 @@
 
 #include <chainparams.h>
 #include <consensus/merkle.h>
-#include <key_io.h>
 #include <miner.h>
 #include <outputtype.h>
 #include <pos.h>

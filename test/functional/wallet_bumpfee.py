@@ -188,7 +188,7 @@ def test_small_output_fails(rbf_node, dest_address):
 def test_small_output_with_feerate_succeeds(rbf_node, dest_address):
 
     # Make sure additional inputs exist
-    rbf_node.generatetoaddress(101, rbf_node.getnewaddress())
+    rbf_node.generate(nblocks=101, address=rbf_node.getnewaddress())
     rbfid = spend_one_input(rbf_node, dest_address)
     original_input_list = rbf_node.getrawtransaction(rbfid, 1)["vin"]
     assert_equal(len(original_input_list), 1)
@@ -217,7 +217,7 @@ def test_small_output_with_feerate_succeeds(rbf_node, dest_address):
             if txin["txid"] == original_txin["txid"]
             and txin["vout"] == original_txin["vout"]]
 
-    rbf_node.generatetoaddress(1, rbf_node.getnewaddress())
+    rbf_node.generate(nblocks=1, address=rbf_node.getnewaddress())
     assert_equal(rbf_node.gettransaction(rbfid)["confirmations"], 1)
 
 def test_dust_to_fee(rbf_node, dest_address):
@@ -316,7 +316,7 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address):
 
 def test_bumpfee_metadata(rbf_node, dest_address):
     assert(rbf_node.getbalance() < 49)
-    rbf_node.generatetoaddress(101, rbf_node.getnewaddress())
+    rbf_node.generate(nblocks=101, address=rbf_node.getnewaddress())
     rbfid = rbf_node.sendtoaddress(dest_address, 49, "comment value", "to value")
     bumped_tx = rbf_node.bumpfee(rbfid)
     bumped_wtx = rbf_node.gettransaction(bumped_tx["txid"])
@@ -378,7 +378,7 @@ def submit_block_with_tx(node, tx):
 
 def test_no_more_inputs_fails(rbf_node, dest_address):
     # feerate rbf requires confirmed outputs when change output doesn't exist or is insufficient
-    rbf_node.generatetoaddress(1, dest_address)
+    rbf_node.generate(nblocks=1, address=dest_address)
     # spend all funds, no change output
     rbfid = rbf_node.sendtoaddress(rbf_node.getnewaddress(), rbf_node.getbalance(), "", "", True)
     assert_raises_rpc_error(-4, "Unable to create transaction: Insufficient funds", rbf_node.bumpfee, rbfid)
