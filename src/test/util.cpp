@@ -9,7 +9,7 @@
 #include <key_io.h>
 #include <miner.h>
 #include <outputtype.h>
-#include <pow.h>
+#include <pos.h>
 #include <script/standard.h>
 #include <validation.h>
 #include <validationinterface.h>
@@ -56,10 +56,10 @@ CTxIn MineBlock(const CScript& coinbase_scriptPubKey)
 {
     auto block = PrepareBlock(coinbase_scriptPubKey);
 
-    while (!CheckProofOfWork(block->GetHash(), block->nBits, Params().GetConsensus())) {
-        ++block->nNonce;
-        assert(block->nNonce);
-    }
+//    while (!CheckProofOfWork(block->GetHash(), block->nBits, Params().GetConsensus())) { // TODO: (SS) I broke this
+//        ++block->nNonce;
+//        assert(block->nNonce);
+//    }
 
     bool processed{ProcessNewBlock(Params(), block, true, nullptr)};
     assert(processed);

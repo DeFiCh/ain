@@ -10,6 +10,7 @@
 #include <consensus/params.h>
 #include <flatfile.h>
 #include <primitives/block.h>
+#include <streams.h>
 #include <tinyformat.h>
 #include <uint256.h>
 
@@ -181,11 +182,13 @@ public:
     uint256 hashMerkleRoot;
     uint32_t nTime;
     uint32_t nBits;
-    uint32_t nNonce;
-    boost::optional<CBlockHeader::PoS> proofOfStakeBody;
 
     // proof-of-stake specific fields
+    uint64_t height;
+    uint64_t mintedBlocks;
     uint256 stakeModifier; // hash modifier for proof-of-stake
+    std::vector<unsigned char> sig;
+    CKeyID minter; // memory only
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -209,15 +212,14 @@ public:
         nSequenceId = 0;
         nTimeMax = 0;
 
-        // PoS
-        proofOfStakeBody = boost::optional<CBlockHeader::PoS>{};
-        stakeModifier = uint256{};
-
         nVersion       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
         nBits          = 0;
-        nNonce         = 0;
+        stakeModifier  = uint256{};
+        height         = 0;
+        mintedBlocks   = 0;
+        sig            = {};
     }
 
     CBlockIndex()
@@ -233,9 +235,10 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         nTime          = block.nTime;
         nBits          = block.nBits;
-        nNonce         = block.nNonce;
+        height         = block.height;
+        mintedBlocks   = block.mintedBlocks;
         stakeModifier  = block.stakeModifier;
-        proofOfStakeBody = block.proofOfStakeBody;
+        sig            = block.sig;
     }
 
     FlatFilePos GetBlockPos() const {
@@ -265,9 +268,10 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
         block.nBits          = nBits;
-        block.nNonce         = nNonce;
         block.stakeModifier   = stakeModifier;
-        block.proofOfStakeBody = proofOfStakeBody;
+        block.height         = height;
+        block.mintedBlocks   = mintedBlocks;
+        block.sig            = sig;
         return block;
     }
 
@@ -343,13 +347,15 @@ public:
         return false;
     }
 
-    bool IsProofOfStake() const
-    {
-        return (bool) proofOfStakeBody;
-    }
-
     //! Build the skiplist pointer for this entry.
     void BuildSkip();
+
+    uint256 GetHashToSign() const
+    {
+        CDataStream ss(SER_GETHASH, 0);
+        ss << nVersion << pprev->GetBlockHash() << hashMerkleRoot << nTime << nBits << height << mintedBlocks << stakeModifier;
+        return Hash(ss.begin(), ss.end());
+    }
 
     //! Efficiently find an ancestor of this block.
     CBlockIndex* GetAncestor(int height);
@@ -395,18 +401,15 @@ public:
         if (nStatus & BLOCK_HAVE_UNDO)
             READWRITE(VARINT(nUndoPos));
 
-        //PoS serialization
-        CBlockHeader::PoS loc_proofOfStake = proofOfStakeBody ? *proofOfStakeBody : CBlockHeader::PoS{};
-        READWRITE(loc_proofOfStake);
-        proofOfStakeBody = loc_proofOfStake;
-
         // block header
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
-        READWRITE(nNonce);
+        READWRITE(height);
+        READWRITE(mintedBlocks);
+        READWRITE(sig);
     }
 
     uint256 GetBlockHash() const
@@ -417,9 +420,11 @@ public:
         block.hashMerkleRoot  = hashMerkleRoot;
         block.nTime           = nTime;
         block.nBits           = nBits;
-        block.nNonce          = nNonce;
-        block.stakeModifier    = stakeModifier;
-        block.proofOfStakeBody = proofOfStakeBody;
+        block.stakeModifier   = stakeModifier;
+        block.height          = height;
+        block.mintedBlocks    = mintedBlocks;
+        block.sig             = sig;
+
         return block.GetHash();
     }
 
