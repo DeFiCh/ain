@@ -97,19 +97,14 @@ protected:
 //    void WriteDeadIndex(int height, uint256 const & txid, char type);
 //    void EraseDeadIndex(int height, uint256 const & txid);
 
-    void WriteUndo(int height, uint256 const & txid, uint256 const & affectedNode, char undoType);
-    void EraseUndo(int height, uint256 const & txid);
+    void WriteUndo(int height, CMnTxsUndo const & undo);
+    void EraseUndo(int height);
 
 //    void WriteTeam(int blockHeight, CTeam const & team);
 
 public:
     bool Load() override;
     bool Flush() override;
-
-private:
-//    bool LoadMasternodes(std::function<void(uint256 &, CMasternode &)> onNode) const;
-//    bool LoadUndo(std::function<void(int, uint256 const &, uint256 const &, char)> onUndo) const;
-//    bool LoadTeams(CTeams & teams) const;
 };
 
 #endif // MASTERNODES_TXDB_H

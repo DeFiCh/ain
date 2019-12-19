@@ -1525,7 +1525,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     if (mnview.GetLastHeight() != pindex->nHeight) {
-        error("DisconnectBlock(): mnview: wrong last processed block height (view: %d, current: %d)", mnview.GetLastHeight(), pindex->nHeight);
+        error("DisconnectBlock(): mnview: wrong last processed block hash (view: %d, current: %d)", mnview.GetLastHeight(), pindex->nHeight);
         return DISCONNECT_FAILED;
     }
 
@@ -1563,14 +1563,15 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             }
             // At this point, all of txundo.vprevout should have been moved out.
         }
-
-        // process transaction revert for masternodes
-        mnview.OnUndo(pindex->nHeight, hash);
     }
+    // process transactions revert for masternodes
+    mnview.OnUndoBlock(pindex->nHeight);
 
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
+    /// @todo @maxb temp removed due to assertion
+//    mnview.DecrementMintedBy(CKeyID()); /// @todo @maxb pindex->pprev->minter or smth
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
@@ -1776,8 +1777,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
     if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
-        if (!fJustCheck)
+        if (!fJustCheck) {
             view.SetBestBlock(pindex->GetBlockHash());
+            /// @todo @maxb init view|db with genesis here
+        }
         return true;
     }
 
@@ -2035,7 +2038,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(pindex->phashBlock);
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
-
+    /// @todo @maxb temp removed due to assertion
+//    mnview.IncrementMintedBy(CKeyID()); /// @todo @maxb pindex->minter or smth
     mnview.SetLastHeight(pindex->nHeight);
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
