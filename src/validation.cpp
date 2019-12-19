@@ -3682,13 +3682,6 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
             panchorauths->AddAuth(auth);
             RelayAnchorAuth(auth.GetHash(), *g_connman);
         }
-
-        /// @todo @max temp for debug
-//        CAnchorMessage anc = panchorauths->CreateBestAnchor();
-//        if (anc.sigs.size() >= panchorauths->GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
-
-//        }
-
     }
 
     return true;

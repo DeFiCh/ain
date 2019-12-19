@@ -9,7 +9,6 @@
 #include <uint256.h>
 
 #include <spv/support/BRLargeInt.h>
-//#include <spv/bitcoin/BRMerkleBlock.h>
 
 #include <functional>
 #include <map>
@@ -28,33 +27,13 @@
 #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-//template<typename Stream>
-//inline void Serialize(Stream& s, UInt256 const & hash)
-//{
-//    s << hash.u64[0] << hash.u64[1] << hash.u64[2] << hash.u64[3];
-//}
-
-//template<typename Stream>
-//inline void Unserialize(Stream& s, UInt256 & hash) {
-//    s >> hash.u64[0] >> hash.u64[1] >> hash.u64[2] >> hash.u64[3];
-//}
-
-//template<typename Stream>
-//inline void Serialize(Stream& s, UInt128 const & hash)
-//{
-//    s << hash.u64[0] << hash.u64[1];
-//}
-
-//template<typename Stream>
-//inline void Unserialize(Stream& s, UInt128 & hash) {
-//    s >> hash.u64[0] >> hash.u64[1];
-//}
-
 typedef struct BRWalletStruct BRWallet;
 typedef struct BRPeerManagerStruct BRPeerManager;
 typedef struct BRMerkleBlockStruct BRMerkleBlock;
 typedef struct BRTransactionStruct BRTransaction;
 typedef struct BRPeerStruct BRPeer;
+
+class CAnchor;
 
 namespace spv
 {
@@ -79,20 +58,6 @@ struct TxOutput {
 
 using namespace boost::multi_index;
 
-struct BtcAnchorTx {
-    uint256 txHash;
-    uint256 msgHash;
-    uint32_t blockHeight;
-    uint32_t txIndex;
-
-    uint64_t GetBtcHeight() const { return (static_cast<uint64_t>(blockHeight) << 32) + txIndex; }
-
-    // tags for multiindex
-    struct ByTxHash{};
-    struct ByMsgHash{};
-    struct ByHeight{};
-};
-
 class CSpvWrapper
 {
 private:
@@ -103,20 +68,10 @@ private:
     BRPeerManager *manager;
     std::string spv_internal_logfilename;
 
-    using db_tx_rec    = std::pair<TBytes, std::pair<uint32_t, uint32_t>>; // serialized tx, blockHeight, timeStamp
-    using db_block_rec = std::pair<TBytes, uint32_t>; // serialized block, blockHeight
-
-    typedef boost::multi_index_container<BtcAnchorTx,
-        indexed_by<
-            ordered_unique    < tag<BtcAnchorTx::ByTxHash>,  member<BtcAnchorTx, uint256,  &BtcAnchorTx::txHash> >,
-            ordered_unique    < tag<BtcAnchorTx::ByMsgHash>, member<BtcAnchorTx, uint256,  &BtcAnchorTx::msgHash> >,
-            ordered_unique    < tag<BtcAnchorTx::ByHeight>,  const_mem_fun<BtcAnchorTx, uint64_t, &BtcAnchorTx::GetBtcHeight> >
-        >
-    > BtcAnchorTxIndex;
+    using db_tx_rec    = std::pair<TBytes, std::pair<uint32_t, uint32_t>>;  // serialized tx, blockHeight, timeStamp
+    using db_block_rec = std::pair<TBytes, uint32_t>;                       // serialized block, blockHeight
 
     bool initialSync = true;
-    BtcAnchorTxIndex txIndex;
-    mutable CCriticalSection cs_txIndex;
 
 public:
     CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
@@ -128,7 +83,7 @@ public:
     bool Rescan(int height);
 
     BRPeerManager const * GetPeerManager() const;
-    BRWallet const * GetWallet() const;
+    BRWallet * GetWallet();
 
     bool IsInitialSync() const;
     uint32_t GetLastBlockHeight() const;
@@ -137,15 +92,11 @@ public:
 
     std::vector<BRTransaction *> GetWalletTxs() const;
     bool SendRawTx(TBytes rawtx);
-    int GetTxConfirmations(uint256 const & txHash) const;
-    int GetTxConfirmationsByMsg(uint256 const & msgHash) const;
+//    int GetTxConfirmations(uint256 const & txHash) const;
 
-    BtcAnchorTx const * GetAnchorTx(uint256 const & txHash) const;
-    BtcAnchorTx const * GetAnchorTxByMsg(uint256 const & msgHash) const;
+//    BtcAnchorTx const * GetAnchorTx(uint256 const & txHash) const;
 
-    BtcAnchorTx const * CheckConfirmations(uint256 const & prevTx, uint256 const & msgHash, bool noThrow) const;
-
-    CCriticalSection & GetCS() {return cs_txIndex; }
+//    BtcAnchorTx const * CheckConfirmations(uint256 const & prevTx, uint256 const & tx, bool noThrow) const;
 
 public:
     /// Wallet callbacks
@@ -231,22 +182,19 @@ private:
         return true;
     }
 
-
 protected:
     void CommitBatch();
 
     void WriteBlock(BRMerkleBlock const * block);
-    void WritePeer(BRPeer const * peer);
     void WriteTx(BRTransaction const * tx);
     void EraseTx(uint256 const & hash);
-
-    void IndexDeleteTx(uint256 const & hash);
 };
 
 extern std::unique_ptr<CSpvWrapper> pspv;
 
-bool IsAnchorTx(BRTransaction *tx, uint256 & anchorMsgHash);
+bool IsAnchorTx(BRTransaction *tx, CAnchor & anchor);
 TBytes CreateAnchorTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, TBytes const & meta);
+TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, int parts, int amount);
 TBytes CreateScriptForAddress(std::string const & address);
 
 }
