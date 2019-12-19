@@ -139,7 +139,7 @@ CMasternodesView::ExistMasternode(CMasternodesView::AuthIndex where, CKeyID cons
 {
     CMasternodesByAuth const & index = (where == AuthIndex::ByOwner) ? nodesByOwner : nodesByOperator;
     auto it = index.find(auth);
-    if (it == index.end())
+    if (it == index.end() || it->second == uint256())
     {
         return {};
     }
@@ -152,7 +152,7 @@ CMasternodesView::ExistMasternode(CMasternodesView::AuthIndex where, CKeyID cons
 CMasternode const * CMasternodesView::ExistMasternode(uint256 const & id) const
 {
     CMasternodes::const_iterator it = allNodes.find(id);
-    return it != allNodes.end() ? &it->second : nullptr;
+    return it != allNodes.end() && it->second != CMasternode() ? &it->second : nullptr;
 }
 
 /*
@@ -313,14 +313,6 @@ void CMasternodesView::PruneOlder(int height)
 
     // erase undo info
     txsUndo.erase(txsUndo.begin(), txsUndo.lower_bound(std::make_pair(height, uint256())));
-//    for (auto && it = txsUndo.begin(); it != txsUndo.end(); )
-//    {
-//        if(it->first.first < height)
-//        {
-//            it = txsUndo.erase(it);
-//        }
-//        else ++it;
-//    }
     // erase old teams info
 //    teams.erase(teams.begin(), teams.lower_bound(height));
 }
