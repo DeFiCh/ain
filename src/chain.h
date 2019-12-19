@@ -14,6 +14,7 @@
 #include <uint256.h>
 
 #include <vector>
+#include <boost/optional.hpp>
 
 /**
  * Maximum amount of time that a block timestamp is allowed to exceed the
@@ -181,6 +182,10 @@ public:
     uint32_t nTime;
     uint32_t nBits;
     uint32_t nNonce;
+    boost::optional<CBlockHeader::PoS> proofOfStakeBody;
+
+    // proof-of-stake specific fields
+    uint256 stakeModifier; // hash modifier for proof-of-stake
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -204,6 +209,10 @@ public:
         nSequenceId = 0;
         nTimeMax = 0;
 
+        // PoS
+        proofOfStakeBody = boost::optional<CBlockHeader::PoS>{};
+        stakeModifier = uint256{};
+
         nVersion       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
@@ -225,6 +234,8 @@ public:
         nTime          = block.nTime;
         nBits          = block.nBits;
         nNonce         = block.nNonce;
+        stakeModifier  = block.stakeModifier;
+        proofOfStakeBody = block.proofOfStakeBody;
     }
 
     FlatFilePos GetBlockPos() const {
@@ -255,6 +266,8 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.stakeModifier   = stakeModifier;
+        block.proofOfStakeBody = proofOfStakeBody;
         return block;
     }
 
@@ -300,8 +313,9 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, hashBlock=%s)",
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, stakeModifier=(%s), merkle=%s, hashBlock=%s)",
             pprev, nHeight,
+            stakeModifier.ToString(),
             hashMerkleRoot.ToString(),
             GetBlockHash().ToString());
     }
@@ -327,6 +341,11 @@ public:
             return true;
         }
         return false;
+    }
+
+    bool IsProofOfStake() const
+    {
+        return (bool) proofOfStakeBody;
     }
 
     //! Build the skiplist pointer for this entry.
@@ -376,6 +395,11 @@ public:
         if (nStatus & BLOCK_HAVE_UNDO)
             READWRITE(VARINT(nUndoPos));
 
+        //PoS serialization
+        CBlockHeader::PoS loc_proofOfStake = proofOfStakeBody ? *proofOfStakeBody : CBlockHeader::PoS{};
+        READWRITE(loc_proofOfStake);
+        proofOfStakeBody = loc_proofOfStake;
+
         // block header
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
@@ -394,6 +418,8 @@ public:
         block.nTime           = nTime;
         block.nBits           = nBits;
         block.nNonce          = nNonce;
+        block.stakeModifier    = stakeModifier;
+        block.proofOfStakeBody = proofOfStakeBody;
         return block.GetHash();
     }
 
