@@ -121,7 +121,7 @@ static UniValue fundsignsend(CMutableTransaction & mtx, JSONRPCRequest const & r
 CAmount EstimateMnCreationFee()
 {
     // Current height + (1 day blocks) to avoid rejection;
-    int targetHeight = ::ChainActive().Height() + 1 + (60 * 60 / Params().GetConsensus().nPowTargetSpacing);
+    int targetHeight = ::ChainActive().Height() + 1 + (60 * 60 / Params().GetConsensus().pos.nTargetSpacing);
 //    size_t targetMnCount = pmasternodesview->GetActiveMasternodes().size() < 4 ? 0 : pmasternodesview->GetActiveMasternodes().size() - 4;
     return GetMnCreationFee(targetHeight);
 }
