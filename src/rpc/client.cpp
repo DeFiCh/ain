@@ -171,6 +171,9 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "stop", 0, "wait" },
     { "mn_create", 0, "inputs" },
     { "mn_create", 1, "metadata" },
+    { "mn_resign", 0, "inputs" },
+    { "mn_list", 0, "list" },
+    { "mn_list", 1, "verbose" },
 };
 // clang-format on
 
