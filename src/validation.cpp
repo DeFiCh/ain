@@ -155,6 +155,7 @@ namespace {
 
 CBlockIndex* LookupBlockIndex(const uint256& hash)
 {
+    std::cout << "!!!LookupBlockIndex : " << hash.ToString() << std::endl;
     AssertLockHeld(cs_main);
     BlockMap::const_iterator it = g_blockman.m_block_index.find(hash);
     return it == g_blockman.m_block_index.end() ? nullptr : it->second;
@@ -3220,7 +3221,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
 static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
-
+    std::cout << "!!!ContextualCheckBlock  : " << nHeight << std::endl;
     // Start enforcing BIP113 (Median Time Past).
     int nLockTimeFlags = 0;
     if (nHeight >= consensusParams.CSVHeight) {
