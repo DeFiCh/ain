@@ -86,14 +86,14 @@ void CMasternodesViewDB::EraseMasternode(uint256 const & txid)
 //    BatchErase(make_pair(make_pair(DB_PRUNEDEAD, static_cast<int32_t>(height)), txid));
 //}
 
-void CMasternodesViewDB::WriteUndo(int height, uint256 const & txid, uint256 const & affectedItem, char undoType)
+void CMasternodesViewDB::WriteUndo(int height, CMnTxsUndo const & undo)
 {
-    BatchWrite(make_pair(DB_MASTERNODESUNDO, make_pair(static_cast<int32_t>(height), txid)), make_pair(affectedItem, undoType));
+    BatchWrite(make_pair(DB_MASTERNODESUNDO, static_cast<int32_t>(height)), undo);
 }
 
-void CMasternodesViewDB::EraseUndo(int height, uint256 const & txid)
+void CMasternodesViewDB::EraseUndo(int height)
 {
-    BatchErase(make_pair(DB_MASTERNODESUNDO, make_pair(static_cast<int32_t>(height), txid)));
+    BatchErase(make_pair(DB_MASTERNODESUNDO, static_cast<int32_t>(height)));
 }
 
 //void CMasternodesViewDB::WriteTeam(int blockHeight, const CTeam & team)
@@ -119,14 +119,14 @@ bool CMasternodesViewDB::Load()
         nodesByOwner.insert(std::make_pair(node.ownerAuthAddress, nodeId));
         nodesByOperator.insert(std::make_pair(node.operatorAuthAddress, nodeId));
     });
-    result = result && LoadTable(DB_MASTERNODESUNDO, txsUndo);
+    result = result && LoadTable(DB_MASTERNODESUNDO, blocksUndo);
 
     // Load teams information
 //    result = result && LoadTable(DB_TEAM, teams);
 
     if (result)
 //        LogPrintf("MN: db loaded: last height: %d; masternodes: %d; common undo: %d; teams: %d\n", lastHeight, allNodes.size(), txsUndo.size(), teams.size());
-        LogPrintf("MN: db loaded: last height: %d; masternodes: %d; common undo: %d\n", lastHeight, allNodes.size(), txsUndo.size());
+        LogPrintf("MN: db loaded: last height: %d; masternodes: %d; common undo: %d\n", lastHeight, allNodes.size(), blocksUndo.size());
     else {
         LogPrintf("MN: fail to load database!");
     }
@@ -152,14 +152,14 @@ bool CMasternodesViewDB::Flush()
     }
 
     int nUndo{0};
-    for (auto && it = txsUndo.begin(); it != txsUndo.end(); )
+    for (auto && it = blocksUndo.begin(); it != blocksUndo.end(); )
     {
-        if (it->second.first == uint256()) {
-            EraseUndo(it->first.first, it->first.second);
-            it = txsUndo.erase(it);
+        if (it->second.size() == 0) {
+            EraseUndo(it->first);
+            it = blocksUndo.erase(it);
         }
         else {
-            WriteUndo(it->first.first, it->first.second, it->second.first, static_cast<unsigned char>(it->second.second));
+            WriteUndo(it->first, it->second);
             ++nUndo;
             ++it;
         }
