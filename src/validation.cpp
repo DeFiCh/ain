@@ -550,6 +550,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 }
                 return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
             }
+
+            // Special check of collateral spending for _not_created_mn_ (cheating?), those creation tx yet in mempool. CMasternode::CanSpend() (and CheckTxInputs()) will skip this situation
+            if (txin.prevout.n == 1 && IsMempooledMnCreate(pool, txin.prevout.hash)) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "mn-collateral-locked-in-mempool",
+                                         strprintf("tried to spend collateral of non-created mn %s, cheater?", txin.prevout.hash.ToString()));
+            }
         }
 
         // Bring the best block into scope
@@ -1988,7 +1994,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            /// @todo @maxb check for collateral spending!!!
             // we will never fail, but skip
             CheckMasternodeTx(mnview, tx, chainparams.GetConsensus(), pindex->nHeight, fJustCheck);
 
@@ -4088,7 +4093,7 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
         AddCoins(inputs, *tx, pindex->nHeight, true);
 
         /// @todo @maxb turn it on when you are sure it is safe
-//        CheckRewardRateTx(mnview, *tx, params.GetConsensus(), pindex->nHeight, false);
+//        CheckMasternodeTx(mnview, *tx, params.GetConsensus(), pindex->nHeight, false);
     }
     return true;
 }
