@@ -4645,7 +4645,7 @@ int CWalletTx::GetDepthInMainChain(interfaces::Chain::Lock& locked_chain) const
 
 int CWalletTx::GetBlocksToMaturity(interfaces::Chain::Lock& locked_chain) const
 {
-    if (!IsCoinStake())
+    if (!IsCoinBase())
         return 0;
     int chain_depth = GetDepthInMainChain(locked_chain);
     assert(chain_depth >= 0); // coinstake tx should not be conflicted

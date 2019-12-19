@@ -64,6 +64,7 @@ struct Params {
      * BIP 16 exception blocks. */
     int SegwitHeight;
 
+    /** Proof of stake parameters */
     struct PoS {
         uint256 diffLimit;
         int64_t nTargetTimespan;
@@ -81,19 +82,13 @@ struct Params {
 
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
-     * (nPowTargetTimespan / nPowTargetSpacing) which is also used for BIP9 deployments.
+     * (nTargetTimespan / nTargetSpacing) which is also used for BIP9 deployments.
      * Examples: 1916 for 95%, 1512 for testchains.
      */
     uint32_t nRuleChangeActivationThreshold;
     uint32_t nMinerConfirmationWindow;
     BIP9Deployment vDeployments[MAX_VERSION_BITS_DEPLOYMENTS];
-    /** Proof of work parameters */
-    uint256 powLimit;
-    bool fPowAllowMinDifficultyBlocks;
-    bool fPowNoRetargeting;
-    int64_t nPowTargetSpacing;
-    int64_t nPowTargetTimespan;
-    int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
+
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
 };
