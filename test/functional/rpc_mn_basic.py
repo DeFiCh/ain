@@ -11,11 +11,9 @@
 from test_framework.test_framework import BitcoinTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, assert_greater_than, \
-    connect_nodes_bi, disconnect_nodes, \
-    sync_blocks, sync_mempools
+from test_framework.util import assert_equal, \
+    connect_nodes_bi
 
-from decimal import Decimal
 import pprint
 import time
 
@@ -24,15 +22,12 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         self.num_nodes = 3
         self.setup_clean_chain = True
 
-    def gen(self, count=1, node_id=0):
-        self.nodes[node_id].generatetoaddress(count, self.nodes[node_id].get_deterministic_priv_key().address)
-
-
     def run_test(self):
-        pp = pprint.PrettyPrinter(indent=4)
+        pprint.PrettyPrinter(indent=4)
 
-        assert_equal(self.nodes[0].mn_list(), {})
-        self.gen(100)
+        assert_equal(len(self.nodes[0].mn_list()), 4)
+        self.nodes[0].generate(100)
+        time.sleep(2)
         self.sync_blocks()
 
         # Stop node #2 for future revert
@@ -54,7 +49,7 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         assert("Insufficient funds" in errorString)
 
         # Create node0
-        self.gen(2)
+        self.nodes[0].generate(1)
         idnode0 = self.nodes[0].mn_create([], {
             # "operatorAuthAddress": operator0,
             "collateralAddress": collateral0
@@ -72,9 +67,9 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
             errorString = e.error['message']
         assert("mn-collateral-locked-in-mempool," in errorString)
 
-        self.gen()
+        self.nodes[0].generate(1)
         # At this point, mn was created
-        assert_equal(self.nodes[0].mn_list([], False), { idnode0: "created"} )
+        assert_equal(self.nodes[0].mn_list([idnode0], False), { idnode0: "created"} )
 
         self.sync_blocks(self.nodes[0:2])
         # Stop node #1 for future revert
@@ -98,29 +93,30 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
             errorString = e.error['message']
         assert("You are not the owner" in errorString)
 
-        # Restart with new params, but have no money on auth address
-        self.restart_node(0, extra_args=['-masternode_owner='+collateral0]) 
+        # Restart with new params, but have no money on ownerauth address
+        self.restart_node(0, extra_args=['-masternode_owner='+collateral0])
+        self.nodes[0].generate(1) # to broke "initial block downloading"
         try:
             self.nodes[0].mn_resign([], idnode0)
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Can't find any UTXO's" in errorString)
 
-        # Funding auth address and successful resign        
+        # Funding auth address and successful resign
         fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
-        self.gen()
+        self.nodes[0].generate(1)
         resignTx = self.nodes[0].mn_resign([], idnode0)
-        self.gen()
+        self.nodes[0].generate(1)
         assert_equal(self.nodes[0].mn_list()[idnode0]['status'], "created, resigned")
 
         # Spend unlocked collateral
         # This checks two cases at once:
         # 1) Finally, we should not fail on accept to mempool
         # 2) But we don't mine blocks after it, so, after chain reorg (on 'REVERTING'), we should not fail: tx should be removed from mempool!
-        self.gen(12)
+        self.nodes[0].generate(12)
         sendedTxHash = self.nodes[0].sendrawtransaction(signedTx['hex'])
         # Don't mine here, check mempool after reorg!
-        # self.gen(1)
+        # self.nodes[0].generate(1)
 
 
         # REVERTING:
@@ -128,26 +124,28 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
 
         # Revert resign!
         self.start_node(1)
-        self.gen(20, 1)
+        self.nodes[1].generate(20)
         # Check that collateral spending tx is still in the mempool
-        assert_equal(sendedTxHash, self.nodes[0].getrawmempool()[0]);
+        assert_equal(sendedTxHash, self.nodes[0].getrawmempool()[0])
+
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_blocks(self.nodes[0:2])
+
         # Check that collateral spending tx was deleted
         # print ("CreateTx", idnode0)
         # print ("ResignTx", resignTx)
         # print ("FundingTx", fundingTx)
         # print ("SpendTx", sendedTxHash)
-        assert_equal(self.nodes[0].getrawmempool(), [fundingTx, resignTx]);
+        assert_equal(self.nodes[0].getrawmempool(), [fundingTx, resignTx])
         assert_equal(self.nodes[0].mn_list()[idnode0]['status'], "active")
 
         # Revert creation!
         self.start_node(2)
-        self.gen(25, 2)
+        self.nodes[2].generate(25)
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
-        assert_equal(self.nodes[0].mn_list(), {})
-        assert_equal(self.nodes[0].getrawmempool(), [idnode0, fundingTx, resignTx]);
+        assert_equal(len(self.nodes[0].mn_list()), 4)
+        assert_equal(self.nodes[0].getrawmempool(), [idnode0, fundingTx, resignTx])
 
 if __name__ == '__main__':
     MasternodesRpcBasicTest ().main ()
