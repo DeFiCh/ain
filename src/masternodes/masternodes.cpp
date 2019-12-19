@@ -30,7 +30,7 @@ int GetMnActivationDelay()
     {
         return 10;
     }
-    return MN_ACTIVATION_DELAY ;
+    return MN_ACTIVATION_DELAY;
 }
 
 int GetMnCollateralUnlockDelay()
@@ -41,7 +41,17 @@ int GetMnCollateralUnlockDelay()
     {
         return 10;
     }
-    return MN_COLLATERAL_DELAY ;
+    return MN_COLLATERAL_DELAY;
+}
+
+int GetMnHistoryFrame()
+{
+    static const int MN_HISTORY_FRAME = 300;
+    if (Params().NetworkIDString() == "regtest")
+    {
+        return 300;
+    }
+    return MN_HISTORY_FRAME;
 }
 
 
@@ -65,11 +75,12 @@ CAmount GetMnCreationFee(int height)
 }
 
 CMasternode::CMasternode()
-    : ownerAuthAddress()
+    : mintedBlocks(0)
+    , ownerAuthAddress()
     , ownerType(0)
     , operatorAuthAddress()
     , operatorType(0)
-    , height(0)
+    , creationHeight(0)
     , resignHeight(-1)
     , resignTx()
 {
@@ -96,10 +107,11 @@ void CMasternode::FromTx(CTransaction const & tx, int heightIn, std::vector<unsi
         }
     }
 
-    height = heightIn;
+    creationHeight = heightIn;
     resignHeight = -1;
 
     resignTx = {};
+    mintedBlocks = 0;
 }
 
 std::string CMasternode::GetHumanReadableStatus() const
@@ -109,8 +121,8 @@ std::string CMasternode::GetHumanReadableStatus() const
     {
         return "active";
     }
-    status += (height + GetMnActivationDelay() <= ::ChainActive().Height()) ? "activated" : "created";
-    if (resignHeight != -1 || resignTx != uint256())
+    status += ((creationHeight == 0 || creationHeight + GetMnActivationDelay() <= ::ChainActive().Height())) ? "activated" : "created";
+    if (resignHeight != -1 || !resignTx.IsNull())
     {
         status += ", resigned";
     }
@@ -119,11 +131,12 @@ std::string CMasternode::GetHumanReadableStatus() const
 
 bool operator==(CMasternode const & a, CMasternode const & b)
 {
-    return (a.ownerType == b.ownerType &&
+    return (a.mintedBlocks == b.mintedBlocks &&
+            a.ownerType == b.ownerType &&
             a.ownerAuthAddress == b.ownerAuthAddress &&
             a.operatorType == b.operatorType &&
             a.operatorAuthAddress == b.operatorAuthAddress &&
-            a.height == b.height &&
+            a.creationHeight == b.creationHeight &&
             a.resignHeight == b.resignHeight &&
             a.resignTx == b.resignTx
             );
@@ -143,7 +156,7 @@ CMasternodesView::ExistMasternode(CMasternodesView::AuthIndex where, CKeyID cons
 {
     CMasternodesByAuth const & index = (where == AuthIndex::ByOwner) ? nodesByOwner : nodesByOperator;
     auto it = index.find(auth);
-    if (it == index.end() || it->second == uint256())
+    if (it == index.end() || it->second.IsNull())
     {
         return {};
     }
@@ -178,14 +191,14 @@ bool CMasternodesView::IsAnchorInvolved(const uint256 & nodeId, int height) cons
     return false;
 }
 
-std::pair<uint256, MasternodesTxType> CMasternodesView::GetUndo(CTxUndo::key_type key) const
+CMasternodesView::CMnBlocksUndo::mapped_type const & CMasternodesView::GetBlockUndo(CMnBlocksUndo::key_type key) const
 {
-    static std::pair<uint256, MasternodesTxType> const Empty = {};
-    CTxUndo::const_iterator it = txsUndo.find(key);
-    return it != txsUndo.end() ? it->second : Empty;
+    static CMnBlocksUndo::mapped_type const Empty = {};
+    CMnBlocksUndo::const_iterator it = blocksUndo.find(key);
+    return it != blocksUndo.end() ? it->second : Empty;
 }
 
-bool CMasternodesView::OnMasternodeCreate(uint256 const & nodeId, CMasternode const & node)
+bool CMasternodesView::OnMasternodeCreate(uint256 const & nodeId, CMasternode const & node, int txn)
 {
     // Check auth addresses and that there in no MN with such owner or operator
     if ((node.operatorType != 1 && node.operatorType != 4 && node.ownerType != 1 && node.ownerType != 4) ||
@@ -202,16 +215,17 @@ bool CMasternodesView::OnMasternodeCreate(uint256 const & nodeId, CMasternode co
     nodesByOwner[node.ownerAuthAddress] = nodeId;
     nodesByOperator[node.operatorAuthAddress] = nodeId;
 
-    txsUndo[std::make_pair(node.height, nodeId)] = std::make_pair(nodeId, MasternodesTxType::CreateMasternode);
+//    blocksUndo[std::make_pair(node.height, txn)] = std::make_pair(nodeId, MasternodesTxType::CreateMasternode);
+    blocksUndo[node.creationHeight][txn] = std::make_pair(nodeId, MasternodesTxType::CreateMasternode);
 
     return true;
 }
 
-bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const & txid, int height)
+bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const & txid, int height, int txn)
 {
     // auth already checked!
     auto const node = ExistMasternode(nodeId);
-    if (!node || node->resignHeight != -1 || node->resignTx != uint256() || IsAnchorInvolved(nodeId, height))
+    if (!node || node->resignHeight != -1 || !node->resignTx.IsNull() || IsAnchorInvolved(nodeId, height))
     {
         return false;
     }
@@ -220,46 +234,81 @@ bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const 
     allNodes[nodeId].resignTx = txid;
     allNodes[nodeId].resignHeight = height;
 
-    txsUndo[std::make_pair(height, txid)] = std::make_pair(nodeId, MasternodesTxType::ResignMasternode);
+//    blocksUndo[std::make_pair(height, txn)] = std::make_pair(nodeId, MasternodesTxType::ResignMasternode);
+    blocksUndo[height][txn] = std::make_pair(nodeId, MasternodesTxType::ResignMasternode);
 
     return true;
 }
 
 
-void CMasternodesView::OnUndo(int height, uint256 const & txid)
+CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
 {
-    auto const key = std::make_pair(height, txid);
-    auto undoData = GetUndo(key);
+    assert(height == lastHeight);
 
-    //  Undo rec = (key = [height, txid]; value = std::pair<uint256 affected_object_id, MasternodesTxType> )
+    CMasternodesViewCache backup(this); // dummy, not used as "true base"
 
-    if (undoData.first != uint256()) {
-        auto const id = undoData.first;
-        auto const txType = undoData.second;
-        CMasternode const & node = *ExistMasternode(id);
+    auto undoTxs = GetBlockUndo(height);
 
-        switch (txType)
+    if (!undoTxs.empty())
+    {
+        for (auto undoData = undoTxs.rbegin(); undoData != undoTxs.rend(); ++undoData)
         {
-            case MasternodesTxType::CreateMasternode:
+            auto const id = undoData->second.first;
+            auto const txType = undoData->second.second;
+            CMasternode const & node = *ExistMasternode(id);
+
+            switch (txType)
             {
-                nodesByOwner[node.ownerAuthAddress] = {};
-                nodesByOperator[node.operatorAuthAddress] = {};
-                allNodes[id] = {};
-            }
-            break;
-            case MasternodesTxType::ResignMasternode:
-            {
-                allNodes[id] = node;    // !! cause may be cached!
-                allNodes[id].resignHeight = -1;
-                allNodes[id].resignTx = {};
-            }
-            break;
-            default:
+                case MasternodesTxType::CreateMasternode:
+                {
+                    backup.nodesByOwner[node.ownerAuthAddress] = id;
+                    backup.nodesByOperator[node.operatorAuthAddress] = id;
+                    backup.allNodes[id] = node;
+
+                    nodesByOwner[node.ownerAuthAddress] = {};
+                    nodesByOperator[node.operatorAuthAddress] = {};
+                    allNodes[id] = {};
+                }
                 break;
+                case MasternodesTxType::ResignMasternode:
+                {
+                    backup.allNodes[id] = node; // nodesByOwner && nodesByOperator stay untouched
+
+                    allNodes[id] = node;    // !! cause may be cached!
+                    allNodes[id].resignHeight = -1;
+                    allNodes[id].resignTx = {};
+                }
+                break;
+                default:
+                    break;
+            }
         }
-        txsUndo[key] = {};
+        backup.blocksUndo[height] = undoTxs; // not `blocksUndo[height]`!! cause may be cached!
+        blocksUndo[height] = {};
     }
+    backup.lastHeight = lastHeight;
+    --lastHeight;
+
+    return backup; // it is new value diff for height+1
 }
+
+//bool CMasternodesView::OnConnectBlock(int height, const CKeyID & minter)
+//{
+//    lastHeight = height;
+
+//    auto nodePtr = ExistMasternode(minter);
+//    assert(nodePtr);
+
+//    if (nodePtr)
+//    {
+//        allNodes[minter] = *nodePtr; // !! cause may be cached!
+//        ++allNodes[minter].mintedBlocks;
+
+//        return true;
+//    }
+//    return false;
+//}
+
 
 //bool CMasternodesView::IsTeamMember(int height, CKeyID const & operatorAuth) const
 //{
@@ -316,7 +365,7 @@ void CMasternodesView::PruneOlder(int height)
     }
 
     // erase undo info
-    txsUndo.erase(txsUndo.begin(), txsUndo.lower_bound(std::make_pair(height, uint256())));
+    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
     // erase old teams info
 //    teams.erase(teams.begin(), teams.lower_bound(height));
 }
@@ -371,6 +420,27 @@ boost::optional<CMasternodesView::CMasternodeIDs> CMasternodesView::AmIOwner() c
 //    return {};
 //}
 
+void CMasternodesView::ApplyCache(const CMasternodesView * cache)
+{
+    lastHeight = cache->lastHeight;
+
+    for (auto const & pair : cache->allNodes) {
+        allNodes[pair.first] = pair.second; // possible empty (if deleted)
+    }
+
+    for (auto const & pair : cache->nodesByOwner) {
+        nodesByOwner[pair.first] = pair.second; // possible empty (if deleted)
+    }
+
+    for (auto const & pair : cache->nodesByOperator) {
+        nodesByOperator[pair.first] = pair.second; // possible empty (if deleted)
+    }
+
+    for (auto const & pair : cache->blocksUndo) {
+        blocksUndo[pair.first] = pair.second; // possible empty (if deleted)
+    }
+}
+
 void CMasternodesView::Clear()
 {
     lastHeight = 0;
@@ -378,7 +448,7 @@ void CMasternodesView::Clear()
     nodesByOwner.clear();
     nodesByOperator.clear();
 
-    txsUndo.clear();
+    blocksUndo.clear();
 //    teams.clear();
 }
 
@@ -415,3 +485,4 @@ MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<uns
     metadata.erase(metadata.begin(), metadata.begin() + MnTxMarker.size() + 1);
     return it->second;
 }
+
