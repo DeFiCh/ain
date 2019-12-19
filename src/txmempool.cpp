@@ -8,6 +8,8 @@
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <masternodes/masternodes.h>
+#include <masternodes/mn_checks.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <policy/fees.h>
@@ -508,6 +510,16 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
                     txToRemove.insert(it);
                     break;
                 }
+            }
+        } else {
+            for (const CTxIn& txin : tx.vin) {
+
+                if (txin.prevout.n == 1 && (!pmasternodesview->CanSpend(txin.prevout.hash, nMemPoolHeight) || IsMempooledMnCreate(*this, txin.prevout.hash)))
+                {
+                    txToRemove.insert(it);
+                    break;
+                }
+
             }
         }
         if (!validLP) {
