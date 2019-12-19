@@ -58,14 +58,11 @@ static CWallet* GetWallet(const JSONRPCRequest& request)
     return pwallet;
 }
 
-CAnchorMessage createAnchorMessage(std::string const & rewardAddress, uint256 const & forBlock = uint256())
+CAnchor createAnchorMessage(CTxDestination const & rewardDest, uint256 const & forBlock = uint256())
 {
-    spv::TBytes rawscript(spv::CreateScriptForAddress(rewardAddress));
-    if (rawscript.size() == 0) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Wrong reward address: " + rewardAddress);
-    }
-    CAnchorMessage const anchor = panchorauths->CreateBestAnchor(forBlock, CScript(rawscript.begin(), rawscript.end()));
+    CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest, forBlock);
 
+    /// @todo @maxb conform to "defi" current team? (from last finalize tx)
     auto minQuorum = GetMinAnchorQuorum(panchors->GetCurrentTeam(panchors->GetActiveAnchor()));
     if (anchor.sigs.size() < minQuorum) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached (" + std::to_string(anchor.sigs.size()) + ", need "+ std::to_string(minQuorum) + ") ");
@@ -98,6 +95,101 @@ UniValue spv_sendrawtx(const JSONRPCRequest& request)
     spv::pspv->SendRawTx(ParseHexV(request.params[0], "rawtx"));
     return UniValue("");
 }
+
+/*
+ * Issued by: any
+*/
+UniValue spv_splitutxo(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_createanchor",
+        "\nCreates (and submits to local node and network) a masternode creation transaction with given metadata, spending the given inputs..\n"
+        "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+//            {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+//                {
+//                    {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "", /// @todo @maxb change to 'NO'
+//                        {
+//                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+//                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+//                            {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "Amount of output"},
+//                            {"privkey", RPCArg::Type::STR, RPCArg::Optional::NO, "WIF private key for signing this output"},
+//                        },
+//                    },
+//                },
+//            },
+            {"parts", RPCArg::Type::NUM, RPCArg::Optional::NO, "" },
+            {"amount", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, ""},
+        },
+        RPCResult{
+            "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
+        },
+        RPCExamples{
+            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
+                                               "\\\"collateralAddress\\\":\\\"address\\\""
+                                            "}\"")
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
+                                             "\\\"collateralAddress\\\":\\\"address\\\""
+                                            "}\"")
+        },
+    }.Check(request);
+
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create anchor while still in Initial Block Download");
+    }
+
+    RPCTypeCheck(request.params, { UniValue::VNUM, UniValue::VNUM }, true);
+//    if (request.params[0].isNull() || request.params[1].isNull())
+//    {
+//        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 and 2 must be non-null, and argument 2 expected as object with "
+//                                                  "{\"hash\",\"rewardAddress\"}");
+//    }
+    int parts = request.params[0].get_int();
+    int amount = request.params[1].empty() ? 0 : request.params[1].get_int();
+
+//    uint256 const hash(ParseHashV(metaObj["hash"], "hash"));
+//    std::string rewardAddress = metaObj["rewardAddress"].getValStr();
+//    CTxDestination rewardDest = DecodeDestination(rewardAddress);
+//    if (rewardDest.which() != 1 && rewardDest.which() != 4)
+//    {
+//        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
+//    }
+//    CKeyID rewardKey = rewardDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&rewardDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
+
+    auto locked_chain = pwallet->chain().lock();
+
+    /// @todo @maxb temporary, tests
+
+//    CTxDestination rewardDest = DecodeDestination("mmjrUWSKQqnkWzyS98GCuFxA7TXcK3bc3A");
+
+
+    /// @todo @maxb temporary, tests
+//    auto rawtx = spv::CreateAnchorTx("e6f0a5e4db120f6877710bbbb5f9523162b6456bb1d4d89b854e60a794e03b46", 1, 3271995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
+    auto rawtx = spv::CreateSplitTx("1251d1fc46d104564ca8311696d561bf7de5c0e336039c7ccfe103f7cdfc026e", 2, 3071995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", parts, amount);
+
+    bool send = false;
+    if (send)
+        spv::pspv->SendRawTx(rawtx);
+
+    CMutableTransaction mtx;
+    /// @todo @maxb implement separated bitcoin serialize/deserialize
+    DecodeHexTx(mtx, std::string(rawtx.begin(), rawtx.end()), true);
+
+    UniValue result(UniValue::VOBJ);
+//    result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
+//    result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
+    result.pushKV("txHex", HexStr(rawtx));
+    /// @attention WRONG HASH!!!
+    result.pushKV("txHash", CTransaction(mtx).GetHash().ToString());
+
+    return result;
+}
+
 
 /*
  * Create, sign and send (optional) anchor tx using only spv api
@@ -166,31 +258,41 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
 
 //    uint256 const hash(ParseHashV(metaObj["hash"], "hash"));
 //    std::string rewardAddress = metaObj["rewardAddress"].getValStr();
+//    CTxDestination rewardDest = DecodeDestination(rewardAddress);
+//    if (rewardDest.which() != 1 && rewardDest.which() != 4)
+//    {
+//        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
+//    }
+//    CKeyID rewardKey = rewardDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&rewardDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
 
     auto locked_chain = pwallet->chain().lock();
 
     /// @todo @maxb temporary, tests
-    CAnchorMessage const anchor = createAnchorMessage("mmjrUWSKQqnkWzyS98GCuFxA7TXcK3bc3A");
-    //    CAnchorMessage const anchor = createAnchorMessage(rewardAddress, hash);
-    CScript scriptMeta = CScript() << OP_RETURN << spv::BtcAnchorMarker << ToByteVector(anchor.GetHash());
 
-    /// @todo @maxb temporary, tests
-    auto rawtx = spv::CreateAnchorTx("8c7a0268364d5a5a0696ba50e51e2b23c2f288acdca1e0188324fe3caee720b6", 2, 2663303, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(scriptMeta));
-
-    bool send = true;
-    if (send)
-        spv::pspv->SendRawTx(rawtx);
+    CTxDestination rewardDest = DecodeDestination("mmjrUWSKQqnkWzyS98GCuFxA7TXcK3bc3A");
+    CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest/*, forBlock*/);
+    if (anchor.sigs.empty()) {
+        throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
+    }
 
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << anchor;
+
+    /// @todo @maxb temporary, tests
+//    auto rawtx = spv::CreateAnchorTx("e6f0a5e4db120f6877710bbbb5f9523162b6456bb1d4d89b854e60a794e03b46", 1, 3271995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
+    auto rawtx = spv::CreateAnchorTx("a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963", 3, 2262303, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
+
+    bool send = false;
+    if (send)
+        spv::pspv->SendRawTx(rawtx);
 
     CMutableTransaction mtx;
     /// @todo @maxb implement separated bitcoin serialize/deserialize
     DecodeHexTx(mtx, std::string(rawtx.begin(), rawtx.end()), true);
 
     UniValue result(UniValue::VOBJ);
-    result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
-    result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
+//    result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
+//    result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
     result.pushKV("txHex", HexStr(rawtx));
     /// @attention WRONG HASH!!!
     result.pushKV("txHash", CTransaction(mtx).GetHash().ToString());
@@ -237,15 +339,25 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     }
 
     std::string rewardAddress = request.params[0].getValStr();
+    CTxDestination rewardDest = DecodeDestination(rewardAddress);
+    if (rewardDest.which() != 1 && rewardDest.which() != 4)
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
+    }
+//    CKeyID rewardKey = rewardDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&rewardDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
+
     uint256 const hash = request.params[1].isNull() ? uint256() : ParseHashV(request.params[1], "hash");
 
-
     auto locked_chain = pwallet->chain().lock();
-    CAnchorMessage const anchor = createAnchorMessage(rewardAddress, hash);
-    CScript scriptMeta = CScript() << OP_RETURN << spv::BtcAnchorMarker << ToByteVector(anchor.GetHash());
 
-    CMutableTransaction rawTx;
-    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+    CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest/*, forBlock*/);
+    if (anchor.sigs.empty()) {
+        throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
+    }
+//    CScript scriptMeta = CScript() << OP_RETURN << spv::BtcAnchorMarker << ToByteVector(anchor.GetHash());
+
+//    CMutableTransaction rawTx;
+//    rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     // "manually" decode anchor address and construct script;
 //    uint160 anchorPKHash;
@@ -262,19 +374,21 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 //        }
 //    }
 //    CScript const anchorScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(anchorPKHash) << OP_EQUALVERIFY << OP_CHECKSIG;
-    spv::TBytes const rawscript(spv::CreateScriptForAddress(Params().GetConsensus().spv.anchors_address));
-    // This should not happen or spv.anchors_address is WRONG!
-    assert (rawscript.size() != 0);
-    rawTx.vout.push_back(CTxOut(Params().GetConsensus().spv.creationFee, CScript(rawscript.begin(), rawscript.end())));
 
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss << anchor;
+
+//    spv::TBytes const rawscript(spv::CreateScriptForAddress(Params().GetConsensus().spv.anchors_address));
+//    // This should not happen or spv.anchors_address is WRONG!
+//    assert (rawscript.size() != 0);
+//    rawTx.vout.push_back(CTxOut(Params().GetConsensus().spv.creationFee, CScript(rawscript.begin(), rawscript.end())));
+
+//    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+//    ss << anchor;
 
     UniValue result(UniValue::VOBJ);
-    result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
-    result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
-    result.pushKV("txHex", EncodeHexTx(CTransaction(rawTx)));
-    result.pushKV("txHash", CTransaction(rawTx).GetHash().ToString());
+//    result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
+//    result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
+//    result.pushKV("txHex", EncodeHexTx(CTransaction(rawTx)));
+//    result.pushKV("txHash", CTransaction(rawTx).GetHash().ToString());
     return result;
 }
 
@@ -371,88 +485,10 @@ UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
 
     uint256 txHash;
     ParseHashStr(request.params[0].getValStr(), txHash);
-    return UniValue(spv::pspv->GetTxConfirmations(txHash));
+//    return UniValue(spv::pspv->GetTxConfirmations(txHash));
+    return UniValue(0);
 }
 
-UniValue spv_sendanchormessage(const JSONRPCRequest& request)
-{
-    // only for lock
-    CWallet* const pwallet = GetWallet(request);
-
-    RPCHelpMan{"spv_sendanchormessage",
-        "\nSending anchor message (if TX with anchored hash of this message exists and confirmed on BTC chain)...\n",
-        {
-            {"msghex", RPCArg::Type::STR, RPCArg::Optional::NO, "Serialized message in hex."},
-        },
-        RPCResult{
-            "msghex                      (str) Message hash\n"
-            "}\n"
-        },
-        RPCExamples{
-            HelpExampleCli("spv_sendanchormessage", "txhex")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
-                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                             "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
-        },
-    }.Check(request);
-
-    std::vector<unsigned char> anchor_data{ParseHex(request.params[0].getValStr())};
-    CAnchorMessage anchor;
-    CDataStream ser_anchor(anchor_data, SER_NETWORK, PROTOCOL_VERSION);
-    try {
-        ser_anchor >> anchor;
-    } catch (const std::exception&) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Can't deserialize message");
-    }
-
-    uint256 const msgHash{anchor.GetHash()};
-    {
-        auto locked_chain = pwallet->chain().lock();
-        if (panchors->ExistAnchorByMsg(msgHash)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Anchor message with hash " + msgHash.ToString() + " already exists!");
-        }
-    }
-    using ConfirmationSigs = CAnchorIndex::ConfirmationSigs;
-    ProcessNewAnchor(anchor, {}, false, *g_connman, nullptr);
-
-//    try {
-//        // check spv anchor existance
-//        spv::BtcAnchorTx spv_anc{};
-//        {
-//            LOCK(spv::pspv->GetCS());
-
-//            int confs{0};
-//            if (!anchor.previousAnchor.IsNull()) {
-//                confs = spv::pspv->GetTxConfirmations(anchor.previousAnchor);
-//                if (confs < 0) {
-//                    throw std::runtime_error("Previous anchor tx " + anchor.previousAnchor.ToString() + ") does not exist!");
-//                }
-//                else if (confs < 6) {
-//                    throw std::runtime_error("Previous anchor tx " + anchor.previousAnchor.ToString() + " has not enough confirmations: " + std::to_string(confs));
-//                }
-//            }
-//            confs = spv::pspv->GetTxConfirmationsByMsg(msgHash);
-//            if (confs < 0) {
-//                throw std::runtime_error("Anchor tx with message hash " + msgHash.ToString() + ") does not exist!");
-//            }
-//            else if (confs < 6) {
-//                throw std::runtime_error("Anchor tx with message hash " + msgHash.ToString() + " has not enough confirmations: " + std::to_string(confs));
-//            }
-//            spv_anc = *spv::pspv->GetAnchorTxByMsg(msgHash);
-//        }
-//        auto locked_chain = pwallet->chain().lock();
-
-//        ValidateAnchor(anchor);
-//        if (panchors->AddAnchor(anchor, &spv_anc, {})) {
-//            RelayAnchor(msgHash, *g_connman);
-//        }
-
-//    } catch (std::runtime_error const & e) {
-//        throw JSONRPCError(RPC_MISC_ERROR, e.what());
-//    }
-    return UniValue(msgHash.ToString());
-}
 
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
@@ -463,11 +499,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_rescan",                 &spv_rescan,                { "height"}  },
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
-  { "spv",      "spv_sendanchormessage",      &spv_sendanchormessage,    { "msghex" }  },
-
-//  { "spv",      "mn_resign",                &mn_resign,                 { "inputs", "mn_id" }  },
-
-//  { "spv",      "mn_list",                  &mn_list,                   { "list", "verbose" } },
+  { "spv",      "spv_splitutxo",              &spv_splitutxo,             { "parts", "amount" }  },
 
 };
 
