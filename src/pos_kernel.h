@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BITCOIN_POS_KERNEL_H
+#define BITCOIN_POS_KERNEL_H
 
 #include <uint256.h>
 #include <arith_uint256.h>
@@ -34,8 +35,10 @@ namespace pos {
 /// Check whether stake kernel meets hash target
 /// Sets hashProofOfStake, hashOk is true of the kernel meets hash target
     CheckKernelHashRes
-    CheckKernelHash(uint256 stakeModifier, uint32_t nBits, int64_t coinstakeTime, const Consensus::Params& params, CMasternodesView* mnView);
+    CheckKernelHash(uint256 stakeModifier, uint32_t nBits, int64_t coinstakeTime, const Consensus::Params& params, uint256 masternodeID);
 
 /// Stake Modifier (hash modifier of proof-of-stake)
     uint256 ComputeStakeModifier(uint256 prevStakeModifier, const CKeyID& key);
 }
+
+#endif // BITCOIN_POS_KERNEL_H

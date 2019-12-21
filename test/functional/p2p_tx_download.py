@@ -98,7 +98,7 @@ class TxDownloadTest(BitcoinTestFramework):
         )
         tx = self.nodes[0].signrawtransactionwithkey(
             hexstring=tx,
-            privkeys=[self.nodes[0].get_deterministic_priv_key().key],
+            privkeys=[self.nodes[0].get_genesis_keys().key],
         )['hex']
         ctx = FromHex(CTransaction(), tx)
         txid = int(ctx.rehash(), 16)

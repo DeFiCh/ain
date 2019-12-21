@@ -218,6 +218,9 @@ class WalletTest(BitcoinTestFramework):
         node_0_bal = self.check_fee_amount(self.nodes[0].getbalance(), node_0_bal + Decimal('10'), fee_per_byte, self.get_vsize(self.nodes[2].gettransaction(txid)['hex']))
 
         self.start_node(3)
+        print (self.nodes[0].getblockcount())
+        print (self.nodes[3].getblockcount())
+        input ("Pause...")
         connect_nodes_bi(self.nodes, 0, 3)
         self.sync_all()
 
@@ -367,7 +370,7 @@ class WalletTest(BitcoinTestFramework):
 
         # Mine a block from node0 to an address from node1
         coinbase_addr = self.nodes[1].getnewaddress()
-        block_hash = self.nodes[0].generatetoaddress(1, coinbase_addr)[0]
+        block_hash = self.nodes[0].generate(nblocks=1, address=coinbase_addr)[0]
         coinbase_txid = self.nodes[0].getblock(block_hash)['tx'][0]
         self.sync_all(self.nodes[0:3])
 
