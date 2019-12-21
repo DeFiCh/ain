@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chainparams.h>
 #include <crypto/ripemd160.h>
-#include <key_io.h>
 #include <httpserver.h>
 #include <outputtype.h>
 #include <rpc/blockchain.h>
