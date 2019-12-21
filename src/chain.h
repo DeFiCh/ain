@@ -10,10 +10,12 @@
 #include <consensus/params.h>
 #include <flatfile.h>
 #include <primitives/block.h>
+#include <streams.h>
 #include <tinyformat.h>
 #include <uint256.h>
 
 #include <vector>
+#include <boost/optional.hpp>
 
 /**
  * Maximum amount of time that a block timestamp is allowed to exceed the
@@ -180,7 +182,13 @@ public:
     uint256 hashMerkleRoot;
     uint32_t nTime;
     uint32_t nBits;
-    uint32_t nNonce;
+
+    // proof-of-stake specific fields
+    uint64_t height;
+    uint64_t mintedBlocks;
+    uint256 stakeModifier; // hash modifier for proof-of-stake
+    std::vector<unsigned char> sig;
+    CKeyID minter; // memory only
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -208,7 +216,10 @@ public:
         hashMerkleRoot = uint256();
         nTime          = 0;
         nBits          = 0;
-        nNonce         = 0;
+        stakeModifier  = uint256{};
+        height         = 0;
+        mintedBlocks   = 0;
+        sig            = {};
     }
 
     CBlockIndex()
@@ -224,7 +235,10 @@ public:
         hashMerkleRoot = block.hashMerkleRoot;
         nTime          = block.nTime;
         nBits          = block.nBits;
-        nNonce         = block.nNonce;
+        height         = block.height;
+        mintedBlocks   = block.mintedBlocks;
+        stakeModifier  = block.stakeModifier;
+        sig            = block.sig;
     }
 
     FlatFilePos GetBlockPos() const {
@@ -254,7 +268,10 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
         block.nBits          = nBits;
-        block.nNonce         = nNonce;
+        block.stakeModifier   = stakeModifier;
+        block.height         = height;
+        block.mintedBlocks   = mintedBlocks;
+        block.sig            = sig;
         return block;
     }
 
@@ -300,8 +317,9 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, hashBlock=%s)",
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, stakeModifier=(%s), merkle=%s, hashBlock=%s)",
             pprev, nHeight,
+            stakeModifier.ToString(),
             hashMerkleRoot.ToString(),
             GetBlockHash().ToString());
     }
@@ -382,7 +400,10 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
-        READWRITE(nNonce);
+        READWRITE(stakeModifier);
+        READWRITE(height);
+        READWRITE(mintedBlocks);
+        READWRITE(sig);
     }
 
     uint256 GetBlockHash() const
@@ -393,7 +414,11 @@ public:
         block.hashMerkleRoot  = hashMerkleRoot;
         block.nTime           = nTime;
         block.nBits           = nBits;
-        block.nNonce          = nNonce;
+        block.stakeModifier   = stakeModifier;
+        block.height          = height;
+        block.mintedBlocks    = mintedBlocks;
+        block.sig             = sig;
+
         return block.GetHash();
     }
 
