@@ -5,7 +5,7 @@
 
 #include <txdb.h>
 
-#include <pow.h>
+#include <pos.h>
 #include <random.h>
 #include <shutdown.h>
 #include <ui_interface.h>
@@ -270,12 +270,27 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
                 pindexNew->nTime          = diskindex.nTime;
                 pindexNew->nBits          = diskindex.nBits;
-                pindexNew->nNonce         = diskindex.nNonce;
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
 
-                if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, consensusParams))
-                    return error("%s: CheckProofOfWork failed: %s", __func__, pindexNew->ToString());
+                //PoS
+                pindexNew->stakeModifier = diskindex.stakeModifier;
+                pindexNew->height = diskindex.height;
+                pindexNew->mintedBlocks = diskindex.mintedBlocks;
+                pindexNew->sig = diskindex.sig;
+                if (pindexNew->nHeight) {
+                    CPubKey recoveredPubKey{};
+                    if (!recoveredPubKey.RecoverCompact(pindexNew->GetBlockHeader().GetHashToSign(), pindexNew->sig)) {
+                        return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
+                    }
+                    pindexNew->minter = recoveredPubKey.GetID();
+                } else {
+                    pindexNew->minter = CKeyID();
+                }
+
+
+//                if (pindexNew->nHeight > 0 && pindexNew->stakeModifier == uint256{}) // TODO: (SS) uncomment me
+//                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
 
                 pcursor->Next();
             } else {
