@@ -9,6 +9,9 @@
 #include <primitives/transaction.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <pubkey.h>
+
+#include <boost/optional.hpp>
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -26,7 +29,11 @@ public:
     uint256 hashMerkleRoot;
     uint32_t nTime;
     uint32_t nBits;
-    uint32_t nNonce;
+
+    uint64_t height;
+    uint64_t mintedBlocks;
+    uint256 stakeModifier;
+    std::vector<unsigned char> sig;
 
     CBlockHeader()
     {
@@ -42,7 +49,10 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
-        READWRITE(nNonce);
+        READWRITE(stakeModifier);
+        READWRITE(height);
+        READWRITE(mintedBlocks);
+        READWRITE(sig);
     }
 
     void SetNull()
@@ -52,7 +62,10 @@ public:
         hashMerkleRoot.SetNull();
         nTime = 0;
         nBits = 0;
-        nNonce = 0;
+        stakeModifier.SetNull();
+        height = 0;
+        mintedBlocks = 0;
+        sig = {};
     }
 
     bool IsNull() const
@@ -60,11 +73,24 @@ public:
         return (nBits == 0);
     }
 
+    uint256 GetHashToSign() const;
+
     uint256 GetHash() const;
 
     int64_t GetBlockTime() const
     {
         return (int64_t)nTime;
+    }
+
+    bool ExtractMinterKey(CKeyID &key) const
+    {
+        CPubKey recoveredPubKey{};
+        if (!recoveredPubKey.RecoverCompact(GetHashToSign(), sig)) {
+            return false;
+        }
+
+        key = recoveredPubKey.GetID();
+        return true;
     }
 };
 
@@ -112,7 +138,11 @@ public:
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
         block.nBits          = nBits;
-        block.nNonce         = nNonce;
+        block.stakeModifier  = stakeModifier;
+        block.height         = height;
+        block.mintedBlocks   = mintedBlocks;
+        block.sig            = sig;
+
         return block;
     }
 
