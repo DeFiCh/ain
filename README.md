@@ -31,7 +31,7 @@ DeFi Blockchain has done significant modifications from Bitcoin Core, for instan
 - Bitcoin blockchain block anchoring
 - Increased decentralized financial transaction and opcode support, etc.
 
-Merges from upstream (Bitcoin Core) will be done selectively if it applies to the improved functionality and security of DeFi Blockchain. 
+Merges from upstream (Bitcoin Core) will be done selectively if it applies to the improved functionality and security of DeFi Blockchain.
 
 License
 -------
@@ -51,6 +51,6 @@ The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md).
 Questions?
 ------
 
-Pull requests are warmly welcomed. 
+Pull requests are warmly welcomed.
 
-Reach our to us engineering@defichain.io for any questions or collaborations. 
+Reach us at [engineering@defichain.io](mailto:engineering@defichain.io) for any questions or collaborations.
