@@ -14,8 +14,8 @@ DeFi Blockchain's primary vision is to enable decentralized finance with Bitcoin
 
 For more information:
 
-- Visit the DeFi Blockchain website [https://defichain.io]
-- Read our white paper [https://defichain.io/white-paper/]
+- Visit the [DeFi Blockchain website](https://defichain.io)
+- Read our [white paper](https://defichain.io/white-paper/)
 
 Downloadable binaries will be made available soon.
 
