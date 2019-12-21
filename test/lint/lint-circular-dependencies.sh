@@ -31,6 +31,15 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "qt/guiutil -> qt/walletmodel -> qt/optionsmodel -> qt/guiutil"
     "txmempool -> validation -> validationinterface -> txmempool"
     "wallet/ismine -> wallet/wallet -> wallet/ismine"
+    "chainparams -> key_io -> chainparams"
+    "chainparams -> masternodes/masternodes -> chainparams"
+    "masternodes/mn_checks -> txmempool -> masternodes/mn_checks"
+    "chainparams -> masternodes/masternodes -> validation -> chainparams"
+    "consensus/tx_verify -> masternodes/masternodes -> validation -> consensus/tx_verify"
+    "masternodes/masternodes -> validation -> masternodes/mn_checks -> masternodes/masternodes"
+    "masternodes/masternodes -> validation -> pos -> masternodes/masternodes"
+    "masternodes/mn_checks -> txmempool -> validation -> masternodes/mn_checks"
+    "chainparams -> masternodes/masternodes -> validation -> pos -> chainparams"
 )
 
 EXIT_CODE=0

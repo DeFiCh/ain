@@ -146,6 +146,9 @@ BITCOIN_CORE_H = \
   dbwrapper.h \
   limitedmap.h \
   logging.h \
+  masternodes/masternodes.h \
+  masternodes/mn_checks.h \
+  masternodes/mn_txdb.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -276,6 +279,10 @@ libbitcoin_server_a_SOURCES = \
   interfaces/node.cpp \
   init.cpp \
   dbwrapper.cpp \
+  masternodes/masternodes.cpp \
+  masternodes/mn_checks.cpp \
+  masternodes/mn_txdb.cpp \
+  masternodes/mn_rpc.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \
