@@ -1,18 +1,23 @@
 #include <pos.h>
 #include <pos_kernel.h>
-#include <chain.h>
-#include <validation.h>
-#include <key.h>
-#include <wallet/wallet.h>
-#include <txdb.h>
 
-std::unique_ptr<CMasternodesView> pmasternodesview; // TODO: (SS) Change to real
+#include <chain.h>
+#include <chainparams.h>
+#include <consensus/merkle.h>
+#include <key.h>
+#include <logging.h>
+#include <masternodes/masternodes.h>
+#include <sync.h>
+
+extern RecursiveMutex cs_main;
 
 namespace pos {
-static bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& blockHeader) {
+
+bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& blockHeader) {
     if (blockHeader.hashPrevBlock.IsNull())
         return blockHeader.stakeModifier.IsNull();
 
+    /// @todo @maxb is it possible to pass minter key here, or we really need to extract it srom sig???
     CKeyID key;
     if (!blockHeader.ExtractMinterKey(key)) {
         LogPrintf("CheckStakeModifier: Can't extract minter key\n");
@@ -41,13 +46,48 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
     return true;
 }
 
-bool CheckProofOfStake_headerOnly(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView) {
+bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView) {
+
+    /// @todo @maxb may be this is tooooo optimistic? need more validation?
+    if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
+        return true;
+    }
+
+    CKeyID minter;
+    if (!blockHeader.ExtractMinterKey(minter)) {
+        return false;
+    }
+    uint256 masternodeID;
+    {
+        // check that block minter exists and active at the height of the block
+        AssertLockHeld(cs_main);
+        auto it = mnView->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, minter);
+
+        /// @todo @maxb check height of history frame here (future and past)
+        if (!it || !mnView->ExistMasternode((*it)->second)->IsActive(blockHeader.height))
+        {
+            return false;
+        }
+        masternodeID = (*it)->second;
+    }
     // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, (int64_t) blockHeader.GetBlockTime(), params, mnView).hashOk) {
+    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, (int64_t) blockHeader.GetBlockTime(), params, masternodeID).hashOk) {
         return false;
     }
 
-    // TODO: (SS) check address masternode operator in mnView
+    {
+        AssertLockHeld(cs_main);
+        uint32_t const mintedBlocksMaxDiff = static_cast<uint64_t>(mnView->GetLastHeight()) > blockHeader.height ? mnView->GetLastHeight() - blockHeader.height : blockHeader.height - mnView->GetLastHeight();
+        // minter exists and active at the height of the block - it was checked before
+        uint32_t const mintedBlocks = mnView->ExistMasternode(masternodeID)->mintedBlocks;
+        uint32_t const mintedBlocksDiff = mintedBlocks > blockHeader.mintedBlocks ? mintedBlocks - blockHeader.mintedBlocks : blockHeader.mintedBlocks - mintedBlocks;
+
+        /// @todo @maxb this is not so trivial as it seems! implement!!!
+//        if (mintedBlocksDiff > mintedBlocksMaxDiff)
+//        {
+//            return false;
+//        }
+    }
 
     return CheckHeaderSignature(blockHeader);
 }
@@ -57,7 +97,8 @@ bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pinde
         return false;
     }
 
-    return CheckProofOfStake_headerOnly(blockHeader, params, mnView);
+    /// @todo @max this is our own check of own minted block (just to remember)
+    return ContextualCheckProofOfStake(blockHeader, params, mnView);
 }
 
 unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params)
@@ -119,6 +160,44 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     assert(pindexFirst);
 
     return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params);
+}
+
+boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {
+    // if we are trying to sign a signed proof-of-stake block
+    if (!pblock->sig.empty()) {
+        throw std::logic_error{"Only non-complete PoS block templates are accepted"};
+    }
+
+    // coinstakeTx
+    CMutableTransaction coinstakeTx{*pblock->vtx[0]};
+
+    // Update coinstakeTx after signing
+    pblock->vtx[0] = MakeTransactionRef(coinstakeTx);
+
+    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+
+    bool signingRes = key.SignCompact(pblock->GetHashToSign(), pblock->sig);
+    if (!signingRes) {
+        return {std::string{} + "Block signing error"};
+    }
+
+    return {};
+}
+
+boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter) {
+    uint256 hashBlock = pblock->GetHash();
+
+    // verify hash target and signature of coinstake tx
+    if (!pos::CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pmasternodesview.get()))
+        return {std::string{} + "proof-of-stake checking failed"};
+
+    LogPrint(BCLog::STAKING, "new proof-of-stake block found hash: %s\n", hashBlock.GetHex());
+
+    // Found a solution
+    if (pblock->hashPrevBlock != pindexPrev->GetBlockHash())
+        return {std::string{} + "minted block is stale"};
+
+    return {};
 }
 
 }

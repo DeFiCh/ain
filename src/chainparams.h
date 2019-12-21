@@ -8,6 +8,7 @@
 
 #include <chainparamsbase.h>
 #include <consensus/params.h>
+#include <key_io.h>
 #include <primitives/block.h>
 #include <protocol.h>
 
@@ -104,6 +105,14 @@ protected:
     bool m_is_test_chain;
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
+
+    struct MasternodeKeys
+    {
+        std::string ownerAddress;
+        std::string operatorAddress;
+    };
+    std::vector<MasternodeKeys> vMasternodes;
+    std::vector<CTransactionRef> CreateGenesisMasternodes() const;
 };
 
 /**
