@@ -7,7 +7,6 @@
 #include <chainparams.h>
 #include <crypto/hmac_sha256.h>
 #include <httpserver.h>
-#include <key_io.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
 #include <sync.h>

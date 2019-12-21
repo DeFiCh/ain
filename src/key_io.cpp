@@ -2,10 +2,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <key_io.h>
-
 #include <base58.h>
 #include <bech32.h>
+#include <chainparams.h>
 #include <script/script.h>
 #include <util/strencodings.h>
 
@@ -69,6 +68,7 @@ public:
 
     std::string operator()(const CNoDestination& no) const { return {}; }
 };
+} // namespace
 
 CTxDestination DecodeDestination(const std::string& str, const CChainParams& params)
 {
@@ -128,7 +128,6 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
     }
     return CNoDestination();
 }
-} // namespace
 
 CKey DecodeSecret(const std::string& str)
 {

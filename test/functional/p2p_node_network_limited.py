@@ -51,6 +51,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
     def setup_network(self):
         self.add_nodes(self.num_nodes, self.extra_args)
         self.start_nodes()
+        self.import_deterministic_coinbase_privkeys()
 
     def run_test(self):
         node = self.nodes[0].add_p2p_connection(P2PIgnoreInv())
@@ -65,7 +66,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
 
         self.log.info("Mine enough blocks to reach the NODE_NETWORK_LIMITED range.")
         connect_nodes_bi(self.nodes, 0, 1)
-        blocks = self.nodes[1].generatetoaddress(292, self.nodes[1].get_deterministic_priv_key().address)
+        blocks = self.nodes[1].generate(292)
         self.sync_blocks([self.nodes[0], self.nodes[1]])
 
         self.log.info("Make sure we can max retrieve block at tip-288.")
@@ -108,7 +109,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
         self.disconnect_all()
 
         # mine 10 blocks on node 0 (pruned node)
-        self.nodes[0].generatetoaddress(10, self.nodes[0].get_deterministic_priv_key().address)
+        self.nodes[0].generate(10)
 
         # connect node1 (non pruned) with node0 (pruned) and check if the can sync
         connect_nodes_bi(self.nodes, 0, 1)

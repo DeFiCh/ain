@@ -33,40 +33,40 @@ static void SetupBenchArgs()
 
 int main(int argc, char** argv)
 {
-    SetupBenchArgs();
-    std::string error;
-    if (!gArgs.ParseParameters(argc, argv, error)) {
-        tfm::format(std::cerr, "Error parsing command line arguments: %s\n", error.c_str());
-        return EXIT_FAILURE;
-    }
-
-    if (HelpRequested(gArgs)) {
-        std::cout << gArgs.GetHelpMessage();
-
-        return EXIT_SUCCESS;
-    }
-
-    int64_t evaluations = gArgs.GetArg("-evals", DEFAULT_BENCH_EVALUATIONS);
-    std::string regex_filter = gArgs.GetArg("-filter", DEFAULT_BENCH_FILTER);
-    std::string scaling_str = gArgs.GetArg("-scaling", DEFAULT_BENCH_SCALING);
-    bool is_list_only = gArgs.GetBoolArg("-list", false);
-
-    double scaling_factor;
-    if (!ParseDouble(scaling_str, &scaling_factor)) {
-        tfm::format(std::cerr, "Error parsing scaling factor as double: %s\n", scaling_str.c_str());
-        return EXIT_FAILURE;
-    }
-
-    std::unique_ptr<benchmark::Printer> printer = MakeUnique<benchmark::ConsolePrinter>();
-    std::string printer_arg = gArgs.GetArg("-printer", DEFAULT_BENCH_PRINTER);
-    if ("plot" == printer_arg) {
-        printer.reset(new benchmark::PlotlyPrinter(
-            gArgs.GetArg("-plot-plotlyurl", DEFAULT_PLOT_PLOTLYURL),
-            gArgs.GetArg("-plot-width", DEFAULT_PLOT_WIDTH),
-            gArgs.GetArg("-plot-height", DEFAULT_PLOT_HEIGHT)));
-    }
-
-    benchmark::BenchRunner::RunAll(*printer, evaluations, scaling_factor, regex_filter, is_list_only);
+//    SetupBenchArgs(); // TODO: (temp) disable benches
+//    std::string error;
+//    if (!gArgs.ParseParameters(argc, argv, error)) {
+//        tfm::format(std::cerr, "Error parsing command line arguments: %s\n", error.c_str());
+//        return EXIT_FAILURE;
+//    }
+//
+//    if (HelpRequested(gArgs)) {
+//        std::cout << gArgs.GetHelpMessage();
+//
+//        return EXIT_SUCCESS;
+//    }
+//
+//    int64_t evaluations = gArgs.GetArg("-evals", DEFAULT_BENCH_EVALUATIONS);
+//    std::string regex_filter = gArgs.GetArg("-filter", DEFAULT_BENCH_FILTER);
+//    std::string scaling_str = gArgs.GetArg("-scaling", DEFAULT_BENCH_SCALING);
+//    bool is_list_only = gArgs.GetBoolArg("-list", false);
+//
+//    double scaling_factor;
+//    if (!ParseDouble(scaling_str, &scaling_factor)) {
+//        tfm::format(std::cerr, "Error parsing scaling factor as double: %s\n", scaling_str.c_str());
+//        return EXIT_FAILURE;
+//    }
+//
+//    std::unique_ptr<benchmark::Printer> printer = MakeUnique<benchmark::ConsolePrinter>();
+//    std::string printer_arg = gArgs.GetArg("-printer", DEFAULT_BENCH_PRINTER);
+//    if ("plot" == printer_arg) {
+//        printer.reset(new benchmark::PlotlyPrinter(
+//            gArgs.GetArg("-plot-plotlyurl", DEFAULT_PLOT_PLOTLYURL),
+//            gArgs.GetArg("-plot-width", DEFAULT_PLOT_WIDTH),
+//            gArgs.GetArg("-plot-height", DEFAULT_PLOT_HEIGHT)));
+//    }
+//
+//    benchmark::BenchRunner::RunAll(*printer, evaluations, scaling_factor, regex_filter, is_list_only);
 
     return EXIT_SUCCESS;
 }
