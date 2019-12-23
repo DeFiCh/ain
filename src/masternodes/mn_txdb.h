@@ -103,6 +103,7 @@ protected:
     bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true);
     void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index);
 
+
 //    void WriteDeadIndex(int height, uint256 const & txid, char type);
 //    void EraseDeadIndex(int height, uint256 const & txid);
 

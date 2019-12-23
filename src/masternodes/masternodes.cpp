@@ -218,7 +218,7 @@ bool CMasternodesView::OnMasternodeCreate(uint256 const & nodeId, CMasternode co
     nodesByOwner[node.ownerAuthAddress] = nodeId;
     nodesByOperator[node.operatorAuthAddress] = nodeId;
 
-    blocksUndo[node.creationHeight][txn] = std::make_pair(nodeId, MasternodesTxType::CreateMasternode);
+    blocksUndo[node.creationHeight][txn] = std::make_pair(nodeId, CustomUndoTxType::CreateMasternode);
 
     return true;
 }
@@ -236,7 +236,7 @@ bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const 
     allNodes[nodeId].resignTx = txid;
     allNodes[nodeId].resignHeight = height;
 
-    blocksUndo[height][txn] = std::make_pair(nodeId, MasternodesTxType::ResignMasternode);
+    blocksUndo[height][txn] = std::make_pair(nodeId, CustomUndoTxType::ResignMasternode);
 
     return true;
 }
@@ -260,7 +260,7 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
 
             switch (txType)
             {
-                case MasternodesTxType::CreateMasternode:
+                case CustomUndoTxType::CreateMasternode:
                 {
                     backup.nodesByOwner[node.ownerAuthAddress] = id;
                     backup.nodesByOperator[node.operatorAuthAddress] = id;
@@ -271,13 +271,21 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
                     allNodes[id] = {};
                 }
                 break;
-                case MasternodesTxType::ResignMasternode:
+                case CustomUndoTxType::ResignMasternode:
                 {
                     backup.allNodes[id] = node; // nodesByOwner && nodesByOperator stay untouched
 
                     allNodes[id] = node;    // !! cause may be cached!
                     allNodes[id].resignHeight = -1;
                     allNodes[id].resignTx = {};
+                }
+                break;
+                case CustomUndoTxType::BlockCriminalCoins:
+                {
+                    std::pair<CBlockHeader, CBlockHeader> criminal;
+                    if (!FindBlockedCriminalCoins(id, 0, false) && backup.criminals[id].wasted) {
+                        backup.criminals[id].wasted = false;
+                    }
                 }
                 break;
                 default:
@@ -347,21 +355,21 @@ bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHea
 {
     CKeyID firstKey, secondKey;
     if (!oneHeader.ExtractMinterKey(firstKey)) {
-        // TODO: (ss) may be throw exception
+        // TODO: SS may be throw exception
         return false;
     }
     auto itFirstMN = ExistMasternode(AuthIndex::ByOperator, firstKey);
     if (!itFirstMN) {
-        // TODO: (ss) may be throw exception
+        // TODO: SS may be throw exception
         return false;
     }
     if (!twoHeader.ExtractMinterKey(secondKey)) {
-        // TODO: (ss) may be throw exception
+        // TODO: SS may be throw exception
         return false;
     }
     auto itSecondMN = ExistMasternode(AuthIndex::ByOperator, firstKey);
     if (!itSecondMN) {
-        // TODO: (ss) may be throw exception
+        // TODO: SS may be throw exception
         return false;
     }
 
@@ -380,7 +388,15 @@ bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHea
 
 void CMasternodesView::MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader)
 {
-    criminals.emplace(std::make_pair(id, std::make_pair(blockHeader, conflictBlockHeader)));
+    criminals.emplace(std::make_pair(id, CDoubleSignFact{blockHeader, conflictBlockHeader, false}));
+}
+
+void CMasternodesView::MarkMasternodeAsWastedCriminal(uint256 const & id)
+{
+    auto it = criminals.find(id);
+    if (it != criminals.end()) {
+        criminals[id].wasted = true;
+    }
 }
 
 void CMasternodesView::RemoveMasternodeFromCriminals(uint256 const &criminalID)
@@ -403,8 +419,6 @@ void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metad
         if (!FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
             WriteBlockedCriminalCoins(txid, index, fIsFakeNet);
         }
-
-        // TODO: (SS) may be need add blockheaders to DB ?
     }
 }
 
@@ -477,6 +491,10 @@ void CMasternodesView::ApplyCache(const CMasternodesView * cache)
         nodesByOperator[pair.first] = pair.second; // possible empty (if deleted)
     }
 
+    for (auto const & pair : cache->criminals) {
+        criminals[pair.first] = pair.second; // possible empty (if deleted)
+    }
+
     for (auto const & pair : cache->blocksUndo) {
         blocksUndo[pair.first] = pair.second; // possible empty (if deleted)
     }
@@ -488,6 +506,7 @@ void CMasternodesView::Clear()
     allNodes.clear();
     nodesByOwner.clear();
     nodesByOperator.clear();
+    criminals.clear();
 
     blocksUndo.clear();
 }
