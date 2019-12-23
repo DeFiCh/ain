@@ -16,16 +16,25 @@
 #include <stdint.h>
 #include <iostream>
 
+#include <primitives/block.h>
+
 #include <boost/optional.hpp>
 
 class CTransaction;
-class CBlockHeader;
+// class CBlockHeader;
 
 static const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};  // 44665478
 static const std::vector<unsigned char> DfCriminalTxMarker = {'D', 'f', 'C', 'r'};
 
 static const unsigned int DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL = 100;
 
+enum class CustomUndoTxType : unsigned char
+{
+    None = 0,
+    CreateMasternode    = 'C',
+    ResignMasternode    = 'R',
+    BlockCriminalCoins  = 'B'
+};
 
 enum class MasternodesTxType : unsigned char
 {
@@ -47,6 +56,22 @@ inline void Unserialize(Stream& s, MasternodesTxType & txType) {
     txType = ch == 'C' ? MasternodesTxType::CreateMasternode :
              ch == 'R' ? MasternodesTxType::ResignMasternode :
                          MasternodesTxType::None;
+}
+
+template<typename Stream>
+inline void Serialize(Stream& s, CustomUndoTxType txType)
+{
+    Serialize(s, static_cast<unsigned char>(txType));
+}
+
+template<typename Stream>
+inline void Unserialize(Stream& s, CustomUndoTxType & txType) {
+    unsigned char ch;
+    Unserialize(s, ch);
+    txType = ch == 'C' ? CustomUndoTxType::CreateMasternode :
+             ch == 'R' ? CustomUndoTxType::ResignMasternode :
+             ch == 'B' ? CustomUndoTxType::BlockCriminalCoins :
+             CustomUndoTxType::None;
 }
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
@@ -115,6 +140,24 @@ public:
     friend bool operator!=(CMasternode const & a, CMasternode const & b);
 };
 
+class CDoubleSignFact
+{
+public:
+    CBlockHeader blockHeader;
+    CBlockHeader conflictBlockHeader;
+    bool wasted;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(blockHeader);
+        READWRITE(conflictBlockHeader);
+        READWRITE(wasted);
+    }
+};
+
 typedef std::map<uint256, CMasternode> CMasternodes;  // nodeId -> masternode object,
 typedef std::map<CKeyID, uint256> CMasternodesByAuth; // for two indexes, owner->nodeId, operator->nodeId
 
@@ -131,11 +174,10 @@ public:
         CKeyID operatorAuthAddress;
         CKeyID ownerAuthAddress;
     };
-    typedef std::map<int, std::pair<uint256, MasternodesTxType> > CMnTxsUndo; // txn, undoRec
+    typedef std::map<int, std::pair<uint256, CustomUndoTxType> > CMnTxsUndo; // txn, undoRec
     typedef std::map<int, CMnTxsUndo> CMnBlocksUndo;
-    typedef std::map<uint256, std::pair<CBlockHeader, CBlockHeader>> CMnCriminals;
+    typedef std::map<uint256, CDoubleSignFact> CMnCriminals;
     typedef std::set<CKeyID> CTeam;
-//    typedef std::map<int, CTeam> CTeams;
 
     enum class AuthIndex { ByOwner, ByOperator };
 
@@ -201,9 +243,15 @@ public:
         return allNodes;
     }
 
-    virtual CMnCriminals GetCriminals() const
+    virtual CMnCriminals GetUncaughtCriminals()
     {
-        return criminals;
+        CMnCriminals uncaughtCriminals;
+        for (auto && criminal : criminals) {
+            if (!criminal.second.wasted) {
+                uncaughtCriminals.insert(criminal);
+            }
+        }
+        return uncaughtCriminals;
     }
 
     //! Initial load of all data
@@ -238,6 +286,7 @@ public:
 
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
     void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
+    void MarkMasternodeAsWastedCriminal(uint256 const & id);
     void RemoveMasternodeFromCriminals(uint256 const &criminalID);
     void BlockedCriminalMnCoins(std::vector<unsigned char> & metadata);
     static bool ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
