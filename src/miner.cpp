@@ -166,33 +166,37 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         coinbaseTx.vout[1].nValue = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
         coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
     }
+    coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
 
-    bool baseScript = true;
+    pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
 
-    if (!fIsFakeNet && pmasternodesview->GetCriminals().size() != 0) {
-        CMasternodesView::CMnCriminals criminals = pmasternodesview->GetCriminals();
+    if (!fIsFakeNet && pmasternodesview->GetUncaughtCriminals().size() != 0) {
+        CMasternodesView::CMnCriminals criminals = pmasternodesview->GetUncaughtCriminals();
         CMasternodesView::CMnCriminals::iterator itCriminalMN = criminals.begin();
-        std::pair<CBlockHeader, CBlockHeader> criminal = itCriminalMN->second;
-        assert(!pmasternodesview->CheckDoubleSign(criminal.first, criminal.second));
+        auto criminal = itCriminalMN->second;
+        assert(!pmasternodesview->CheckDoubleSign(criminal.blockHeader, criminal.conflictBlockHeader));
         CKeyID key;
-        if (criminal.first.ExtractMinterKey(key)) {
+        if (criminal.blockHeader.ExtractMinterKey(key)) {
             auto itFirstMN = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, key);
             if (itFirstMN) {
                 CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-                metadata << criminal.first << criminal.second << (*itFirstMN)->second << 0; // SS 0 - number output for blocking
-                coinbaseTx.vin[0].scriptSig = CScript() << OP_RETURN << ToByteVector(metadata);
+                metadata << criminal.blockHeader << criminal.conflictBlockHeader << (*itFirstMN)->second << 0; // TODO: SS 0 - number output for blocking
 
-                baseScript = false;
+                CMutableTransaction criminalTx;
+                criminalTx.vin.resize(1);
+                criminalTx.vin[0].prevout.SetNull();
+                criminalTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                criminalTx.vout.resize(1);
+                criminalTx.vout[0].scriptPubKey  = CScript() << OP_RETURN << ToByteVector(metadata);
+                criminalTx.vout[0].nValue = 0;
+
+                pblock->vtx.emplace_back();
+
+                pblock->vtx[1] = MakeTransactionRef(std::move(criminalTx));
             }
         }
     }
 
-    if (baseScript) {
-        coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-    }
-
-
-    pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;
 
@@ -202,7 +206,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus().pos);
-    pblock->stakeModifier = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->operatorAuthAddress);
+    pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->operatorAuthAddress);
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 
@@ -212,8 +216,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
     int64_t nTime2 = GetTimeMicros();
 
-    if (pmasternodesview->GetCriminals().size() != 0) {
-        pmasternodesview->RemoveMasternodeFromCriminals(pmasternodesview->GetCriminals().begin()->first);
+    if (pmasternodesview->GetUncaughtCriminals().size() != 0) {
+        pmasternodesview->MarkMasternodeAsWastedCriminal(pmasternodesview->GetUncaughtCriminals().begin()->first);
     }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
@@ -610,7 +614,7 @@ namespace pos {
 
     template <typename F>
     bool Staker::withSearchInterval(F&& f) {
-        const int64_t nTime = GetAdjustedTime(); // TODO: (SS) GetAdjustedTime() + period minting block
+        const int64_t nTime = GetAdjustedTime(); // TODO: SS GetAdjustedTime() + period minting block
 
         if (nTime > nLastCoinStakeSearchTime) {
             f(nTime, nTime - nLastCoinStakeSearchTime);

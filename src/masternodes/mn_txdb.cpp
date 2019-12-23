@@ -21,6 +21,7 @@ static const char DB_PRUNE_HEIGHT = 'P';    // single record with pruned height 
 
 static const char DB_MN_BLOCK_HEADERS = 'h';
 static const char DB_MN_BLOCKED_CRIMINAL_COINS = 'C';
+//static const char DB_BLOCKED_MN_CRIMINALS = 'm';
 
 struct DBMNBlockHeadersSearchKey
 {
@@ -70,6 +71,21 @@ struct DBMNBlockedCriminalCoins
         READWRITE(index);
     }
 };
+
+//struct DBBlockedMNCriminal
+//{
+//    char prefix;
+//    uint256 masternodeID;
+//
+//    ADD_SERIALIZE_METHODS;
+//
+//    template <typename Stream, typename Operation>
+//    inline void SerializationOp(Stream& s, Operation ser_action)
+//    {
+//        READWRITE(prefix);
+//        READWRITE(masternodeID);
+//    }
+//};
 
 CMasternodesViewDB::CMasternodesViewDB(size_t nCacheSize, bool fMemory, bool fWipe)
     : db(new CDBWrapper(GetDataDir() / "masternodes", nCacheSize, fMemory, fWipe))
