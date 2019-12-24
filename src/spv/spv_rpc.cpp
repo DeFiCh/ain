@@ -92,6 +92,9 @@ UniValue spv_sendrawtx(const JSONRPCRequest& request)
         },
     }.Check(request);
 
+    if (!spv::pspv)
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+
     spv::pspv->SendRawTx(ParseHexV(request.params[0], "rawtx"));
     return UniValue("");
 }
@@ -173,8 +176,12 @@ UniValue spv_splitutxo(const JSONRPCRequest& request)
     auto rawtx = spv::CreateSplitTx("1251d1fc46d104564ca8311696d561bf7de5c0e336039c7ccfe103f7cdfc026e", 2, 3071995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", parts, amount);
 
     bool send = false;
-    if (send)
+    if (send) {
+        if (!spv::pspv)
+            throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+
         spv::pspv->SendRawTx(rawtx);
+    }
 
     CMutableTransaction mtx;
     /// @todo @maxb implement separated bitcoin serialize/deserialize
@@ -283,8 +290,12 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     auto rawtx = spv::CreateAnchorTx("a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963", 3, 2262303, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
 
     bool send = false;
-    if (send)
+    if (send) {
+        if (!spv::pspv)
+            throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+
         spv::pspv->SendRawTx(rawtx);
+    }
 
     CMutableTransaction mtx;
     /// @todo @maxb implement separated bitcoin serialize/deserialize
@@ -416,6 +427,9 @@ UniValue spv_rescan(const JSONRPCRequest& request)
 
     int height = request.params[0].isNull() ? 0 : request.params[0].get_int();
 
+    if (!spv::pspv)
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+
     if (!spv::pspv->Rescan(height))
         throw JSONRPCError(RPC_MISC_ERROR, "SPV not connected");
 
@@ -448,6 +462,8 @@ UniValue spv_syncstatus(const JSONRPCRequest& request)
         },
     }.Check(request);
 
+    if (!spv::pspv)
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("connected", spv::pspv->IsConnected());

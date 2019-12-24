@@ -2472,6 +2472,59 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     return true;
 }
 
+// get highest valid anchor for given height in defi chain
+CAnchorIndex::AnchorRec const * GetHighestAnchorFor(uint32_t height)
+{
+    AssertLockHeld(cs_main);
+
+    auto it = panchors->GetActiveAnchor();
+    for (; it != nullptr && it->anchor.height > height; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor))
+        ;
+
+    return it;
+}
+
+std::set<CBlockIndex*, CBlockIndexWorkComparator> FilterAnchorSatisfying(std::set<CBlockIndex*, CBlockIndexWorkComparator> source)
+{
+    AssertLockHeld(cs_main);
+
+    if (panchors->GetActiveAnchor() == nullptr)
+    {
+        return source;
+    }
+
+    std::set<CBlockIndex*, CBlockIndexWorkComparator> result;
+    do {
+        std::set<CBlockIndex*, CBlockIndexWorkComparator>::reverse_iterator it = source.rbegin();
+        if (it == source.rend())
+            return result;
+
+        CBlockIndex * pindex = *it;
+        auto anchor = GetHighestAnchorFor(pindex->height);
+
+        if (anchor == nullptr) {
+            result.insert(pindex);
+            source.erase(pindex);
+            continue;
+        }
+
+        // go down to our anchor
+        /// @todo @maxb is it possible to optimize smth by 'contains()' and active chain?
+        std::vector<CBlockIndex*> tmp;
+        for ( ; pindex && pindex->height >= anchor->anchor.height; pindex = pindex->pprev) {
+            if (source.find(pindex) != source.end()) {
+                tmp.push_back(pindex);
+                source.erase(pindex);
+            }
+        }
+        if (pindex && pindex->height == anchor->anchor.height && pindex->GetBlockHash() == anchor->anchor.blockHash) {
+            result.insert(tmp.begin(), tmp.end());
+        }
+        // otherwise drop tmp
+
+    } while(true);
+}
+
 /**
  * Return the tip of the chain with the most work in it, that isn't
  * known to be invalid (it's however far from certain to be valid).
@@ -2482,8 +2535,9 @@ CBlockIndex* CChainState::FindMostWorkChain() {
 
         // Find the best candidate header.
         {
-            std::set<CBlockIndex*, CBlockIndexWorkComparator>::reverse_iterator it = setBlockIndexCandidates.rbegin();
-            if (it == setBlockIndexCandidates.rend())
+            auto filtered = FilterAnchorSatisfying(setBlockIndexCandidates);
+            std::set<CBlockIndex*, CBlockIndexWorkComparator>::reverse_iterator it = filtered.rbegin();
+            if (it == filtered.rend())
                 return nullptr;
             pindexNew = *it;
         }
@@ -2664,6 +2718,45 @@ static void LimitValidationInterfaceQueue() LOCKS_EXCLUDED(cs_main) {
     }
 }
 
+void CChainState::RollBackIfTipConflictsWithAnchors(CValidationState &state, const CChainParams& chainparams) {
+    AssertLockHeld(cs_main);
+
+    if (!m_chain.Tip())
+        return;
+
+    auto anc = GetHighestAnchorFor(m_chain.Tip()->height);
+
+    CBlockIndex * earlyestConflictingBlock{nullptr};
+    // run down to the very first conflicting block
+    for ( ; anc && m_chain[anc->anchor.height]->GetBlockHash() != anc->anchor.blockHash; anc = panchors->GetAnchorByBtcTx(anc->anchor.previousAnchor))
+        earlyestConflictingBlock = m_chain[anc->anchor.height];
+
+    if (earlyestConflictingBlock) {
+        // Disconnect active blocks which conflicts with anchor
+        bool fBlocksDisconnected = false;
+        DisconnectedBlockTransactions disconnectpool;
+        while (m_chain.Tip() && m_chain.Tip()->height >= earlyestConflictingBlock->height) {
+            if (!DisconnectTip(state, chainparams, &disconnectpool)) {
+                // This is likely a fatal error, but keep the mempool consistent,
+                // just in case. Only remove from the mempool in this case.
+                UpdateMempoolForReorg(disconnectpool, false);
+
+                // If we're unable to disconnect a block during normal operation,
+                // then that is a failure of our local system -- we should abort
+                // rather than stay on a less work chain.
+                AbortNode(state, "Failed to disconnect block; see debug.log for details");
+                return;
+            }
+            fBlocksDisconnected = true;
+        }
+        if (fBlocksDisconnected) {
+            // If any blocks were disconnected, disconnectpool may be non empty.  Add
+            // any disconnected transactions back to the mempool.
+            UpdateMempoolForReorg(disconnectpool, true);
+        }
+    }
+}
+
 /**
  * Make the best chain active, in multiple steps. The result is either failure
  * or an activated best chain. pblock is either nullptr or a pointer to a block
@@ -2686,6 +2779,12 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
     // we use m_cs_chainstate to enforce mutual exclusion so that only one caller may execute this function at a time
     LOCK(m_cs_chainstate);
 
+    {
+        LOCK(cs_main);
+        RollBackIfTipConflictsWithAnchors(state, chainparams);
+        /// @todo @maxb research for ConnectTrace etc
+    }
+
     CBlockIndex *pindexMostWork = nullptr;
     CBlockIndex *pindexNewTip = nullptr;
     int nStopAtHeight = gArgs.GetArg("-stopatheight", DEFAULT_STOPATHEIGHT);
@@ -2699,7 +2798,6 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
         // ActivateBestChain this may lead to a deadlock! We should
         // probably have a DEBUG_LOCKORDER test for this in the future.
         LimitValidationInterfaceQueue();
-
         {
             LOCK2(cs_main, ::mempool.cs); // Lock transaction pool for at least as long as it takes for connectTrace to be consumed
             CBlockIndex* starting_tip = m_chain.Tip();
