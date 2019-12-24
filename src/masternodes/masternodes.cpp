@@ -409,10 +409,10 @@ void CMasternodesView::RemoveMasternodeFromCriminals(uint256 const &criminalID)
 
 void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metadata)
 {
-    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     std::pair<CBlockHeader, CBlockHeader> criminal;
     uint256 txid;
     uint32_t index;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> criminal.first >> criminal.second >> txid >> index;
 
     if (!CheckDoubleSign(criminal.first, criminal.second)) {
@@ -424,10 +424,10 @@ void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metad
 
 bool CMasternodesView::ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
 {
-    if (tx.vin.size() == 0) {
+    if (!tx.IsCoinBase() || tx.vout.size() == 0) {
         return false;
     }
-    CScript const & memo = tx.vin[0].scriptSig;
+    CScript const & memo = tx.vout[0].scriptPubKey;
     CScript::const_iterator pc = memo.begin();
     opcodetype opcode;
     if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
