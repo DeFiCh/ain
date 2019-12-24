@@ -42,7 +42,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chainparams -> masternodes/masternodes -> validation -> pos -> chainparams"
     "masternodes/anchors -> spv/spv_wrapper -> masternodes/anchors"
     "masternodes/anchors -> validation -> masternodes/anchors"
-    "masternodes/masternodes -> validation -> masternodes/masternodes"
     "net_processing -> validation -> net_processing"
     "validation -> wallet/wallet -> validation"
     "masternodes/masternodes -> validation -> wallet/wallet -> masternodes/masternodes"
