@@ -104,6 +104,8 @@ bool CAnchor::CheckAuthSigs(CTeam const & team) const
 
 const CAnchorAuthIndex::Auth * CAnchorAuthIndex::ExistAuth(uint256 const & hash) const
 {
+    AssertLockHeld(cs_main);
+
     auto & list = auths.get<Auth::ByMsgHash>();
     auto it = list.find(hash);
     return it != list.end() ? &(*it) : nullptr;
@@ -111,6 +113,8 @@ const CAnchorAuthIndex::Auth * CAnchorAuthIndex::ExistAuth(uint256 const & hash)
 
 bool CAnchorAuthIndex::ValidateAuth(const CAnchorAuthIndex::Auth & auth) const
 {
+    AssertLockHeld(cs_main);
+
     // 1. common (prev and top checks)
     if (!auth.previousAnchor.IsNull()) {
         auto prev = panchors->ExistAnchorByTx(auth.previousAnchor);
@@ -157,6 +161,7 @@ bool CAnchorAuthIndex::ValidateAuth(const CAnchorAuthIndex::Auth & auth) const
 
 bool CAnchorAuthIndex::AddAuth(const CAnchorAuthIndex::Auth & auth)
 {
+    AssertLockHeld(cs_main);
     return auths.insert(auth).second;
 }
 
@@ -173,6 +178,7 @@ uint32_t GetMinAnchorQuorum(CMasternodesView::CTeam const & team)
  */
 CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest, uint256 const & forBlock) const
 {
+    AssertLockHeld(cs_main);
     /// @todo @maxb forBlock is ignored by now, possible implement
     // KList is sorted by defi height + signHash (all except sign)
     typedef Auths::index<Auth::ByKey>::type KList;
@@ -250,6 +256,8 @@ const CAnchorIndex::AnchorRec * CAnchorIndex::GetActiveAnchor() const
 
 const CAnchorIndex::AnchorRec * CAnchorIndex::ExistAnchorByTx(const uint256 & hash) const
 {
+    AssertLockHeld(cs_main);
+
     AnchorIndexImpl const & index = anchors;
     auto & list = index.get<AnchorRec::ByBtcTxHash>();
     auto it = list.find(hash);
@@ -258,6 +266,8 @@ const CAnchorIndex::AnchorRec * CAnchorIndex::ExistAnchorByTx(const uint256 & ha
 
 bool CAnchorIndex::AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight)
 {
+    AssertLockHeld(cs_main);
+
     AnchorIndexImpl & index = anchors;
     AnchorRec rec{ anchor, btcTxHash, btcBlockHeight };
     bool result = index.insert(rec).second;
@@ -268,6 +278,8 @@ bool CAnchorIndex::AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, 
 
 bool CAnchorIndex::DeleteAnchorByBtcTx(const uint256 & btcTxHash)
 {
+    AssertLockHeld(cs_main);
+
     typedef AnchorIndexImpl::index<AnchorRec::ByBtcTxHash>::type KList;
     KList & list = anchors.get<AnchorRec::ByBtcTxHash>();
 
@@ -288,6 +300,8 @@ bool CAnchorIndex::DeleteAnchorByBtcTx(const uint256 & btcTxHash)
 
 CMasternodesView::CTeam CAnchorIndex::GetNextTeam(const uint256 & btcPrevTx) const
 {
+    AssertLockHeld(cs_main);
+
     if (btcPrevTx.IsNull())
         return Params().GetGenesisTeam();
 
@@ -301,6 +315,8 @@ CMasternodesView::CTeam CAnchorIndex::GetNextTeam(const uint256 & btcPrevTx) con
 
 CMasternodesView::CTeam CAnchorIndex::GetCurrentTeam(const CAnchorIndex::AnchorRec * anchor) const
 {
+    AssertLockHeld(cs_main);
+
     if (!anchor)
         return Params().GetGenesisTeam();
 
@@ -309,6 +325,8 @@ CMasternodesView::CTeam CAnchorIndex::GetCurrentTeam(const CAnchorIndex::AnchorR
 
 CAnchorIndex::AnchorRec const * CAnchorIndex::GetAnchorByBtcTx(uint256 const & txHash) const
 {
+    AssertLockHeld(cs_main);
+
     typedef AnchorIndexImpl::index<AnchorRec::ByBtcTxHash>::type KList;
     KList const & list = anchors.get<AnchorRec::ByBtcTxHash>();
 
@@ -318,12 +336,13 @@ CAnchorIndex::AnchorRec const * CAnchorIndex::GetAnchorByBtcTx(uint256 const & t
 
 int CAnchorIndex::GetAnchorConfirmations(uint256 const & txHash) const
 {
+    AssertLockHeld(cs_main);
     return GetAnchorConfirmations(GetAnchorByBtcTx(txHash));
 }
 
 int CAnchorIndex::GetAnchorConfirmations(const CAnchorIndex::AnchorRec * rec) const
 {
-    if (!rec) {
+    if (!rec || !spv::pspv) {
         return -1;
     }
     uint32_t const spvLastBlock = spv::pspv->GetLastBlockHeight();
@@ -351,6 +370,7 @@ CAnchorIndex::AnchorRec const * BestOfTwo(CAnchorIndex::AnchorRec const * a1, CA
 
 void CAnchorIndex::ActivateBestAnchor()
 {
+    AssertLockHeld(cs_main);
     typedef AnchorIndexImpl::index<AnchorRec::ByBtcHeight>::type KList;
     KList const & list = anchors.get<AnchorRec::ByBtcHeight>();
 
@@ -409,6 +429,7 @@ bool CAnchorIndex::DbErase(uint256 const & hash)
 /// Validates all except tx confirmations
 bool ValidateAnchor(const CAnchor & anchor, bool noThrow)
 {
+    AssertLockHeld(cs_main);
     try {
         // common: check heights and prevs
         if (!anchor.previousAnchor.IsNull()) {
