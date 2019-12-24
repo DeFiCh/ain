@@ -18,6 +18,7 @@
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <masternodes/masternodes.h>
 #include <masternodes/anchors.h>
 #include <masternodes/mn_checks.h>
 #include <policy/fees.h>
@@ -3239,9 +3240,11 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // skip this validation if it is Genesis (due to mn creation txs)
     if (block.GetHash() != consensusParams.hashGenesisBlock) {
-        for (unsigned int i = 1; i < block.vtx.size(); i++)
-            if (block.vtx[i]->IsCoinBase())
+        std::vector<unsigned char> metadata;
+        for (unsigned int i = 1; i < block.vtx.size(); i++) {
+            if (block.vtx[i]->IsCoinBase() && !CMasternodesView::ExtractCriminalCoinsFromTx(*block.vtx[i], metadata))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
+        }
     }
 
     // Check transactions
