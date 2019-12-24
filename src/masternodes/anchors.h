@@ -36,7 +36,7 @@ namespace spv
     struct BtcAnchorTx;
 }
 
-typedef int32_t THeight; // cause not decided yet which type to use for heights
+typedef uint32_t THeight; // cause not decided yet which type to use for heights
 class CAnchorAuthMessage
 {
     using Signature = std::vector<unsigned char>;
@@ -212,7 +212,7 @@ public:
 
 private:
     AnchorIndexImpl anchors;
-    AnchorRec const * top;
+    AnchorRec const * top = nullptr;
 
 private:
     template <typename Key, typename Value>
