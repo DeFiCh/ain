@@ -175,7 +175,12 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "mn_resign", 1, "mn_id" },
     { "mn_list", 0, "list" },
     { "mn_list", 1, "verbose" },
-//    { "spv_createanchor", 0, "verbose" },
+
+    { "spv_sendrawtx", 0, "rawtx" },
+    { "spv_createanchor", 0, "rewardAddress" },
+    { "spv_createanchor", 1, "hash" },
+    { "spv_createanchortemplate", 0, "rewardAddress" },
+    { "spv_createanchortemplate", 1, "hash" },
     { "spv_rescan", 0, "height" },
     { "spv_gettxconfirmations", 0, "txhash" },
     { "spv_splitutxo", 0, "parts" },
