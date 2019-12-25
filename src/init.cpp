@@ -264,7 +264,8 @@ void Shutdown(InitInterfaces& interfaces)
             g_chainstate->ForceFlushStateToDisk();
             g_chainstate->ResetCoinsViews();
         }
-        spv::pspv->Disconnect();
+        if (spv::pspv)
+            spv::pspv->Disconnect();
         spv::pspv.reset();
         panchorauths.reset();
         panchors.reset();

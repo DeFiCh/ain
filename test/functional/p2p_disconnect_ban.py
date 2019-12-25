@@ -16,7 +16,7 @@ from test_framework.util import (
 class DisconnectBanTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
-        self.extra_args = [['-dummypos=1'], ['-dummypos=1']]
+        self.extra_args = [['-dummypos=1', '-nospv'], ['-dummypos=1', '-nospv']]
 
     def run_test(self):
         self.log.info("Test setban and listbanned RPCs")

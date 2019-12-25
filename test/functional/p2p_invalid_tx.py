@@ -28,6 +28,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         self.extra_args = [[
             "-acceptnonstdtxn=1",
             "-dummypos=1",
+            "-nospv",
         ]]
         self.setup_clean_chain = True
 
