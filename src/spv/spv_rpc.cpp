@@ -5,33 +5,14 @@
 #include <base58.h>
 #include <chainparams.h>
 #include <core_io.h>
-//#include <consensus/validation.h>
-//#include <net.h>
 #include <rpc/client.h>
 #include <rpc/server.h>
 #include <rpc/protocol.h>
 #include <rpc/util.h>
 #include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
-#include <net_processing.h>
 #include <spv/spv_wrapper.h>
-//#include <script/script_error.h>
-//#include <script/sign.h>
 #include <univalue/include/univalue.h>
-//#include <util/validation.h>
-//#include <validation.h>
-//#include <version.h>
-
-//#include <spv/bitcoin/BRChainParams.h> // do not include it!
-//#include <spv/support/BRLargeInt.h>
-//#include <spv/support/BRKey.h>
-//#include <spv/support/BRAddress.h>
-//#include <spv/support/BRBIP39Mnemonic.h>
-//#include <spv/support/BRBIP32Sequence.h>
-//#include <spv/bitcoin/BRPeerManager.h>
-//#include <spv/bitcoin/BRChainParams.h>
-//#include <spv/bcash/BRBCashParams.h>
-
 
 //#ifdef ENABLE_WALLET
 #include <wallet/coincontrol.h>
@@ -39,14 +20,7 @@
 #include <wallet/wallet.h>
 //#endif
 
-#include <future>
 #include <stdexcept>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/assign/list_of.hpp>
-
-
-//extern void ScriptPubKeyToJSON(CScript const & scriptPubKey, UniValue & out, bool fIncludeHex); // in rawtransaction.cpp
 
 static CWallet* GetWallet(const JSONRPCRequest& request)
 {
@@ -73,22 +47,16 @@ CAnchor createAnchorMessage(CTxDestination const & rewardDest, uint256 const & f
 UniValue spv_sendrawtx(const JSONRPCRequest& request)
 {
     RPCHelpMan{"spv_sendrawtx",
-        "\nSending anchor raw tx to botcoin blockchain\n",
+        "\nSending raw tx to bitcoin blockchain\n",
         {
             {"rawtx", RPCArg::Type::STR, RPCArg::Optional::NO, "The hex-encoded raw transaction with signature" },
         },
         RPCResult{
-            "\"none\"                  Always successful\n"
+            "\"none\"                  Returns nothing\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                               "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                             "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
+            HelpExampleCli("spv_sendrawtx", "\"rawtx\"")
+            + HelpExampleRpc("spv_sendrawtx", "\"rawtx\"")
         },
     }.Check(request);
 
@@ -100,79 +68,36 @@ UniValue spv_sendrawtx(const JSONRPCRequest& request)
 }
 
 /*
- * Issued by: any
+ * For tests|experiments only
 */
 UniValue spv_splitutxo(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"spv_splitutxo",
-        "\nCreates (and submits to local node and network) a masternode creation transaction with given metadata, spending the given inputs..\n"
-        "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
-            HelpRequiringPassphrase(pwallet) + "\n",
+        "\nFor tests|experiments only\n",
         {
-//            {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
-//                {
-//                    {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "", /// @todo @maxb change to 'NO'
-//                        {
-//                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-//                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-//                            {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "Amount of output"},
-//                            {"privkey", RPCArg::Type::STR, RPCArg::Optional::NO, "WIF private key for signing this output"},
-//                        },
-//                    },
-//                },
-//            },
-            {"parts", RPCArg::Type::NUM, RPCArg::Optional::NO, "" },
-            {"amount", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, ""},
+            {"parts", RPCArg::Type::NUM, RPCArg::Optional::NO, "Number of parts" },
+            {"amount", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Amount of each part, optional"},
         },
         RPCResult{
-            "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
+            "\"txHex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
+            "\"txHash\"                 (string) The hex-encoded transaction hash\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                               "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                             "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
+            HelpExampleCli("spv_splitutxo", "5 10000")
+            + HelpExampleRpc("spv_splitutxo", "5 10000")
         },
     }.Check(request);
 
-
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create anchor while still in Initial Block Download");
-    }
-
     RPCTypeCheck(request.params, { UniValue::VNUM, UniValue::VNUM }, true);
-//    if (request.params[0].isNull() || request.params[1].isNull())
-//    {
-//        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 and 2 must be non-null, and argument 2 expected as object with "
-//                                                  "{\"hash\",\"rewardAddress\"}");
-//    }
+
     int parts = request.params[0].get_int();
     int amount = request.params[1].empty() ? 0 : request.params[1].get_int();
-
-//    uint256 const hash(ParseHashV(metaObj["hash"], "hash"));
-//    std::string rewardAddress = metaObj["rewardAddress"].getValStr();
-//    CTxDestination rewardDest = DecodeDestination(rewardAddress);
-//    if (rewardDest.which() != 1 && rewardDest.which() != 4)
-//    {
-//        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
-//    }
-//    CKeyID rewardKey = rewardDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&rewardDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
 
     auto locked_chain = pwallet->chain().lock();
 
     /// @todo @maxb temporary, tests
-
-//    CTxDestination rewardDest = DecodeDestination("mmjrUWSKQqnkWzyS98GCuFxA7TXcK3bc3A");
-
-
-    /// @todo @maxb temporary, tests
-//    auto rawtx = spv::CreateAnchorTx("e6f0a5e4db120f6877710bbbb5f9523162b6456bb1d4d89b854e60a794e03b46", 1, 3271995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
     auto rawtx = spv::CreateSplitTx("1251d1fc46d104564ca8311696d561bf7de5c0e336039c7ccfe103f7cdfc026e", 2, 3071995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", parts, amount);
 
     bool send = false;
@@ -188,8 +113,6 @@ UniValue spv_splitutxo(const JSONRPCRequest& request)
     DecodeHexTx(mtx, std::string(rawtx.begin(), rawtx.end()), true);
 
     UniValue result(UniValue::VOBJ);
-//    result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
-//    result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
     result.pushKV("txHex", HexStr(rawtx));
     /// @attention WRONG HASH!!!
     result.pushKV("txHash", CTransaction(mtx).GetHash().ToString());
@@ -207,10 +130,11 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"spv_createanchor",
-        "\nCreates (and submits to local node and network) a masternode creation transaction with given metadata, spending the given inputs..\n"
-        "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+        "\nCreates (and optional submits to bitcoin blockchain) an anchor tx with given OR latest possible (every 15th) authorized blockhash.\n"
+        "The first argument is the specific UTXOs to spend." +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
+                /// @todo @maxb not fully implemented yet! now in test mode!
 //            {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
 //                {
 //                    {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "", /// @todo @maxb change to 'NO'
@@ -223,25 +147,20 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
 //                    },
 //                },
 //            },
-//            {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-//                {
-//                    {"hash", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "ID of block in DF chain to anchor to. Current ChaiTip if omitted." },
-//                    {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "User's P2PKH address for reward"},
-//                },
-//            },
+            {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "User's P2PKH address (in DeFi chain) for reward"},
+            {"hash", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "ID of block in DF chain to anchor to. Latest possible authorized block if omitted." },
         },
         RPCResult{
-            "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
+            "\"txHex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
+            "\"txHash\"                 (string) The hex-encoded transaction hash\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                               "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                             "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
+            HelpExampleCli("spv_createanchor", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0,\\\"amount\\\":10000,\\\"privkey\\\":\\\"WIFprivkey\\\"}]\" "
+                                            "\\\"rewardAddress\\\" \\\"blockHash\\\""
+                                            )
+            + HelpExampleRpc("spv_createanchor", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0,\\\"amount\\\":10000,\\\"privkey\\\":\\\"WIFprivkey\\\"}]\" "
+                                                 "\\\"rewardAddress\\\" \\\"blockHash\\\""
+                                                 )
         },
     }.Check(request);
 
@@ -250,27 +169,19 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create anchor while still in Initial Block Download");
     }
 
-//    RPCTypeCheck(request.params, { UniValue::VARR, UniValue::VOBJ }, true);
+//    RPCTypeCheck(request.params, { UniValue::VARR, UniValue::VSTR, UniValue::VSTR }, true);
 //    if (request.params[0].isNull() || request.params[1].isNull())
 //    {
-//        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 and 2 must be non-null, and argument 2 expected as object with "
-//                                                  "{\"hash\",\"rewardAddress\"}");
+//        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 and 2 must be non-null");
 //    }
-//    UniValue metaObj = request.params[1].get_obj();
-//    RPCTypeCheckObj(metaObj, {
-//                        { "hash", UniValue::VSTR },
-//                        { "rewardAddress", UniValue::VSTR }
-//                    },
-//                    true, true);
-
-//    uint256 const hash(ParseHashV(metaObj["hash"], "hash"));
-//    std::string rewardAddress = metaObj["rewardAddress"].getValStr();
+//    std::string rewardAddress = request.params[1].getValStr();
 //    CTxDestination rewardDest = DecodeDestination(rewardAddress);
 //    if (rewardDest.which() != 1 && rewardDest.which() != 4)
 //    {
 //        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
 //    }
-//    CKeyID rewardKey = rewardDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&rewardDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
+//    uint256 const forBlock(ParseHashV(request.params[2].getValStr(), "blockHash"));
+
 
     auto locked_chain = pwallet->chain().lock();
 
@@ -311,42 +222,35 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     return result;
 }
 
+/// @todo @maxb not fully implemented yet! now in test mode!
 UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"spv_createanchortemplate",
-        "\nCreates (and submits to local node and network) a masternode creation transaction with given metadata, spending the given inputs..\n"
-        "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+        "\nCreates an anchor tx template with given OR latest possible (every 15th) authorized blockhash.\n" +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
-            {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "User's P2PKH address for reward"},
-            {"hash", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "ID of block in DF chain to anchor to. Current ChaiTip if omitted." },
+            {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "User's P2PKH address (in DeFi chain) for reward"},
+            {"hash", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "ID of block in DF chain to anchor to. Latest possible authorized block if omitted." },
         },
         RPCResult{
-            "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
+            "\"txHex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
+            "\"txHash\"                 (string) The hex-encoded transaction hash\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                               "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                             "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
+            HelpExampleCli("spv_createanchortemplate", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0,\\\"amount\\\":10000,\\\"privkey\\\":\\\"WIFprivkey\\\"}]\" "
+                                            "\\\"rewardAddress\\\" \\\"blockHash\\\""
+                                            )
+            + HelpExampleRpc("spv_createanchortemplate", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0,\\\"amount\\\":10000,\\\"privkey\\\":\\\"WIFprivkey\\\"}]\" "
+                                                 "\\\"rewardAddress\\\" \\\"blockHash\\\""
+                                                 )
         },
     }.Check(request);
 
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create Masternode while still in Initial Block Download");
-    }
 
-//    RPCTypeCheck(request.params[0], { UniValue::VOBJ }, true);
-    if (request.params[0].isNull())
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument 1 expected as object with "
-                                                  "{\"hash\",\"rewardAddress\"}");
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create anchor while still in Initial Block Download");
     }
 
     std::string rewardAddress = request.params[0].getValStr();
@@ -355,7 +259,6 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
     }
-//    CKeyID rewardKey = rewardDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&rewardDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
 
     uint256 const hash = request.params[1].isNull() ? uint256() : ParseHashV(request.params[1], "hash");
 
@@ -365,6 +268,9 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     if (anchor.sigs.empty()) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
     }
+
+    /// @todo @maxb will be implemented only after anchors tests
+
 //    CScript scriptMeta = CScript() << OP_RETURN << spv::BtcAnchorMarker << ToByteVector(anchor.GetHash());
 
 //    CMutableTransaction rawTx;
@@ -408,20 +314,14 @@ UniValue spv_rescan(const JSONRPCRequest& request)
     RPCHelpMan{"spv_rescan",
         "\nRescan from block height...\n",
         {
-            {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Block height or (tip-height) if negative."},
+            {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Block height or ('tip' minus 'height') if negative)."},
         },
         RPCResult{
-            "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
+            "\"none\"                  Returns nothing\n"
         },
         RPCExamples{
-            HelpExampleCli("spv_rescan", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
-                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                               "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
-            + HelpExampleRpc("spv_rescan", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                             "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
+            HelpExampleCli("spv_rescan", "600000")
+            + HelpExampleRpc("spv_rescan", "600000")
         },
     }.Check(request);
 
@@ -439,26 +339,19 @@ UniValue spv_rescan(const JSONRPCRequest& request)
 UniValue spv_syncstatus(const JSONRPCRequest& request)
 {
     RPCHelpMan{"spv_syncstatus",
-        "\nRescan from block height...\n",
+        "\nReturns spv sync status\n",
         {
-            {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Block height or (tip-height) if negative."},
         },
         RPCResult{
             "{                           (json object)\n"
-            "   \"connected\"                (bool) Last synced block\n"
+            "   \"connected\"                (bool) Connection status\n"
             "   \"current\"                  (num) Last synced block\n"
-            "   \"estimated\"                (num) Last synced block\n"
+            "   \"estimated\"                (num) Estimated chain height (as reported by peers)\n"
             "}\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                               "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                             "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
+            HelpExampleCli("spv_syncstatus", "")
+            + HelpExampleRpc("spv_syncstatus", "")
         },
     }.Check(request);
 
@@ -469,40 +362,35 @@ UniValue spv_syncstatus(const JSONRPCRequest& request)
     result.pushKV("connected", spv::pspv->IsConnected());
     result.pushKV("current", static_cast<int>(spv::pspv->GetLastBlockHeight()));
     result.pushKV("estimated", static_cast<int>(spv::pspv->GetEstimatedBlockHeight()));
-    result.pushKV("txCount", static_cast<int>(spv::pspv->GetWalletTxs().size()));
+//    result.pushKV("txCount", static_cast<int>(spv::pspv->GetWalletTxs().size()));
     return result;
 }
 
 UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
 {
+    CWallet* const pwallet = GetWallet(request);
+
     RPCHelpMan{"spv_gettxconfirmations",
-        "\nRescan from block height...\n",
+        "\nReports tx confirmations (if any)...\n",
         {
-            {"txhash", RPCArg::Type::STR, RPCArg::Optional::NO, "Block height or (tip-height) if negative."},
+            {"txhash", RPCArg::Type::STR, RPCArg::Optional::NO, "Hash of tx to look for"},
         },
         RPCResult{
-            "{                           (json object)\n"
-            "   \"connected\"                (bool) Last synced block\n"
-            "   \"current\"                  (num) Last synced block\n"
-            "   \"estimated\"                (num) Last synced block\n"
-            "}\n"
+            "count                (num) Tx confirmations. Zero if not confirmed yet (mempooled?) and -1 if not found\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                               "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
-                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                             "\\\"collateralAddress\\\":\\\"address\\\""
-                                            "}\"")
+            HelpExampleCli("spv_gettxconfirmations", "\\\"txid\\\"")
+            + HelpExampleRpc("spv_gettxconfirmations", "\\\"txid\\\"")
         },
     }.Check(request);
 
     uint256 txHash;
     ParseHashStr(request.params[0].getValStr(), txHash);
+
+    auto locked_chain = pwallet->chain().lock();
+
+    return UniValue(panchors->GetAnchorConfirmations(txHash));
 //    return UniValue(spv::pspv->GetTxConfirmations(txHash));
-    return UniValue(0);
 }
 
 
@@ -510,8 +398,8 @@ static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
   //  ----------------- ------------------------    -----------------------     ----------
   { "spv",      "spv_sendrawtx",              &spv_sendrawtx,             { "rawtx" }  },
-  { "spv",      "spv_createanchor",           &spv_createanchor,          { /*"inputs", "hash", "rewardaddress", "privkey" */}  },
-  { "spv",      "spv_createanchortemplate",   &spv_createanchortemplate,  { /*"inputs", "hash", "rewardaddress", "privkey" */}  },
+  { "spv",      "spv_createanchor",           &spv_createanchor,          { /*"inputs", */ "rewardAddress", "hash" }  },
+  { "spv",      "spv_createanchortemplate",   &spv_createanchortemplate,  { /*"inputs", */ "rewardAddress", "hash" }  },
   { "spv",      "spv_rescan",                 &spv_rescan,                { "height" }  },
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
