@@ -68,12 +68,14 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         noui_connected = true;
     }
 
-    testMasternodeKeys[uint256S("0x18a2c79448e8feeed9ee3e6a5ea9b2640062557ddac8e9ac2ee04f62ed484f24")] =
+    testMasternodeKeys[uint256S("0x18a2c79448e8feeed9ee3e6a5ea9b2640062557ddac8e9ac2ee04f62ed484f24")] =            // [1] from chainparams
                         TestMasternodeKeys{DecodeSecret("cSCmN1tjcR2yR1eaQo9WmjTMR85SjEoNPqMPWGAApQiTLJH8JF7W"),
                                            DecodeSecret("cVNTRYV43guugJoDgaiPZESvNtnfnUW19YEjhybihwDbLKjyrZNV")};
-    testMasternodeKeys[uint256S("0xe86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4")] =
+    testMasternodeKeys[uint256S("0xe86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4")] =            // [0] from chainparams
                         TestMasternodeKeys{DecodeSecret("cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz"),
                                            DecodeSecret("cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC")};
+
+    gArgs.ForceSetArg("-masternode_operator", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ"); // matches with [1] masternode from regtest chainparams (and with testMasternodeKeys.begin())
 }
 
 BasicTestingSetup::~BasicTestingSetup()
@@ -182,7 +184,8 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
 
     uint32_t mintedBlocks(0);
     CKey minterKey;
-    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);  /// @todo no self-sufficient logic: BlockAssembler(chainparams).CreateNewBlock() checks AmIOperator():
+                                                                                                        /// so, arg "-masternode_operator" should match with masternodeID !!
     if (pos == testMasternodeKeys.end())
         throw std::runtime_error(std::string(__func__) + ": masternodeID not found");
 

@@ -223,8 +223,8 @@ class CAddress:
 class CAnchorAuth:
     __slots__ = ("previousAnchor", "height", "blockHash", "nextTeam")
 
-    def __init__(self, previousAnchor=b"\x00"*32, height=0, blockHash=b"\x00"*32, nextTeam=[]):
-        self.previousAnchor = previousAnchor
+    def __init__(self, previousAnchor=b"\x00"*32, height=0, blockHash=b"\x00"*32, nextTeam=None):
+        self.previousAnchor = previousAnchor if previousAnchor is not None else []
         self.height = height
         self.blockHash = blockHash
         self.nextTeam = nextTeam
