@@ -177,7 +177,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "mn_list", 1, "verbose" },
 //    { "spv_createanchor", 0, "verbose" },
     { "spv_rescan", 0, "height" },
-//    { "spv_gettxconfirmations", 0, "txhash" },
+    { "spv_gettxconfirmations", 0, "txhash" },
     { "spv_splitutxo", 0, "parts" },
     { "spv_splitutxo", 1, "amount" },
 };

@@ -248,6 +248,39 @@ private:
     bool DbErase(uint256 const & hash);
 };
 
+class CAnchorConfirmMessage
+{
+    using Signature = std::vector<unsigned char>;
+public:
+    uint256 hashAnchor;
+    Signature signature;
+
+    CAnchorConfirmMessage() {}
+
+    static CAnchorConfirmMessage Create(CAnchor const & anchor, CKey const & key);
+    uint256 GetHash() const;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(hashAnchor);
+        READWRITE(signature);
+    }
+};
+
+class CAnchorConfirms
+{
+    using Hash = uint256;
+private:
+    std::map<Hash, CAnchorConfirmMessage> confirms;
+
+public:
+    const CAnchorConfirmMessage *Exist(uint256 const &hash);
+    void Add(CAnchorConfirmMessage const &newMessage);
+    bool Validate(CAnchorConfirmMessage const &message);
+};
+
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')
 /// even may be not here, but in CMasternodesView
 uint32_t GetMinAnchorQuorum(CMasternodesView::CTeam const & team);
@@ -262,5 +295,6 @@ class CNode;
 /** Global variables that points to the anchors and their auths (should be protected by cs_main) */
 extern std::unique_ptr<CAnchorAuthIndex> panchorauths;
 extern std::unique_ptr<CAnchorIndex> panchors;
+extern std::unique_ptr<CAnchorConfirms> panchorconfirms;
 
 #endif // BITCOIN_MASTERNODES_ANCHORS_H
