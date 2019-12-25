@@ -234,11 +234,11 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
             "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                             "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                                "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                           "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                              "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
@@ -327,11 +327,11 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
             "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                             "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                                "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                           "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                              "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
@@ -414,11 +414,11 @@ UniValue spv_rescan(const JSONRPCRequest& request)
             "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            HelpExampleCli("spv_rescan", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
                                             "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                                "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            + HelpExampleRpc("spv_rescan", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                           "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                              "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
@@ -451,11 +451,11 @@ UniValue spv_syncstatus(const JSONRPCRequest& request)
             "}\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                             "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                                "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                           "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                              "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
@@ -488,11 +488,11 @@ UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
             "}\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                             "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                                "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                           "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                              "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
@@ -512,7 +512,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_sendrawtx",              &spv_sendrawtx,             { "rawtx" }  },
   { "spv",      "spv_createanchor",           &spv_createanchor,          { /*"inputs", "hash", "rewardaddress", "privkey" */}  },
   { "spv",      "spv_createanchortemplate",   &spv_createanchortemplate,  { /*"inputs", "hash", "rewardaddress", "privkey" */}  },
-  { "spv",      "spv_rescan",                 &spv_rescan,                { "height"}  },
+  { "spv",      "spv_rescan",                 &spv_rescan,                { "height" }  },
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
   { "spv",      "spv_splitutxo",              &spv_splitutxo,             { "parts", "amount" }  },
