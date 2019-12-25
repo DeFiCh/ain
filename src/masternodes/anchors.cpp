@@ -23,6 +23,7 @@
 
 std::unique_ptr<CAnchorAuthIndex> panchorauths;
 std::unique_ptr<CAnchorIndex> panchors;
+std::unique_ptr<CAnchorConfirms> panchorconfirms;
 
 template <typename TContainer>
 bool CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID> const & keys)
@@ -465,3 +466,39 @@ bool ValidateAnchor(const CAnchor & anchor, bool noThrow)
     return true;
 }
 
+CAnchorConfirmMessage CAnchorConfirmMessage::Create(CAnchor const & anchor, CKey const & key)
+{
+    CAnchorConfirmMessage message;
+
+    CDataStream ss{SER_NETWORK, PROTOCOL_VERSION};
+    ss << anchor;
+    message.hashAnchor = Hash(ss.begin(), ss.end());
+
+    if (!key.SignCompact(message.hashAnchor, message.signature)) {
+        message.signature.clear();
+    }
+    return message;
+}
+
+uint256 CAnchorConfirmMessage::GetHash() const
+{
+    CDataStream ss{SER_NETWORK, PROTOCOL_VERSION};
+    ss << *this;
+    return Hash(ss.begin(), ss.end());
+}
+
+const CAnchorConfirmMessage *CAnchorConfirms::Exist(uint256 const &hash)
+{
+    auto it = confirms.find(hash);
+    return it != confirms.end() ? &(it->second) : nullptr;
+}
+
+bool CAnchorConfirms::Validate(CAnchorConfirmMessage const &message)
+{
+    return true;
+}
+
+void CAnchorConfirms::Add(CAnchorConfirmMessage const &newMessage)
+{
+    confirms.insert(std::make_pair(newMessage.GetHash(), newMessage));
+}
