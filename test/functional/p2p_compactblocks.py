@@ -96,7 +96,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 1
         self.extra_args = [[
-            "-acceptnonstdtxn=1", "-dummypos=1"
+            "-acceptnonstdtxn=1", "-dummypos=1", "-nospv"
         ]]
         self.utxos = []
 
