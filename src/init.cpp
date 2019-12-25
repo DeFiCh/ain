@@ -446,7 +446,7 @@ void SetupServerArgs()
     gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 1)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_resync", "Flag to reset spv database and resync from zero block (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_testnet", "Flag to use bitcoin testnet instead of main (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-spv_rescanblock", "Block height to rescan from (default: 0 = off)", ArgsManager::ALLOW_INT, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-spv_rescan", "Block height to rescan from (default: 0 = off)", ArgsManager::ALLOW_INT, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);

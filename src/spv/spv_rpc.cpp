@@ -81,11 +81,11 @@ UniValue spv_sendrawtx(const JSONRPCRequest& request)
             "\"none\"                  Always successful\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                             "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                                "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                           "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                              "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
@@ -106,7 +106,7 @@ UniValue spv_splitutxo(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
-    RPCHelpMan{"spv_createanchor",
+    RPCHelpMan{"spv_splitutxo",
         "\nCreates (and submits to local node and network) a masternode creation transaction with given metadata, spending the given inputs..\n"
         "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
             HelpRequiringPassphrase(pwallet) + "\n",
@@ -130,11 +130,11 @@ UniValue spv_splitutxo(const JSONRPCRequest& request)
             "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                             "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                                "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" " // TODO: SS change this
                                           "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                              "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
