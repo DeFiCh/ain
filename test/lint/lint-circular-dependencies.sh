@@ -38,6 +38,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "consensus/tx_verify -> masternodes/masternodes -> validation -> consensus/tx_verify"
     "masternodes/masternodes -> validation -> masternodes/mn_checks -> masternodes/masternodes"
     "masternodes/masternodes -> validation -> pos -> masternodes/masternodes"
+    "masternodes/masternodes -> validation -> masternodes/masternodes"
     "masternodes/mn_checks -> txmempool -> validation -> masternodes/mn_checks"
     "chainparams -> masternodes/masternodes -> validation -> pos -> chainparams"
     "masternodes/anchors -> spv/spv_wrapper -> masternodes/anchors"
