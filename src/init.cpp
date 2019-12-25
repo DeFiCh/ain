@@ -1569,7 +1569,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 {
                     spv::pspv.reset();
                     /// @todo @maxb retrieve xpub from genesis or chainparams
-                    spv::pspv = MakeUnique<spv::CSpvWrapper>(gArgs.GetBoolArg("-spv_testnet", false), nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
+                    spv::pspv = MakeUnique<spv::CSpvWrapper>(!gArgs.GetBoolArg("-spv_testnet", false), nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
                     spv::pspv->Connect();
                 }
 
