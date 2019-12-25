@@ -1811,7 +1811,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                                                            (*it)->second.ToString(), node.mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
         }
         uint256 stakeModifierPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->stakeModifier;
-        if (block.stakeModifier == pos::ComputeStakeModifier(stakeModifierPrevBlock, node.operatorAuthAddress)) {
+        if (block.stakeModifier != pos::ComputeStakeModifier(stakeModifierPrevBlock, node.operatorAuthAddress)) {
             return state.Invalid(
                     ValidationInvalidReason::CONSENSUS,
                     error("ConnectBlock(): block's stake Modifier should be %d, got %d!",
