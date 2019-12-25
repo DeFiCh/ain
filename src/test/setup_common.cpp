@@ -11,6 +11,7 @@
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
 #include <init.h>
+#include <masternodes/anchors.h>
 #include <masternodes/mn_txdb.h>
 #include <miner.h>
 #include <net.h>
@@ -104,9 +105,19 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
     ::ChainstateActive().InitCoinsCache();
     assert(::ChainstateActive().CanFlushToDisk());
 
-    pmasternodesview.reset();
-    pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, false, true);
-    pmasternodesview->Load();
+    {
+        LOCK(cs_main);
+
+        pmasternodesview.reset();
+        pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, false, true);
+        pmasternodesview->Load();
+
+        panchorauths.reset();
+        panchorauths = MakeUnique<CAnchorAuthIndex>();
+        panchors.reset();
+        panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, true);
+        panchors->Load();
+    }
 
     if (!LoadGenesisBlock(chainparams)) {
         throw std::runtime_error("LoadGenesisBlock failed.");

@@ -96,6 +96,7 @@ class TestNode():
             "-uacomment=testnode%d" % i,
             "-masternode_operator="+self.get_genesis_keys().operatorAuthAddress,
             "-dummypos=1",
+            "-nospv",
         ]
 
         self.cli = TestNodeCLI(bitcoin_cli, self.datadir)

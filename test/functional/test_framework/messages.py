@@ -220,6 +220,45 @@ class CAddress:
                                                          self.ip, self.port)
 
 
+class CAnchorAuth:
+    __slots__ = ("previousAnchor", "height", "blockHash", "nextTeam")
+
+    def __init__(self, previousAnchor=b"\x00"*32, height=0, blockHash=b"\x00"*32, nextTeam=[]):
+        self.previousAnchor = previousAnchor
+        self.height = height
+        self.blockHash = blockHash
+        self.nextTeam = nextTeam
+
+    # dummy, untested yet:
+    def deserialize(self, f):
+        self.previousAnchor = deser_uint256(f)
+        self.height = struct.unpack("<I", f.read(4))[0]
+        self.blockHash = deser_uint256(f)
+
+        nit = deser_compact_size(f)
+        self.nextTeam = []
+        for i in range(nit):
+            t = f.read(20)
+            self.nextTeam.append(t)
+        repr (self)
+
+    # dummy, untested yet:
+    def serialize(self):
+        repr (self)
+        r = b""
+        r += ser_uint256(self.previousAnchor)
+        r += struct.pack("<I", self.height)
+        r += ser_uint256(self.blockhash)
+
+        r += ser_compact_size(len(nextTeam))
+        for team in nextTeam:
+            r += f.write(team)
+        return r
+
+    def __repr__(self):
+        return "CAnchorAuth(previousAnchor=%064x height=%i blockHash=%064x nextTeam=%s)" % (self.previousAnchor, self.height, self.blockHash, self.nextTeam)
+
+
 class CInv:
     __slots__ = ("hash", "type")
 
@@ -229,7 +268,8 @@ class CInv:
         2: "Block",
         1|MSG_WITNESS_FLAG: "WitnessTx",
         2|MSG_WITNESS_FLAG : "WitnessBlock",
-        4: "CompactBlock"
+        4: "CompactBlock",
+        5: "AnchorAuth"
     }
 
     def __init__(self, t=0, h=0):
@@ -1120,6 +1160,23 @@ class msg_getblocks:
     def __repr__(self):
         return "msg_getblocks(locator=%s hashstop=%064x)" \
             % (repr(self.locator), self.hashstop)
+
+
+class msg_anchorauth:
+    __slots__ = ("auth",)
+    command = b"anchorauth"
+
+    def __init__(self, auth=CAnchorAuth()):
+        self.auth = auth
+
+    def deserialize(self, f):
+        self.auth.deserialize(f)
+
+    def serialize(self):
+        return self.auth.serialize()
+
+    def __repr__(self):
+        return "msg_anchorauth(auth=%s)" % (repr(self.auth))
 
 
 class msg_tx:
