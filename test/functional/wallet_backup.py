@@ -171,6 +171,7 @@ class WalletBackupTest(BitcoinTestFramework):
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'masternodes'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
 
         # Restore wallets from backup
         shutil.copyfile(os.path.join(self.nodes[0].datadir, 'wallet.bak'), os.path.join(self.nodes[0].datadir, 'regtest', 'wallets', 'wallet.dat'))
@@ -193,6 +194,7 @@ class WalletBackupTest(BitcoinTestFramework):
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'masternodes'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
 
         self.start_three()
 

@@ -24,6 +24,7 @@ import threading
 from test_framework.messages import (
     CBlockHeader,
     MIN_VERSION_SUPPORTED,
+    msg_anchorauth,
     msg_addr,
     msg_block,
     MSG_BLOCK,
@@ -59,6 +60,7 @@ logger = logging.getLogger("TestFramework.mininode")
 
 MESSAGEMAP = {
     b"addr": msg_addr,
+    b"anchorauth": msg_anchorauth,
     b"block": msg_block,
     b"blocktxn": msg_blocktxn,
     b"cmpctblock": msg_cmpctblock,
@@ -316,6 +318,7 @@ class P2PInterface(P2PConnection):
         pass
 
     def on_addr(self, message): pass
+    def on_anchorauth(self, message): pass
     def on_block(self, message): pass
     def on_blocktxn(self, message): pass
     def on_cmpctblock(self, message): pass

@@ -155,6 +155,20 @@ class BaseNode(P2PInterface):
         test_function = lambda: self.last_blockhash_announced == block_hash
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
+    def on_message(self, message):
+        """Overloaded base method to completely ignore anchor auths that conflicts with test flow logic"""
+        with mininode_lock:
+            try:
+                command = message.command.decode('ascii')
+                if command == 'inv' and message.inv[-1].type == 5: # 'anchorauth' - ignore anchor auths!!!!
+                    return
+                self.message_count[command] += 1
+                self.last_message[command] = message
+                getattr(self, 'on_' + command)(message)
+            except:
+                print("ERROR delivering %s (%s)" % (repr(message), sys.exc_info()[0]))
+                raise
+
     def on_inv(self, message):
         self.block_announced = True
         self.last_blockhash_announced = message.inv[-1].hash

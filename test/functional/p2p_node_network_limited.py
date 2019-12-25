@@ -40,7 +40,7 @@ class NodeNetworkLimitedTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
-        self.extra_args = [['-prune=550', '-addrmantest', '-dummypos=1'], ['-dummypos=1'], ['-dummypos=1']]
+        self.extra_args = [['-prune=550', '-addrmantest', '-dummypos=1', '-nospv'], ['-dummypos=1', '-nospv'], ['-dummypos=1', '-nospv']]
 
     def disconnect_all(self):
         disconnect_nodes(self.nodes[0], 1)
