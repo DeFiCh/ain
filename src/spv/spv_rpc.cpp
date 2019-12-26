@@ -398,8 +398,8 @@ static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
   //  ----------------- ------------------------    -----------------------     ----------
   { "spv",      "spv_sendrawtx",              &spv_sendrawtx,             { "rawtx" }  },
-  { "spv",      "spv_createanchor",           &spv_createanchor,          { /*"inputs", */ "rewardAddress", "hash" }  },
-  { "spv",      "spv_createanchortemplate",   &spv_createanchortemplate,  { /*"inputs", */ "rewardAddress", "hash" }  },
+  { "spv",      "spv_createanchor",           &spv_createanchor,          { "rewardAddress", "hash" }  },
+  { "spv",      "spv_createanchortemplate",   &spv_createanchortemplate,  { "rewardAddress", "hash" }  },
   { "spv",      "spv_rescan",                 &spv_rescan,                { "height" }  },
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
