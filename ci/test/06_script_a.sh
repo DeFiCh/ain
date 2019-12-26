@@ -28,6 +28,7 @@ END_FOLD
 
 BEGIN_FOLD distdir
 DOCKER_EXEC make distdir VERSION=$HOST
+DOCKER_EXEC cp -r ../src/spv/bcash ../src/spv/bitcoin ../src/spv/support ../src/spv/Makefile  "bitcoin-$HOST/src/spv/"
 END_FOLD
 
 cd "bitcoin-$HOST" || (echo "could not enter distdir bitcoin-$HOST"; exit 1)
