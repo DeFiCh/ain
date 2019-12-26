@@ -250,9 +250,9 @@ class CAnchorAuth:
         r += struct.pack("<I", self.height)
         r += ser_uint256(self.blockhash)
 
-        r += ser_compact_size(len(nextTeam))
-        for team in nextTeam:
-            r += f.write(team)
+        r += ser_compact_size(len(self.nextTeam))
+        for team in self.nextTeam:
+            r += team
         return r
 
     def __repr__(self):
