@@ -43,6 +43,7 @@ class CLazyNode(P2PInterface):
     def on_block(self, message): self.bad_message(message)
     def on_getaddr(self, message): self.bad_message(message)
     def on_headers(self, message): self.bad_message(message)
+    def on_anchorauth(self, message): self.bad_message(message)
     def on_getheaders(self, message): self.bad_message(message)
     def on_ping(self, message): self.bad_message(message)
     def on_mempool(self, message): self.bad_message(message)
