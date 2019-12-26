@@ -281,7 +281,7 @@ public:
     void PruneOlder(int height);
 
     CTeam GetCurrentTeam();
-    CTeam CalcNextTeam();
+    CTeam CalcNextTeam(uint256 stakeModifier);
 //    virtual CTeam const & ReadDposTeam(int height) const;
 
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
