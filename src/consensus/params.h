@@ -104,11 +104,13 @@ struct Params {
         int resignDelay;
         int collateralUnlockDelay;
         int historyFrame;
+        int anchoringTeamSize;
     };
     MnParams mn;
 
     struct SpvParams {
         CAmount creationFee;
+        CAmount anchorSubsidy;
         std::string wallet_xpub;
         std::string anchors_address;
     };
