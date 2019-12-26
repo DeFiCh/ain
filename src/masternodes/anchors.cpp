@@ -140,8 +140,13 @@ bool CAnchorAuthIndex::ValidateAuth(const CAnchorAuthIndex::Auth & auth) const
     if (team.empty()) {
         return error("%s: Can't get team for previousAnchor tx %s !", __func__, auth.previousAnchor.ToString());
     }
-    /// @todo @max check that auth next team calculated correctly. add log
-    if (team != pmasternodesview->CalcNextTeam()) {
+
+    CBlockIndex* block = ::ChainActive()[auth.height];
+    if (block == nullptr) {
+        return error("%s: Can't get block from height: %d !", __func__, auth.height);
+    }
+
+    if (auth.nextTeam != pmasternodesview->CalcNextTeam(block->stakeModifier)) {
         return error("%s: Wrong nextTeam for auth %s!!!", __func__, auth.GetHash().ToString());
     }
 
