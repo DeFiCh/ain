@@ -345,10 +345,29 @@ CMasternodesView::CTeam CMasternodesView::GetCurrentTeam()
 //    return team;
 }
 
-CMasternodesView::CTeam CMasternodesView::CalcNextTeam()
+CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier)
 {
-    /// @todo @maxb temp, implement
-    return Params().GetGenesisTeam();
+    int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
+
+    std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
+    for (auto && it = allNodes.begin(); it != allNodes.end(); ++it) {
+        CMasternode const & node = it->second;
+
+        if(!node.IsActive())
+            continue;
+
+        CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
+        ss << it->first << stakeModifier;
+        priorityMN.insert(std::make_pair(UintToArith256(Hash(ss.begin(), ss.end())), node.operatorAuthAddress));
+    }
+
+    CMasternodesView::CTeam newTeam;
+    auto && it = priorityMN.begin();
+    for (int i = 0; i < anchoringTeamSize && it != priorityMN.end(); ++i, ++it) {
+        newTeam.insert(it->second);
+    }
+
+    return newTeam;
 }
 
 bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)

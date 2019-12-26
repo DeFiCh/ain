@@ -3773,7 +3773,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
         if (mnId && pmasternodesview->ExistMasternode(mnId->id)->IsActive()) { // this is safe due to prev call `AmIOperator`
             /// @todo @maxb subst 'nextTeam'
             auto topAnchor = panchors->GetActiveAnchor();
-            CAnchorAuthMessage auth(topAnchor ? topAnchor->txHash : uint256(), ::ChainActive().Height(), ::ChainActive().Tip()->GetBlockHash(), pmasternodesview->CalcNextTeam());
+            CAnchorAuthMessage auth(topAnchor ? topAnchor->txHash : uint256(), ::ChainActive().Height(), ::ChainActive().Tip()->GetBlockHash(), pmasternodesview->CalcNextTeam(::ChainActive().Tip()->stakeModifier));
 
             std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
             CKey masternodeKey{};
