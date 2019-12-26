@@ -22,10 +22,10 @@ endif
 LIBSPV=spv/libspv.a
 $(LIBSPV):
 	$(MAKE) -C spv lib
-SPV_CFLAGS=-I./spv -I./spv/support -I./spv/bitcoin -I./spv/bcash
+SPV_CFLAGS=-I. -I./spv -I./spv/support -I./spv/bitcoin -I./spv/bcash
 # -I./secp256k1
 
-BITCOIN_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS) 
+BITCOIN_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS)
 
 BITCOIN_INCLUDES += -I$(srcdir)/secp256k1/include
 BITCOIN_INCLUDES += $(UNIVALUE_CFLAGS)
