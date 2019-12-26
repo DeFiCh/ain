@@ -76,6 +76,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
                                            DecodeSecret("cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC")};
 
     gArgs.ForceSetArg("-masternode_operator", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ"); // matches with [1] masternode from regtest chainparams (and with testMasternodeKeys.begin())
+    gArgs.ForceSetArg("-spv_testnet", "1");
 }
 
 BasicTestingSetup::~BasicTestingSetup()
