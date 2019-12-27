@@ -5,7 +5,6 @@
 #include <spv/spv_wrapper.h>
 
 #include <chainparams.h>
-//#include <toUInt256.h>
 
 #include <masternodes/anchors.h>
 
@@ -20,20 +19,9 @@
 #include <sync.h>
 
 #include <util/strencodings.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
 #include <errno.h>
-#include <time.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-//#include <functional>
-#include <boost/bind.hpp>
-#include <boost/function.hpp>
-
-#include <iterator>
 
 extern RecursiveMutex cs_main;
 
@@ -50,8 +38,6 @@ static const char DB_SPVPEERS  = 'P';     // spv "peers" table
 static const char DB_SPVTXS    = 'T';     // spv "tx2msg" table
 
 uint256 to_uint256(const UInt256 & i) {
-    // reversed case
-//    return uint256(TBytes(TBytes::const_reverse_iterator(TBytes::const_iterator(&i.u8[32])), TBytes::const_reverse_iterator(TBytes::const_iterator(&i.u8[0]))));
     return uint256(TBytes(&i.u8[0], &i.u8[32]));
 }
 
@@ -94,10 +80,6 @@ void savePeers(void *info, int replace, const BRPeer peers[], size_t peersCount)
 {
     static_cast<CSpvWrapper *>(info)->OnSavePeers(replace, peers, peersCount);
 }
-//int networkIsReachable(void *info)
-//{
-//    return static_cast<CSpvWrapper *>(info)->OnNetworkIsReachable();
-//}
 void threadCleanup(void *info)
 {
     static_cast<CSpvWrapper *>(info)->OnThreadCleanup();
@@ -158,7 +140,6 @@ static void SetCheckpoints()
 
     BRTestNetCheckpoints[16] = { 1610784, toUInt256("000000000000038032aa1f49cd37cf32e48ded45de1b53208be999fffa0333ba"), 1575244826, 0x1a03aeec }; // added
     /// @attention don't forget to increase both 'n' in BRTestNetCheckpoints[n]
-//    BRTestNetCheckpoints[16] = { 1612800, toUInt256(""), , }; // added
 }
 
 CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool fWipe)
@@ -176,17 +157,13 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
     BRMasterPubKey mpk = BR_MASTER_PUBKEY_NONE;
 
-    // mainnet:
+    // test:
 //    UInt512 seed = UINT512_ZERO;
 //    BRBIP39DeriveKey(seed.u8, "axis husband project any sea patch drip tip spirit tide bring belt", NULL);
 //    mpk = BRBIP32MasterPubKey(&seed, sizeof(seed));
 
-    // testnet:
     mpk = BRBIP32ParseMasterPubKey(Params().GetConsensus().spv.wallet_xpub.c_str());
 
-//    char xprv[120];
-//    BRBIP32SerializeMasterPrivKey(xprv, 120, &seed, sizeof(seed));
-//    LogPrintf("spv: debug xprv: %s\n", xprv);
     char xpub_buf[BRBIP32SerializeMasterPubKey(NULL, 0, mpk)];
     BRBIP32SerializeMasterPubKey(xpub_buf, sizeof(xpub_buf), mpk);
     LogPrintf("spv: debug xpub: %s\n", &xpub_buf[0]);
@@ -204,7 +181,6 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
             CAnchor anchor;
             if (IsAnchorTx(tx, anchor)) {
-//                txIndex.insert({to_uint256(tx->txHash), msgHash, tx->blockHeight});
                 LogPrintf("spv: LOAD POSSIBLE ANCHOR TX, tx: %s, blockHash: %s, height: %d, btc height: %d\n", to_uint256(tx->txHash).ToString(), anchor.blockHash.ToString(), anchor.height, tx->blockHeight);
             }
         };
@@ -268,7 +244,6 @@ bool CSpvWrapper::IsConnected() const
 
 bool CSpvWrapper::Rescan(int height)
 {
-//    BRPeerManagerConnect(manager);
     if (BRPeerManagerConnectStatus(manager) != BRPeerStatusConnected )
         return false;
 
@@ -361,8 +336,6 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
             }
         }
     }
-    // unprotected index
-//    LogPrintf("spv: current tx count: wallet: %lu, index: %lu\n", GetWalletTxs().size(), txIndex.size());
 }
 
 void CSpvWrapper::OnTxDeleted(UInt256 txHash, int notifyUser, int recommendRescan)
@@ -389,7 +362,7 @@ void CSpvWrapper::OnSyncStopped(int error)
 
 void CSpvWrapper::OnTxStatusUpdate()
 {
-    LogPrintf("spv: tx status update (TODO)\n");
+    LogPrintf("spv: tx status update\n");
 }
 
 void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blocksCount)
@@ -409,19 +382,10 @@ void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blo
 void CSpvWrapper::OnSavePeers(int replace, const BRPeer peers[], size_t peersCount)
 {
     // this is useless :(
-//    if (replace)
-//    {
-//        DeleteTable<UInt128>(DB_SPVPEERS);
-//    }
-//    for (size_t i = 0; i < peersCount; ++i) {
-//        WritePeer(&peers[i]);
-//        LogPrintf("spv: PEER: %s saved\n", BRPeerHost(const_cast<BRPeer*>(&peers[i])));
-//    }
 }
 
 void CSpvWrapper::OnThreadCleanup()
 {
-
 }
 
 void CSpvWrapper::CommitBatch()
@@ -458,7 +422,7 @@ void CSpvWrapper::WriteBlock(const BRMerkleBlock * block)
 
 void publishedTxCallback(void *info, int error)
 {
-    LogPrintf("spv: publishedTxCallback: tx 2: %s, error: %d\n", to_uint256(*(UInt256 *)info).ToString(), error);
+    LogPrintf("spv: publishedTxCallback: tx 2: %s, %s\n", to_uint256(*(UInt256 *)info).ToString(), error == 0 ? "SUCCESS!" : "error: " + std::to_string(errno));
 }
 
 TBytes CreateRawTx(std::vector<TxInput> const & inputs, std::vector<TxOutput> const & outputs)
@@ -479,9 +443,9 @@ TBytes CreateRawTx(std::vector<TxInput> const & inputs, std::vector<TxOutput> co
 
 TBytes CreateAnchorTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, TBytes const & meta)
 {
-    /// @todo @max calculate minimum fee
+    /// @todo calculate minimum fee
     uint64_t fee = 10000;
-    /// @todo @maxb test this amount of dust for p2wsh due to spv is very dumb and checks only for 546 (p2pkh)
+    /// @todo test this amount of dust for p2wsh due to spv is very dumb and checks only for 546 (p2pkh)
     uint64_t const p2wsh_dust = 330; /// 546 p2pkh & 294 p2wpkh (330 p2wsh calc'ed manually)
     uint64_t const p2pkh_dust = 546;
     UInt256 inHash = UInt256Reverse(toUInt256(hash.c_str()));
@@ -579,7 +543,7 @@ TBytes CreateAnchorTx(std::string const & hash, int32_t index, uint64_t inputAmo
 // just for tests & experiments
 TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, int parts, int amount)
 {
-    /// @todo @max calculate minimum fee
+    /// @todo calculate minimum fee
 //    uint64_t fee = 10000;
     uint64_t const p2pkh_dust = 546;
     UInt256 inHash = UInt256Reverse(toUInt256(hash.c_str()));
@@ -607,8 +571,6 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
     uint64_t sum = 0;
     for (int i = 0; i < parts; ++i) {
         auto addr = BRWalletLegacyAddress(wallet);
-    //    BRAddress anchorAddr = BR_ADDRESS_NONE;
-    //    consensus.spv.anchors_address.copy(anchorAddr.s, consensus.spv.anchors_address.size());
 
         TBytes script(BRAddressScriptPubKey(NULL, 0, addr.s));
         BRAddressScriptPubKey(script.data(), script.size(), addr.s);
@@ -685,7 +647,7 @@ bool IsAnchorTx(BRTransaction *tx, CAnchor & anchor)
     if (!tx)
         return false;
 
-    /// @todo @maxb do not check amounts here?
+    /// @todo check amounts here if it will be some additional anchoring fee
     if (tx->outCount < 2 || strcmp(tx->outputs[0].address, Params().GetConsensus().spv.anchors_address.c_str()) != 0) {
         return false;
     }
@@ -726,38 +688,6 @@ bool IsAnchorTx(BRTransaction *tx, CAnchor & anchor)
     }
     return true;
 }
-
-
-//const BtcAnchorTx * CSpvWrapper::CheckConfirmations(const uint256 & prevTxHash, const uint256 & txHash, bool noThrow) const
-//{
-//    try {
-//        int confs{0};
-//        if (!prevTxHash.IsNull()) {
-//            confs = GetTxConfirmations(prevTxHash);
-//            if (confs < 0) {
-//                throw std::runtime_error("Previous anchor tx " + prevTxHash.ToString() + ") does not exist!");
-//            }
-//            else if (confs < 6) {
-//                throw std::runtime_error("Previous anchor tx " + prevTxHash.ToString() + " has not enough confirmations: " + std::to_string(confs));
-//            }
-//        }
-
-//        confs = GetTxConfirmations(txHash);
-//        if (confs < 0) {
-//            throw std::runtime_error("Anchor tx with message hash " + txHash.ToString() + ") does not exist!");
-//        }
-//        else if (confs < 6) {
-//            throw std::runtime_error("Anchor tx with message hash " + txHash.ToString() + " has not enough confirmations: " + std::to_string(confs));
-//        }
-//    } catch (std::runtime_error const & e) {
-//        if (noThrow) {
-//            LogPrintf("%s\n", e.what());
-//            return nullptr;
-//        }
-//        throw e;
-//    }
-//    return GetAnchorTx(txHash);
-//}
 
 }
 

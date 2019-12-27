@@ -1305,7 +1305,6 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     case MSG_WITNESS_BLOCK:
         return LookupBlockIndex(inv.hash) != nullptr;
 
-    /// @todo @maxb implement both! check lock held
     case MSG_ANCHOR_AUTH:
         return panchorauths->ExistAuth(inv.hash) != nullptr;
     case MSG_ANCHOR_CONFIRM:
@@ -2351,7 +2350,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
     }
 
     if (strCommand == NetMsgType::ANCHORAUTH) {
-        /// @todo @maxb temporary off
+        /// @todo temporary off due to tests
 //        if (!fImporting && !fReindex /*::ChainstateActive().IsInitialBlockDownload()*/) {
 //            LogPrint(BCLog::NET, "Ignoring anchorauth from peer=%d because node is in initial block download\n", pfrom->GetId());
 //            return true;

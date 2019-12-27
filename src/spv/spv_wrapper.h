@@ -92,11 +92,6 @@ public:
 
     std::vector<BRTransaction *> GetWalletTxs() const;
     bool SendRawTx(TBytes rawtx);
-//    int GetTxConfirmations(uint256 const & txHash) const;
-
-//    BtcAnchorTx const * GetAnchorTx(uint256 const & txHash) const;
-
-//    BtcAnchorTx const * CheckConfirmations(uint256 const & prevTx, uint256 const & tx, bool noThrow) const;
 
 public:
     /// Wallet callbacks
@@ -110,7 +105,6 @@ public:
     void OnTxStatusUpdate();
     void OnSaveBlocks(int replace, BRMerkleBlock *blocks[], size_t blocksCount);
     void OnSavePeers(int replace, const BRPeer peers[], size_t peersCount);
-//    int OnNetworkIsReachable();
     void OnThreadCleanup();
 
 private:

@@ -980,10 +980,6 @@ bool ReadBlockFromDisk(CBlock& block, const FlatFilePos& pos, const Consensus::P
     }
 
     // Check the header
-
-    /// @maxb @todo del me:
-//    if (!pos::ContextualCheckProofOfStake(block, consensusParams, pmasternodesview.get()))
-
     if (!pos::CheckHeaderSignature(block))
         return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
 
@@ -1793,8 +1789,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             for (int i = 1; i < block.vtx.size(); ++i) {
                 CheckMasternodeTx(mnview, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
             }
-            /// @todo @maxb init genesis team/anchor
-
         }
         return true;
     }
@@ -2187,12 +2181,12 @@ bool CChainState::FlushStateToDisk(
             // twice (once in the log, and once in the tables). This is already
             // an overestimation, as most will delete an existing entry or
             // overwrite one. Still, use a conservative safety factor of 2.
-            /// @todo @maxb check free space fo pmasternodesview flushing
+            /// @todo check free space for pmasternodesview flushing
             if (!CheckDiskSpace(GetDataDir(), 48 * 2 * 2 * CoinsTip().GetCacheSize())) {
                 return AbortNode(state, "Disk space is too low!", _("Error: Disk space is too low!").translated, CClientUIInterface::MSG_NOPREFIX);
             }
             // Flush the chainstate (which may refer to block index entries).
-            /// @todo @maxb may be integrate pmasternodesview into ChainState?
+            /// @todo may be integrate pmasternodesview into ChainState?
             if (!CoinsTip().Flush() || !pmasternodesview->Flush())
                 return AbortNode(state, "Failed to write to coin or masternodes database");
             nLastFlush = nNow;
@@ -2520,7 +2514,7 @@ std::set<CBlockIndex*, CBlockIndexWorkComparator> FilterAnchorSatisfying(std::se
         }
 
         // go down to our anchor
-        /// @todo @maxb is it possible to optimize smth by 'contains()' and active chain?
+        /// @todo is it possible to optimize smth by 'contains()' and active chain?
         std::vector<CBlockIndex*> tmp;
         for ( ; pindex && pindex->height >= anchor->anchor.height; pindex = pindex->pprev) {
             if (source.find(pindex) != source.end()) {
@@ -2793,7 +2787,7 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
     {
         LOCK(cs_main);
         RollBackIfTipConflictsWithAnchors(state, chainparams);
-        /// @todo @maxb research for ConnectTrace etc
+        /// @todo research for ConnectTrace etc
     }
 
     CBlockIndex *pindexMostWork = nullptr;
@@ -3764,14 +3758,13 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
     if (!::ChainstateActive().ActivateBestChain(state, chainparams, pblock))
         return error("%s: ActivateBestChain failed (%s)", __func__, FormatStateMessage(state));
 
-    /// @max @todo subst with chainparams anchoring frequency!
+    /// @todo may be subst with chainparams anchoring frequency?
     if (!::ChainstateActive().IsInitialBlockDownload() && (::ChainActive().Height() % 15 == 0))
     {
         LOCK(cs_main);
         LogPrintf("Anchor auth prepare, block: %d\n", ::ChainActive().Height());
         auto const mnId = pmasternodesview->AmIOperator();
         if (mnId && pmasternodesview->ExistMasternode(mnId->id)->IsActive()) { // this is safe due to prev call `AmIOperator`
-            /// @todo @maxb subst 'nextTeam'
             auto topAnchor = panchors->GetActiveAnchor();
             CAnchorAuthMessage auth(topAnchor ? topAnchor->txHash : uint256(), ::ChainActive().Height(), ::ChainActive().Tip()->GetBlockHash(), pmasternodesview->CalcNextTeam(::ChainActive().Tip()->stakeModifier));
 
@@ -4200,7 +4193,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
-    CMasternodesViewCache mnview(pmasternodesview.get()); /// @todo @maxb really need to pass it from outside??
+    CMasternodesViewCache mnview(pmasternodesview.get());
     CBlockIndex* pindex;
     CBlockIndex* pindexFailure = nullptr;
     int nGoodTransactions = 0;
@@ -4307,7 +4300,7 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
         // Pass check = true as every addition may be an overwrite.
         AddCoins(inputs, *tx, pindex->nHeight, true);
 
-        /// @todo @maxb turn it on when you are sure it is safe
+        /// @todo turn it on when you are sure it is safe
 //        CheckMasternodeTx(mnview, *tx, params.GetConsensus(), pindex->nHeight, i, false);
     }
     return true;
@@ -4324,7 +4317,7 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CMa
     if (hashHeads.empty()) return true; // We're already in a consistent state.
     if (hashHeads.size() != 2) return error("ReplayBlocks(): unknown inconsistent state");
 
-    /// @todo @max may be it is possible to keep it run? how to safely connect blocks for mndb?
+    /// @todo may be it is possible to keep it run? how to safely connect blocks for mndb?
     return error("ReplayBlocks() turned off for safety reasons. Make reindex!");
 
     uiInterface.ShowProgress(_("Replaying blocks...").translated, 0, false);

@@ -132,8 +132,7 @@ bool CAnchorAuthIndex::ValidateAuth(const CAnchorAuthIndex::Auth & auth) const
     }
 
     // 2. chain context:
-    /// @todo @max check that blockHash is in active chain?
-
+    // we not check that blockHash is in active chain due to they wouldn't be signed with current team
 
     // 3. team context and signs:
     CTeam const team = panchors->GetNextTeam(auth.previousAnchor);
@@ -159,9 +158,6 @@ bool CAnchorAuthIndex::ValidateAuth(const CAnchorAuthIndex::Auth & auth) const
         return error("%s: Recovered keyID %s is not a current team member!", __func__, masternodeKey.ToString());
     }
 
-    /// @todo @maxb should we match here:
-    /// 3. and that previous anchor is active for THIS chain?
-
     return true;
 }
 
@@ -185,7 +181,7 @@ uint32_t GetMinAnchorQuorum(CMasternodesView::CTeam const & team)
 CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest, uint256 const & forBlock) const
 {
     AssertLockHeld(cs_main);
-    /// @todo @maxb forBlock is ignored by now, possible implement
+    /// @todo forBlock is ignored by now, possible implement
     // KList is sorted by defi height + signHash (all except sign)
     typedef Auths::index<Auth::ByKey>::type KList;
     KList const & list = auths.get<Auth::ByKey>();
@@ -218,7 +214,7 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest, ui
                 std::tie(it0,it1) = list.equal_range(std::make_tuple(curHeight, curSignHash));
                 for (uint32_t i = 0; i < quorum && it0 != it1; ++i, ++it0) {
                     LogPrintf("auths: pick up %d, %s, %s\n", it0->height, it0->blockHash.ToString(), it0->GetHash().ToString());
-                    /// @todo @maxb do we need for an extra check of the auth signature here?
+                    /// @todo do we need for an extra check of the auth signature here?
                     freshestConsensus.push_back(*it0);
                 }
                 break;
@@ -294,7 +290,6 @@ bool CAnchorIndex::DeleteAnchorByBtcTx(const uint256 & btcTxHash)
         if (top && top == &*it)
         {
             top = GetAnchorByBtcTx(top->anchor.previousAnchor);
-            /// @todo @maxb call for ActivateBestAnchor() here?
         }
         list.erase(it);
         if (DbExists(btcTxHash))

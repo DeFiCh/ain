@@ -219,7 +219,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CWalletTx wtx(nullptr /* pwallet */, MakeTransactionRef());
             ssValue >> wtx;
             CValidationState state;
-            /// @todo @maxb temporary disabled due to genesis mn txs. RESOLVE!
+            /// @todo temporary disabled due to genesis mn txs. RESOLVE!
             /// we can't get genesis hash at wallet's load time
 //            if (!(CheckTransaction(*wtx.tx, state) && (wtx.GetHash() == hash) && state.IsValid()))
 //                return false;

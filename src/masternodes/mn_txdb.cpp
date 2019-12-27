@@ -268,7 +268,7 @@ bool CMasternodesViewDB::Flush()
 {
     batch.reset();
 
-    /// @todo @max optimize with new diff model of view
+    /// @todo optimize with new diff model of view
     int nMasternodes{0};
     for (auto && it = allNodes.begin(); it != allNodes.end(); ) {
         if (it->second == CMasternode()) {
