@@ -1562,13 +1562,12 @@ bool AppInitMain(InitInterfaces& interfaces)
                 panchorauths.reset();
                 panchorauths = MakeUnique<CAnchorAuthIndex>();
                 panchors.reset();
-                panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, fReset || fReindexChainState); /// @todo @maxb should it be linked to the 'defi reindex' or 'spv resync'?????
+                panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, fReset || fReindexChainState); /// @todo should it be linked to the 'defi reindex' or 'spv resync'?????
                 panchors->Load();
 
                 if (gArgs.GetBoolArg("-spv", true))
                 {
                     spv::pspv.reset();
-                    /// @todo @maxb retrieve xpub from genesis or chainparams
                     spv::pspv = MakeUnique<spv::CSpvWrapper>(!gArgs.GetBoolArg("-spv_testnet", false), nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
                     spv::pspv->Connect();
                 }

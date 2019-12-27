@@ -327,7 +327,7 @@ static IntrRecvError InterruptibleRecv(uint8_t* data, size_t len, int timeout, c
     int64_t endTime = curTime + timeout;
     // Maximum time to wait for I/O readiness. It will take up until this time
     // (in millis) to break off in case of an interruption.
-    const int64_t maxWait = 1000;   /// @todo @maxb old value 1000
+    const int64_t maxWait = 1000;
     while (len > 0 && curTime < endTime) {
         ssize_t ret = recv(hSocket, (char*)data, len, 0); // Optimistically try the recv first
         if (ret > 0) {

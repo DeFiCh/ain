@@ -66,7 +66,7 @@ static UniValue fundsignsend(CMutableTransaction & mtx, JSONRPCRequest const & r
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
         CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
 
-        CAmount max_raw_tx_fee = {COIN / 10}; /// @todo @maxb check it with 0
+        CAmount max_raw_tx_fee = {COIN / 10}; /// @todo check it with 0
 
         std::string err_string;
         AssertLockNotHeld(cs_main);
@@ -278,7 +278,7 @@ UniValue mn_resign(const JSONRPCRequest& request)
         auto nodePtr = pmasternodesview->ExistMasternode(nodeId);
         if (!nodePtr->resignTx.IsNull())
         {
-            /// @todo @max adjust delays and heights!
+            /// @todo adjust delays and heights!
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight + GetMnCollateralUnlockDelay() /*+ GetMnResignDelay() ???*/));
         }
         ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
@@ -335,7 +335,7 @@ UniValue mnToJSON(CMasternode const & node)
 
     ret.pushKV("resignTx", node.resignTx.GetHex());
     ret.pushKV("status", node.GetHumanReadableStatus());
-    /// @todo @maxb add unlock height and|or real resign height
+    /// @todo add unlock height and|or real resign height
 
     return ret;
 }

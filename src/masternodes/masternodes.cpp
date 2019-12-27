@@ -190,7 +190,7 @@ bool CMasternodesView::CanSpend(const uint256 & nodeId, int height) const
  */
 bool CMasternodesView::IsAnchorInvolved(const uint256 & nodeId, int height) const
 {
-    /// @todo @max to be implemented
+    /// @todo to be implemented
     return false;
 }
 
@@ -306,8 +306,8 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
 /// Call it only for "clear" and "full" (not cached) view
 void CMasternodesView::PruneOlder(int height)
 {
-    return; /// @todo @max temporary off
-//    /// @todo @max add foolproof (for heights, teams and collateral)
+    return; /// @todo temporary off
+//    /// @todo add foolproof (for heights, teams and collateral)
 //    if (height < 0)
 //    {
 //        return;
@@ -317,7 +317,7 @@ void CMasternodesView::PruneOlder(int height)
 //    for (auto && it = allNodes.begin(); it != allNodes.end(); )
 //    {
 //        CMasternode const & node = it->second;
-//        /// @todo @maxb adjust heights (prune delay method?)
+//        /// @todo adjust heights (prune delay method?)
 //        if(node.resignHeight != -1 && node.resignHeight + < height)
 //        {
 //            nodesByOwner.erase(node.ownerAuthAddress);
@@ -329,20 +329,6 @@ void CMasternodesView::PruneOlder(int height)
 
 //    // erase undo info
     //    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
-}
-
-CMasternodesView::CTeam CMasternodesView::GetCurrentTeam()
-{
-    /// @todo @maxb temp, implement
-
-    return Params().GetGenesisTeam();
-//    CMasternodesView::CTeam team;
-//    for (auto const & mn : nodesByOperator) {
-//        if (ExistMasternode(mn.second)->IsActive()) {
-//            team.insert(mn.first);
-//        }
-//    }
-//    return team;
 }
 
 CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier)

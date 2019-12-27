@@ -36,7 +36,7 @@ CAnchor createAnchorMessage(CTxDestination const & rewardDest, uint256 const & f
 {
     CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest, forBlock);
 
-    /// @todo @maxb conform to "defi" current team? (from last finalize tx)
+    /// @todo should it match current team? or leave "as is", trusting auth's signing?
     auto minQuorum = GetMinAnchorQuorum(panchors->GetCurrentTeam(panchors->GetActiveAnchor()));
     if (anchor.sigs.size() < minQuorum) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached (" + std::to_string(anchor.sigs.size()) + ", need "+ std::to_string(minQuorum) + ") ");
@@ -97,7 +97,7 @@ UniValue spv_splitutxo(const JSONRPCRequest& request)
 
     auto locked_chain = pwallet->chain().lock();
 
-    /// @todo @maxb temporary, tests
+    /// @todo temporary, tests
     auto rawtx = spv::CreateSplitTx("1251d1fc46d104564ca8311696d561bf7de5c0e336039c7ccfe103f7cdfc026e", 2, 3071995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", parts, amount);
 
     bool send = false;
@@ -109,12 +109,11 @@ UniValue spv_splitutxo(const JSONRPCRequest& request)
     }
 
     CMutableTransaction mtx;
-    /// @todo @maxb implement separated bitcoin serialize/deserialize
+    /// @todo implement separated bitcoin serialize/deserialize
     DecodeHexTx(mtx, std::string(rawtx.begin(), rawtx.end()), true);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("txHex", HexStr(rawtx));
-    /// @attention WRONG HASH!!!
     result.pushKV("txHash", CTransaction(mtx).GetHash().ToString());
 
     return result;
@@ -134,10 +133,10 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
         "The first argument is the specific UTXOs to spend." +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
-                /// @todo @maxb not fully implemented yet! now in test mode!
+                /// @todo not fully implemented yet! now in test mode!
 //            {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
 //                {
-//                    {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "", /// @todo @maxb change to 'NO'
+//                    {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
 //                        {
 //                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
 //                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
@@ -169,6 +168,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create anchor while still in Initial Block Download");
     }
 
+    /// @todo temporary off, tests with fixed values
 //    RPCTypeCheck(request.params, { UniValue::VARR, UniValue::VSTR, UniValue::VSTR }, true);
 //    if (request.params[0].isNull() || request.params[1].isNull())
 //    {
@@ -185,8 +185,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
 
     auto locked_chain = pwallet->chain().lock();
 
-    /// @todo @maxb temporary, tests
-
+    /// @todo temporary, tests with fixed values
     CTxDestination rewardDest = DecodeDestination("mmjrUWSKQqnkWzyS98GCuFxA7TXcK3bc3A");
     CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest/*, forBlock*/);
     if (anchor.sigs.empty()) {
@@ -196,7 +195,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << anchor;
 
-    /// @todo @maxb temporary, tests
+    /// @todo temporary, tests
 //    auto rawtx = spv::CreateAnchorTx("e6f0a5e4db120f6877710bbbb5f9523162b6456bb1d4d89b854e60a794e03b46", 1, 3271995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
     auto rawtx = spv::CreateAnchorTx("a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963", 3, 2262303, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
 
@@ -209,7 +208,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     }
 
     CMutableTransaction mtx;
-    /// @todo @maxb implement separated bitcoin serialize/deserialize
+    /// @todo implement separated bitcoin serialize/deserialize
     DecodeHexTx(mtx, std::string(rawtx.begin(), rawtx.end()), true);
 
     UniValue result(UniValue::VOBJ);
@@ -222,7 +221,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     return result;
 }
 
-/// @todo @maxb not fully implemented yet! now in test mode!
+/// @todo will be implemented only after anchors tests
 UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
@@ -269,41 +268,10 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
     }
 
-    /// @todo @maxb will be implemented only after anchors tests
+    /// @todo will be implemented only after anchors tests
 
-//    CScript scriptMeta = CScript() << OP_RETURN << spv::BtcAnchorMarker << ToByteVector(anchor.GetHash());
-
-//    CMutableTransaction rawTx;
-//    rawTx.vout.push_back(CTxOut(0, scriptMeta));
-
-    // "manually" decode anchor address and construct script;
-//    uint160 anchorPKHash;
-//    {
-//        std::vector<unsigned char> data;
-//        if (DecodeBase58Check(Params().GetConsensus().spv.anchors_address, data)) {
-//            // base58-encoded Bitcoin addresses.
-//            // Public-key-hash-addresses have version 0 (or 111 testnet).
-//            // The data vector contains RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.
-//            const std::vector<unsigned char> pubkey_prefix = { spv::pspv->GetPKHashPrefix() };
-//            if (data.size() == anchorPKHash.size() + pubkey_prefix.size() && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
-//                std::copy(data.begin() + pubkey_prefix.size(), data.end(), anchorPKHash.begin());
-//            }
-//        }
-//    }
-//    CScript const anchorScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(anchorPKHash) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-
-//    spv::TBytes const rawscript(spv::CreateScriptForAddress(Params().GetConsensus().spv.anchors_address));
-//    // This should not happen or spv.anchors_address is WRONG!
-//    assert (rawscript.size() != 0);
-//    rawTx.vout.push_back(CTxOut(Params().GetConsensus().spv.creationFee, CScript(rawscript.begin(), rawscript.end())));
-
-//    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-//    ss << anchor;
 
     UniValue result(UniValue::VOBJ);
-//    result.pushKV("anchorMsg", HexStr(ss.begin(), ss.end()));
-//    result.pushKV("anchorMsgHash", anchor.GetHash().ToString());
 //    result.pushKV("txHex", EncodeHexTx(CTransaction(rawTx)));
 //    result.pushKV("txHash", CTransaction(rawTx).GetHash().ToString());
     return result;
