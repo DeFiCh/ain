@@ -82,7 +82,7 @@ static const uint64_t MAX_UPLOAD_TIMEFRAME = 60 * 60 * 24;
 /** Default for blocks only*/
 static const bool DEFAULT_BLOCKSONLY = false;
 /** -peertimeout default */
-static const int64_t DEFAULT_PEER_CONNECT_TIMEOUT = 600; /// @todo @maxb old value 60
+static const int64_t DEFAULT_PEER_CONNECT_TIMEOUT = 600; // old value 60 (for 1M block)
 
 static const bool DEFAULT_FORCEDNSSEED = false;
 static const size_t DEFAULT_MAXRECEIVEBUFFER = 20 * 5 * 1000;

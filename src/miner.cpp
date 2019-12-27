@@ -526,14 +526,14 @@ namespace pos {
         CBlockIndex* tip = getTip();
 
         // this part of code stay valid until tip got changed
-        /// @todo @maxb is 'tip' can be changed here? is it possible to pull 'getTip()' and mnview access to the upper (calling 'stake()') block?
+        /// @todo is 'tip' can be changed here? is it possible to pull 'getTip()' and mnview access to the upper (calling 'stake()') block?
         uint32_t mintedBlocks(0);
         {
             LOCK(cs_main);
             auto nodePtr = pmasternodesview->ExistMasternode(args.masternodeID);
             if (!nodePtr || !nodePtr->IsActive(tip->height))
             {
-                /// @todo @maxb may be new status for not activated (or already resigned) MN??
+                /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
             }
             mintedBlocks = nodePtr->mintedBlocks;
