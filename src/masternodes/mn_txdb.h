@@ -103,6 +103,12 @@ protected:
     bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true);
     void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index);
 
+    void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact);
+    void EraseCriminal(uint256 const & mnId);
+
+    void WriteCurrentTeam(std::set<CKeyID> const & currentTeam);
+    bool LoadCurrentTeam(std::set<CKeyID> & newTeam);
+    bool EraseCurrentTeam();
 
 //    void WriteDeadIndex(int height, uint256 const & txid, char type);
 //    void EraseDeadIndex(int height, uint256 const & txid);
