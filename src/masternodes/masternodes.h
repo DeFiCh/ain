@@ -44,21 +44,6 @@ enum class MasternodesTxType : unsigned char
 };
 
 template<typename Stream>
-inline void Serialize(Stream& s, MasternodesTxType txType)
-{
-    Serialize(s, static_cast<unsigned char>(txType));
-}
-
-template<typename Stream>
-inline void Unserialize(Stream& s, MasternodesTxType & txType) {
-    unsigned char ch;
-    Unserialize(s, ch);
-    txType = ch == 'C' ? MasternodesTxType::CreateMasternode :
-             ch == 'R' ? MasternodesTxType::ResignMasternode :
-                         MasternodesTxType::None;
-}
-
-template<typename Stream>
 inline void Serialize(Stream& s, CustomUndoTxType txType)
 {
     Serialize(s, static_cast<unsigned char>(txType));
@@ -72,6 +57,21 @@ inline void Unserialize(Stream& s, CustomUndoTxType & txType) {
              ch == 'R' ? CustomUndoTxType::ResignMasternode :
              ch == 'B' ? CustomUndoTxType::BlockCriminalCoins :
              CustomUndoTxType::None;
+}
+
+template<typename Stream>
+inline void Serialize(Stream& s, MasternodesTxType txType)
+{
+    Serialize(s, static_cast<unsigned char>(txType));
+}
+
+template<typename Stream>
+inline void Unserialize(Stream& s, MasternodesTxType & txType) {
+    unsigned char ch;
+    Unserialize(s, ch);
+    txType = ch == 'C' ? MasternodesTxType::CreateMasternode :
+             ch == 'R' ? MasternodesTxType::ResignMasternode :
+                         MasternodesTxType::None;
 }
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
@@ -156,6 +156,9 @@ public:
         READWRITE(conflictBlockHeader);
         READWRITE(wasted);
     }
+
+    friend bool operator==(CDoubleSignFact const & a, CDoubleSignFact const & b);
+    friend bool operator!=(CDoubleSignFact const & a, CDoubleSignFact const & b);
 };
 
 typedef std::map<uint256, CMasternode> CMasternodes;  // nodeId -> masternode object,
@@ -271,6 +274,13 @@ public:
     virtual void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) { assert(false); }
     virtual bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) { assert(false); }
     virtual void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index) { assert(false); }
+
+    virtual void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact) { assert(false); }
+    virtual void EraseCriminal(uint256 const & mnId) { assert(false); }
+
+    virtual void WriteCurrentTeam(std::set<CKeyID> const & currentTeam) { assert(false); }
+    virtual bool LoadCurrentTeam(std::set<CKeyID> & newTeam) { assert(false); }
+    virtual bool EraseCurrentTeam() { assert(false); }
 
     bool CanSpend(uint256 const & nodeId, int height) const;
     bool IsAnchorInvolved(uint256 const & nodeId, int height) const;
