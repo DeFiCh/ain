@@ -150,6 +150,18 @@ bool operator!=(CMasternode const & a, CMasternode const & b)
     return !(a == b);
 }
 
+bool operator==(CDoubleSignFact const & a, CDoubleSignFact const & b)
+{
+    return (a.blockHeader.GetHash() == b.blockHeader.GetHash() &&
+            a.conflictBlockHeader.GetHash() == b.conflictBlockHeader.GetHash() &&
+            a.wasted == b.wasted
+    );
+}
+
+bool operator!=(CDoubleSignFact const & a, CDoubleSignFact const & b)
+{
+    return !(a == b);
+}
 
 /*
  * Searching MN index 'nodesByOwner' or 'nodesByOperator' for given 'auth' key
