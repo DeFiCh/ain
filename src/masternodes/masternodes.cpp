@@ -331,6 +331,18 @@ void CMasternodesView::PruneOlder(int height)
     //    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
 }
 
+void CMasternodesView::SetTeam(CTeam newTeam)
+{
+    currentTeam = std::move(newTeam);
+}
+
+const std::set<CKeyID> &CMasternodesView::GetCurrentTeam()
+{
+    if (!currentTeam.size())
+        return Params().GetGenesisTeam();
+    return currentTeam;
+}
+
 CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier)
 {
     int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
@@ -447,6 +459,29 @@ bool CMasternodesView::ExtractCriminalCoinsFromTx(CTransaction const & tx, std::
         return false;
     }
     metadata.erase(metadata.begin(), metadata.begin() + DfCriminalTxMarker.size());
+    return true;
+}
+
+bool CMasternodesView::ExtractAnchorRewardFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
+{
+    if (tx.vout.size() != 2) {
+        return false;
+    }
+    CScript const & memo = tx.vout[0].scriptPubKey;
+    CScript::const_iterator pc = memo.begin();
+    opcodetype opcode;
+    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return false;
+    }
+    if (!memo.GetOp(pc, opcode, metadata) ||
+        (opcode > OP_PUSHDATA1 &&
+         opcode != OP_PUSHDATA2 &&
+         opcode != OP_PUSHDATA4) ||
+        metadata.size() < DfAnchorFinalizeTxMarker.size() + 1 ||
+        memcmp(&metadata[0], &DfAnchorFinalizeTxMarker[0], DfAnchorFinalizeTxMarker.size()) != 0) {
+        return false;
+    }
+    metadata.erase(metadata.begin(), metadata.begin() + DfAnchorFinalizeTxMarker.size());
     return true;
 }
 
