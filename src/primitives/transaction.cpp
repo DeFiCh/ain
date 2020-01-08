@@ -113,3 +113,30 @@ std::string CTransaction::ToString() const
         str += "    " + tx_out.ToString() + "\n";
     return str;
 }
+
+bool CTransaction::IsAnchorReward()
+{
+    if (IsCoinBase() && vout.size() == 2 && vout[0].nValue == 0) {
+        CScript const & memo = vout[0].scriptPubKey;
+        std::vector<unsigned char> metadata;
+
+        CScript::const_iterator pc = memo.begin();
+        opcodetype opcode;
+        if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN)
+        {
+            return false;
+        }
+        if (!memo.GetOp(pc, opcode, metadata) ||
+            (opcode > OP_PUSHDATA1 &&
+             opcode != OP_PUSHDATA2 &&
+             opcode != OP_PUSHDATA4) ||
+            metadata.size() < DfAnchorFinalizeTxMarker.size() + 1 ||
+            memcmp(&metadata[0], &DfAnchorFinalizeTxMarker[0], DfAnchorFinalizeTxMarker.size()) != 0)
+        {
+            return false;
+        }
+
+        return true;
+    }
+    return false;
+}

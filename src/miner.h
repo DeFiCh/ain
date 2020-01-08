@@ -22,6 +22,7 @@
 class CBlockIndex;
 class CChainParams;
 class CScript;
+class CAnchor;
 
 namespace Consensus { struct Params; };
 
@@ -162,6 +163,7 @@ public:
     explicit BlockAssembler(const CChainParams& params);
     BlockAssembler(const CChainParams& params, const Options& options);
 
+    CTransactionRef CreateAnchorFinalizationTx(const CAnchor &anchor, const uint256 &btcTxHash, const uint32_t &btcHeight);
     /** Construct a new block template with coinbase to scriptPubKeyIn */
     std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn);
 

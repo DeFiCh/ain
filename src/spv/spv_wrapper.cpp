@@ -7,6 +7,7 @@
 #include <chainparams.h>
 
 #include <masternodes/anchors.h>
+#include <net_processing.h>
 
 #include <spv/support/BRKey.h>
 #include <spv/support/BRAddress.h>
@@ -17,8 +18,9 @@
 #include <spv/bcash/BRBCashParams.h>
 
 #include <sync.h>
-
 #include <util/strencodings.h>
+#include <wallet/wallet.h>
+
 #include <string.h>
 #include <inttypes.h>
 #include <errno.h>
@@ -319,13 +321,36 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
 
         LOCK(cs_main);
 
-        if (ValidateAnchor(anchor, true)) {
+
+            auto const topAnchor = panchors->GetActiveAnchor();
+            auto const topTeam = panchors->GetCurrentTeam(topAnchor);
+
+            if (ValidateAnchor(anchor, true)) {
             LogPrintf("spv: valid anchor tx: %s\n", txHash.ToString());
 
             if (panchors->AddAnchor(anchor, txHash, tx->blockHeight)) {
                 LogPrintf("spv: adding anchor %s\n", txHash.ToString());
                 // do not try to activate cause tx unconfirmed yet
-//                panchors->ActivateBestAnchor();
+//    panchors->ActivateBestAnchor();
+                    auto myIDs = pmasternodesview->AmIOperator();
+                    if (myIDs && pmasternodesview->ExistMasternode(myIDs->id)->IsActive() && topTeam.find(myIDs->operatorAuthAddress) != topTeam.end()) {
+                        std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+                        CKey masternodeKey{};
+                        for (auto const wallet : wallets) {
+                            if (wallet->GetKey(myIDs->operatorAuthAddress, masternodeKey)) {
+                                break;
+                            }
+                            masternodeKey = CKey{};
+                        }
+
+                        if (!masternodeKey.IsValid()) {
+                            LogPrintf("spv: ***FAILED*** %s: Can't read masternode operator private key", __func__);
+                            return;
+                        }
+
+                        auto confirmMessage = CAnchorConfirmMessage::Create(anchor, masternodeKey);
+                        RelayAnchorConfirm(confirmMessage.GetHash(), *g_connman);
+                    }
             }
         }
     }
