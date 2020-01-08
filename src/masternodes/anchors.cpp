@@ -263,6 +263,16 @@ const CAnchorIndex::AnchorRec * CAnchorIndex::GetActiveAnchor() const
     return top;
 }
 
+const CAnchorIndex::AnchorRec * CAnchorIndex::ExistAnchorByMsg(uint256 const & hash) const
+{
+    AssertLockHeld(cs_main);
+
+    AnchorIndexImpl const & index = anchors;
+    auto & list = index.get<AnchorRec::ByAnchorHash>();
+    auto it = list.find(hash);
+    return it != list.end() ? &(*it) : nullptr;
+}
+
 const CAnchorIndex::AnchorRec * CAnchorIndex::ExistAnchorByTx(const uint256 & hash) const
 {
     AssertLockHeld(cs_main);
@@ -277,10 +287,15 @@ bool CAnchorIndex::AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, 
 {
     AssertLockHeld(cs_main);
 
-    AnchorRec rec{ anchor, btcTxHash, btcBlockHeight };
+    CDataStream ss{SER_NETWORK, PROTOCOL_VERSION};
+    ss << anchor;
+    uint256 hashAnchor = Hash(ss.begin(), ss.end());
+
+    AnchorRec rec{ anchor, btcTxHash, hashAnchor, btcBlockHeight };
     if (overwrite) {
         DeleteAnchorByBtcTx(btcTxHash);
     }
+
     bool result = anchors.insert(rec).second;
     if (result)
         DbWrite(rec);
@@ -494,18 +509,85 @@ uint256 CAnchorConfirmMessage::GetHash() const
     return Hash(ss.begin(), ss.end());
 }
 
-const CAnchorConfirmMessage *CAnchorConfirms::Exist(uint256 const &hash)
+const CAnchorConfirmMessage *CAnchorConfirms::Exist(HashConfirmMessage const &hash) const
 {
-    auto it = confirms.find(hash);
-    return it != confirms.end() ? &(it->second) : nullptr;
+    for (auto &&hashAndConfirm : confirms) {
+        auto it = hashAndConfirm.second.find(hash);
+        if (it != hashAndConfirm.second.end()) {
+            return &(it->second);
+        }
+    }
+
+    return nullptr;
 }
 
-bool CAnchorConfirms::Validate(CAnchorConfirmMessage const &message)
+bool CAnchorConfirms::Validate(CAnchorConfirmMessage const &confirmMessage) const
 {
+    if (!panchors->ExistAnchorByMsg(confirmMessage.hashAnchor)) {
+        LogPrintf("Warning! Can't read last anchor message %s\n",  confirmMessage.hashAnchor.ToString());
+        return false;
+    }
+
+    auto const & currentTeam = pmasternodesview->GetCurrentTeam();
+    CPubKey pubkey;
+    if (!pubkey.RecoverCompact(confirmMessage.hashAnchor, confirmMessage.signature) || currentTeam.find(pubkey.GetID()) == currentTeam.end())
+        return false;
+
     return true;
 }
 
-void CAnchorConfirms::Add(CAnchorConfirmMessage const &newMessage)
+void CAnchorConfirms::Add(CAnchorConfirmMessage const &newConfirmMessage)
 {
-    confirms.insert(std::make_pair(newMessage.GetHash(), newMessage));
+    auto const *anchorRec = panchors->ExistAnchorByMsg(newConfirmMessage.hashAnchor);
+    if (!anchorRec) {
+        LogPrintf("Warning! Can't read last anchor message %s\n",  newConfirmMessage.hashAnchor.ToString());
+        return ; // TODO: SS what to do with it?
+    }
+    CDataStream ss{SER_NETWORK, PROTOCOL_VERSION};
+    ss << anchorRec->anchor;
+    HashAnchor hashAnchor = Hash(ss.begin(), ss.end());
+
+    for (auto &&hashAndConfirm : confirms) {
+        auto it = hashAndConfirm.second.find(hashAnchor);
+        if (it != hashAndConfirm.second.end()) {
+            hashAndConfirm.second.insert(std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage));
+            return ;
+        }
+    }
+
+    confirms[hashAnchor] = std::map<HashConfirmMessage, CAnchorConfirmMessage>{std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage)};
+}
+
+std::map<uint256, uint32_t> &CAnchorConfirms::GetConfirms() const
+{
+    std::map<uint256, uint32_t> processingAnchors;
+    for (auto &&hashAndConfirm : confirms) {
+        auto const *anchorRec = panchors->ExistAnchorByMsg(hashAndConfirm.first);
+        if (!anchorRec) {
+            LogPrintf("Warning! Can't read last anchor message %s\n",  hashAndConfirm.first.ToString());
+            processingAnchors.clear();
+            return processingAnchors;
+        }
+
+        CDataStream ss{SER_NETWORK, PROTOCOL_VERSION};
+        ss << anchorRec->anchor;
+        HashAnchor hashAnchor = Hash(ss.begin(), ss.end());
+
+        processingAnchors.insert(std::make_pair(hashAnchor, hashAndConfirm.second.size()));
+    }
+
+    return processingAnchors;
+}
+
+bool CAnchorConfirms::RemoveConfirmsForMessage(HashAnchor const &hash)
+{
+    for (auto &&hashAndConfirm : confirms) {
+        auto it = hashAndConfirm.second.find(hash);
+        if (it != hashAndConfirm.second.end()) {
+            hashAndConfirm.second.clear();
+            return true;
+        }
+    }
+
+    return false;
 }

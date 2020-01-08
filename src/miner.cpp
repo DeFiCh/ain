@@ -13,6 +13,7 @@
 #include <consensus/merkle.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
 #include <net.h>
 #include <policy/feerate.h>
@@ -89,6 +90,27 @@ void BlockAssembler::resetBlock()
 
 Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
 Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
+
+CTransactionRef BlockAssembler::CreateAnchorFinalizationTx(const CAnchor& anchor, const uint256 &btcTxHash, const uint32_t &btcHeight)
+{
+    CTxDestination destination = anchor.rewardKeyType == 1 ? CTxDestination(PKHash(anchor.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(anchor.rewardKeyID));
+
+    CMutableTransaction mTx;
+
+    CDataStream metadata(DfAnchorFinalizeTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    auto currentTeam = pmasternodesview->GetCurrentTeam();
+    metadata << btcHeight << btcTxHash << anchor.previousAnchor << anchor.height << anchor.blockHash << anchor.nextTeam << currentTeam << anchor.sigs;
+
+    mTx.vin.resize(1);
+    mTx.vin[0].prevout.SetNull();
+    mTx.vout.resize(2);
+    mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+    mTx.vout[0].nValue = 0;
+    mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
+    mTx.vout[1].nValue = GetAnchorSubsidy(nHeight, chainparams.GetConsensus());
+
+    return MakeTransactionRef(mTx);
+}
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn)
 {
@@ -169,6 +191,28 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
 
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
+
+    auto & confirms = panchorconfirms->GetConfirms();
+
+    for (auto && countConfirms : confirms) {
+        if (countConfirms.second >= GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
+            auto const *anchorRec = panchors->ExistAnchorByMsg(countConfirms.first);
+            if (!anchorRec) {
+                LogPrintf("Warning! Can't read last anchor message %s\n",  countConfirms.first.ToString());
+                continue;
+            }
+
+            auto currentTeam = pmasternodesview->GetCurrentTeam();
+            if (anchorRec->anchor.CheckAuthSigs(currentTeam) && anchorRec->anchor.sigs.size() >= GetMinAnchorQuorum(currentTeam)) {
+                pblock->vtx.emplace_back();
+                pblock->vtx[1] = CreateAnchorFinalizationTx(anchorRec->anchor, anchorRec->txHash, anchorRec->btcHeight);
+
+                panchorconfirms->RemoveConfirmsForMessage(countConfirms.first);
+                break;
+            }
+        }
+    }
+
 
     if (!fIsFakeNet && pmasternodesview->GetUncaughtCriminals().size() != 0) {
         CMasternodesView::CMnCriminals criminals = pmasternodesview->GetUncaughtCriminals();
