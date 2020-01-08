@@ -188,6 +188,7 @@ protected:
     CMasternodesByAuth nodesByOperator;
 
     CMnCriminals criminals;
+    CTeam currentTeam;
 
     CMnBlocksUndo blocksUndo;
 
@@ -280,6 +281,8 @@ public:
 
     void PruneOlder(int height);
 
+    void SetTeam(CTeam newTeam);
+    const std::set<CKeyID> &GetCurrentTeam();
     CTeam CalcNextTeam(uint256 stakeModifier);
 
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
@@ -288,6 +291,7 @@ public:
     void RemoveMasternodeFromCriminals(uint256 const &criminalID);
     void BlockedCriminalMnCoins(std::vector<unsigned char> & metadata);
     static bool ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
+    static bool ExtractAnchorRewardFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
 protected:
     virtual CMnBlocksUndo::mapped_type const & GetBlockUndo(CMnBlocksUndo::key_type key) const;
