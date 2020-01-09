@@ -185,6 +185,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "spv_gettxconfirmations", 0, "txhash" },
     { "spv_splitutxo", 0, "parts" },
     { "spv_splitutxo", 1, "amount" },
+    { "spv_setlastheight", 0, "height" },
 };
 // clang-format on
 

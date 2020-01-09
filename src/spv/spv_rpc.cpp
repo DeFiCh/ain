@@ -199,7 +199,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
 //    auto rawtx = spv::CreateAnchorTx("e6f0a5e4db120f6877710bbbb5f9523162b6456bb1d4d89b854e60a794e03b46", 1, 3271995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
     auto rawtx = spv::CreateAnchorTx("a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963", 3, 2262303, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
 
-    bool send = false;
+    bool send = true;
     if (send) {
         if (!spv::pspv)
             throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
@@ -361,6 +361,79 @@ UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
 //    return UniValue(spv::pspv->GetTxConfirmations(txHash));
 }
 
+UniValue spv_listanchors(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_listanchors",
+        "\nList anchors (if any)\n",
+        {
+//            {"height", RPCArg::Type::NUM, RPCArg::Optional::NO, "Height in btc chain"},
+        },
+        RPCResult{
+            "\"array\"                  Returns array of anchors\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_listanchors", "")
+            + HelpExampleRpc("spv_listanchors", "")
+        },
+    }.Check(request);
+
+    if (!spv::pspv)
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+
+    auto locked_chain = pwallet->chain().lock();
+
+    auto const * top = panchors->GetActiveAnchor();
+
+    UniValue result(UniValue::VARR);
+//    auto lastHeight = spv::pspv->GetLastBlockHeight();
+    panchors->ForEachAnchorByBtcHeight([&result, &top](const CAnchorIndex::AnchorRec & rec) {
+        UniValue anchor(UniValue::VOBJ);
+        anchor.pushKV("btcBlockHeight", static_cast<int>(rec.btcHeight));
+        anchor.pushKV("btcTxHash", rec.txHash.ToString());
+        anchor.pushKV("defiBlockHeight", static_cast<int>(rec.anchor.height));
+        anchor.pushKV("defiBlockHash", rec.anchor.blockHash.ToString());
+        anchor.pushKV("confirmations", panchors->GetAnchorConfirmations(&rec));
+        if (top && top->txHash == rec.txHash)
+            anchor.pushKV("active", true);
+
+        result.push_back(anchor);
+    });
+    top ? top->txHash.ToString() : "";
+    return result;
+}
+
+
+UniValue spv_setlastheight(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_setlastheight",
+        "\nSet last processed block height (for test purposes only)...\n",
+        {
+            {"height", RPCArg::Type::NUM, RPCArg::Optional::NO, "Height in btc chain"},
+        },
+        RPCResult{
+            "\"none\"                  Returns nothing\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_setlastheight", "\\\"height\\\"")
+            + HelpExampleRpc("spv_setlastheight", "\\\"height\\\"")
+        },
+    }.Check(request);
+
+    auto fake_spv = static_cast<spv::CFakeSpvWrapper *>(spv::pspv.get());
+
+    if (!fake_spv)
+        throw JSONRPCError(RPC_INVALID_REQUEST, "command disabled");
+
+    auto locked_chain = pwallet->chain().lock();
+    fake_spv->lastBlockHeight = request.params[0].get_int();
+    panchors->ActivateBestAnchor();
+    return UniValue();
+}
+
 
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
@@ -372,7 +445,9 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
   { "spv",      "spv_splitutxo",              &spv_splitutxo,             { "parts", "amount" }  },
+  { "spv",      "spv_listanchors",            &spv_listanchors,           { }  },
 
+  { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
 };
 
 void RegisterSpvRPCCommands(CRPCTable &tableRPC)

@@ -77,21 +77,21 @@ public:
     CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
     ~CSpvWrapper();
 
-    void Connect();
-    void Disconnect();
-    bool IsConnected() const;
+    virtual void Connect();
+    virtual void Disconnect();
+    virtual bool IsConnected() const;
     bool Rescan(int height);
 
     BRPeerManager const * GetPeerManager() const;
     BRWallet * GetWallet();
 
     bool IsInitialSync() const;
-    uint32_t GetLastBlockHeight() const;
-    uint32_t GetEstimatedBlockHeight() const;
+    virtual uint32_t GetLastBlockHeight() const;
+    virtual uint32_t GetEstimatedBlockHeight() const;
     uint8_t GetPKHashPrefix() const;
 
     std::vector<BRTransaction *> GetWalletTxs() const;
-    bool SendRawTx(TBytes rawtx);
+    virtual bool SendRawTx(TBytes rawtx);
 
 public:
     /// Wallet callbacks
@@ -181,8 +181,29 @@ protected:
 
     void WriteBlock(BRMerkleBlock const * block);
     void WriteTx(BRTransaction const * tx);
+    void UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t timestamp);
     void EraseTx(uint256 const & hash);
 };
+
+// fake spv for testing (activate it with 'fakespv=1' on regtest net)
+class CFakeSpvWrapper : public CSpvWrapper
+{
+public:
+    CFakeSpvWrapper() : CSpvWrapper(false, 1 << 23, true, true) {}
+
+    void Connect() override;
+    void Disconnect() override;
+    bool IsConnected() const override;
+
+    uint32_t GetLastBlockHeight() const override { return lastBlockHeight; }
+    uint32_t GetEstimatedBlockHeight() const override { return lastBlockHeight+1000; } // dummy
+
+    bool SendRawTx(TBytes rawtx) override;
+
+    uint32_t lastBlockHeight = 0;
+    bool isConnected = false;
+};
+
 
 extern std::unique_ptr<CSpvWrapper> pspv;
 

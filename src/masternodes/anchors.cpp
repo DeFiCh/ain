@@ -17,7 +17,6 @@
 #include <wallet/wallet.h>
 
 #include <algorithm>
-#include <functional>
 
 #include <tuple>
 
@@ -250,6 +249,14 @@ bool CAnchorIndex::Load()
     return result;
 }
 
+void CAnchorIndex::ForEachAnchorByBtcHeight(std::function<void(const CAnchorIndex::AnchorRec &)> callback) const
+{
+    typedef AnchorIndexImpl::index<AnchorRec::ByBtcTxHash>::type KList;
+    KList const & list = anchors.get<AnchorRec::ByBtcTxHash>();
+    for (auto rec : list)
+        callback(rec);
+
+}
 
 const CAnchorIndex::AnchorRec * CAnchorIndex::GetActiveAnchor() const
 {
@@ -266,13 +273,15 @@ const CAnchorIndex::AnchorRec * CAnchorIndex::ExistAnchorByTx(const uint256 & ha
     return it != list.end() ? &(*it) : nullptr;
 }
 
-bool CAnchorIndex::AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight)
+bool CAnchorIndex::AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite)
 {
     AssertLockHeld(cs_main);
 
-    AnchorIndexImpl & index = anchors;
     AnchorRec rec{ anchor, btcTxHash, btcBlockHeight };
-    bool result = index.insert(rec).second;
+    if (overwrite) {
+        DeleteAnchorByBtcTx(btcTxHash);
+    }
+    bool result = anchors.insert(rec).second;
     if (result)
         DbWrite(rec);
     return result;
@@ -282,16 +291,14 @@ bool CAnchorIndex::DeleteAnchorByBtcTx(const uint256 & btcTxHash)
 {
     AssertLockHeld(cs_main);
 
-    typedef AnchorIndexImpl::index<AnchorRec::ByBtcTxHash>::type KList;
-    KList & list = anchors.get<AnchorRec::ByBtcTxHash>();
+    auto anchor = GetAnchorByBtcTx(btcTxHash);
 
-    auto const it = list.find(btcTxHash);
-    if (it != list.end()) {
-        if (top && top == &*it)
+    if (anchor) {
+        if (top && top == anchor)
         {
             top = GetAnchorByBtcTx(top->anchor.previousAnchor);
         }
-        list.erase(it);
+        anchors.get<AnchorRec::ByBtcTxHash>().erase(btcTxHash);
         if (DbExists(btcTxHash))
             DbErase(btcTxHash);
         return true;

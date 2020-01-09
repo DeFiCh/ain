@@ -310,31 +310,55 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
     uint256 const txHash{to_uint256(tx->txHash)};
     WriteTx(tx);
     LogPrintf("spv: tx added %s, at block %d, timestamp %d\n", txHash.ToString(), tx->blockHeight, tx->timestamp);
-    LogPrintf("spv: current wallet tx count %lu\n", GetWalletTxs().size());
+//    LogPrintf("spv: current wallet tx count %lu\n", GetWalletTxs().size());
 
-    // we'll not insert tx into our anchor index here due to wrong blockHeight and timestamp (unconfirmed)
+    CAnchor anchor;
+    if (IsAnchorTx(tx, anchor)) {
+
+        LogPrintf("spv: IsAnchorTx(): %s\n", txHash.ToString());
+
+        LOCK(cs_main);
+
+        if (ValidateAnchor(anchor, true)) {
+            LogPrintf("spv: valid anchor tx: %s\n", txHash.ToString());
+
+            if (panchors->AddAnchor(anchor, txHash, tx->blockHeight)) {
+                LogPrintf("spv: adding anchor %s\n", txHash.ToString());
+                // do not try to activate cause tx unconfirmed yet
+//                panchors->ActivateBestAnchor();
+            }
+        }
+    }
+    else {
+        LogPrintf("spv: not an anchor tx %s\n", txHash.ToString());
+    }
+
 }
 
 void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
 {
+    bool needReActivation{false};
     for (size_t i = 0; i < txCount; ++i) {
-        BRTransaction * tx = BRWalletTransactionForHash(wallet, txHashes[i]);
-        assert(tx);
-        uint256 const txHash{to_uint256(tx->txHash)};
-        WriteTx(tx);
-        LogPrintf("spv: tx updated, hash: %s, blockHeight: %d, timestamp: %d\n", txHash.ToString(), tx->blockHeight, tx->timestamp);
+        uint256 const txHash{to_uint256(txHashes[i])};
+        UpdateTx(txHash, blockHeight, timestamp);
+        LogPrintf("spv: tx updated, hash: %s, blockHeight: %d, timestamp: %d\n", txHash.ToString(), blockHeight, timestamp);
 
-        CAnchor anchor;
-        if (IsAnchorTx(tx, anchor)) {
+        LOCK(cs_main);
 
-            LOCK(cs_main);
-
-            if (ValidateAnchor(anchor, true)) {
-                if (panchors->AddAnchor(anchor, to_uint256(tx->txHash), tx->blockHeight)) {
-                    panchors->ActivateBestAnchor();
-                }
+        // update index. no any checks nor validations
+        auto exist = panchors->GetAnchorByBtcTx(txHash);
+        if (exist) {
+            LogPrintf("spv: updating anchor %s\n", txHash.ToString());
+            CAnchor oldAnchor{exist->anchor};
+            if (panchors->AddAnchor(oldAnchor, txHash, blockHeight)) {
+                LogPrintf("spv: updated anchor %s\n", txHash.ToString());
+                needReActivation = true;
             }
         }
+    }
+    if (needReActivation) {
+        LOCK(cs_main);
+        panchors->ActivateBestAnchor();
     }
 }
 
@@ -403,6 +427,17 @@ void CSpvWrapper::WriteTx(const BRTransaction *tx)
     buf.resize(BRTransactionSerialize(tx, NULL, 0));
     BRTransactionSerialize(tx, buf.data(), buf.size());
     db->Write(make_pair(DB_SPVTXS, to_uint256(tx->txHash)), std::make_pair(buf, std::make_pair(tx->blockHeight, tx->timestamp)) );
+}
+
+void CSpvWrapper::UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t timestamp)
+{
+    auto const key{std::make_pair(DB_SPVTXS, hash)};
+    std::pair<TBytes, std::pair<uint32_t, uint32_t> > txrec;
+    if (db->Read(key, txrec)) {
+        txrec.second.first = blockHeight;
+        txrec.second.second = timestamp;
+        db->Write(key, txrec);
+    }
 }
 
 void CSpvWrapper::EraseTx(uint256 const & hash)
@@ -625,13 +660,16 @@ bool CSpvWrapper::SendRawTx(TBytes rawtx)
     }
 
     BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
-    if (tx && BRTransactionIsSigned(tx)) {
-        BRPeerManagerPublishTx(manager, tx, &tx->txHash, publishedTxCallback); // just note that txHash is wrong here (need to be reversed)
+    if (tx) {
+        if (BRTransactionIsSigned(tx)) {
+            BRPeerManagerPublishTx(manager, tx, &tx->txHash, publishedTxCallback);
+        }
+        else {
+            BRTransactionFree(tx);
+            tx = nullptr;
+        }
     }
-    else {
-        tx = NULL;
-    }
-    return tx;
+    return tx != nullptr;
 }
 
 TBytes CreateScriptForAddress(std::string const & address)
@@ -687,6 +725,41 @@ bool IsAnchorTx(BRTransaction *tx, CAnchor & anchor)
         return false;
     }
     return true;
+}
+
+void CFakeSpvWrapper::Connect()
+{
+    isConnected = true;
+}
+
+void CFakeSpvWrapper::Disconnect()
+{
+    isConnected = false;
+}
+
+bool CFakeSpvWrapper::IsConnected() const
+{
+    return isConnected;
+}
+
+bool CFakeSpvWrapper::SendRawTx(TBytes rawtx)
+{
+    if (!IsConnected()) {
+        return false;
+    }
+
+    BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
+    if (tx /*&& BRTransactionIsSigned(tx)*/) {
+//        BRPeerManagerPublishTx(manager, tx, &tx->txHash, publishedTxCallback); // just note that txHash is wrong here (need to be reversed)
+        LogPrintf("fakespv: adding anchor tx %s\n", to_uint256(tx->txHash).ToString());
+        OnTxAdded(tx);
+        OnTxUpdated(&tx->txHash, 1, lastBlockHeight, 666);
+        BRTransactionFree(tx);
+    }
+    else {
+        tx = NULL;
+    }
+    return tx;
 }
 
 }
