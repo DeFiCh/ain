@@ -11,6 +11,7 @@
 #include <serialize.h>
 #include <uint256.h>
 
+#include <functional>
 #include <vector>
 
 #include <boost/scoped_ptr.hpp>
@@ -194,12 +195,13 @@ public:
     CAnchorIndex(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
     bool Load();
 
+    void ForEachAnchorByBtcHeight(std::function<void(const CAnchorIndex::AnchorRec &)> callback) const;
     AnchorRec const * GetActiveAnchor() const;
     void ActivateBestAnchor(); // rescan anchors
 
     AnchorRec const * ExistAnchorByTx(uint256 const & hash) const;
 
-    bool AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight);
+    bool AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = true);
     bool DeleteAnchorByBtcTx(uint256 const & btcTxHash);
 
     CMasternodesView::CTeam GetNextTeam(uint256 const & btcPrevTx) const;

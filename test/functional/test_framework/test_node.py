@@ -148,7 +148,7 @@ class TestNode():
         if address is None:
             address = self.get_genesis_keys().operatorAuthAddress
 
-        height = self.getblockcount()
+        # height = self.getblockcount()
         minted = 0
         mintedHashes = []
         while minted < nblocks:
@@ -158,7 +158,8 @@ class TestNode():
             if res == 1:
                 minted += 1
                 self.pullup_mocktime()
-                mintedHashes.append(self.getblockhash(height+minted))
+                # mintedHashes.append(self.getblockhash(height+minted))
+                mintedHashes.append(self.getblockhash(self.getblockcount())) # always "tip" due to chain switching (possibly wrong)
         return mintedHashes
 
 
