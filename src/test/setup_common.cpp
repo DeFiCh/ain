@@ -112,13 +112,13 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         LOCK(cs_main);
 
         pmasternodesview.reset();
-        pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, false, true);
+        pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, true, true);
         pmasternodesview->Load();
 
         panchorauths.reset();
         panchorauths = MakeUnique<CAnchorAuthIndex>();
         panchors.reset();
-        panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, true);
+        panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, true, true);
         panchors->Load();
     }
 
