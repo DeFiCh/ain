@@ -3263,7 +3263,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (block.GetHash() != consensusParams.hashGenesisBlock) {
         std::vector<unsigned char> metadata;
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
-            if (block.vtx[i]->IsCoinBase() && !CMasternodesView::ExtractCriminalCoinsFromTx(*block.vtx[i], metadata))
+            if (block.vtx[i]->IsCoinBase() &&
+                !CMasternodesView::ExtractCriminalCoinsFromTx(*block.vtx[i], metadata) &&
+                !block.vtx[i]->IsAnchorReward())
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
         }
     }

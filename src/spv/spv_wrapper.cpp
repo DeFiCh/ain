@@ -349,6 +349,7 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
                         }
 
                         auto confirmMessage = CAnchorConfirmMessage::Create(anchor, masternodeKey);
+                        panchorconfirms->Add(confirmMessage);
                         RelayAnchorConfirm(confirmMessage.GetHash(), *g_connman);
                     }
             }

@@ -285,7 +285,7 @@ public:
     const CAnchorConfirmMessage *Exist(HashConfirmMessage const &hash) const;
     void Add(CAnchorConfirmMessage const &newConfirmMessage);
     bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
-    std::map<uint256, uint32_t> &GetConfirms() const;
+    std::map<uint256, uint32_t> GetConfirms() const;
     bool RemoveConfirmsForMessage(HashAnchor const &hash);
 };
 
