@@ -345,7 +345,7 @@ public:
         return (vin.size() == 1 && vin[0].prevout.IsNull());
     }
 
-    bool IsAnchorReward();
+    bool IsAnchorReward() const;
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)
     {

@@ -192,7 +192,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
 
-    auto & confirms = panchorconfirms->GetConfirms();
+    auto confirms = panchorconfirms->GetConfirms();
 
     for (auto && countConfirms : confirms) {
         if (countConfirms.second >= GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
@@ -231,7 +231,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 criminalTx.vin[0].prevout.SetNull();
                 criminalTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
                 criminalTx.vout.resize(1);
-                criminalTx.vout[0].scriptPubKey  = CScript() << OP_RETURN << ToByteVector(metadata);
+                criminalTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
                 criminalTx.vout[0].nValue = 0;
 
                 pblock->vtx.emplace_back();

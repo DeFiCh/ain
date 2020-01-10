@@ -558,7 +558,7 @@ void CAnchorConfirms::Add(CAnchorConfirmMessage const &newConfirmMessage)
     confirms[hashAnchor] = std::map<HashConfirmMessage, CAnchorConfirmMessage>{std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage)};
 }
 
-std::map<uint256, uint32_t> &CAnchorConfirms::GetConfirms() const
+std::map<uint256, uint32_t> CAnchorConfirms::GetConfirms() const
 {
     std::map<uint256, uint32_t> processingAnchors;
     for (auto &&hashAndConfirm : confirms) {
@@ -573,10 +573,10 @@ std::map<uint256, uint32_t> &CAnchorConfirms::GetConfirms() const
         ss << anchorRec->anchor;
         HashAnchor hashAnchor = Hash(ss.begin(), ss.end());
 
-        processingAnchors.insert(std::make_pair(hashAnchor, hashAndConfirm.second.size()));
+        processingAnchors[hashAnchor] = hashAndConfirm.second.size();
     }
 
-    return processingAnchors;
+    return std::move(processingAnchors);
 }
 
 bool CAnchorConfirms::RemoveConfirmsForMessage(HashAnchor const &hash)
