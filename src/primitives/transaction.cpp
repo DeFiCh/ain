@@ -114,7 +114,7 @@ std::string CTransaction::ToString() const
     return str;
 }
 
-bool CTransaction::IsAnchorReward()
+bool CTransaction::IsAnchorReward() const
 {
     if (IsCoinBase() && vout.size() == 2 && vout[0].nValue == 0) {
         CScript const & memo = vout[0].scriptPubKey;

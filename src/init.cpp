@@ -1562,17 +1562,17 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 panchorauths.reset();
                 panchorauths = MakeUnique<CAnchorAuthIndex>();
+                panchorconfirms.reset();
+                panchorconfirms = MakeUnique<CAnchorConfirms>();
                 panchors.reset();
                 panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, fReset || fReindexChainState); /// @todo should it be linked to the 'defi reindex' or 'spv resync'?????
                 panchors->Load();
 
-                if (gArgs.GetBoolArg("-spv", true))
-                {
+                if (gArgs.GetBoolArg("-spv", true)) {
                     spv::pspv.reset();
                     if (gArgs.GetBoolArg("-fakespv", false) && Params().NetworkIDString() == "regtest") {
                         spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
-                    }
-                    else {
+                    } else {
                         spv::pspv = MakeUnique<spv::CSpvWrapper>(!gArgs.GetBoolArg("-spv_testnet", false), nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
                     }
                     spv::pspv->Connect();
