@@ -24,7 +24,6 @@ class CTransaction;
 // class CBlockHeader;
 
 static const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};  // 44665478
-static const std::vector<unsigned char> DfCriminalTxMarker = {'D', 'f', 'C', 'r'};
 
 static const unsigned int DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL = 100;
 
