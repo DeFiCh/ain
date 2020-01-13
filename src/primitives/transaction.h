@@ -14,6 +14,7 @@
 
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
+static const std::vector<unsigned char> DfCriminalTxMarker = {'D', 'f', 'C', 'r'};
 static const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
@@ -346,6 +347,7 @@ public:
     }
 
     bool IsAnchorReward() const;
+    bool IsCriminalDetention() const;
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)
     {
