@@ -1550,7 +1550,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         if (!fIsFakeNet && is_coinbase && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
             CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
             CAnchor anchor;
-            uint256 btcHeight, btcTxHash;
+            uint32_t btcHeight;
+            uint256 btcTxHash;
             CMasternodesView::CTeam currentTeam;
             ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
             pmasternodesview->SetTeam(currentTeam);
@@ -2057,7 +2058,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             } else if (!fIsFakeNet && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
                 CAnchor anchor;
-                uint256 btcHeight, btcTxHash;
+                uint32_t btcHeight;
+                uint256 btcTxHash;
                 CMasternodesView::CTeam currentTeam;
                 ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
                 if (anchor.CheckAuthSigs(pmasternodesview->GetCurrentTeam())) {
