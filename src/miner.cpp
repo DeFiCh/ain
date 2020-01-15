@@ -687,6 +687,14 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
     while (true) {
         boost::this_thread::interruption_point();
 
+        while (fImporting || fReindex) {
+            boost::this_thread::interruption_point();
+
+            LogPrintf("ThreadStaker: reindex waiting\n");
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(900));
+        }
+
         try {
             Staker::Status status = staker.stake(chainparams, args);
             if (status == Staker::Status::error) {
