@@ -96,6 +96,8 @@ void RelayTransaction(const uint256&, const CConnman& connman);
 /** Relay anchor auth to every node, possible skipping the source (rebroadcasting) */
 void RelayAnchorAuth(const uint256&, CConnman& connman, CNode* skipNode = nullptr);
 
+void RelayAnchorConfirm(const uint256&, CConnman& connman, CNode* skipNode = nullptr);
+
 void ResyncHeaders(CConnman& connman);
 
 #endif // BITCOIN_NET_PROCESSING_H

@@ -13,6 +13,7 @@
 #include <consensus/merkle.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
 #include <net.h>
 #include <policy/feerate.h>
@@ -90,6 +91,28 @@ void BlockAssembler::resetBlock()
 Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
 Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
 
+CTransactionRef BlockAssembler::CreateAnchorFinalizationTx(const CAnchor& anchor, const uint256 &btcTxHash, const uint32_t &btcHeight)
+{
+    CTxDestination destination = anchor.rewardKeyType == 1 ? CTxDestination(PKHash(anchor.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(anchor.rewardKeyID));
+
+    CMutableTransaction mTx;
+
+    CDataStream metadata(DfAnchorFinalizeTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    auto currentTeam = pmasternodesview->GetCurrentTeam();
+    metadata << btcHeight << btcTxHash << anchor.previousAnchor << anchor.height << anchor.blockHash << anchor.nextTeam << currentTeam << anchor.sigs;
+
+    mTx.vin.resize(1);
+    mTx.vin[0].prevout.SetNull();
+    mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+    mTx.vout.resize(2);
+    mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+    mTx.vout[0].nValue = 0;
+    mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
+    mTx.vout[1].nValue = GetAnchorSubsidy(nHeight, chainparams.GetConsensus());
+
+    return MakeTransactionRef(mTx);
+}
+
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn)
 {
     auto myIDs = pmasternodesview->AmIOperator();
@@ -143,32 +166,28 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
 
-    int nPackagesSelected = 0;
-    int nDescendantsUpdated = 0;
-    addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+    auto confirms = panchorconfirms->GetConfirms();
 
-    int64_t nTime1 = GetTimeMicros();
+    for (auto && countConfirms : confirms) {
+        if (countConfirms.second >= GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
+            auto const *anchorRec = panchors->ExistAnchorByMsg(countConfirms.first);
+            if (!anchorRec) {
+                LogPrintf("Warning! Can't read last anchor message %s\n",  countConfirms.first.ToString());
+                continue;
+            }
 
-    m_last_block_num_txs = nBlockTx;
-    m_last_block_weight = nBlockWeight;
+            auto currentTeam = pmasternodesview->GetCurrentTeam();
+            if (anchorRec->anchor.CheckAuthSigs(currentTeam) && anchorRec->anchor.sigs.size() >= GetMinAnchorQuorum(currentTeam)) {
+                pblock->vtx.push_back(CreateAnchorFinalizationTx(anchorRec->anchor, anchorRec->txHash, anchorRec->btcHeight));
 
-    // Create coinbase transaction.
-    CMutableTransaction coinbaseTx;
-    coinbaseTx.vin.resize(1);
-    coinbaseTx.vin[0].prevout.SetNull();
-    coinbaseTx.vout.resize(1);
-    coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
-    // Pinch off foundation share
-    if (IsValidDestination(chainparams.GetConsensus().foundationAddress) && chainparams.GetConsensus().foundationShare != 0) {
-        coinbaseTx.vout.resize(2);
-        coinbaseTx.vout[1].scriptPubKey = GetScriptForDestination(chainparams.GetConsensus().foundationAddress);
-        coinbaseTx.vout[1].nValue = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
-        coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
+                pblocktemplate->vTxFees.push_back(0);
+                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+
+                panchorconfirms->RemoveConfirmsForMessage(countConfirms.first);
+                break;
+            }
+        }
     }
-    coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-
-    pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
 
     if (!fIsFakeNet && pmasternodesview->GetUncaughtCriminals().size() != 0) {
         CMasternodesView::CMnCriminals criminals = pmasternodesview->GetUncaughtCriminals();
@@ -187,15 +206,43 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 criminalTx.vin[0].prevout.SetNull();
                 criminalTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
                 criminalTx.vout.resize(1);
-                criminalTx.vout[0].scriptPubKey  = CScript() << OP_RETURN << ToByteVector(metadata);
+                criminalTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
                 criminalTx.vout[0].nValue = 0;
 
-                pblock->vtx.emplace_back();
+                pblock->vtx.push_back(MakeTransactionRef(std::move(criminalTx)));
 
-                pblock->vtx[1] = MakeTransactionRef(std::move(criminalTx));
+                pblocktemplate->vTxFees.push_back(0);
+                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
             }
         }
     }
+
+    int nPackagesSelected = 0;
+    int nDescendantsUpdated = 0;
+    addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+
+    int64_t nTime1 = GetTimeMicros();
+
+    m_last_block_num_txs = nBlockTx;
+    m_last_block_weight = nBlockWeight;
+
+    // Create coinbase transaction.
+    CMutableTransaction coinbaseTx;
+    coinbaseTx.vin.resize(1);
+    coinbaseTx.vin[0].prevout.SetNull();
+    coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+    coinbaseTx.vout.resize(1);
+    coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
+    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    // Pinch off foundation share
+    if (IsValidDestination(chainparams.GetConsensus().foundationAddress) && chainparams.GetConsensus().foundationShare != 0) {
+        coinbaseTx.vout.resize(2);
+        coinbaseTx.vout[1].scriptPubKey = GetScriptForDestination(chainparams.GetConsensus().foundationAddress);
+        coinbaseTx.vout[1].nValue = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
+        coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
+    }
+
+    pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
 
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;
@@ -639,6 +686,14 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
 
     while (true) {
         boost::this_thread::interruption_point();
+
+        while (fImporting || fReindex) {
+            boost::this_thread::interruption_point();
+
+            LogPrintf("ThreadStaker: reindex waiting\n");
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(900));
+        }
 
         try {
             Staker::Status status = staker.stake(chainparams, args);

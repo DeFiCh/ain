@@ -20,8 +20,9 @@ static const char DB_MN_HEIGHT = 'H';       // single record with last processed
 static const char DB_PRUNE_HEIGHT = 'P';    // single record with pruned height (for validation of reachable data window)
 
 static const char DB_MN_BLOCK_HEADERS = 'h';
+static const char DB_MN_CRIMINALS = 'm';
 static const char DB_MN_BLOCKED_CRIMINAL_COINS = 'C';
-//static const char DB_BLOCKED_MN_CRIMINALS = 'm';
+static const char DB_MN_CURRENT_TEAM = 't';
 
 struct DBMNBlockHeadersSearchKey
 {
@@ -71,21 +72,6 @@ struct DBMNBlockedCriminalCoins
         READWRITE(index);
     }
 };
-
-//struct DBBlockedMNCriminal
-//{
-//    char prefix;
-//    uint256 masternodeID;
-//
-//    ADD_SERIALIZE_METHODS;
-//
-//    template <typename Stream, typename Operation>
-//    inline void SerializationOp(Stream& s, Operation ser_action)
-//    {
-//        READWRITE(prefix);
-//        READWRITE(masternodeID);
-//    }
-//};
 
 CMasternodesViewDB::CMasternodesViewDB(size_t nCacheSize, bool fMemory, bool fWipe)
     : db(new CDBWrapper(GetDataDir() / "masternodes", nCacheSize, fMemory, fWipe))
@@ -182,6 +168,77 @@ void CMasternodesViewDB::EraseMintedBlockHeader(uint256 const & txid, uint64_t c
     db->Erase(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash});
 }
 
+void CMasternodesViewDB::WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact)
+{
+    db->Write(make_pair(DB_MN_CRIMINALS, mnId), doubleSignFact);
+}
+
+void CMasternodesViewDB::EraseCriminal(uint256 const & mnId)
+{
+    db->Erase(make_pair(DB_MN_CRIMINALS, mnId));
+}
+
+void CMasternodesViewDB::WriteCurrentTeam(std::set<CKeyID> const & currentTeam)
+{
+    uint32_t i = 0;
+    for (std::set<CKeyID>::iterator it = currentTeam.begin(); it != currentTeam.end(); ++it) {
+        db->Write(make_pair(DB_MN_CURRENT_TEAM, i++), *it);
+    }
+}
+
+bool CMasternodesViewDB::LoadCurrentTeam(std::set<CKeyID> & newTeam)
+{
+    boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
+    pcursor->Seek(DB_MN_CURRENT_TEAM);
+
+    while (pcursor->Valid()) {
+        boost::this_thread::interruption_point();
+        std::pair<char, uint32_t> key;
+        if (pcursor->GetKey(key) && key.first == DB_MN_CURRENT_TEAM) {
+            CKeyID mnId;
+            if (pcursor->GetValue(mnId)) {
+                newTeam.insert(mnId);
+            } else {
+                return error("MNDB::LoadCurrentTeam() : unable to read value");
+            }
+        } else {
+            break;
+        }
+        pcursor->Next();
+    }
+
+    return true;
+}
+
+bool CMasternodesViewDB::EraseCurrentTeam()
+{
+    boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
+    pcursor->Seek(DB_MN_CURRENT_TEAM);
+
+    std::vector<uint32_t> indexes{};
+    while (pcursor->Valid()) {
+        boost::this_thread::interruption_point();
+        std::pair<char, uint32_t> key;
+        if (pcursor->GetKey(key) && key.first == DB_MN_CURRENT_TEAM) {
+            CKeyID mnId;
+            if (pcursor->GetValue(mnId)) {
+                indexes.push_back(key.second);
+            } else {
+                return error("MNDB::EraseCurrentTeam() : unable to read value");
+            }
+        } else {
+            break;
+        }
+        pcursor->Next();
+    }
+
+    for (uint32_t i = 0; i < indexes.size(); ++i) {
+        db->Erase(make_pair(DB_MN_CURRENT_TEAM, indexes[i]));
+    }
+
+    return true;
+}
+
 void CMasternodesViewDB::WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet)
 {
     if (fIsFakeNet) {
@@ -255,6 +312,8 @@ bool CMasternodesViewDB::Load()
         nodesByOperator.insert(std::make_pair(node.operatorAuthAddress, nodeId));
     });
     result = result && LoadTable(DB_MASTERNODESUNDO, blocksUndo);
+    result = result && LoadCurrentTeam(currentTeam);
+    result = result && LoadTable(DB_MN_CRIMINALS, criminals);
 
     if (result)
         LogPrintf("MN: db loaded: last height: %d; masternodes: %d; common undo: %d\n", lastHeight, allNodes.size(), blocksUndo.size());
@@ -295,7 +354,21 @@ bool CMasternodesViewDB::Flush()
             ++it;
         }
     }
+
+    for (auto && it = criminals.begin(); it != criminals.end(); )
+    {
+        if (it->second == CDoubleSignFact()) {
+            EraseCriminal(it->first);
+            it = criminals.erase(it);
+        }
+        else {
+            WriteCriminal(it->first, it->second);
+            ++it;
+        }
+    }
     WriteHeight(lastHeight);
+    EraseCurrentTeam();
+    WriteCurrentTeam(currentTeam);
 
     CommitBatch();
     LogPrintf("MN: db saved: last height: %d; masternodes: %d; common undo: %d\n", lastHeight, nMasternodes, nUndo);
