@@ -428,9 +428,9 @@ UniValue spv_setlastheight(const JSONRPCRequest& request)
     if (!fake_spv)
         throw JSONRPCError(RPC_INVALID_REQUEST, "command disabled");
 
-    auto locked_chain = pwallet->chain().lock();
+//    auto locked_chain = pwallet->chain().lock();
     fake_spv->lastBlockHeight = request.params[0].get_int();
-    panchors->ActivateBestAnchor();
+    CAnchorIndex::CheckActiveAnchor(true);
     return UniValue();
 }
 

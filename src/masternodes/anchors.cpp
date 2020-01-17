@@ -5,12 +5,14 @@
 #include <masternodes/anchors.h>
 
 #include <chainparams.h>
+#include <consensus/validation.h>
 #include <key.h>
 #include <logging.h>
 #include <streams.h>
 #include <script/standard.h>
 #include <spv/spv_wrapper.h>
 #include <util/system.h>
+#include <util/validation.h>
 #include <validation.h>
 
 // for anchor processing
@@ -244,7 +246,7 @@ bool CAnchorIndex::Load()
     };
     bool result = IterateTable(DB_ANCHORS, onLoad);
     if (result)
-        ActivateBestAnchor();
+        ActivateBestAnchor(true);
 
     return result;
 }
@@ -282,8 +284,10 @@ bool CAnchorIndex::AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, 
         DeleteAnchorByBtcTx(btcTxHash);
     }
     bool result = anchors.insert(rec).second;
-    if (result)
+    if (result) {
         DbWrite(rec);
+        possibleReActivation = true;
+    }
     return result;
 }
 
@@ -301,6 +305,7 @@ bool CAnchorIndex::DeleteAnchorByBtcTx(const uint256 & btcTxHash)
         anchors.get<AnchorRec::ByBtcTxHash>().erase(btcTxHash);
         if (DbExists(btcTxHash))
             DbErase(btcTxHash);
+        possibleReActivation = true;
         return true;
     }
     return false;
@@ -350,12 +355,26 @@ int CAnchorIndex::GetAnchorConfirmations(uint256 const & txHash) const
 
 int CAnchorIndex::GetAnchorConfirmations(const CAnchorIndex::AnchorRec * rec) const
 {
+    AssertLockHeld(cs_main);
     if (!rec || !spv::pspv) {
         return -1;
     }
     uint32_t const spvLastBlock = spv::pspv->GetLastBlockHeight();
     // for cases when tx->blockHeight == TX_UNCONFIRMED _or_ GetLastBlockHeight() less than already _confirmed_ tx (rescan in progress)
     return spvLastBlock < rec->btcHeight ? 0 : spvLastBlock - rec->btcHeight + 1;
+}
+
+void CAnchorIndex::CheckActiveAnchor(bool forced)
+{
+    bool topChanged{false};
+    {
+        LOCK(cs_main);
+        topChanged = panchors->ActivateBestAnchor(forced);
+    }
+    CValidationState state;
+    if (topChanged && !ActivateBestChain(state, Params())) {
+        throw std::runtime_error(strprintf("CheckActiveAnchor: ActivateBestChain failed. (%s)", FormatStateMessage(state)));
+    }
 }
 
 // selects "best" of two anchors at the equal btc height (prevs must be checked before)
@@ -376,11 +395,21 @@ CAnchorIndex::AnchorRec const * BestOfTwo(CAnchorIndex::AnchorRec const * a1, CA
     return a2;
 }
 
-void CAnchorIndex::ActivateBestAnchor()
+/// @returns true if top active anchor has been changed
+bool CAnchorIndex::ActivateBestAnchor(bool forced)
 {
     AssertLockHeld(cs_main);
-    typedef AnchorIndexImpl::index<AnchorRec::ByBtcHeight>::type KList;
-    KList const & list = anchors.get<AnchorRec::ByBtcHeight>();
+
+    if (!possibleReActivation && !forced)
+        return false;
+
+    possibleReActivation = false;
+
+    int const minConfirmations{Params().GetConsensus().spv.minConfirmations};
+    auto oldTop = top;
+    // rollback if necessary. this should not happen in prod (w/o anchor tx deletion), but possible in test when manually reduce height in btc chain
+    for (; top && GetAnchorConfirmations(top) < minConfirmations; top = GetAnchorByBtcTx(top->anchor.previousAnchor))
+        ;
 
     THeight topHeight = top ? top->btcHeight : 0;
     // special case for the first iteration to reselect top
@@ -388,10 +417,18 @@ void CAnchorIndex::ActivateBestAnchor()
 
     // start running from top anchor height
     // (yes, it can re-select different best anchor on the "current" top anchor level - for the cases if spv not feed txs of one block "at once")
+    typedef AnchorIndexImpl::index<AnchorRec::ByBtcHeight>::type KList;
+    KList const & list = anchors.get<AnchorRec::ByBtcHeight>();
     for (auto it = (topHeight == 0 ? list.begin() : list.find(topHeight)); it != list.end(); ) {
 
-        if (GetAnchorConfirmations(&*it) < 6)
+        int const confs = GetAnchorConfirmations(&*it);
+        if (confs < minConfirmations)
+        {
+            // still pending - check it again on next event
+            /// @todo may be additional check for confs > 0 (for possibleReActivation)
+            possibleReActivation = true;
             break;
+        }
 
         KList::iterator it0, it1;
         std::tie(it0,it1) = list.equal_range(it->btcHeight);
@@ -412,6 +449,7 @@ void CAnchorIndex::ActivateBestAnchor()
         }
         it = it1;
     }
+    return top != oldTop;
 }
 
 bool CAnchorIndex::DbExists(const uint256 & hash) const

@@ -114,6 +114,7 @@ BASE_SCRIPTS = [
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
     'feature_fee_estimation.py',
+    'feature_anchors.py',
     'interface_zmq.py',
     'interface_bitcoin_cli.py',
     'mempool_resurrect.py',
