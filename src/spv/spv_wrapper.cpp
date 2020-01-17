@@ -232,6 +232,7 @@ void CSpvWrapper::Connect()
 
 void CSpvWrapper::Disconnect()
 {
+    AssertLockNotHeld(cs_main); /// @attention due to calling txStatusUpdate() (OnTxUpdated()), savePeers(), syncStopped()
     BRPeerManagerDisconnect(manager);
     uint64_t balance = BRWalletBalance(wallet);
     LogPrintf("spv: balance on disconnect: %lu\n", balance);
@@ -324,8 +325,6 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
 
             if (panchors->AddAnchor(anchor, txHash, tx->blockHeight)) {
                 LogPrintf("spv: adding anchor %s\n", txHash.ToString());
-                // do not try to activate cause tx unconfirmed yet
-//                panchors->ActivateBestAnchor();
             }
         }
     }
@@ -337,7 +336,6 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
 
 void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
 {
-    bool needReActivation{false};
     for (size_t i = 0; i < txCount; ++i) {
         uint256 const txHash{to_uint256(txHashes[i])};
         UpdateTx(txHash, blockHeight, timestamp);
@@ -352,13 +350,8 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
             CAnchor oldAnchor{exist->anchor};
             if (panchors->AddAnchor(oldAnchor, txHash, blockHeight)) {
                 LogPrintf("spv: updated anchor %s\n", txHash.ToString());
-                needReActivation = true;
             }
         }
-    }
-    if (needReActivation) {
-        LOCK(cs_main);
-        panchors->ActivateBestAnchor();
     }
 }
 
@@ -387,6 +380,7 @@ void CSpvWrapper::OnSyncStopped(int error)
 void CSpvWrapper::OnTxStatusUpdate()
 {
     LogPrintf("spv: tx status update\n");
+    CAnchorIndex::CheckActiveAnchor();
 }
 
 void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blocksCount)
@@ -401,6 +395,13 @@ void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blo
         LogPrintf("spv: BLOCK: %u, %s saved\n", blocks[i]->height, to_uint256(blocks[i]->blockHash).ToString());
     }
     CommitBatch();
+
+    // Just leave it here...
+    // It is unnecessary to check anchor changes exactly on each "save", but:
+    // 1) it is fast and cheep in case of "nothing to do"
+    // 2) as I can see, OnTxStatusUpdate (unfortunately) not called after real confirmation changes
+    // 3) after initial spv sync it is the real way to get signals on each new block and keep defi chain up to date
+    CAnchorIndex::CheckActiveAnchor();
 }
 
 void CSpvWrapper::OnSavePeers(int replace, const BRPeer peers[], size_t peersCount)
@@ -748,9 +749,9 @@ bool CFakeSpvWrapper::SendRawTx(TBytes rawtx)
         return false;
     }
 
+    /// @todo lock cs_main? or assert unlocked?
     BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
-    if (tx /*&& BRTransactionIsSigned(tx)*/) {
-//        BRPeerManagerPublishTx(manager, tx, &tx->txHash, publishedTxCallback); // just note that txHash is wrong here (need to be reversed)
+    if (tx) {
         LogPrintf("fakespv: adding anchor tx %s\n", to_uint256(tx->txHash).ToString());
         OnTxAdded(tx);
         OnTxUpdated(&tx->txHash, 1, lastBlockHeight, 666);

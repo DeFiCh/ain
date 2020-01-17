@@ -154,6 +154,7 @@ public:
         consensus.spv.anchorSubsidy = 1 * COIN;
         consensus.spv.wallet_xpub = "";
         consensus.spv.anchors_address = "";
+        consensus.spv.minConfirmations = 6;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -287,6 +288,7 @@ public:
         consensus.spv.wallet_xpub = "tpubD9xBH3AzwzMyY8yxoWdiopHE5FJEkLHoxumYGqvYFmHbJBC7zajSt9J2yTg7YPQSU8JL3nRohxXgdsvzsBcj2TZEiikUPCiUwstTDH3PPzy";
         consensus.spv.anchors_address = "mysX5XnqsUedid4JWGenbEg6DuRraqTNYh";
         consensus.spv.anchorSubsidy = 1 * COIN;
+        consensus.spv.minConfirmations = 1;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -401,6 +403,7 @@ public:
         consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";
         consensus.spv.anchors_address = "n1h1kShnyiw3qRR6MM1FnwShaNVoVwBTnF";
         consensus.spv.anchorSubsidy = 1 * COIN;
+        consensus.spv.minConfirmations = 1;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
