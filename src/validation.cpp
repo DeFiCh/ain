@@ -1062,6 +1062,11 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     return nSubsidy;
 }
 
+CAmount GetAnchorSubsidy(int nHeight, const Consensus::Params& consensusParams)
+{
+    return consensusParams.spv.anchorSubsidy;
+}
+
 CoinsViews::CoinsViews(
     std::string ldb_name,
     size_t cache_size_bytes,
@@ -1540,6 +1545,19 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         const CTransaction &tx = *(block.vtx[i]);
         uint256 hash = tx.GetHash();
         bool is_coinbase = tx.IsCoinBase();
+
+        std::vector<unsigned char> metadata;
+        if (!fIsFakeNet && is_coinbase && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
+            CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+            CAnchor anchor;
+            uint32_t btcHeight;
+            uint256 btcTxHash;
+            CMasternodesView::CTeam currentTeam;
+            ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
+            pmasternodesview->SetTeam(currentTeam);
+
+            continue;
+        }
 
         // Check that all outputs are available and match the outputs in the block itself
         // exactly.
@@ -2037,6 +2055,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             std::vector<unsigned char> metadata;
             if (!fIsFakeNet && CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
                 pmasternodesview->BlockedCriminalMnCoins(metadata);
+            } else if (!fIsFakeNet && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
+                CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+                CAnchor anchor;
+                uint32_t btcHeight;
+                uint256 btcTxHash;
+                CMasternodesView::CTeam currentTeam;
+                ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
+                if (anchor.CheckAuthSigs(pmasternodesview->GetCurrentTeam())) {
+                    pmasternodesview->SetTeam(anchor.nextTeam);
+                }
             }
         }
 
@@ -3274,9 +3302,10 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // skip this validation if it is Genesis (due to mn creation txs)
     if (block.GetHash() != consensusParams.hashGenesisBlock) {
-        std::vector<unsigned char> metadata;
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
-            if (block.vtx[i]->IsCoinBase() && !CMasternodesView::ExtractCriminalCoinsFromTx(*block.vtx[i], metadata))
+            if (block.vtx[i]->IsCoinBase() &&
+                !block.vtx[i]->IsCriminalDetention() &&
+                !block.vtx[i]->IsAnchorReward())
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
         }
     }
