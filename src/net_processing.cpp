@@ -611,6 +611,14 @@ static void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vec
     // Make sure pindexBestKnownBlock is up to date, we'll need it.
     ProcessBlockAvailability(nodeid);
 
+//    LogPrintf("    TRACE FB1: peer %li, BestKnownBlock: %li, LastCommonBlock: %li, BKB->chainwork: %s, Tip()->nChainWork: %s, nMinimumChainWork: %s\n", nodeid,
+//              state->pindexBestKnownBlock ? state->pindexBestKnownBlock->height : -1,
+//              state->pindexLastCommonBlock ? state->pindexLastCommonBlock->height: -1,
+//              state->pindexBestKnownBlock ? state->pindexBestKnownBlock->nChainWork.ToString() : "none",
+//              ChainActive().Tip()->nChainWork.ToString(),
+//              nMinimumChainWork.ToString()
+//              );
+
     if (state->pindexBestKnownBlock == nullptr || state->pindexBestKnownBlock->nChainWork < ::ChainActive().Tip()->nChainWork || state->pindexBestKnownBlock->nChainWork < nMinimumChainWork) {
         // This peer has nothing interesting.
         return;
@@ -1314,6 +1322,8 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     return true;
 }
 
+
+
 void RelayAnchorAuth(const uint256& hash, CConnman& connman, CNode* skipNode)
 {
     CInv inv(MSG_ANCHOR_AUTH, hash);
@@ -1325,6 +1335,18 @@ void RelayAnchorAuth(const uint256& hash, CConnman& connman, CNode* skipNode)
         connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
 //        pnode->PushInventory(inv);
         }
+    });
+}
+
+void ResyncHeaders(CConnman & connman)
+{
+    connman.ForEachNode([](CNode* pnode)
+    {
+        LogPrintf("Ask for initial resync for peer=%d\n", pnode->GetId());
+        CNodeState *state = State(pnode->GetId());
+        state->pindexBestKnownBlock = nullptr;
+        state->pindexLastCommonBlock = nullptr;
+        state->fSyncStarted = false;
     });
 }
 
@@ -3731,6 +3753,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
             pindexBestHeader = ::ChainActive().Tip();
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->fOneShot); // Download if this is a nice peer, or we have no nice peers and this one might do.
         if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex) {
+
             // Only actively request headers from a single peer, unless we're close to today.
             if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {
                 state.fSyncStarted = true;

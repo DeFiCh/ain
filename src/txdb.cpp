@@ -290,8 +290,8 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                     pindexNew->minter = CKeyID();
                 }
 
-                if (pindexNew->nHeight > 0 && pindexNew->stakeModifier == pos::ComputeStakeModifier(prevStakeModifier, pindexNew->minter))
-                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
+//                if (pindexNew->nHeight > 0 && pindexNew->stakeModifier == pos::ComputeStakeModifier(prevStakeModifier, pindexNew->minter))
+//                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
 
                 prevStakeModifier = pindexNew->stakeModifier;
                 pcursor->Next();

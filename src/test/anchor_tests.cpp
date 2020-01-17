@@ -31,7 +31,8 @@ BOOST_AUTO_TEST_CASE(check_a)
 //    CKeyID rewardKeyID;
 //    char rewardKeyType;
 
-    panchors->AddAnchor(anc, uint256(), 0);
+    LOCK(cs_main);
+    panchors->AddAnchor(anc, uint256(), 15);
 //    uint256 masternodeID = testMasternodeKeys.begin()->first;
 //    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
 //    BOOST_CHECK(pos != testMasternodeKeys.end());

@@ -14,7 +14,7 @@ from test_framework.test_framework import BitcoinTestFramework
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
-    connect_nodes_bi, disconnect_nodes
+    connect_nodes_bi, disconnect_nodes, sync_blocks
 
 class AnchorsTest (BitcoinTestFramework):
     def set_test_params(self):
@@ -33,57 +33,126 @@ class AnchorsTest (BitcoinTestFramework):
             connect_nodes_bi(self.nodes, i, i + 1)
         self.sync_all()
 
+    def dumphashes(self, nodes=None, block = None):
+        if nodes is None:
+            nodes = range(self.num_nodes)
+        for i in nodes:
+            bl = self.nodes[i].getblockcount() if block is None else block
+            print ("Node%d: [%d] %s" % (i, bl, self.nodes[i].getblockhash(bl)))
+
+    def dumpheights(self):
+        print ("Heights:", self.nodes[0].getblockcount(), "\t", self.nodes[1].getblockcount(), "\t", self.nodes[2].getblockcount())
+        # pass
+
     def run_test(self):
         assert_equal(len(self.nodes[0].mn_list()), 8)
 
         disconnect_nodes(self.nodes[0], 1)
-        self.nodes[0].generate(15)
+        self.nodes[0].generate(17)
 
         print ("Anc at start: ", self.nodes[0].spv_listanchors())
+        assert_equal(len(self.nodes[0].spv_listanchors()), 0)
 
-
+        print ("Node0: Setting anchor")
+        self.nodes[0].spv_setlastheight(1)
         txinfo = self.nodes[0].spv_createanchor("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
-        print (txinfo)
         self.nodes[0].spv_setlastheight(10)
-        print ("Anc 0: ", self.nodes[0].spv_listanchors())
+        # print ("Anc 0: ", self.nodes[0].spv_listanchors())
+        anc0 = self.nodes[0].spv_listanchors()
+        assert_equal(anc0[0]['defiBlockHeight'], 15)
+        assert_equal(anc0[0]['confirmations'], 10)
+        assert_equal(anc0[0]['active'], True)
 
-
-        self.nodes[1].generate(30)
-        # self.nodes[1].spv_setlastheight(10)
-        # txinfo = self.nodes[1].spv_createanchor("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
-        # print (txinfo)
-        print ("Anc 1: ", self.nodes[1].spv_listanchors())
-
-        # self.sync_all()
-
-        # disconnect_nodes(self.nodes[0], 1)
-
-        print ("0: ", self.nodes[0].getblockcount())
-        print ("1: ", self.nodes[1].getblockcount())
-
-
+        self.nodes[1].generate(29)
+        # print ("Anc 1: ", self.nodes[1].spv_listanchors())
+        self.dumpheights()
         connect_nodes_bi(self.nodes, 0, 1)
 
-        # self.sync_all()
         time.sleep(2)
-        print ("0: ", self.nodes[0].getblockcount())
-        print ("1: ", self.nodes[1].getblockcount())
+        print ("Connect 0 & 1, heights should stay the same")
+        self.dumpheights()
+        self.dumphashes(block=14)
+        self.sync_blocks(self.nodes[1:3], timeout=3)
+        assert_equal(self.nodes[0].getblockcount(), 17)
+        assert_equal(self.nodes[1].getblockcount(), 29)
 
-        txinfo = self.nodes[1].spv_sendrawtx(txinfo['txHex'])
+        print ("Node1: Set the same anchor")
+        self.nodes[1].spv_setlastheight(1)
+        self.nodes[1].spv_sendrawtx(txinfo['txHex'])
         self.nodes[1].spv_setlastheight(10)
-        print ("Anc 1: ", self.nodes[1].spv_listanchors())
-        input ("attach to process..")
+        # print ("Anc 1: ", self.nodes[1].spv_listanchors())
+        anc1 = self.nodes[1].spv_listanchors()
+        assert_equal(anc0, anc1)
+
+        print ("Reorg here, 0 & 1 should be equal")
+        self.sync_blocks(self.nodes[0:2], timeout=3)
+        assert_equal(self.nodes[1].getblockcount(), 17)
+        # time.sleep(2)
+        self.dumpheights()
+        self.dumphashes(block=14)
+
+        print ("Node1: still can generate")
         self.nodes[1].generate(1)
+        self.sync_blocks(self.nodes[0:2], timeout=3)
+        assert_equal(self.nodes[0].getblockcount(), 18)
+        self.dumpheights()
+        self.dumphashes([0])
 
+        self.dumpheights()
+        self.nodes[2].generate(20)
+        # disconnect_nodes(self.nodes[1], 2)
+        # connect_nodes_bi(self.nodes, 1, 2)
+        time.sleep(1)
+        assert_equal(self.nodes[0].getblockcount(), 18)
+        assert_equal(self.nodes[1].getblockcount(), 18)
+        assert_equal(self.nodes[2].getblockcount(), 49)
+        self.dumpheights()
+        self.dumphashes([2], 14)
+
+        print ("Node2: Setting anchor")
+        self.nodes[2].spv_setlastheight(1)
+        txinfo = self.nodes[2].spv_sendrawtx(txinfo['txHex'])
+        self.nodes[2].spv_setlastheight(10)
+        # print ("Anc 2: ", self.nodes[2].spv_listanchors())
+        assert_equal(anc1, self.nodes[2].spv_listanchors())
+        # disconnect_nodes(self.nodes[1], 2)
+        # connect_nodes_bi(self.nodes, 1, 2)
+
+        self.sync_blocks(self.nodes[0:3], timeout=3)
+        assert_equal(self.nodes[2].getblockcount(), 18)
+
+        # time.sleep(1)
+        self.dumpheights()
+        self.dumphashes([2], 14)
+
+        print ("Node2: Deactivating anchor")
+        self.nodes[2].spv_setlastheight(0)
         time.sleep(2)
-        print ("0: ", self.nodes[0].getblockcount())
-        print ("1: ", self.nodes[1].getblockcount())
+        # print ("Anc 2: ", self.nodes[2].spv_listanchors())
+        self.dumpheights()
+        self.dumphashes([2], 14)
+        self.dumphashes([2])
+        assert_equal(self.nodes[2].getblockcount(), 49)
 
+        print ("Node2: Reactivating anchor")
+        self.nodes[2].spv_setlastheight(10)
+        # disconnect_nodes(self.nodes[1], 2)
+        # connect_nodes_bi(self.nodes, 1, 2)
+        # print ("Anc 2: ", self.nodes[2].spv_listanchors())
+        self.dumpheights()
+        self.dumphashes([2], 14)
+        self.sync_blocks(self.nodes[0:3], timeout=3)
+        assert_equal(self.nodes[2].getblockcount(), 18)
+        assert_equal(anc1, self.nodes[2].spv_listanchors())
 
-
-
-
-        # time.sleep(10)
+        print ("Node2: Deactivating anchor, no peers")
+        disconnect_nodes(self.nodes[1], 2)
+        self.nodes[2].spv_setlastheight(0)
+        time.sleep(2)
+        # print ("Anc 2: ", self.nodes[2].spv_listanchors())
+        self.dumpheights()
+        self.dumphashes([2], 14)
+        assert_equal(self.nodes[2].getblockcount(), 49)
 
 
 if __name__ == '__main__':
