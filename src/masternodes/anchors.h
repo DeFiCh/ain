@@ -165,6 +165,7 @@ public:
     struct AnchorRec {
         CAnchor anchor;
         uint256 txHash;
+        uint256 anchorHash;
         THeight btcHeight;
 //        uint32_t btcTxIndex; // does not exist!
 
@@ -174,19 +175,20 @@ public:
         inline void SerializationOp(Stream& s, Operation ser_action) {
             READWRITE(anchor);
             READWRITE(txHash);
+            READWRITE(anchorHash);
             READWRITE(btcHeight);
 //            READWRITE(btcTxIndex);
         }
 
         // tags for multiindex
-//        struct ByMsgHash{};
+        struct ByAnchorHash{};
         struct ByBtcTxHash{};
         struct ByBtcHeight{};
     };
 
     typedef boost::multi_index_container<AnchorRec,
         indexed_by<
-//            ordered_unique    < tag<AnchorRec::ByMsgHash>, member<AnchorRec, uint256,  &AnchorRec::msgHash> >,
+            ordered_unique    < tag<AnchorRec::ByAnchorHash>, member<AnchorRec, uint256,  &AnchorRec::anchorHash> >,
             ordered_unique    < tag<AnchorRec::ByBtcTxHash>,  member<AnchorRec, uint256,  &AnchorRec::txHash> >,
             ordered_non_unique< tag<AnchorRec::ByBtcHeight>,  member<AnchorRec, THeight,  &AnchorRec::btcHeight> >
         >
@@ -199,6 +201,7 @@ public:
     AnchorRec const * GetActiveAnchor() const;
     bool ActivateBestAnchor(bool forced = false); // rescan anchors
 
+    AnchorRec const * ExistAnchorByMsg(uint256 const & hash) const;
     AnchorRec const * ExistAnchorByTx(uint256 const & hash) const;
 
     bool AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = true);
@@ -276,14 +279,17 @@ public:
 
 class CAnchorConfirms
 {
-    using Hash = uint256;
+    using HashConfirmMessage = uint256;
+    using HashAnchor = uint256;
 private:
-    std::map<Hash, CAnchorConfirmMessage> confirms;
+    std::map<HashAnchor, std::map<HashConfirmMessage, CAnchorConfirmMessage>> confirms;
 
 public:
-    const CAnchorConfirmMessage *Exist(uint256 const &hash);
-    void Add(CAnchorConfirmMessage const &newMessage);
-    bool Validate(CAnchorConfirmMessage const &message);
+    const CAnchorConfirmMessage *Exist(HashConfirmMessage const &hash) const;
+    void Add(CAnchorConfirmMessage const &newConfirmMessage);
+    bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
+    std::map<uint256, uint32_t> GetConfirms() const;
+    bool RemoveConfirmsForMessage(HashAnchor const &hash);
 };
 
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')

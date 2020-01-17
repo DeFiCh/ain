@@ -251,7 +251,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
     std::unique_ptr<CDBIterator> pcursor(NewIterator());
 
     pcursor->Seek(std::make_pair(DB_BLOCK_INDEX, uint256()));
-    uint256 prevStakeModifier{};
 
     // Load m_block_index
     while (pcursor->Valid()) {
@@ -289,11 +288,11 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 } else {
                     pindexNew->minter = CKeyID();
                 }
+//                if (pindexNew->nHeight > 0 && pindexNew->stakeModifier != pos::ComputeStakeModifier(pindexNew->pprev->stakeModifier, pindexNew->minter)) { // TODO: SS disable check stake modifier
+//                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Stake modifier is incorrect (%s != %s). Index content: %s",
+//                                 __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->stakeModifier.ToString(), pos::ComputeStakeModifier(pindexNew->pprev->stakeModifier, pindexNew->minter).ToString(), pindexNew->ToString());
+//                }
 
-//                if (pindexNew->nHeight > 0 && pindexNew->stakeModifier == pos::ComputeStakeModifier(prevStakeModifier, pindexNew->minter))
-//                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
-
-                prevStakeModifier = pindexNew->stakeModifier;
                 pcursor->Next();
             } else {
                 return error("%s: failed to read value", __func__);
