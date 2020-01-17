@@ -2508,25 +2508,26 @@ std::set<CBlockIndex*, CBlockIndexWorkComparator> FilterAnchorSatisfying(std::se
         CBlockIndex * pindex = *it;
         auto anchor = GetHighestAnchorFor(pindex->height);
 
-        if (anchor == nullptr) {
-            result.insert(pindex);
-            source.erase(pindex);
-            continue;
+        bool goodChain{false};
+        if (anchor) {
+            for (; pindex && pindex->height > anchor->anchor.height; pindex = pindex->pprev)
+                ;
+            if (pindex && pindex->GetBlockHash() == anchor->anchor.blockHash)
+                goodChain = true;
+        }
+        else {
+            goodChain = true;
         }
 
-        // go down to our anchor
-        /// @todo is it possible to optimize smth by 'contains()' and active chain?
-        std::vector<CBlockIndex*> tmp;
-        for ( ; pindex && pindex->height >= anchor->anchor.height; pindex = pindex->pprev) {
-            if (source.find(pindex) != source.end()) {
-                tmp.push_back(pindex);
-                source.erase(pindex);
+        pindex = *it;
+        do {
+            if (goodChain) {
+                result.insert(pindex);
             }
-        }
-        if (pindex && pindex->height == anchor->anchor.height && pindex->GetBlockHash() == anchor->anchor.blockHash) {
-            result.insert(tmp.begin(), tmp.end());
-        }
-        // otherwise drop tmp
+            source.erase(pindex);
+            pindex = pindex->pprev;
+
+        } while (pindex && source.find(pindex) != source.end());
 
     } while(true);
 }
@@ -2542,6 +2543,8 @@ CBlockIndex* CChainState::FindMostWorkChain() {
         // Find the best candidate header.
         {
             auto filtered = FilterAnchorSatisfying(setBlockIndexCandidates);
+            LogPrintf("FindMostWorkChain: setBlockIndexCandidates: %i, filtered: %i\n", setBlockIndexCandidates.size(), filtered.size());
+
             std::set<CBlockIndex*, CBlockIndexWorkComparator>::reverse_iterator it = filtered.rbegin();
             if (it == filtered.rend())
                 return nullptr;
@@ -2601,6 +2604,7 @@ void CChainState::PruneBlockIndexCandidates() {
     }
     // Either the current tip or a successor of it we're working towards is left in setBlockIndexCandidates.
     assert(!setBlockIndexCandidates.empty());
+//    LogPrintf("TRACE PruneBlockIndexCandidates() after: setBlockIndexCandidates: %i\n", setBlockIndexCandidates.size());
 }
 
 /**
@@ -2724,6 +2728,32 @@ static void LimitValidationInterfaceQueue() LOCKS_EXCLUDED(cs_main) {
     }
 }
 
+void CChainState::RefillCandidates() {
+
+    std::set<CBlockIndex*> setOrphans;
+    std::set<CBlockIndex*> setPrevs;
+
+    auto oldSize = setBlockIndexCandidates.size();
+
+    for (const std::pair<const uint256, CBlockIndex*>& item : ::BlockIndex())
+    {
+        if (!::ChainActive().Contains(item.second)) {
+            setOrphans.insert(item.second);
+            setPrevs.insert(item.second->pprev);
+        }
+    }
+
+    for (std::set<CBlockIndex*>::iterator it = setOrphans.begin(); it != setOrphans.end(); ++it)
+    {
+        if (setPrevs.erase(*it) == 0 && (*it)->nHeight >= ::ChainActive().Height() && (*it)->HaveTxsDownloaded() && setBlockIndexCandidates.count(*it) == 0) {
+            setBlockIndexCandidates.insert(*it);
+            LogPrintf("RefillCandidates(): added block %i: %s\n", (*it)->nHeight, (*it)->GetBlockHash().ToString());
+        }
+    }
+    if (oldSize != setBlockIndexCandidates.size())
+        LogPrintf("RefillCandidates(): %i blocks restored\n", setBlockIndexCandidates.size() - oldSize);
+}
+
 void CChainState::RollBackIfTipConflictsWithAnchors(CValidationState &state, const CChainParams& chainparams) {
     AssertLockHeld(cs_main);
     AssertLockHeld(::mempool.cs);
@@ -2738,6 +2768,8 @@ void CChainState::RollBackIfTipConflictsWithAnchors(CValidationState &state, con
         earlyestConflictingBlock = m_chain[anc->anchor.height];
 
     if (earlyestConflictingBlock) {
+        LogPrintf("RollBackIfTipConflictsWithAnchors: disconnect under %i: %s\n", earlyestConflictingBlock->height, earlyestConflictingBlock->GetBlockHash().ToString());
+
         // Disconnect active blocks which conflicts with anchor
         bool fBlocksDisconnected = false;
         DisconnectedBlockTransactions disconnectpool;
@@ -2759,6 +2791,13 @@ void CChainState::RollBackIfTipConflictsWithAnchors(CValidationState &state, con
             // If any blocks were disconnected, disconnectpool may be non empty.  Add
             // any disconnected transactions back to the mempool.
             UpdateMempoolForReorg(disconnectpool, true);
+
+            RefillCandidates();
+
+            // Possible not necessary
+            pindexBestHeader = m_chain.Tip();
+            nMinimumChainWork = m_chain.Tip()->nChainWork;
+            ResyncHeaders(*::g_connman);
         }
     }
 }
@@ -2788,7 +2827,6 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
     {
         LOCK2(cs_main, ::mempool.cs);
         RollBackIfTipConflictsWithAnchors(state, chainparams);
-        /// @todo research for ConnectTrace etc
     }
 
     CBlockIndex *pindexMostWork = nullptr;
@@ -3106,6 +3144,7 @@ void CChainState::ReceivedBlockTransactions(const CBlock& block, CBlockIndex* pi
             }
             if (m_chain.Tip() == nullptr || !setBlockIndexCandidates.value_comp()(pindex, m_chain.Tip())) {
                 setBlockIndexCandidates.insert(pindex);
+//                LogPrintf("TRACE ReceivedBlockTransactions() after: setBlockIndexCandidates: %i\n", setBlockIndexCandidates.size());
             }
             std::pair<std::multimap<CBlockIndex*, CBlockIndex*>::iterator, std::multimap<CBlockIndex*, CBlockIndex*>::iterator> range = m_blockman.m_blocks_unlinked.equal_range(pindex);
             while (range.first != range.second) {
@@ -4775,6 +4814,7 @@ void CChainState::CheckBlockIndex(const Consensus::Params& consensusParams)
     CBlockIndex* pindexFirstNotTransactionsValid = nullptr; // Oldest ancestor of pindex which does not have BLOCK_VALID_TRANSACTIONS (regardless of being valid or not).
     CBlockIndex* pindexFirstNotChainValid = nullptr; // Oldest ancestor of pindex which does not have BLOCK_VALID_CHAIN (regardless of being valid or not).
     CBlockIndex* pindexFirstNotScriptsValid = nullptr; // Oldest ancestor of pindex which does not have BLOCK_VALID_SCRIPTS (regardless of being valid or not).
+    auto filteredBlockIndexCandidates = FilterAnchorSatisfying(setBlockIndexCandidates);
     while (pindex != nullptr) {
         nNodes++;
         if (pindexFirstInvalid == nullptr && pindex->nStatus & BLOCK_FAILED_VALID) pindexFirstInvalid = pindex;
@@ -4825,14 +4865,14 @@ void CChainState::CheckBlockIndex(const Consensus::Params& consensusParams)
                 // setBlockIndexCandidates.  m_chain.Tip() must also be there
                 // even if some data has been pruned.
                 if (pindexFirstMissing == nullptr || pindex == m_chain.Tip()) {
-                    assert(setBlockIndexCandidates.count(pindex));
+                    assert(filteredBlockIndexCandidates.count(pindex));
                 }
                 // If some parent is missing, then it could be that this block was in
                 // setBlockIndexCandidates but had to be removed because of the missing data.
                 // In this case it must be in m_blocks_unlinked -- see test below.
             }
         } else { // If this block sorts worse than the current tip or some ancestor's block has never been seen, it cannot be in setBlockIndexCandidates.
-            assert(setBlockIndexCandidates.count(pindex) == 0);
+            assert(filteredBlockIndexCandidates.count(pindex) == 0);
         }
         // Check whether this block is in m_blocks_unlinked.
         std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeUnlinked = m_blockman.m_blocks_unlinked.equal_range(pindex->pprev);
@@ -4862,7 +4902,7 @@ void CChainState::CheckBlockIndex(const Consensus::Params& consensusParams)
             //    tip.
             // So if this block is itself better than m_chain.Tip() and it wasn't in
             // setBlockIndexCandidates, then it must be in m_blocks_unlinked.
-            if (!CBlockIndexWorkComparator()(pindex, m_chain.Tip()) && setBlockIndexCandidates.count(pindex) == 0) {
+            if (!CBlockIndexWorkComparator()(pindex, m_chain.Tip()) && filteredBlockIndexCandidates.count(pindex) == 0) {
                 if (pindexFirstInvalid == nullptr) {
                     assert(foundInUnlinked);
                 }

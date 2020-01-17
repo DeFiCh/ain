@@ -625,7 +625,6 @@ public:
      * as good as our current tip or better. Entries may be failed, though, and pruning nodes may be
      * missing the data for the block.
      */
-//    using BlockIndexPtrsWorkSorted = std::set<CBlockIndex*, CBlockIndexWorkComparator>;
     std::set<CBlockIndex*, CBlockIndexWorkComparator> setBlockIndexCandidates;
 
     //! @returns A reference to the in-memory cache of the UTXO set.
@@ -673,6 +672,8 @@ public:
     //! if we pruned.
     void PruneAndFlush();
 
+    /// ! Refills block candidates from chain tips
+    void RefillCandidates();
     void RollBackIfTipConflictsWithAnchors(CValidationState &state, const CChainParams& chainparams);
 
     bool ActivateBestChain(CValidationState &state, const CChainParams& chainparams, std::shared_ptr<const CBlock> pblock) LOCKS_EXCLUDED(cs_main);
