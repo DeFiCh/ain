@@ -139,7 +139,7 @@ bool CTransaction::IsAnchorReward() const
 
 bool CTransaction::IsCriminalDetention() const
 {
-    if (IsCoinBase() && vout.size() == 2 && vout[0].nValue == 0) {
+    if (IsCoinBase() && vout.size() == 1 && vout[0].nValue == 0) {
         CScript const & memo = vout[0].scriptPubKey;
         std::vector<unsigned char> metadata;
         CScript::const_iterator pc = memo.begin();
