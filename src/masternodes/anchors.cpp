@@ -299,14 +299,17 @@ bool CAnchorIndex::DeleteAnchorByBtcTx(const uint256 & btcTxHash)
     auto anchor = GetAnchorByBtcTx(btcTxHash);
 
     if (anchor) {
-        if (top && top == anchor)
-        {
-            top = GetAnchorByBtcTx(top->anchor.previousAnchor);
+        // revert top if deleted anchor was in active chain (one of current top parents)
+        for (auto it = top; it && it->btcHeight >= anchor->btcHeight; it = GetAnchorByBtcTx(it->anchor.previousAnchor)) {
+            if (anchor == it) {
+                top = GetAnchorByBtcTx(anchor->anchor.previousAnchor);
+                possibleReActivation = true;
+                break;
+            }
         }
         anchors.get<AnchorRec::ByBtcTxHash>().erase(btcTxHash);
         if (DbExists(btcTxHash))
             DbErase(btcTxHash);
-        possibleReActivation = true;
         return true;
     }
     return false;
