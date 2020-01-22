@@ -230,7 +230,7 @@ bool CMasternodesView::OnMasternodeCreate(uint256 const & nodeId, CMasternode co
     nodesByOwner[node.ownerAuthAddress] = nodeId;
     nodesByOperator[node.operatorAuthAddress] = nodeId;
 
-    blocksUndo[node.creationHeight][txn] = std::make_pair(nodeId, CustomUndoTxType::CreateMasternode);
+    blocksUndo[node.creationHeight][txn] = std::make_pair(nodeId, MasternodesTxType::CreateMasternode);
 
     return true;
 }
@@ -248,7 +248,7 @@ bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const 
     allNodes[nodeId].resignTx = txid;
     allNodes[nodeId].resignHeight = height;
 
-    blocksUndo[height][txn] = std::make_pair(nodeId, CustomUndoTxType::ResignMasternode);
+    blocksUndo[height][txn] = std::make_pair(nodeId, MasternodesTxType::ResignMasternode);
 
     return true;
 }
@@ -272,7 +272,7 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
 
             switch (txType)
             {
-                case CustomUndoTxType::CreateMasternode:
+                case MasternodesTxType::CreateMasternode:
                 {
                     backup.nodesByOwner[node.ownerAuthAddress] = id;
                     backup.nodesByOperator[node.operatorAuthAddress] = id;
@@ -283,21 +283,13 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
                     allNodes[id] = {};
                 }
                 break;
-                case CustomUndoTxType::ResignMasternode:
+                case MasternodesTxType::ResignMasternode:
                 {
                     backup.allNodes[id] = node; // nodesByOwner && nodesByOperator stay untouched
 
                     allNodes[id] = node;    // !! cause may be cached!
                     allNodes[id].resignHeight = -1;
                     allNodes[id].resignTx = {};
-                }
-                break;
-                case CustomUndoTxType::BlockCriminalCoins:
-                {
-                    std::pair<CBlockHeader, CBlockHeader> criminal;
-                    if (!FindBlockedCriminalCoins(id, 0, false) && backup.criminals[id].wasted) {
-                        backup.criminals[id].wasted = false;
-                    }
                 }
                 break;
                 default:
@@ -420,11 +412,11 @@ void CMasternodesView::MarkMasternodeAsCriminals(uint256 const & id, CBlockHeade
     criminals.emplace(std::make_pair(id, CDoubleSignFact{blockHeader, conflictBlockHeader, false}));
 }
 
-void CMasternodesView::MarkMasternodeAsWastedCriminal(uint256 const & id)
+void CMasternodesView::MarkMasternodeAsWastedCriminal(uint256 const & id, bool value)
 {
     auto it = criminals.find(id);
     if (it != criminals.end()) {
-        criminals[id].wasted = true;
+        criminals[id].wasted = value;
     }
 }
 
@@ -436,7 +428,7 @@ void CMasternodesView::RemoveMasternodeFromCriminals(uint256 const &criminalID)
     }
 }
 
-void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metadata)
+void CMasternodesView::BlockCriminalMnCoins(std::vector<unsigned char> & metadata)
 {
     std::pair<CBlockHeader, CBlockHeader> criminal;
     uint256 txid;
@@ -447,6 +439,35 @@ void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metad
     if (!CheckDoubleSign(criminal.first, criminal.second)) {
         if (!FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
             WriteBlockedCriminalCoins(txid, index, fIsFakeNet);
+        }
+    }
+}
+
+void CMasternodesView::DeblockCriminalMnCoins(std::vector<unsigned char> & metadata)
+{
+    std::pair<CBlockHeader, CBlockHeader> criminal;
+    uint256 txid;
+    uint32_t index;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> criminal.first >> criminal.second >> txid >> index;
+
+    if (!CheckDoubleSign(criminal.first, criminal.second)) {
+        if (!FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
+            EraseBlockedCriminalCoins(txid, index);
+
+            CKeyID mintersKey;
+            if (!criminal.first.ExtractMinterKey(mintersKey)) {
+                LogPrintf("DeblockCriminalMnCoins: Can't extract minter key\n");
+                return ;
+            }
+            auto it = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
+            if (!it) {
+                LogPrintf("DeblockCriminalMnCoins: Masternode for criminal blockHeader not found\n");
+                return ;
+            }
+            auto const & nodeId = (*it)->second;
+
+            pmasternodesview->MarkMasternodeAsWastedCriminal(nodeId, false);
         }
     }
 }

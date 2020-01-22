@@ -1546,17 +1546,21 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         uint256 hash = tx.GetHash();
         bool is_coinbase = tx.IsCoinBase();
 
-        std::vector<unsigned char> metadata;
-        if (!fIsFakeNet && is_coinbase && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
-            CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-            CAnchor anchor;
-            uint32_t btcHeight;
-            uint256 btcTxHash;
-            CMasternodesView::CTeam currentTeam;
-            ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
-            pmasternodesview->SetTeam(currentTeam);
+        if (!fIsFakeNet && is_coinbase) {
+            std::vector<unsigned char> metadata;
+            if (CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
+                CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+                CAnchor anchor;
+                uint32_t btcHeight;
+                uint256 btcTxHash;
+                CMasternodesView::CTeam currentTeam;
+                ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
+                pmasternodesview->SetTeam(currentTeam);
 
-            continue;
+                continue;
+            } else if (CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
+                pmasternodesview->DeblockCriminalMnCoins(metadata);
+            }
         }
 
         // Check that all outputs are available and match the outputs in the block itself
@@ -2054,7 +2058,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         } else {
             std::vector<unsigned char> metadata;
             if (!fIsFakeNet && CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
-                pmasternodesview->BlockedCriminalMnCoins(metadata);
+                pmasternodesview->BlockCriminalMnCoins(metadata);
             } else if (!fIsFakeNet && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
                 CAnchor anchor;
