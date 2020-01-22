@@ -81,6 +81,7 @@ uint256 CAnchorAuthMessage::GetSignHash() const
 CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestination const & rewardDest)
 {
     // assumed here that all of the auths are uniform, were checked for sigs and consensus has been reached!
+    assert(rewardDest.which() == 1 || rewardDest.which() == 4);
     CAnchor anchor;
     if (auths.size() > 0) {
         anchor.previousAnchor = auths[0].previousAnchor;
@@ -255,8 +256,8 @@ void CAnchorIndex::ForEachAnchorByBtcHeight(std::function<void(const CAnchorInde
 {
     typedef AnchorIndexImpl::index<AnchorRec::ByBtcTxHash>::type KList;
     KList const & list = anchors.get<AnchorRec::ByBtcTxHash>();
-    for (auto rec : list)
-        callback(rec);
+    for (auto it = list.rbegin(); it != list.rend(); ++it)
+        callback(*it);
 
 }
 
