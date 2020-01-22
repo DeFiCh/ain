@@ -323,7 +323,7 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
         if (ValidateAnchor(anchor, true)) {
             LogPrintf("spv: valid anchor tx: %s\n", txHash.ToString());
 
-            if (panchors->AddAnchor(anchor, txHash, tx->blockHeight)) {
+            if (panchors->AddAnchor(anchor, txHash, tx->blockHeight, false)) {
                 LogPrintf("spv: adding anchor %s\n", txHash.ToString());
             }
         }
@@ -348,7 +348,7 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
         if (exist) {
             LogPrintf("spv: updating anchor %s\n", txHash.ToString());
             CAnchor oldAnchor{exist->anchor};
-            if (panchors->AddAnchor(oldAnchor, txHash, blockHeight)) {
+            if (panchors->AddAnchor(oldAnchor, txHash, blockHeight, true)) {
                 LogPrintf("spv: updated anchor %s\n", txHash.ToString());
             }
         }
