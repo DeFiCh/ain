@@ -264,7 +264,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int64_t nTime2 = GetTimeMicros();
 
     if (pmasternodesview->GetUncaughtCriminals().size() != 0) {
-        pmasternodesview->MarkMasternodeAsWastedCriminal(pmasternodesview->GetUncaughtCriminals().begin()->first);
+        pmasternodesview->MarkMasternodeAsWastedCriminal(pmasternodesview->GetUncaughtCriminals().begin()->first, true);
     }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
