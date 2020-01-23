@@ -164,8 +164,8 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
     mpk = BRBIP32ParseMasterPubKey(Params().GetConsensus().spv.wallet_xpub.c_str());
 
-    char xpub_buf[BRBIP32SerializeMasterPubKey(NULL, 0, mpk)];
-    BRBIP32SerializeMasterPubKey(xpub_buf, sizeof(xpub_buf), mpk);
+    std::vector<char> xpub_buf(BRBIP32SerializeMasterPubKey(NULL, 0, mpk));
+    BRBIP32SerializeMasterPubKey(xpub_buf.data(), xpub_buf.size(), mpk);
     LogPrintf("spv: debug xpub: %s\n", &xpub_buf[0]);
 
     std::vector<BRTransaction *> txs;
@@ -323,7 +323,7 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
         if (ValidateAnchor(anchor, true)) {
             LogPrintf("spv: valid anchor tx: %s\n", txHash.ToString());
 
-            if (panchors->AddAnchor(anchor, txHash, tx->blockHeight)) {
+            if (panchors->AddAnchor(anchor, txHash, tx->blockHeight, false)) {
                 LogPrintf("spv: adding anchor %s\n", txHash.ToString());
             }
         }
@@ -348,7 +348,7 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
         if (exist) {
             LogPrintf("spv: updating anchor %s\n", txHash.ToString());
             CAnchor oldAnchor{exist->anchor};
-            if (panchors->AddAnchor(oldAnchor, txHash, blockHeight)) {
+            if (panchors->AddAnchor(oldAnchor, txHash, blockHeight, true)) {
                 LogPrintf("spv: updated anchor %s\n", txHash.ToString());
             }
         }
@@ -458,8 +458,25 @@ void CSpvWrapper::WriteBlock(const BRMerkleBlock * block)
 
 void publishedTxCallback(void *info, int error)
 {
-    LogPrintf("spv: publishedTxCallback: tx 2: %s, %s\n", to_uint256(*(UInt256 *)info).ToString(), error == 0 ? "SUCCESS!" : "error: " + std::to_string(errno));
+    if (info) {
+        CSpvWrapper::TSendCallback callback = *static_cast<CSpvWrapper::TSendCallback *>(info);
+        callback(error);
+    }
+    else
+        LogPrintf("spv: publishedTxCallback: %s\n", strerror(errno));
 }
+
+struct TxInput {
+    UInt256 txHash;
+    int32_t index;
+    uint64_t amount;
+    TBytes script;
+};
+
+struct TxOutput {
+    uint64_t amount;
+    TBytes script;
+};
 
 TBytes CreateRawTx(std::vector<TxInput> const & inputs, std::vector<TxOutput> const & outputs)
 {
@@ -477,35 +494,98 @@ TBytes CreateRawTx(std::vector<TxInput> const & inputs, std::vector<TxOutput> co
     return len ? buf : TBytes{};
 }
 
-TBytes CreateAnchorTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, TBytes const & meta)
+/*
+ * Encapsulates metadata into OP_RETURN + N * P2WSH scripts
+ */
+std::vector<CScript> EncapsulateMeta(TBytes const & meta)
 {
-    /// @todo calculate minimum fee
-    uint64_t fee = 10000;
-    /// @todo test this amount of dust for p2wsh due to spv is very dumb and checks only for 546 (p2pkh)
-    uint64_t const p2wsh_dust = 330; /// 546 p2pkh & 294 p2wpkh (330 p2wsh calc'ed manually)
-    uint64_t const p2pkh_dust = 546;
-    UInt256 inHash = UInt256Reverse(toUInt256(hash.c_str()));
-
     CDataStream ss(spv::BtcAnchorMarker, SER_NETWORK, PROTOCOL_VERSION);
     ss << static_cast<uint32_t>(meta.size());
     ss += CDataStream (meta, SER_NETWORK, PROTOCOL_VERSION);;
 
-    // creating key(priv/pub) from WIF priv
-    BRKey inputKey;
-    BRKeySetPrivKey(&inputKey, privkey_wif.c_str());
-    BRKeyPubKey(&inputKey, NULL, 0);
+    std::vector<CScript> result;
+    // first part with OP_RETURN
+    size_t opReturnSize = std::min(ss.size(), 80ul);
+    CScript opReturnScript = CScript() << OP_RETURN << TBytes(ss.begin(), ss.begin() + opReturnSize);
+    result.push_back(opReturnScript);
 
-    BRAddress address = BR_ADDRESS_NONE;
-    BRKeyLegacyAddr(&inputKey, address.s, sizeof(address));
-    size_t inputScriptLen = BRAddressScriptPubKey(NULL, 0, address.s);
-    TBytes inputScript(inputScriptLen);
-    BRAddressScriptPubKey(inputScript.data(), inputScript.size(), address.s);
+    // rest of the data in p2wsh keys
+    for (auto it = ss.begin() + opReturnSize; it != ss.end(); ) {
+        auto chunkSize = std::min(ss.end() - it, 32l);
+        TBytes chunk(it, it + chunkSize);
+        if (chunkSize < 32) {
+            chunk.resize(32);
+        }
+        CScript p2wsh = CScript() << OP_0 << chunk;
+        result.push_back(p2wsh);
+        it += chunkSize;
+    }
+    return result;
+}
 
-    std::vector<TxInput> inputs;
+uint64_t EstimateAnchorCost(TBytes const & meta)
+{
+    auto consensus = Params().GetConsensus();
+
     std::vector<TxOutput> outputs;
 
-    // create single input (current restriction)
-    inputs.push_back({ inHash, index, inputAmount, inputScript});
+    TBytes dummyScript(CreateScriptForAddress(consensus.spv.anchors_address.c_str()));
+
+    // output[0] - anchor address with creation fee
+    outputs.push_back({ (uint64_t) consensus.spv.creationFee, dummyScript });
+
+    auto metaScripts = EncapsulateMeta(meta);
+    // output[1] - metadata (first part with OP_RETURN)
+    outputs.push_back({ 0, ToByteVector(metaScripts[0])});
+
+    // output[2..n-1] - metadata (rest of the data in p2wsh keys)
+    for (size_t i = 1; i < metaScripts.size(); ++i) {
+        outputs.push_back({ P2WSH_DUST, ToByteVector(metaScripts[i]) });
+    }
+    // dummy change output
+    outputs.push_back({ P2PKH_DUST, dummyScript});
+
+    TxInput dummyInput { toUInt256("1111111111111111111111111111111111111111111111111111111111111111"), 0, 1000000, dummyScript };
+    auto rawtx = CreateRawTx({dummyInput}, outputs);
+    BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
+    if (!tx) {
+        LogPrintf("spv: ***FAILED*** %s:\n", __func__);
+        return 0;
+    }
+    uint64_t const minFee = BRTransactionStandardFee(tx);
+
+    BRTransactionFree(tx);
+
+    return consensus.spv.creationFee + (P2WSH_DUST * (metaScripts.size()-1)) + minFee;
+}
+
+std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> const & inputsData, TBytes const & meta)
+{
+    assert(inputsData.size() > 0);
+    assert(meta.size() > 0);
+
+    uint64_t inputTotal = 0;
+    std::vector<TxInput> inputs;
+    std::vector<BRKey> inputKeys;
+    for (TxInputData const & input : inputsData) {
+        UInt256 inHash = UInt256Reverse(toUInt256(input.txhash.c_str()));
+
+        // creating key(priv/pub) from WIF priv
+        BRKey inputKey;
+        if (!BRKeySetPrivKey(&inputKey, input.privkey_wif.c_str())) {
+            LogPrintf("spv: ***FAILED*** %s: Can't parse WIF privkey %s\n", __func__, input.privkey_wif);
+            throw std::runtime_error("spv: Can't parse WIF privkey " + input.privkey_wif);
+        }
+//        BRKeyPubKey(&inputKey, NULL, 0);
+        inputKeys.push_back(inputKey);
+
+        BRAddress address = BR_ADDRESS_NONE;
+        BRKeyLegacyAddr(&inputKey, address.s, sizeof(address));
+        TBytes inputScript(CreateScriptForAddress(address.s));
+
+        inputTotal += input.amount;
+        inputs.push_back({ inHash, input.txn, input.amount, inputScript});
+    }
 
     auto consensus = Params().GetConsensus();
 
@@ -515,65 +595,75 @@ TBytes CreateAnchorTx(std::string const & hash, int32_t index, uint64_t inputAmo
     BRAddress anchorAddr = BR_ADDRESS_NONE;
     consensus.spv.anchors_address.copy(anchorAddr.s, consensus.spv.anchors_address.size());
 
-    size_t anchorScriptLen = BRAddressScriptPubKey(NULL, 0, anchorAddr.s);
-    TBytes anchorScript(anchorScriptLen);
-    BRAddressScriptPubKey(anchorScript.data(), anchorScript.size(), anchorAddr.s);
+    TBytes anchorScript(CreateScriptForAddress(anchorAddr.s));
 
+    std::vector<TxOutput> outputs;
     // output[0] - anchor address with creation fee
     outputs.push_back({ (uint64_t) consensus.spv.creationFee, anchorScript });
+
+    auto metaScripts = EncapsulateMeta(meta);
     // output[1] - metadata (first part with OP_RETURN)
-    size_t opReturnSize = std::min(ss.size(), 80ul);
-    CScript opReturnScript = CScript() << OP_RETURN << TBytes(ss.begin(), ss.begin() + opReturnSize);
-    outputs.push_back({ 0, ToByteVector(opReturnScript)});
+    outputs.push_back({ 0, ToByteVector(metaScripts[0])});
 
     // output[2..n-1] - metadata (rest of the data in p2wsh keys)
-    for (auto it = ss.begin() + opReturnSize; it != ss.end(); ) {
-        auto chunkSize = std::min(ss.end() - it, 32l);
-        TBytes chunk(it, it + chunkSize);
-        if (chunkSize < 32) {
-            chunk.resize(32);
-        }
-        CScript p2wsh = CScript() << OP_0 << chunk;
-        outputs.push_back({ p2wsh_dust, ToByteVector(p2wsh) });
-        it += chunkSize;
+    for (size_t i = 1; i < metaScripts.size(); ++i) {
+        outputs.push_back({ P2WSH_DUST, ToByteVector(metaScripts[i]) });
     }
 
     auto rawtx = CreateRawTx(inputs, outputs);
-    LogPrintf("spv: TXunsigned: %s\n", HexStr(rawtx));
-
     BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
+    if (!tx) {
+        LogPrintf("spv: ***FAILED*** %s: BRTransactionParse()\n", __func__);
+        throw std::runtime_error("spv: Can't parse created transaction");
+    }
 
-    if (! tx || tx->inCount != inputs.size() || tx->outCount != outputs.size())
-        LogPrintf("spv: ***FAILED*** %s: BRTransactionParse(): tx->inCount: %lu tx->outCount %lu\n", __func__, tx ? tx->inCount : 0, tx ? tx->outCount: 0);
-    else {
-        LogPrintf("spv: ***OK*** %s: BRTransactionParse(): tx->inCount: %lu tx->outCount %lu\n", __func__, tx->inCount, tx->outCount);
+    if (tx->inCount != inputs.size() || tx->outCount != outputs.size()) {
+        LogPrintf("spv: ***FAILED*** %s: inputs: %lu(%lu) outputs %lu(%lu)\n", __func__, tx->inCount, inputs.size(), tx->outCount, outputs.size());
+        BRTransactionFree(tx);
+        throw std::runtime_error("spv: Can't parse created transaction (inputs/outputs), see log");
     }
 
     // output[n] (optional) - change
     uint64_t const minFee = BRTransactionStandardFee(tx);
+    uint64_t totalCost = consensus.spv.creationFee + (P2WSH_DUST * (metaScripts.size()-1)) + minFee;
 
-    auto change = inputAmount - consensus.spv.creationFee - (p2wsh_dust * (outputs.size()-2)) - minFee - 3*34; // (3*34) is an estimated cost of change output itself
-    if (change > p2pkh_dust) {
-        BRTransactionAddOutput(tx, change, inputScript.data(), inputScript.size());
+    if (inputTotal < totalCost) {
+        LogPrintf("spv: ***FAILED*** %s: Not enough money to create anchor: %lu (need %lu)\n", __func__, inputTotal, totalCost);
+        BRTransactionFree(tx);
+        throw std::runtime_error("Not enough money to create anchor: " + std::to_string(inputTotal) + " (need " + std::to_string(totalCost) + ")");
     }
 
-    BRTransactionSign(tx, 0, &inputKey, 1);
+    auto change = inputTotal - totalCost;
+    if (change > P2PKH_DUST) {
+        BRTransactionAddOutput(tx, change, inputs[0].script.data(), inputs[0].script.size());
+        totalCost += 34; // 34 is an estimated cost of change output itself
+    }
+    else {
+        totalCost = inputTotal;
+    }
+    LogPrintf("spv: %s: total cost: %lu\n", __func__, totalCost);
+
+    BRTransactionSign(tx, 0, inputKeys.data(), inputKeys.size());
     {   // just check
-        BRAddress addr;
-        BRAddressFromScriptSig(addr.s, sizeof(addr), tx->inputs[0].signature, tx->inputs[0].sigLen);
-        if (!BRTransactionIsSigned(tx) || !BRAddressEq(&address, &addr)) {
+        BRAddress addr1;
+        BRAddressFromScriptSig(addr1.s, sizeof(addr1), tx->inputs[0].signature, tx->inputs[0].sigLen);
+
+        BRAddress addr2 = BR_ADDRESS_NONE;
+        BRKeyLegacyAddr(&inputKeys[0], addr2.s, sizeof(addr2));
+
+        if (!BRTransactionIsSigned(tx) || !BRAddressEq(&addr1, &addr2)) {
             LogPrintf("spv: ***FAILED*** %s: BRTransactionSign()\n", __func__);
             BRTransactionFree(tx);
-            return {};
+            throw std::runtime_error("spv: Can't sign transaction (wrong keys?)");
         }
     }
     TBytes signedTx(BRTransactionSerialize(tx, NULL, 0));
     BRTransactionSerialize(tx, signedTx.data(), signedTx.size());
+    uint256 const txHash = to_uint256(tx->txHash);
 
-    LogPrintf("spv: TXsigned: %s\n", HexStr(signedTx));
     BRTransactionFree(tx);
 
-    return signedTx;
+    return std::make_tuple(txHash, signedTx, totalCost);
 }
 
 // just for tests & experiments
@@ -591,9 +681,7 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
 
     BRAddress address = BR_ADDRESS_NONE;
     BRKeyLegacyAddr(&inputKey, address.s, sizeof(address));
-    size_t inputScriptLen = BRAddressScriptPubKey(NULL, 0, address.s);
-    TBytes inputScript(inputScriptLen);
-    BRAddressScriptPubKey(inputScript.data(), inputScript.size(), address.s);
+    TBytes inputScript(CreateScriptForAddress(address.s));
 
     std::vector<TxInput> inputs;
     std::vector<TxOutput> outputs;
@@ -608,8 +696,7 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
     for (int i = 0; i < parts; ++i) {
         auto addr = BRWalletLegacyAddress(wallet);
 
-        TBytes script(BRAddressScriptPubKey(NULL, 0, addr.s));
-        BRAddressScriptPubKey(script.data(), script.size(), addr.s);
+        TBytes script(CreateScriptForAddress(addr.s));
 
         // output[0] - anchor address with creation fee
         outputs.push_back({ valuePerOutput, script });
@@ -654,30 +741,54 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
     return signedTx;
 }
 
-bool CSpvWrapper::SendRawTx(TBytes rawtx)
+bool CSpvWrapper::SendRawTx(TBytes rawtx, CSpvWrapper::TSendCallback callback)
 {
-    if (BRPeerManagerPeerCount(manager) == 0) {
-        return false; // not connected
-    }
-
     BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
     if (tx) {
-        if (BRTransactionIsSigned(tx)) {
-            BRPeerManagerPublishTx(manager, tx, &tx->txHash, publishedTxCallback);
-        }
-        else {
-            BRTransactionFree(tx);
-            tx = nullptr;
-        }
+        OnSendRawTx(tx, callback);
     }
     return tx != nullptr;
 }
 
-TBytes CreateScriptForAddress(std::string const & address)
+void CSpvWrapper::OnSendRawTx(BRTransaction *tx, CSpvWrapper::TSendCallback callback)
 {
-    TBytes script;
-    script.resize(BRAddressScriptPubKey(NULL, 0, address.c_str()));
-    BRAddressScriptPubKey(script.data(), script.size(), address.c_str());
+    assert(tx);
+    if (BRTransactionIsSigned(tx)) {
+        BRPeerManagerPublishTx(manager, tx, &callback, publishedTxCallback);
+    }
+    else {
+        if (callback)
+            callback(EINVAL);
+        BRTransactionFree(tx);
+    }
+}
+
+void CFakeSpvWrapper::OnSendRawTx(BRTransaction *tx, CSpvWrapper::TSendCallback callback)
+{
+    assert(tx);
+    if (!IsConnected()) {
+        if (callback)
+            callback(ENOTCONN);
+
+        BRTransactionFree(tx);
+        return;
+    }
+
+    /// @todo lock cs_main? or assert unlocked?
+    LogPrintf("fakespv: adding anchor tx %s\n", to_uint256(tx->txHash).ToString());
+    OnTxAdded(tx);
+    OnTxUpdated(&tx->txHash, 1, lastBlockHeight, 666);
+
+    if (callback)
+        callback(0);
+
+    BRTransactionFree(tx);
+}
+
+TBytes CreateScriptForAddress(char const * address)
+{
+    TBytes script(BRAddressScriptPubKey(NULL, 0, address));
+    BRAddressScriptPubKey(script.data(), script.size(), address);
     return script;
 }
 
@@ -743,25 +854,6 @@ bool CFakeSpvWrapper::IsConnected() const
     return isConnected;
 }
 
-bool CFakeSpvWrapper::SendRawTx(TBytes rawtx)
-{
-    if (!IsConnected()) {
-        return false;
-    }
-
-    /// @todo lock cs_main? or assert unlocked?
-    BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
-    if (tx) {
-        LogPrintf("fakespv: adding anchor tx %s\n", to_uint256(tx->txHash).ToString());
-        OnTxAdded(tx);
-        OnTxUpdated(&tx->txHash, 1, lastBlockHeight, 666);
-        BRTransactionFree(tx);
-    }
-    else {
-        tx = NULL;
-    }
-    return tx;
-}
 
 }
 
