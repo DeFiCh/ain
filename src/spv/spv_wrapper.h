@@ -84,7 +84,9 @@ public:
     uint8_t GetPKHashPrefix() const;
 
     std::vector<BRTransaction *> GetWalletTxs() const;
-    virtual bool SendRawTx(TBytes rawtx);
+
+    typedef std::function<void(int result)> TSendCallback;
+    bool SendRawTx(TBytes rawtx, TSendCallback callback = nullptr);
 
 public:
     /// Wallet callbacks
@@ -101,6 +103,8 @@ public:
     void OnThreadCleanup();
 
 private:
+    virtual void OnSendRawTx(BRTransaction * tx, CSpvWrapper::TSendCallback callback);
+
     template <typename K, typename V>
     void BatchWrite(const K& key, const V& value)
     {
@@ -191,7 +195,7 @@ public:
     uint32_t GetLastBlockHeight() const override { return lastBlockHeight; }
     uint32_t GetEstimatedBlockHeight() const override { return lastBlockHeight+1000; } // dummy
 
-    bool SendRawTx(TBytes rawtx) override;
+    void OnSendRawTx(BRTransaction * tx, CSpvWrapper::TSendCallback callback) override;
 
     uint32_t lastBlockHeight = 0;
     bool isConnected = false;
