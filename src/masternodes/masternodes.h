@@ -27,36 +27,12 @@ static const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};  // 4
 
 static const unsigned int DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL = 100;
 
-enum class CustomUndoTxType : unsigned char
-{
-    None = 0,
-    CreateMasternode    = 'C',
-    ResignMasternode    = 'R',
-    BlockCriminalCoins  = 'B'
-};
-
 enum class MasternodesTxType : unsigned char
 {
     None = 0,
     CreateMasternode    = 'C',
     ResignMasternode    = 'R'
 };
-
-template<typename Stream>
-inline void Serialize(Stream& s, CustomUndoTxType txType)
-{
-    Serialize(s, static_cast<unsigned char>(txType));
-}
-
-template<typename Stream>
-inline void Unserialize(Stream& s, CustomUndoTxType & txType) {
-    unsigned char ch;
-    Unserialize(s, ch);
-    txType = ch == 'C' ? CustomUndoTxType::CreateMasternode :
-             ch == 'R' ? CustomUndoTxType::ResignMasternode :
-             ch == 'B' ? CustomUndoTxType::BlockCriminalCoins :
-             CustomUndoTxType::None;
-}
 
 template<typename Stream>
 inline void Serialize(Stream& s, MasternodesTxType txType)
@@ -176,7 +152,7 @@ public:
         CKeyID operatorAuthAddress;
         CKeyID ownerAuthAddress;
     };
-    typedef std::map<int, std::pair<uint256, CustomUndoTxType> > CMnTxsUndo; // txn, undoRec
+    typedef std::map<int, std::pair<uint256, MasternodesTxType> > CMnTxsUndo; // txn, undoRec
     typedef std::map<int, CMnTxsUndo> CMnBlocksUndo;
     typedef std::map<uint256, CDoubleSignFact> CMnCriminals;
     typedef std::set<CKeyID> CTeam;
@@ -296,9 +272,10 @@ public:
 
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
     void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
-    void MarkMasternodeAsWastedCriminal(uint256 const & id);
+    void MarkMasternodeAsWastedCriminal(uint256 const & id, bool value);
     void RemoveMasternodeFromCriminals(uint256 const &criminalID);
-    void BlockedCriminalMnCoins(std::vector<unsigned char> & metadata);
+    void BlockCriminalMnCoins(std::vector<unsigned char> & metadata);
+    void DeblockCriminalMnCoins(std::vector<unsigned char> & metadata);
     static bool ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
     static bool ExtractAnchorRewardFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
