@@ -458,7 +458,12 @@ void CSpvWrapper::WriteBlock(const BRMerkleBlock * block)
 
 void publishedTxCallback(void *info, int error)
 {
-    LogPrintf("spv: publishedTxCallback: tx 2: %s, %s\n", to_uint256(*(UInt256 *)info).ToString(), error == 0 ? "SUCCESS!" : "error: " + std::to_string(errno));
+    if (info) {
+        CSpvWrapper::TSendCallback callback = *static_cast<CSpvWrapper::TSendCallback *>(info);
+        callback(error);
+    }
+    else
+        LogPrintf("spv: publishedTxCallback: %s\n", strerror(errno));
 }
 
 struct TxInput {
@@ -736,23 +741,48 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
     return signedTx;
 }
 
-bool CSpvWrapper::SendRawTx(TBytes rawtx)
+bool CSpvWrapper::SendRawTx(TBytes rawtx, CSpvWrapper::TSendCallback callback)
 {
-    if (BRPeerManagerPeerCount(manager) == 0) {
-        return false; // not connected
-    }
-
     BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
     if (tx) {
-        if (BRTransactionIsSigned(tx)) {
-            BRPeerManagerPublishTx(manager, tx, &tx->txHash, publishedTxCallback);
-        }
-        else {
-            BRTransactionFree(tx);
-            tx = nullptr;
-        }
+        OnSendRawTx(tx, callback);
     }
     return tx != nullptr;
+}
+
+void CSpvWrapper::OnSendRawTx(BRTransaction *tx, CSpvWrapper::TSendCallback callback)
+{
+    assert(tx);
+    if (BRTransactionIsSigned(tx)) {
+        BRPeerManagerPublishTx(manager, tx, &callback, publishedTxCallback);
+    }
+    else {
+        if (callback)
+            callback(EINVAL);
+        BRTransactionFree(tx);
+    }
+}
+
+void CFakeSpvWrapper::OnSendRawTx(BRTransaction *tx, CSpvWrapper::TSendCallback callback)
+{
+    assert(tx);
+    if (!IsConnected()) {
+        if (callback)
+            callback(ENOTCONN);
+
+        BRTransactionFree(tx);
+        return;
+    }
+
+    /// @todo lock cs_main? or assert unlocked?
+    LogPrintf("fakespv: adding anchor tx %s\n", to_uint256(tx->txHash).ToString());
+    OnTxAdded(tx);
+    OnTxUpdated(&tx->txHash, 1, lastBlockHeight, 666);
+
+    if (callback)
+        callback(0);
+
+    BRTransactionFree(tx);
 }
 
 TBytes CreateScriptForAddress(char const * address)
@@ -824,25 +854,6 @@ bool CFakeSpvWrapper::IsConnected() const
     return isConnected;
 }
 
-bool CFakeSpvWrapper::SendRawTx(TBytes rawtx)
-{
-    if (!IsConnected()) {
-        return false;
-    }
-
-    /// @todo lock cs_main? or assert unlocked?
-    BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
-    if (tx) {
-        LogPrintf("fakespv: adding anchor tx %s\n", to_uint256(tx->txHash).ToString());
-        OnTxAdded(tx);
-        OnTxUpdated(&tx->txHash, 1, lastBlockHeight, 666);
-        BRTransactionFree(tx);
-    }
-    else {
-        tx = NULL;
-    }
-    return tx;
-}
 
 }
 

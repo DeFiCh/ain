@@ -21,6 +21,7 @@
 //#endif
 
 #include <stdexcept>
+#include <future>
 
 static CWallet* GetWallet(const JSONRPCRequest& request)
 {
@@ -30,6 +31,24 @@ static CWallet* GetWallet(const JSONRPCRequest& request)
     EnsureWalletIsAvailable(pwallet, false);
     EnsureWalletIsUnlocked(pwallet);
     return pwallet;
+}
+
+static const int ENOSPV         = 100000;
+static const int EPARSINGTX     = 100001;
+static const int ETXNOTSIGNED   = 100002;
+
+std::string DecodeSendResult(int result)
+{
+    switch (result) {
+        case ENOSPV:
+            return "spv module disabled";
+        case EPARSINGTX:
+            return "Can't parse transaction";
+        case ETXNOTSIGNED:
+            return "Tx not signed";
+        default:
+            return strerror(result);
+    }
 }
 
 UniValue spv_sendrawtx(const JSONRPCRequest& request)
@@ -51,7 +70,16 @@ UniValue spv_sendrawtx(const JSONRPCRequest& request)
     if (!spv::pspv)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
-    spv::pspv->SendRawTx(ParseHexV(request.params[0], "rawtx"));
+    std::promise<int> promise;
+    if (spv::pspv->SendRawTx(ParseHexV(request.params[0], "rawtx"), [&promise] (int result) { promise.set_value(result); })) {
+        int sendResult = promise.get_future().get();
+        if (sendResult != 0)
+            throw JSONRPCError(RPC_INVALID_REQUEST, DecodeSendResult(sendResult));
+    }
+    else {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "Can't parse transaction");
+    }
+
     return UniValue("");
 }
 
@@ -156,7 +184,6 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create anchor while still in Initial Block Download");
     }
 
-    /// @todo temporary off, tests with fixed values
     RPCTypeCheck(request.params, { UniValue::VARR, UniValue::VSTR, UniValue::VBOOL }, true);
     if (request.params[0].isNull() || request.params[1].isNull())
     {
@@ -208,11 +235,20 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_MISC_ERROR, e.what());
     }
 
+    // after successful tx creation we does not throw!
+    int sendResult = 0;
     if (send) {
-        if (!spv::pspv)
-            throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
-
-        spv::pspv->SendRawTx(rawtx);
+        if (spv::pspv) {
+            std::promise<int> promise;
+            if (spv::pspv->SendRawTx(rawtx, [&promise] (int result) { promise.set_value(result); })) {
+                sendResult = promise.get_future().get();
+            }
+            else {
+                sendResult = EPARSINGTX;
+            }
+        }
+        else
+            sendResult = ENOSPV;
     }
 
     UniValue result(UniValue::VOBJ);
@@ -221,6 +257,10 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     result.pushKV("defiHash", anchor.blockHash.ToString());
     result.pushKV("defiHeight", (int) anchor.height);
     result.pushKV("cost", cost);
+    if (send) {
+        result.pushKV("sendResult", sendResult);
+        result.pushKV("sendMessage", DecodeSendResult(sendResult));
+    }
 
     return result;
 }
