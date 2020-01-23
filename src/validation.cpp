@@ -2782,6 +2782,10 @@ void CChainState::RefillCandidates() {
             LogPrintf("RefillCandidates(): added block %i: %s\n", (*it)->nHeight, (*it)->GetBlockHash().ToString());
         }
     }
+    if (setBlockIndexCandidates.insert(m_chain.Tip()).second) { // current Tip should be there in any case (it seems to be not nesessary for reorg, but fails in CheckBlockIndex!)
+        LogPrintf("RefillCandidates(): added Tip(), block %i: %s\n", m_chain.Tip()->nHeight, m_chain.Tip()->GetBlockHash().ToString());
+    }
+
     if (oldSize != setBlockIndexCandidates.size())
         LogPrintf("RefillCandidates(): %i blocks restored\n", setBlockIndexCandidates.size() - oldSize);
 }
@@ -4898,14 +4902,14 @@ void CChainState::CheckBlockIndex(const Consensus::Params& consensusParams)
                 // setBlockIndexCandidates.  m_chain.Tip() must also be there
                 // even if some data has been pruned.
                 if (pindexFirstMissing == nullptr || pindex == m_chain.Tip()) {
-                    assert(filteredBlockIndexCandidates.count(pindex));
+                    assert(setBlockIndexCandidates.count(pindex) || filteredBlockIndexCandidates.count(pindex) == 0);
                 }
                 // If some parent is missing, then it could be that this block was in
                 // setBlockIndexCandidates but had to be removed because of the missing data.
                 // In this case it must be in m_blocks_unlinked -- see test below.
             }
         } else { // If this block sorts worse than the current tip or some ancestor's block has never been seen, it cannot be in setBlockIndexCandidates.
-            assert(filteredBlockIndexCandidates.count(pindex) == 0);
+            assert(setBlockIndexCandidates.count(pindex) == 0);
         }
         // Check whether this block is in m_blocks_unlinked.
         std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeUnlinked = m_blockman.m_blocks_unlinked.equal_range(pindex->pprev);
@@ -4935,7 +4939,7 @@ void CChainState::CheckBlockIndex(const Consensus::Params& consensusParams)
             //    tip.
             // So if this block is itself better than m_chain.Tip() and it wasn't in
             // setBlockIndexCandidates, then it must be in m_blocks_unlinked.
-            if (!CBlockIndexWorkComparator()(pindex, m_chain.Tip()) && filteredBlockIndexCandidates.count(pindex) == 0) {
+            if (!CBlockIndexWorkComparator()(pindex, m_chain.Tip()) && setBlockIndexCandidates.count(pindex) == 0) {
                 if (pindexFirstInvalid == nullptr) {
                     assert(foundInUnlinked);
                 }
