@@ -14,15 +14,15 @@ from test_framework.test_framework import BitcoinTestFramework
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
-    connect_nodes_bi, disconnect_nodes, sync_blocks
+    connect_nodes_bi, disconnect_nodes, sync_blocks, assert_raises_rpc_error
 
 class AnchorsTest (BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.extra_args = [
-            [ "-dummypos=1", "-spv=1", "-fakespv=1", "-checkblockindex=0" ],
-            [ "-dummypos=1", "-spv=1", "-fakespv=1", "-checkblockindex=0" ],
-            [ "-dummypos=1", "-spv=1", "-fakespv=1", "-checkblockindex=0" ],
+            [ "-dummypos=1", "-spv=1", "-fakespv=1"],
+            [ "-dummypos=1", "-spv=1", "-fakespv=1"],
+            [ "-dummypos=1", "-spv=1", "-fakespv=1"],
         ]
         self.setup_clean_chain = True
 
@@ -44,22 +44,109 @@ class AnchorsTest (BitcoinTestFramework):
         print ("Heights:", self.nodes[0].getblockcount(), "\t", self.nodes[1].getblockcount(), "\t", self.nodes[2].getblockcount())
         # pass
 
+    def check_rpc_fails(self):
+        print ("Node0: Check fails")
+        assert_raises_rpc_error(None, "Not enough money", self.nodes[0].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': 3,
+                'amount': 1000,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        # Check some params:
+        assert_raises_rpc_error(None, "Expected type array, got object", self.nodes[0].spv_createanchor,
+            {
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': 3,
+                'amount': 2262303,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }, "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        assert_raises_rpc_error(None, "txid must be of length 64", self.nodes[0].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963aa",
+                'vout': 3,
+                'amount': 2262303,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        assert_raises_rpc_error(None, "value is not an integer", self.nodes[0].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': "aa",
+                'amount': 2262303,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        assert_raises_rpc_error(None, "Can't parse WIF privkey", self.nodes[0].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': 3,
+                'amount': 2262303,
+                'privkey': "1_cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        assert_raises_rpc_error(None, "does not refer to a P2PKH or P2WPKH address", self.nodes[0].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': 3,
+                'amount': 2262303,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "__mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        assert_raises_rpc_error(None, "does not refer to a P2PKH or P2WPKH address", self.nodes[0].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': 3,
+                'amount': 2262303,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "")
+
+        # all is Ok, but don't send!
+        self.nodes[0].spv_createanchor([{
+            'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+            'vout': 3,
+            'amount': 2262303,
+            'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"}],
+            "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu", False)
+        assert_equal(len(self.nodes[0].spv_listanchors()), 0)
+
+
     def run_test(self):
         assert_equal(len(self.nodes[0].mn_list()), 8)
 
         disconnect_nodes(self.nodes[0], 1)
         self.nodes[0].generate(17)
-
-        print ("Anc at start: ", self.nodes[0].spv_listanchors())
         assert_equal(len(self.nodes[0].spv_listanchors()), 0)
+
+        self.check_rpc_fails()
+
+        estimated = self.nodes[0].spv_estimateanchorcost()
+        #
+        tmp = self.nodes[0].spv_createanchortemplate("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+        # print ("template:", tmp)
+        # print (self.nodes[0].decoderawtransaction(tmp['txHex']))
 
         print ("Node0: Setting anchor")
         self.nodes[0].spv_setlastheight(1)
-        txinfo = self.nodes[0].spv_createanchor("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+        txinfo = self.nodes[0].spv_createanchor([{
+            'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+            'vout': 3,
+            'amount': 2262303,
+            'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"}],
+            "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
         self.nodes[0].spv_setlastheight(10)
-        # print ("Anc 0: ", self.nodes[0].spv_listanchors())
+        assert_equal(txinfo['defiHash'], self.nodes[0].getblockhash(15))
+        assert_equal(txinfo['defiHeight'], 15)
+        assert_equal(txinfo['cost'], estimated)
+
+        print ("Anc 0: ", self.nodes[0].spv_listanchors())
         anc0 = self.nodes[0].spv_listanchors()
-        assert_equal(anc0[0]['defiBlockHeight'], 15)
+        assert_equal(anc0[0]['btcTxHash'], txinfo['txHash'])
+        assert_equal(anc0[0]['defiBlockHash'], txinfo['defiHash'])
+        assert_equal(anc0[0]['defiBlockHeight'], txinfo['defiHeight'])
         assert_equal(anc0[0]['confirmations'], 10)
         assert_equal(anc0[0]['active'], True)
 
