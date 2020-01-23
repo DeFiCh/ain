@@ -12,9 +12,8 @@ import time
 
 from test_framework.test_framework import BitcoinTestFramework
 
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
-    connect_nodes_bi, disconnect_nodes, sync_blocks, assert_raises_rpc_error
+    connect_nodes_bi, disconnect_nodes, assert_raises_rpc_error
 
 class AnchorsTest (BitcoinTestFramework):
     def set_test_params(self):
@@ -123,10 +122,8 @@ class AnchorsTest (BitcoinTestFramework):
         self.check_rpc_fails()
 
         estimated = self.nodes[0].spv_estimateanchorcost()
-        #
-        tmp = self.nodes[0].spv_createanchortemplate("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
-        # print ("template:", tmp)
-        # print (self.nodes[0].decoderawtransaction(tmp['txHex']))
+
+        self.nodes[0].spv_createanchortemplate("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
 
         print ("Node0: Setting anchor")
         self.nodes[0].spv_setlastheight(1)
