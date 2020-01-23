@@ -34,6 +34,7 @@ typedef struct BRTransactionStruct BRTransaction;
 typedef struct BRPeerStruct BRPeer;
 
 class CAnchor;
+class CScript;
 
 namespace spv
 {
@@ -44,17 +45,9 @@ uint256 to_uint256(UInt256 const & i);
 
 static const TBytes BtcAnchorMarker = { 'D', 'F', 'A'}; // 0x444641
 
-struct TxInput {
-    UInt256 txHash;
-    int32_t index;
-    uint64_t amount;
-    TBytes script;
-};
-
-struct TxOutput {
-    uint64_t amount;
-    TBytes script;
-};
+/// @todo test this amount of dust for p2wsh due to spv is very dumb and checks only for 546 (p2pkh)
+uint64_t const P2WSH_DUST = 330; /// 546 p2pkh & 294 p2wpkh (330 p2wsh calc'ed manually)
+uint64_t const P2PKH_DUST = 546;
 
 using namespace boost::multi_index;
 
@@ -91,7 +84,9 @@ public:
     uint8_t GetPKHashPrefix() const;
 
     std::vector<BRTransaction *> GetWalletTxs() const;
-    virtual bool SendRawTx(TBytes rawtx);
+
+    typedef std::function<void(int result)> TSendCallback;
+    bool SendRawTx(TBytes rawtx, TSendCallback callback = nullptr);
 
 public:
     /// Wallet callbacks
@@ -108,6 +103,8 @@ public:
     void OnThreadCleanup();
 
 private:
+    virtual void OnSendRawTx(BRTransaction * tx, CSpvWrapper::TSendCallback callback);
+
     template <typename K, typename V>
     void BatchWrite(const K& key, const V& value)
     {
@@ -198,7 +195,7 @@ public:
     uint32_t GetLastBlockHeight() const override { return lastBlockHeight; }
     uint32_t GetEstimatedBlockHeight() const override { return lastBlockHeight+1000; } // dummy
 
-    bool SendRawTx(TBytes rawtx) override;
+    void OnSendRawTx(BRTransaction * tx, CSpvWrapper::TSendCallback callback) override;
 
     uint32_t lastBlockHeight = 0;
     bool isConnected = false;
@@ -208,9 +205,19 @@ public:
 extern std::unique_ptr<CSpvWrapper> pspv;
 
 bool IsAnchorTx(BRTransaction *tx, CAnchor & anchor);
-TBytes CreateAnchorTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, TBytes const & meta);
+
+struct TxInputData {
+    std::string txhash;
+    int32_t txn;
+    uint64_t amount;
+    std::string privkey_wif;
+};
+
+uint64_t EstimateAnchorCost(TBytes const & meta);
+std::vector<CScript> EncapsulateMeta(TBytes const & meta);
+std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> const & inputs, TBytes const & meta);
 TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, int parts, int amount);
-TBytes CreateScriptForAddress(std::string const & address);
+TBytes CreateScriptForAddress(char const * address);
 
 }
 #endif // BITCOIN_SPV_SPV_WRAPPER_H
