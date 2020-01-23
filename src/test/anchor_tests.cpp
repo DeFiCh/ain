@@ -17,7 +17,7 @@ struct SpvTestingSetup : public TestingSetup {
     }
 };
 
-BOOST_FIXTURE_TEST_SUITE(anchors, SpvTestingSetup)
+BOOST_FIXTURE_TEST_SUITE(anchor_tests, SpvTestingSetup)
 
 BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 {
@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // add at the same btc height, with worse tx hash, but with higher defi height - should be choosen
     {
-        CAnchorAuthMessage auth(uint256(), 30, uint256S("def30"), team0);
+        CAnchorAuthMessage auth(uint256(), 30, uint256S("def30a"), team0);
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bd1"), 1) == true);
     }
@@ -71,7 +71,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // add at the same btc height, with same defi height, but with lower txhash - should be choosen
     {
-        CAnchorAuthMessage auth(uint256(), 30, uint256S("def30"), team0);
+        CAnchorAuthMessage auth(uint256(), 30, uint256S("def30b"), team0);
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bb1"), 1) == true);
     }
@@ -85,7 +85,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // add at the same btc height, with same defi height, but with higher (worse) txhash - should stay untouched
     {
-        CAnchorAuthMessage auth(uint256(), 30, uint256S("def30"), team0);
+        CAnchorAuthMessage auth(uint256(), 30, uint256S("def30c"), team0);
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("be1"), 1) == true);
     }
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     // creating anc with old (wrong, empty) prev
     fspv->lastBlockHeight = 2;
     {
-        CAnchorAuthMessage auth(uint256(), 45, uint256S("def45"), team0);
+        CAnchorAuthMessage auth(uint256(), 45, uint256S("def45a"), team0);
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bc2"), 2) == true);
     }
@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // create anc with correct prev
     {
-        CAnchorAuthMessage auth(top->txHash, 45, uint256S("def45"), team0);
+        CAnchorAuthMessage auth(top->txHash, 45, uint256S("def45b"), team0);
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bd2"), 2) == true);
     }
