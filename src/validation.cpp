@@ -1062,9 +1062,13 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     return nSubsidy;
 }
 
-CAmount GetAnchorSubsidy(int nHeight, const Consensus::Params& consensusParams)
+CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams)
 {
-    return consensusParams.spv.anchorSubsidy;
+    if (anchorHeight > prevAnchorHeight) {
+        int period = anchorHeight - prevAnchorHeight;
+        return consensusParams.spv.anchorSubsidy + (period / consensusParams.spv.subsidyIncreasePeriod) * consensusParams.spv.subsidyIncreaseValue;
+    }
+    return 0;
 }
 
 CoinsViews::CoinsViews(
@@ -2058,6 +2062,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         } else {
             std::vector<unsigned char> metadata;
             if (!fIsFakeNet && CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
+                if (tx.GetValueOut() > 0) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("ConnectBlock(): criminal detention pays too much (actual=%d)",
+                                               tx.GetValueOut()),
+                                         REJECT_INVALID, "bad-cr-amount");
+                }
                 pmasternodesview->BlockCriminalMnCoins(metadata);
             } else if (!fIsFakeNet && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -2068,6 +2078,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
                 if (anchor.CheckAuthSigs(pmasternodesview->GetCurrentTeam())) {
                     pmasternodesview->SetTeam(anchor.nextTeam);
+                }
+                auto anchorReward = GetAnchorSubsidy(anchor.height, panchors->GetActiveAnchor()->anchor.height, chainparams.GetConsensus());
+                if (tx.GetValueOut() > anchorReward) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("ConnectBlock(): anchor pays too much (actual=%d vs limit=%d)",
+                                               tx.GetValueOut(), anchorReward),
+                                         REJECT_INVALID, "bad-ar-amount");
                 }
             }
         }

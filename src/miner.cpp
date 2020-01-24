@@ -108,7 +108,7 @@ CTransactionRef BlockAssembler::CreateAnchorFinalizationTx(const CAnchor& anchor
     mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
     mTx.vout[0].nValue = 0;
     mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-    mTx.vout[1].nValue = GetAnchorSubsidy(nHeight, chainparams.GetConsensus());
+    mTx.vout[1].nValue = GetAnchorSubsidy(anchor.height, panchors->GetActiveAnchor()->anchor.height, chainparams.GetConsensus());
 
     return MakeTransactionRef(mTx);
 }
