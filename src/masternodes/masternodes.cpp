@@ -473,6 +473,20 @@ void CMasternodesView::BlockCriminalMnCoins(std::vector<unsigned char> & metadat
         if (!FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
             WriteBlockedCriminalCoins(txid, index, fIsFakeNet);
 
+            CKeyID mintersKey;
+            if (!criminal.first.ExtractMinterKey(mintersKey)) {
+                LogPrintf("DeblockCriminalMnCoins: Can't extract minter key\n");
+                return ;
+            }
+            auto it = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
+            if (!it) {
+                LogPrintf("DeblockCriminalMnCoins: Masternode for criminal blockHeader not found\n");
+                return ;
+            }
+            auto const & nodeId = (*it)->second;
+
+            pmasternodesview->MarkMasternodeAsWastedCriminal(nodeId, true);
+
             /// @todo set mnviewcache[mn]->banHeight to tx (block) height
         }
     }
