@@ -110,6 +110,8 @@ struct Params {
     struct SpvParams {
         CAmount creationFee;
         CAmount anchorSubsidy;
+        int subsidyIncreasePeriod;
+        CAmount subsidyIncreaseValue;
         std::string wallet_xpub;
         std::string anchors_address;
         int minConfirmations;
