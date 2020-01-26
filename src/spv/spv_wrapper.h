@@ -49,6 +49,8 @@ static const TBytes BtcAnchorMarker = { 'D', 'F', 'A'}; // 0x444641
 uint64_t const P2WSH_DUST = 330; /// 546 p2pkh & 294 p2wpkh (330 p2wsh calc'ed manually)
 uint64_t const P2PKH_DUST = 546;
 
+extern uint64_t const DEFAULT_BTC_FEERATE;
+
 using namespace boost::multi_index;
 
 class CSpvWrapper
@@ -213,9 +215,9 @@ struct TxInputData {
     std::string privkey_wif;
 };
 
-uint64_t EstimateAnchorCost(TBytes const & meta);
+uint64_t EstimateAnchorCost(TBytes const & meta, uint64_t feerate);
 std::vector<CScript> EncapsulateMeta(TBytes const & meta);
-std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> const & inputs, TBytes const & meta);
+std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> const & inputs, TBytes const & meta, uint64_t feerate);
 TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, int parts, int amount);
 TBytes CreateScriptForAddress(char const * address);
 

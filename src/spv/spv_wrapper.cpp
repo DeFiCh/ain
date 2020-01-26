@@ -37,6 +37,8 @@ static const char DB_SPVBLOCKS = 'B';     // spv "blocks" table
 static const char DB_SPVPEERS  = 'P';     // spv "peers" table
 static const char DB_SPVTXS    = 'T';     // spv "tx2msg" table
 
+uint64_t const DEFAULT_BTC_FEERATE = TX_FEE_PER_KB;
+
 uint256 to_uint256(const UInt256 & i) {
     return uint256(TBytes(&i.u8[0], &i.u8[32]));
 }
@@ -523,7 +525,7 @@ std::vector<CScript> EncapsulateMeta(TBytes const & meta)
     return result;
 }
 
-uint64_t EstimateAnchorCost(TBytes const & meta)
+uint64_t EstimateAnchorCost(TBytes const & meta, uint64_t feerate)
 {
     auto consensus = Params().GetConsensus();
 
@@ -552,14 +554,14 @@ uint64_t EstimateAnchorCost(TBytes const & meta)
         LogPrintf("spv: ***FAILED*** %s:\n", __func__);
         return 0;
     }
-    uint64_t const minFee = BRTransactionStandardFee(tx);
+    uint64_t const minFee = BRTransactionStandardFee(tx) * feerate / TX_FEE_PER_KB;
 
     BRTransactionFree(tx);
 
     return consensus.spv.creationFee + (P2WSH_DUST * (metaScripts.size()-1)) + minFee;
 }
 
-std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> const & inputsData, TBytes const & meta)
+std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> const & inputsData, TBytes const & meta, uint64_t feerate)
 {
     assert(inputsData.size() > 0);
     assert(meta.size() > 0);
@@ -624,7 +626,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
     }
 
     // output[n] (optional) - change
-    uint64_t const minFee = BRTransactionStandardFee(tx);
+    uint64_t const minFee = BRTransactionStandardFee(tx) * feerate / TX_FEE_PER_KB;
     uint64_t totalCost = consensus.spv.creationFee + (P2WSH_DUST * (metaScripts.size()-1)) + minFee;
 
     if (inputTotal < totalCost) {
