@@ -120,11 +120,11 @@ static CWallet* GetWallet(const JSONRPCRequest& request)
  *
  *  Issued by: any
 */
-UniValue mn_create(const JSONRPCRequest& request)
+UniValue createmasternode(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
-    RPCHelpMan{"mn_create",
+    RPCHelpMan{"createmasternode",
         "\nCreates (and submits to local node and network) a masternode creation transaction with given metadata, spending the given inputs..\n"
         "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
             HelpRequiringPassphrase(pwallet) + "\n",
@@ -150,11 +150,11 @@ UniValue mn_create(const JSONRPCRequest& request)
             "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            HelpExampleCli("createmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
                                             "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                                "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            + HelpExampleRpc("createmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
                                           "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                              "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
@@ -229,11 +229,11 @@ UniValue mn_create(const JSONRPCRequest& request)
 }
 
 
-UniValue mn_resign(const JSONRPCRequest& request)
+UniValue resignmasternode(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
-    RPCHelpMan{"mn_resign",
+    RPCHelpMan{"resignmasternode",
         "\nCreates (and submits to local node and network) a transaction resigning your masternode. Collateral will be unlocked after " + std::to_string(GetMnCollateralUnlockDelay()) + " blocks.\n"
         "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the MN's owner (collateral) address" +
             HelpRequiringPassphrase(pwallet) + "\n",
@@ -254,8 +254,8 @@ UniValue mn_resign(const JSONRPCRequest& request)
             "\"hex\"                      (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
-            + HelpExampleRpc("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+            HelpExampleCli("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+            + HelpExampleRpc("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
         },
     }.Check(request);
 
@@ -340,9 +340,9 @@ UniValue mnToJSON(CMasternode const & node)
     return ret;
 }
 
-UniValue mn_list(const JSONRPCRequest& request)
+UniValue listmasternodes(const JSONRPCRequest& request)
 {
-    RPCHelpMan{"mn_list",
+    RPCHelpMan{"listmasternodes",
         "\nReturns information about specified masternodes (or all, if list of ids is empty).\n",
         {
             {"list", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of masternode ids",
@@ -356,8 +356,8 @@ UniValue mn_list(const JSONRPCRequest& request)
             "{id:{...},...}     (array) Json object with masternodes information\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
-            + HelpExampleRpc("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+            HelpExampleCli("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+            + HelpExampleRpc("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
         },
     }.Check(request);
 
@@ -406,11 +406,9 @@ UniValue mn_list(const JSONRPCRequest& request)
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
   //  ----------------- ------------------------    -----------------------     ----------
-  { "masternodes",      "mn_create",                &mn_create,                 { "inputs", "metadata" }  },
-  { "masternodes",      "mn_resign",                &mn_resign,                 { "inputs", "mn_id" }  },
-
-  { "masternodes",      "mn_list",                  &mn_list,                   { "list", "verbose" } },
-
+  { "masternodes",      "createmasternode",         &createmasternode,          { "inputs", "metadata" }  },
+  { "masternodes",      "resignmasternode",         &resignmasternode,          { "inputs", "mn_id" }  },
+  { "masternodes",      "listmasternodes",          &listmasternodes,           { "list", "verbose" } },
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable &tableRPC)
