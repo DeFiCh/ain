@@ -164,6 +164,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
             },
             {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "User's P2PKH address (in DeFi chain) for reward"},
             {"send", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Send it to btc network (Default = true)"},
+            {"feerate", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Feerate (satoshis) per 1000 bytes (Default = " + std::to_string(spv::DEFAULT_BTC_FEERATE) + ")"},
         },
         RPCResult{
             "\"txHex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
@@ -208,6 +209,11 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     }
     bool const send = request.params[2].isNull() ? true : request.params[2].getBool();
 
+    int64_t const feerate = request.params[3].isNull() ? spv::DEFAULT_BTC_FEERATE : request.params[0].get_int64();
+    if (feerate <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Feerate should be > 0!");
+    }
+
     auto locked_chain = pwallet->chain().lock();
 
     /// @todo temporary, tests with fixed values
@@ -229,7 +235,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     spv::TBytes rawtx;
     uint64_t cost;
     try {
-        std::tie(hash, rawtx, cost) = spv::CreateAnchorTx(inputsData, ToByteVector(ss));
+        std::tie(hash, rawtx, cost) = spv::CreateAnchorTx(inputsData, ToByteVector(ss), (uint64_t) feerate);
     }
     catch (std::runtime_error const & e) {
         throw JSONRPCError(RPC_MISC_ERROR, e.what());
@@ -342,15 +348,21 @@ UniValue spv_estimateanchorcost(const JSONRPCRequest& request)
     RPCHelpMan{"spv_estimateanchorcost",
         "\nEstimates current anchor cost with default fee, one input and one change output.\n",
         {
+            {"feerate", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Feerate (satoshis) per 1000 bytes (Default = " + std::to_string(spv::DEFAULT_BTC_FEERATE) + ")"},
         },
         RPCResult{
-            "\"cost\"                  (numeric) Estimated anchor cost (satoshies)\n"
+            "\"cost\"                  (numeric) Estimated anchor cost (satoshis)\n"
         },
         RPCExamples{
             HelpExampleCli("spv_estimateanchorcost", "")
             + HelpExampleRpc("spv_estimateanchorcost", "")
         },
     }.Check(request);
+
+    int64_t const feerate = request.params[0].isNull() ? spv::DEFAULT_BTC_FEERATE : request.params[0].get_int64();
+    if (feerate <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Feerate should be > 0!");
+    }
 
     auto locked_chain = pwallet->chain().lock();
 
@@ -362,7 +374,7 @@ UniValue spv_estimateanchorcost(const JSONRPCRequest& request)
 
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << anchor;
-    return UniValue(spv::EstimateAnchorCost(ToByteVector(ss)));
+    return UniValue(spv::EstimateAnchorCost(ToByteVector(ss), (uint64_t) feerate));
 }
 
 UniValue spv_rescan(const JSONRPCRequest& request)
@@ -522,9 +534,9 @@ static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
   //  ----------------- ------------------------    -----------------------     ----------
   { "spv",      "spv_sendrawtx",              &spv_sendrawtx,             { "rawtx" }  },
-  { "spv",      "spv_createanchor",           &spv_createanchor,          { "inputs", "rewardAddress", "send" }  },
+  { "spv",      "spv_createanchor",           &spv_createanchor,          { "inputs", "rewardAddress", "send", "feerate" }  },
   { "spv",      "spv_createanchortemplate",   &spv_createanchortemplate,  { "rewardAddress" }  },
-  { "spv",      "spv_estimateanchorcost",     &spv_estimateanchorcost,    { }  },
+  { "spv",      "spv_estimateanchorcost",     &spv_estimateanchorcost,    { "feerate" }  },
   { "spv",      "spv_rescan",                 &spv_rescan,                { "height" }  },
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
