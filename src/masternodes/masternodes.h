@@ -60,6 +60,15 @@ CAmount GetMnCreationFee(int height);
 class CMasternode
 {
 public:
+    enum State {
+        PRE_ENABLED,
+        ENABLED,
+        PRE_RESIGNED,
+        RESIGNED,
+        COLLATERAL_UNLOCKED,
+        CRIMINAL_BAN
+    };
+
     //! Minted blocks counter
     uint32_t mintedBlocks;
 
@@ -75,6 +84,8 @@ public:
     int32_t creationHeight;
     //! Resign height
     int32_t resignHeight;
+    //! Criminal ban height
+    int32_t banHeight;
 
     //! This fields are for transaction rollback (by disconnecting block)
     uint256 resignTx;
@@ -87,11 +98,12 @@ public:
     //! constructor helper, runs without any checks
     void FromTx(CTransaction const & tx, int heightIn, std::vector<unsigned char> const & metadata);
 
+    State GetState() const;
+    State GetState(int h) const;
     bool IsActive() const;
     bool IsActive(int h) const;
 
-    std::string GetHumanReadableStatus() const;
-    std::string GetHumanReadableStatus(int h) const;
+    static std::string GetHumanReadableState(State state);
 
     ADD_SERIALIZE_METHODS;
 
@@ -106,6 +118,7 @@ public:
 
         READWRITE(creationHeight);
         READWRITE(resignHeight);
+        READWRITE(banHeight);
 
         READWRITE(resignTx);
     }
@@ -247,7 +260,7 @@ public:
     virtual void EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash) { assert(false); }
 
     virtual void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) { assert(false); }
-    virtual bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) { assert(false); }
+    virtual bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) const { assert(false); }
     virtual void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index) { assert(false); }
 
     virtual void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact) { assert(false); }

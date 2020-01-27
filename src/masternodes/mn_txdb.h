@@ -100,7 +100,7 @@ protected:
     void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash);
 
     void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true);
-    bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true);
+    bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) const;
     void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index);
 
     void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact);
