@@ -63,7 +63,9 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
 
         self.nodes[0].generate(1)
         # At this point, mn was created
-        assert_equal(self.nodes[0].listmasternodes([idnode0], False), { idnode0: "created"} )
+        assert_equal(self.nodes[0].listmasternodes([idnode0], False), { idnode0: "PRE_ENABLED"} )
+        self.nodes[0].generate(10)
+        assert_equal(self.nodes[0].listmasternodes([idnode0], False), { idnode0: "ENABLED"} )
 
         self.sync_blocks(self.nodes[0:2])
         # Stop node #1 for future revert
@@ -100,13 +102,16 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         self.nodes[0].generate(1)
         resignTx = self.nodes[0].resignmasternode([], idnode0)
         self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].listmasternodes()[idnode0]['status'], "created, resigned")
+        assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "PRE_RESIGNED")
+        self.nodes[0].generate(10)
+        assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "RESIGNED")
 
         # Spend unlocked collateral
         # This checks two cases at once:
         # 1) Finally, we should not fail on accept to mempool
         # 2) But we don't mine blocks after it, so, after chain reorg (on 'REVERTING'), we should not fail: tx should be removed from mempool!
-        self.nodes[0].generate(12)
+        self.nodes[0].generate(5)
+        assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "COLLATERAL_UNLOCKED")
         sendedTxHash = self.nodes[0].sendrawtransaction(signedTx['hex'])
         # Don't mine here, check mempool after reorg!
         # self.nodes[0].generate(1)
@@ -130,11 +135,12 @@ class MasternodesRpcBasicTest (BitcoinTestFramework):
         # print ("FundingTx", fundingTx)
         # print ("SpendTx", sendedTxHash)
         assert_equal(self.nodes[0].getrawmempool(), [fundingTx, resignTx])
-        assert_equal(self.nodes[0].listmasternodes()[idnode0]['status'], "active")
+        assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "ENABLED")
 
         # Revert creation!
         self.start_node(2)
-        self.nodes[2].generate(25)
+
+        self.nodes[2].generate(35)
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
         assert_equal(len(self.nodes[0].listmasternodes()), 8)

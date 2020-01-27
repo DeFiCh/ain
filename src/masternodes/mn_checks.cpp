@@ -120,7 +120,7 @@ bool CheckResignMasternodeTx(CMasternodesViewCache & mnview, CTransaction const 
 {
     uint256 nodeId(metadata);
     auto const node = mnview.ExistMasternode(nodeId);
-    if (!node || node->resignHeight != -1 || !node->resignTx.IsNull() || !HasAuth(tx, node->ownerAuthAddress))
+    if (!node || node->banHeight != 0 || node->resignHeight != -1 || !node->resignTx.IsNull() || !HasAuth(tx, node->ownerAuthAddress))
     {
         /// @todo more verbose? at least, auth?
         return false;
