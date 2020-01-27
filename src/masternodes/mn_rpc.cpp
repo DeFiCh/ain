@@ -276,10 +276,15 @@ UniValue resignmasternode(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("You are not the owner of masternode %s, or it does not exist", nodeIdStr));
         }
         auto nodePtr = pmasternodesview->ExistMasternode(nodeId);
+        if (nodePtr->banHeight != 0)
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was criminal, banned at height %i", nodeIdStr, nodePtr->banHeight));
+        }
+
         if (!nodePtr->resignTx.IsNull())
         {
             /// @todo adjust delays and heights!
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight + GetMnCollateralUnlockDelay() /*+ GetMnResignDelay() ???*/));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight + GetMnCollateralUnlockDelay() ));
         }
         ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
     }
@@ -334,7 +339,7 @@ UniValue mnToJSON(CMasternode const & node)
     ret.pushKV("resignHeight", node.resignHeight);
 
     ret.pushKV("resignTx", node.resignTx.GetHex());
-    ret.pushKV("status", node.GetHumanReadableStatus());
+    ret.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
     /// @todo add unlock height and|or real resign height
 
     return ret;
@@ -384,7 +389,7 @@ UniValue listmasternodes(const JSONRPCRequest& request)
         for (auto it = mns.begin(); it != mns.end(); ++it)
         {
             if (it->second != CMasternode())
-                ret.pushKV(it->first.GetHex(), verbose ? mnToJSON(it->second) : it->second.GetHumanReadableStatus());
+                ret.pushKV(it->first.GetHex(), verbose ? mnToJSON(it->second) : CMasternode::GetHumanReadableState(it->second.GetState()));
         }
     }
     else
@@ -395,7 +400,7 @@ UniValue listmasternodes(const JSONRPCRequest& request)
             auto const & node = pmasternodesview->ExistMasternode(id);
             if (node && *node != CMasternode())
             {
-                ret.pushKV(id.GetHex(), verbose ? mnToJSON(*node) : node->GetHumanReadableStatus());
+                ret.pushKV(id.GetHex(), verbose ? mnToJSON(*node) : CMasternode::GetHumanReadableState(node->GetState()));
             }
         }
     }
