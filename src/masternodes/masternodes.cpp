@@ -61,6 +61,7 @@ CMasternode::CMasternode()
     , operatorType(0)
     , creationHeight(0)
     , resignHeight(-1)
+    , banHeight(0)
     , resignTx()
 {
 }
@@ -93,9 +94,38 @@ void CMasternode::FromTx(CTransaction const & tx, int heightIn, std::vector<unsi
 
     creationHeight = heightIn;
     resignHeight = -1;
+    banHeight = 0;
 
     resignTx = {};
     mintedBlocks = 0;
+}
+
+CMasternode::State CMasternode::GetState() const
+{
+    return GetState(::ChainActive().Height());
+}
+
+CMasternode::State CMasternode::GetState(int h) const
+{
+    if (banHeight != 0) {
+        return State::CRIMINAL_BAN;
+    }
+
+    if (resignHeight == -1) {
+        // Special case for genesis block
+        if (creationHeight == 0 || h >= creationHeight + GetMnActivationDelay()) {
+            return State::ENABLED;
+        }
+        return State::PRE_ENABLED;
+    }
+
+    if (h < resignHeight + GetMnResignDelay()) {
+        return State::PRE_RESIGNED;
+    }
+    if (h < resignHeight + GetMnCollateralUnlockDelay()) {
+        return State::RESIGNED;
+    }
+    return State::COLLATERAL_UNLOCKED;
 }
 
 bool CMasternode::IsActive() const
@@ -105,31 +135,28 @@ bool CMasternode::IsActive() const
 
 bool CMasternode::IsActive(int h) const
 {
-    // Special case for genesis block
-    if (creationHeight == 0)
-        return resignHeight == -1 || resignHeight + GetMnResignDelay() > h;
-
-    return  creationHeight + GetMnActivationDelay() <= h && (resignHeight == -1 || resignHeight + GetMnResignDelay() > h);
+    State state = GetState(h);
+    return state == ENABLED || state == PRE_RESIGNED;
 }
 
-std::string CMasternode::GetHumanReadableStatus() const
+std::string CMasternode::GetHumanReadableState(State state)
 {
-    return GetHumanReadableStatus(::ChainActive().Height());
-}
-
-std::string CMasternode::GetHumanReadableStatus(int h) const
-{
-    std::string status;
-    if (IsActive(h))
-    {
-        return "active";
+    switch (state) {
+        case PRE_ENABLED:
+            return "PRE_ENABLED";
+        case ENABLED:
+            return "ENABLED";
+        case PRE_RESIGNED:
+            return "PRE_RESIGNED";
+        case RESIGNED:
+            return "RESIGNED";
+        case COLLATERAL_UNLOCKED:
+            return "COLLATERAL_UNLOCKED";
+        case CRIMINAL_BAN:
+            return "CRIMINAL_BAN";
+        default:
+            return "UNKNOWN";
     }
-    status += ((creationHeight == 0 || creationHeight + GetMnActivationDelay() <= h)) ? "activated" : "created";
-    if (resignHeight != -1 && resignHeight + GetMnResignDelay() > h)
-    {
-        status += ", resigned";
-    }
-    return status;
 }
 
 bool operator==(CMasternode const & a, CMasternode const & b)
@@ -141,6 +168,7 @@ bool operator==(CMasternode const & a, CMasternode const & b)
             a.operatorAuthAddress == b.operatorAuthAddress &&
             a.creationHeight == b.creationHeight &&
             a.resignHeight == b.resignHeight &&
+            a.banHeight == b.banHeight &&
             a.resignTx == b.resignTx
             );
 }
@@ -194,7 +222,7 @@ bool CMasternodesView::CanSpend(const uint256 & nodeId, int height) const
 {
     auto nodePtr = ExistMasternode(nodeId);
     // if not exist or (resigned && delay passed)
-    return !nodePtr || (nodePtr->resignHeight != -1 && nodePtr->resignHeight + GetMnCollateralUnlockDelay() <= height);
+    return !nodePtr || (nodePtr->GetState(height) == CMasternode::COLLATERAL_UNLOCKED);
 }
 
 /*
@@ -239,7 +267,7 @@ bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const 
 {
     // auth already checked!
     auto const node = ExistMasternode(nodeId);
-    if (!node || node->resignHeight != -1 || !node->resignTx.IsNull() || IsAnchorInvolved(nodeId, height))
+    if (!node || node->banHeight != 0 || node->resignHeight != -1 || !node->resignTx.IsNull() || IsAnchorInvolved(nodeId, height))
     {
         return false;
     }
@@ -439,6 +467,8 @@ void CMasternodesView::BlockCriminalMnCoins(std::vector<unsigned char> & metadat
     if (!CheckDoubleSign(criminal.first, criminal.second)) {
         if (!FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
             WriteBlockedCriminalCoins(txid, index, fIsFakeNet);
+
+            /// @todo set mnviewcache[mn]->banHeight to tx (block) height
         }
     }
 }
@@ -466,6 +496,8 @@ void CMasternodesView::DeblockCriminalMnCoins(std::vector<unsigned char> & metad
                 return ;
             }
             auto const & nodeId = (*it)->second;
+
+            /// @todo set mnviewcache[mn]->banHeight to 0
 
             pmasternodesview->MarkMasternodeAsWastedCriminal(nodeId, false);
         }

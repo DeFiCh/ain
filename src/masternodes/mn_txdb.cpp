@@ -248,7 +248,7 @@ void CMasternodesViewDB::WriteBlockedCriminalCoins(uint256 const & txid, uint32_
     db->Write(DBMNBlockedCriminalCoins{DB_MN_BLOCKED_CRIMINAL_COINS, txid, index}, true);
 }
 
-bool CMasternodesViewDB::FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet)
+bool CMasternodesViewDB::FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet) const
 {
     if (fIsFakeNet) {
         return false;

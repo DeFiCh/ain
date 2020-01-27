@@ -191,6 +191,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
                 strprintf("tried to spend locked collateral for %s", prevout.hash.ToString())); /// @todo may be somehow place the height of unlocking?
         }
 
+        /// @todo assert (!??) if replaced with mnview!
         if (pmasternodesview->FindBlockedCriminalCoins(prevout.hash, prevout.n, fIsFakeNet)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "mn-using-criminal-coins",
                 strprintf("tried to spend criminal coins for %s", prevout.hash.ToString()));
