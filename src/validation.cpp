@@ -1559,11 +1559,11 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 uint256 btcTxHash;
                 CMasternodesView::CTeam currentTeam;
                 ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
-                pmasternodesview->SetTeam(currentTeam);
+                mnview.SetTeam(currentTeam);
 
                 continue;
             } else if (CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
-                pmasternodesview->DeblockCriminalMnCoins(metadata);
+                mnview.DeblockCriminalMnCoins(metadata);
             }
         }
 
@@ -2068,7 +2068,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                                tx.GetValueOut()),
                                          REJECT_INVALID, "bad-cr-amount");
                 }
-                pmasternodesview->BlockCriminalMnCoins(metadata);
+                mnview.BlockCriminalMnCoins(metadata);
             } else if (!fIsFakeNet && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
                 CAnchor anchor;
@@ -2076,8 +2076,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 uint256 btcTxHash;
                 CMasternodesView::CTeam currentTeam;
                 ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
-                if (anchor.CheckAuthSigs(pmasternodesview->GetCurrentTeam())) {
-                    pmasternodesview->SetTeam(anchor.nextTeam);
+                if (anchor.CheckAuthSigs(mnview.GetCurrentTeam())) {
+                    mnview.SetTeam(anchor.nextTeam);
                 }
                 auto anchorReward = GetAnchorSubsidy(anchor.height, panchors->GetActiveAnchor()->anchor.height, chainparams.GetConsensus());
                 if (tx.GetValueOut() > anchorReward) {

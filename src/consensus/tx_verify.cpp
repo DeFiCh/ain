@@ -192,7 +192,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         }
 
         /// @todo assert (!??) if replaced with mnview!
-        if (pmasternodesview->FindBlockedCriminalCoins(prevout.hash, prevout.n, fIsFakeNet)) {
+        if (mnview->FindBlockedCriminalCoins(prevout.hash, prevout.n, fIsFakeNet)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "mn-using-criminal-coins",
                 strprintf("tried to spend criminal coins for %s", prevout.hash.ToString()));
         }
