@@ -475,17 +475,17 @@ void CMasternodesView::BlockCriminalMnCoins(std::vector<unsigned char> & metadat
 
             CKeyID mintersKey;
             if (!criminal.first.ExtractMinterKey(mintersKey)) {
-                LogPrintf("DeblockCriminalMnCoins: Can't extract minter key\n");
+                LogPrintf("BlockCriminalMnCoins: Can't extract minter key\n");
                 return ;
             }
-            auto it = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
+            auto it = ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
             if (!it) {
-                LogPrintf("DeblockCriminalMnCoins: Masternode for criminal blockHeader not found\n");
+                LogPrintf("BlockCriminalMnCoins: Masternode for criminal blockHeader not found\n");
                 return ;
             }
             auto const & nodeId = (*it)->second;
 
-            pmasternodesview->MarkMasternodeAsWastedCriminal(nodeId, true);
+            MarkMasternodeAsWastedCriminal(nodeId, true);
 
             /// @todo set mnviewcache[mn]->banHeight to tx (block) height
         }
@@ -501,7 +501,7 @@ void CMasternodesView::DeblockCriminalMnCoins(std::vector<unsigned char> & metad
     ss >> criminal.first >> criminal.second >> txid >> index;
 
     if (!CheckDoubleSign(criminal.first, criminal.second)) {
-        if (!FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
+        if (FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
             EraseBlockedCriminalCoins(txid, index);
 
             CKeyID mintersKey;
@@ -509,7 +509,7 @@ void CMasternodesView::DeblockCriminalMnCoins(std::vector<unsigned char> & metad
                 LogPrintf("DeblockCriminalMnCoins: Can't extract minter key\n");
                 return ;
             }
-            auto it = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
+            auto it = ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
             if (!it) {
                 LogPrintf("DeblockCriminalMnCoins: Masternode for criminal blockHeader not found\n");
                 return ;
