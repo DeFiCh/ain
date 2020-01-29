@@ -32,11 +32,6 @@ int GetMnResignDelay()
     return Params().GetConsensus().mn.resignDelay;
 }
 
-int GetMnCollateralUnlockDelay()
-{
-    return Params().GetConsensus().mn.collateralUnlockDelay;
-}
-
 int GetMnHistoryFrame()
 {
     return Params().GetConsensus().mn.historyFrame;
@@ -61,8 +56,9 @@ CMasternode::CMasternode()
     , operatorType(0)
     , creationHeight(0)
     , resignHeight(-1)
-    , banHeight(0)
+    , banHeight(-1)
     , resignTx()
+    , banTx()
 {
 }
 
@@ -94,9 +90,10 @@ void CMasternode::FromTx(CTransaction const & tx, int heightIn, std::vector<unsi
 
     creationHeight = heightIn;
     resignHeight = -1;
-    banHeight = 0;
+    banHeight = -1;
 
     resignTx = {};
+    banTx = {};
     mintedBlocks = 0;
 }
 
@@ -107,25 +104,27 @@ CMasternode::State CMasternode::GetState() const
 
 CMasternode::State CMasternode::GetState(int h) const
 {
-    if (banHeight != 0) {
-        return State::CRIMINAL_BAN;
-    }
+    assert (banHeight == -1 || resignHeight == -1); // mutually exclusive!: ban XOR resign
 
-    if (resignHeight == -1) {
+    if (resignHeight == -1 && banHeight == -1) { // enabled or pre-enabled
         // Special case for genesis block
         if (creationHeight == 0 || h >= creationHeight + GetMnActivationDelay()) {
             return State::ENABLED;
         }
         return State::PRE_ENABLED;
     }
-
-    if (h < resignHeight + GetMnResignDelay()) {
-        return State::PRE_RESIGNED;
-    }
-    if (h < resignHeight + GetMnCollateralUnlockDelay()) {
+    if (resignHeight != -1) { // pre-resigned or resigned
+        if (h < resignHeight + GetMnResignDelay()) {
+            return State::PRE_RESIGNED;
+        }
         return State::RESIGNED;
     }
-    return State::COLLATERAL_UNLOCKED;
+    if (banHeight != -1) { // pre-banned or banned
+        if (h < banHeight + GetMnResignDelay()) {
+            return State::PRE_BANNED;
+        }
+        return State::BANNED;
+    }
 }
 
 bool CMasternode::IsActive() const
@@ -136,7 +135,7 @@ bool CMasternode::IsActive() const
 bool CMasternode::IsActive(int h) const
 {
     State state = GetState(h);
-    return state == ENABLED || state == PRE_RESIGNED;
+    return state == ENABLED || state == PRE_RESIGNED || state == PRE_BANNED;
 }
 
 std::string CMasternode::GetHumanReadableState(State state)
@@ -150,10 +149,10 @@ std::string CMasternode::GetHumanReadableState(State state)
             return "PRE_RESIGNED";
         case RESIGNED:
             return "RESIGNED";
-        case COLLATERAL_UNLOCKED:
-            return "COLLATERAL_UNLOCKED";
-        case CRIMINAL_BAN:
-            return "CRIMINAL_BAN";
+        case PRE_BANNED:
+            return "PRE_BANNED";
+        case BANNED:
+            return "BANNED";
         default:
             return "UNKNOWN";
     }
@@ -169,7 +168,8 @@ bool operator==(CMasternode const & a, CMasternode const & b)
             a.creationHeight == b.creationHeight &&
             a.resignHeight == b.resignHeight &&
             a.banHeight == b.banHeight &&
-            a.resignTx == b.resignTx
+            a.resignTx == b.resignTx &&
+            a.banTx == b.banTx
             );
 }
 
@@ -222,7 +222,7 @@ bool CMasternodesView::CanSpend(const uint256 & nodeId, int height) const
 {
     auto nodePtr = ExistMasternode(nodeId);
     // if not exist or (resigned && delay passed)
-    return !nodePtr || (nodePtr->GetState(height) == CMasternode::COLLATERAL_UNLOCKED);
+    return !nodePtr || (nodePtr->GetState(height) == CMasternode::RESIGNED) || (nodePtr->GetState(height) == CMasternode::BANNED);
 }
 
 /*
@@ -267,7 +267,12 @@ bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const 
 {
     // auth already checked!
     auto const node = ExistMasternode(nodeId);
-    if (!node || node->banHeight != 0 || node->resignHeight != -1 || !node->resignTx.IsNull() || IsAnchorInvolved(nodeId, height))
+    if (!node)
+    {
+        return false;
+    }
+    auto state = node->GetState(height);
+    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED) || IsAnchorInvolved(nodeId, height)) // if already spoiled by resign or ban, or need for anchor
     {
         return false;
     }
@@ -497,7 +502,7 @@ void CMasternodesView::DeblockCriminalMnCoins(std::vector<unsigned char> & metad
             }
             auto const & nodeId = (*it)->second;
 
-            /// @todo set mnviewcache[mn]->banHeight to 0
+            /// @todo set mnviewcache[mn]->banHeight to -1
 
             pmasternodesview->MarkMasternodeAsWastedCriminal(nodeId, false);
         }

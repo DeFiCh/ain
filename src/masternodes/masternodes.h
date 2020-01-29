@@ -52,7 +52,6 @@ inline void Unserialize(Stream& s, MasternodesTxType & txType) {
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
 int GetMnActivationDelay();
 int GetMnResignDelay();
-int GetMnCollateralUnlockDelay();
 int GetMnHistoryFrame();
 CAmount GetMnCollateralAmount();
 CAmount GetMnCreationFee(int height);
@@ -65,8 +64,8 @@ public:
         ENABLED,
         PRE_RESIGNED,
         RESIGNED,
-        COLLATERAL_UNLOCKED,
-        CRIMINAL_BAN
+        PRE_BANNED,
+        BANNED
     };
 
     //! Minted blocks counter
@@ -89,6 +88,7 @@ public:
 
     //! This fields are for transaction rollback (by disconnecting block)
     uint256 resignTx;
+    uint256 banTx;
 
     //! empty constructor
     CMasternode();
@@ -121,6 +121,7 @@ public:
         READWRITE(banHeight);
 
         READWRITE(resignTx);
+        READWRITE(banTx);
     }
 
     //! equality test
