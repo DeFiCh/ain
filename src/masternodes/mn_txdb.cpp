@@ -21,7 +21,6 @@ static const char DB_PRUNE_HEIGHT = 'P';    // single record with pruned height 
 
 static const char DB_MN_BLOCK_HEADERS = 'h';
 static const char DB_MN_CRIMINALS = 'm';
-static const char DB_MN_BLOCKED_CRIMINAL_COINS = 'C';
 static const char DB_MN_CURRENT_TEAM = 't';
 
 struct DBMNBlockHeadersSearchKey
@@ -237,44 +236,6 @@ bool CMasternodesViewDB::EraseCurrentTeam()
     }
 
     return true;
-}
-
-void CMasternodesViewDB::WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet)
-{
-    if (fIsFakeNet) {
-        return;
-    }
-
-    db->Write(DBMNBlockedCriminalCoins{DB_MN_BLOCKED_CRIMINAL_COINS, txid, index}, true);
-}
-
-bool CMasternodesViewDB::FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet) const
-{
-    if (fIsFakeNet) {
-        return false;
-    }
-
-    DBMNBlockedCriminalCoins prefix{DB_MN_BLOCKED_CRIMINAL_COINS, txid, index};
-    boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
-    pcursor->Seek(prefix);
-
-    if (pcursor->Valid()) {
-        DBMNBlockedCriminalCoins key;
-        if (pcursor->GetKey(key)) {
-            bool active;
-            if (pcursor->GetValue(active)) {
-                return active;
-            } else {
-                return error("MNDB::FindBlockedCriminalCoins() : unable to read value");
-            }
-        }
-    }
-    return false;
-}
-
-void CMasternodesViewDB::EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index)
-{
-    db->Erase(DBMNBlockedCriminalCoins{DB_MN_BLOCKED_CRIMINAL_COINS, txid});
 }
 
 //void CMasternodesViewDB::WriteDeadIndex(int height, uint256 const & txid, char type)
