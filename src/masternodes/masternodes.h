@@ -260,10 +260,6 @@ public:
     virtual bool FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true) { assert(false); }
     virtual void EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash) { assert(false); }
 
-    virtual void WriteBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) { assert(false); }
-    virtual bool FindBlockedCriminalCoins(uint256 const & txid, uint32_t const & index, bool fIsFakeNet = true) const { assert(false); }
-    virtual void EraseBlockedCriminalCoins(uint256 const & txid, uint32_t const & index) { assert(false); }
-
     virtual void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact) { assert(false); }
     virtual void EraseCriminal(uint256 const & mnId) { assert(false); }
 
@@ -286,11 +282,12 @@ public:
 
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
     void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
+    boost::optional<CDoubleSignFact> FindCriminalProofForMasternode(uint256 const & id);
     void MarkMasternodeAsWastedCriminal(uint256 const & id, bool value);
     void RemoveMasternodeFromCriminals(uint256 const &criminalID);
-    void BlockCriminalMnCoins(std::vector<unsigned char> & metadata);
-    void DeblockCriminalMnCoins(std::vector<unsigned char> & metadata);
-    static bool ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
+    void BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height);
+    void UnbanCriminal(std::vector<unsigned char> & metadata);
+    static bool ExtractCriminalProofFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
     static bool ExtractAnchorRewardFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
 protected:

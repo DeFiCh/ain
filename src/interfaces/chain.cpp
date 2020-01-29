@@ -277,12 +277,6 @@ public:
         return pmasternodesview->CanSpend(nodeId, height);
     }
 
-    bool mnFindBlockedCriminalCoins(const uint256 & txid, int index) const override
-    {
-        LOCK(cs_main);
-        return pmasternodesview->FindBlockedCriminalCoins(txid, index, fIsFakeNet);
-    }
-
     CMasternode const * mnExists(const uint256 & nodeId) const override
     {
         LOCK(cs_main);

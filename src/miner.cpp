@@ -199,7 +199,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             auto itFirstMN = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, key);
             if (itFirstMN) {
                 CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-                metadata << criminal.blockHeader << criminal.conflictBlockHeader << (*itFirstMN)->second << 0; // TODO: SS 0 - number output for blocking
+                metadata << criminal.blockHeader << criminal.conflictBlockHeader << (*itFirstMN)->second;
 
                 CMutableTransaction criminalTx;
                 criminalTx.vin.resize(1);
