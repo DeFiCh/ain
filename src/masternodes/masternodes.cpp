@@ -445,6 +445,15 @@ void CMasternodesView::MarkMasternodeAsCriminals(uint256 const & id, CBlockHeade
     criminals.emplace(std::make_pair(id, CDoubleSignFact{blockHeader, conflictBlockHeader, false}));
 }
 
+boost::optional<CDoubleSignFact> CMasternodesView::FindCriminalProofForMasternode(uint256 const & id)
+{
+    auto it = criminals.find(id);
+    if (it != criminals.end()) {
+        return {it->second};
+    }
+    return {};
+}
+
 void CMasternodesView::MarkMasternodeAsWastedCriminal(uint256 const & id, bool value)
 {
     auto it = criminals.find(id);
@@ -461,69 +470,54 @@ void CMasternodesView::RemoveMasternodeFromCriminals(uint256 const &criminalID)
     }
 }
 
-void CMasternodesView::BlockCriminalMnCoins(std::vector<unsigned char> & metadata)
+void CMasternodesView::BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height)
 {
     std::pair<CBlockHeader, CBlockHeader> criminal;
-    uint256 txid;
+    uint256 mnid;
     uint32_t index;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> criminal.first >> criminal.second >> txid >> index;
+    ss >> criminal.first >> criminal.second >> mnid;
 
     if (!CheckDoubleSign(criminal.first, criminal.second)) {
-        if (!FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
-            WriteBlockedCriminalCoins(txid, index, fIsFakeNet);
-
-            CKeyID mintersKey;
-            if (!criminal.first.ExtractMinterKey(mintersKey)) {
-                LogPrintf("BlockCriminalMnCoins: Can't extract minter key\n");
-                return ;
-            }
-            auto it = ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
-            if (!it) {
-                LogPrintf("BlockCriminalMnCoins: Masternode for criminal blockHeader not found\n");
-                return ;
-            }
-            auto const & nodeId = (*it)->second;
-
-            MarkMasternodeAsWastedCriminal(nodeId, true);
-
-            /// @todo set mnviewcache[mn]->banHeight to tx (block) height
+        if (!FindCriminalProofForMasternode(mnid)) {
+            MarkMasternodeAsCriminals(mnid, criminal.first, criminal.second);
         }
+
+        auto const node = ExistMasternode(mnid);
+        if (node) {
+            auto state = node->GetState(height);
+            if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
+                allNodes[mnid] = *node; // !! cause may be cached!
+                allNodes[mnid].banHeight = height;
+                allNodes[mnid].banTx = txid;
+            }
+        }
+
+        MarkMasternodeAsWastedCriminal(mnid, true);
     }
 }
 
-void CMasternodesView::DeblockCriminalMnCoins(std::vector<unsigned char> & metadata)
+void CMasternodesView::UnbanCriminal(std::vector<unsigned char> & metadata)
 {
     std::pair<CBlockHeader, CBlockHeader> criminal;
-    uint256 txid;
+    uint256 mnid;
     uint32_t index;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> criminal.first >> criminal.second >> txid >> index;
+    ss >> criminal.first >> criminal.second >> mnid;
 
     if (!CheckDoubleSign(criminal.first, criminal.second)) {
-        if (FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
-            EraseBlockedCriminalCoins(txid, index);
-
-            CKeyID mintersKey;
-            if (!criminal.first.ExtractMinterKey(mintersKey)) {
-                LogPrintf("DeblockCriminalMnCoins: Can't extract minter key\n");
-                return ;
-            }
-            auto it = ExistMasternode(CMasternodesView::AuthIndex::ByOperator, mintersKey);
-            if (!it) {
-                LogPrintf("DeblockCriminalMnCoins: Masternode for criminal blockHeader not found\n");
-                return ;
-            }
-            auto const & nodeId = (*it)->second;
-
-            /// @todo set mnviewcache[mn]->banHeight to -1
-
-            pmasternodesview->MarkMasternodeAsWastedCriminal(nodeId, false);
+        auto const node = ExistMasternode(mnid);
+        if (node) {
+            allNodes[mnid] = *node; // !! cause may be cached!
+            allNodes[mnid].banHeight = -1;
+            allNodes[mnid].banTx = {};
         }
+
+        MarkMasternodeAsWastedCriminal(mnid, false);
     }
 }
 
-bool CMasternodesView::ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
+bool CMasternodesView::ExtractCriminalProofFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
 {
     if (!tx.IsCoinBase() || tx.vout.size() == 0) {
         return false;
