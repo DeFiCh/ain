@@ -234,7 +234,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"resignmasternode",
-        "\nCreates (and submits to local node and network) a transaction resigning your masternode. Collateral will be unlocked after " + std::to_string(GetMnCollateralUnlockDelay()) + " blocks.\n"
+        "\nCreates (and submits to local node and network) a transaction resigning your masternode. Collateral will be unlocked after " + std::to_string(GetMnResignDelay()) + " blocks.\n"
         "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the MN's owner (collateral) address" +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
@@ -276,15 +276,15 @@ UniValue resignmasternode(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("You are not the owner of masternode %s, or it does not exist", nodeIdStr));
         }
         auto nodePtr = pmasternodesview->ExistMasternode(nodeId);
-        if (nodePtr->banHeight != 0)
+        if (nodePtr->banHeight != -1)
         {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was criminal, banned at height %i", nodeIdStr, nodePtr->banHeight));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was criminal, banned at height %i by tx %s", nodeIdStr, nodePtr->banHeight, nodePtr->banTx.GetHex()));
         }
 
-        if (!nodePtr->resignTx.IsNull())
+        if (!nodePtr->resignHeight != -1)
         {
             /// @todo adjust delays and heights!
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight + GetMnCollateralUnlockDelay() ));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight + GetMnResignDelay()));
         }
         ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
     }
@@ -337,8 +337,9 @@ UniValue mnToJSON(CMasternode const & node)
 
     ret.pushKV("creationHeight", node.creationHeight);
     ret.pushKV("resignHeight", node.resignHeight);
-
     ret.pushKV("resignTx", node.resignTx.GetHex());
+    ret.pushKV("banHeight", node.banHeight);
+    ret.pushKV("banTx", node.banTx.GetHex());
     ret.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
     /// @todo add unlock height and|or real resign height
 

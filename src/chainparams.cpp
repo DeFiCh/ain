@@ -144,7 +144,6 @@ public:
         // Masternodes' params
         consensus.mn.activationDelay = 1500;
         consensus.mn.resignDelay = 300;
-        consensus.mn.collateralUnlockDelay = 300;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 100 * COIN;
         consensus.mn.historyFrame = 300;
@@ -278,7 +277,6 @@ public:
         // Masternodes' params
         consensus.mn.activationDelay = 10;
         consensus.mn.resignDelay = 10;
-        consensus.mn.collateralUnlockDelay = 15;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.historyFrame = 300;
@@ -393,7 +391,6 @@ public:
         // Masternodes' params
         consensus.mn.activationDelay = 10;
         consensus.mn.resignDelay = 10;
-        consensus.mn.collateralUnlockDelay = 15;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.historyFrame = 300;

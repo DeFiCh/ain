@@ -113,7 +113,7 @@ class AnchorsTest (BitcoinTestFramework):
 
 
     def run_test(self):
-        assert_equal(len(self.nodes[0].mn_list()), 8)
+        assert_equal(len(self.nodes[0].listmasternodes()), 8)
 
         disconnect_nodes(self.nodes[0], 1)
         self.nodes[0].generate(17)
