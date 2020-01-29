@@ -1562,8 +1562,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 mnview.SetTeam(currentTeam);
 
                 continue;
-            } else if (CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
-                mnview.DeblockCriminalMnCoins(metadata);
+            } else if (CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
+                mnview.UnbanCriminal(metadata);
             }
         }
 
@@ -2061,14 +2061,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             control.Add(vChecks);
         } else {
             std::vector<unsigned char> metadata;
-            if (!fIsFakeNet && CMasternodesView::ExtractCriminalCoinsFromTx(tx, metadata)) {
+            if (!fIsFakeNet && CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
                 if (tx.GetValueOut() > 0) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): criminal detention pays too much (actual=%d)",
                                                tx.GetValueOut()),
                                          REJECT_INVALID, "bad-cr-amount");
                 }
-                mnview.BlockCriminalMnCoins(metadata);
+                mnview.BanCriminal(tx.GetHash(), metadata, block.height);
             } else if (!fIsFakeNet && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
                 CAnchor anchor;
