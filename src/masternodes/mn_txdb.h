@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_MASTERNODES_MN_TXDB_H
-#define BITCOIN_MASTERNODES_MN_TXDB_H
+#ifndef DEFI_MASTERNODES_MN_TXDB_H
+#define DEFI_MASTERNODES_MN_TXDB_H
 
 #include <dbwrapper.h>
 #include <masternodes/masternodes.h>
@@ -118,4 +118,4 @@ public:
     bool Flush() override;
 };
 
-#endif // BITCOIN_MASTERNODES_MN_TXDB_H
+#endif // DEFI_MASTERNODES_MN_TXDB_H

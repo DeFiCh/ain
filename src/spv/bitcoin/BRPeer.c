@@ -764,7 +764,7 @@ static int _BRPeerAcceptMerkleblockMessage(BRPeer *peer, const uint8_t *msg, siz
     return r;
 }
 
-// described in BIP61: https://github.com/bitcoin/bips/blob/master/bip-0061.mediawiki
+// described in BIP61: https://github.com/b_itcoin/bips/blob/master/bip-0061.mediawiki
 static int _BRPeerAcceptRejectMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
@@ -814,7 +814,7 @@ static int _BRPeerAcceptRejectMessage(BRPeer *peer, const uint8_t *msg, size_t m
     return r;
 }
 
-// BIP133: https://github.com/bitcoin/bips/blob/master/bip-0133.mediawiki
+// BIP133: https://github.com/b_itcoin/bips/blob/master/bip-0133.mediawiki
 static int _BRPeerAcceptFeeFilterMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;

@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_MASTERNODES_ANCHORS_H
-#define BITCOIN_MASTERNODES_ANCHORS_H
+#ifndef DEFI_MASTERNODES_ANCHORS_H
+#define DEFI_MASTERNODES_ANCHORS_H
 
 #include <masternodes/masternodes.h>
 #include <script/script.h>
@@ -308,4 +308,4 @@ extern std::unique_ptr<CAnchorAuthIndex> panchorauths;
 extern std::unique_ptr<CAnchorIndex> panchors;
 extern std::unique_ptr<CAnchorConfirms> panchorconfirms;
 
-#endif // BITCOIN_MASTERNODES_ANCHORS_H
+#endif // DEFI_MASTERNODES_ANCHORS_H
