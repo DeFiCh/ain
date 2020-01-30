@@ -509,9 +509,8 @@ void CMasternodesView::UnbanCriminal(const uint256 txid, std::vector<unsigned ch
     ss >> criminal.first >> criminal.second >> mnid;
 
     auto it = criminals.find(mnid);
-    if (it == criminals.end()) {
-        return ; // TODO: it should never happen
-    }
+
+    assert(it != criminals.end());
 
     if (criminals[mnid].wastedTxId != uint256{} && criminals[mnid].wastedTxId != txid) {
         return ; // skip reverting repeated transactions
