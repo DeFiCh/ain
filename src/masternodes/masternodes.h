@@ -283,7 +283,7 @@ public:
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
     void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
     boost::optional<CDoubleSignFact> FindCriminalProofForMasternode(uint256 const & id);
-    void MarkMasternodeAsWastedCriminal(uint256 const &mnId, uint256 const *txId);
+    void MarkMasternodeAsWastedCriminal(uint256 const &mnId, uint256 const &txId);
     void RemoveMasternodeFromCriminals(uint256 const &criminalID);
     void BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height);
     void UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata);
