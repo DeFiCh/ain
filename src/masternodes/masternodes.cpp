@@ -454,14 +454,14 @@ boost::optional<CDoubleSignFact> CMasternodesView::FindCriminalProofForMasternod
     return {};
 }
 
-void CMasternodesView::MarkMasternodeAsWastedCriminal(uint256 const &mnId, uint256 const *txId)
+void CMasternodesView::MarkMasternodeAsWastedCriminal(uint256 const &mnId, uint256 const &txId)
 {
-    if (criminals[mnId].wastedTxId != uint256{} && !txId) { // skip repeated transactions
+    if (criminals[mnId].wastedTxId != uint256{} && txId != uint256{}) { // skip repeated transactions
         return ;
     }
     auto it = criminals.find(mnId);
     if (it != criminals.end()) {
-        criminals[mnId].wastedTxId = txId? *txId : uint256{};
+        criminals[mnId].wastedTxId = txId;
     }
 }
 
@@ -496,7 +496,7 @@ void CMasternodesView::BanCriminal(const uint256 txid, std::vector<unsigned char
             }
         }
 
-        MarkMasternodeAsWastedCriminal(mnid, &txid);
+        MarkMasternodeAsWastedCriminal(mnid, txid);
     }
 }
 
@@ -525,7 +525,7 @@ void CMasternodesView::UnbanCriminal(const uint256 txid, std::vector<unsigned ch
             allNodes[mnid].banTx = {};
         }
 
-        MarkMasternodeAsWastedCriminal(mnid, nullptr);
+        MarkMasternodeAsWastedCriminal(mnid, uint256{});
     }
 }
 
