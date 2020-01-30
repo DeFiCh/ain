@@ -32,7 +32,7 @@ extern "C" {
 #endif
 
 // BIP38 is a method for encrypting private keys with a passphrase
-// https://github.com/bitcoin/bips/blob/master/bip-0038.mediawiki
+// https://github.com/b_itcoin/bips/blob/master/bip-0038.mediawiki
 
 int BRBIP38KeyIsValid(const char *bip38Key);
 

@@ -184,7 +184,7 @@ static size_t _BRTransactionOutputData(const BRTransaction *tx, uint8_t *data, s
 }
 
 // writes the BIP143 witness program data that needs to be hashed and signed for the tx input at index
-// https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki
+// https://github.com/b_itcoin/bips/blob/master/bip-0143.mediawiki
 // returns number of bytes written, or total len needed if data is NULL
 static size_t _BRTransactionWitnessData(const BRTransaction *tx, uint8_t *data, size_t dataLen, size_t index,
                                         int hashType)
@@ -585,7 +585,7 @@ size_t BRTransactionSize(const BRTransaction *tx)
     return size + witSize;
 }
 
-// virtual transaction size as defined by BIP141: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki
+// virtual transaction size as defined by BIP141: https://github.com/b_itcoin/bips/blob/master/bip-0141.mediawiki
 size_t BRTransactionVSize(const BRTransaction *tx)
 {
     BRTxInput *input;
@@ -615,7 +615,7 @@ size_t BRTransactionVSize(const BRTransaction *tx)
     return (size*4 + witSize + 3)/4;
 }
 
-// minimum transaction fee needed for tx to relay across the bitcoin network (bitcoind 0.12 default min-relay fee-rate)
+// minimum transaction fee needed for tx to relay across the bitcoin network (defid 0.12 default min-relay fee-rate)
 uint64_t BRTransactionStandardFee(const BRTransaction *tx)
 {
     assert(tx != NULL);
@@ -714,7 +714,7 @@ int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCo
     else return 0;
 }
 
-// true if tx meets IsStandard() rules: https://bitcoin.org/en/developer-guide#standard-transactions
+// true if tx meets IsStandard() rules: https://b_itcoin.org/en/developer-guide#standard-transactions
 int BRTransactionIsStandard(const BRTransaction *tx)
 {
     int r = 1;

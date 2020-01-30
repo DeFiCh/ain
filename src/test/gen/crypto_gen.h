@@ -1,8 +1,8 @@
-// Copyright (c) 2018 The Bitcoin Core developers
+// Copyright (c) 2018 The B_itcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#ifndef BITCOIN_TEST_GEN_CRYPTO_GEN_H
-#define BITCOIN_TEST_GEN_CRYPTO_GEN_H
+#ifndef DEFI_TEST_GEN_CRYPTO_GEN_H
+#define DEFI_TEST_GEN_CRYPTO_GEN_H
 
 #include <key.h>
 #include <random.h>

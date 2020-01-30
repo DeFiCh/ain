@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SPV_SPV_WRAPPER_H
-#define BITCOIN_SPV_SPV_WRAPPER_H
+#ifndef DEFI_SPV_SPV_WRAPPER_H
+#define DEFI_SPV_SPV_WRAPPER_H
 
 #include <dbwrapper.h>
 #include <uint256.h>
@@ -222,4 +222,4 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
 TBytes CreateScriptForAddress(char const * address);
 
 }
-#endif // BITCOIN_SPV_SPV_WRAPPER_H
+#endif // DEFI_SPV_SPV_WRAPPER_H

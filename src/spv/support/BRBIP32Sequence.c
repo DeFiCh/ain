@@ -32,7 +32,7 @@
 #define BIP32_SEED_KEY "Bitcoin seed"
 
 // BIP32 is a scheme for deriving chains of addresses from a seed value
-// https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
+// https://github.com/b_itcoin/bips/blob/master/bip-0032.mediawiki
 
 // Private parent key -> private child key
 //
