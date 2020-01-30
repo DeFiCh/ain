@@ -1563,7 +1563,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 continue;
             } else if (CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
-                mnview.UnbanCriminal(metadata);
+                mnview.UnbanCriminal(tx.GetHash(), metadata);
             }
         }
 
