@@ -134,7 +134,7 @@ class CDoubleSignFact
 public:
     CBlockHeader blockHeader;
     CBlockHeader conflictBlockHeader;
-    bool wasted;
+    uint256 wastedTxId;
 
     ADD_SERIALIZE_METHODS;
 
@@ -143,7 +143,7 @@ public:
     {
         READWRITE(blockHeader);
         READWRITE(conflictBlockHeader);
-        READWRITE(wasted);
+        READWRITE(wastedTxId);
     }
 
     friend bool operator==(CDoubleSignFact const & a, CDoubleSignFact const & b);
@@ -240,7 +240,7 @@ public:
     {
         CMnCriminals uncaughtCriminals;
         for (auto && criminal : criminals) {
-            if (!criminal.second.wasted) {
+            if (criminal.second.wastedTxId == uint256{}) {
                 uncaughtCriminals.insert(criminal);
             }
         }
@@ -283,10 +283,10 @@ public:
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
     void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
     boost::optional<CDoubleSignFact> FindCriminalProofForMasternode(uint256 const & id);
-    void MarkMasternodeAsWastedCriminal(uint256 const & id, bool value);
+    void MarkMasternodeAsWastedCriminal(uint256 const &mnId, uint256 const *txId);
     void RemoveMasternodeFromCriminals(uint256 const &criminalID);
     void BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height);
-    void UnbanCriminal(std::vector<unsigned char> & metadata);
+    void UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata);
     static bool ExtractCriminalProofFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
     static bool ExtractAnchorRewardFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 

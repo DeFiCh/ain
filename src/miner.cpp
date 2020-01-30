@@ -189,6 +189,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         }
     }
 
+    CTransactionRef criminalTx = nullptr;
     if (!fIsFakeNet && pmasternodesview->GetUncaughtCriminals().size() != 0) {
         CMasternodesView::CMnCriminals criminals = pmasternodesview->GetUncaughtCriminals();
         CMasternodesView::CMnCriminals::iterator itCriminalMN = criminals.begin();
@@ -201,15 +202,16 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
                 metadata << criminal.blockHeader << criminal.conflictBlockHeader << (*itFirstMN)->second;
 
-                CMutableTransaction criminalTx;
-                criminalTx.vin.resize(1);
-                criminalTx.vin[0].prevout.SetNull();
-                criminalTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-                criminalTx.vout.resize(1);
-                criminalTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-                criminalTx.vout[0].nValue = 0;
+                CMutableTransaction newCriminalTx;
+                newCriminalTx.vin.resize(1);
+                newCriminalTx.vin[0].prevout.SetNull();
+                newCriminalTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                newCriminalTx.vout.resize(1);
+                newCriminalTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+                newCriminalTx.vout[0].nValue = 0;
 
-                pblock->vtx.push_back(MakeTransactionRef(std::move(criminalTx)));
+                pblock->vtx.push_back(MakeTransactionRef(std::move(newCriminalTx)));
+                criminalTx = pblock->vtx.back();
 
                 pblocktemplate->vTxFees.push_back(0);
                 pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
@@ -264,7 +266,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int64_t nTime2 = GetTimeMicros();
 
     if (pmasternodesview->GetUncaughtCriminals().size() != 0) {
-        pmasternodesview->MarkMasternodeAsWastedCriminal(pmasternodesview->GetUncaughtCriminals().begin()->first, true);
+        pmasternodesview->MarkMasternodeAsWastedCriminal(pmasternodesview->GetUncaughtCriminals().begin()->first, &criminalTx->GetHash());
     }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
