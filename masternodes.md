@@ -10,9 +10,9 @@ The primary activity (minting new coins, voting for anchors) is performed by ope
 In this case, operator's address is equal to owner's (collateral) address.
 1. Announce masternode with your collateral address. You should keep control of that address (have a private key) or you'll loose your collateral. THE OPERATION WILL BURN ANNOUNCEMENT FEE! Don't do it if you're not sure that the address is correct. 
 ```
-bitcoin-cli createmasternode \{\"collateralAddress\":\"YOUR_ADDRESS\"\}
+defi-cli createmasternode \{\"collateralAddress\":\"YOUR_ADDRESS\"\}
 ```
-The transaction will be funded automatically by any accessible coins in your wallet (the same way as 'fundrawtransaction' acts). Or you can specify custom UTXOs for that (run ```bitcoin-cli help createmasternode```).
+The transaction will be funded automatically by any accessible coins in your wallet (the same way as 'fundrawtransaction' acts). Or you can specify custom UTXOs for that (run ```defi-cli help createmasternode```).
 The result is the transaction hash being created that acts as masternode's ID. When this transaction gets into mempool (and then, in chain), your collateral will be locked until resigning or ban. Don't be afraid if you can't see it in UTXO lists/wallet - it wasn't lost, just hidden. 
 2. Place your addresses in config file:
 ```
@@ -21,11 +21,11 @@ masternode_operator=YOUR_ADDRESS
 ```
 3. Restart the node. After tx got into blockchain, you can see the result of masternode's creation by issuing
 ```
-bitcoin-cli listmasternodes
+defi-cli listmasternodes
 ```
 4. If you decide to resign your masternode, issue
 ```
-bitcoin-cli resignmasternode
+defi-cli resignmasternode
 ```
 Important: you should keep small amount of coins on a collateral address in different from collateral's UTXO due to this transaction will be authorized by matching collateral (owner) address and should be funded (at least by one TxOut) from that UTXO! Funding will be performed automatically (as in 'createmasternode') or you can specify custom UTXO (as in case with 'createmasternode', see rpc's help).
 
@@ -33,7 +33,7 @@ Important: you should keep small amount of coins on a collateral address in diff
 The same as in previous scenario, but the 'operator' should provide you his address before masternode creation:
 1. Announce masternode as before, but specify both: operator's address and YOUR collateral address.
 ```
-bitcoin-cli createmasternode \{\"operatorAuthAddress\":\"OPERATOR_ADDRESS\",\"collateralAddress\":\"YOUR_ADDRESS\"\}
+defi-cli createmasternode \{\"operatorAuthAddress\":\"OPERATOR_ADDRESS\",\"collateralAddress\":\"YOUR_ADDRESS\"\}
 ```
 2. Operator places ```masternode_operator=OPERATOR_ADDRESS``` 
 in his config file, and you place ```masternode_owner=YOUR_ADDRESS``` in your own.

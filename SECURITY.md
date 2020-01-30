@@ -2,8 +2,8 @@
 
 ## Supported Versions
 
-See our website for versions of Bitcoin Core that are currently supported with
-security updates: https://bitcoincore.org/en/lifecycle/#schedule
+See our website for versions of Defi Core that are currently supported with
+security updates: https://b_itcoincore.org/en/lifecycle/#schedule
 
 ## Reporting a Vulnerability
 
