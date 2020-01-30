@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 
-// bech32 address format: https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki
+// bech32 address format: https://github.com/b_itcoin/bips/blob/master/bip-0173.mediawiki
 
 // returns the number of bytes written to data42 (maximum of 42)
 size_t BRBech32Decode(char *hrp84, uint8_t *data42, const char *addr);

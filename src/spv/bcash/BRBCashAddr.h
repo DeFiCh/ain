@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 
-// b-cash address format: https://github.com/bitcoincashorg/spec/blob/master/cashaddr.md
+// b-cash address format: https://github.com/b_itcoincashorg/spec/blob/master/cashaddr.md
 
 // returns the number of bytes written to bitcoinAddr36 (maximum of 36)
 size_t BRBCashAddrDecode(char *bitcoinAddr36, const char *bCashAddr);

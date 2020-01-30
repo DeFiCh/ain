@@ -1,5 +1,5 @@
-#ifndef BITCOIN_POS_KERNEL_H
-#define BITCOIN_POS_KERNEL_H
+#ifndef DEFI_POS_KERNEL_H
+#define DEFI_POS_KERNEL_H
 
 #include <uint256.h>
 #include <arith_uint256.h>
@@ -41,4 +41,4 @@ namespace pos {
     uint256 ComputeStakeModifier(uint256 prevStakeModifier, const CKeyID& key);
 }
 
-#endif // BITCOIN_POS_KERNEL_H
+#endif // DEFI_POS_KERNEL_H

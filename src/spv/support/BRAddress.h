@@ -34,7 +34,7 @@
 extern "C" {
 #endif
 
-// bitcoin script opcodes: https://en.bitcoin.it/wiki/Script#Constants
+// bitcoin script opcodes: https://en.b_itcoin.it/wiki/Script#Constants
 #define OP_0           0x00
 #define OP_PUSHDATA1   0x4c
 #define OP_PUSHDATA2   0x4d

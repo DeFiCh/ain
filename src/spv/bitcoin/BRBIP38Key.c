@@ -45,7 +45,7 @@
 #define BIP38_SCRYPT_EC_P      1
 
 // BIP38 is a method for encrypting private keys with a passphrase
-// https://github.com/bitcoin/bips/blob/master/bip-0038.mediawiki
+// https://github.com/b_itcoin/bips/blob/master/bip-0038.mediawiki
 
 static UInt256 _BRBIP38DerivePassfactor(uint8_t flag, const uint8_t *entropy, const char *passphrase)
 {
