@@ -1,9 +1,9 @@
-// Copyright (c) 2009-2018 The Bitcoin Core developers
+// Copyright (c) 2009-2018 The B_itcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_TEST_PAYMENTREQUESTDATA_H
-#define BITCOIN_QT_TEST_PAYMENTREQUESTDATA_H
+#ifndef DEFI_QT_TEST_PAYMENTREQUESTDATA_H
+#define DEFI_QT_TEST_PAYMENTREQUESTDATA_H
 
 //
 // Data for paymentservertests.cpp
@@ -462,4 +462,4 @@ XR2T3Gy2LzRvhVA25QgGqpz0/juS2BtmNbsZPkN9gMMwKimgzc+PuCzmEKwPK9cQ\
 YQ==\
 ";
 
-#endif // BITCOIN_QT_TEST_PAYMENTREQUESTDATA_H
+#endif // DEFI_QT_TEST_PAYMENTREQUESTDATA_H

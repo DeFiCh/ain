@@ -165,7 +165,7 @@ int BRPrivKeyIsValid(const char *privKey)
     dataLen = BRBase58CheckDecode(data, sizeof(data), privKey);
     strLen = strlen(privKey);
     
-    if (dataLen == 33 || dataLen == 34) { // wallet import format: https://en.bitcoin.it/wiki/Wallet_import_format
+    if (dataLen == 33 || dataLen == 34) { // wallet import format: https://en.b_itcoin.it/wiki/Wallet_import_format
         r = (data[0] == BRGetChainParams()->privkey);
     }
     else if ((strLen == 30 || strLen == 22) && privKey[0] == 'S') { // mini private key format
