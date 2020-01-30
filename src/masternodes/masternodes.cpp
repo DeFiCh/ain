@@ -182,7 +182,7 @@ bool operator==(CDoubleSignFact const & a, CDoubleSignFact const & b)
 {
     return (a.blockHeader.GetHash() == b.blockHeader.GetHash() &&
             a.conflictBlockHeader.GetHash() == b.conflictBlockHeader.GetHash() &&
-            a.wasted == b.wasted
+            a.wastedTxId == b.wastedTxId
     );
 }
 
@@ -442,7 +442,7 @@ bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHea
 
 void CMasternodesView::MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader)
 {
-    criminals.emplace(std::make_pair(id, CDoubleSignFact{blockHeader, conflictBlockHeader, false}));
+    criminals.emplace(std::make_pair(id, CDoubleSignFact{blockHeader, conflictBlockHeader, uint256{}}));
 }
 
 boost::optional<CDoubleSignFact> CMasternodesView::FindCriminalProofForMasternode(uint256 const & id)
@@ -454,11 +454,14 @@ boost::optional<CDoubleSignFact> CMasternodesView::FindCriminalProofForMasternod
     return {};
 }
 
-void CMasternodesView::MarkMasternodeAsWastedCriminal(uint256 const & id, bool value)
+void CMasternodesView::MarkMasternodeAsWastedCriminal(uint256 const &mnId, uint256 const *txId)
 {
-    auto it = criminals.find(id);
+    if (criminals[mnId].wastedTxId != uint256{} && !txId) { // skip repeated transactions
+        return ;
+    }
+    auto it = criminals.find(mnId);
     if (it != criminals.end()) {
-        criminals[id].wasted = value;
+        criminals[mnId].wastedTxId = txId? *txId : uint256{};
     }
 }
 
@@ -486,24 +489,33 @@ void CMasternodesView::BanCriminal(const uint256 txid, std::vector<unsigned char
         auto const node = ExistMasternode(mnid);
         if (node) {
             auto state = node->GetState(height);
-            if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
+            if (state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED) {
                 allNodes[mnid] = *node; // !! cause may be cached!
                 allNodes[mnid].banHeight = height;
                 allNodes[mnid].banTx = txid;
             }
         }
 
-        MarkMasternodeAsWastedCriminal(mnid, true);
+        MarkMasternodeAsWastedCriminal(mnid, &txid);
     }
 }
 
-void CMasternodesView::UnbanCriminal(std::vector<unsigned char> & metadata)
+void CMasternodesView::UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata)
 {
     std::pair<CBlockHeader, CBlockHeader> criminal;
     uint256 mnid;
     uint32_t index;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> criminal.first >> criminal.second >> mnid;
+
+    auto it = criminals.find(mnid);
+    if (it == criminals.end()) {
+        return ; // TODO: it should never happen
+    }
+
+    if (criminals[mnid].wastedTxId != uint256{} && criminals[mnid].wastedTxId != txid) {
+        return ; // skip reverting repeated transactions
+    }
 
     if (!CheckDoubleSign(criminal.first, criminal.second)) {
         auto const node = ExistMasternode(mnid);
@@ -513,7 +525,7 @@ void CMasternodesView::UnbanCriminal(std::vector<unsigned char> & metadata)
             allNodes[mnid].banTx = {};
         }
 
-        MarkMasternodeAsWastedCriminal(mnid, false);
+        MarkMasternodeAsWastedCriminal(mnid, nullptr);
     }
 }
 
