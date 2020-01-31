@@ -26,7 +26,7 @@ DEFI_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEX
 empty :=
 space := $(empty) $(empty)
 
-OSX_APP=Bitcoin-Qt.app
+OSX_APP=Defi-Qt.app
 OSX_VOLNAME = $(subst $(space),-,$(PACKAGE_NAME))
 OSX_DMG = $(OSX_VOLNAME).dmg
 OSX_BACKGROUND_SVG=background.svg
@@ -41,8 +41,8 @@ OSX_QT_TRANSLATIONS = da,de,es,hu,ru,uk,zh_CN,zh_TW
 
 DIST_DOCS = $(wildcard doc/*.md) $(wildcard doc/release-notes/*.md)
 DIST_CONTRIB = $(top_srcdir)/contrib/defi-cli.bash-completion \
-               $(top_srcdir)/contrib/defi-tx.bash-completion \
-               $(top_srcdir)/contrib/defid.bash-completion \
+	       $(top_srcdir)/contrib/defi-tx.bash-completion \
+	       $(top_srcdir)/contrib/defid.bash-completion \
 	       $(top_srcdir)/contrib/debian/copyright \
 	       $(top_srcdir)/contrib/init \
 	       $(top_srcdir)/contrib/install_db4.sh
@@ -74,11 +74,11 @@ dist-hook:
 
 $(DEFI_WIN_INSTALLER): all-recursive
 	$(MKDIR_P) $(top_builddir)/release
-        STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFID_BIN) $(top_builddir)/release
-        STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_QT_BIN) $(top_builddir)/release
-        STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_CLI_BIN) $(top_builddir)/release
-        STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_TX_BIN) $(top_builddir)/release
-        STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_WALLET_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFID_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_QT_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_CLI_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_TX_BIN) $(top_builddir)/release
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_WALLET_BIN) $(top_builddir)/release
 	@test -f $(MAKENSIS) && $(MAKENSIS) -V2 $(top_builddir)/share/setup.nsi || \
 	  echo error: could not build $@
 	@echo built $@
@@ -99,9 +99,9 @@ $(OSX_APP)/Contents/Resources/defi.icns: $(OSX_INSTALLER_ICONS)
 	$(MKDIR_P) $(@D)
 	$(INSTALL_DATA) $< $@
 
-$(OSX_APP)/Contents/MacOS/Bitcoin-Qt: all-recursive
+$(OSX_APP)/Contents/MacOS/Defi-Qt: all-recursive
 	$(MKDIR_P) $(@D)
-        STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM)  $(DEFI_QT_BIN) $@
+	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM)  $(DEFI_QT_BIN) $@
 
 $(OSX_APP)/Contents/Resources/Base.lproj/InfoPlist.strings:
 	$(MKDIR_P) $(@D)
@@ -109,7 +109,7 @@ $(OSX_APP)/Contents/Resources/Base.lproj/InfoPlist.strings:
 
 OSX_APP_BUILT=$(OSX_APP)/Contents/PkgInfo $(OSX_APP)/Contents/Resources/empty.lproj \
   $(OSX_APP)/Contents/Resources/defi.icns $(OSX_APP)/Contents/Info.plist \
-  $(OSX_APP)/Contents/MacOS/Bitcoin-Qt $(OSX_APP)/Contents/Resources/Base.lproj/InfoPlist.strings
+  $(OSX_APP)/Contents/MacOS/Defi-Qt $(OSX_APP)/Contents/Resources/Base.lproj/InfoPlist.strings
 
 osx_volname:
 	echo $(OSX_VOLNAME) >$@
@@ -134,7 +134,7 @@ $(APP_DIST_DIR)/Applications:
 	@rm -f $@
 	@cd $(@D); $(LN_S) /Applications $(@F)
 
-$(APP_DIST_EXTRAS): $(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Bitcoin-Qt
+$(APP_DIST_EXTRAS): $(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Defi-Qt
 
 $(OSX_DMG): $(APP_DIST_EXTRAS)
 	$(GENISOIMAGE) -no-cache-inodes -D -l -probe -V "$(OSX_VOLNAME)" -no-pad -r -dir-mode 0755 -apple -o $@ dist
@@ -149,7 +149,7 @@ $(APP_DIST_DIR)/.background/$(OSX_BACKGROUND_IMAGE): $(OSX_BACKGROUND_IMAGE_DPIF
 $(APP_DIST_DIR)/.DS_Store: $(OSX_DSSTORE_GEN)
 	$(PYTHON) $< "$@" "$(OSX_VOLNAME)"
 
-$(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Bitcoin-Qt: $(OSX_APP_BUILT) $(OSX_PACKAGING)
+$(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Defi-Qt: $(OSX_APP_BUILT) $(OSX_PACKAGING)
 	INSTALLNAMETOOL=$(INSTALLNAMETOOL)  OTOOL=$(OTOOL) STRIP=$(STRIP) $(PYTHON) $(OSX_DEPLOY_SCRIPT) $(OSX_APP) -translations-dir=$(QT_TRANSLATION_DIR) -add-qt-tr $(OSX_QT_TRANSLATIONS) -verbose 2
 
 deploydir: $(APP_DIST_EXTRAS)
@@ -190,7 +190,7 @@ baseline_filtered.info: baseline.info
 
 test_defi.info: baseline_filtered.info
 	$(MAKE) -C src/ check
-        $(LCOV) -c $(LCOV_OPTS) -d $(abs_builddir)/src -t test_defi -o $@
+	$(LCOV) -c $(LCOV_OPTS) -d $(abs_builddir)/src -t test_defi -o $@
 	$(LCOV) -z $(LCOV_OPTS) -d $(abs_builddir)/src
 
 test_defi_filtered.info: test_defi.info
@@ -207,10 +207,10 @@ functional_test_filtered.info: functional_test.info
 	$(LCOV) -a $@ $(LCOV_OPTS) -o $@
 
 test_defi_coverage.info: baseline_filtered.info test_defi_filtered.info
-        $(LCOV) -a $(LCOV_OPTS) baseline_filtered.info -a test_defi_filtered.info -o $@
+	$(LCOV) -a $(LCOV_OPTS) baseline_filtered.info -a test_defi_filtered.info -o $@
 
 total_coverage.info: test_defi_filtered.info functional_test_filtered.info
-        $(LCOV) -a $(LCOV_OPTS) baseline_filtered.info -a test_defi_filtered.info -a functional_test_filtered.info -o $@ | $(GREP) "\%" | $(AWK) '{ print substr($$3,2,50) "/" $$5 }' > coverage_percent.txt
+	$(LCOV) -a $(LCOV_OPTS) baseline_filtered.info -a test_defi_filtered.info -a functional_test_filtered.info -o $@ | $(GREP) "\%" | $(AWK) '{ print substr($$3,2,50) "/" $$5 }' > coverage_percent.txt
 
 test_defi.coverage/.dirstamp:  test_defi_coverage.info
 	$(GENHTML) -s $(LCOV_OPTS) $< -o $(@D)
@@ -308,7 +308,7 @@ clean-docs:
 	rm -rf doc/doxygen
 
 clean-local: clean-docs
-        rm -rf coverage_percent.txt test_defi.coverage/ total.coverage/ test/tmp/ cache/ $(OSX_APP)
+	rm -rf coverage_percent.txt test_defi.coverage/ total.coverage/ test/tmp/ cache/ $(OSX_APP)
 	rm -rf test/functional/__pycache__ test/functional/test_framework/__pycache__ test/cache share/rpcauth/__pycache__
 	rm -rf osx_volname dist/ dpi36.background.tiff dpi72.background.tiff
 
