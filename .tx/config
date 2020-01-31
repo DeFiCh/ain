@@ -1,7 +1,7 @@
 [main]
 host = https://www.transifex.com
 
-[bitcoin.qt-translation-018x]
-file_filter = src/qt/locale/bitcoin_<lang>.ts
-source_file = src/qt/locale/bitcoin_en.ts
+[defi.qt-translation-018x]
+file_filter = src/qt/locale/defi_<lang>.ts
+source_file = src/qt/locale/defi_en.ts
 source_lang = en
