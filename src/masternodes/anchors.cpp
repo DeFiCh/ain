@@ -24,7 +24,7 @@
 
 std::unique_ptr<CAnchorAuthIndex> panchorauths;
 std::unique_ptr<CAnchorIndex> panchors;
-std::unique_ptr<CAnchorConfirms> panchorconfirms;
+std::unique_ptr<CAnchorAwaitingConfirms> panchorAwaitingConfirms;
 
 template <typename TContainer>
 bool CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID> const & keys)
@@ -572,7 +572,7 @@ uint256 CAnchorConfirmMessage::GetHash() const
     return Hash(ss.begin(), ss.end());
 }
 
-const CAnchorConfirmMessage *CAnchorConfirms::Exist(HashConfirmMessage const &hash) const
+const CAnchorConfirmMessage *CAnchorAwaitingConfirms::Exist(HashConfirmMessage const &hash) const
 {
     for (auto &&hashAndConfirm : confirms) {
         auto it = hashAndConfirm.second.find(hash);
@@ -584,7 +584,7 @@ const CAnchorConfirmMessage *CAnchorConfirms::Exist(HashConfirmMessage const &ha
     return nullptr;
 }
 
-bool CAnchorConfirms::Validate(CAnchorConfirmMessage const &confirmMessage) const
+bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessage) const
 {
     if (!panchors->ExistAnchorByMsg(confirmMessage.hashAnchor)) {
         LogPrintf("Warning! Can't read last anchor message %s\n",  confirmMessage.hashAnchor.ToString());
@@ -599,7 +599,7 @@ bool CAnchorConfirms::Validate(CAnchorConfirmMessage const &confirmMessage) cons
     return true;
 }
 
-void CAnchorConfirms::Add(CAnchorConfirmMessage const &newConfirmMessage)
+void CAnchorAwaitingConfirms::Add(CAnchorConfirmMessage const &newConfirmMessage)
 {
     auto const *anchorRec = panchors->ExistAnchorByMsg(newConfirmMessage.hashAnchor);
     if (!anchorRec) {
@@ -621,7 +621,7 @@ void CAnchorConfirms::Add(CAnchorConfirmMessage const &newConfirmMessage)
     confirms[hashAnchor] = std::map<HashConfirmMessage, CAnchorConfirmMessage>{std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage)};
 }
 
-std::map<uint256, uint32_t> CAnchorConfirms::GetConfirms() const
+std::map<uint256, uint32_t> CAnchorAwaitingConfirms::GetConfirms() const
 {
     std::map<uint256, uint32_t> processingAnchors;
     for (auto &&hashAndConfirm : confirms) {
@@ -642,7 +642,7 @@ std::map<uint256, uint32_t> CAnchorConfirms::GetConfirms() const
     return std::move(processingAnchors);
 }
 
-bool CAnchorConfirms::RemoveConfirmsForMessage(HashAnchor const &hash)
+bool CAnchorAwaitingConfirms::RemoveConfirmsForMessage(HashAnchor const &hash)
 {
     for (auto &&hashAndConfirm : confirms) {
         auto it = hashAndConfirm.second.find(hash);

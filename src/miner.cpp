@@ -166,7 +166,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
 
-    auto confirms = panchorconfirms->GetConfirms();
+    auto confirms = panchorAwaitingConfirms->GetConfirms();
 
     for (auto && countConfirms : confirms) {
         if (countConfirms.second >= GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
@@ -183,7 +183,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 pblocktemplate->vTxFees.push_back(0);
                 pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
 
-                panchorconfirms->RemoveConfirmsForMessage(countConfirms.first);
+                panchorAwaitingConfirms->RemoveConfirmsForMessage(countConfirms.first);
                 break;
             }
         }
