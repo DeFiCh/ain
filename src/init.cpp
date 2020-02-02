@@ -1563,8 +1563,8 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 panchorauths.reset();
                 panchorauths = MakeUnique<CAnchorAuthIndex>();
-                panchorconfirms.reset();
-                panchorconfirms = MakeUnique<CAnchorConfirms>();
+                panchorAwaitingConfirms.reset();
+                panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
                 panchors.reset();
                 panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, fReset || fReindexChainState); /// @todo should it be linked to the 'defi reindex' or 'spv resync'?????
                 panchors->Load();

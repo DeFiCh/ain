@@ -120,8 +120,8 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         panchors.reset();
         panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, true, true);
         panchors->Load();
-        panchorconfirms.reset();
-        panchorconfirms = MakeUnique<CAnchorConfirms>();
+        panchorAwaitingConfirms.reset();
+        panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
     }
 
     if (!LoadGenesisBlock(chainparams)) {

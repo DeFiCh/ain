@@ -283,7 +283,7 @@ public:
     }
 };
 
-class CAnchorConfirms
+class CAnchorAwaitingConfirms
 {
     using HashConfirmMessage = uint256;
     using HashAnchor = uint256;
@@ -312,6 +312,6 @@ class CNode;
 /** Global variables that points to the anchors and their auths (should be protected by cs_main) */
 extern std::unique_ptr<CAnchorAuthIndex> panchorauths;
 extern std::unique_ptr<CAnchorIndex> panchors;
-extern std::unique_ptr<CAnchorConfirms> panchorconfirms;
+extern std::unique_ptr<CAnchorAwaitingConfirms> panchorAwaitingConfirms;
 
 #endif // DEFI_MASTERNODES_ANCHORS_H

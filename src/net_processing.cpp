@@ -1316,7 +1316,7 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     case MSG_ANCHOR_AUTH:
         return panchorauths->ExistAuth(inv.hash) != nullptr;
     case MSG_ANCHOR_CONFIRM:
-        return panchorconfirms->Exist(inv.hash) != nullptr;
+        return panchorAwaitingConfirms->Exist(inv.hash) != nullptr;
     }
     // Don't know what it is, just say we already got one
     return true;
@@ -1630,7 +1630,7 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
                 }
             }
             if (inv.type == MSG_ANCHOR_CONFIRM) {
-                CAnchorConfirmMessage const * message = panchorconfirms->Exist(inv.hash);
+                CAnchorConfirmMessage const * message = panchorAwaitingConfirms->Exist(inv.hash);
                 if (message) {
                     LogPrintf("PushMessage anchorconfirm, hash: %s\n", message->GetHash().ToString());
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHORCONFIRM, *message));
@@ -2416,11 +2416,11 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         LOCK(cs_main);
 
-        if (!panchorconfirms->Exist(confirmMessage.GetHash())) {
+        if (!panchorAwaitingConfirms->Exist(confirmMessage.GetHash())) {
             LogPrintf("Got anchor confirm, hash %s, Anchor Message hash: %d\n", confirmMessage.GetHash().ToString(), confirmMessage.hashAnchor.ToString());
             // if valid, add and rebroadcast
-            if (panchorconfirms->Validate(confirmMessage)) {
-                panchorconfirms->Add(confirmMessage);
+            if (panchorAwaitingConfirms->Validate(confirmMessage)) {
+                panchorAwaitingConfirms->Add(confirmMessage);
                 RelayAnchorConfirm(confirmMessage.GetHash(), *connman, pfrom);
             }
         }
