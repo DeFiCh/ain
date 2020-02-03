@@ -10,4 +10,4 @@ export HOST=x86_64-unknown-linux-gnu
 export PACKAGES="python3-zmq"
 export DEP_OPTS="NO_WALLET=1"
 export GOAL="install"
-export BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports"
+export DEFI_CONFIG="--enable-glibc-back-compat --enable-reduce-exports"
