@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-# Copyright (c) 2019 The Bitcoin Core developers
+# Copyright (c) 2019 The B_itcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test deprecation of passing `totalFee` to the bumpfee RPC."""
 from decimal import Decimal
 
 from test_framework.messages import BIP125_SEQUENCE_NUMBER
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_raises_rpc_error
 
-class BumpFeeWithTotalFeeArgumentDeprecationTest(BitcoinTestFramework):
+class BumpFeeWithTotalFeeArgumentDeprecationTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.extra_args = [[
