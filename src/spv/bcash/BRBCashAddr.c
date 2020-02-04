@@ -33,7 +33,7 @@
 #include <ctype.h>
 #include <assert.h>
 
-// b-cash address format: https://github.com/b_itcoincashorg/spec/blob/master/cashaddr.md
+// b-cash address format: https://github.com/bitcoincashorg/spec/blob/master/cashaddr.md
 
 #define BCASH_PUBKEY_ADDRESS 28
 #define BCASH_SCRIPT_ADDRESS 40

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2019 The B_itcoin Core developers
+// Copyright (c) 2018-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -42,12 +42,12 @@ class Wallet;
 //! * The Chain::lock() method, which lets clients delay chain tip updates
 //!   should be removed when clients are able to respond to updates
 //!   asynchronously
-//!   (https://github.com/b_itcoin/b_itcoin/pull/10973#issuecomment-380101269).
+//!   (https://github.com/bitcoin/bitcoin/pull/10973#issuecomment-380101269).
 //!
 //! * The initMessages() and loadWallet() methods which the wallet uses to send
 //!   notifications to the GUI should go away when GUI and wallet can directly
 //!   communicate with each other without going through the node
-//!   (https://github.com/b_itcoin/b_itcoin/pull/15288#discussion_r253321096).
+//!   (https://github.com/bitcoin/bitcoin/pull/15288#discussion_r253321096).
 //!
 //! * The handleRpc, registerRpcs, rpcEnableDeprecated methods and other RPC
 //!   methods can go away if wallets listen for HTTP requests on their own

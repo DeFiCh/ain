@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2018 The B_itcoin Core developers
+// Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -37,7 +37,7 @@ const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
  *
  * The software is a community-driven open source project, released under the MIT license.
  *
- * See https://github.com/b_itcoin/b_itcoin and https://b_itcoincore.org/ for further information about the project.
+ * See https://github.com/bitcoin/bitcoin and https://bitcoincore.org/ for further information about the project.
  *
  * \section Navigation
  * Use the buttons <code>Namespaces</code>, <code>Classes</code> or <code>Files</code> at the top of the page to start navigating the code.

@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2018 The B_itcoin Core developers
+// Copyright (c) 2011-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -52,7 +52,7 @@ public:
     explicit DefiUnits(QObject *parent);
 
     /** Defi units.
-      @note Source: https://en.b_itcoin.it/wiki/Units . Please add only sensible ones
+      @note Source: https://en.bitcoin.it/wiki/Units . Please add only sensible ones
      */
     enum Unit
     {

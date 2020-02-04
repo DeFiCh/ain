@@ -32,7 +32,7 @@
 #include <ctype.h>
 #include <assert.h>
 
-// bech32 address format: https://github.com/b_itcoin/bips/blob/master/bip-0173.mediawiki
+// bech32 address format: https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki
 
 #define polymod(x) ((((x) & 0x1ffffff) << 5) ^ (-(((x) >> 25) & 1) & 0x3b6a57b2) ^\
                     (-(((x) >> 26) & 1) & 0x26508e6d) ^ (-(((x) >> 27) & 1) & 0x1ea119fa) ^\
