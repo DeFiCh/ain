@@ -33,7 +33,7 @@ extern "C" {
 #endif
 
 // BIP39 is method for generating a deterministic wallet seed from a mnemonic phrase
-// https://github.com/b_itcoin/bips/blob/master/bip-0039.mediawiki
+// https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
 
 #define BIP39_CREATION_TIME  1388534400 // oldest possible BIP39 phrase creation time, seconds after unix epoch
 #define BIP39_WORDLIST_COUNT 2048       // number of words in a BIP39 wordlist
