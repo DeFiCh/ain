@@ -2,14 +2,14 @@
 
 *.exe
 *.pdb
-src/bitcoin
-src/bitcoind
-src/bitcoin-cli
-src/bitcoin-tx
-src/bitcoin-wallet
-src/test/test_bitcoin
-src/test/test_bitcoin_fuzzy
-src/qt/test/test_bitcoin-qt
+src/defi
+src/defid
+src/defi-cli
+src/defi-tx
+src/defi-wallet
+src/test/test_defi
+src/test/test_defi_fuzzy
+src/qt/test/test_defi-qt
 
 # autoreconf
 Makefile.in
@@ -32,8 +32,8 @@ config.log
 config.status
 configure
 libtool
-src/config/bitcoin-config.h
-src/config/bitcoin-config.h.in
+src/config/defi-config.h
+src/config/defi-config.h.in
 src/config/stamp-h1
 src/obj
 share/setup.nsi
@@ -47,11 +47,11 @@ src/qt/forms/ui_*.h
 
 src/qt/test/moc*.cpp
 
-src/qt/bitcoin-qt.config
-src/qt/bitcoin-qt.creator
-src/qt/bitcoin-qt.creator.user
-src/qt/bitcoin-qt.files
-src/qt/bitcoin-qt.includes
+src/qt/defi-qt.config
+src/qt/defi-qt.creator
+src/qt/defi-qt.creator.user
+src/qt/defi-qt.files
+src/qt/defi-qt.includes
 
 .deps
 .dirstamp
@@ -88,8 +88,8 @@ src/qt/bitcoin-qt.includes
 *.qm
 Makefile
 !depends/Makefile
-bitcoin-qt
-Bitcoin-Qt.app
+defi-qt
+Defi-Qt.app
 background.tiff*
 
 # Qt Creator
@@ -97,7 +97,7 @@ Makefile.am.user
 
 # Unit-tests
 Makefile.test
-bitcoin-qt_test
+defi-qt_test
 
 # Resources cpp
 qrc_*.cpp
@@ -110,7 +110,7 @@ build
 *.gcno
 *.gcda
 /*.info
-test_bitcoin.coverage/
+test_defi.coverage/
 total.coverage/
 coverage_percent.txt
 
@@ -125,7 +125,7 @@ test/cache/*
 
 /doc/doxygen/
 
-libbitcoinconsensus.pc
+libdeficonsensus.pc
 contrib/devtools/split-debug.sh
 
 # Output from running db4 installation
