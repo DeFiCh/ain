@@ -121,7 +121,7 @@ void BRTransactionShuffleOutputs(BRTransaction *tx);
 // size in bytes if signed, or estimated size assuming compact pubkey sigs
 size_t BRTransactionSize(const BRTransaction *tx);
 
-// virtual transaction size as defined by BIP141: https://github.com/b_itcoin/bips/blob/master/bip-0141.mediawiki
+// virtual transaction size as defined by BIP141: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki
 size_t BRTransactionVSize(const BRTransaction *tx);
 
 // minimum transaction fee needed for tx to relay across the bitcoin network (defid 0.12 default min-relay fee-rate)
@@ -135,7 +135,7 @@ int BRTransactionIsSigned(const BRTransaction *tx);
 // returns true if tx is signed
 int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCount);
 
-// true if tx meets IsStandard() rules: https://b_itcoin.org/en/developer-guide#standard-transactions
+// true if tx meets IsStandard() rules: https://bitcoin.org/en/developer-guide#standard-transactions
 int BRTransactionIsStandard(const BRTransaction *tx);
 
 // returns a hash value for tx suitable for use in a hashtable

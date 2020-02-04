@@ -1,7 +1,7 @@
 Defi Core integration/staging tree
 =====================================
 
-https://b_itcoincore.org
+https://bitcoincore.org
 
 What is Defi?
 ----------------
@@ -13,8 +13,8 @@ out collectively by the network. Defi Core is the name of open source
 software which enables the use of this currency.
 
 For more information, as well as an immediately useable, binary version of
-the Defi Core software, see https://b_itcoincore.org/en/download/, or read the
-[original whitepaper](https://b_itcoincore.org/bitcoin.pdf).
+the Defi Core software, see https://bitcoincore.org/en/download/, or read the
+[original whitepaper](https://bitcoincore.org/bitcoin.pdf).
 
 License
 -------
@@ -26,7 +26,7 @@ Development Process
 -------------------
 
 The `master` branch is regularly built and tested, but is not guaranteed to be
-completely stable. [Tags](https://github.com/b_itcoin/b_itcoin/tags) are created
+completely stable. [Tags](https://github.com/bitcoin/bitcoin/tags) are created
 regularly to indicate new official, stable release versions of Defi Core.
 
 The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md)

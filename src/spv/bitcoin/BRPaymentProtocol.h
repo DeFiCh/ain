@@ -34,8 +34,8 @@
 extern "C" {
 #endif
 
-// BIP70 payment protocol: https://github.com/b_itcoin/bips/blob/master/bip-0070.mediawiki
-// BIP75 payment protocol encryption: https://github.com/b_itcoin/bips/blob/master/bip-0075.mediawiki
+// BIP70 payment protocol: https://github.com/bitcoin/bips/blob/master/bip-0070.mediawiki
+// BIP75 payment protocol encryption: https://github.com/bitcoin/bips/blob/master/bip-0075.mediawiki
 
 typedef struct {
     char *network; // main / test / regtest, default is "main"
