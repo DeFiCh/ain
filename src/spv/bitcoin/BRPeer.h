@@ -70,14 +70,14 @@ extern "C" {
 #endif
 
 #define SERVICES_NODE_NETWORK 0x01 // services value indicating a node carries full blocks, not just headers
-#define SERVICES_NODE_BLOOM   0x04 // BIP111: https://github.com/b_itcoin/bips/blob/master/bip-0111.mediawiki
-#define SERVICES_NODE_WITNESS 0x08 // BIP144: https://github.com/b_itcoin/bips/blob/master/bip-0144.mediawiki
+#define SERVICES_NODE_BLOOM   0x04 // BIP111: https://github.com/bitcoin/bips/blob/master/bip-0111.mediawiki
+#define SERVICES_NODE_WITNESS 0x08 // BIP144: https://github.com/bitcoin/bips/blob/master/bip-0144.mediawiki
 #define SERVICES_NODE_BCASH   0x20 // https://github.com/Bitcoin-UAHF/spec/blob/master/uahf-technical-spec.md
     
 #define BR_VERSION "2.1"
 #define USER_AGENT "/bread:" BR_VERSION "/"
 
-// explanation of message types at: https://en.b_itcoin.it/wiki/Protocol_specification
+// explanation of message types at: https://en.bitcoin.it/wiki/Protocol_specification
 #define MSG_VERSION     "version"
 #define MSG_VERACK      "verack"
 #define MSG_ADDR        "addr"
@@ -98,8 +98,8 @@ extern "C" {
 #define MSG_FILTERCLEAR "filterclear"
 #define MSG_MERKLEBLOCK "merkleblock"
 #define MSG_ALERT       "alert"
-#define MSG_REJECT      "reject"   // described in BIP61: https://github.com/b_itcoin/bips/blob/master/bip-0061.mediawiki
-#define MSG_FEEFILTER   "feefilter"// described in BIP133 https://github.com/b_itcoin/bips/blob/master/bip-0133.mediawiki
+#define MSG_REJECT      "reject"   // described in BIP61: https://github.com/bitcoin/bips/blob/master/bip-0061.mediawiki
+#define MSG_FEEFILTER   "feefilter"// described in BIP133 https://github.com/bitcoin/bips/blob/master/bip-0133.mediawiki
 
 #define REJECT_INVALID     0x10 // transaction is invalid for some reason (invalid signature, output value > input, etc)
 #define REJECT_SPENT       0x12 // an input is already spent
