@@ -22,6 +22,7 @@ static const char DB_PRUNE_HEIGHT = 'P';    // single record with pruned height 
 static const char DB_MN_BLOCK_HEADERS = 'h';
 static const char DB_MN_CRIMINALS = 'm';
 static const char DB_MN_CURRENT_TEAM = 't';
+static const char DB_MN_FOUNDERS_DEBT = 'd';
 
 struct DBMNBlockHeadersSearchKey
 {
@@ -238,6 +239,29 @@ bool CMasternodesViewDB::EraseCurrentTeam()
     return true;
 }
 
+void CMasternodesViewDB::WriteFoundationsDebt(CAmount const foundationsDebt)
+{
+    db->Write(DB_MN_FOUNDERS_DEBT, foundationsDebt);
+}
+
+bool CMasternodesViewDB::LoadFoundationsDebt()
+{
+    foundationsDebt = -1;
+    boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
+    pcursor->Seek(DB_MN_FOUNDERS_DEBT);
+
+    if (pcursor->Valid()) {
+        char key;
+        if (pcursor->GetKey(key)) {
+            if (!pcursor->GetValue(foundationsDebt) || foundationsDebt < 0)
+                return error("MNDB::LoadFoundationsDebt() : unable to read value");
+        } else {
+            foundationsDebt = 0;
+        }
+    }
+    return true;
+}
+
 //void CMasternodesViewDB::WriteDeadIndex(int height, uint256 const & txid, char type)
 //{
 //    BatchWrite(make_pair(make_pair(DB_PRUNEDEAD, static_cast<int32_t>(height)), txid), type);
@@ -275,6 +299,7 @@ bool CMasternodesViewDB::Load()
     result = result && LoadTable(DB_MASTERNODESUNDO, blocksUndo);
     result = result && LoadCurrentTeam(currentTeam);
     result = result && LoadTable(DB_MN_CRIMINALS, criminals);
+    result = result && LoadFoundationsDebt();
 
     if (result)
         LogPrintf("MN: db loaded: last height: %d; masternodes: %d; common undo: %d\n", lastHeight, allNodes.size(), blocksUndo.size());
@@ -330,6 +355,7 @@ bool CMasternodesViewDB::Flush()
     WriteHeight(lastHeight);
     EraseCurrentTeam();
     WriteCurrentTeam(currentTeam);
+    WriteFoundationsDebt(foundationsDebt);
 
     CommitBatch();
     LogPrintf("MN: db saved: last height: %d; masternodes: %d; common undo: %d\n", lastHeight, nMasternodes, nUndo);

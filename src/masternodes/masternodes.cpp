@@ -381,6 +381,16 @@ const std::set<CKeyID> &CMasternodesView::GetCurrentTeam()
     return currentTeam;
 }
 
+const CAmount CMasternodesView::GetFoundationsDebt()
+{
+    return foundationsDebt;
+}
+
+void CMasternodesView::SetFoundationsDebt(CAmount debt)
+{
+    foundationsDebt = debt;
+}
+
 CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier)
 {
     int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
@@ -428,10 +438,7 @@ bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHea
         return false;
     }
 
-    uint64_t maxHeight = oneHeader.height > twoHeader.height? oneHeader.height : twoHeader.height;
-    uint64_t minHeight = oneHeader.height > twoHeader.height? twoHeader.height : oneHeader.height;
-
-    if ((maxHeight - minHeight) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL &&
+    if ((std::max(oneHeader.height, twoHeader.height) - std::min(oneHeader.height, twoHeader.height)) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL &&
         itFirstMN == itSecondMN &&
         oneHeader.mintedBlocks == twoHeader.mintedBlocks &&
         oneHeader.GetHash() != twoHeader.GetHash()

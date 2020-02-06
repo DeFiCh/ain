@@ -170,7 +170,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     for (auto && countConfirms : confirms) {
         if (countConfirms.second >= GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
-            auto const *anchorRec = panchors->ExistAnchorByMsg(countConfirms.first);
+            auto const *anchorRec = panchors->ExistAnchorByTx(countConfirms.first);
             if (!anchorRec) {
                 LogPrintf("Warning! Can't read last anchor message %s\n",  countConfirms.first.ToString());
                 continue;
@@ -183,7 +183,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 pblocktemplate->vTxFees.push_back(0);
                 pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
 
-                panchorAwaitingConfirms->RemoveConfirmsForMessage(countConfirms.first);
+                panchorAwaitingConfirms->RemoveConfirmsForAnchor(countConfirms.first);
                 break;
             }
         }

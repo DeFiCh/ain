@@ -2417,7 +2417,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         LOCK(cs_main);
 
         if (!panchorAwaitingConfirms->Exist(confirmMessage.GetHash())) {
-            LogPrintf("Got anchor confirm, hash %s, Anchor Message hash: %d\n", confirmMessage.GetHash().ToString(), confirmMessage.hashAnchor.ToString());
+            LogPrintf("Got anchor confirm, hash %s, Anchor Message hash: %d\n", confirmMessage.GetHash().ToString(), confirmMessage.btcTxHash.ToString());
             // if valid, add and rebroadcast
             if (panchorAwaitingConfirms->Validate(confirmMessage)) {
                 panchorAwaitingConfirms->Add(confirmMessage);
