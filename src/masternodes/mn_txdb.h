@@ -99,13 +99,15 @@ protected:
     bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true);
     void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash);
 
-
     void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact);
     void EraseCriminal(uint256 const & mnId);
 
     void WriteCurrentTeam(std::set<CKeyID> const & currentTeam);
     bool LoadCurrentTeam(std::set<CKeyID> & newTeam);
     bool EraseCurrentTeam();
+
+    void WriteFoundationsDebt(CAmount const foundationsDebt);
+    bool LoadFoundationsDebt();
 
 //    void WriteDeadIndex(int height, uint256 const & txid, char type);
 //    void EraseDeadIndex(int height, uint256 const & txid);

@@ -171,7 +171,6 @@ public:
     struct AnchorRec {
         CAnchor anchor;
         uint256 txHash;
-        uint256 anchorHash;
         THeight btcHeight;
 //        uint32_t btcTxIndex; // does not exist!
 
@@ -181,20 +180,17 @@ public:
         inline void SerializationOp(Stream& s, Operation ser_action) {
             READWRITE(anchor);
             READWRITE(txHash);
-            READWRITE(anchorHash);
             READWRITE(btcHeight);
 //            READWRITE(btcTxIndex);
         }
 
         // tags for multiindex
-        struct ByAnchorHash{};
         struct ByBtcTxHash{};
         struct ByBtcHeight{};
     };
 
     typedef boost::multi_index_container<AnchorRec,
         indexed_by<
-            ordered_unique    < tag<AnchorRec::ByAnchorHash>, member<AnchorRec, uint256,  &AnchorRec::anchorHash> >,
             ordered_unique    < tag<AnchorRec::ByBtcTxHash>,  member<AnchorRec, uint256,  &AnchorRec::txHash> >,
             ordered_non_unique< tag<AnchorRec::ByBtcHeight>,  member<AnchorRec, THeight,  &AnchorRec::btcHeight> >
         >
@@ -207,7 +203,6 @@ public:
     AnchorRec const * GetActiveAnchor() const;
     bool ActivateBestAnchor(bool forced = false); // rescan anchors
 
-    AnchorRec const * ExistAnchorByMsg(uint256 const & hash) const;
     AnchorRec const * ExistAnchorByTx(uint256 const & hash) const;
 
     bool AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = true);
@@ -266,19 +261,29 @@ class CAnchorConfirmMessage
 {
     using Signature = std::vector<unsigned char>;
 public:
-    uint256 hashAnchor;
+    uint256 btcTxHash;
+    THeight btcHeight;
+    THeight anchorHeight;
+    THeight prevAnchorHeight;
+    CKeyID rewardKeyID;
+    char rewardKeyType;
     Signature signature;
 
     CAnchorConfirmMessage() {}
 
-    static CAnchorConfirmMessage Create(CAnchor const & anchor, CKey const & key);
+    static CAnchorConfirmMessage Create(CAnchor const & anchor, THeight prevAnchorHeight, THeight btcHeight, uint256 btcTxHash, CKey const & key);
     uint256 GetHash() const;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(hashAnchor);
+        READWRITE(btcTxHash);
+        READWRITE(btcHeight);
+        READWRITE(anchorHeight);
+        READWRITE(prevAnchorHeight);
+        READWRITE(rewardKeyID);
+        READWRITE(rewardKeyType);
         READWRITE(signature);
     }
 };
@@ -286,16 +291,19 @@ public:
 class CAnchorAwaitingConfirms
 {
     using HashConfirmMessage = uint256;
-    using HashAnchor = uint256;
+    using TxHashAnchor = uint256;
 private:
-    std::map<HashAnchor, std::map<HashConfirmMessage, CAnchorConfirmMessage>> confirms;
+    std::map<TxHashAnchor, std::map<HashConfirmMessage, CAnchorConfirmMessage>> confirms;
 
 public:
+    void AddAnchor(TxHashAnchor const &txHash);
+    bool ExistAnchor(TxHashAnchor const &txHash) const;
+    bool EraseAnchor(TxHashAnchor const &txHash);
     const CAnchorConfirmMessage *Exist(HashConfirmMessage const &hash) const;
     void Add(CAnchorConfirmMessage const &newConfirmMessage);
     bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
     std::map<uint256, uint32_t> GetConfirms() const;
-    bool RemoveConfirmsForMessage(HashAnchor const &hash);
+    bool RemoveConfirmsForAnchor(TxHashAnchor const &hash);
 };
 
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')
