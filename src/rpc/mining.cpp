@@ -135,6 +135,9 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey minter
             if (status == Staker::Status::stakeWaiting) {
                 LogPrint(BCLog::STAKING, "Staked, but no kernel found yet\n");
             }
+            if (status == Staker::Status::criminalWaiting) {
+                LogPrint(BCLog::STAKING, "Potential criminal block tried to create\n");
+            }
         }
         catch (const std::runtime_error &e) {
             LogPrintf("GenerateBlocks runtime error: %s\n", e.what());

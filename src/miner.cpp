@@ -571,6 +571,7 @@ namespace pos {
         nLastSteadyTime = std::chrono::steady_clock::now();
 
         bool minted = false;
+        bool potentialCriminalBlock = false;
 
         CBlockIndex* tip = getTip();
 
@@ -589,6 +590,18 @@ namespace pos {
         }
 
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
+            if (!fIsFakeNet) {
+                std::map <uint256, CBlockHeader> blockHeaders{};
+
+                pmasternodesview->FindMintedBlockHeader(args.masternodeID, mintedBlocks + 1, blockHeaders, fIsFakeNet);
+
+                for (std::pair <uint256, CBlockHeader> blockHeader : blockHeaders) {
+                    if ((std::max(blockHeader.second.height, tip->nHeight + (uint32_t)1) - std::min(blockHeader.second.height, tip->nHeight + (uint32_t)1)) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL) {
+                        potentialCriminalBlock = true;
+                        return;
+                    }
+                }
+            }
             //
             // Create block template
             //
@@ -653,7 +666,7 @@ namespace pos {
             minted = true;
         });
 
-        return minted ? Status::minted : Status::stakeWaiting;
+        return minted ? Status::minted : (potentialCriminalBlock? Status::criminalWaiting : Status::stakeWaiting);
     }
 
     CBlockIndex* Staker::getTip() {
@@ -712,6 +725,9 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
             }
             if (status == Staker::Status::stakeWaiting) {
                 LogPrint(BCLog::STAKING, "Staked, but no kernel found yet\n");
+            }
+            if (status == Staker::Status::criminalWaiting) {
+                LogPrint(BCLog::STAKING, "Potential criminal block tried to create\n");
             }
         }
         catch (const std::runtime_error &e) {
