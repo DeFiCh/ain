@@ -182,6 +182,7 @@ protected:
 
     CMnCriminals criminals;
     CTeam currentTeam;
+    CAmount foundationsDebt;
 
     CMnBlocksUndo blocksUndo;
 
@@ -268,6 +269,9 @@ public:
     virtual bool LoadCurrentTeam(std::set<CKeyID> & newTeam) { assert(false); }
     virtual bool EraseCurrentTeam() { assert(false); }
 
+    virtual void WriteFoundationsDebt(CAmount const foundationsDebt) { assert(false); }
+    virtual bool LoadFoundationsDebt() { assert(false); }
+
     bool CanSpend(uint256 const & nodeId, int height) const;
     bool IsAnchorInvolved(uint256 const & nodeId, int height) const;
 
@@ -279,6 +283,8 @@ public:
 
     void SetTeam(CTeam newTeam);
     const std::set<CKeyID> &GetCurrentTeam();
+    const CAmount GetFoundationsDebt();
+    void SetFoundationsDebt(CAmount debt);
     CTeam CalcNextTeam(uint256 stakeModifier);
 
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
