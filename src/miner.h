@@ -240,6 +240,7 @@ namespace pos {
             error,
             initWaiting,
             stakeWaiting,
+            criminalWaiting,
             minted,
         };
 
