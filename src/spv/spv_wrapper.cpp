@@ -333,7 +333,6 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
     else {
         LogPrintf("spv: not an anchor tx %s\n", txHash.ToString());
     }
-
 }
 
 void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
