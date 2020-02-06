@@ -30,8 +30,8 @@ public:
     uint32_t nTime;
     uint32_t nBits;
 
-    uint64_t height;
-    uint64_t mintedBlocks;
+    uint32_t height;
+    uint32_t mintedBlocks;
     uint256 stakeModifier;
     std::vector<unsigned char> sig;
 

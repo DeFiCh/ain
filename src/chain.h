@@ -184,8 +184,8 @@ public:
     uint32_t nBits;
 
     // proof-of-stake specific fields
-    uint64_t height;
-    uint64_t mintedBlocks;
+    uint32_t height;
+    uint32_t mintedBlocks;
     uint256 stakeModifier; // hash modifier for proof-of-stake
     std::vector<unsigned char> sig;
     CKeyID minter; // memory only
