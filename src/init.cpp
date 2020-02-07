@@ -1569,7 +1569,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, fReset || fReindexChainState); /// @todo should it be linked to the 'defi reindex' or 'spv resync'?????
                 panchors->Load();
 
-                if (gArgs.GetBoolArg("-spv", true)) {
+                if (gArgs.GetBoolArg("-spv", false)) {
                     spv::pspv.reset();
                     if (gArgs.GetBoolArg("-fakespv", false) && Params().NetworkIDString() == "regtest") {
                         spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();

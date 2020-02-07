@@ -59,8 +59,8 @@ private:
     boost::shared_ptr<CDBWrapper> db;
     boost::scoped_ptr<CDBBatch> batch;
 
-    BRWallet *wallet;
-    BRPeerManager *manager;
+    BRWallet *wallet = nullptr;
+    BRPeerManager *manager = nullptr;
     std::string spv_internal_logfilename;
 
     using db_tx_rec    = std::pair<TBytes, std::pair<uint32_t, uint32_t>>;  // serialized tx, blockHeight, timeStamp
