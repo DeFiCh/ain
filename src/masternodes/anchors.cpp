@@ -71,6 +71,12 @@ bool CAnchorAuthMessage::GetPubKey(CPubKey& pubKey) const
     return !signature.empty() && pubKey.RecoverCompact(GetSignHash(), signature);
 }
 
+CKeyID CAnchorAuthMessage::GetSigner() const
+{
+    CPubKey pubKey;
+    return (!signature.empty() && pubKey.RecoverCompact(GetSignHash(), signature)) ? pubKey.GetID() : CKeyID{};
+}
+
 uint256 CAnchorAuthMessage::GetSignHash() const
 {
     CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
@@ -105,12 +111,21 @@ bool CAnchor::CheckAuthSigs(CTeam const & team) const
     return CheckSigs(auth.GetSignHash(), sigs, team);
 }
 
-const CAnchorAuthIndex::Auth * CAnchorAuthIndex::ExistAuth(uint256 const & hash) const
+const CAnchorAuthIndex::Auth * CAnchorAuthIndex::ExistAuth(uint256 const & msgHash) const
 {
     AssertLockHeld(cs_main);
 
     auto & list = auths.get<Auth::ByMsgHash>();
-    auto it = list.find(hash);
+    auto it = list.find(msgHash);
+    return it != list.end() ? &(*it) : nullptr;
+}
+
+const CAnchorAuthIndex::Auth * CAnchorAuthIndex::ExistVote(const uint256 & signHash, const CKeyID & signer) const
+{
+    AssertLockHeld(cs_main);
+
+    auto & list = auths.get<Auth::ByVote>();
+    auto it = list.find(std::make_tuple(signHash, signer));
     return it != list.end() ? &(*it) : nullptr;
 }
 
@@ -180,10 +195,9 @@ uint32_t GetMinAnchorQuorum(CMasternodesView::CTeam const & team)
 /*
  * Choose best (high) anchor auth group with
  */
-CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest, uint256 const & forBlock) const
+CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest) const
 {
     AssertLockHeld(cs_main);
-    /// @todo forBlock is ignored by now, possible implement
     // KList is sorted by defi height + signHash (all except sign)
     typedef Auths::index<Auth::ByKey>::type KList;
     KList const & list = auths.get<Auth::ByKey>();

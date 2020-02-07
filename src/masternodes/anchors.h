@@ -55,6 +55,7 @@ public:
     uint256 GetHash() const;
     bool SignWithKey(const CKey& key);
     bool GetPubKey(CPubKey& pubKey) const;
+    CKeyID GetSigner() const;
     uint256 GetSignHash() const;
 
     ADD_SERIALIZE_METHODS;
@@ -73,6 +74,7 @@ public:
     struct ByHeight{};
     struct ByBlockHash{};
     struct ByKey{};         // composite, by height and GetSignHash for anchor creation
+    struct ByVote{};        // composite, by GetSignHash and signer, helps detect doublesigning
 
 private:
     Signature signature;
@@ -124,31 +126,36 @@ public:
 
     typedef boost::multi_index_container<Auth,
         indexed_by<
+            // index for p2p messaging (inv/getdata)
             ordered_unique<
                 tag<Auth::ByMsgHash>, const_mem_fun<Auth, uint256, &Auth::GetHash>
             >,
-            ordered_non_unique<
-                tag<Auth::ByHeight>, member<Auth, THeight, &Auth::height>
-            >,
-            ordered_non_unique<
-                tag<Auth::ByBlockHash>, member<Auth, uint256, &Auth::blockHash>
-            >,
-
+            // index for quorum selection (CreateBestAnchor())
             // just to remember that there may be auths with equal blockHash, but with different prevs and teams!
             ordered_non_unique<
                 tag<Auth::ByKey>, composite_key<Auth,
                     member<Auth, THeight, &Auth::height>,
                     const_mem_fun<Auth, uint256, &Auth::GetSignHash>
                 >
+            >,
+            // restriction index that helps detect doublesigning
+            // it may by quite expensive to index by GetSigner on the fly, but it should happen only on insertion
+            ordered_unique<
+                tag<Auth::ByVote>, composite_key<Auth,
+                    const_mem_fun<Auth, uint256, &Auth::GetSignHash>,
+                    const_mem_fun<Auth, CKeyID, &Auth::GetSigner>
+                >
             >
+
         >
     > Auths;
 
-    Auth const * ExistAuth(uint256 const & hash) const;
+    Auth const * ExistAuth(uint256 const & msgHash) const;
+    Auth const * ExistVote(uint256 const & signHash, CKeyID const & signer) const;
     bool ValidateAuth(Auth const & auth) const;
     bool AddAuth(Auth const & auth);
 
-    CAnchor CreateBestAnchor(CTxDestination const & rewardDest, uint256 const & forBlock = uint256()) const;
+    CAnchor CreateBestAnchor(CTxDestination const & rewardDest) const;
 
     Auths auths;
 };
