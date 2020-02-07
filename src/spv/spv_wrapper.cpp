@@ -693,7 +693,7 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
 
     BRWallet * wallet = pspv->GetWallet();
 
-    uint64_t const valuePerOutput = (amount > 0) && (parts*(amount + 34*3) + 148*3 < inputAmount) ? amount : (inputAmount - 148*3) / parts - 34*3; // 34*3 is min estimated fee per p2pkh output
+    uint64_t const valuePerOutput = (amount > 0) && (static_cast<uint64_t>(parts*(amount + 34*3) + 148*3) < inputAmount) ? amount : (inputAmount - 148*3) / parts - 34*3; // 34*3 is min estimated fee per p2pkh output
     uint64_t sum = 0;
     for (int i = 0; i < parts; ++i) {
         auto addr = BRWalletLegacyAddress(wallet);

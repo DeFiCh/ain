@@ -148,6 +148,8 @@ public:
         consensus.mn.collateralAmount = 100 * COIN;
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
+        consensus.mn.anchoringFrequency = 15;
+        consensus.mn.anchoringLag = 15;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.anchorSubsidy = 1 * COIN;
@@ -283,6 +285,8 @@ public:
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
+        consensus.mn.anchoringFrequency = 15;
+        consensus.mn.anchoringLag = 15;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubD9xBH3AzwzMyY8yxoWdiopHE5FJEkLHoxumYGqvYFmHbJBC7zajSt9J2yTg7YPQSU8JL3nRohxXgdsvzsBcj2TZEiikUPCiUwstTDH3PPzy";
@@ -399,6 +403,8 @@ public:
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 1;
+        consensus.mn.anchoringFrequency = 15;
+        consensus.mn.anchoringLag = 15;
 
         consensus.spv.creationFee = 1000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";

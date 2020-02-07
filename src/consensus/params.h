@@ -104,6 +104,8 @@ struct Params {
         int resignDelay; // same delay for criminal ban
         int historyFrame;
         int anchoringTeamSize;
+        int anchoringFrequency; // create every Nth block
+        int anchoringLag;       // older than Tip() by
     };
     MnParams mn;
 

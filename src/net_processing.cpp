@@ -2372,11 +2372,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
     }
 
     if (strCommand == NetMsgType::ANCHORAUTH) {
-        /// @todo temporary off due to tests
-//        if (!fImporting && !fReindex /*::ChainstateActive().IsInitialBlockDownload()*/) {
-//            LogPrint(BCLog::NET, "Ignoring anchorauth from peer=%d because node is in initial block download\n", pfrom->GetId());
-//            return true;
-//        }
+        if (fImporting || fReindex) {
+            LogPrint(BCLog::NET, "Ignoring anchorauth from peer=%d because node is in initial block download\n", pfrom->GetId());
+            return true;
+        }
         CAnchorAuthMessage auth;
         vRecv >> auth;
 
@@ -2387,6 +2386,12 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 // reject ? or just skip&
                 return false;
             }
+            if (panchorauths->ExistVote(auth.GetSignHash(), auth.GetSigner())) {
+                // disconnect immidiately! possible even ban here, but only if sender peer is an author itself
+                pfrom->fDisconnect = true;
+                return false;
+            }
+
             LogPrintf("Got anchor auth, hash %s, blockheight: %d\n", auth.GetHash().ToString(), auth.height);
 
             // if valid, add and rebroadcast
@@ -2400,7 +2405,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
     }
 
     if (strCommand == NetMsgType::ANCHORCONFIRM) {
-        if (!fImporting && !fReindex /*::ChainstateActive().IsInitialBlockDownload()*/) {
+        if (fImporting || fReindex) {
             LogPrint(BCLog::NET, "Ignoring anchorconfirm from peer=%d because node is in initial block download\n", pfrom->GetId());
             return true;
         }
