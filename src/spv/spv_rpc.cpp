@@ -126,7 +126,7 @@ UniValue spv_splitutxo(const JSONRPCRequest& request)
 
     CMutableTransaction mtx;
     /// @todo implement separated bitcoin serialize/deserialize
-    DecodeHexTx(mtx, std::string(rawtx.begin(), rawtx.end()), true);
+    (void) DecodeHexTx(mtx, std::string(rawtx.begin(), rawtx.end()), true);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("txHex", HexStr(rawtx));
@@ -145,7 +145,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"spv_createanchor",
-        "\nCreates (and optional submits to bitcoin blockchain) an anchor tx with given OR latest possible (every 15th) authorized blockhash.\n"
+        "\nCreates (and optional submits to bitcoin blockchain) an anchor tx with latest possible (every 15th) authorized blockhash.\n"
         "The first argument is the specific UTXOs to spend." +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
@@ -172,10 +172,10 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
         },
         RPCExamples{
             HelpExampleCli("spv_createanchor", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0,\\\"amount\\\":10000,\\\"privkey\\\":\\\"WIFprivkey\\\"}]\" "
-                                            "\\\"rewardAddress\\\" \\\"blockHash\\\""
+                                            "\\\"rewardAddress\\\" True 2000"
                                             )
             + HelpExampleRpc("spv_createanchor", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0,\\\"amount\\\":10000,\\\"privkey\\\":\\\"WIFprivkey\\\"}]\" "
-                                                 "\\\"rewardAddress\\\" \\\"blockHash\\\""
+                                                 "\\\"rewardAddress\\\" True 2000"
                                                  )
         },
     }.Check(request);
@@ -218,7 +218,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
 
     /// @todo temporary, tests with fixed values
 //    CTxDestination rewardDest = DecodeDestination("mmjrUWSKQqnkWzyS98GCuFxA7TXcK3bc3A");
-    CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest/*, forBlock*/);
+    CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest);
     if (anchor.sigs.empty()) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
     }
@@ -277,21 +277,20 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"spv_createanchortemplate",
-        "\nCreates an anchor tx template with given OR latest possible (every 15th) authorized blockhash.\n" +
+        "\nCreates an anchor tx template with latest possible (every 15th) authorized blockhash.\n" +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
             {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "User's P2PKH address (in DeFi chain) for reward"},
-            {"hash", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "ID of block in DF chain to anchor to. Latest possible authorized block if omitted." },
         },
         RPCResult{
             "\"txHex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
             HelpExampleCli("spv_createanchortemplate", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0,\\\"amount\\\":10000,\\\"privkey\\\":\\\"WIFprivkey\\\"}]\" "
-                                            "\\\"rewardAddress\\\" \\\"blockHash\\\""
+                                            "\\\"rewardAddress\\\""
                                             )
             + HelpExampleRpc("spv_createanchortemplate", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0,\\\"amount\\\":10000,\\\"privkey\\\":\\\"WIFprivkey\\\"}]\" "
-                                                 "\\\"rewardAddress\\\" \\\"blockHash\\\""
+                                                 "\\\"rewardAddress\\\""
                                                  )
         },
     }.Check(request);
@@ -308,11 +307,9 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
     }
 
-    uint256 const hash = request.params[1].isNull() ? uint256() : ParseHashV(request.params[1], "hash");
-
     auto locked_chain = pwallet->chain().lock();
 
-    CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest/*, forBlock*/);
+    CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest);
     if (anchor.sigs.empty()) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
     }

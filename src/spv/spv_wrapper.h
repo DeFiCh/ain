@@ -70,7 +70,7 @@ private:
 
 public:
     CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
-    ~CSpvWrapper();
+    virtual ~CSpvWrapper();
 
     virtual void Connect();
     virtual void Disconnect();

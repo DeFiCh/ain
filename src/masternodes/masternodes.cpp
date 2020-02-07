@@ -125,6 +125,7 @@ CMasternode::State CMasternode::GetState(int h) const
         }
         return State::BANNED;
     }
+    return State::UNKNOWN;
 }
 
 bool CMasternode::IsActive() const

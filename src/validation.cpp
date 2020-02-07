@@ -1813,7 +1813,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!fJustCheck) {
             view.SetBestBlock(pindex->GetBlockHash());
             // init view|db with genesis here
-            for (int i = 1; i < block.vtx.size(); ++i) {
+            for (size_t i = 1; i < block.vtx.size(); ++i) {
                 CheckMasternodeTx(mnview, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
             }
         }
@@ -3852,33 +3852,44 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
     if (!::ChainstateActive().ActivateBestChain(state, chainparams, pblock))
         return error("%s: ActivateBestChain failed (%s)", __func__, FormatStateMessage(state));
 
-    /// @todo may be subst with chainparams anchoring frequency?
-    if (!::ChainstateActive().IsInitialBlockDownload() && (::ChainActive().Height() % 15 == 0))
+    Consensus::Params const & consensus = chainparams.GetConsensus();
+    auto const tipHeight = ::ChainActive().Height();
+    if (!::ChainstateActive().IsInitialBlockDownload() && (tipHeight % consensus.mn.anchoringFrequency == 0) && tipHeight - consensus.mn.anchoringLag > 0)
     {
         LOCK(cs_main);
-        LogPrintf("Anchor auth prepare, block: %d\n", ::ChainActive().Height());
+        auto const anchorHeight = tipHeight - consensus.mn.anchoringLag;
+        auto const anchorBlock = ::ChainActive()[anchorHeight];
+
+        LogPrintf("Anchor auth prepare, block: %d\n", anchorHeight);
         auto const mnId = pmasternodesview->AmIOperator();
         if (mnId && pmasternodesview->ExistMasternode(mnId->id)->IsActive()) { // this is safe due to prev call `AmIOperator`
             auto topAnchor = panchors->GetActiveAnchor();
-            CAnchorAuthMessage auth(topAnchor ? topAnchor->txHash : uint256(), ::ChainActive().Height(), ::ChainActive().Tip()->GetBlockHash(), pmasternodesview->CalcNextTeam(::ChainActive().Tip()->stakeModifier));
+            auto const team = panchors->GetCurrentTeam(topAnchor);
+            if (team.find(mnId->operatorAuthAddress) != team.end())
+            {
+                CAnchorAuthMessage auth(topAnchor ? topAnchor->txHash : uint256(), anchorHeight, anchorBlock->GetBlockHash(), pmasternodesview->CalcNextTeam(anchorBlock->stakeModifier));
 
-            std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-            CKey masternodeKey{};
-            for (auto const wallet : wallets) {
-                if (wallet->GetKey(mnId.get().operatorAuthAddress, masternodeKey)) {
-                    break;
+                if (!panchorauths->ExistVote(auth.GetSignHash(), mnId->operatorAuthAddress))
+                {
+                    std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+                    CKey masternodeKey{};
+                    for (auto const & wallet : wallets) {
+                        if (wallet->GetKey(mnId.get().operatorAuthAddress, masternodeKey)) {
+                            break;
+                        }
+                        masternodeKey = CKey{};
+                    }
+
+                    if (!masternodeKey.IsValid()) {
+                        return error("%s: Can't read masternode operator private key", __func__);
+                    }
+
+                    auth.SignWithKey(masternodeKey);
+                    LogPrintf("Anchor auth message signed, hash: %s, height: %d\n", auth.GetHash().ToString(), auth.height);
+                    panchorauths->AddAuth(auth);
+                    RelayAnchorAuth(auth.GetHash(), *g_connman);
                 }
-                masternodeKey = CKey{};
             }
-
-            if (!masternodeKey.IsValid()) {
-                return error("%s: Can't read masternode operator private key", __func__);
-            }
-
-            auth.SignWithKey(masternodeKey);
-            LogPrintf("Anchor auth message signed, hash: %s, height: %d\n", auth.GetHash().ToString(), auth.height);
-            panchorauths->AddAuth(auth);
-            RelayAnchorAuth(auth.GetHash(), *g_connman);
         }
     }
 
