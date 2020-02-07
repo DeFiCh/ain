@@ -65,7 +65,8 @@ public:
         PRE_RESIGNED,
         RESIGNED,
         PRE_BANNED,
-        BANNED
+        BANNED,
+        UNKNOWN // unreachable
     };
 
     //! Minted blocks counter
