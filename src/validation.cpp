@@ -3853,11 +3853,11 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
         return error("%s: ActivateBestChain failed (%s)", __func__, FormatStateMessage(state));
 
     Consensus::Params const & consensus = chainparams.GetConsensus();
-    auto const tipHeight = ::ChainActive().Height();
-    if (!::ChainstateActive().IsInitialBlockDownload() && (tipHeight % consensus.mn.anchoringFrequency == 0) && tipHeight - consensus.mn.anchoringLag > 0)
+    auto const blockHeight = ::ChainActive().Height(); // pblock->height;
+    if (!::ChainstateActive().IsInitialBlockDownload() && (blockHeight % consensus.mn.anchoringFrequency == 0) && blockHeight - consensus.mn.anchoringLag > 0)
     {
         LOCK(cs_main);
-        auto const anchorHeight = tipHeight - consensus.mn.anchoringLag;
+        auto const anchorHeight = blockHeight - consensus.mn.anchoringLag;
         auto const anchorBlock = ::ChainActive()[anchorHeight];
 
         LogPrintf("Anchor auth prepare, block: %d\n", anchorHeight);
