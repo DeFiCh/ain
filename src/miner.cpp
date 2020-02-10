@@ -91,28 +91,6 @@ void BlockAssembler::resetBlock()
 Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
 Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
 
-CTransactionRef BlockAssembler::CreateAnchorFinalizationTx(const CAnchor& anchor, const uint256 &btcTxHash, const uint32_t &btcHeight)
-{
-    CTxDestination destination = anchor.rewardKeyType == 1 ? CTxDestination(PKHash(anchor.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(anchor.rewardKeyID));
-
-    CMutableTransaction mTx;
-
-    CDataStream metadata(DfAnchorFinalizeTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    auto currentTeam = pmasternodesview->GetCurrentTeam();
-    metadata << btcHeight << btcTxHash << anchor.previousAnchor << anchor.height << anchor.blockHash << anchor.nextTeam << currentTeam << anchor.sigs;
-
-    mTx.vin.resize(1);
-    mTx.vin[0].prevout.SetNull();
-    mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-    mTx.vout.resize(2);
-    mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-    mTx.vout[0].nValue = 0;
-    mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-    mTx.vout[1].nValue = GetAnchorSubsidy(anchor.height, panchors->GetActiveAnchor()->anchor.height, chainparams.GetConsensus());
-
-    return MakeTransactionRef(mTx);
-}
-
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn)
 {
     auto myIDs = pmasternodesview->AmIOperator();
@@ -168,22 +146,72 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     auto confirms = panchorAwaitingConfirms->GetConfirms();
 
-    for (auto && countConfirms : confirms) {
-        if (countConfirms.second >= GetMinAnchorQuorum(pmasternodesview->GetCurrentTeam())) {
-            auto const *anchorRec = panchors->ExistAnchorByTx(countConfirms.first);
-            if (!anchorRec) {
-                LogPrintf("Warning! Can't read last anchor message %s\n",  countConfirms.first.ToString());
-                continue;
-            }
+    if (confirms.size()) {
+        auto currentTeam = pmasternodesview->GetCurrentTeam();
+        for (auto && confirmsForAnchor : confirms) {
+            if (confirmsForAnchor.second.size() >= GetMinAnchorQuorum(currentTeam)) {
 
-            auto currentTeam = pmasternodesview->GetCurrentTeam();
-            if (anchorRec->anchor.CheckAuthSigs(currentTeam) && anchorRec->anchor.sigs.size() >= GetMinAnchorQuorum(currentTeam)) {
-                pblock->vtx.push_back(CreateAnchorFinalizationTx(anchorRec->anchor, anchorRec->txHash, anchorRec->btcHeight));
+                auto itBegin = confirmsForAnchor.second.begin();
+                if(panchorAwaitingConfirms->Validate(itBegin->second)) {
+                    continue ;
+                }
+                std::vector<std::vector<unsigned char>> sigs { itBegin->second.signature };
+
+                bool failFlag = false;
+                for (auto && it = ++itBegin; it != confirmsForAnchor.second.end(); ++it) {
+                    if (!itBegin->second.isEqualDataWith(it->second) ||
+                        !panchorAwaitingConfirms->Validate(it->second)) {
+                        failFlag = true;
+                        break ;
+                    } else {
+                        sigs.push_back(it->second.signature);
+                    }
+                }
+
+                if (failFlag) {
+                    continue ;
+                }
+
+                auto exist = panchors->GetAnchorByBtcTx(itBegin->second.btcTxHash);
+                if (!exist) {
+                    continue ;
+                }
+
+                CTxDestination destination = itBegin->second.rewardKeyType == 1 ? CTxDestination(PKHash(itBegin->second.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(itBegin->second.rewardKeyID));
+
+                CMutableTransaction mTx;
+
+                CDataStream metadata(DfAnchorFinalizeTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+                auto currentTeam = pmasternodesview->GetCurrentTeam();
+                auto nextTeam = pmasternodesview->CalcNextTeam(pindexPrev->stakeModifier);
+                metadata
+                    << itBegin->second.btcHeight
+                    << itBegin->second.btcTxHash
+                    << itBegin->second.anchorHeight
+                    << itBegin->second.prevAnchorHeight
+                    << exist->anchor.blockHash
+                    << itBegin->second.rewardKeyID
+                    << itBegin->second.rewardKeyType
+                    << itBegin->second.activeAnchorChain
+                    << nextTeam
+                    << currentTeam
+                    << sigs;
+
+                mTx.vin.resize(1);
+                mTx.vin[0].prevout.SetNull();
+                mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                mTx.vout.resize(2);
+                mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+                mTx.vout[0].nValue = 0;
+                mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
+                mTx.vout[1].nValue = GetAnchorSubsidy(itBegin->second.anchorHeight, itBegin->second.prevAnchorHeight, chainparams.GetConsensus(), itBegin->second.activeAnchorChain);
+
+                pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
 
                 pblocktemplate->vTxFees.push_back(0);
-                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+               // pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back())); // TODO: SS witness for reward?
 
-                panchorAwaitingConfirms->RemoveConfirmsForAnchor(countConfirms.first);
+                panchorAwaitingConfirms->RemoveConfirmsForAnchor(confirmsForAnchor.first);
                 break;
             }
         }

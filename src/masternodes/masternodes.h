@@ -21,6 +21,7 @@
 #include <boost/optional.hpp>
 
 class CTransaction;
+class CAnchor;
 // class CBlockHeader;
 
 static const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};  // 44665478
@@ -286,6 +287,7 @@ public:
     const CAmount GetFoundationsDebt();
     void SetFoundationsDebt(CAmount debt);
     CTeam CalcNextTeam(uint256 stakeModifier);
+    void CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash, uint32_t btcTxHeight);
 
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
     void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
