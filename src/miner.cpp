@@ -209,9 +209,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
 
                 pblocktemplate->vTxFees.push_back(0);
-               // pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back())); // TODO: SS witness for reward?
+                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
 
-                panchorAwaitingConfirms->RemoveConfirmsForAnchor(confirmsForAnchor.first);
+                panchorAwaitingConfirms->EraseAnchor(confirmsForAnchor.first);
                 break;
             }
         }
@@ -265,11 +265,17 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
     coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
     // Pinch off foundation share
+    CAmount foundationsReward = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
     if (IsValidDestination(chainparams.GetConsensus().foundationAddress) && chainparams.GetConsensus().foundationShare != 0) {
-        coinbaseTx.vout.resize(2);
-        coinbaseTx.vout[1].scriptPubKey = GetScriptForDestination(chainparams.GetConsensus().foundationAddress);
-        coinbaseTx.vout[1].nValue = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
-        coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
+        if (pmasternodesview->GetFoundationsDebt() < foundationsReward) {
+            coinbaseTx.vout.resize(2);
+            coinbaseTx.vout[1].scriptPubKey = GetScriptForDestination(chainparams.GetConsensus().foundationAddress);
+            coinbaseTx.vout[1].nValue = foundationsReward - pmasternodesview->GetFoundationsDebt();
+            coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
+        } else {
+            pmasternodesview->SetFoundationsDebt(pmasternodesview->GetFoundationsDebt() - foundationsReward);
+        }
+
     }
 
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
@@ -624,7 +630,7 @@ namespace pos {
                 pmasternodesview->FindMintedBlockHeader(args.masternodeID, mintedBlocks + 1, blockHeaders, fIsFakeNet);
 
                 for (std::pair <uint256, CBlockHeader> blockHeader : blockHeaders) {
-                    if ((std::max(blockHeader.second.height, tip->nHeight + (uint32_t)1) - std::min(blockHeader.second.height, tip->nHeight + (uint32_t)1)) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL) {
+                    if ((std::max(blockHeader.second.height, tip->nHeight + (uint64_t)1) - std::min(blockHeader.second.height, tip->nHeight + (uint64_t)1)) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL) {
                         potentialCriminalBlock = true;
                         return;
                     }

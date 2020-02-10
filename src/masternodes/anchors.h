@@ -310,6 +310,7 @@ public:
     bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
     const std::map<uint256, std::map<uint256, CAnchorConfirmMessage>> GetConfirms() const;
     bool RemoveConfirmsForAnchor(TxHashAnchor const &hash);
+    void RemoveConfirmsForAll();
 };
 
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')

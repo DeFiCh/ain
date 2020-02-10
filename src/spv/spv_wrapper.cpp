@@ -351,7 +351,6 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
             CAnchor oldAnchor{exist->anchor};
             if (panchors->AddAnchor(oldAnchor, txHash, blockHeight, true)) {
                 pmasternodesview->CreateAndRelayConfirmMessageIfNeed(exist->anchor, txHash, blockHeight);
-                LogPrintf("spv: updated anchor %s\n", txHash.ToString());
             }
         }
     }
