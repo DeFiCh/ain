@@ -3,13 +3,16 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/masternodes.h>
+#include <masternodes/anchors.h>
 
 #include <chainparams.h>
+#include <net_processing.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <validation.h>
+#include <wallet/wallet.h>
 
 #include <algorithm>
 #include <functional>
@@ -414,6 +417,35 @@ CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier)
     }
 
     return newTeam;
+}
+
+void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash, uint32_t btcTxHeight)
+{
+    auto myIDs = AmIOperator();
+    if (!myIDs && ExistMasternode(myIDs->id)->IsActive()) // TODO: SS : not sure IsActive() or (state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED)
+        return ;
+    auto const & currentTeam = GetCurrentTeam();
+    if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end())
+        return ;
+
+    std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+    CKey masternodeKey{};
+    for (auto const wallet : wallets) {
+        if (wallet->GetKey(myIDs->operatorAuthAddress, masternodeKey)) {
+            break;
+        }
+        masternodeKey = CKey{};
+    }
+
+    if (!masternodeKey.IsValid()) {
+        // return error("%s: Can't read masternode operator private key", __func__);
+        return ;
+    }
+
+    auto prev = panchors->ExistAnchorByTx(anchor.previousAnchor);
+    auto confirmMessage = CAnchorConfirmMessage::Create(anchor, prev? prev->anchor.height : 0, btcTxHash, btcTxHeight, masternodeKey, prev == panchors->GetActiveAnchor());
+    panchorAwaitingConfirms->Add(confirmMessage);
+    RelayAnchorConfirm(confirmMessage.GetHash(), *g_connman);
 }
 
 bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)

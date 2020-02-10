@@ -267,12 +267,17 @@ public:
     THeight prevAnchorHeight;
     CKeyID rewardKeyID;
     char rewardKeyType;
+    bool activeAnchorChain;
     Signature signature;
 
     CAnchorConfirmMessage() {}
 
-    static CAnchorConfirmMessage Create(CAnchor const & anchor, THeight prevAnchorHeight, THeight btcHeight, uint256 btcTxHash, CKey const & key);
+    static CAnchorConfirmMessage Create(THeight anchorHeight, CKeyID const & rewardKeyID, char rewardKeyType, THeight prevAnchorHeight, uint256 btcTxHash, THeight btcHeight, bool activeAnchorChain);
+    static CAnchorConfirmMessage Create(CAnchor const & anchor, THeight prevAnchorHeight, uint256 btcTxHash, THeight btcHeight, CKey const & key, bool activeAnchorChain);
     uint256 GetHash() const;
+    uint256 GetSignHash() const;
+    bool CheckConfirmSigs(std::vector<Signature> const & sigs, CMasternodesView::CTeam team);
+    bool isEqualDataWith(const CAnchorConfirmMessage &message) const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -284,6 +289,7 @@ public:
         READWRITE(prevAnchorHeight);
         READWRITE(rewardKeyID);
         READWRITE(rewardKeyType);
+        READWRITE(activeAnchorChain);
         READWRITE(signature);
     }
 };
@@ -292,7 +298,7 @@ class CAnchorAwaitingConfirms
 {
     using HashConfirmMessage = uint256;
     using TxHashAnchor = uint256;
-private:
+protected:
     std::map<TxHashAnchor, std::map<HashConfirmMessage, CAnchorConfirmMessage>> confirms;
 
 public:
@@ -302,7 +308,7 @@ public:
     const CAnchorConfirmMessage *Exist(HashConfirmMessage const &hash) const;
     void Add(CAnchorConfirmMessage const &newConfirmMessage);
     bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
-    std::map<uint256, uint32_t> GetConfirms() const;
+    const std::map<uint256, std::map<uint256, CAnchorConfirmMessage>> GetConfirms() const;
     bool RemoveConfirmsForAnchor(TxHashAnchor const &hash);
 };
 
