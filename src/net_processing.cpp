@@ -1621,14 +1621,15 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
             const CInv &inv = *it;
             it++;
 
-            if (it->type == MSG_ANCHOR_AUTH) {
+            if (inv.type == MSG_ANCHOR_AUTH) {
+                LogPrintf("Searching anchorauth, hash: %s\n", inv.hash.ToString());
                 CAnchorAuthMessage const * auth = panchorauths->ExistAuth(inv.hash);
                 if (auth) {
                     LogPrintf("PushMessage anchorauth, hash: %s\n", auth->GetHash().ToString());
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHORAUTH, *auth));
                 }
             }
-            if (it->type == MSG_ANCHOR_CONFIRM) {
+            if (inv.type == MSG_ANCHOR_CONFIRM) {
                 CAnchorConfirmMessage const * message = panchorconfirms->Exist(inv.hash);
                 if (message) {
                     LogPrintf("PushMessage anchorconfirm, hash: %s\n", message->GetHash().ToString());
