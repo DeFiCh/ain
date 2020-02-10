@@ -71,8 +71,6 @@ public:
 
     // tags for multiindex
     struct ByMsgHash{};     // by message hash (for inv)
-    struct ByHeight{};
-    struct ByBlockHash{};
     struct ByKey{};         // composite, by height and GetSignHash for anchor creation
     struct ByVote{};        // composite, by GetSignHash and signer, helps detect doublesigning
 
@@ -156,6 +154,7 @@ public:
     bool AddAuth(Auth const & auth);
 
     CAnchor CreateBestAnchor(CTxDestination const & rewardDest) const;
+    void ForEachAnchorAuthByHeight(std::function<void(const CAnchorAuthIndex::Auth &)> callback) const;
 
     Auths auths;
 };
