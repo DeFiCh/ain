@@ -389,9 +389,12 @@ const CAmount CMasternodesView::GetFoundationsDebt()
     return foundationsDebt;
 }
 
-void CMasternodesView::SetFoundationsDebt(CAmount debt)
-{
-    foundationsDebt = debt;
+void CMasternodesView::SetFoundationsDebt(CAmount debt) {
+    if (debt >= 0) {
+        foundationsDebt = debt;
+    } else {
+        assert(false);
+    }
 }
 
 CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier)
@@ -663,6 +666,9 @@ void CMasternodesView::ApplyCache(const CMasternodesView * cache)
     for (auto const & pair : cache->criminals) {
         criminals[pair.first] = pair.second; // possible empty (if deleted)
     }
+
+    foundationsDebt = cache->foundationsDebt;
+    currentTeam = cache->currentTeam;
 
     for (auto const & pair : cache->blocksUndo) {
         blocksUndo[pair.first] = pair.second; // possible empty (if deleted)

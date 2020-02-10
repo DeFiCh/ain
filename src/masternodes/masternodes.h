@@ -325,6 +325,8 @@ public:
     {
         assert(base);
         lastHeight = base->lastHeight;
+        currentTeam = base->currentTeam;
+        foundationsDebt = base->foundationsDebt;
         // cached items are empty!
     }
 
