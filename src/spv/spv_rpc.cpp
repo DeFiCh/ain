@@ -499,6 +499,57 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
     return result;
 }
 
+UniValue spv_listanchorauths(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_listanchorsauths",
+        "\nList anchor auths (if any)\n",
+        {
+        },
+        RPCResult{
+            "\"array\"                  Returns array of anchor auths\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_listanchorauths", "")
+            + HelpExampleRpc("spv_listanchorauths", "")
+        },
+    }.Check(request);
+
+    auto locked_chain = pwallet->chain().lock();
+
+    UniValue result(UniValue::VARR);
+    CAnchorAuthIndex::Auth const * prev = nullptr;
+    std::vector<CKeyID> signers;
+    panchorauths->ForEachAnchorAuthByHeight([&result, &prev, &signers](const CAnchorAuthIndex::Auth & auth) {
+        if (!prev)
+            prev = &auth;
+
+        if (prev->GetSignHash() != auth.GetSignHash()) {
+            // flush group
+            UniValue item(UniValue::VOBJ);
+            item.pushKV("blockHeight", static_cast<int>(prev->height));
+            item.pushKV("blockHash", prev->blockHash.ToString());
+            item.pushKV("signers", signers.size());
+            result.push_back(item);
+
+            // clear
+            signers.clear();
+            prev = &auth;
+        }
+        signers.push_back(auth.GetSigner());
+    });
+
+    if (prev) {
+        // place last auth group
+        UniValue item(UniValue::VOBJ);
+        item.pushKV("blockHeight", static_cast<int>(prev->height));
+        item.pushKV("blockHash", prev->blockHash.ToString());
+        item.pushKV("signers", signers.size());
+        result.push_back(item);
+    }
+    return result;
+}
 
 UniValue spv_setlastheight(const JSONRPCRequest& request)
 {
@@ -539,6 +590,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
   { "spv",      "spv_splitutxo",              &spv_splitutxo,             { "parts", "amount" }  },
   { "spv",      "spv_listanchors",            &spv_listanchors,           { }  },
+  { "spv",      "spv_listanchorauths",        &spv_listanchorauths,       { }  },
 
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
 };
