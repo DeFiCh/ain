@@ -1559,12 +1559,58 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             std::vector<unsigned char> metadata;
             if (CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                CAnchor anchor;
                 uint32_t btcHeight;
                 uint256 btcTxHash;
+                uint32_t anchorHeight;
+                uint32_t prevAnchorHeight;
+                uint256 blockHash;
+                CKeyID rewardKeyID;
+                char rewardKeyType;
+                bool activeAnchorChain;
                 CMasternodesView::CTeam currentTeam;
-                ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
+                CMasternodesView::CTeam nextTeam;
+                std::vector<std::vector<unsigned char>> sigs;
+
+                ss  >> btcHeight
+                    >> btcTxHash
+                    >> anchorHeight
+                    >> prevAnchorHeight
+                    >> blockHash
+                    >> rewardKeyID
+                    >> rewardKeyType
+                    >> activeAnchorChain
+                    >> nextTeam
+                    >> currentTeam
+                    >> sigs;
+
                 mnview.SetTeam(currentTeam);
+
+                assert(mnview.GetFoundationsDebt() > tx.GetValueOut());
+
+                mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
+                panchorAwaitingConfirms->RemoveConfirmsForAll();
+
+                auto myIDs = pmasternodesview->AmIOperator();
+                if (myIDs) {
+                    auto nodePtr = pmasternodesview->ExistMasternode(myIDs->id);
+                    if (nodePtr && nodePtr->IsActive()) {
+                        if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end()) {
+                            for (auto && hashAndConfirm : panchorAwaitingConfirms->GetConfirms()) {
+                                auto exist = panchors->ExistAnchorByTx(hashAndConfirm.first);
+                                if (exist) {
+                                    pmasternodesview->CreateAndRelayConfirmMessageIfNeed(exist->anchor, exist->txHash, exist->btcHeight);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                panchorAwaitingConfirms->AddAnchor(btcTxHash);
+                for (auto && sig : sigs) {
+                    auto message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash, btcHeight, activeAnchorChain);
+                    message.signature = sig;
+                    panchorAwaitingConfirms->Add(message);
+                }
 
                 continue;
             } else if (CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
@@ -2139,6 +2185,23 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     }
                 }
                 mnview.SetTeam(nextTeam);
+                mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
+                panchorAwaitingConfirms->RemoveConfirmsForAll();
+
+                auto myIDs = pmasternodesview->AmIOperator();
+                if (myIDs) {
+                    auto nodePtr = pmasternodesview->ExistMasternode(myIDs->id);
+                    if (nodePtr && nodePtr->IsActive()) {
+                        if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end()) {
+                            for (auto && hashAndConfirm : panchorAwaitingConfirms->GetConfirms()) {
+                                auto exist = panchors->ExistAnchorByTx(hashAndConfirm.first);
+                                if (exist) {
+                                    pmasternodesview->CreateAndRelayConfirmMessageIfNeed(exist->anchor, exist->txHash, exist->btcHeight);
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 

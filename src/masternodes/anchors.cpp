@@ -675,3 +675,10 @@ bool CAnchorAwaitingConfirms::RemoveConfirmsForAnchor(TxHashAnchor const &hash)
 
     return false;
 }
+
+void CAnchorAwaitingConfirms::RemoveConfirmsForAll()
+{
+    for (auto &&hashAndConfirm : confirms) {
+        hashAndConfirm.second.clear();
+    }
+}
