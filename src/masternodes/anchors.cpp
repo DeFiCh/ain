@@ -15,9 +15,6 @@
 #include <util/validation.h>
 #include <validation.h>
 
-// for anchor processing
-#include <wallet/wallet.h>
-
 #include <algorithm>
 
 #include <tuple>
@@ -537,24 +534,51 @@ bool ValidateAnchor(const CAnchor & anchor, bool noThrow)
     return true;
 }
 
-CAnchorConfirmMessage CAnchorConfirmMessage::Create(CAnchor const & anchor, THeight prevAnchorHeight, THeight btcHeight, uint256 btcTxHash, CKey const & key)
+CAnchorConfirmMessage CAnchorConfirmMessage::Create(THeight anchorHeight, CKeyID const & rewardKeyID, char rewardKeyType, THeight prevAnchorHeight, uint256 btcTxHash, THeight btcHeight, bool activeAnchorChain)
 {
     CAnchorConfirmMessage message;
 
-    CDataStream ss{SER_GETHASH, 0};
-    ss << btcTxHash << btcHeight << anchor.height << prevAnchorHeight << anchor.rewardKeyID << anchor.rewardKeyType;
-
     message.btcTxHash = btcTxHash;
     message.btcHeight = btcHeight;
-    message.anchorHeight = anchor.height;
+    message.anchorHeight = anchorHeight;
     message.prevAnchorHeight = prevAnchorHeight;
-    message.rewardKeyID = anchor.rewardKeyID;
-    message.rewardKeyType = anchor.rewardKeyType;
+    message.rewardKeyID = rewardKeyID;
+    message.rewardKeyType = rewardKeyType;
+    message.activeAnchorChain = activeAnchorChain;
 
-    if (!key.SignCompact(Hash(ss.begin(), ss.end()), message.signature)) {
+    return message;
+}
+
+CAnchorConfirmMessage CAnchorConfirmMessage::Create(CAnchor const & anchor, THeight prevAnchorHeight, uint256 btcTxHash, THeight btcHeight, CKey const & key, bool activeAnchorChain)
+{
+    CAnchorConfirmMessage message = CAnchorConfirmMessage::Create(anchor.height, anchor.rewardKeyID, anchor.rewardKeyType, prevAnchorHeight, btcTxHash, btcHeight, activeAnchorChain);
+    if (!key.SignCompact(message.GetSignHash(), message.signature)) {
         message.signature.clear();
     }
     return message;
+}
+
+uint256 CAnchorConfirmMessage::GetSignHash() const
+{
+    CDataStream ss{SER_GETHASH, 0};
+    ss << btcTxHash << btcHeight << anchorHeight << prevAnchorHeight << rewardKeyID << rewardKeyType << activeAnchorChain;
+    return Hash(ss.begin(), ss.end());
+}
+
+bool CAnchorConfirmMessage::CheckConfirmSigs(std::vector<Signature> const & sigs, CMasternodesView::CTeam team)
+{
+    return CheckSigs(GetSignHash(), sigs, team);
+}
+
+bool CAnchorConfirmMessage::isEqualDataWith(const CAnchorConfirmMessage &message) const
+{
+    return  btcTxHash == message.btcTxHash &&
+            btcHeight == message.btcHeight &&
+            anchorHeight == message.anchorHeight &&
+            prevAnchorHeight == message.prevAnchorHeight &&
+            rewardKeyID == message.rewardKeyID &&
+            rewardKeyType == message.rewardKeyType &&
+            activeAnchorChain == message.activeAnchorChain;
 }
 
 uint256 CAnchorConfirmMessage::GetHash() const
@@ -606,9 +630,18 @@ bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessa
 
     auto const & currentTeam = pmasternodesview->GetCurrentTeam();
     CPubKey pubkey;
-    if (!pubkey.RecoverCompact(confirmMessage.btcTxHash, confirmMessage.signature) || currentTeam.find(pubkey.GetID()) == currentTeam.end())
+    if (!pubkey.RecoverCompact(confirmMessage.GetSignHash(), confirmMessage.signature) || currentTeam.find(pubkey.GetID()) == currentTeam.end())
         return false;
 
+    auto it = confirms.find(confirmMessage.btcTxHash);
+    if (it != confirms.end()) {
+        auto confirmsForThis = it->second;
+        for (auto &&hashAndConfirm: confirmsForThis) {
+            if (hashAndConfirm.second.rewardKeyID == pubkey.GetID()) {
+                return false;
+            }
+        }
+    }
     return true;
 }
 
@@ -625,14 +658,9 @@ void CAnchorAwaitingConfirms::Add(CAnchorConfirmMessage const &newConfirmMessage
     confirms[newConfirmMessage.btcTxHash] = std::map<HashConfirmMessage, CAnchorConfirmMessage>{std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage)};
 }
 
-std::map<uint256, uint32_t> CAnchorAwaitingConfirms::GetConfirms() const
+const std::map<uint256, std::map<uint256, CAnchorConfirmMessage>> CAnchorAwaitingConfirms::GetConfirms() const
 {
-    std::map<uint256, uint32_t> processingAnchors;
-    for (auto &&hashAndConfirm : confirms) {
-        processingAnchors[hashAndConfirm.first] = hashAndConfirm.second.size();
-    }
-
-    return std::move(processingAnchors);
+    return confirms;
 }
 
 bool CAnchorAwaitingConfirms::RemoveConfirmsForAnchor(TxHashAnchor const &hash)
