@@ -1062,13 +1062,18 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     return nSubsidy;
 }
 
-CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams)
+CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams, bool activeAnchorChain)
 {
-    if (anchorHeight > prevAnchorHeight) {
-        int period = anchorHeight - prevAnchorHeight;
-        return consensusParams.spv.anchorSubsidy + (period / consensusParams.spv.subsidyIncreasePeriod) * consensusParams.spv.subsidyIncreaseValue;
+    if (anchorHeight < prevAnchorHeight) {
+        return 0;
     }
-    return 0;
+
+    if (!activeAnchorChain) {
+        return consensusParams.spv.anchorSubsidy; // minimum reward
+    }
+
+    int period = anchorHeight - prevAnchorHeight;
+    return consensusParams.spv.anchorSubsidy + (period / consensusParams.spv.subsidyIncreasePeriod) * consensusParams.spv.subsidyIncreaseValue;
 }
 
 CoinsViews::CoinsViews(
@@ -2071,21 +2076,69 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 mnview.BanCriminal(tx.GetHash(), metadata, block.height);
             } else if (!fIsFakeNet && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                CAnchor anchor;
                 uint32_t btcHeight;
                 uint256 btcTxHash;
+                uint32_t anchorHeight;
+                uint32_t prevAnchorHeight;
+                uint256 blockHash;
+                CKeyID rewardKeyID;
+                char rewardKeyType;
+                bool activeAnchorChain;
                 CMasternodesView::CTeam currentTeam;
-                ss >> btcHeight >> btcTxHash >> anchor.previousAnchor >> anchor.height >> anchor.blockHash >> anchor.nextTeam >> currentTeam >> anchor.sigs;
-                if (anchor.CheckAuthSigs(mnview.GetCurrentTeam())) {
-                    mnview.SetTeam(anchor.nextTeam);
+                CMasternodesView::CTeam nextTeam;
+                std::vector<std::vector<unsigned char>> sigs;
+
+                ss  >> btcHeight
+                    >> btcTxHash
+                    >> anchorHeight
+                    >> prevAnchorHeight
+                    >> blockHash
+                    >> rewardKeyID
+                    >> rewardKeyType
+                    >> activeAnchorChain
+                    >> nextTeam
+                    >> currentTeam
+                    >> sigs;
+
+                assert(currentTeam == mnview.GetCurrentTeam());
+
+                CAnchorConfirmMessage message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash, btcHeight, activeAnchorChain);
+                if (!message.CheckConfirmSigs(sigs, currentTeam)) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("ConnectBlock(): anchor signatures are incorrect"),
+                                               REJECT_INVALID, "bad-ar-sigs");
                 }
-                auto anchorReward = GetAnchorSubsidy(anchor.height, panchors->GetActiveAnchor()->anchor.height, chainparams.GetConsensus());
+
+                if (sigs.size() < GetMinAnchorQuorum(currentTeam)) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("ConnectBlock(): anchor sigs (%d) < min quorum (%) ",
+                                                 sigs.size(), GetMinAnchorQuorum(currentTeam)),
+                                         REJECT_INVALID, "bad-ar-sigs-quorum");
+                }
+
+                auto anchorReward = GetAnchorSubsidy(anchorHeight, prevAnchorHeight, chainparams.GetConsensus(), activeAnchorChain);
                 if (tx.GetValueOut() > anchorReward) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): anchor pays too much (actual=%d vs limit=%d)",
                                                tx.GetValueOut(), anchorReward),
                                          REJECT_INVALID, "bad-ar-amount");
                 }
+
+                CTxDestination destination = rewardKeyType == 1 ? CTxDestination(PKHash(rewardKeyID)) : CTxDestination(WitnessV0KeyHash(rewardKeyID));
+                if (tx.vout[1].scriptPubKey == GetScriptForDestination(destination)) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("ConnectBlock(): wrong calculation team"),
+                                         REJECT_INVALID, "bad-ar-team");
+                }
+
+                if (pindex->pprev) {
+                    if (nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier)) {
+                        return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                             error("ConnectBlock(): anchor pay destination is incorrect"),
+                                             REJECT_INVALID, "bad-ar-team");
+                    }
+                }
+                mnview.SetTeam(nextTeam);
             }
         }
 
