@@ -14,6 +14,14 @@ struct SpvTestingSetup : public TestingSetup {
         : TestingSetup(CBaseChainParams::REGTEST)
     {
         spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
+        AbortShutdown();
+    }
+    ~SpvTestingSetup()
+    {
+        StartShutdown();
+        spv::pspv->Disconnect();
+        LOCK(cs_main);
+        spv::pspv.reset();
     }
 };
 
@@ -21,7 +29,7 @@ BOOST_FIXTURE_TEST_SUITE(anchor_tests, SpvTestingSetup)
 
 BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 {
-    auto fspv = static_cast<spv::CFakeSpvWrapper *>(spv::pspv.get());
+    spv::CFakeSpvWrapper * fspv = static_cast<spv::CFakeSpvWrapper *>(spv::pspv.get());
 
     LOCK(cs_main);
 
