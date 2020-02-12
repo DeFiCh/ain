@@ -389,6 +389,9 @@ int CAnchorIndex::GetAnchorConfirmations(const CAnchorIndex::AnchorRec * rec) co
 
 void CAnchorIndex::CheckActiveAnchor(bool forced)
 {
+    // we should avoid slow operations on exit, especially ActivateBestChain
+    if (ShutdownRequested()) return;
+
     bool topChanged{false};
     {
         LOCK(cs_main);

@@ -190,6 +190,11 @@ void Shutdown(InitInterfaces& interfaces)
     util::ThreadRename("shutoff");
     mempool.AddTransactionsUpdated(1);
 
+    /// @attention outside of cs_main lock!
+    if (spv::pspv) {
+        spv::pspv->Disconnect();
+    }
+
     StopHTTPRPC();
     StopREST();
     StopRPC();
@@ -258,15 +263,13 @@ void Shutdown(InitInterfaces& interfaces)
     // up with our current chain to avoid any strange pruning edge cases and make
     // next startup faster by avoiding rescan.
 
-    /// @attention outside of cs_main lock!
-    if (spv::pspv)
-        spv::pspv->Disconnect();
     {
         LOCK(cs_main);
         if (g_chainstate && g_chainstate->CanFlushToDisk()) {
             g_chainstate->ForceFlushStateToDisk();
             g_chainstate->ResetCoinsViews();
         }
+        LogPrintf("spv: Releasing\n");
         spv::pspv.reset();
         panchorauths.reset();
         panchors.reset();
