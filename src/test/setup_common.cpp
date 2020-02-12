@@ -117,11 +117,11 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
         panchorauths.reset();
         panchorauths = MakeUnique<CAnchorAuthIndex>();
+        panchorAwaitingConfirms.reset();
+        panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
         panchors.reset();
         panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, true, true);
         panchors->Load();
-        panchorAwaitingConfirms.reset();
-        panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
     }
 
     if (!LoadGenesisBlock(chainparams)) {
@@ -151,6 +151,12 @@ TestingSetup::~TestingSetup()
     g_banman.reset();
     UnloadBlockIndex();
     g_chainstate.reset();
+
+    panchors.reset();
+    panchorAwaitingConfirms.reset();
+    panchorauths.reset();
+    pmasternodesview.reset();
+
     pblocktree.reset();
 }
 
