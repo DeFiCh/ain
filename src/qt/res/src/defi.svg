@@ -6,7 +6,7 @@
 
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg version="1.1"
-	 id="svg2" sodipodi:docname="defi-logo-noshadow.svg" inkscape:version="0.48.2 r9819" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+     id="svg2" sodipodi:docname="defi-logo-noshadow.svg" inkscape:version="0.48.2 r9819" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
 	 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="1024px" height="1024px"
 	 viewBox="-34 -34 580 580" enable-background="new 0 0 1024 1024" xml:space="preserve">
 
@@ -17,30 +17,30 @@
 		<feGaussianBlur in="matrixOut" result="blur-out" stdDeviation="6" />
 		<feColorMatrix in="blur-out" result="color-out" type="matrix"
 		      values="0 0 0 0   0
-		              0 0 0 0   0 
-		              0 0 0 0   0 
+		              0 0 0 0   0
+		              0 0 0 0   0
 		              0 0 0 0.35 0"/>
 		<feBlend in="SourceGraphic" in2="color-out" mode="normal" />
 	</filter>
-	
+
 	<g>
 		<!-- white background circle for making B not transparent but still keep inner shadows -->
 		<circle cx="255" cy="255" r="200" stroke-width="2" fill="white"/>
-	
+
 		<radialGradient id="innerBtop" cx="277.4905" cy="196.4412" r="34.3969" gradientUnits="userSpaceOnUse">
 			<stop offset="0" style="stop-color:#F9AA4B"/>
 			<stop offset="1" style="stop-color:#F7931A"/>
 		</radialGradient>
 		<path fill="url(#innerBtop)" filter="url(#dropShadowAlpha)" d="M254.647,174.6l-13.983,56.08c15.855,3.951,64.735,20.071,72.656-11.656
 			C321.568,185.928,270.503,178.552,254.647,174.6z"/>
-		
+
 		<radialGradient id="innerBbottom" cx="261.9153" cy="284.5671" r="39.8381" gradientUnits="userSpaceOnUse">
 			<stop offset="0" style="stop-color:#F9AA4B"/>
 			<stop offset="1" style="stop-color:#F7931A"/>
 		</radialGradient>
 		<path fill="url(#innerBbottom)" filter="url(#dropShadowAlpha)" d="M233.608,258.984l-15.425,61.832c19.04,4.729,77.769,23.584,86.448-11.296
 			C313.703,273.144,252.647,263.736,233.608,258.984z"/>
-				
+
 		<radialGradient id="coinShape" cx="256.0276" cy="256.0027" r="255.9878" gradientUnits="userSpaceOnUse">
 			<stop offset="0" style="stop-color:#F9AA4B"/>
 			<stop offset="1" style="stop-color:#F7931A"/>
