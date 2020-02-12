@@ -271,8 +271,9 @@ void Shutdown(InitInterfaces& interfaces)
         }
         LogPrintf("spv: Releasing\n");
         spv::pspv.reset();
-        panchorauths.reset();
         panchors.reset();
+        panchorAwaitingConfirms.reset();
+        panchorauths.reset();
         pmasternodesview.reset();
         pblocktree.reset();
     }
