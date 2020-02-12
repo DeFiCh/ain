@@ -25,6 +25,8 @@
 
 extern RecursiveMutex cs_main;
 
+RecursiveMutex cs_spvcallback;
+
 namespace spv
 {
 
@@ -46,44 +48,64 @@ uint256 to_uint256(const UInt256 & i) {
 /// spv wallet manager's callbacks wrappers:
 void balanceChanged(void *info, uint64_t balance)
 {
+    LOCK(cs_spvcallback);
+    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnBalanceChanged(balance);
 }
 void txAdded(void *info, BRTransaction *tx)
 {
+    LOCK(cs_spvcallback);
+    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxAdded(tx);
 }
 void txUpdated(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
 {
+    LOCK(cs_spvcallback);
+    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxUpdated(txHashes, txCount, blockHeight, timestamp);
 }
 void txDeleted(void *info, UInt256 txHash, int notifyUser, int recommendRescan)
 {
+    LOCK(cs_spvcallback);
+    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxDeleted(txHash, notifyUser, recommendRescan);
 }
 
 /// spv peer manager's callbacks wrappers:
 void syncStarted(void *info)
 {
+    LOCK(cs_spvcallback);
+    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStarted();
 }
 void syncStopped(void *info, int error)
 {
+    LOCK(cs_spvcallback);
+    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStopped(error);
 }
 void txStatusUpdate(void *info)
 {
+    LOCK(cs_spvcallback);
+    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxStatusUpdate();
 }
 void saveBlocks(void *info, int replace, BRMerkleBlock *blocks[], size_t blocksCount)
 {
+    LOCK(cs_spvcallback);
+    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSaveBlocks(replace, blocks, blocksCount);
 }
 void savePeers(void *info, int replace, const BRPeer peers[], size_t peersCount)
 {
+    LOCK(cs_spvcallback);
+    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSavePeers(replace, peers, peersCount);
 }
 void threadCleanup(void *info)
 {
+    LOCK(cs_spvcallback);
+    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnThreadCleanup();
 }
 
@@ -217,6 +239,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
 CSpvWrapper::~CSpvWrapper()
 {
+    LOCK(cs_spvcallback);
     if (manager) {
         BRPeerManagerFree(manager);
         manager = nullptr;
@@ -259,11 +282,6 @@ bool CSpvWrapper::Rescan(int height)
     BRPeerManagerRescanFromBlockNumber(manager, static_cast<uint32_t>(height));
     LogPrintf("spv: actual new current block %u\n", BRPeerManagerLastBlockHeight(manager));
     return true;
-}
-
-BRPeerManager const * CSpvWrapper::GetPeerManager() const
-{
-    return manager;
 }
 
 // we cant return the whole params itself due to conflicts in include files
@@ -847,6 +865,7 @@ void CFakeSpvWrapper::Connect()
 
 void CFakeSpvWrapper::Disconnect()
 {
+    AssertLockNotHeld(cs_main); /// @attention due to calling txStatusUpdate() (OnTxUpdated()), savePeers(), syncStopped()
     isConnected = false;
 }
 
