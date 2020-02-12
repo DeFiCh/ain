@@ -6,6 +6,7 @@
 #define DEFI_SPV_SPV_WRAPPER_H
 
 #include <dbwrapper.h>
+#include <shutdown.h>
 #include <uint256.h>
 
 #include <spv/support/BRLargeInt.h>
@@ -77,7 +78,6 @@ public:
     virtual bool IsConnected() const;
     bool Rescan(int height);
 
-    BRPeerManager const * GetPeerManager() const;
     BRWallet * GetWallet();
 
     bool IsInitialSync() const;
