@@ -3941,6 +3941,87 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     return true;
 }
 
+bool AmISignerNow(CMasternodesView::CTeam const & team, CKeyID & operatorAuthAddress, CKey & masternodeKey)
+{
+    AssertLockHeld(cs_main);
+
+    auto const mnId = pmasternodesview->AmIOperator();
+    if (mnId && pmasternodesview->ExistMasternode(mnId->id)->IsActive() && team.find(mnId->operatorAuthAddress) != team.end()) { // this is safe due to prev call `AmIOperator`
+        std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+        for (auto const & wallet : wallets) {
+            if (wallet->GetKey(mnId->operatorAuthAddress, masternodeKey)) {
+                break;
+            }
+            masternodeKey = CKey{};
+        }
+        if (masternodeKey.IsValid()) {
+            operatorAuthAddress = mnId->operatorAuthAddress;
+            return true;
+        }
+    }
+    return false;
+}
+
+void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * tip, Consensus::Params const & consensus)
+{
+    AssertLockNotHeld(cs_main);
+    assert(oldTip);
+    assert(tip);
+    assert(tip != oldTip);
+
+    LOCK(cs_main);
+
+    // if our new tip is a child of prev
+    auto topAnchor = panchors->GetActiveAnchor();
+    auto const team = panchors->GetCurrentTeam(topAnchor);
+
+    CBlockIndex const * pindexFork = ::ChainActive().FindFork(oldTip);
+    // limit fork height - trim it by the top anchor, if any
+    uint64_t forkHeight = std::max(pindexFork ? pindexFork->height : 0, topAnchor ? (uint64_t) topAnchor->anchor.height : 0);
+    pindexFork = ::ChainActive()[forkHeight];
+
+    if (tip->pprev != oldTip) {
+        // asking all auths that may be skipped (rather we have switch the chain or not)
+        RelayGetAnchorAuths(pindexFork->GetBlockHash(), *g_connman);
+    }
+
+    CKey masternodekey;
+    CKeyID operatorAuthAddress;
+    if (!AmISignerNow(team, operatorAuthAddress, masternodekey)) {
+        return;
+    }
+
+    // trying to create auths between pindexFork and new tip (descending)
+    std::vector<CInv> vInv;
+    for (CBlockIndex const * pindex = tip; pindex && pindex != pindexFork; pindex = pindex->pprev) {
+
+        int anchorHeight = (int)pindex->height - consensus.mn.anchoringLag;
+        if (anchorHeight <= 0) {
+            break;
+        }
+        if (pindex->height % consensus.mn.anchoringFrequency != 0) { // "height % 15" rule
+            continue;
+        }
+        auto const anchorBlock = ::ChainActive()[anchorHeight];
+
+        LogPrintf("Anchor auth prepare, block: %d\n", anchorHeight);
+
+        // trying to create and sign new auth
+        CAnchorAuthMessage auth(topAnchor ? topAnchor->txHash : uint256(), anchorHeight, anchorBlock->GetBlockHash(), pmasternodesview->CalcNextTeam(anchorBlock->stakeModifier));
+        if (!panchorauths->ExistVote(auth.GetSignHash(), operatorAuthAddress))
+        {
+            auth.SignWithKey(masternodekey);
+            LogPrintf("Anchor auth message signed, hash: %s, height: %d\n", auth.GetHash().ToString(), auth.height);
+            panchorauths->AddAuth(auth);
+            vInv.push_back(CInv(MSG_ANCHOR_AUTH, auth.GetHash()));
+        }
+    }
+    if (vInv.size() > 0) {
+        RelayAnchorAuths(vInv, *g_connman);
+    }
+}
+
+
 bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<const CBlock> pblock, bool fForceProcessing, bool *fNewBlock)
 {
     AssertLockNotHeld(cs_main);
@@ -3969,49 +4050,18 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
 
     NotifyHeaderTip();
 
+    // save old tip
+    auto const oldTip = ::ChainActive().Tip();
+
     CValidationState state; // Only used to report errors, not invalidity - ignore it
     if (!::ChainstateActive().ActivateBestChain(state, chainparams, pblock))
         return error("%s: ActivateBestChain failed (%s)", __func__, FormatStateMessage(state));
 
-    Consensus::Params const & consensus = chainparams.GetConsensus();
-    auto const blockHeight = ::ChainActive().Height(); // pblock->height;
-    if (!::ChainstateActive().IsInitialBlockDownload() && (blockHeight % consensus.mn.anchoringFrequency == 0) && blockHeight - consensus.mn.anchoringLag > 0)
+    auto const tip = ::ChainActive().Tip();
+    // only if tip was changed
+    if (!::ChainstateActive().IsInitialBlockDownload() && tip && tip != oldTip && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
     {
-        LOCK(cs_main);
-        auto const anchorHeight = blockHeight - consensus.mn.anchoringLag;
-        auto const anchorBlock = ::ChainActive()[anchorHeight];
-
-        LogPrintf("Anchor auth prepare, block: %d\n", anchorHeight);
-        auto const mnId = pmasternodesview->AmIOperator();
-        if (mnId && pmasternodesview->ExistMasternode(mnId->id)->IsActive()) { // this is safe due to prev call `AmIOperator`
-            auto topAnchor = panchors->GetActiveAnchor();
-            auto const team = panchors->GetCurrentTeam(topAnchor);
-            if (team.find(mnId->operatorAuthAddress) != team.end())
-            {
-                CAnchorAuthMessage auth(topAnchor ? topAnchor->txHash : uint256(), anchorHeight, anchorBlock->GetBlockHash(), pmasternodesview->CalcNextTeam(anchorBlock->stakeModifier));
-
-                if (!panchorauths->ExistVote(auth.GetSignHash(), mnId->operatorAuthAddress))
-                {
-                    std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-                    CKey masternodeKey{};
-                    for (auto const & wallet : wallets) {
-                        if (wallet->GetKey(mnId.get().operatorAuthAddress, masternodeKey)) {
-                            break;
-                        }
-                        masternodeKey = CKey{};
-                    }
-
-                    if (!masternodeKey.IsValid()) {
-                        return error("%s: Can't read masternode operator private key", __func__);
-                    }
-
-                    auth.SignWithKey(masternodeKey);
-                    LogPrintf("Anchor auth message signed, hash: %s, height: %d\n", auth.GetHash().ToString(), auth.height);
-                    panchorauths->AddAuth(auth);
-                    RelayAnchorAuth(auth.GetHash(), *g_connman);
-                }
-            }
-        }
+        ProcessAuthsIfTipChanged(oldTip, tip, chainparams.GetConsensus());
     }
 
     return true;

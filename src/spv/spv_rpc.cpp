@@ -541,6 +541,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
             prev = &auth;
         }
         signers.push_back(auth.GetSigner());
+        return true;
     });
 
     if (prev) {
