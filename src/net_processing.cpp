@@ -1322,18 +1322,29 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     return true;
 }
 
-
-
-void RelayAnchorAuth(const uint256& hash, CConnman& connman, CNode* skipNode)
+void RelayGetAnchorAuths(const uint256& hash, CConnman& connman)
 {
-    CInv inv(MSG_ANCHOR_AUTH, hash);
-    connman.ForEachNode([&inv, &connman, &skipNode](CNode* pnode)
+    connman.ForEachNode([&hash, &connman](CNode* pnode)
+    {
+        const CNetMsgMaker msgMaker(pnode->GetSendVersion());
+        LogPrintf("send getauths: up to hash: %s, peer=%d\n", hash.ToString(), pnode->GetId());
+        connman.PushMessage(pnode, msgMaker.Make(NetMsgType::GETANCHORAUTHS, hash));
+    });
+}
+
+void RelayAnchorAuths(std::vector<CInv> const & vInv, CConnman& connman, CNode* skipNode)
+{
+    connman.ForEachNode([&vInv, &connman, &skipNode](CNode* pnode)
     {
         if (pnode != skipNode) {
-        const CNetMsgMaker msgMaker(pnode->GetSendVersion());
-        LogPrintf("send inv: auth, hash: %s, peer=%d\n", inv.hash.ToString(), pnode->GetId());
-        connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
-//        pnode->PushInventory(inv);
+            const CNetMsgMaker msgMaker(pnode->GetSendVersion());
+            if (vInv.size() == 1) {
+                LogPrintf("send inv: auth, hash: %s, peer=%d\n", vInv[0].hash.ToString(), pnode->GetId());
+            }
+            else {
+                LogPrintf("send invs: auths, count = %i, peer=%d\n", vInv.size(), pnode->GetId());
+            }
+            connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, vInv));
         }
     });
 }
@@ -2403,7 +2414,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             // if valid, add and rebroadcast
             if (panchorauths->ValidateAuth(auth)) {
                 panchorauths->AddAuth(auth);
-                RelayAnchorAuth(auth.GetHash(), *connman, pfrom);
+                RelayAnchorAuths({CInv(MSG_ANCHOR_AUTH, auth.GetHash())}, *connman, pfrom);
                 return true;
             }
         }
@@ -2614,6 +2625,46 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // in the SendMessages logic.
         nodestate->pindexBestHeaderSent = pindex ? pindex : ::ChainActive().Tip();
         connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::HEADERS, vHeaders));
+        return true;
+    }
+
+    if (strCommand == NetMsgType::GETANCHORAUTHS) {
+        uint256 hash;
+        vRecv >> hash;
+
+        LOCK(cs_main);
+        CBlockIndex const * pRequested = LookupBlockIndex(hash);
+        if (!pRequested || !::ChainActive().Contains(pRequested)) {
+            LogPrint(BCLog::NET, "getauths: requested block hash %s not found or is not in active chain\n", hash.GetHex());
+            return false;
+        }
+
+        // walking from tip down to the topAnchor or requested block (depends on which is higher)
+        // sending all existing auths that belongs to active chain
+        // possible optimization: stops when first quorum reached (irl, no need to walk deeper)
+        auto topAnchor = panchors->GetActiveAnchor();
+        // limit requested by the top anchor, if any
+        if (topAnchor && topAnchor->anchor.height > pRequested->height) {
+            pRequested = ::ChainActive()[topAnchor->anchor.height];
+            assert(pRequested);
+        }
+
+        LogPrint(BCLog::NET, "getauths from top to %d for peer=%d\n", pRequested->nHeight, pfrom->GetId());
+        std::vector<CInv> vInv;
+        panchorauths->ForEachAnchorAuthByHeight([pRequested, &vInv](const CAnchorAuthIndex::Auth & auth) {
+            if ((int)auth.height < pRequested->nHeight)
+                return false;
+
+            CBlockIndex const * pindex = LookupBlockIndex(auth.blockHash);
+            if (pindex && ::ChainActive().Contains(pindex)) {
+                vInv.push_back(CInv(MSG_ANCHOR_AUTH, auth.GetHash()));
+            }
+            return true;
+        });
+        if (vInv.size() > 0) {
+            LogPrint(BCLog::NET, "getauths: send auths invs: %d to peer=%d\n", vInv.size(), pfrom->GetId());
+            connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::INV, vInv));
+        }
         return true;
     }
 
