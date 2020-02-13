@@ -132,6 +132,13 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("size", (int)::GetSerializeSize(block, PROTOCOL_VERSION));
     result.pushKV("weight", (int)::GetBlockWeight(block));
     result.pushKV("height", blockindex->nHeight);
+
+    CKeyID minter;
+    block.ExtractMinterKey(minter);
+    result.pushKV("minter", minter.ToString());
+    result.pushKV("mintedBlocks", blockindex->mintedBlocks);
+    result.pushKV("stakeModifier", blockindex->stakeModifier.ToString());
+
     result.pushKV("version", block.nVersion);
     result.pushKV("versionHex", strprintf("%08x", block.nVersion));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());

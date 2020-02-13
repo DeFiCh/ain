@@ -340,6 +340,8 @@ UniValue mnToJSON(CMasternode const & node)
     ret.pushKV("banHeight", node.banHeight);
     ret.pushKV("banTx", node.banTx.GetHex());
     ret.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
+    ret.pushKV("mintedBlocks", (uint64_t)node.mintedBlocks);
+
     /// @todo add unlock height and|or real resign height
 
     return ret;
