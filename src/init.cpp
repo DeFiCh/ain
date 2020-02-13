@@ -263,14 +263,14 @@ void Shutdown(InitInterfaces& interfaces)
     // up with our current chain to avoid any strange pruning edge cases and make
     // next startup faster by avoiding rescan.
 
+    LogPrintf("spv: Releasing\n");
+    spv::pspv.reset();
     {
         LOCK(cs_main);
         if (g_chainstate && g_chainstate->CanFlushToDisk()) {
             g_chainstate->ForceFlushStateToDisk();
             g_chainstate->ResetCoinsViews();
         }
-        LogPrintf("spv: Releasing\n");
-        spv::pspv.reset();
         panchors.reset();
         panchorAwaitingConfirms.reset();
         panchorauths.reset();
@@ -1580,7 +1580,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                     } else {
                         spv::pspv = MakeUnique<spv::CSpvWrapper>(!gArgs.GetBoolArg("-spv_testnet", false), nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
                     }
-                    spv::pspv->Connect();
                 }
 
                 // If necessary, upgrade from older database format.
@@ -1614,6 +1613,10 @@ bool AppInitMain(InitInterfaces& interfaces)
                 LogPrintf("%s\n", e.what());
                 strLoadError = _("Error opening block database").translated;
                 break;
+            }
+            if (spv::pspv)
+            {
+                spv::pspv->Connect();
             }
 
             if (!fReset) {
