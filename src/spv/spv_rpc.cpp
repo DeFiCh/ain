@@ -209,7 +209,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     }
     bool const send = request.params[2].isNull() ? true : request.params[2].getBool();
 
-    int64_t const feerate = request.params[3].isNull() ? spv::DEFAULT_BTC_FEERATE : request.params[0].get_int64();
+    int64_t const feerate = request.params[3].isNull() ? spv::DEFAULT_BTC_FEERATE : request.params[3].get_int64();
     if (feerate <= 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Feerate should be > 0!");
     }
