@@ -238,12 +238,12 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest) co
     return CAnchor::Create(freshestConsensus, rewardDest);
 }
 
-void CAnchorAuthIndex::ForEachAnchorAuthByHeight(std::function<void (const CAnchorAuthIndex::Auth &)> callback) const
+void CAnchorAuthIndex::ForEachAnchorAuthByHeight(std::function<bool (const CAnchorAuthIndex::Auth &)> callback) const
 {
     typedef Auths::index<Auth::ByKey>::type KList;
     KList const & list = auths.get<Auth::ByKey>();
     for (auto it = list.rbegin(); it != list.rend(); ++it)
-        callback(*it);
+        if (!callback(*it)) break;
 }
 
 static const char DB_ANCHORS = 'A';

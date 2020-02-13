@@ -17,8 +17,9 @@ from test_framework.util import assert_equal, \
 
 class AnchorAuthsTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 3
+        self.num_nodes = 4
         self.extra_args = [
+            [ "-dummypos=1", "-spv=1", "-fakespv=1"],
             [ "-dummypos=1", "-spv=1", "-fakespv=1"],
             [ "-dummypos=1", "-spv=1", "-fakespv=1"],
             [ "-dummypos=1", "-spv=1", "-fakespv=1"],
@@ -28,13 +29,17 @@ class AnchorAuthsTest (DefiTestFramework):
     def setup_network(self):
         self.setup_nodes()
 
-        for i in range(self.num_nodes - 1):
-            connect_nodes_bi(self.nodes, i, i + 1)
-        self.sync_all()
+        # 0 | 1 = 2 | 3 down
+        connect_nodes_bi(self.nodes, 1, 2)
+        self.stop_node(3)
+
+        # for i in range(self.num_nodes - 1):
+            # connect_nodes_bi(self.nodes, i, i + 1)
+        # self.sync_all()
 
     def dumphashes(self, nodes=None, block = None):
         if nodes is None:
-            nodes = range(self.num_nodes)
+            nodes = range(self.num_nodes - 1)
         for i in nodes:
             bl = self.nodes[i].getblockcount() if block is None else block
             print ("Node%d: [%d] %s" % (i, bl, self.nodes[i].getblockhash(bl)))
@@ -45,13 +50,12 @@ class AnchorAuthsTest (DefiTestFramework):
 
     def dumpauths(self, nodes=None, block = None):
         if nodes is None:
-            nodes = range(self.num_nodes)
+            nodes = range(self.num_nodes - 1)
         for i in nodes:
             print ("Node%d: %s" % (i, self.nodes[i].spv_listanchorauths()))
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
-        disconnect_nodes(self.nodes[0], 1)
 
         # no auths yet
         print ("Node0:")
@@ -91,13 +95,28 @@ class AnchorAuthsTest (DefiTestFramework):
 
         self.dumpheights()
         self.dumphashes()
+        self.dumphashes(None, 15)
         self.dumpauths()
 
-        # TODO: still has issue on auth old blocks when sidechain switching
-        # auths = self.nodes[1].spv_listanchorauths()
-        # assert_equal(len(auths), 1)
-        # assert_equal(auths[0]['blockHeight'], auths[1]['blockHeight'])
-        # assert(auths[0]['blockHeight'] != auths[1]['blockHeight'])
+        auths = self.nodes[1].spv_listanchorauths()
+        assert_equal(len(auths), 2)
+        assert_equal(auths[0]['blockHeight'], auths[1]['blockHeight'])
+        assert(auths[0]['blockHash'] != auths[1]['blockHash'])
+        if auths[0]['signers'] == 2:
+            assert_equal(auths[1]['signers'], 3)
+        else:
+            assert_equal(auths[0]['signers'], 3)
+            assert_equal(auths[1]['signers'], 2)
+
+        self.start_node(3)
+        self.nodes[3].generate(1)
+        connect_nodes_bi(self.nodes, 2, 3)
+        self.sync_all()
+        time.sleep(2)
+        self.dumpauths([3])
+        self.nodes[3].generate(1)
+        self.dumpauths([3])
+
 
 if __name__ == '__main__':
     AnchorAuthsTest ().main ()
