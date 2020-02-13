@@ -25,6 +25,7 @@ class CMasternodesViewDB : public CMasternodesView
 private:
     boost::shared_ptr<CDBWrapper> db;
     boost::scoped_ptr<CDBBatch> batch;
+    boost::scoped_ptr<CDBBatch> headersBatch;
 
 public:
     CMasternodesViewDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
@@ -88,6 +89,7 @@ private:
 
 protected:
     void CommitBatch();
+    void CommitHeaders() override;
 
     bool ReadHeight(int & h);
     void WriteHeight(int h);
@@ -95,19 +97,19 @@ protected:
     void WriteMasternode(uint256 const & txid, CMasternode const & node);
     void EraseMasternode(uint256 const & txid);
 
-    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true);
-    bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true);
-    void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash);
+    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool isBatched, bool fIsFakeNet = true) override;
+    bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true) override;
+    void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash) override;
 
-    void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact);
-    void EraseCriminal(uint256 const & mnId);
+    void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact) override;
+    void EraseCriminal(uint256 const & mnId) override;
 
-    void WriteCurrentTeam(std::set<CKeyID> const & currentTeam);
-    bool LoadCurrentTeam(std::set<CKeyID> & newTeam);
-    bool EraseCurrentTeam();
+    void WriteCurrentTeam(std::set<CKeyID> const & currentTeam) override;
+    bool LoadCurrentTeam(std::set<CKeyID> & newTeam) override;
+    bool EraseCurrentTeam() override;
 
-    void WriteFoundationsDebt(CAmount const foundationsDebt);
-    bool LoadFoundationsDebt();
+    void WriteFoundationsDebt(CAmount const foundationsDebt) override;
+    bool LoadFoundationsDebt() override;
 
 //    void WriteDeadIndex(int height, uint256 const & txid, char type);
 //    void EraseDeadIndex(int height, uint256 const & txid);
