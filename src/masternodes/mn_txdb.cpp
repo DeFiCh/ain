@@ -93,15 +93,6 @@ void CMasternodesViewDB::CommitBatch()
     }
 }
 
-void CMasternodesViewDB::CommitHeaders()
-{
-    if (headersBatch)
-    {
-        db->WriteBatch(*headersBatch);
-        headersBatch.reset();
-    }
-}
-
 bool CMasternodesViewDB::ReadHeight(int & h)
 {
     // it's a hack, cause we don't know active chain tip at the loading time
@@ -127,20 +118,13 @@ void CMasternodesViewDB::EraseMasternode(uint256 const & txid)
     BatchErase(make_pair(DB_MASTERNODES, txid));
 }
 
-void CMasternodesViewDB::WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool isBatched, bool fIsFakeNet)
+void CMasternodesViewDB::WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet)
 {
     if (fIsFakeNet) {
         return;
     }
 
-    if (!headersBatch)
-    {
-        headersBatch.reset(new CDBBatch(*db));
-    }
-    headersBatch->Write(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash}, blockHeader);
-    if (!isBatched) {
-        CommitHeaders();
-    }
+    db->Write(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash}, blockHeader);
 }
 
 bool CMasternodesViewDB::FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet)
