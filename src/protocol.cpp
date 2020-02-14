@@ -42,7 +42,7 @@ const char *CMPCTBLOCK="cmpctblock";
 const char *GETBLOCKTXN="getblocktxn";
 const char *BLOCKTXN="blocktxn";
 const char *ANCHORAUTH="anchorauth";
-const char *ANCHORCONFIRM="anchorconfirm";
+const char *ANCHORCONFIRM="anchorcnf";
 } // namespace NetMsgType
 
 /** All known message types. Keep this in the same order as the list of
