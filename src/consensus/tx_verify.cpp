@@ -16,6 +16,7 @@
 #include <util/moneystr.h>
 
 extern bool fIsFakeNet;
+extern bool fCriminals;
 
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
 {

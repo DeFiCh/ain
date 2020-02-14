@@ -179,6 +179,7 @@ extern bool fPruneMode;
 extern uint64_t nPruneTarget;
 /** Flag to skip PoS-related checks (regtest only) */
 extern bool fIsFakeNet;
+extern bool fCriminals;
 
 /** Block files containing a block-height within MIN_BLOCKS_TO_KEEP of ::ChainActive().Tip() will not be pruned. */
 static const unsigned int MIN_BLOCKS_TO_KEEP = 288;
