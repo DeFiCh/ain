@@ -218,7 +218,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     CTransactionRef criminalTx = nullptr;
-    if (!fIsFakeNet && pmasternodesview->GetUncaughtCriminals().size() != 0) {
+    if (!fIsFakeNet && fCriminals && pmasternodesview->GetUncaughtCriminals().size() != 0) {
         CMasternodesView::CMnCriminals criminals = pmasternodesview->GetUncaughtCriminals();
         CMasternodesView::CMnCriminals::iterator itCriminalMN = criminals.begin();
         auto criminal = itCriminalMN->second;
@@ -624,7 +624,7 @@ namespace pos {
         }
 
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
-            if (!fIsFakeNet) {
+            if (!fIsFakeNet && fCriminals) {
                 std::map <uint256, CBlockHeader> blockHeaders{};
 
                 pmasternodesview->FindMintedBlockHeader(args.masternodeID, mintedBlocks + 1, blockHeaders, fIsFakeNet);
