@@ -1354,14 +1354,14 @@ void RelayAnchorConfirm(const uint256& hash, CConnman& connman, CNode* skipNode)
 {
     CInv inv(MSG_ANCHOR_CONFIRM, hash);
     connman.ForEachNode([&inv, &connman, &skipNode](CNode* pnode)
-        {
-            if (pnode != skipNode) {
-                const CNetMsgMaker msgMaker(pnode->GetSendVersion());
-                LogPrintf("send inv: confirm message, hash: %s, peer=%d\n", inv.hash.ToString(), pnode->GetId());
-                connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
-                //        pnode->PushInventory(inv);
-            }
-        });
+    {
+        if (pnode != skipNode) {
+            const CNetMsgMaker msgMaker(pnode->GetSendVersion());
+            LogPrintf("send inv: confirm message, hash: %s, peer=%d\n", inv.hash.ToString(), pnode->GetId());
+            connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
+//           pnode->PushInventory(inv);
+        }
+    });
 }
 
 void RelayTransaction(const uint256& txid, const CConnman& connman)
@@ -2334,6 +2334,11 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 }
             }
             else if (inv.type == MSG_ANCHOR_AUTH) {
+                if (!fAlreadyHave && !fImporting && !fReindex) {
+                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::GETDATA, std::vector<CInv>{inv}));
+                }
+            }
+            else if (inv.type == MSG_ANCHOR_CONFIRM) {
                 if (!fAlreadyHave && !fImporting && !fReindex) {
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::GETDATA, std::vector<CInv>{inv}));
                 }

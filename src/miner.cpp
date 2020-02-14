@@ -152,13 +152,15 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             if (confirmsForAnchor.second.size() >= GetMinAnchorQuorum(currentTeam)) {
 
                 auto itBegin = confirmsForAnchor.second.begin();
-                if(panchorAwaitingConfirms->Validate(itBegin->second)) {
+                if(!panchorAwaitingConfirms->Validate(itBegin->second)) {
                     continue ;
                 }
                 std::vector<std::vector<unsigned char>> sigs { itBegin->second.signature };
 
                 bool failFlag = false;
-                for (auto && it = ++itBegin; it != confirmsForAnchor.second.end(); ++it) {
+                auto it = itBegin;
+                std::advance(it, 1);
+                for (; it != confirmsForAnchor.second.end(); ++it) {
                     if (!itBegin->second.isEqualDataWith(it->second) ||
                         !panchorAwaitingConfirms->Validate(it->second)) {
                         failFlag = true;

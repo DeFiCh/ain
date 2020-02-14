@@ -286,7 +286,7 @@ public:
     const std::set<CKeyID> &GetCurrentTeam();
     const CAmount GetFoundationsDebt();
     void SetFoundationsDebt(CAmount debt);
-    CTeam CalcNextTeam(uint256 stakeModifier);
+    CTeam CalcNextTeam(uint256 stakeModifier, const CMasternodes * masternodes = nullptr);
     void CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash, uint32_t btcTxHeight);
 
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
