@@ -3688,7 +3688,7 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
     return true;
 }
 
-bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, const CChainParams& chainparams, CBlockIndex** ppindex, bool isBatched)
+bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, const CChainParams& chainparams, CBlockIndex** ppindex)
 {
     AssertLockHeld(cs_main);
     // Check for duplicate
@@ -3728,7 +3728,7 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
 
             auto existingBlockHeader = blockHeaders.find(hash);
             if (!blockHeaders.size() || existingBlockHeader == blockHeaders.end()) {
-                pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block, isBatched, fIsFakeNet);
+                pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block, fIsFakeNet);
             }
 
             for (std::pair <uint256, CBlockHeader> blockHeader : blockHeaders) {
@@ -3811,19 +3811,17 @@ bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidatio
         CMasternodesViewHistory history(pmasternodesview.get());
         for (const CBlockHeader& header : headers) {
             CBlockIndex *pindex = nullptr; // Use a temp pindex instead of ppindex to avoid a const_cast
-            bool accepted = g_blockman.AcceptBlockHeader(header, state, chainparams, &pindex, true/*, &history.GetState(header.height)*/);
+            bool accepted = g_blockman.AcceptBlockHeader(header, state, chainparams, &pindex/*, &history.GetState(header.height)*/);
             ::ChainstateActive().CheckBlockIndex(chainparams.GetConsensus());
 
             if (!accepted) {
                 if (first_invalid) *first_invalid = header;
-                pmasternodesview->CommitHeaders(); // commit headers anyway
                 return false;
             }
             if (ppindex) {
                 *ppindex = pindex;
             }
         }
-        pmasternodesview->CommitHeaders();
     }
     NotifyHeaderTip();
     {
