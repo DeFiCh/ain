@@ -79,8 +79,8 @@ BOOST_AUTO_TEST_CASE(check_doublesign)
     uint64_t mintedBlocks = 0;
     std::vector<CBlockHeader> criminalsBlockHeaders = GenerateTwoCriminalsHeaders(minterKey, mintedBlocks, masternodeID);
 
-    pmasternodesview->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[0].GetHash(), criminalsBlockHeaders[0], false, false);
-    pmasternodesview->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[1].GetHash(), criminalsBlockHeaders[1], false, false);
+    pmasternodesview->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[0].GetHash(), criminalsBlockHeaders[0], false);
+    pmasternodesview->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[1].GetHash(), criminalsBlockHeaders[1], false);
     BOOST_CHECK(!pmasternodesview->CheckDoubleSign(criminalsBlockHeaders[0], criminalsBlockHeaders[1]));
 
     std::map<uint256, CBlockHeader> blockHeaders;
