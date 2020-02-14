@@ -128,6 +128,7 @@ bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 bool fIsFakeNet = false;
+bool fCriminals = false;
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
 
 uint256 hashAssumeValid;
@@ -1613,7 +1614,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 }
 
                 continue;
-            } else if (CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
+            } else if (fCriminals && CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
                 mnview.UnbanCriminal(tx.GetHash(), metadata);
             }
         }
@@ -2112,7 +2113,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             control.Add(vChecks);
         } else {
             std::vector<unsigned char> metadata;
-            if (!fIsFakeNet && CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
+            if (!fIsFakeNet && fCriminals && CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
                 if (tx.GetValueOut() > 0) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): criminal detention pays too much (actual=%d)",
@@ -3711,7 +3712,7 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
         }
 
         // Add MintedBlockHeader entity to DB
-        if (!fIsFakeNet) {
+        if (!fIsFakeNet && fCriminals) {
             CKeyID mintersKey;
             if (!block.ExtractMinterKey(mintersKey)) {
                 return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: block %s: minters key for external blockHeader not found", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
