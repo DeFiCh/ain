@@ -397,12 +397,15 @@ void CMasternodesView::SetFoundationsDebt(CAmount debt) {
     }
 }
 
-CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier)
+CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier, const CMasternodes * masternodes)
 {
     int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
-    for (auto && it = allNodes.begin(); it != allNodes.end(); ++it) {
+    if (!masternodes) {
+        masternodes = &allNodes;
+    }
+    for (auto && it = masternodes->begin(); it != masternodes->end(); ++it) {
         CMasternode const & node = it->second;
 
         if(!node.IsActive())
