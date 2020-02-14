@@ -1556,7 +1556,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         uint256 hash = tx.GetHash();
         bool is_coinbase = tx.IsCoinBase();
 
-        if (!fIsFakeNet && is_coinbase) {
+        if (is_coinbase) {
             std::vector<unsigned char> metadata;
             if (CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -2121,7 +2121,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                          REJECT_INVALID, "bad-cr-amount");
                 }
                 mnview.BanCriminal(tx.GetHash(), metadata, block.height);
-            } else if (!fIsFakeNet && CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
+            } else if (CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
                 uint32_t btcHeight;
                 uint256 btcTxHash;
@@ -2172,16 +2172,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 }
 
                 CTxDestination destination = rewardKeyType == 1 ? CTxDestination(PKHash(rewardKeyID)) : CTxDestination(WitnessV0KeyHash(rewardKeyID));
-                if (tx.vout[1].scriptPubKey == GetScriptForDestination(destination)) {
+                if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): wrong calculation team"),
+                                         error("ConnectBlock(): anchor pay destination is incorrect"),
                                          REJECT_INVALID, "bad-ar-team");
                 }
 
                 if (pindex->pprev) {
-                    if (nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier)) {
+                    auto masternodes = mnview.GetMasternodes();
+                    if (nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier, &masternodes)) {
                         return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                             error("ConnectBlock(): anchor pay destination is incorrect"),
+                                             error("ConnectBlock(): wrong calculation team"),
                                              REJECT_INVALID, "bad-ar-team");
                     }
                 }
@@ -2189,15 +2190,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
                 panchorAwaitingConfirms->RemoveConfirmsForAll();
 
-                auto myIDs = pmasternodesview->AmIOperator();
+                auto myIDs = mnview.AmIOperator();
                 if (myIDs) {
-                    auto nodePtr = pmasternodesview->ExistMasternode(myIDs->id);
+                    auto nodePtr = mnview.ExistMasternode(myIDs->id);
                     if (nodePtr && nodePtr->IsActive()) {
-                        if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end()) {
+                        if (nextTeam.find(myIDs->operatorAuthAddress) == nextTeam.end()) {
                             for (auto && hashAndConfirm : panchorAwaitingConfirms->GetConfirms()) {
                                 auto exist = panchors->ExistAnchorByTx(hashAndConfirm.first);
                                 if (exist) {
-                                    pmasternodesview->CreateAndRelayConfirmMessageIfNeed(exist->anchor, exist->txHash, exist->btcHeight);
+                                    mnview.CreateAndRelayConfirmMessageIfNeed(exist->anchor, exist->txHash, exist->btcHeight);
                                 }
                             }
                         }
