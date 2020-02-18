@@ -578,6 +578,7 @@ static int _BRPeerAcceptGetdataMessage(BRPeer *peer, const uint8_t *msg, size_t 
                 default:
                     if (! notfound) array_new(notfound, 1);
                     array_add(notfound, *(struct inv_item *)&msg[off]);
+                    peer_log(peer, "not found: type = %i, data= %s", type, u256hex(UInt256Reverse(hash)));
                     break;
             }
             
@@ -1392,7 +1393,7 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
         }
         
         if (error) {
-            peer_log(peer, "%s", strerror(error));
+            peer_log(peer, "send message error: %s, %s", type, strerror(error));
             BRPeerDisconnect(peer);
         }
     }

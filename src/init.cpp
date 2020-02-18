@@ -190,8 +190,9 @@ void Shutdown(InitInterfaces& interfaces)
     util::ThreadRename("shutoff");
     mempool.AddTransactionsUpdated(1);
 
-    /// @attention outside of cs_main lock!
+    /// @attention outside of cs_main lock! Before http cause spv rpc may be pending
     if (spv::pspv) {
+        spv::pspv->CancelPendingTxs();
         spv::pspv->Disconnect();
     }
 
@@ -1616,10 +1617,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                 strLoadError = _("Error opening block database").translated;
                 break;
             }
-            if (spv::pspv)
-            {
-                spv::pspv->Connect();
-            }
 
             if (!fReset) {
                 // Note that RewindBlockIndex MUST run even if we're about to -reindex-chainstate.
@@ -1873,6 +1870,12 @@ bool AppInitMain(InitInterfaces& interfaces)
     scheduler.scheduleEvery([]{
         g_banman->DumpBanlist();
     }, DUMP_BANS_INTERVAL * 1000);
+
+    // ********************************************************* Step XX: start spv
+    if (spv::pspv)
+    {
+        spv::pspv->Connect();
+    }
 
     // ********************************************************* Step 14: start minter thread
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {

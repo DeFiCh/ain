@@ -121,6 +121,9 @@ const BRChainParams *BRPeerManagerChainParams(BRPeerManager *manager);
 // frees memory allocated for manager (call BRPeerManagerDisconnect() first if connected)
 void BRPeerManagerFree(BRPeerManager *manager);
 
+// forced cancel pending callbacks for published txs (need for releasing spv module)
+void BRPeerManagerCancelPendingTxs(BRPeerManager *manager);
+
 #ifdef __cplusplus
 }
 #endif
