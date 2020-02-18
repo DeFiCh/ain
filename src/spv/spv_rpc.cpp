@@ -71,7 +71,7 @@ UniValue spv_sendrawtx(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
     std::promise<int> promise;
-    if (spv::pspv->SendRawTx(ParseHexV(request.params[0], "rawtx"), [&promise] (int result) { promise.set_value(result); })) {
+    if (spv::pspv->SendRawTx(ParseHexV(request.params[0], "rawtx"), &promise)) {
         int sendResult = promise.get_future().get();
         if (sendResult != 0)
             throw JSONRPCError(RPC_INVALID_REQUEST, DecodeSendResult(sendResult));
@@ -214,18 +214,20 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Feerate should be > 0!");
     }
 
-    auto locked_chain = pwallet->chain().lock();
+    CAnchor anchor;
+    {
+        auto locked_chain = pwallet->chain().lock();
 
-    /// @todo temporary, tests with fixed values
-//    CTxDestination rewardDest = DecodeDestination("mmjrUWSKQqnkWzyS98GCuFxA7TXcK3bc3A");
-    CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest);
+        /// @todo temporary, tests with fixed values
+//        CTxDestination rewardDest = DecodeDestination("mmjrUWSKQqnkWzyS98GCuFxA7TXcK3bc3A");
+        anchor = panchorauths->CreateBestAnchor(rewardDest);
+    }
     if (anchor.sigs.empty()) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
     }
 
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << anchor;
-
 
     /// @todo temporary, tests
 //    auto rawtx = spv::CreateAnchorTx("e6f0a5e4db120f6877710bbbb5f9523162b6456bb1d4d89b854e60a794e03b46", 1, 3271995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
@@ -246,7 +248,8 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     if (send) {
         if (spv::pspv) {
             std::promise<int> promise;
-            if (spv::pspv->SendRawTx(rawtx, [&promise] (int result) { promise.set_value(result); })) {
+//            if (spv::pspv->SendRawTx(rawtx, [&promise] (int result) { promise.set_value(result); })) {
+            if (spv::pspv->SendRawTx(rawtx, &promise)) {
                 sendResult = promise.get_future().get();
             }
             else {
