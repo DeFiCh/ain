@@ -246,7 +246,7 @@ void CMasternodesViewDB::WriteFoundationsDebt(CAmount const foundationsDebt)
 
 bool CMasternodesViewDB::LoadFoundationsDebt()
 {
-    foundationsDebt = -1;
+    foundationsDebt = 0;
     boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&*db)->NewIterator());
     pcursor->Seek(DB_MN_FOUNDERS_DEBT);
 
@@ -255,8 +255,6 @@ bool CMasternodesViewDB::LoadFoundationsDebt()
         if (pcursor->GetKey(key)) {
             if (!pcursor->GetValue(foundationsDebt) || foundationsDebt < 0)
                 return error("MNDB::LoadFoundationsDebt() : unable to read value");
-        } else {
-            foundationsDebt = 0;
         }
     }
     return true;

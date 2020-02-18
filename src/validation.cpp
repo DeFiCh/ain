@@ -1586,7 +1586,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 mnview.SetTeam(currentTeam);
 
-                assert(mnview.GetFoundationsDebt() > tx.GetValueOut());
+                assert(mnview.GetFoundationsDebt() >= tx.GetValueOut());
 
                 mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
                 panchorAwaitingConfirms->RemoveConfirmsForAll();
@@ -1613,7 +1613,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                     panchorAwaitingConfirms->Add(message);
                 }
 
-                continue;
             } else if (fCriminals && CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
                 mnview.UnbanCriminal(tx.GetHash(), metadata);
             }
@@ -1633,7 +1632,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
 
         // restore inputs
-        if (i > 0) { // not coinbases
+        if (i > 0 && !tx.IsAnchorReward()) { // not coinbases
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
                 error("DisconnectBlock(): transaction and undo data inconsistent");
