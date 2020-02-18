@@ -425,7 +425,7 @@ CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier)
 void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash, uint32_t btcTxHeight)
 {
     auto myIDs = AmIOperator();
-    if (!myIDs && ExistMasternode(myIDs->id)->IsActive()) // TODO: SS : not sure IsActive() or (state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED)
+    if (!myIDs || !ExistMasternode(myIDs->id)->IsActive()) // TODO: SS : not sure IsActive() or (state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED)
         return ;
     auto const & currentTeam = GetCurrentTeam();
     if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end())
