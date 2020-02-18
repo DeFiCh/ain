@@ -11,7 +11,8 @@
 
 #include <spv/support/BRLargeInt.h>
 
-#include <functional>
+//#include <functional>
+#include <future>
 #include <map>
 #include <string>
 #include <utility>
@@ -76,6 +77,8 @@ public:
     virtual void Connect();
     virtual void Disconnect();
     virtual bool IsConnected() const;
+    virtual void CancelPendingTxs();
+
     bool Rescan(int height);
 
     BRWallet * GetWallet();
@@ -87,8 +90,8 @@ public:
 
     std::vector<BRTransaction *> GetWalletTxs() const;
 
-    typedef std::function<void(int result)> TSendCallback;
-    bool SendRawTx(TBytes rawtx, TSendCallback callback = nullptr);
+//    typedef std::function<void(int result)> TSendCallback;
+    bool SendRawTx(TBytes rawtx, std::promise<int> * promise = nullptr);
 
 public:
     /// Wallet callbacks
@@ -105,7 +108,7 @@ public:
     void OnThreadCleanup();
 
 private:
-    virtual void OnSendRawTx(BRTransaction * tx, CSpvWrapper::TSendCallback callback);
+    virtual void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise);
 
     template <typename K, typename V>
     void BatchWrite(const K& key, const V& value)
@@ -193,11 +196,12 @@ public:
     void Connect() override;
     void Disconnect() override;
     bool IsConnected() const override;
+    void CancelPendingTxs() override;
 
     uint32_t GetLastBlockHeight() const override { return lastBlockHeight; }
     uint32_t GetEstimatedBlockHeight() const override { return lastBlockHeight+1000; } // dummy
 
-    void OnSendRawTx(BRTransaction * tx, CSpvWrapper::TSendCallback callback) override;
+    void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise) override;
 
     uint32_t lastBlockHeight = 0;
     bool isConnected = false;

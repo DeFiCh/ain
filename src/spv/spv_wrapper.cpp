@@ -45,68 +45,100 @@ uint256 to_uint256(const UInt256 & i) {
     return uint256(TBytes(&i.u8[0], &i.u8[32]));
 }
 
+bool const spv_cb_trace = true;
+
 /// spv wallet manager's callbacks wrappers:
 void balanceChanged(void *info, uint64_t balance)
 {
+    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
     LOCK(cs_spvcallback);
+    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnBalanceChanged(balance);
+    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
 void txAdded(void *info, BRTransaction *tx)
 {
+    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
     LOCK(cs_spvcallback);
+    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxAdded(tx);
+    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
 void txUpdated(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
 {
+    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
     LOCK(cs_spvcallback);
+    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxUpdated(txHashes, txCount, blockHeight, timestamp);
+    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
 void txDeleted(void *info, UInt256 txHash, int notifyUser, int recommendRescan)
 {
+    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
     LOCK(cs_spvcallback);
+    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxDeleted(txHash, notifyUser, recommendRescan);
+    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
 
 /// spv peer manager's callbacks wrappers:
 void syncStarted(void *info)
 {
+    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
     LOCK(cs_spvcallback);
+    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStarted();
+    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
 void syncStopped(void *info, int error)
 {
+    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
     LOCK(cs_spvcallback);
+    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStopped(error);
+    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
 void txStatusUpdate(void *info)
 {
+    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
     LOCK(cs_spvcallback);
+    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxStatusUpdate();
+    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
 void saveBlocks(void *info, int replace, BRMerkleBlock *blocks[], size_t blocksCount)
 {
+    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
     LOCK(cs_spvcallback);
+    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSaveBlocks(replace, blocks, blocksCount);
+    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
 void savePeers(void *info, int replace, const BRPeer peers[], size_t peersCount)
 {
+    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
     LOCK(cs_spvcallback);
+    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSavePeers(replace, peers, peersCount);
+    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
 void threadCleanup(void *info)
 {
+    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
     LOCK(cs_spvcallback);
+    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnThreadCleanup();
+    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
 
 static void SetCheckpoints()
@@ -259,13 +291,18 @@ void CSpvWrapper::Disconnect()
 {
     AssertLockNotHeld(cs_main); /// @attention due to calling txStatusUpdate() (OnTxUpdated()), savePeers(), syncStopped()
     BRPeerManagerDisconnect(manager);
-    uint64_t balance = BRWalletBalance(wallet);
-    LogPrintf("spv: balance on disconnect: %lu\n", balance);
+//    uint64_t balance = BRWalletBalance(wallet);
+//    LogPrintf("spv: balance on disconnect: %lu\n", balance);
 }
 
 bool CSpvWrapper::IsConnected() const
 {
     return BRPeerManagerConnectStatus(manager) == BRPeerStatusConnected;
+}
+
+void CSpvWrapper::CancelPendingTxs()
+{
+    BRPeerManagerCancelPendingTxs(manager);
 }
 
 bool CSpvWrapper::Rescan(int height)
@@ -477,12 +514,10 @@ void CSpvWrapper::WriteBlock(const BRMerkleBlock * block)
 
 void publishedTxCallback(void *info, int error)
 {
+    LogPrintf("spv: publishedTxCallback: %s\n", strerror(error));
     if (info) {
-        CSpvWrapper::TSendCallback callback = *static_cast<CSpvWrapper::TSendCallback *>(info);
-        callback(error);
+        static_cast<std::promise<int> *>(info)->set_value(error);
     }
-    else
-        LogPrintf("spv: publishedTxCallback: %s\n", strerror(errno));
 }
 
 struct TxInput {
@@ -760,34 +795,34 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
     return signedTx;
 }
 
-bool CSpvWrapper::SendRawTx(TBytes rawtx, CSpvWrapper::TSendCallback callback)
+bool CSpvWrapper::SendRawTx(TBytes rawtx, std::promise<int> * promise)
 {
     BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
     if (tx) {
-        OnSendRawTx(tx, callback);
+        OnSendRawTx(tx, promise);
     }
     return tx != nullptr;
 }
 
-void CSpvWrapper::OnSendRawTx(BRTransaction *tx, CSpvWrapper::TSendCallback callback)
+void CSpvWrapper::OnSendRawTx(BRTransaction *tx, std::promise<int> * promise)
 {
     assert(tx);
     if (BRTransactionIsSigned(tx)) {
-        BRPeerManagerPublishTx(manager, tx, &callback, publishedTxCallback);
+        BRPeerManagerPublishTx(manager, tx, promise, publishedTxCallback);
     }
     else {
-        if (callback)
-            callback(EINVAL);
+        if (promise)
+            promise->set_value(EINVAL);
         BRTransactionFree(tx);
     }
 }
 
-void CFakeSpvWrapper::OnSendRawTx(BRTransaction *tx, CSpvWrapper::TSendCallback callback)
+void CFakeSpvWrapper::OnSendRawTx(BRTransaction *tx, std::promise<int> * promise)
 {
     assert(tx);
     if (!IsConnected()) {
-        if (callback)
-            callback(ENOTCONN);
+        if (promise)
+            promise->set_value(ENOTCONN);
 
         BRTransactionFree(tx);
         return;
@@ -798,8 +833,8 @@ void CFakeSpvWrapper::OnSendRawTx(BRTransaction *tx, CSpvWrapper::TSendCallback 
     OnTxAdded(tx);
     OnTxUpdated(&tx->txHash, 1, lastBlockHeight, 666);
 
-    if (callback)
-        callback(0);
+    if (promise)
+        promise->set_value(0);
 
     BRTransactionFree(tx);
 }
@@ -872,6 +907,10 @@ void CFakeSpvWrapper::Disconnect()
 bool CFakeSpvWrapper::IsConnected() const
 {
     return isConnected;
+}
+
+void CFakeSpvWrapper::CancelPendingTxs()
+{
 }
 
 

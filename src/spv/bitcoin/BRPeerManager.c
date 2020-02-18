@@ -220,12 +220,15 @@ static void _BRPeerManagerSyncStopped(BRPeerManager *manager)
 }
 
 // adds transaction to list of tx to be published, along with any unconfirmed inputs
-static void _BRPeerManagerAddTxToPublishList(BRPeerManager *manager, BRTransaction *tx, void *info,
+static int _BRPeerManagerAddTxToPublishList(BRPeerManager *manager, BRTransaction *tx, void *info,
                                              void (*callback)(void *, int))
 {
     if (tx && tx->blockHeight == TX_UNCONFIRMED) {
         for (size_t i = array_count(manager->publishedTx); i > 0; i--) {
-            if (BRTransactionEq(manager->publishedTx[i - 1].tx, tx)) return;
+            if (BRTransactionEq(manager->publishedTx[i - 1].tx, tx)) {
+                peer_log(&BR_PEER_NONE, "tx ignored: already pending, %s", u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])));
+                return -1;
+            }
         }
         
         array_add(manager->publishedTx, ((const BRPublishedTx) { tx, info, callback }));
@@ -236,6 +239,7 @@ static void _BRPeerManagerAddTxToPublishList(BRPeerManager *manager, BRTransacti
                                              NULL, NULL);
         }
     }
+    return 0;
 }
 
 static size_t _BRPeerManagerBlockLocators(BRPeerManager *manager, UInt256 locators[], size_t locatorsCount)
@@ -861,7 +865,7 @@ static void _peerDisconnected(void *info, int error)
     if (txError) {
         for (size_t i = array_count(manager->publishedTx); i > 0; i--) {
             if (manager->publishedTx[i - 1].callback == NULL) continue;
-            peer_log(peer, "transaction canceled: %s", strerror(txError));
+            peer_log(peer, "cbtrace on disconnect: tx canceled: %s, %s", strerror(txError), u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])));
             pubTx[txCount++] = manager->publishedTx[i - 1];
             manager->publishedTx[i - 1].callback = NULL;
             manager->publishedTx[i - 1].info = NULL;
@@ -929,6 +933,7 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
     pthread_mutex_lock(&manager->lock);
     peer_log(peer, "relayed tx: %s", u256hex(tx->txHash));
     
+    UInt256 hash = tx->txHash;
     for (size_t i = array_count(manager->publishedTx); i > 0; i--) { // see if tx is in list of published tx
         if (UInt256Eq(manager->publishedTxHashes[i - 1], tx->txHash)) {
             txInfo = manager->publishedTx[i - 1].info;
@@ -996,7 +1001,10 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
     }
     
     pthread_mutex_unlock(&manager->lock);
-    if (txCallback) txCallback(txInfo, 0);
+    if (txCallback) {
+        peer_log(peer, "cbtrace: relayed tx: %s", u256hex(UInt256Reverse(hash)));
+        txCallback(txInfo, 0);
+    }
 }
 
 static void _peerHasTx(void *info, UInt256 txHash)
@@ -1050,7 +1058,10 @@ static void _peerHasTx(void *info, UInt256 txHash)
     }
     
     pthread_mutex_unlock(&manager->lock);
-    if (pubTx.callback) pubTx.callback(pubTx.info, 0);
+    if (pubTx.callback) {
+        peer_log(peer, "cbtrace: has tx: %s", u256hex(UInt256Reverse(txHash)));
+        pubTx.callback(pubTx.info, 0);
+    }
 }
 
 static void _peerRejectedTx(void *info, UInt256 txHash, uint8_t code)
@@ -1436,7 +1447,10 @@ static BRTransaction *_peerRequestedTx(void *info, UInt256 txHash)
     if (pubTx.tx) BRWalletRegisterTransaction(manager->wallet, pubTx.tx);
     if (pubTx.tx && ! BRWalletTransactionIsValid(manager->wallet, pubTx.tx)) error = EINVAL;
     pthread_mutex_unlock(&manager->lock);
-    if (pubTx.callback) pubTx.callback(pubTx.info, error);
+    if (pubTx.callback) {
+        peer_log(peer, "cbtrace: tx requested: %s, %s", strerror(error), u256hex(UInt256Reverse(txHash)));
+        pubTx.callback(pubTx.info, error);
+    }
     return pubTx.tx;
 }
 
@@ -1954,7 +1968,12 @@ void BRPeerManagerPublishTx(BRPeerManager *manager, BRTransaction *tx, void *inf
         size_t i, count = 0;
         
         tx->timestamp = (uint32_t)time(NULL); // set timestamp to publish time
-        _BRPeerManagerAddTxToPublishList(manager, tx, info, callback);
+        if (_BRPeerManagerAddTxToPublishList(manager, tx, info, callback) != 0) {
+            pthread_mutex_unlock(&manager->lock);
+            if (callback)
+                callback(info, EALREADY);
+            return;
+        }
 
         for (i = array_count(manager->connectedPeers); i > 0; i--) {
             if (BRPeerConnectStatus(manager->connectedPeers[i - 1]) == BRPeerStatusConnected) count++;
@@ -2037,4 +2056,29 @@ void BRPeerManagerFree(BRPeerManager *manager)
     pthread_mutex_unlock(&manager->lock);
     pthread_mutex_destroy(&manager->lock);
     free(manager);
+}
+
+void BRPeerManagerCancelPendingTxs(BRPeerManager *manager)
+{
+    size_t txCount = 0;
+    int txError = ECANCELED;
+
+    assert(manager != NULL);
+    pthread_mutex_lock(&manager->lock);
+
+    // do not free txs itself - it will be done by manager
+    BRPublishedTx pubTx[array_count(manager->publishedTx)];
+    for (size_t i = array_count(manager->publishedTx); i > 0; i--) {
+        if (manager->publishedTx[i - 1].callback == NULL)
+            continue;
+        pubTx[txCount++] = manager->publishedTx[i - 1];
+        manager->publishedTx[i - 1].callback = NULL;
+        manager->publishedTx[i - 1].info = NULL;
+        peer_log(&BR_PEER_NONE, "cbtrace on exit: tx canceled: %s, %s", strerror(txError), u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])));
+    }
+    pthread_mutex_unlock(&manager->lock);
+
+    for (size_t i = 0; i < txCount; i++) {
+        pubTx[i].callback(pubTx[i].info, txError);
+    }
 }
