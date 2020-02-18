@@ -386,6 +386,9 @@ const std::set<CKeyID> &CMasternodesView::GetCurrentTeam()
 
 const CAmount CMasternodesView::GetFoundationsDebt()
 {
+    if (foundationsDebt < 0) {
+        assert(false);
+    }
     return foundationsDebt;
 }
 
