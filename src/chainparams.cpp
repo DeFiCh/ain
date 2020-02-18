@@ -152,9 +152,9 @@ public:
         consensus.mn.anchoringLag = 15;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
-        consensus.spv.anchorSubsidy = 1 * COIN;
+        consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
-        consensus.spv.subsidyIncreaseValue = 0 * COIN;
+        consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.wallet_xpub = "";
         consensus.spv.anchors_address = "";
         consensus.spv.minConfirmations = 6;
@@ -291,9 +291,9 @@ public:
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubD9xBH3AzwzMyY8yxoWdiopHE5FJEkLHoxumYGqvYFmHbJBC7zajSt9J2yTg7YPQSU8JL3nRohxXgdsvzsBcj2TZEiikUPCiUwstTDH3PPzy";
         consensus.spv.anchors_address = "mysX5XnqsUedid4JWGenbEg6DuRraqTNYh";
-        consensus.spv.anchorSubsidy = 1 * COIN;
+        consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
-        consensus.spv.subsidyIncreaseValue = 0 * COIN;
+        consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
         pchMessageStart[0] = 0x0b;
@@ -409,9 +409,9 @@ public:
         consensus.spv.creationFee = 1000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";
         consensus.spv.anchors_address = "n1h1kShnyiw3qRR6MM1FnwShaNVoVwBTnF";
-        consensus.spv.anchorSubsidy = 1 * COIN;
+        consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
-        consensus.spv.subsidyIncreaseValue = 0 * COIN;
+        consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
         pchMessageStart[0] = 0xfa;
