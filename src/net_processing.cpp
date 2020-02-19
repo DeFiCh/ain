@@ -1357,7 +1357,7 @@ void RelayAnchorConfirm(const uint256& hash, CConnman& connman, CNode* skipNode)
     {
         if (pnode != skipNode) {
             const CNetMsgMaker msgMaker(pnode->GetSendVersion());
-            LogPrintf("send inv: confirm message, hash: %s, peer=%d\n", inv.hash.ToString(), pnode->GetId());
+            LogPrintf("AnchorConfirms::send inv: confirm message, hash: %s, peer=%d\n", inv.hash.ToString(), pnode->GetId());
             connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
 //           pnode->PushInventory(inv);
         }
