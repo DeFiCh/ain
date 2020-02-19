@@ -434,19 +434,23 @@ void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor
     if (!myIDs || !ExistMasternode(myIDs->id)->IsActive()) // TODO: SS : not sure IsActive() or (state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED)
         return ;
     auto const & currentTeam = GetCurrentTeam();
-    if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end())
+    if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end()) {
+        LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Warning! I am not in a team %s\n", myIDs->operatorAuthAddress.ToString());
         return ;
+    }
 
     std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
     CKey masternodeKey{};
     for (auto const wallet : wallets) {
         if (wallet->GetKey(myIDs->operatorAuthAddress, masternodeKey)) {
+            LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Warning! Masternodes key not found %s\n", myIDs->operatorAuthAddress.ToString());
             break;
         }
         masternodeKey = CKey{};
     }
 
     if (!masternodeKey.IsValid()) {
+        LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Warning! Masternodes is't valid %s\n", myIDs->operatorAuthAddress.ToString());
         // return error("%s: Can't read masternode operator private key", __func__);
         return ;
     }

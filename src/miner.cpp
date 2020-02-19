@@ -208,6 +208,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
                 mTx.vout[1].nValue = GetAnchorSubsidy(itBegin->second.anchorHeight, itBegin->second.prevAnchorHeight, chainparams.GetConsensus(), itBegin->second.activeAnchorChain);
 
+                LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);
                 pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
 
                 pblocktemplate->vTxFees.push_back(0);

@@ -593,6 +593,7 @@ uint256 CAnchorConfirmMessage::GetHash() const
 
 void CAnchorAwaitingConfirms::AddAnchor(TxHashAnchor const &txHash)
 {
+    LogPrintf("AnchorConfirms::AddAnchor: Add new anchor! %s\n",  txHash.ToString());
     confirms[txHash] = std::map<HashConfirmMessage, CAnchorConfirmMessage>{};
 }
 
@@ -627,20 +628,23 @@ const CAnchorConfirmMessage *CAnchorAwaitingConfirms::Exist(HashConfirmMessage c
 bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessage) const
 {
     if (!panchors->ExistAnchorByTx(confirmMessage.btcTxHash)) {
-        LogPrintf("Warning! Can't read last anchor message %s\n",  confirmMessage.btcTxHash.ToString());
+        LogPrintf("AnchorConfirms::Validate: Warning! Can't read last anchor message %s\n",  confirmMessage.btcTxHash.ToString());
         return false;
     }
 
     auto const & currentTeam = pmasternodesview->GetCurrentTeam();
     CPubKey pubkey;
-    if (!pubkey.RecoverCompact(confirmMessage.GetSignHash(), confirmMessage.signature) || currentTeam.find(pubkey.GetID()) == currentTeam.end())
+    if (!pubkey.RecoverCompact(confirmMessage.GetSignHash(), confirmMessage.signature) || currentTeam.find(pubkey.GetID()) == currentTeam.end()) {
+        LogPrintf("AnchorConfirms::Validate: Warning! Signature incorrect. btcTxHash: %s confirmMessageHash: %s Key: %s\n", confirmMessage.btcTxHash.ToString(), confirmMessage.GetHash().ToString(), pubkey.GetID().ToString());
         return false;
+    }
 
     auto it = confirms.find(confirmMessage.btcTxHash);
     if (it != confirms.end()) {
         auto confirmsForThis = it->second;
         for (auto &&hashAndConfirm: confirmsForThis) {
             if (hashAndConfirm.second.rewardKeyID == pubkey.GetID()) {
+                LogPrintf("AnchorConfirms::Validate: Warning! rewardKeyID incorrect. btcTxHash: %s confirmMessageHash: %s rewardKey: %s  pubKey: %s\n", confirmMessage.btcTxHash.ToString(), confirmMessage.GetHash().ToString(), hashAndConfirm.second.rewardKeyID.ToString(), pubkey.GetID().ToString());
                 return false;
             }
         }
@@ -653,11 +657,13 @@ void CAnchorAwaitingConfirms::Add(CAnchorConfirmMessage const &newConfirmMessage
     for (auto &&hashAndConfirm : confirms) {
         auto it = hashAndConfirm.second.find(newConfirmMessage.btcTxHash);
         if (it != hashAndConfirm.second.end()) {
+            LogPrintf("AnchorConfirms::Add: Confirm message for new anchor: %s with hash %s was added\n", newConfirmMessage.btcTxHash.ToString(), newConfirmMessage.GetHash().ToString());
             hashAndConfirm.second.insert(std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage));
             return ;
         }
     }
 
+    LogPrintf("AnchorConfirms::Add: Confirm message for existing anchor: %s with hash %s was added\n", newConfirmMessage.btcTxHash.ToString(), newConfirmMessage.GetHash().ToString());
     confirms[newConfirmMessage.btcTxHash] = std::map<HashConfirmMessage, CAnchorConfirmMessage>{std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage)};
 }
 

@@ -506,7 +506,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
-    RPCHelpMan{"spv_listanchorsauths",
+    RPCHelpMan{"spv_listanchorauths",
         "\nList anchor auths (if any)\n",
         {
         },
@@ -554,6 +554,48 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
     return result;
 }
 
+UniValue spv_listanchorconfirms(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_listanchorconfirms",
+               "\nList anchor confirms (if any)\n",
+               {
+               },
+               RPCResult{
+                       "\"array\"                  Returns array of anchor confirms\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("spv_listanchorconfirms", "")
+                       + HelpExampleRpc("spv_listanchorconfirms", "")
+               },
+    }.Check(request);
+
+    auto locked_chain = pwallet->chain().lock();
+
+    UniValue result(UniValue::VARR);
+
+    auto confirms = panchorAwaitingConfirms->GetConfirms();
+    for (auto && confirmsForAnchor : confirms) {
+        UniValue item(UniValue::VOBJ);
+        item.pushKV("anchorHash", confirmsForAnchor.first.ToString());
+        UniValue confirmsArr(UniValue::VARR);
+        for (auto && confirm : confirmsForAnchor.second) {
+            UniValue itemConfirm(UniValue::VOBJ);
+            itemConfirm.pushKV("confirmHash", confirm.first.ToString());
+            itemConfirm.pushKV("btcTxHash", confirm.second.btcTxHash.ToString());
+            itemConfirm.pushKV("btcHeight", static_cast<int>(confirm.second.btcHeight));
+            itemConfirm.pushKV("anchorHeight", static_cast<int>(confirm.second.anchorHeight));
+            itemConfirm.pushKV("prevAnchorHeight", static_cast<int>(confirm.second.prevAnchorHeight));
+            itemConfirm.pushKV("activeAnchorChain", static_cast<int>(confirm.second.activeAnchorChain));
+            confirmsArr.push_back(itemConfirm);
+        }
+        item.pushKV("confirms", confirmsArr);
+        result.push_back(item);
+    }
+    return result;
+}
+
 UniValue spv_setlastheight(const JSONRPCRequest& request)
 {
     RPCHelpMan{"spv_setlastheight",
@@ -594,7 +636,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_splitutxo",              &spv_splitutxo,             { "parts", "amount" }  },
   { "spv",      "spv_listanchors",            &spv_listanchors,           { }  },
   { "spv",      "spv_listanchorauths",        &spv_listanchorauths,       { }  },
-
+  { "spv",      "spv_listanchorconfirms",     &spv_listanchorconfirms,    { }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
 };
 
