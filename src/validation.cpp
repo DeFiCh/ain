@@ -1559,6 +1559,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         if (is_coinbase) {
             std::vector<unsigned char> metadata;
             if (CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
+                LogPrintf("AnchorConfirms::ConnectBlock(): disconnecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
                 uint32_t btcHeight;
                 uint256 btcTxHash;
@@ -1613,6 +1614,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                     panchorAwaitingConfirms->Add(message);
                 }
 
+                LogPrintf("AnchorConfirms::ConnectBlock(): disconnected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
             } else if (fCriminals && CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
                 mnview.UnbanCriminal(tx.GetHash(), metadata);
             }
@@ -2121,6 +2123,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 }
                 mnview.BanCriminal(tx.GetHash(), metadata, block.height);
             } else if (CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
+                LogPrintf("AnchorConfirms::ConnectBlock(): connecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
                 uint32_t btcHeight;
                 uint256 btcTxHash;
@@ -2188,6 +2191,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 mnview.SetTeam(nextTeam);
                 mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
                 panchorAwaitingConfirms->RemoveConfirmsForAll();
+                LogPrintf("AnchorConfirms::ConnectBlock(): connected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
 
                 auto myIDs = mnview.AmIOperator();
                 if (myIDs) {
