@@ -14,11 +14,9 @@ struct SpvTestingSetup : public TestingSetup {
         : TestingSetup(CBaseChainParams::REGTEST)
     {
         spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
-        AbortShutdown();
     }
     ~SpvTestingSetup()
     {
-        StartShutdown();
         spv::pspv->Disconnect();
         LOCK(cs_main);
         spv::pspv.reset();
