@@ -452,12 +452,8 @@ void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blo
     }
     CommitBatch();
 
-    // Just leave it here...
-    // It is unnecessary to check anchor changes exactly on each "save", but:
-    // 1) it is fast and cheep in case of "nothing to do"
-    // 2) as I can see, OnTxStatusUpdate (unfortunately) not called after real confirmation changes
-    // 3) after initial spv sync it is the real way to get signals on each new block and keep defi chain up to date
-    CAnchorIndex::CheckActiveAnchor();
+    /// @attention don't call ANYTHING that could call back to spv here! cause OnSaveBlocks works under spv lock!!!
+//    CAnchorIndex::CheckActiveAnchor();
 }
 
 void CSpvWrapper::OnSavePeers(int replace, const BRPeer peers[], size_t peersCount)
