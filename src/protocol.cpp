@@ -23,6 +23,7 @@ const char *GETDATA="getdata";
 const char *MERKLEBLOCK="merkleblock";
 const char *GETBLOCKS="getblocks";
 const char *GETHEADERS="getheaders";
+const char *GETANCHORAUTHS="getauths";
 const char *TX="tx";
 const char *HEADERS="headers";
 const char *BLOCK="block";
@@ -57,6 +58,7 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::MERKLEBLOCK,
     NetMsgType::GETBLOCKS,
     NetMsgType::GETHEADERS,
+    NetMsgType::GETANCHORAUTHS,
     NetMsgType::TX,
     NetMsgType::HEADERS,
     NetMsgType::BLOCK,

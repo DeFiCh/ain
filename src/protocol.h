@@ -116,6 +116,11 @@ extern const char *GETBLOCKS;
  */
 extern const char *GETHEADERS;
 /**
+ * The getauths message requests an inv message that provides anchorauth's
+ * hashes starting from a particular point in the block chain
+ */
+extern const char *GETANCHORAUTHS;
+/**
  * The tx message transmits a single transaction.
  * @see https://bitcoin.org/en/developer-reference#tx
  */

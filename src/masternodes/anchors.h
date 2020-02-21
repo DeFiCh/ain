@@ -71,6 +71,7 @@ public:
 
     // tags for multiindex
     struct ByMsgHash{};     // by message hash (for inv)
+    struct ByBlockHash{};   // by blockhash (for locator/GETANCHORAUTHS)
     struct ByKey{};         // composite, by height and GetSignHash for anchor creation
     struct ByVote{};        // composite, by GetSignHash and signer, helps detect doublesigning
 
@@ -128,6 +129,10 @@ public:
             ordered_unique<
                 tag<Auth::ByMsgHash>, const_mem_fun<Auth, uint256, &Auth::GetHash>
             >,
+            // index for locator/GETANCHORAUTHS
+            ordered_non_unique<
+                tag<Auth::ByBlockHash>, member<Auth, uint256, &Auth::blockHash>
+            >,
             // index for quorum selection (CreateBestAnchor())
             // just to remember that there may be auths with equal blockHash, but with different prevs and teams!
             ordered_non_unique<
@@ -154,7 +159,7 @@ public:
     bool AddAuth(Auth const & auth);
 
     CAnchor CreateBestAnchor(CTxDestination const & rewardDest) const;
-    void ForEachAnchorAuthByHeight(std::function<void(const CAnchorAuthIndex::Auth &)> callback) const;
+    void ForEachAnchorAuthByHeight(std::function<bool(const CAnchorAuthIndex::Auth &)> callback) const;
 
     Auths auths;
 };
@@ -213,8 +218,8 @@ public:
 
     AnchorRec const * GetAnchorByBtcTx(uint256 const & txHash) const;
 
-    int GetAnchorConfirmations(uint256 const & txHash) const;
-    int GetAnchorConfirmations(AnchorRec const * rec) const;
+    int GetAnchorConfirmations(uint256 const & txHash, uint32_t spvLastHeight) const;
+    int GetAnchorConfirmations(AnchorRec const * rec, uint32_t spvLastHeight) const;
 
     static void CheckActiveAnchor(bool forced = false);
 
