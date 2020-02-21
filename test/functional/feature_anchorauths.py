@@ -13,7 +13,7 @@ import time
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal, \
-    connect_nodes_bi, disconnect_nodes
+    connect_nodes_bi
 
 class AnchorAuthsTest (DefiTestFramework):
     def set_test_params(self):
@@ -32,10 +32,6 @@ class AnchorAuthsTest (DefiTestFramework):
         # 0 | 1 = 2 | 3 down
         connect_nodes_bi(self.nodes, 1, 2)
         self.stop_node(3)
-
-        # for i in range(self.num_nodes - 1):
-            # connect_nodes_bi(self.nodes, i, i + 1)
-        # self.sync_all()
 
     def dumphashes(self, nodes=None, block = None):
         if nodes is None:
