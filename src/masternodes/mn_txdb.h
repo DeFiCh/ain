@@ -106,6 +106,9 @@ protected:
     bool LoadCurrentTeam(std::set<CKeyID> & newTeam);
     bool EraseCurrentTeam();
 
+    void WriteAnchorReward(uint256 const & anchorHash, uint256 const & rewardTxHash);
+    bool EraseAnchorReward(uint256 const & anchorHash);
+
     void WriteFoundationsDebt(CAmount const foundationsDebt);
     bool LoadFoundationsDebt();
 
