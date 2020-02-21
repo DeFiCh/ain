@@ -597,6 +597,38 @@ UniValue spv_listanchorconfirms(const JSONRPCRequest& request)
     return result;
 }
 
+UniValue spv_listanchorrewards(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_listanchorrewards",
+               "\nList anchor confirms (if any)\n",
+               {
+               },
+               RPCResult{
+                       "\"array\"                  Returns array of anchor confirms\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("spv_listanchorrewards", "")
+                       + HelpExampleRpc("spv_listanchorrewards", "")
+               },
+    }.Check(request);
+
+    auto locked_chain = pwallet->chain().lock();
+
+    UniValue result(UniValue::VARR);
+
+    auto rewards = pmasternodesview->ListAnchorRewards();
+    for (auto && reward : rewards) { // std::map<AnchorTxHash, RewardTxHash>
+        UniValue item(UniValue::VOBJ);
+        item.pushKV("AnchorTxHash", reward.first.ToString());
+        item.pushKV("RewardTxHash", reward.second.ToString());
+        result.push_back(item);
+    }
+
+    return result;
+}
+
 UniValue spv_setlastheight(const JSONRPCRequest& request)
 {
     RPCHelpMan{"spv_setlastheight",
@@ -638,6 +670,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_listanchors",            &spv_listanchors,           { }  },
   { "spv",      "spv_listanchorauths",        &spv_listanchorauths,       { }  },
   { "spv",      "spv_listanchorconfirms",     &spv_listanchorconfirms,    { }  },
+  { "spv",      "spv_listanchorrewards",      &spv_listanchorrewards,     { }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
 };
 
