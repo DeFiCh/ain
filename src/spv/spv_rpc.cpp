@@ -457,7 +457,8 @@ UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
 
     auto locked_chain = pwallet->chain().lock();
 
-    return UniValue(panchors->GetAnchorConfirmations(txHash));
+    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
+    return UniValue(panchors->GetAnchorConfirmations(txHash, spvLastHeight));
 }
 
 UniValue spv_listanchors(const JSONRPCRequest& request)
@@ -484,14 +485,15 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
 
     auto const * top = panchors->GetActiveAnchor();
     auto const * cur = top;
+    uint32_t const spvLastHeight = spv::pspv->GetLastBlockHeight();
     UniValue result(UniValue::VARR);
-    panchors->ForEachAnchorByBtcHeight([&result, &top, &cur](const CAnchorIndex::AnchorRec & rec) {
+    panchors->ForEachAnchorByBtcHeight([&result, &top, &cur, spvLastHeight](const CAnchorIndex::AnchorRec & rec) {
         UniValue anchor(UniValue::VOBJ);
         anchor.pushKV("btcBlockHeight", static_cast<int>(rec.btcHeight));
         anchor.pushKV("btcTxHash", rec.txHash.ToString());
         anchor.pushKV("defiBlockHeight", static_cast<int>(rec.anchor.height));
         anchor.pushKV("defiBlockHash", rec.anchor.blockHash.ToString());
-        anchor.pushKV("confirmations", panchors->GetAnchorConfirmations(&rec));
+        anchor.pushKV("confirmations", panchors->GetAnchorConfirmations(&rec, spvLastHeight));
         bool const isActive = cur && cur->txHash == rec.txHash;
         anchor.pushKV("active", isActive);
         if (isActive) {
@@ -541,6 +543,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
             prev = &auth;
         }
         signers.push_back(auth.GetSigner());
+        return true;
     });
 
     if (prev) {
