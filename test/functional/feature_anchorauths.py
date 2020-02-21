@@ -90,7 +90,7 @@ class AnchorAuthsTest (DefiTestFramework):
 
         connect_nodes_bi(self.nodes, 0, 1)
 
-        print ("After connect:")
+        print ("After connect 0 + 1/2:")
         time.sleep(1)
 
         self.dumpheights()
@@ -108,15 +108,17 @@ class AnchorAuthsTest (DefiTestFramework):
             assert_equal(auths[0]['signers'], 3)
             assert_equal(auths[1]['signers'], 2)
 
+        print ("Node3:")
         self.start_node(3)
-        self.nodes[3].generate(1)
+        # self.nodes[3].generate(1)
         connect_nodes_bi(self.nodes, 2, 3)
         self.sync_all()
-        time.sleep(2)
+        time.sleep(1)
         self.dumpauths([3])
-        self.nodes[3].generate(1)
-        self.dumpauths([3])
-
+        auths = self.nodes[3].spv_listanchorauths()
+        assert_equal(len(auths), 1)
+        assert_equal(auths[0]['blockHeight'], 15)
+        assert_equal(auths[0]['signers'], 4)
 
 if __name__ == '__main__':
     AnchorAuthsTest ().main ()
