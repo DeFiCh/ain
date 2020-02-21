@@ -587,10 +587,8 @@ UniValue spv_listanchorconfirms(const JSONRPCRequest& request)
             UniValue itemConfirm(UniValue::VOBJ);
             itemConfirm.pushKV("confirmHash", confirm.first.ToString());
             itemConfirm.pushKV("btcTxHash", confirm.second.btcTxHash.ToString());
-            itemConfirm.pushKV("btcHeight", static_cast<int>(confirm.second.btcHeight));
             itemConfirm.pushKV("anchorHeight", static_cast<int>(confirm.second.anchorHeight));
             itemConfirm.pushKV("prevAnchorHeight", static_cast<int>(confirm.second.prevAnchorHeight));
-            itemConfirm.pushKV("activeAnchorChain", static_cast<int>(confirm.second.activeAnchorChain));
             confirmsArr.push_back(itemConfirm);
         }
         item.pushKV("confirms", confirmsArr);
