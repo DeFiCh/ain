@@ -4058,6 +4058,16 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
         return error("%s: ActivateBestChain failed (%s)", __func__, FormatStateMessage(state));
 
     auto const tip = ::ChainActive().Tip();
+
+    // special case for the first run after IBD
+    static bool firstRunAfterIBD = true;
+    if (!::ChainstateActive().IsInitialBlockDownload() && firstRunAfterIBD && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
+    {
+        int sinceHeight = std::max(::ChainActive().Height() - chainparams.GetConsensus().mn.anchoringFrequency * 5, 0);
+        LogPrintf("Trying to request some auths after IBD, since %i...\n", sinceHeight);
+        RelayGetAnchorAuths(::ChainActive()[sinceHeight]->GetBlockHash(), *g_connman);
+        firstRunAfterIBD = false;
+    }
     // only if tip was changed
     if (!::ChainstateActive().IsInitialBlockDownload() && tip && tip != oldTip && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
     {
