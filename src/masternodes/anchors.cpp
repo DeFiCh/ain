@@ -370,21 +370,20 @@ CAnchorIndex::AnchorRec const * CAnchorIndex::GetAnchorByBtcTx(uint256 const & t
     return it != list.end() ? &*it : nullptr;
 }
 
-int CAnchorIndex::GetAnchorConfirmations(uint256 const & txHash) const
+int CAnchorIndex::GetAnchorConfirmations(uint256 const & txHash, uint32_t spvLastHeight) const
 {
     AssertLockHeld(cs_main);
-    return GetAnchorConfirmations(GetAnchorByBtcTx(txHash));
+    return GetAnchorConfirmations(GetAnchorByBtcTx(txHash), spvLastHeight);
 }
 
-int CAnchorIndex::GetAnchorConfirmations(const CAnchorIndex::AnchorRec * rec) const
+int CAnchorIndex::GetAnchorConfirmations(const CAnchorIndex::AnchorRec * rec, uint32_t spvLastHeight) const
 {
     AssertLockHeld(cs_main);
-    if (!rec || !spv::pspv) {
+    if (!rec) {
         return -1;
     }
-    uint32_t const spvLastBlock = spv::pspv->GetLastBlockHeight();
     // for cases when tx->blockHeight == TX_UNCONFIRMED _or_ GetLastBlockHeight() less than already _confirmed_ tx (rescan in progress)
-    return spvLastBlock < rec->btcHeight ? 0 : spvLastBlock - rec->btcHeight + 1;
+    return spvLastHeight < rec->btcHeight ? 0 : spvLastHeight - rec->btcHeight + 1;
 }
 
 void CAnchorIndex::CheckActiveAnchor(bool forced)
@@ -431,10 +430,12 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced)
 
     possibleReActivation = false;
 
+    // fix spv height to avoid datarace while choosing best anchor
+    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
     int const minConfirmations{Params().GetConsensus().spv.minConfirmations};
     auto oldTop = top;
     // rollback if necessary. this should not happen in prod (w/o anchor tx deletion), but possible in test when manually reduce height in btc chain
-    for (; top && GetAnchorConfirmations(top) < minConfirmations; top = GetAnchorByBtcTx(top->anchor.previousAnchor))
+    for (; top && GetAnchorConfirmations(top, spvLastHeight) < minConfirmations; top = GetAnchorByBtcTx(top->anchor.previousAnchor))
         ;
 
     THeight topHeight = top ? top->btcHeight : 0;
@@ -447,7 +448,7 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced)
     KList const & list = anchors.get<AnchorRec::ByBtcHeight>();
     for (auto it = (topHeight == 0 ? list.begin() : list.find(topHeight)); it != list.end(); ) {
 
-        int const confs = GetAnchorConfirmations(&*it);
+        int const confs = GetAnchorConfirmations(&*it, spvLastHeight);
         if (confs < minConfirmations)
         {
             // still pending - check it again on next event
