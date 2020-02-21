@@ -160,6 +160,8 @@ class CMasternodesViewHistory;
 
 class CMasternodesView
 {
+    using RewardTxHash = uint256;
+    using AnchorTxHash = uint256;
 public:
     // Block of typedefs
     struct CMasternodeIDs
@@ -171,6 +173,7 @@ public:
     typedef std::map<int, std::pair<uint256, MasternodesTxType> > CMnTxsUndo; // txn, undoRec
     typedef std::map<int, CMnTxsUndo> CMnBlocksUndo;
     typedef std::map<uint256, CDoubleSignFact> CMnCriminals;
+    typedef std::map<AnchorTxHash, RewardTxHash> CAnchorsRewards;
     typedef std::set<CKeyID> CTeam;
 
     enum class AuthIndex { ByOwner, ByOperator };
@@ -182,6 +185,7 @@ protected:
     CMasternodesByAuth nodesByOperator;
 
     CMnCriminals criminals;
+    CAnchorsRewards rewards;
     CTeam currentTeam;
     CAmount foundationsDebt;
 
@@ -270,6 +274,9 @@ public:
     virtual bool LoadCurrentTeam(std::set<CKeyID> & newTeam) { assert(false); }
     virtual bool EraseCurrentTeam() { assert(false); }
 
+    virtual void WriteAnchorReward(uint256 const & anchorHash, uint256 const & rewardTxHash) { assert(false); }
+    virtual bool EraseAnchorReward(uint256 const & anchorHash) { assert(false); }
+
     virtual void WriteFoundationsDebt(CAmount const foundationsDebt) { assert(false); }
     virtual bool LoadFoundationsDebt() { assert(false); }
 
@@ -282,13 +289,12 @@ public:
 
     void PruneOlder(int height);
 
+    // Masternodes Teams
     void SetTeam(CTeam newTeam);
     const std::set<CKeyID> &GetCurrentTeam();
-    const CAmount GetFoundationsDebt();
-    void SetFoundationsDebt(CAmount debt);
     CTeam CalcNextTeam(uint256 stakeModifier, const CMasternodes * masternodes = nullptr);
-    void CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash, uint32_t btcTxHeight);
 
+    // Criminals
     bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
     void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
     boost::optional<CDoubleSignFact> FindCriminalProofForMasternode(uint256 const & id);
@@ -296,6 +302,26 @@ public:
     void RemoveMasternodeFromCriminals(uint256 const &criminalID);
     void BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height);
     void UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata);
+
+    // Anchors Rewards
+    virtual RewardTxHash GetRewardForAnchor(AnchorTxHash const &btcTxHash) const
+    {
+        auto it = rewards.find(btcTxHash);
+        return it == rewards.end()? it->second : RewardTxHash{};
+    }
+    virtual CAnchorsRewards ListAnchorRewards() const
+    {
+        return rewards;
+    }
+    void AddRewardForAnchor(AnchorTxHash const &btcTxHash, uint256 const & rewardTxHash);
+    void RemoveRewardForAnchor(AnchorTxHash const &btcTxHash);
+    void CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash);
+
+    // FoundationsDebt
+    const CAmount GetFoundationsDebt();
+    void SetFoundationsDebt(CAmount debt);
+
+    // Outside
     static bool ExtractCriminalProofFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
     static bool ExtractAnchorRewardFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
@@ -337,6 +363,19 @@ public:
         auto const baseNodes = base->GetMasternodes();
         CMasternodes result(allNodes);
         result.insert(baseNodes.begin(), baseNodes.end());
+        return result;
+    }
+
+    RewardTxHash GetRewardForAnchor(AnchorTxHash const &btcTxHash) const override
+    {
+        auto it = rewards.find(btcTxHash);
+        return it == rewards.end()? it->second : base->GetRewardForAnchor(btcTxHash);
+    }
+
+    CAnchorsRewards ListAnchorRewards() const override
+    {
+        auto result = base->ListAnchorRewards();
+        result.insert(rewards.begin(), rewards.end());
         return result;
     }
 

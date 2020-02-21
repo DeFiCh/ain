@@ -428,7 +428,17 @@ CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier, co
     return newTeam;
 }
 
-void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash, uint32_t btcTxHeight)
+void CMasternodesView::AddRewardForAnchor(AnchorTxHash const &btcTxHash, uint256 const & rewardTxHash)
+{
+    rewards[btcTxHash] = rewardTxHash;
+}
+
+void CMasternodesView::RemoveRewardForAnchor(AnchorTxHash const &btcTxHash)
+{
+    rewards[btcTxHash] = uint256{};
+}
+
+void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash)
 {
     auto myIDs = AmIOperator();
     if (!myIDs || !ExistMasternode(myIDs->id)->IsActive()) // TODO: SS : not sure IsActive() or (state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED)
@@ -456,7 +466,7 @@ void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor
     }
 
     auto prev = panchors->ExistAnchorByTx(anchor.previousAnchor);
-    auto confirmMessage = CAnchorConfirmMessage::Create(anchor, prev? prev->anchor.height : 0, btcTxHash, btcTxHeight, masternodeKey, prev == panchors->GetActiveAnchor());
+    auto confirmMessage = CAnchorConfirmMessage::Create(anchor, prev? prev->anchor.height : 0, btcTxHash, masternodeKey);
     panchorAwaitingConfirms->Add(confirmMessage);
     RelayAnchorConfirm(confirmMessage.GetHash(), *g_connman);
 }
@@ -677,6 +687,10 @@ void CMasternodesView::ApplyCache(const CMasternodesView * cache)
         criminals[pair.first] = pair.second; // possible empty (if deleted)
     }
 
+    for (auto const & pair : cache->rewards) {
+        rewards[pair.first] = pair.second; // possible empty (if deleted)
+    }
+
     foundationsDebt = cache->foundationsDebt;
     currentTeam = cache->currentTeam;
 
@@ -692,6 +706,7 @@ void CMasternodesView::Clear()
     nodesByOwner.clear();
     nodesByOperator.clear();
     criminals.clear();
+    rewards.clear();
 
     blocksUndo.clear();
 }

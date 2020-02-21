@@ -21,6 +21,7 @@ static const char DB_PRUNE_HEIGHT = 'P';    // single record with pruned height 
 
 static const char DB_MN_BLOCK_HEADERS = 'h';
 static const char DB_MN_CRIMINALS = 'm';
+static const char DB_MN_ANCHOR_REWARD = 'r';
 static const char DB_MN_CURRENT_TEAM = 't';
 static const char DB_MN_FOUNDERS_DEBT = 'd';
 
@@ -239,6 +240,16 @@ bool CMasternodesViewDB::EraseCurrentTeam()
     return true;
 }
 
+void CMasternodesViewDB::WriteAnchorReward(uint256 const & anchorHash, uint256 const & rewardTxHash)
+{
+    db->Write(make_pair(DB_MN_ANCHOR_REWARD, anchorHash), rewardTxHash);
+}
+
+bool CMasternodesViewDB::EraseAnchorReward(uint256 const & anchorHash)
+{
+    db->Erase(make_pair(DB_MN_ANCHOR_REWARD, anchorHash));
+}
+
 void CMasternodesViewDB::WriteFoundationsDebt(CAmount const foundationsDebt)
 {
     db->Write(DB_MN_FOUNDERS_DEBT, foundationsDebt);
@@ -297,6 +308,7 @@ bool CMasternodesViewDB::Load()
     result = result && LoadTable(DB_MASTERNODESUNDO, blocksUndo);
     result = result && LoadCurrentTeam(currentTeam);
     result = result && LoadTable(DB_MN_CRIMINALS, criminals);
+    result = result && LoadTable(DB_MN_ANCHOR_REWARD, rewards);
     result = result && LoadFoundationsDebt();
 
     if (result)
@@ -317,8 +329,7 @@ bool CMasternodesViewDB::Flush()
         if (it->second == CMasternode()) {
             EraseMasternode(it->first);
             it = allNodes.erase(it);
-        }
-        else {
+        } else {
             WriteMasternode(it->first, it->second);
             ++nMasternodes;
             ++it;
@@ -331,8 +342,7 @@ bool CMasternodesViewDB::Flush()
         if (it->second.size() == 0) {
             EraseUndo(it->first);
             it = blocksUndo.erase(it);
-        }
-        else {
+        } else {
             WriteUndo(it->first, it->second);
             ++nUndo;
             ++it;
@@ -344,9 +354,19 @@ bool CMasternodesViewDB::Flush()
         if (it->second == CDoubleSignFact()) {
             EraseCriminal(it->first);
             it = criminals.erase(it);
-        }
-        else {
+        } else {
             WriteCriminal(it->first, it->second);
+            ++it;
+        }
+    }
+
+    for (auto && it = rewards.begin(); it != rewards.end(); )
+    {
+        if (it->second == uint256{}) {
+            EraseAnchorReward(it->first);
+            it = rewards.erase(it);
+        } else {
+            WriteAnchorReward(it->first, it->second);
             ++it;
         }
     }

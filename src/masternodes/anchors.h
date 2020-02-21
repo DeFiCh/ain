@@ -267,18 +267,16 @@ class CAnchorConfirmMessage
     using Signature = std::vector<unsigned char>;
 public:
     uint256 btcTxHash;
-    THeight btcHeight;
     THeight anchorHeight;
     THeight prevAnchorHeight;
     CKeyID rewardKeyID;
     char rewardKeyType;
-    bool activeAnchorChain;
     Signature signature;
 
     CAnchorConfirmMessage() {}
 
-    static CAnchorConfirmMessage Create(THeight anchorHeight, CKeyID const & rewardKeyID, char rewardKeyType, THeight prevAnchorHeight, uint256 btcTxHash, THeight btcHeight, bool activeAnchorChain);
-    static CAnchorConfirmMessage Create(CAnchor const & anchor, THeight prevAnchorHeight, uint256 btcTxHash, THeight btcHeight, CKey const & key, bool activeAnchorChain);
+    static CAnchorConfirmMessage Create(THeight anchorHeight, CKeyID const & rewardKeyID, char rewardKeyType, THeight prevAnchorHeight, uint256 btcTxHash);
+    static CAnchorConfirmMessage Create(CAnchor const & anchor, THeight prevAnchorHeight, uint256 btcTxHash, CKey const & key);
     uint256 GetHash() const;
     uint256 GetSignHash() const;
     bool CheckConfirmSigs(std::vector<Signature> const & sigs, CMasternodesView::CTeam team);
@@ -289,32 +287,30 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(btcTxHash);
-        READWRITE(btcHeight);
         READWRITE(anchorHeight);
         READWRITE(prevAnchorHeight);
         READWRITE(rewardKeyID);
         READWRITE(rewardKeyType);
-        READWRITE(activeAnchorChain);
         READWRITE(signature);
     }
 };
 
 class CAnchorAwaitingConfirms
 {
-    using HashConfirmMessage = uint256;
-    using TxHashAnchor = uint256;
+    using ConfirmMessageHash = uint256;
+    using AnchorTxHash = uint256;
 protected:
-    std::map<TxHashAnchor, std::map<HashConfirmMessage, CAnchorConfirmMessage>> confirms;
+    std::map<AnchorTxHash, std::map<ConfirmMessageHash, CAnchorConfirmMessage>> confirms;
 
 public:
-    void AddAnchor(TxHashAnchor const &txHash);
-    bool ExistAnchor(TxHashAnchor const &txHash) const;
-    bool EraseAnchor(TxHashAnchor const &txHash);
-    const CAnchorConfirmMessage *Exist(HashConfirmMessage const &hash) const;
+    void AddAnchor(AnchorTxHash const &txHash);
+    bool ExistAnchor(AnchorTxHash const &txHash) const;
+    bool EraseAnchor(AnchorTxHash const &txHash);
+    const CAnchorConfirmMessage *Exist(ConfirmMessageHash const &hash) const;
     void Add(CAnchorConfirmMessage const &newConfirmMessage);
     bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
     const std::map<uint256, std::map<uint256, CAnchorConfirmMessage>> GetConfirms() const;
-    bool RemoveConfirmsForAnchor(TxHashAnchor const &hash);
+    bool RemoveConfirmsForAnchor(AnchorTxHash const &hash);
     void RemoveConfirmsForAll();
 };
 

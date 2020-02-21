@@ -149,52 +149,41 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (confirms.size()) {
         auto currentTeam = pmasternodesview->GetCurrentTeam();
         for (auto && confirmsForAnchor : confirms) {
-            if (confirmsForAnchor.second.size() >= GetMinAnchorQuorum(currentTeam)) {
-
-                auto itBegin = confirmsForAnchor.second.begin();
-                if(!panchorAwaitingConfirms->Validate(itBegin->second)) {
-                    continue ;
+            uint32_t quorum = GetMinAnchorQuorum(currentTeam);
+            if (confirmsForAnchor.second.size() >= quorum) {
+                using DataSignedHash = uint256;
+                std::map<DataSignedHash, std::vector<CAnchorConfirmMessage>> signedDataVariants{};
+                for (auto && hashAndConfirm : confirmsForAnchor.second) {
+                    uint256 hash = hashAndConfirm.second.GetSignHash();
+                    if (signedDataVariants.find(hash) == signedDataVariants.end())
+                        signedDataVariants[hash] = std::vector<CAnchorConfirmMessage>{};
+                    signedDataVariants[hash].push_back(hashAndConfirm.second);
                 }
-                std::vector<std::vector<unsigned char>> sigs { itBegin->second.signature };
 
-                bool failFlag = false;
-                auto it = itBegin;
-                std::advance(it, 1);
-                for (; it != confirmsForAnchor.second.end(); ++it) {
-                    if (!itBegin->second.isEqualDataWith(it->second) ||
-                        !panchorAwaitingConfirms->Validate(it->second)) {
-                        failFlag = true;
-                        break ;
-                    } else {
-                        sigs.push_back(it->second.signature);
+                CAnchorConfirmMessage trueData{};
+                std::vector<std::vector<unsigned char>> sigs;
+                for (auto && variant : signedDataVariants) {
+                    if (variant.second.size() >= quorum) {
+                        trueData = *variant.second.begin();
+                        for (auto && confirmMessage : variant.second) {
+                            sigs.push_back(confirmMessage.signature);
+                        }
+                        break;
                     }
                 }
 
-                if (failFlag) {
-                    continue ;
-                }
-
-                auto exist = panchors->GetAnchorByBtcTx(itBegin->second.btcTxHash);
-                if (!exist) {
-                    continue ;
-                }
-
-                CTxDestination destination = itBegin->second.rewardKeyType == 1 ? CTxDestination(PKHash(itBegin->second.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(itBegin->second.rewardKeyID));
+                CTxDestination destination = trueData.rewardKeyType == 1 ? CTxDestination(PKHash(trueData.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(trueData.rewardKeyID));
 
                 CMutableTransaction mTx;
 
                 CDataStream metadata(DfAnchorFinalizeTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-                auto currentTeam = pmasternodesview->GetCurrentTeam();
                 auto nextTeam = pmasternodesview->CalcNextTeam(pindexPrev->stakeModifier);
                 metadata
-                    << itBegin->second.btcHeight
-                    << itBegin->second.btcTxHash
-                    << itBegin->second.anchorHeight
-                    << itBegin->second.prevAnchorHeight
-                    << exist->anchor.blockHash
-                    << itBegin->second.rewardKeyID
-                    << itBegin->second.rewardKeyType
-                    << itBegin->second.activeAnchorChain
+                    << trueData.btcTxHash
+                    << trueData.anchorHeight
+                    << trueData.prevAnchorHeight
+                    << trueData.rewardKeyID
+                    << trueData.rewardKeyType
                     << nextTeam
                     << currentTeam
                     << sigs;
@@ -206,7 +195,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
                 mTx.vout[0].nValue = 0;
                 mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-                mTx.vout[1].nValue = GetAnchorSubsidy(itBegin->second.anchorHeight, itBegin->second.prevAnchorHeight, chainparams.GetConsensus(), itBegin->second.activeAnchorChain);
+                mTx.vout[1].nValue = GetAnchorSubsidy(trueData.anchorHeight, trueData.prevAnchorHeight, chainparams.GetConsensus());
 
                 LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);
                 pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
