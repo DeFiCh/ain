@@ -133,6 +133,7 @@ UniValue spv_splitutxo(const JSONRPCRequest& request)
     return result;
 }
 
+extern CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams);
 
 /*
  * Create, sign and send (optional) anchor tx using only spv api
@@ -147,7 +148,6 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
         "The first argument is the specific UTXOs to spend." +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
-                /// @todo not fully implemented yet! now in test mode!
             {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                 {
                     {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -212,13 +212,13 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Feerate should be > 0!");
     }
 
+    THeight prevAnchorHeight{0};
     CAnchor anchor;
     {
         auto locked_chain = pwallet->chain().lock();
 
-        /// @todo temporary, tests with fixed values
-//        CTxDestination rewardDest = DecodeDestination("mmjrUWSKQqnkWzyS98GCuFxA7TXcK3bc3A");
         anchor = panchorauths->CreateBestAnchor(rewardDest);
+        prevAnchorHeight = panchors->GetActiveAnchor() ? panchors->GetActiveAnchor()->anchor.height : 0;
     }
     if (anchor.sigs.empty()) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
@@ -226,10 +226,6 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
 
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << anchor;
-
-    /// @todo temporary, tests
-//    auto rawtx = spv::CreateAnchorTx("e6f0a5e4db120f6877710bbbb5f9523162b6456bb1d4d89b854e60a794e03b46", 1, 3271995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
-//    auto rawtx = spv::CreateAnchorTx("a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963", 3, 2262303, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", ToByteVector(ss));
 
     uint256 hash;
     spv::TBytes rawtx;
@@ -246,7 +242,6 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     if (send) {
         if (spv::pspv) {
             std::promise<int> promise;
-//            if (spv::pspv->SendRawTx(rawtx, [&promise] (int result) { promise.set_value(result); })) {
             if (spv::pspv->SendRawTx(rawtx, &promise)) {
                 sendResult = promise.get_future().get();
             }
@@ -263,6 +258,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     result.pushKV("txHash", hash.ToString());
     result.pushKV("defiHash", anchor.blockHash.ToString());
     result.pushKV("defiHeight", (int) anchor.height);
+    result.pushKV("estimatedReward", GetAnchorSubsidy(anchor.height, prevAnchorHeight, Params().GetConsensus()));
     result.pushKV("cost", cost);
     if (send) {
         result.pushKV("sendResult", sendResult);
@@ -272,7 +268,6 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     return result;
 }
 
-/// @todo will be implemented only after anchors tests
 UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
@@ -303,14 +298,18 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 
     std::string rewardAddress = request.params[0].getValStr();
     CTxDestination rewardDest = DecodeDestination(rewardAddress);
-    if (rewardDest.which() != 1 && rewardDest.which() != 4)
-    {
+    if (rewardDest.which() != 1 && rewardDest.which() != 4) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
     }
 
-    auto locked_chain = pwallet->chain().lock();
+    THeight prevAnchorHeight{0};
+    CAnchor anchor;
+    {
+        auto locked_chain = pwallet->chain().lock();
 
-    CAnchor const anchor = panchorauths->CreateBestAnchor(rewardDest);
+        anchor = panchorauths->CreateBestAnchor(rewardDest);
+        prevAnchorHeight = panchors->GetActiveAnchor() ? panchors->GetActiveAnchor()->anchor.height : 0;
+    }
     if (anchor.sigs.empty()) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
     }
@@ -321,9 +320,13 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 
     auto consensus = Params().GetConsensus();
 
+    spv::TBytes scriptBytes{spv::CreateScriptForAddress(consensus.spv.anchors_address.c_str())};
+    if (scriptBytes.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Can't create script for chainparam's 'spv.anchors_address' = '" + consensus.spv.anchors_address + "'");
+    }
     CMutableBtcTransaction mtx;
     // output[0] - anchor address with creation fee
-    mtx.vout.push_back(CBtcTxOut(consensus.spv.creationFee, GetScriptForDestination(DecodeDestination(consensus.spv.anchors_address))));
+    mtx.vout.push_back(CBtcTxOut(consensus.spv.creationFee, CScript(scriptBytes.begin(), scriptBytes.end())));
 
     // output[1] - metadata (first part with OP_RETURN)
     mtx.vout.push_back(CBtcTxOut(0, metaScripts[0]));
@@ -335,6 +338,10 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("txHex", EncodeHexBtcTx(CBtcTransaction(mtx)));
+    result.pushKV("defiHash", anchor.blockHash.ToString());
+    result.pushKV("defiHeight", (int) anchor.height);
+    result.pushKV("estimatedReward", GetAnchorSubsidy(anchor.height, prevAnchorHeight, consensus));
+
     return result;
 }
 
@@ -427,7 +434,6 @@ UniValue spv_syncstatus(const JSONRPCRequest& request)
     result.pushKV("connected", spv::pspv->IsConnected());
     result.pushKV("current", static_cast<int>(spv::pspv->GetLastBlockHeight()));
     result.pushKV("estimated", static_cast<int>(spv::pspv->GetEstimatedBlockHeight()));
-//    result.pushKV("txCount", static_cast<int>(spv::pspv->GetWalletTxs().size()));
     return result;
 }
 
