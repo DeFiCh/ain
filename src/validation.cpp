@@ -3961,9 +3961,15 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     auto topAnchor = panchors->GetActiveAnchor();
     auto const team = panchors->GetCurrentTeam(topAnchor);
 
+    uint64_t topAnchorHeight = topAnchor ? (uint64_t) topAnchor->anchor.height : 0;
+    // we have no need to ask for auths at all if we have topAnchor higher than current chain
+    if (tip->height <= topAnchorHeight) {
+        return;
+    }
+
     CBlockIndex const * pindexFork = ::ChainActive().FindFork(oldTip);
     // limit fork height - trim it by the top anchor, if any
-    uint64_t forkHeight = std::max(pindexFork ? pindexFork->height : 0, topAnchor ? (uint64_t) topAnchor->anchor.height : 0);
+    uint64_t forkHeight = std::max(pindexFork ? pindexFork->height : 0, topAnchorHeight);
     pindexFork = ::ChainActive()[forkHeight];
 
     if (tip->pprev != oldTip) {
