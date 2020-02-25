@@ -310,7 +310,6 @@ public:
     void Add(CAnchorConfirmMessage const &newConfirmMessage);
     bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
     const std::map<uint256, std::map<uint256, CAnchorConfirmMessage>> GetConfirms() const;
-    bool RemoveConfirmsForAnchor(AnchorTxHash const &hash);
     void RemoveConfirmsForAll();
 };
 
