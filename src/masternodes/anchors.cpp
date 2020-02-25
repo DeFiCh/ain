@@ -636,35 +636,19 @@ bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessa
 
 void CAnchorAwaitingConfirms::Add(CAnchorConfirmMessage const &newConfirmMessage)
 {
-    for (auto &&hashAndConfirm : confirms) {
-        auto it = hashAndConfirm.second.find(newConfirmMessage.btcTxHash);
-        if (it != hashAndConfirm.second.end()) {
-            LogPrintf("AnchorConfirms::Add: Confirm message for new anchor: %s with hash %s was added\n", newConfirmMessage.btcTxHash.ToString(), newConfirmMessage.GetHash().ToString());
-            hashAndConfirm.second.insert(std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage));
-            return ;
-        }
+    if (confirms.find(newConfirmMessage.btcTxHash) != confirms.end()) {
+        LogPrintf("AnchorConfirms::Add: Confirm message for existing anchor: %s with hash %s was added\n", newConfirmMessage.btcTxHash.ToString(), newConfirmMessage.GetHash().ToString());
+        confirms[newConfirmMessage.btcTxHash].insert(std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage));
+        return ;
     }
 
-    LogPrintf("AnchorConfirms::Add: Confirm message for existing anchor: %s with hash %s was added\n", newConfirmMessage.btcTxHash.ToString(), newConfirmMessage.GetHash().ToString());
-    confirms[newConfirmMessage.btcTxHash] = std::map<ConfirmMessageHash, CAnchorConfirmMessage>{std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage)};
+    LogPrintf("AnchorConfirms::Add: Confirm message for new anchor: %s with hash %s was added\n", newConfirmMessage.btcTxHash.ToString(), newConfirmMessage.GetHash().ToString());
+    confirms.insert(std::make_pair(newConfirmMessage.btcTxHash, std::map<ConfirmMessageHash, CAnchorConfirmMessage>{std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage)}));
 }
 
 const std::map<uint256, std::map<uint256, CAnchorConfirmMessage>> CAnchorAwaitingConfirms::GetConfirms() const
 {
     return confirms;
-}
-
-bool CAnchorAwaitingConfirms::RemoveConfirmsForAnchor(AnchorTxHash const &hash)
-{
-    for (auto &&hashAndConfirm : confirms) {
-        auto it = hashAndConfirm.second.find(hash);
-        if (it != hashAndConfirm.second.end()) {
-            hashAndConfirm.second.clear();
-            return true;
-        }
-    }
-
-    return false;
 }
 
 void CAnchorAwaitingConfirms::RemoveConfirmsForAll()
