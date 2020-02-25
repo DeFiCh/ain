@@ -2644,7 +2644,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // possible optimization: stops when first quorum reached (irl, no need to walk deeper)
         auto topAnchor = panchors->GetActiveAnchor();
         // limit requested by the top anchor, if any
-        if (topAnchor && topAnchor->anchor.height > pRequested->height) {
+        if (topAnchor && topAnchor->anchor.height > pRequested->height && topAnchor->anchor.height <= (uint64_t) ::ChainActive().Height()) {
             pRequested = ::ChainActive()[topAnchor->anchor.height];
             assert(pRequested);
         }
