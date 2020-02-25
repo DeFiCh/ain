@@ -213,12 +213,6 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
     spv_mainnet = isMainnet ? 1 : 0;
 
     BRMasterPubKey mpk = BR_MASTER_PUBKEY_NONE;
-
-    // test:
-//    UInt512 seed = UINT512_ZERO;
-//    BRBIP39DeriveKey(seed.u8, "axis husband project any sea patch drip tip spirit tide bring belt", NULL);
-//    mpk = BRBIP32MasterPubKey(&seed, sizeof(seed));
-
     mpk = BRBIP32ParseMasterPubKey(Params().GetConsensus().spv.wallet_xpub.c_str());
 
     std::vector<char> xpub_buf(BRBIP32SerializeMasterPubKey(NULL, 0, mpk));
@@ -292,8 +286,6 @@ void CSpvWrapper::Disconnect()
 {
     AssertLockNotHeld(cs_main); /// @attention due to calling txStatusUpdate() (OnTxUpdated()), savePeers(), syncStopped()
     BRPeerManagerDisconnect(manager);
-//    uint64_t balance = BRWalletBalance(wallet);
-//    LogPrintf("spv: balance on disconnect: %lu\n", balance);
 }
 
 bool CSpvWrapper::IsConnected() const
@@ -369,7 +361,6 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
     uint256 const txHash{to_uint256(tx->txHash)};
     WriteTx(tx);
     LogPrintf("spv: tx added %s, at block %d, timestamp %d\n", txHash.ToString(), tx->blockHeight, tx->timestamp);
-//    LogPrintf("spv: current wallet tx count %lu\n", GetWalletTxs().size());
 
     CAnchor anchor;
     if (IsAnchorTx(tx, anchor)) {
@@ -630,7 +621,6 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
             LogPrintf("spv: ***FAILED*** %s: Can't parse WIF privkey %s\n", __func__, input.privkey_wif);
             throw std::runtime_error("spv: Can't parse WIF privkey " + input.privkey_wif);
         }
-//        BRKeyPubKey(&inputKey, NULL, 0);
         inputKeys.push_back(inputKey);
 
         BRAddress address = BR_ADDRESS_NONE;
