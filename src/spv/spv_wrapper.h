@@ -11,7 +11,6 @@
 
 #include <spv/support/BRLargeInt.h>
 
-//#include <functional>
 #include <future>
 #include <map>
 #include <string>
@@ -90,7 +89,6 @@ public:
 
     std::vector<BRTransaction *> GetWalletTxs() const;
 
-//    typedef std::function<void(int result)> TSendCallback;
     bool SendRawTx(TBytes rawtx, std::promise<int> * promise = nullptr);
 
 public:
