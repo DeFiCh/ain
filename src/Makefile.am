@@ -201,6 +201,7 @@ DEFI_CORE_H = \
   script/signingprovider.h \
   script/standard.h \
   shutdown.h \
+  spv/btctransaction.h \
   spv/spv_wrapper.h \
   streams.h \
   support/allocators/secure.h \
@@ -315,6 +316,7 @@ libdefi_server_a_SOURCES = \
   rpc/server.cpp \
   script/sigcache.cpp \
   shutdown.cpp \
+  spv/btctransaction.cpp \
   spv/spv_wrapper.cpp \
   spv/spv_rpc.cpp \
   timedata.cpp \
