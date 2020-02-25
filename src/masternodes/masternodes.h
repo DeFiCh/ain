@@ -307,7 +307,7 @@ public:
     virtual RewardTxHash GetRewardForAnchor(AnchorTxHash const &btcTxHash) const
     {
         auto it = rewards.find(btcTxHash);
-        return it == rewards.end()? it->second : RewardTxHash{};
+        return it != rewards.end()? it->second : RewardTxHash{};
     }
     virtual CAnchorsRewards ListAnchorRewards() const
     {
