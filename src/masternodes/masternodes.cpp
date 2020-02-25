@@ -453,7 +453,6 @@ void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor
     CKey masternodeKey{};
     for (auto const wallet : wallets) {
         if (wallet->GetKey(myIDs->operatorAuthAddress, masternodeKey)) {
-            LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Warning! Masternodes key not found %s\n", myIDs->operatorAuthAddress.ToString());
             break;
         }
         masternodeKey = CKey{};
