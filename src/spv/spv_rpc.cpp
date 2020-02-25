@@ -11,6 +11,7 @@
 #include <rpc/util.h>
 #include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
+#include <spv/btctransaction.h>
 #include <spv/spv_wrapper.h>
 #include <univalue/include/univalue.h>
 
@@ -122,13 +123,12 @@ UniValue spv_splitutxo(const JSONRPCRequest& request)
         spv::pspv->SendRawTx(rawtx);
     }
 
-    CMutableTransaction mtx;
-    /// @todo implement separated bitcoin serialize/deserialize
-    (void) DecodeHexTx(mtx, std::string(rawtx.begin(), rawtx.end()), true);
+    CMutableBtcTransaction mtx;
+    (void) DecodeHexBtcTx(mtx, std::string(rawtx.begin(), rawtx.end()), true);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("txHex", HexStr(rawtx));
-    result.pushKV("txHash", CTransaction(mtx).GetHash().ToString());
+    result.pushKV("txHash", CBtcTransaction(mtx).GetHash().ToString());
 
     return result;
 }
@@ -321,21 +321,20 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
 
     auto consensus = Params().GetConsensus();
 
-    CMutableTransaction mtx;
+    CMutableBtcTransaction mtx;
     // output[0] - anchor address with creation fee
-    mtx.vout.push_back(CTxOut(consensus.spv.creationFee, GetScriptForDestination(DecodeDestination(consensus.spv.anchors_address))));
+    mtx.vout.push_back(CBtcTxOut(consensus.spv.creationFee, GetScriptForDestination(DecodeDestination(consensus.spv.anchors_address))));
 
     // output[1] - metadata (first part with OP_RETURN)
-    mtx.vout.push_back(CTxOut(0, metaScripts[0]));
+    mtx.vout.push_back(CBtcTxOut(0, metaScripts[0]));
 
     // output[2..n-1] - metadata (rest of the data in p2wsh keys)
     for (size_t i = 1; i < metaScripts.size(); ++i) {
-        mtx.vout.push_back(CTxOut(spv::P2WSH_DUST, metaScripts[i]));
+        mtx.vout.push_back(CBtcTxOut(spv::P2WSH_DUST, metaScripts[i]));
     }
 
     UniValue result(UniValue::VOBJ);
-    /// @todo implement own btc tx serialization when tokens will join the game
-    result.pushKV("txHex", EncodeHexTx(CTransaction(mtx)));
+    result.pushKV("txHex", EncodeHexBtcTx(CBtcTransaction(mtx)));
     return result;
 }
 
