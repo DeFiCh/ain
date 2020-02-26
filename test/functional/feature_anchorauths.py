@@ -109,7 +109,7 @@ class AnchorAuthsTest (DefiTestFramework):
         # self.nodes[3].generate(1)
         connect_nodes_bi(self.nodes, 2, 3)
         self.sync_all()
-        time.sleep(1)
+        time.sleep(2)
         self.dumpauths([3])
         auths = self.nodes[3].spv_listanchorauths()
         assert_equal(len(auths), 1)

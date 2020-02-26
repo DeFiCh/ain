@@ -94,7 +94,7 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
 void RelayTransaction(const uint256&, const CConnman& connman);
 
 /** Relay getauths to every node */
-void RelayGetAnchorAuths(const uint256& hash, CConnman& connman);
+void RelayGetAnchorAuths(const uint256& lowHash, const uint256& highHash, CConnman& connman);
 
 /** Relay anchor auth to every node, possible skipping the source (rebroadcasting) */
 void RelayAnchorAuths(std::vector<CInv> const & vInv, CConnman& connman, CNode* skipNode = nullptr);
