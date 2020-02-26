@@ -1573,7 +1573,8 @@ bool AppInitMain(InitInterfaces& interfaces)
                 panchorAwaitingConfirms.reset();
                 panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
                 panchors.reset();
-                panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, fReset || fReindexChainState); /// @todo should it be linked to the 'defi reindex' or 'spv resync'?????
+                /// @todo research best way of spv+anchors loading/update/regeneration
+                panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, gArgs.GetBoolArg("-spv", false) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
                 panchors->Load();
 
                 if (gArgs.GetBoolArg("-spv", false)) {
