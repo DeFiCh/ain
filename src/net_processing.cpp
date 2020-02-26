@@ -1322,13 +1322,13 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     return true;
 }
 
-void RelayGetAnchorAuths(const uint256& hash, CConnman& connman)
+void RelayGetAnchorAuths(const uint256& lowHash, const uint256& highHash, CConnman& connman)
 {
-    connman.ForEachNode([&hash, &connman](CNode* pnode)
+    connman.ForEachNode([&lowHash, &highHash, &connman](CNode* pnode)
     {
         const CNetMsgMaker msgMaker(pnode->GetSendVersion());
-        LogPrintf("send getauths: up to hash: %s, peer=%d\n", hash.ToString(), pnode->GetId());
-        connman.PushMessage(pnode, msgMaker.Make(NetMsgType::GETANCHORAUTHS, hash));
+        LogPrintf("send getauths: from hash: %s to hash: %s, peer=%d\n", lowHash.ToString(), highHash.ToString(), pnode->GetId());
+        connman.PushMessage(pnode, msgMaker.Make(NetMsgType::GETANCHORAUTHS, lowHash, highHash));
     });
 }
 
@@ -2629,13 +2629,13 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
     }
 
     if (strCommand == NetMsgType::GETANCHORAUTHS) {
-        uint256 hash;
-        vRecv >> hash;
+        uint256 lowHash, highHash;
+        vRecv >> lowHash >> highHash;
 
         LOCK(cs_main);
-        CBlockIndex const * pRequested = LookupBlockIndex(hash);
-        if (!pRequested || !::ChainActive().Contains(pRequested)) {
-            LogPrint(BCLog::NET, "getauths: requested block hash %s not found or is not in active chain\n", hash.GetHex());
+        CBlockIndex const * pLowRequested = LookupBlockIndex(lowHash);
+        if (!pLowRequested || !::ChainActive().Contains(pLowRequested)) {
+            LogPrint(BCLog::NET, "getauths: requested block hash %s not found or is not in active chain\n", lowHash.GetHex());
             return false;
         }
 
@@ -2644,16 +2644,22 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // possible optimization: stops when first quorum reached (irl, no need to walk deeper)
         auto topAnchor = panchors->GetActiveAnchor();
         // limit requested by the top anchor, if any
-        if (topAnchor && topAnchor->anchor.height > pRequested->height && topAnchor->anchor.height <= (uint64_t) ::ChainActive().Height()) {
-            pRequested = ::ChainActive()[topAnchor->anchor.height];
-            assert(pRequested);
+        if (topAnchor && topAnchor->anchor.height > pLowRequested->height && topAnchor->anchor.height <= (uint64_t) ::ChainActive().Height()) {
+            pLowRequested = ::ChainActive()[topAnchor->anchor.height];
+            assert(pLowRequested);
         }
 
-        LogPrint(BCLog::NET, "getauths from top to %d for peer=%d\n", pRequested->nHeight, pfrom->GetId());
+        CBlockIndex const * pHighRequested = LookupBlockIndex(highHash);
+        if (!pHighRequested)
+            pHighRequested = ::ChainActive().Tip();
+
+        LogPrint(BCLog::NET, "getauths down from %d to %d for peer=%d\n", pHighRequested->nHeight, pLowRequested->nHeight, pfrom->GetId());
         std::vector<CInv> vInv;
-        panchorauths->ForEachAnchorAuthByHeight([pRequested, &vInv](const CAnchorAuthIndex::Auth & auth) {
-            if ((int)auth.height < pRequested->nHeight)
-                return false;
+        panchorauths->ForEachAnchorAuthByHeight([pLowRequested, pHighRequested, &vInv](const CAnchorAuthIndex::Auth & auth) {
+            if ((int)auth.height > pHighRequested->nHeight)
+                return true; // continue
+            if ((int)auth.height < pLowRequested->nHeight)
+                return false; // break
 
             CBlockIndex const * pindex = LookupBlockIndex(auth.blockHash);
             if (pindex && ::ChainActive().Contains(pindex)) {
