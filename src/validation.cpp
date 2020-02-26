@@ -3968,13 +3968,15 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     }
 
     CBlockIndex const * pindexFork = ::ChainActive().FindFork(oldTip);
+    uint64_t forkHeight = pindexFork && (pindexFork->height >= (uint64_t)consensus.mn.anchoringLag) ? pindexFork->height - (uint64_t)consensus.mn.anchoringLag : 0;
     // limit fork height - trim it by the top anchor, if any
-    uint64_t forkHeight = std::max(pindexFork ? pindexFork->height : 0, topAnchorHeight);
+    forkHeight = std::max(forkHeight, topAnchorHeight);
     pindexFork = ::ChainActive()[forkHeight];
 
     if (tip->pprev != oldTip) {
         // asking all auths that may be skipped (rather we have switch the chain or not)
-        RelayGetAnchorAuths(pindexFork->GetBlockHash(), *g_connman);
+        LogPrintf("request getauths from %d to %d\n", pindexFork->nHeight, tip->nHeight);
+        RelayGetAnchorAuths(pindexFork->GetBlockHash(), tip->GetBlockHash(), *g_connman);
     }
 
     CKey masternodekey;
@@ -4053,11 +4055,11 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
 
     // special case for the first run after IBD
     static bool firstRunAfterIBD = true;
-    if (!::ChainstateActive().IsInitialBlockDownload() && firstRunAfterIBD && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
+    if (!::ChainstateActive().IsInitialBlockDownload() && tip && firstRunAfterIBD && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
     {
         int sinceHeight = std::max(::ChainActive().Height() - chainparams.GetConsensus().mn.anchoringFrequency * 5, 0);
         LogPrintf("Trying to request some auths after IBD, since %i...\n", sinceHeight);
-        RelayGetAnchorAuths(::ChainActive()[sinceHeight]->GetBlockHash(), *g_connman);
+        RelayGetAnchorAuths(::ChainActive()[sinceHeight]->GetBlockHash(), tip->GetBlockHash(), *g_connman);
         firstRunAfterIBD = false;
     }
     // only if tip was changed
