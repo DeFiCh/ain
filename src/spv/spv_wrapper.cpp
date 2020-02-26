@@ -115,10 +115,11 @@ void txStatusUpdate(void *info)
 }
 void saveBlocks(void *info, int replace, BRMerkleBlock *blocks[], size_t blocksCount)
 {
-    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
-    LOCK(cs_spvcallback);
+//    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
+    // DO NOT LOCK IT HERE!
+//    LOCK(cs_spvcallback);
     if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
-    if (ShutdownRequested()) return;
+//    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSaveBlocks(replace, blocks, blocksCount);
     if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
 }
