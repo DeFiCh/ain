@@ -1575,7 +1575,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 panchors.reset();
                 /// @todo research best way of spv+anchors loading/update/regeneration
                 panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, gArgs.GetBoolArg("-spv", false) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
-                panchors->Load();
+                // load anchors after spv due to spv (and spv height) not set before (no last height yet)
 
                 if (gArgs.GetBoolArg("-spv", false)) {
                     spv::pspv.reset();
@@ -1585,6 +1585,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                         spv::pspv = MakeUnique<spv::CSpvWrapper>(!gArgs.GetBoolArg("-spv_testnet", false), nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
                     }
                 }
+                panchors->Load();
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate

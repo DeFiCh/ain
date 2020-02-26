@@ -264,9 +264,11 @@ bool CAnchorIndex::Load()
         anchors.insert(std::move(rec));
     };
     bool result = IterateTable(DB_ANCHORS, onLoad);
-    if (result)
-        ActivateBestAnchor(true);
-
+    if (result) {
+        // fix spv height to avoid datarace while choosing best anchor
+        uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
+        ActivateBestAnchor(spvLastHeight, true);
+    }
     return result;
 }
 
@@ -393,8 +395,10 @@ void CAnchorIndex::CheckActiveAnchor(bool forced)
 
     bool topChanged{false};
     {
+        // fix spv height to avoid datarace while choosing best anchor
+        uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
         LOCK(cs_main);
-        topChanged = panchors->ActivateBestAnchor(forced);
+        topChanged = panchors->ActivateBestAnchor(spvLastHeight, forced);
     }
     CValidationState state;
     if (topChanged && !ActivateBestChain(state, Params())) {
@@ -421,7 +425,7 @@ CAnchorIndex::AnchorRec const * BestOfTwo(CAnchorIndex::AnchorRec const * a1, CA
 }
 
 /// @returns true if top active anchor has been changed
-bool CAnchorIndex::ActivateBestAnchor(bool forced)
+bool CAnchorIndex::ActivateBestAnchor(uint32_t spvLastHeight, bool forced)
 {
     AssertLockHeld(cs_main);
 
@@ -430,8 +434,6 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced)
 
     possibleReActivation = false;
 
-    // fix spv height to avoid datarace while choosing best anchor
-    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
     int const minConfirmations{Params().GetConsensus().spv.minConfirmations};
     auto oldTop = top;
     // rollback if necessary. this should not happen in prod (w/o anchor tx deletion), but possible in test when manually reduce height in btc chain
