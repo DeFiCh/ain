@@ -369,7 +369,7 @@ public:
     RewardTxHash GetRewardForAnchor(AnchorTxHash const &btcTxHash) const override
     {
         auto it = rewards.find(btcTxHash);
-        return it == rewards.end()? it->second : base->GetRewardForAnchor(btcTxHash);
+        return it != rewards.end()? it->second : base->GetRewardForAnchor(btcTxHash);
     }
 
     CAnchorsRewards ListAnchorRewards() const override
