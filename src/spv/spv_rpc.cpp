@@ -111,8 +111,6 @@ UniValue spv_splitutxo(const JSONRPCRequest& request)
     int parts = request.params[0].get_int();
     int amount = request.params[1].empty() ? 0 : request.params[1].get_int();
 
-    auto locked_chain = pwallet->chain().lock();
-
     /// @todo temporary, tests
     auto rawtx = spv::CreateSplitTx("1251d1fc46d104564ca8311696d561bf7de5c0e336039c7ccfe103f7cdfc026e", 2, 3071995, "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP", parts, amount);
 
@@ -455,9 +453,11 @@ UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
     uint256 txHash;
     ParseHashStr(request.params[0].getValStr(), txHash);
 
+    // ! before cs_main lock
+    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
+
     auto locked_chain = pwallet->chain().lock();
 
-    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
     return UniValue(panchors->GetAnchorConfirmations(txHash, spvLastHeight));
 }
 
@@ -481,11 +481,13 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
     if (!spv::pspv)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
+    // ! before cs_main lock
+    uint32_t const spvLastHeight = spv::pspv->GetLastBlockHeight();
+
     auto locked_chain = pwallet->chain().lock();
 
     auto const * top = panchors->GetActiveAnchor();
     auto const * cur = top;
-    uint32_t const spvLastHeight = spv::pspv->GetLastBlockHeight();
     UniValue result(UniValue::VARR);
     panchors->ForEachAnchorByBtcHeight([&result, &top, &cur, spvLastHeight](const CAnchorIndex::AnchorRec & rec) {
         UniValue anchor(UniValue::VOBJ);

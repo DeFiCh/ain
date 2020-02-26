@@ -206,7 +206,7 @@ public:
 
     void ForEachAnchorByBtcHeight(std::function<void(const CAnchorIndex::AnchorRec &)> callback) const;
     AnchorRec const * GetActiveAnchor() const;
-    bool ActivateBestAnchor(bool forced = false); // rescan anchors
+    bool ActivateBestAnchor(uint32_t spvLastHeight, bool forced = false); // rescan anchors
 
     AnchorRec const * ExistAnchorByTx(uint256 const & hash) const;
 
