@@ -246,6 +246,17 @@ void CAnchorAuthIndex::ForEachAnchorAuthByHeight(std::function<bool (const CAnch
         if (!callback(*it)) break;
 }
 
+void CAnchorAuthIndex::PruneOlderThan(THeight height)
+{
+    AssertLockHeld(cs_main);
+    // KList is sorted by defi height + signHash (all except sign)
+    typedef Auths::index<Auth::ByKey>::type KList;
+    KList & list = auths.get<Auth::ByKey>();
+
+    auto it = list.upper_bound(std::make_tuple(height, uint256{}));
+    list.erase(list.begin(), it);
+}
+
 static const char DB_ANCHORS = 'A';
 
 CAnchorIndex::CAnchorIndex(size_t nCacheSize, bool fMemory, bool fWipe)
@@ -378,7 +389,7 @@ int CAnchorIndex::GetAnchorConfirmations(uint256 const & txHash, uint32_t spvLas
     return GetAnchorConfirmations(GetAnchorByBtcTx(txHash), spvLastHeight);
 }
 
-int CAnchorIndex::GetAnchorConfirmations(const CAnchorIndex::AnchorRec * rec, uint32_t spvLastHeight) const
+int CAnchorIndex::GetAnchorConfirmations(const CAnchorIndex::AnchorRec * rec, uint32_t spvLastHeight)
 {
     AssertLockHeld(cs_main);
     if (!rec) {
@@ -399,6 +410,13 @@ void CAnchorIndex::CheckActiveAnchor(bool forced)
         uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
         LOCK(cs_main);
         topChanged = panchors->ActivateBestAnchor(spvLastHeight, forced);
+
+        // prune auths older than anchor with 6 confirmations
+        auto it = panchors->GetActiveAnchor();
+        for (; it && GetAnchorConfirmations(it, spvLastHeight) <= 6; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor))
+            ;
+        if (it)
+            panchorauths->PruneOlderThan(it->anchor.height+1);
     }
     CValidationState state;
     if (topChanged && !ActivateBestChain(state, Params())) {
