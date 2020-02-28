@@ -116,6 +116,7 @@ BASE_SCRIPTS = [
     'feature_fee_estimation.py',
     'feature_anchors.py',
     'feature_anchorauths.py',
+    'feature_anchorauths_pruning.py',
     'interface_zmq.py',
     'interface_defi_cli.py',
     'mempool_resurrect.py',
