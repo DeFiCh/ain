@@ -318,7 +318,12 @@ bool CSpvWrapper::Rescan(int height)
     }
     LogPrintf("spv: trying to rescan from block %d, current block %u\n", height, curHeight);
     BRPeerManagerRescanFromBlockNumber(manager, static_cast<uint32_t>(height));
-    LogPrintf("spv: actual new current block %u\n", BRPeerManagerLastBlockHeight(manager));
+    curHeight = BRPeerManagerLastBlockHeight(manager);
+    LogPrintf("spv: actual new current block %u\n", curHeight);
+
+    LOCK(cs_main);
+    panchors->ActivateBestAnchor(curHeight, true);
+
     return true;
 }
 
