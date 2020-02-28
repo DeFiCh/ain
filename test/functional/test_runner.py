@@ -75,12 +75,12 @@ EXTENDED_SCRIPTS = [
     'feature_block.py', # moved to ext due to heavy load for trevis
     'wallet_hd.py',     # moved to ext due to heavy load for trevis
     'mempool_accept.py',# moved to ext due to heavy load for trevis
+    'wallet_backup.py', # moved to ext due to heavy load for trevis
 ]
 
 BASE_SCRIPTS = [
     # Scripts that are run by default.
     # Longest test should go first, to favor running tests in parallel
-    'wallet_backup.py',
     # vv Tests less than 5m vv
     'mining_getblocktemplate_longpoll.py',
     'feature_maxuploadtarget.py',
