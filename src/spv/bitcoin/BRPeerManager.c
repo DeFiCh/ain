@@ -846,6 +846,7 @@ static void _peerDisconnected(void *info, int error)
     }
 
     if (peer == manager->downloadPeer) { // download peer disconnected
+
         manager->isConnected = 0;
         manager->downloadPeer = NULL;
         if (manager->connectFailureCount > MAX_CONNECT_FAILURES) manager->connectFailureCount = MAX_CONNECT_FAILURES;
@@ -859,6 +860,10 @@ static void _peerDisconnected(void *info, int error)
         txError = ENOTCONN; // trigger any pending tx publish callbacks
         willSave = 1;
         peer_log(peer, "sync failed");
+        if (manager->maxConnectCount != 0) {    // this is the ONLY signal to reconnect or not! (0 == manual disconnection)
+            willReconnect = 1;
+            peer_log(peer, "RECONNECT PATCH");
+        }
     }
     else if (manager->connectFailureCount < MAX_CONNECT_FAILURES) willReconnect = 1;
     
@@ -1539,6 +1544,9 @@ BRPeerManager *BRPeerManagerNew(const BRChainParams *params, BRWallet *wallet, u
     array_new(manager->publishedTxHashes, 10);
     pthread_mutex_init(&manager->lock, NULL);
     manager->threadCleanup = _dummyThreadCleanup;
+
+    peer_log(&BR_PEER_NONE, "\n\n\n SPV NEW SESSION");
+
     return manager;
 }
 
@@ -1736,7 +1744,8 @@ static int _BRPeerManagerRescan(BRPeerManager *manager, BRMerkleBlock *newLastBl
 
         BRPeerDisconnect(manager->downloadPeer);
     }
-
+    // it looks like we need to set txs unconfirmed, but it will lead to total desync if rescan would be interrupted!
+//    BRWalletSetTxUnconfirmedAfter(manager->wallet, newLastBlock->height);
     manager->syncStartHeight = 0; // a syncStartHeight of 0 indicates that syncing hasn't started yet
     return 1;
 }
