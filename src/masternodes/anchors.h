@@ -160,6 +160,7 @@ public:
 
     CAnchor CreateBestAnchor(CTxDestination const & rewardDest) const;
     void ForEachAnchorAuthByHeight(std::function<bool(const CAnchorAuthIndex::Auth &)> callback) const;
+    void PruneOlderThan(THeight height);
 
     Auths auths;
 };
@@ -219,7 +220,7 @@ public:
     AnchorRec const * GetAnchorByBtcTx(uint256 const & txHash) const;
 
     int GetAnchorConfirmations(uint256 const & txHash, uint32_t spvLastHeight) const;
-    int GetAnchorConfirmations(AnchorRec const * rec, uint32_t spvLastHeight) const;
+    static int GetAnchorConfirmations(AnchorRec const * rec, uint32_t spvLastHeight);
 
     static void CheckActiveAnchor(bool forced = false);
 
