@@ -258,7 +258,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     result.pushKV("txHash", hash.ToString());
     result.pushKV("defiHash", anchor.blockHash.ToString());
     result.pushKV("defiHeight", (int) anchor.height);
-    result.pushKV("estimatedReward", GetAnchorSubsidy(anchor.height, prevAnchorHeight, Params().GetConsensus()));
+    result.pushKV("estimatedReward", ValueFromAmount(GetAnchorSubsidy(anchor.height, prevAnchorHeight, Params().GetConsensus())));
     result.pushKV("cost", cost);
     if (send) {
         result.pushKV("sendResult", sendResult);
@@ -340,7 +340,7 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     result.pushKV("txHex", EncodeHexBtcTx(CBtcTransaction(mtx)));
     result.pushKV("defiHash", anchor.blockHash.ToString());
     result.pushKV("defiHeight", (int) anchor.height);
-    result.pushKV("estimatedReward", GetAnchorSubsidy(anchor.height, prevAnchorHeight, consensus));
+    result.pushKV("estimatedReward", ValueFromAmount(GetAnchorSubsidy(anchor.height, prevAnchorHeight, consensus)));
 
     return result;
 }
