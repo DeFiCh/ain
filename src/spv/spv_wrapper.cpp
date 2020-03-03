@@ -50,8 +50,7 @@ bool const spv_cb_trace = true;
 /// spv wallet manager's callbacks wrappers:
 void balanceChanged(void *info, uint64_t balance)
 {
-    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
-    LOCK(cs_spvcallback);
+    /// @attention called under spv manager lock!!!
     if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnBalanceChanged(balance);
@@ -59,8 +58,7 @@ void balanceChanged(void *info, uint64_t balance)
 }
 void txAdded(void *info, BRTransaction *tx)
 {
-    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
-    LOCK(cs_spvcallback);
+    /// @attention called under spv manager lock!!!
     if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxAdded(tx);
@@ -68,8 +66,7 @@ void txAdded(void *info, BRTransaction *tx)
 }
 void txUpdated(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
 {
-    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
-    LOCK(cs_spvcallback);
+    /// @attention called under spv manager lock!!!
     if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxUpdated(txHashes, txCount, blockHeight, timestamp);
@@ -77,8 +74,7 @@ void txUpdated(void *info, const UInt256 txHashes[], size_t txCount, uint32_t bl
 }
 void txDeleted(void *info, UInt256 txHash, int notifyUser, int recommendRescan)
 {
-    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
-    LOCK(cs_spvcallback);
+    /// @attention called under spv manager lock!!!
     if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxDeleted(txHash, notifyUser, recommendRescan);
@@ -115,9 +111,7 @@ void txStatusUpdate(void *info)
 }
 void saveBlocks(void *info, int replace, BRMerkleBlock *blocks[], size_t blocksCount)
 {
-//    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
-    // DO NOT LOCK IT HERE!
-//    LOCK(cs_spvcallback);
+    /// @attention called under spv manager lock!!!
     if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
 //    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSaveBlocks(replace, blocks, blocksCount);
@@ -347,6 +341,7 @@ uint32_t CSpvWrapper::GetEstimatedBlockHeight() const
 
 void CSpvWrapper::OnBalanceChanged(uint64_t balance)
 {
+    /// @attention called under spv manager lock!!!
     LogPrintf("spv: balance changed: %lu\n", balance);
 }
 
@@ -363,6 +358,7 @@ std::vector<BRTransaction *> CSpvWrapper::GetWalletTxs() const
 
 void CSpvWrapper::OnTxAdded(BRTransaction * tx)
 {
+    /// @attention called under spv manager lock!!!
     uint256 const txHash{to_uint256(tx->txHash)};
     WriteTx(tx);
     LogPrintf("spv: tx added %s, at block %d, timestamp %d\n", txHash.ToString(), tx->blockHeight, tx->timestamp);
@@ -389,6 +385,7 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
 
 void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
 {
+    /// @attention called under spv manager lock!!!
     for (size_t i = 0; i < txCount; ++i) {
         uint256 const txHash{to_uint256(txHashes[i])};
         UpdateTx(txHash, blockHeight, timestamp);
@@ -413,6 +410,7 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
 
 void CSpvWrapper::OnTxDeleted(UInt256 txHash, int notifyUser, int recommendRescan)
 {
+    /// @attention called under spv manager lock!!!
     uint256 const hash(to_uint256(txHash));
     EraseTx(hash);
 
@@ -441,6 +439,7 @@ void CSpvWrapper::OnTxStatusUpdate()
 
 void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blocksCount)
 {
+    /// @attention called under spv manager lock!!!
     if (replace)
     {
         LogPrintf("spv: BLOCK: 'replace' requested, deleting...\n");
