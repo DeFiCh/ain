@@ -141,6 +141,16 @@ inline static int _peerTimestampCompare(const void *peer, const void *otherPeer)
     return 0;
 }
 
+// comparator for sorting peers by address AND timestamp, most recent first if addresses equal; used for duplicates deletion
+inline static int _peerDuplicatesCompare(const void *peer, const void *otherPeer)
+{
+    int cmp = memcmp(&(((const BRPeer *)peer)->address), &(((const BRPeer *)otherPeer)->address), sizeof(UInt128));
+    if (cmp) return cmp;
+    if (((const BRPeer *)peer)->port < ((const BRPeer *)otherPeer)->port) return 1;
+    if (((const BRPeer *)peer)->port > ((const BRPeer *)otherPeer)->port) return -1;
+    return _peerTimestampCompare(peer, otherPeer);
+}
+
 // returns a hash value for a block's prevBlock value suitable for use in a hashtable
 inline static size_t _BRPrevBlockHash(const void *block)
 {
@@ -169,7 +179,7 @@ inline static int _BRBlockHeightEq(const void *block, const void *otherBlock)
 struct BRPeerManagerStruct {
     const BRChainParams *params;
     BRWallet *wallet;
-    int isConnected, connectFailureCount, misbehavinCount, dnsThreadCount, peerThreadCount, maxConnectCount;
+    int isConnected, connectFailureCount, misbehavinCount, dnsThreadCount, peerThreadCount, maxConnectCount, isConnectRun;
     BRPeer *peers, *downloadPeer, fixedPeer, **connectedPeers;
     char downloadPeerName[INET6_ADDRSTRLEN + 6];
     uint32_t earliestKeyTime, syncStartHeight, filterUpdateHeight, estimatedHeight;
@@ -622,6 +632,18 @@ static void _BRPeerManagerLoadMempools(BRPeerManager *manager)
     }
 }
 
+static void _normalizePeersArray(BRPeer * peersArray)
+{
+    qsort(peersArray, array_count(peersArray), sizeof(*peersArray), _peerDuplicatesCompare);
+
+    size_t peerCount = array_count(peersArray);
+    for (size_t i = array_count(peersArray); i > 1; i--) {
+        if (BRPeerEq(&peersArray[i - 2], &peersArray[i - 1])) array_rm(peersArray, i - 1);
+    }
+    peer_log(0, "clear peer duplicates: before: %ld, after: %ld", peerCount, array_count(peersArray));
+    qsort(peersArray, array_count(peersArray), sizeof(*peersArray), _peerTimestampCompare);
+}
+
 // returns a UINT128_ZERO terminated array of addresses for hostname that must be freed, or NULL if lookup failed
 static UInt128 *_addressLookup(const char *hostname)
 {
@@ -693,6 +715,8 @@ static void _BRPeerManagerFindPeers(BRPeerManager *manager)
         manager->peers[0].timestamp = now;
     }
     else {
+        size_t peerCount = array_count(manager->peers);
+
         for (size_t i = 1; manager->params->dnsSeeds[i]; i++) {
             info = calloc(1, sizeof(BRFindPeersInfo));
             assert(info != NULL);
@@ -704,11 +728,6 @@ static void _BRPeerManagerFindPeers(BRPeerManager *manager)
             else free (info);
         }
 
-        for (addr = addrList = _addressLookup(manager->params->dnsSeeds[0]); addr && ! UInt128IsZero(*addr); addr++) {
-            array_add(manager->peers, ((const BRPeer) { *addr, manager->params->standardPort, services, now, 0 }));
-        }
-
-        if (addrList) free(addrList);
         ts.tv_sec = 0;
         ts.tv_nsec = 1;
 
@@ -716,9 +735,10 @@ static void _BRPeerManagerFindPeers(BRPeerManager *manager)
             pthread_mutex_unlock(&manager->lock);
             nanosleep(&ts, NULL); // pthread_yield() isn't POSIX standard :(
             pthread_mutex_lock(&manager->lock);
-        } while (manager->dnsThreadCount > 0 && array_count(manager->peers) < PEER_MAX_CONNECTIONS);
-    
-        qsort(manager->peers, array_count(manager->peers), sizeof(*manager->peers), _peerTimestampCompare);
+        } while (manager->dnsThreadCount > 0/* && array_count(manager->peers) < PEER_MAX_CONNECTIONS*/); /// @attention wait for dns threads exit!
+        peer_log(0, "dns: %ld peers added", array_count(manager->peers) - peerCount);
+
+        _normalizePeersArray(manager->peers);
     }
 }
 
@@ -728,10 +748,10 @@ static void _peerConnected(void *info)
     BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
     BRPeerCallbackInfo *peerInfo;
     time_t now = time(NULL);
-    
+
     pthread_mutex_lock(&manager->lock);
     if (peer->timestamp > now + 2*60*60 || peer->timestamp < now - 2*60*60) peer->timestamp = now; // sanity check
-    
+
     // TODO: XXX does this work with 0.11 pruned nodes?
     if ((peer->services & manager->params->services) != manager->params->services) {
         peer_log(peer, "unsupported node type");
@@ -785,7 +805,7 @@ static void _peerConnected(void *info)
         _BRPeerManagerLoadBloomFilter(manager, peer);
         BRPeerSetCurrentBlockHeight(peer, manager->lastBlock->height);
         _BRPeerManagerPublishPendingTx(manager, peer);
-            
+
         if (manager->lastBlock->height < BRPeerLastBlock(peer)) { // start blockchain sync
             UInt256 locators[_BRPeerManagerBlockLocators(manager, NULL, 0)];
             size_t count = _BRPeerManagerBlockLocators(manager, locators, sizeof(locators)/sizeof(*locators));
@@ -856,16 +876,17 @@ static void _peerDisconnected(void *info, int error)
         _BRPeerManagerSyncStopped(manager);
         
         // clear out stored peers so we get a fresh list from DNS on next connect attempt
+        /// @todo i think this is not necessary with current logic - we'll keep try until last peer in 'manager->peers', cause now we delete them directly in the case of fault
+        /// moreover, now it looks like the error counter itself (connectFailureCount) not necessary too! (we have a swarm of untried peers, but deleting them on connectFailureCount limit. why?)
         array_clear(manager->peers);
         txError = ENOTCONN; // trigger any pending tx publish callbacks
         willSave = 1;
         peer_log(peer, "sync failed");
-        if (manager->maxConnectCount != 0) {    // this is the ONLY signal to reconnect or not! (0 == manual disconnection)
-            willReconnect = 1;
-            peer_log(peer, "RECONNECT PATCH");
-        }
     }
-    else if (manager->connectFailureCount < MAX_CONNECT_FAILURES) willReconnect = 1;
+    if (manager->maxConnectCount != 0 && !manager->isConnectRun) {    // this is the ONLY signal to reconnect or not! (0 == manual disconnection)
+        willReconnect = 1;
+        peer_log(peer, "reconnect patch!");
+    }
     
     if (txError) {
         for (size_t i = array_count(manager->publishedTx); i > 0; i--) {
@@ -892,7 +913,7 @@ static void _peerDisconnected(void *info, int error)
     
     if (willSave && manager->savePeers) manager->savePeers(manager->info, 1, NULL, 0);
     if (willSave && manager->syncStopped) manager->syncStopped(manager->info, error);
-    if (willReconnect) BRPeerManagerConnect(manager); // try connecting to another peer
+    if (willReconnect) BRPeerManagerConnect(manager); // try connecting to another peer, but ONLY if we've died outside of "connect sequence"
     if (manager->txStatusUpdate) manager->txStatusUpdate(manager->info);
 }
 
@@ -906,7 +927,7 @@ static void _peerRelayedPeers(void *info, const BRPeer peers[], size_t peersCoun
     peer_log(peer, "relayed %zu peer(s)", peersCount);
 
     array_add_array(manager->peers, peers, peersCount);
-    qsort(manager->peers, array_count(manager->peers), sizeof(*manager->peers), _peerTimestampCompare);
+    _normalizePeersArray(manager->peers);
 
     // limit total to 2500 peers
     if (array_count(manager->peers) > 2500) array_set_count(manager->peers, 2500);
@@ -1499,9 +1520,10 @@ BRPeerManager *BRPeerManagerNew(const BRChainParams *params, BRWallet *wallet, u
     manager->earliestKeyTime = earliestKeyTime;
     manager->averageTxPerBlock = 1400;
     manager->maxConnectCount = PEER_MAX_CONNECTIONS;
+    manager->isConnectRun = 0;
     array_new(manager->peers, peersCount);
     if (peers) array_add_array(manager->peers, peers, peersCount);
-    qsort(manager->peers, array_count(manager->peers), sizeof(*manager->peers), _peerTimestampCompare);
+    _normalizePeersArray(manager->peers);
     array_new(manager->connectedPeers, PEER_MAX_CONNECTIONS);
     manager->blocks = BRSetNew(BRMerkleBlockHash, BRMerkleBlockEq, blocksCount);
     manager->orphans = BRSetNew(_BRPrevBlockHash, _BRPrevBlockEq, blocksCount); // orphans are indexed by prevBlock
@@ -1617,6 +1639,11 @@ void BRPeerManagerConnect(BRPeerManager *manager)
 {
     assert(manager != NULL);
     pthread_mutex_lock(&manager->lock);
+    if (manager->isConnectRun) {
+        pthread_mutex_unlock(&manager->lock);
+        return;
+    }
+    manager->isConnectRun = 1;
     if (manager->connectFailureCount >= MAX_CONNECT_FAILURES) manager->connectFailureCount = 0; //this is a manual retry
     
     if ((! manager->downloadPeer || manager->lastBlock->height < manager->estimatedHeight) &&
@@ -1627,34 +1654,24 @@ void BRPeerManagerConnect(BRPeerManager *manager)
         pthread_mutex_lock(&manager->lock);
     }
     
-    for (size_t i = array_count(manager->connectedPeers); i > 0; i--) {
-        BRPeer *p = manager->connectedPeers[i - 1];
-
-        if (BRPeerConnectStatus(p) == BRPeerStatusConnecting) BRPeerConnect(p);
-    }
-    
-    if (array_count(manager->connectedPeers) < manager->maxConnectCount) {
+    while (array_count(manager->connectedPeers) < manager->maxConnectCount) {
         time_t now = time(NULL);
-        BRPeer *peers;
 
         if (array_count(manager->peers) < manager->maxConnectCount ||
             manager->peers[manager->maxConnectCount - 1].timestamp + 3*24*60*60 < now) {
+
             _BRPeerManagerFindPeers(manager);
         }
-        
-        array_new(peers, 100);
-        array_add_array(peers, manager->peers,
-                        (array_count(manager->peers) < 100) ? array_count(manager->peers) : 100);
 
-        while (array_count(peers) > 0 && array_count(manager->connectedPeers) < manager->maxConnectCount) {
-            size_t i = BRRand((uint32_t)array_count(peers)); // index of random peer
+        while (array_count(manager->peers) > 0 && array_count(manager->connectedPeers) < manager->maxConnectCount) {
+            size_t i = BRRand((uint32_t)array_count(manager->peers)); // index of random peer
             BRPeerCallbackInfo *info;
             
-            i = i*i/array_count(peers); // bias random peer selection toward peers with more recent timestamp
+            i = i*i/array_count(manager->peers); // bias random peer selection toward peers with more recent timestamp
         
             for (size_t j = array_count(manager->connectedPeers); i != SIZE_MAX && j > 0; j--) {
-                if (! BRPeerEq(&peers[i], manager->connectedPeers[j - 1])) continue;
-                array_rm(peers, i); // already in connectedPeers
+                if (! BRPeerEq(&manager->peers[i], manager->connectedPeers[j - 1])) continue;
+                array_rm(manager->peers, i); // already in connectedPeers
                 i = SIZE_MAX;
             }
             
@@ -1663,17 +1680,16 @@ void BRPeerManagerConnect(BRPeerManager *manager)
                 assert(info != NULL);
                 info->manager = manager;
                 info->peer = BRPeerNew(manager->params->magicNumber);
-                *info->peer = peers[i];
-                array_rm(peers, i);
+                *info->peer = manager->peers[i];
+                array_rm(manager->peers, i);
                 array_add(manager->connectedPeers, info->peer);
                 manager->peerThreadCount++;
                 BRPeerSetCallbacks(info->peer, info, _peerConnected, _peerDisconnected, _peerRelayedPeers,
                                    _peerRelayedTx, _peerHasTx, _peerRejectedTx, _peerRelayedBlock, _peerDataNotfound,
                                    _peerSetFeePerKb, _peerRequestedTx, _peerNetworkIsReachable, _peerThreadCleanup);
                 BRPeerSetEarliestKeyTime(info->peer, manager->earliestKeyTime);
-                BRPeerConnect(info->peer);
 
-                if (BRPeerConnectStatus(info->peer) == BRPeerStatusDisconnected) {
+                if (!BRPeerConnect(info->peer)) {
                     pthread_mutex_unlock(&manager->lock);
                     _peerDisconnected(info, ENOTCONN);
                     pthread_mutex_lock(&manager->lock);
@@ -1681,16 +1697,19 @@ void BRPeerManagerConnect(BRPeerManager *manager)
                 }
             }
         }
-
-        array_free(peers);
     }
     
     if (array_count(manager->connectedPeers) == 0) {
+        // it seems that this is dead branch for now
         _BRPeerManagerSyncStopped(manager);
+        manager->isConnectRun = 0;
         pthread_mutex_unlock(&manager->lock);
         if (manager->syncStopped) manager->syncStopped(manager->info, ENETUNREACH);
     }
-    else pthread_mutex_unlock(&manager->lock);
+    else {
+        manager->isConnectRun = 0;
+        pthread_mutex_unlock(&manager->lock);
+    }
 }
 
 void BRPeerManagerDisconnect(BRPeerManager *manager)
@@ -2065,6 +2084,7 @@ void BRPeerManagerFree(BRPeerManager *manager)
     pthread_mutex_unlock(&manager->lock);
     pthread_mutex_destroy(&manager->lock);
     free(manager);
+    peer_log(0, "SPV SESSION ENDS");
 }
 
 void BRPeerManagerCancelPendingTxs(BRPeerManager *manager)
