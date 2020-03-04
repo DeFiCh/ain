@@ -45,7 +45,7 @@ uint256 to_uint256(const UInt256 & i) {
     return uint256(TBytes(&i.u8[0], &i.u8[32]));
 }
 
-bool const spv_cb_trace = true;
+bool const spv_cb_trace = false;
 
 /// spv wallet manager's callbacks wrappers:
 void balanceChanged(void *info, uint64_t balance)

@@ -182,7 +182,7 @@ void BRPeerSetCurrentBlockHeight(BRPeer *peer, uint32_t currentBlockHeight);
 BRPeerStatus BRPeerConnectStatus(BRPeer *peer);
 
 // open connection to peer and perform handshake
-void BRPeerConnect(BRPeer *peer);
+int BRPeerConnect(BRPeer *peer);
 
 // close connection to peer
 void BRPeerDisconnect(BRPeer *peer);
