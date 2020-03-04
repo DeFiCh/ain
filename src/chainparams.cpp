@@ -257,7 +257,7 @@ public:
 //        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min
         consensus.pos.nTargetSpacing = 30;
-        consensus.pos.fAllowMinDifficultyBlocks = true;
+        consensus.pos.fAllowMinDifficultyBlocks = false;
         consensus.pos.fNoRetargeting = false; // only for regtest
 
         consensus.pos.coinstakeMaturity = 100;
@@ -289,8 +289,8 @@ public:
         consensus.mn.anchoringLag = 15;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
-        consensus.spv.wallet_xpub = "tpubD9xBH3AzwzMyY8yxoWdiopHE5FJEkLHoxumYGqvYFmHbJBC7zajSt9J2yTg7YPQSU8JL3nRohxXgdsvzsBcj2TZEiikUPCiUwstTDH3PPzy";
-        consensus.spv.anchors_address = "mysX5XnqsUedid4JWGenbEg6DuRraqTNYh";
+        consensus.spv.wallet_xpub = "tpubD8NM49wHzwMsyudhd7UtBChQBykkT1KVAHU4UDjdXt8w8ZaFzEnjxH7Uhptno2YPE616KWCitmXtH5w1RZ4y8SaNBBMr1zcjYqy1ZBkFTRp";
+        consensus.spv.anchors_address = "mtANGiuXturik8b3T7FVe6dV31v3AdEJUt";
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
