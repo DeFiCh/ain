@@ -226,7 +226,7 @@ static int _BRPeerManagerAddTxToPublishList(BRPeerManager *manager, BRTransactio
     if (tx && tx->blockHeight == TX_UNCONFIRMED) {
         for (size_t i = array_count(manager->publishedTx); i > 0; i--) {
             if (BRTransactionEq(manager->publishedTx[i - 1].tx, tx)) {
-                peer_log(&BR_PEER_NONE, "tx ignored: already pending, %s", u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])));
+                peer_log(0, "tx ignored: already pending, %s", u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])));
                 return -1;
             }
         }
@@ -1545,7 +1545,7 @@ BRPeerManager *BRPeerManagerNew(const BRChainParams *params, BRWallet *wallet, u
     pthread_mutex_init(&manager->lock, NULL);
     manager->threadCleanup = _dummyThreadCleanup;
 
-    peer_log(&BR_PEER_NONE, "\n\n\n SPV NEW SESSION");
+    peer_log(0, "\n\n\nSPV NEW SESSION");
 
     return manager;
 }
@@ -2083,7 +2083,7 @@ void BRPeerManagerCancelPendingTxs(BRPeerManager *manager)
         pubTx[txCount++] = manager->publishedTx[i - 1];
         manager->publishedTx[i - 1].callback = NULL;
         manager->publishedTx[i - 1].info = NULL;
-        peer_log(&BR_PEER_NONE, "cbtrace on exit: tx canceled: %s, %s", strerror(txError), u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])));
+        peer_log(0, "cbtrace on exit: tx canceled: %s, %s", strerror(txError), u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])));
     }
     pthread_mutex_unlock(&manager->lock);
 
