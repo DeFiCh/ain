@@ -34,9 +34,19 @@
 
 #ifndef __cplusplus
 /// define logs
-#define console_log(peer, ...) { if (spv_log2console) _peer_log("%s:%"PRIu16" " _va_first(__VA_ARGS__, NULL) "\n", BRPeerHost(peer), (peer)->port, _va_rest(__VA_ARGS__, NULL)); }
+#define console_peer_log(peer, ...) { \
+    if (spv_log2console) { \
+        if (peer) { \
+            char host[INET6_ADDRSTRLEN]; \
+            BRPeerHostSafe((BRPeer const*)peer, host); \
+            _peer_log("%s:%"PRIu16" " _va_first(__VA_ARGS__, NULL) "\n", host, ((BRPeer const*)peer)->port, _va_rest(__VA_ARGS__, NULL)); \
+        } else { \
+            _peer_log(_va_first(__VA_ARGS__, NULL) "\n", _va_rest(__VA_ARGS__, NULL)); \
+        } \
+    } \
+}
 
-#define peer_log(peer, ...) { console_log(peer, __VA_ARGS__); file_peer_log(peer, __VA_ARGS__); }
+#define peer_log(peer, ...) { console_peer_log(peer, __VA_ARGS__); file_peer_log(peer, __VA_ARGS__); }
 
 #define _va_first(first, ...) first
 #define _va_rest(first, ...) __VA_ARGS__
@@ -45,7 +55,13 @@
     FILE* logfile = NULL; \
     if (spv_logfilename && (logfile = fopen(spv_logfilename, "a"))) { \
         setbuf(logfile, NULL); \
-        fprintf(logfile, "%s:%"PRIu16" " _va_first(__VA_ARGS__, NULL) "\n", BRPeerHost(peer), (peer)->port, _va_rest(__VA_ARGS__, NULL)); \
+        if (peer) { \
+            char host[INET6_ADDRSTRLEN]; \
+            BRPeerHostSafe((BRPeer const*)peer, host); \
+            fprintf(logfile, "%s:%"PRIu16" " _va_first(__VA_ARGS__, NULL) "\n", host, ((BRPeer const*)peer)->port, _va_rest(__VA_ARGS__, NULL)); \
+        } else { \
+            fprintf(logfile, _va_first(__VA_ARGS__, NULL) "\n", _va_rest(__VA_ARGS__, NULL)); \
+        } \
         fclose(logfile); \
     } \
 }
@@ -179,6 +195,7 @@ void BRPeerSetNeedsFilterUpdate(BRPeer *peer, int needsFilterUpdate);
 
 // display name of peer address
 const char *BRPeerHost(BRPeer *peer);
+void BRPeerHostSafe(BRPeer const *peer, char *host);
 
 // connected peer version number
 uint32_t BRPeerVersion(BRPeer *peer);

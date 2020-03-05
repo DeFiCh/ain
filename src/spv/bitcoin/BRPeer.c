@@ -1299,6 +1299,7 @@ void BRPeerSetNeedsFilterUpdate(BRPeer *peer, int needsFilterUpdate)
 // display name of peer address
 const char *BRPeerHost(BRPeer *peer)
 {
+    /// @attention it looks like 'cast' doesn't working!
     BRPeerContext *ctx = (BRPeerContext *)peer;
     if (!ctx)
         return "";
@@ -1311,6 +1312,19 @@ const char *BRPeerHost(BRPeer *peer)
     }
     
     return ctx->host;
+}
+
+void BRPeerHostSafe(BRPeer const *peer, char *host)
+{
+    if (!peer) {
+        host[0] == '\0';
+        return;
+    }
+
+    if (_BRPeerIsIPv4(peer)) {
+        inet_ntop(AF_INET, &peer->address.u32[3], host, INET6_ADDRSTRLEN);
+    }
+    else inet_ntop(AF_INET6, &peer->address, host, INET6_ADDRSTRLEN);
 }
 
 // connected peer version number
