@@ -876,24 +876,27 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
     fd_set fds;
     socklen_t addrLen, optLen;
     int count, arg = 0, err = 0, on = 1, r = 1;
+    int sock;
 
-    ctx->socket = socket(domain, SOCK_STREAM, 0);
-    
-    if (ctx->socket < 0) {
+    pthread_mutex_lock(&ctx->lock);
+    sock = ctx->socket = socket(domain, SOCK_STREAM, 0);
+    pthread_mutex_unlock(&ctx->lock);
+
+    if (sock < 0) {
         err = errno;
         r = 0;
     }
     else {
         tv.tv_sec = 1; // one second timeout for send/receive, so thread doesn't block for too long
         tv.tv_usec = 0;
-        setsockopt(ctx->socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-        setsockopt(ctx->socket, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-        setsockopt(ctx->socket, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on));
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on));
 #ifdef SO_NOSIGPIPE // BSD based systems have a SO_NOSIGPIPE socket option to supress SIGPIPE signals
-        setsockopt(ctx->socket, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
+        setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
 #endif
-        arg = fcntl(ctx->socket, F_GETFL, NULL);
-        if (arg < 0 || fcntl(ctx->socket, F_SETFL, arg | O_NONBLOCK) < 0) r = 0; // temporarily set socket non-blocking
+        arg = fcntl(sock, F_GETFL, NULL);
+        if (arg < 0 || fcntl(sock, F_SETFL, arg | O_NONBLOCK) < 0) r = 0; // temporarily set socket non-blocking
         if (! r) err = errno;
     }
 
@@ -913,7 +916,7 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
             addrLen = sizeof(struct sockaddr_in);
         }
         
-        if (connect(ctx->socket, (struct sockaddr *)&addr, addrLen) < 0) err = errno;
+        if (connect(sock, (struct sockaddr *)&addr, addrLen) < 0) err = errno;
         
         if (err == EINPROGRESS) {
             err = 0;
@@ -921,10 +924,10 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
             tv.tv_sec = timeout;
             tv.tv_usec = (long)(timeout*1000000) % 1000000;
             FD_ZERO(&fds);
-            FD_SET(ctx->socket, &fds);
-            count = select(ctx->socket + 1, NULL, &fds, NULL, &tv);
+            FD_SET(sock, &fds);
+            count = select(sock + 1, NULL, &fds, NULL, &tv);
 
-            if (count <= 0 || getsockopt(ctx->socket, SOL_SOCKET, SO_ERROR, &err, &optLen) < 0 || err) {
+            if (count <= 0 || getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &optLen) < 0 || err) {
                 if (count == 0) err = ETIMEDOUT;
                 if (count < 0 || ! err) err = errno;
                 r = 0;
@@ -936,7 +939,7 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
         else if (err) r = 0;
 
         if (r) peer_log(peer, "socket connected");
-        fcntl(ctx->socket, F_SETFL, arg); // restore socket non-blocking status
+        fcntl(sock, F_SETFL, arg); // restore socket non-blocking status
     }
 
     if (! r && err) peer_log(peer, "connect error: %s", strerror(err));
@@ -1036,7 +1039,7 @@ static void *_peerThreadRoutine(void *arg)
             }
             
             if (error) {
-                peer_log(peer, "%s", strerror(error));
+                peer_log(peer, "peer error: %s", strerror(error));
             }
             else if (header[15] != 0) { // verify header type field is NULL terminated
                 peer_log(peer, "malformed message header: type not NULL terminated");
@@ -1072,7 +1075,7 @@ static void *_peerThreadRoutine(void *arg)
                     }
                     
                     if (error) {
-                        peer_log(peer, "%s", strerror(error));
+                        peer_log(peer, "peer error: %s", strerror(error));
                     }
                     else if (len == msgLen) {
                         BRSHA256_2(&hash, payload, msgLen);
@@ -1138,6 +1141,7 @@ BRPeer *BRPeerNew(uint32_t magicNumber)
     ctx->disconnectTime = DBL_MAX;
     ctx->socket = -1;
     ctx->threadCleanup = _dummyThreadCleanup;
+    ctx->thread = 0;
 
     {
         pthread_mutexattr_t attr;
@@ -1220,14 +1224,14 @@ BRPeerStatus BRPeerConnectStatus(BRPeer *peer)
 }
 
 // open connection to peer and perform handshake
-void BRPeerConnect(BRPeer *peer)
+int BRPeerConnect(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
     struct timeval tv;
     pthread_attr_t attr;
 
     pthread_mutex_lock(&ctx->lock);
-    if (ctx->status == BRPeerStatusDisconnected || ctx->waitingForNetwork) {
+    if (ctx->status == BRPeerStatusDisconnected || ctx->waitingForNetwork) { /// @todo check all places with "->waitingForNetwork"
         ctx->status = BRPeerStatusConnecting;
     
         if (ctx->networkIsReachable && ! ctx->networkIsReachable(ctx->info)) { // delay until network is reachable
@@ -1254,12 +1258,18 @@ void BRPeerConnect(BRPeer *peer)
                 // error = EAGAIN;
                 peer_log(peer, "error creating thread");
                 pthread_attr_destroy(&attr);
+                ctx->thread = 0; // otherwise may be UB
                 ctx->status = BRPeerStatusDisconnected;
                 //if (ctx->disconnected) ctx->disconnected(ctx->info, error);
+            }
+            else {
+                pthread_mutex_unlock(&ctx->lock);
+                return 1; // thread successful run
             }
         }
     }
     pthread_mutex_unlock(&ctx->lock);
+    return 0;
 }
 
 // close connection to peer
@@ -1273,7 +1283,7 @@ void BRPeerDisconnect(BRPeer *peer)
         ctx->status = BRPeerStatusDisconnected;
         pthread_mutex_unlock(&ctx->lock);
 
-        if (shutdown(socket, SHUT_RDWR) < 0) peer_log(peer, "%s", strerror(errno));
+        if (shutdown(socket, SHUT_RDWR) < 0) peer_log(peer, "%s: %s", __func__, strerror(errno));
         close(socket);
     }
 }
