@@ -1555,7 +1555,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         if (is_coinbase) {
             std::vector<unsigned char> metadata;
             if (CMasternodesView::ExtractAnchorRewardFromTx(tx, metadata)) {
-                LogPrintf("AnchorConfirms::ConnectBlock(): disconnecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
+                LogPrintf("AnchorConfirms::DisconnectBlock(): disconnecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
                 uint256 btcTxHash;
                 uint32_t anchorHeight;
@@ -1582,22 +1582,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
                 mnview.RemoveRewardForAnchor(btcTxHash);
                 panchorAwaitingConfirms->RemoveConfirmsForAll();
-
-                auto myIDs = pmasternodesview->AmIOperator();
-                if (myIDs) {
-                    auto nodePtr = pmasternodesview->ExistMasternode(myIDs->id);
-                    if (nodePtr && nodePtr->IsActive()) {
-                        if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end()) {
-                            for (auto && hashAndConfirm : panchorAwaitingConfirms->GetConfirms()) {
-                                auto exist = panchors->ExistAnchorByTx(hashAndConfirm.first);
-                                if (exist) {
-                                    pmasternodesview->CreateAndRelayConfirmMessageIfNeed(exist->anchor, exist->txHash);
-                                }
-                            }
-                        }
-                    }
-                }
-
                 panchorAwaitingConfirms->AddAnchor(btcTxHash);
                 for (auto && sig : sigs) {
                     auto message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash);
@@ -1605,7 +1589,23 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                     panchorAwaitingConfirms->Add(message);
                 }
 
-                LogPrintf("AnchorConfirms::ConnectBlock(): disconnected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
+                auto myIDs = mnview.AmIOperator();
+                if (myIDs) {
+                    auto nodePtr = mnview.ExistMasternode(myIDs->id);
+                    if (nodePtr && nodePtr->IsActive()) {
+                        if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end()) {
+                            for (auto && hashAndConfirm : panchorAwaitingConfirms->GetConfirms()) {
+                                auto exist = panchors->ExistAnchorByTx(hashAndConfirm.first);
+                                if (exist) {
+                                    LogPrintf("AnchorConfirms::DisconnectBlock(): relay new confirmations: %s block: %d\n", exist->txHash.GetHex(), block.height);
+                                    mnview.CreateAndRelayConfirmMessageIfNeed(exist->anchor, exist->txHash);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                LogPrintf("AnchorConfirms::DisconnectBlock(): disconnected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
             } else if (fCriminals && CMasternodesView::ExtractCriminalProofFromTx(tx, metadata)) {
                 mnview.UnbanCriminal(tx.GetHash(), metadata);
             }
@@ -2176,6 +2176,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 mnview.SetTeam(nextTeam);
                 mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
                 mnview.AddRewardForAnchor(btcTxHash, tx.GetHash());
+                panchorAwaitingConfirms->EraseAnchor(btcTxHash);
                 panchorAwaitingConfirms->RemoveConfirmsForAll();
                 LogPrintf("AnchorConfirms::ConnectBlock(): connected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
 
@@ -2187,6 +2188,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                             for (auto && hashAndConfirm : panchorAwaitingConfirms->GetConfirms()) {
                                 auto exist = panchors->ExistAnchorByTx(hashAndConfirm.first);
                                 if (exist) {
+                                    LogPrintf("AnchorConfirms::ConnectBlock(): relay new confirmations: %s block: %d\n", exist->txHash.GetHex(), block.height);
                                     mnview.CreateAndRelayConfirmMessageIfNeed(exist->anchor, exist->txHash);
                                 }
                             }
