@@ -162,15 +162,20 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
                 CAnchorConfirmMessage trueData{};
                 std::vector<std::vector<unsigned char>> sigs;
+                bool found = false;
                 for (auto && variant : signedDataVariants) {
                     if (variant.second.size() >= quorum) {
                         trueData = *variant.second.begin();
                         for (auto && confirmMessage : variant.second) {
                             sigs.push_back(confirmMessage.signature);
                         }
+                        found = true;
                         break;
                     }
                 }
+
+                if (!found)
+                    continue;
 
                 CTxDestination destination = trueData.rewardKeyType == 1 ? CTxDestination(PKHash(trueData.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(trueData.rewardKeyID));
 
