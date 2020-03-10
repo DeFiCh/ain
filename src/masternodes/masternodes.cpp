@@ -441,7 +441,7 @@ void CMasternodesView::RemoveRewardForAnchor(AnchorTxHash const &btcTxHash)
 void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash)
 {
     auto myIDs = AmIOperator();
-    if (!myIDs || !ExistMasternode(myIDs->id)->IsActive()) // TODO: SS : not sure IsActive() or (state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED)
+    if (!myIDs || !ExistMasternode(myIDs->id)->IsActive())
         return ;
     auto const & currentTeam = GetCurrentTeam();
     if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end()) {
@@ -466,7 +466,13 @@ void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor
 
     auto prev = panchors->ExistAnchorByTx(anchor.previousAnchor);
     auto confirmMessage = CAnchorConfirmMessage::Create(anchor, prev? prev->anchor.height : 0, btcTxHash, masternodeKey);
+    if (panchorAwaitingConfirms->Exist(confirmMessage.GetHash())) {
+        LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Warning! not need relay %s because message already exist\n", confirmMessage.GetHash().GetHex());
+        return ;
+    }
+
     panchorAwaitingConfirms->Add(confirmMessage);
+    LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Create message %s\n", confirmMessage.GetHash().GetHex());
     RelayAnchorConfirm(confirmMessage.GetHash(), *g_connman);
 }
 
