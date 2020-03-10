@@ -399,10 +399,7 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
             LogPrintf("spv: updating anchor %s\n", txHash.ToString());
             CAnchor oldAnchor{exist->anchor};
             if (panchors->AddAnchor(oldAnchor, txHash, blockHeight, true)) {
-                if (blockHeight < INT32_MAX && pmasternodesview->GetRewardForAnchor(txHash) == uint256{}) {
-                    LogPrintf("AnchorConfirms::OnTxUpdated: start relay message %s\n", txHash.ToString());
-                    pmasternodesview->CreateAndRelayConfirmMessageIfNeed(oldAnchor, txHash);
-                }
+                LogPrintf("AnchorConfirms::OnTxUpdated: start relay message %s\n", txHash.ToString());
             }
         }
     }

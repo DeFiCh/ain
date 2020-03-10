@@ -411,12 +411,19 @@ void CAnchorIndex::CheckActiveAnchor(bool forced)
         LOCK(cs_main);
         topChanged = panchors->ActivateBestAnchor(spvLastHeight, forced);
 
-        // prune auths older than anchor with 6 confirmations
+        // prune auths older than anchor with 6 confirmations. Warning! This constant are using for start confirming reward too!
         auto it = panchors->GetActiveAnchor();
-        for (; it && GetAnchorConfirmations(it, spvLastHeight) <= 6; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor))
+        for (; it && GetAnchorConfirmations(it, spvLastHeight) < 6; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor))
             ;
         if (it)
             panchorauths->PruneOlderThan(it->anchor.height+1);
+        if (!::ChainstateActive().IsInitialBlockDownload()) {
+            for (; it; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor)) {
+                if (pmasternodesview->GetRewardForAnchor(it->txHash) == uint256{}) {
+                    pmasternodesview->CreateAndRelayConfirmMessageIfNeed(it->anchor, it->txHash);
+                }
+            }
+        }
     }
     CValidationState state;
     if (topChanged && !ActivateBestChain(state, Params())) {
