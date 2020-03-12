@@ -95,19 +95,20 @@ protected:
     void WriteMasternode(uint256 const & txid, CMasternode const & node);
     void EraseMasternode(uint256 const & txid);
 
-    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true);
-    bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true);
-    void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash);
+    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true) override;
+    bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true) override;
+    void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash) override;
 
-    void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact);
-    void EraseCriminal(uint256 const & mnId);
+    /// @todo review criminals!
+    void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact) override;
+    void EraseCriminal(uint256 const & mnId) override;
 
     void WriteCurrentTeam(std::set<CKeyID> const & currentTeam);
     bool LoadCurrentTeam(std::set<CKeyID> & newTeam);
     bool EraseCurrentTeam();
 
     void WriteAnchorReward(uint256 const & anchorHash, uint256 const & rewardTxHash);
-    bool EraseAnchorReward(uint256 const & anchorHash);
+    void EraseAnchorReward(uint256 const & anchorHash);
 
     void WriteFoundationsDebt(CAmount const foundationsDebt);
     bool LoadFoundationsDebt();

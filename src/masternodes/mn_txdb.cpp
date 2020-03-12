@@ -183,7 +183,7 @@ void CMasternodesViewDB::WriteCurrentTeam(std::set<CKeyID> const & currentTeam)
 {
     uint32_t i = 0;
     for (std::set<CKeyID>::iterator it = currentTeam.begin(); it != currentTeam.end(); ++it) {
-        db->Write(make_pair(DB_MN_CURRENT_TEAM, i++), *it);
+        BatchWrite(make_pair(DB_MN_CURRENT_TEAM, i++), *it);
     }
 }
 
@@ -234,7 +234,7 @@ bool CMasternodesViewDB::EraseCurrentTeam()
     }
 
     for (uint32_t i = 0; i < indexes.size(); ++i) {
-        db->Erase(make_pair(DB_MN_CURRENT_TEAM, indexes[i]));
+        BatchErase(make_pair(DB_MN_CURRENT_TEAM, indexes[i]));
     }
 
     return true;
@@ -242,17 +242,17 @@ bool CMasternodesViewDB::EraseCurrentTeam()
 
 void CMasternodesViewDB::WriteAnchorReward(uint256 const & anchorHash, uint256 const & rewardTxHash)
 {
-    db->Write(make_pair(DB_MN_ANCHOR_REWARD, anchorHash), rewardTxHash);
+    BatchWrite(make_pair(DB_MN_ANCHOR_REWARD, anchorHash), rewardTxHash);
 }
 
-bool CMasternodesViewDB::EraseAnchorReward(uint256 const & anchorHash)
+void CMasternodesViewDB::EraseAnchorReward(uint256 const & anchorHash)
 {
-    db->Erase(make_pair(DB_MN_ANCHOR_REWARD, anchorHash));
+    BatchErase(make_pair(DB_MN_ANCHOR_REWARD, anchorHash));
 }
 
 void CMasternodesViewDB::WriteFoundationsDebt(CAmount const foundationsDebt)
 {
-    db->Write(DB_MN_FOUNDERS_DEBT, foundationsDebt);
+    BatchWrite(DB_MN_FOUNDERS_DEBT, foundationsDebt);
 }
 
 bool CMasternodesViewDB::LoadFoundationsDebt()
@@ -349,6 +349,7 @@ bool CMasternodesViewDB::Flush()
         }
     }
 
+    /// @todo review criminals!
     for (auto && it = criminals.begin(); it != criminals.end(); )
     {
         if (it->second == CDoubleSignFact()) {

@@ -2434,9 +2434,8 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         if (!panchorAwaitingConfirms->Exist(confirmMessage.GetHash())) {
             LogPrintf("Got anchor confirm, hash %s, Anchor Message hash: %d\n", confirmMessage.GetHash().ToString(), confirmMessage.btcTxHash.ToString());
-            // if valid, add and rebroadcast
-            if (panchorAwaitingConfirms->Validate(confirmMessage)) {
-                panchorAwaitingConfirms->Add(confirmMessage);
+            // if valid, AND UNIQUE AGAINST VOTER (this is encapsulated in the index itself) - add and rebroadcast
+            if (panchorAwaitingConfirms->Validate(confirmMessage) && panchorAwaitingConfirms->Add(confirmMessage)) {
                 RelayAnchorConfirm(confirmMessage.GetHash(), *connman, pfrom);
             }
         }
