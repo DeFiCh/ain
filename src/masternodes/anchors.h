@@ -162,6 +162,7 @@ public:
     void ForEachAnchorAuthByHeight(std::function<bool(const CAnchorAuthIndex::Auth &)> callback) const;
     void PruneOlderThan(THeight height);
 
+protected:
     Auths auths;
 };
 
@@ -207,7 +208,7 @@ public:
 
     void ForEachAnchorByBtcHeight(std::function<void(const CAnchorIndex::AnchorRec &)> callback) const;
     AnchorRec const * GetActiveAnchor() const;
-    bool ActivateBestAnchor(uint32_t spvLastHeight, bool forced = false); // rescan anchors
+    bool ActivateBestAnchor(bool forced = false); // rescan anchors
 
     AnchorRec const * ExistAnchorByTx(uint256 const & hash) const;
 
@@ -219,15 +220,20 @@ public:
 
     AnchorRec const * GetAnchorByBtcTx(uint256 const & txHash) const;
 
-    int GetAnchorConfirmations(uint256 const & txHash, uint32_t spvLastHeight) const;
-    static int GetAnchorConfirmations(AnchorRec const * rec, uint32_t spvLastHeight);
+    using UnrewardedResult = std::set<uint256>;
+    UnrewardedResult GetUnrewarded() const;
 
-    static void CheckActiveAnchor(bool forced = false);
+    int GetAnchorConfirmations(uint256 const & txHash) const;
+    int GetAnchorConfirmations(AnchorRec const * rec) const;
+
+    void CheckActiveAnchor(bool forced = false);
+    void UpdateLastHeight(uint32_t height);
 
 private:
     AnchorIndexImpl anchors;
     AnchorRec const * top = nullptr;
     bool possibleReActivation = false;
+    uint32_t spvLastHeight = 0;
 
 private:
     template <typename Key, typename Value>
@@ -265,8 +271,9 @@ private:
 
 class CAnchorConfirmMessage
 {
-    using Signature = std::vector<unsigned char>;
 public:
+    using Signature = std::vector<unsigned char>;
+
     uint256 btcTxHash;
     THeight anchorHeight;
     THeight prevAnchorHeight;
@@ -280,6 +287,7 @@ public:
     static CAnchorConfirmMessage Create(CAnchor const & anchor, THeight prevAnchorHeight, uint256 btcTxHash, CKey const & key);
     uint256 GetHash() const;
     uint256 GetSignHash() const;
+    CKeyID GetSigner() const;
     bool CheckConfirmSigs(std::vector<Signature> const & sigs, CMasternodesView::CTeam team);
     bool isEqualDataWith(const CAnchorConfirmMessage &message) const;
 
@@ -294,6 +302,13 @@ public:
         READWRITE(rewardKeyType);
         READWRITE(signature);
     }
+
+    // tags for multiindex
+    struct ByMsgHash{};     // by message hash (for inv)
+//    struct ByBlockHash{};   // by blockhash (for locator/GETANCHORAUTHS)
+    struct ByAnchor{};      // by btctxhash
+    struct ByKey{};         // composite, by btctxhash and GetSignHash for miner/reward creation
+    struct ByVote{};        // composite, by GetSignHash and signer, helps detect doublesigning
 };
 
 class CAnchorAwaitingConfirms
@@ -301,17 +316,53 @@ class CAnchorAwaitingConfirms
     using ConfirmMessageHash = uint256;
     using AnchorTxHash = uint256;
 protected:
-    std::map<AnchorTxHash, std::map<ConfirmMessageHash, CAnchorConfirmMessage>> confirms;
+//    std::map<AnchorTxHash, std::map<ConfirmMessageHash, CAnchorConfirmMessage>> confirms;
+
+    using Confirm = CAnchorConfirmMessage;
+
+    typedef boost::multi_index_container<Confirm,
+        indexed_by<
+            // index for p2p messaging (inv/getdata)
+            ordered_unique<
+                tag<Confirm::ByMsgHash>, const_mem_fun<Confirm, uint256, &Confirm::GetHash>
+            >,
+            // index for group confirms deletion
+            ordered_non_unique<
+                tag<Confirm::ByAnchor>, member<Confirm, uint256, &Confirm::btcTxHash>
+            >,
+            // index for quorum selection (miner affected)
+            // just to remember that there may be confirms with equal btcTxHash, but with different teams!
+            ordered_non_unique<
+                tag<Confirm::ByKey>, composite_key<Confirm,
+                    member<Confirm, uint256, &Confirm::btcTxHash>,
+                    const_mem_fun<Confirm, uint256, &Confirm::GetSignHash>
+                >
+            >,
+            // restriction index that helps detect doublesigning
+            // it may by quite expensive to index by GetSigner on the fly, but it should happen only on insertion
+            ordered_unique<
+                tag<Confirm::ByVote>, composite_key<Confirm,
+                    const_mem_fun<Confirm, uint256, &Confirm::GetSignHash>,
+                    const_mem_fun<Confirm, CKeyID, &Confirm::GetSigner>
+                >
+            >
+
+        >
+    > Confirms;
+
+    Confirms confirms;
 
 public:
-    void AddAnchor(AnchorTxHash const &txHash);
-    bool ExistAnchor(AnchorTxHash const &txHash) const;
+//    void AddAnchor(AnchorTxHash const &txHash);
+//    bool ExistAnchor(AnchorTxHash const &txHash) const;
     bool EraseAnchor(AnchorTxHash const &txHash);
-    const CAnchorConfirmMessage *Exist(ConfirmMessageHash const &hash) const;
-    void Add(CAnchorConfirmMessage const &newConfirmMessage);
+    const CAnchorConfirmMessage *Exist(ConfirmMessageHash const &msgHash) const;
+    bool Add(CAnchorConfirmMessage const &newConfirmMessage);
     bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
-    const std::map<uint256, std::map<uint256, CAnchorConfirmMessage>> GetConfirms() const;
-    void RemoveConfirmsForAll();
+//    const std::map<uint256, std::map<uint256, CAnchorConfirmMessage>> GetConfirms() const;
+    void Clear();
+    void ReVote();
+    std::vector<CAnchorConfirmMessage> GetQuorumFor(CMasternodesView::CTeam const & team);
 };
 
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')

@@ -1526,7 +1526,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
-DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CMasternodesViewCache& mnview)
+DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CMasternodesViewCache& mnview, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms)
 {
     bool fClean = true;
 
@@ -1581,28 +1581,11 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
                 mnview.RemoveRewardForAnchor(btcTxHash);
-                panchorAwaitingConfirms->RemoveConfirmsForAll();
-                panchorAwaitingConfirms->AddAnchor(btcTxHash);
-                for (auto && sig : sigs) {
-                    auto message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash);
-                    message.signature = sig;
-                    panchorAwaitingConfirms->Add(message);
-                }
 
-                auto myIDs = mnview.AmIOperator();
-                if (myIDs) {
-                    auto nodePtr = mnview.ExistMasternode(myIDs->id);
-                    if (nodePtr && nodePtr->IsActive()) {
-                        if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end()) {
-                            for (auto && hashAndConfirm : panchorAwaitingConfirms->GetConfirms()) {
-                                auto exist = panchors->ExistAnchorByTx(hashAndConfirm.first);
-                                if (exist) {
-                                    LogPrintf("AnchorConfirms::DisconnectBlock(): relay new confirmations: %s block: %d\n", exist->txHash.GetHex(), block.height);
-                                    mnview.CreateAndRelayConfirmMessageIfNeed(exist->anchor, exist->txHash);
-                                }
-                            }
-                        }
-                    }
+                auto message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash);
+                for (auto && sig : sigs) {
+                    message.signature = sig;
+                    disconnectedAnchorConfirms.push_back(message);
                 }
 
                 LogPrintf("AnchorConfirms::DisconnectBlock(): disconnected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
@@ -1810,7 +1793,7 @@ static int64_t nBlocksTotal = 0;
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CMasternodesViewCache& mnview, const CChainParams& chainparams, bool fJustCheck)
+                  CCoinsViewCache& view, CMasternodesViewCache& mnview, const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, bool fJustCheck)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2134,7 +2117,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     >> currentTeam
                     >> sigs;
 
-                assert(currentTeam == mnview.GetCurrentTeam());
+                if (mnview.GetRewardForAnchor(btcTxHash) != uint256{}) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("ConnectBlock(): reward for anchor %s already exists",
+                                               btcTxHash.ToString()),
+                                               REJECT_INVALID, "bad-ar-exists");
+                }
 
                 CAnchorConfirmMessage message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash);
                 if (!message.CheckConfirmSigs(sigs, currentTeam)) {
@@ -2162,39 +2150,29 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): anchor pay destination is incorrect"),
-                                         REJECT_INVALID, "bad-ar-team");
+                                         REJECT_INVALID, "bad-ar-dest");
+                }
+
+                if (currentTeam != mnview.GetCurrentTeam()) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("ConnectBlock(): anchor wrong current team"),
+                                         REJECT_INVALID, "bad-ar-curteam");
                 }
 
                 if (pindex->pprev) {
                     auto masternodes = mnview.GetMasternodes();
-                    if (nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier, &masternodes)) {
+                    if (nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier, &masternodes)) { /// @todo rewards review - team?????
                         return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                             error("ConnectBlock(): wrong calculation team"),
-                                             REJECT_INVALID, "bad-ar-team");
+                                             error("ConnectBlock(): anchor wrong next team"),
+                                             REJECT_INVALID, "bad-ar-nextteam");
                     }
                 }
                 mnview.SetTeam(nextTeam);
                 mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
                 mnview.AddRewardForAnchor(btcTxHash, tx.GetHash());
-                panchorAwaitingConfirms->EraseAnchor(btcTxHash);
-                panchorAwaitingConfirms->RemoveConfirmsForAll();
-                LogPrintf("AnchorConfirms::ConnectBlock(): connected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
+                rewardedAnchors.push_back(btcTxHash);
 
-                auto myIDs = mnview.AmIOperator();
-                if (myIDs) {
-                    auto nodePtr = mnview.ExistMasternode(myIDs->id);
-                    if (nodePtr && nodePtr->IsActive()) {
-                        if (nextTeam.find(myIDs->operatorAuthAddress) == nextTeam.end()) {
-                            for (auto && hashAndConfirm : panchorAwaitingConfirms->GetConfirms()) {
-                                auto exist = panchors->ExistAnchorByTx(hashAndConfirm.first);
-                                if (exist) {
-                                    LogPrintf("AnchorConfirms::ConnectBlock(): relay new confirmations: %s block: %d\n", exist->txHash.GetHex(), block.height);
-                                    mnview.CreateAndRelayConfirmMessageIfNeed(exist->anchor, exist->txHash);
-                                }
-                            }
-                        }
-                    }
-                }
+                LogPrintf("AnchorConfirms::ConnectBlock(): connected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
             }
         }
 
@@ -2474,10 +2452,19 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
         CCoinsViewCache view(&CoinsTip());
         CMasternodesViewCache mnview(pmasternodesview.get());
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
-        if (DisconnectBlock(block, pindexDelete, view, mnview) != DISCONNECT_OK)
+        std::vector<CAnchorConfirmMessage> disconnectedConfirms;
+        if (DisconnectBlock(block, pindexDelete, view, mnview, disconnectedConfirms) != DISCONNECT_OK)
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
+
+        if (!disconnectedConfirms.empty()) {
+            for (auto const & confirm : disconnectedConfirms) {
+                panchorAwaitingConfirms->Add(confirm);
+            }
+            // we do not clear ALL votes (even they are stale) for the case of rapid tip changing. At least, they'll be deleted after their rewards
+            panchorAwaitingConfirms->ReVote();
+        }
     }
     LogPrint(BCLog::BENCH, "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * MILLI);
     // Write the chain state to disk, if necessary.
@@ -2602,7 +2589,8 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     {
         CCoinsViewCache view(&CoinsTip());
         CMasternodesViewCache mnview(pmasternodesview.get());
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams);
+        std::vector<uint256> rewardedAnchors;
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -2613,6 +2601,16 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
+
+        // anchor rewards re-voting etc...
+        if (!rewardedAnchors.empty()) {
+            // we do not clear ALL votes (even they are stale) for the case of rapid tip changing. At least, they'll be deleted after their rewards
+            for (auto const & btcTxHash : rewardedAnchors) {
+                panchorAwaitingConfirms->EraseAnchor(btcTxHash);
+            }
+
+            panchorAwaitingConfirms->ReVote();
+        }
     }
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint(BCLog::BENCH, "  - Flush: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime4 - nTime3) * MILLI, nTimeFlush * MICRO, nTimeFlush * MILLI / nBlocksTotal);
@@ -4078,6 +4076,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     AssertLockHeld(cs_main);
     assert(pindexPrev && pindexPrev == ::ChainActive().Tip());
     CCoinsViewCache viewNew(&::ChainstateActive().CoinsTip());
+    std::vector<uint256> dummyRewardedAnchors;
     CMasternodesViewCache mnview(pmasternodesview.get());
     uint256 block_hash(block.GetHash());
     CBlockIndex indexDummy(block);
@@ -4092,7 +4091,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, true))
+    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, true))
         return false;
     assert(state.IsValid());
 
@@ -4518,7 +4517,8 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && (coins.DynamicMemoryUsage() + ::ChainstateActive().CoinsTip().DynamicMemoryUsage()) <= nCoinCacheUsage) {
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
-            DisconnectResult res = ::ChainstateActive().DisconnectBlock(block, pindex, coins, mnview);
+            std::vector<CAnchorConfirmMessage> disconnectedConfirms; // dummy
+            DisconnectResult res = ::ChainstateActive().DisconnectBlock(block, pindex, coins, mnview, disconnectedConfirms);
             if (res == DISCONNECT_FAILED) {
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             }
@@ -4553,7 +4553,8 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             CBlock block;
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
-            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams))
+            std::vector<uint256> dummyRewardedAnchors;
+            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
         }
     }
@@ -4631,7 +4632,8 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view, CMa
                 return error("RollbackBlock(): ReadBlockFromDisk() failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
             LogPrintf("Rolling back %s (%i)\n", pindexOld->GetBlockHash().ToString(), pindexOld->nHeight);
-            DisconnectResult res = DisconnectBlock(block, pindexOld, cache, mncache);
+            std::vector<CAnchorConfirmMessage> disconnectedConfirms; // dummy
+            DisconnectResult res = DisconnectBlock(block, pindexOld, cache, mncache, disconnectedConfirms);
             if (res == DISCONNECT_FAILED) {
                 return error("RollbackBlock(): DisconnectBlock failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
