@@ -144,74 +144,48 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
 
-    auto confirms = panchorAwaitingConfirms->GetConfirms();
+    /// @todo panchorAwaitingConfirms - review!
+    auto currentTeam = pmasternodesview->GetCurrentTeam();
+    auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
+    if (confirms.size() > 0) { // quorum or zero
 
-    if (confirms.size()) {
-        auto currentTeam = pmasternodesview->GetCurrentTeam();
-        for (auto && confirmsForAnchor : confirms) {
-            uint32_t quorum = GetMinAnchorQuorum(currentTeam);
-            if (confirmsForAnchor.second.size() >= quorum) {
-                using DataSignedHash = uint256;
-                std::map<DataSignedHash, std::vector<CAnchorConfirmMessage>> signedDataVariants{};
-                for (auto && hashAndConfirm : confirmsForAnchor.second) {
-                    uint256 hash = hashAndConfirm.second.GetSignHash();
-                    if (signedDataVariants.find(hash) == signedDataVariants.end())
-                        signedDataVariants[hash] = std::vector<CAnchorConfirmMessage>{};
-                    signedDataVariants[hash].push_back(hashAndConfirm.second);
-                }
-
-                CAnchorConfirmMessage trueData{};
-                std::vector<std::vector<unsigned char>> sigs;
-                bool found = false;
-                for (auto && variant : signedDataVariants) {
-                    if (variant.second.size() >= quorum) {
-                        trueData = *variant.second.begin();
-                        for (auto && confirmMessage : variant.second) {
-                            sigs.push_back(confirmMessage.signature);
-                        }
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found)
-                    continue;
-
-                CTxDestination destination = trueData.rewardKeyType == 1 ? CTxDestination(PKHash(trueData.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(trueData.rewardKeyID));
-
-                CMutableTransaction mTx;
-
-                CDataStream metadata(DfAnchorFinalizeTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-                auto nextTeam = pmasternodesview->CalcNextTeam(pindexPrev->stakeModifier);
-                metadata
-                    << trueData.btcTxHash
-                    << trueData.anchorHeight
-                    << trueData.prevAnchorHeight
-                    << trueData.rewardKeyID
-                    << trueData.rewardKeyType
-                    << nextTeam
-                    << currentTeam
-                    << sigs;
-
-                mTx.vin.resize(1);
-                mTx.vin[0].prevout.SetNull();
-                mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-                mTx.vout.resize(2);
-                mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-                mTx.vout[0].nValue = 0;
-                mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-                mTx.vout[1].nValue = GetAnchorSubsidy(trueData.anchorHeight, trueData.prevAnchorHeight, chainparams.GetConsensus());
-
-                LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);
-                pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
-
-                pblocktemplate->vTxFees.push_back(0);
-                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
-
-                panchorAwaitingConfirms->EraseAnchor(confirmsForAnchor.first);
-                break;
-            }
+        std::vector<CAnchorConfirmMessage::Signature> sigs;
+        for (auto const & msg : confirms) {
+            sigs.push_back(msg.signature);
         }
+        CAnchorConfirmMessage const & confirm = confirms[0]; // they are equal except sigs
+        CTxDestination destination = confirm.rewardKeyType == 1 ? CTxDestination(PKHash(confirm.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(confirm.rewardKeyID));
+
+        CDataStream metadata(DfAnchorFinalizeTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+        auto nextTeam = pmasternodesview->CalcNextTeam(pindexPrev->stakeModifier);
+        metadata
+            << confirm.btcTxHash
+            << confirm.anchorHeight
+            << confirm.prevAnchorHeight
+            << confirm.rewardKeyID
+            << confirm.rewardKeyType
+            << nextTeam
+            << currentTeam
+            << sigs;
+
+        CMutableTransaction mTx;
+        mTx.vin.resize(1);
+        mTx.vin[0].prevout.SetNull();
+        mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+        mTx.vout.resize(2);
+        mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+        mTx.vout[0].nValue = 0;
+        mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
+        mTx.vout[1].nValue = GetAnchorSubsidy(confirm.anchorHeight, confirm.prevAnchorHeight, chainparams.GetConsensus());
+
+        LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);
+        pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+
+        pblocktemplate->vTxFees.push_back(0);
+        pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+
+//                /// @todo panchorAwaitingConfirms - REVIEW!
+////                panchorAwaitingConfirms->EraseAnchor(confirmsForAnchor.first);
     }
 
     CTransactionRef criminalTx = nullptr;

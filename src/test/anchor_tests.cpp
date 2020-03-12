@@ -46,13 +46,13 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // fail to activate - nonconfirmed
     BOOST_CHECK(fspv->GetLastBlockHeight() == 0);
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == false);
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == false);
     BOOST_CHECK(panchors->GetActiveAnchor() == nullptr);
 
-    fspv->lastBlockHeight = 1;
+    fspv->lastBlockHeight = 1; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
 
     // confirmed, active
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == true);
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->btcHeight == 1);
@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bd1"), 1) == true);
     }
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == true);
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->btcHeight == 1);
@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bb1"), 1) == true);
     }
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == true);
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->btcHeight == 1);
@@ -94,20 +94,20 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("be1"), 1) == true);
     }
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == false);
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == false);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->txHash == uint256S("bb1"));
 
     // decrease btc height, all anchors should be deactivated
-    fspv->lastBlockHeight = 0;
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == true);
+    fspv->lastBlockHeight = 0; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top == nullptr);
 
     // revert to prev state, activate again
-    fspv->lastBlockHeight = 1;
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == true);
+    fspv->lastBlockHeight = 1; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->txHash == uint256S("bb1"));
@@ -115,13 +115,13 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // Stage 2. Next btc height (btc height = 2)
     // creating anc with old (wrong, empty) prev
-    fspv->lastBlockHeight = 2;
+    fspv->lastBlockHeight = 2; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
     {
         CAnchorAuthMessage auth(uint256(), 45, uint256S("def45a"), team0);
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bc2"), 2) == true);
     }
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == false);
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == false);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->txHash == uint256S("bb1"));
@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bd2"), 2) == true);
     }
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == true);
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->btcHeight == 2);
@@ -141,22 +141,22 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     BOOST_CHECK(top->anchor.previousAnchor == uint256S("bb1"));
 
     // decrease btc height, fall to prev state (we already did that, but with empty top)
-    fspv->lastBlockHeight = 1;
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == true);
+    fspv->lastBlockHeight = 1; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->txHash == uint256S("bb1"));
 
     // advance to btc height = 2 again
-    fspv->lastBlockHeight = 2;
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == true);
+    fspv->lastBlockHeight = 2; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->txHash == uint256S("bd2"));
 
     // and the last - delete (!) parent anc (simulate btc chain reorg, but in more wild way: not the very top block entirely, but one prev tx, bearing tx)
     BOOST_CHECK(panchors->DeleteAnchorByBtcTx(uint256S("bb1")) == true);
-    BOOST_CHECK(panchors->ActivateBestAnchor(fspv->GetLastBlockHeight(), true) == true);
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->txHash == uint256S("bd1"));
