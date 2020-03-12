@@ -308,7 +308,7 @@ bool CSpvWrapper::Rescan(int height)
     LogPrintf("spv: actual new current block %u\n", curHeight);
 
     LOCK(cs_main);
-    panchors->ActivateBestAnchor(curHeight, true);
+    panchors->ActivateBestAnchor(true);
 
     return true;
 }
@@ -431,7 +431,7 @@ void CSpvWrapper::OnSyncStopped(int error)
 void CSpvWrapper::OnTxStatusUpdate()
 {
     LogPrintf("spv: tx status update\n");
-    CAnchorIndex::CheckActiveAnchor();
+    panchors->CheckActiveAnchor();
 }
 
 void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blocksCount)

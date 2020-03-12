@@ -377,14 +377,14 @@ void CMasternodesView::SetTeam(CTeam newTeam)
     currentTeam = std::move(newTeam);
 }
 
-const std::set<CKeyID> &CMasternodesView::GetCurrentTeam()
+const CMasternodesView::CTeam &CMasternodesView::GetCurrentTeam()
 {
     if (!currentTeam.size())
         return Params().GetGenesisTeam();
     return currentTeam;
 }
 
-const CAmount CMasternodesView::GetFoundationsDebt()
+CAmount CMasternodesView::GetFoundationsDebt()
 {
     if (foundationsDebt < 0) {
         assert(false);
@@ -406,7 +406,7 @@ CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier, co
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
     if (!masternodes) {
-        masternodes = &allNodes;
+        masternodes = &allNodes;    /// @todo formally this is wrong!
     }
     for (auto && it = masternodes->begin(); it != masternodes->end(); ++it) {
         CMasternode const & node = it->second;
@@ -466,14 +466,13 @@ void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor
 
     auto prev = panchors->ExistAnchorByTx(anchor.previousAnchor);
     auto confirmMessage = CAnchorConfirmMessage::Create(anchor, prev? prev->anchor.height : 0, btcTxHash, masternodeKey);
-    if (panchorAwaitingConfirms->Exist(confirmMessage.GetHash())) {
-        LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Warning! not need relay %s because message already exist\n", confirmMessage.GetHash().GetHex());
-        return ;
+    if (panchorAwaitingConfirms->Add(confirmMessage)) {
+        LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Create message %s\n", confirmMessage.GetHash().GetHex());
+        RelayAnchorConfirm(confirmMessage.GetHash(), *g_connman);
     }
-
-    panchorAwaitingConfirms->Add(confirmMessage);
-    LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Create message %s\n", confirmMessage.GetHash().GetHex());
-    RelayAnchorConfirm(confirmMessage.GetHash(), *g_connman);
+    else {
+        LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Warning! not need relay %s because message (or vote!) already exist\n", confirmMessage.GetHash().GetHex());
+    }
 }
 
 bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)
@@ -706,7 +705,7 @@ void CMasternodesView::ApplyCache(const CMasternodesView * cache)
 
 void CMasternodesView::Clear()
 {
-    lastHeight = 0;
+    lastHeight = 0; /// @todo may be this is wrong!!!
     allNodes.clear();
     nodesByOwner.clear();
     nodesByOperator.clear();

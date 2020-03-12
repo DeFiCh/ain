@@ -459,11 +459,11 @@ UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
     ParseHashStr(request.params[0].getValStr(), txHash);
 
     // ! before cs_main lock
-    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
+//    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
 
     auto locked_chain = pwallet->chain().lock();
-
-    return UniValue(panchors->GetAnchorConfirmations(txHash, spvLastHeight));
+//    panchors->UpdateLastHeight(spvLastHeight);
+    return UniValue(panchors->GetAnchorConfirmations(txHash));
 }
 
 UniValue spv_listanchors(const JSONRPCRequest& request)
@@ -487,20 +487,20 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
     // ! before cs_main lock
-    uint32_t const spvLastHeight = spv::pspv->GetLastBlockHeight();
+//    uint32_t const spvLastHeight = spv::pspv->GetLastBlockHeight();
 
     auto locked_chain = pwallet->chain().lock();
 
     auto const * top = panchors->GetActiveAnchor();
     auto const * cur = top;
     UniValue result(UniValue::VARR);
-    panchors->ForEachAnchorByBtcHeight([&result, &top, &cur, spvLastHeight](const CAnchorIndex::AnchorRec & rec) {
+    panchors->ForEachAnchorByBtcHeight([&result, &top, &cur](const CAnchorIndex::AnchorRec & rec) {
         UniValue anchor(UniValue::VOBJ);
         anchor.pushKV("btcBlockHeight", static_cast<int>(rec.btcHeight));
         anchor.pushKV("btcTxHash", rec.txHash.ToString());
         anchor.pushKV("defiBlockHeight", static_cast<int>(rec.anchor.height));
         anchor.pushKV("defiBlockHash", rec.anchor.blockHash.ToString());
-        anchor.pushKV("confirmations", panchors->GetAnchorConfirmations(&rec, spvLastHeight));
+        anchor.pushKV("confirmations", panchors->GetAnchorConfirmations(&rec));
         bool const isActive = cur && cur->txHash == rec.txHash;
         anchor.pushKV("active", isActive);
         if (isActive) {
@@ -585,22 +585,23 @@ UniValue spv_listanchorconfirms(const JSONRPCRequest& request)
 
     UniValue result(UniValue::VARR);
 
-    auto confirms = panchorAwaitingConfirms->GetConfirms();
-    for (auto && confirmsForAnchor : confirms) {
-        UniValue item(UniValue::VOBJ);
-        item.pushKV("anchorHash", confirmsForAnchor.first.ToString());
-        UniValue confirmsArr(UniValue::VARR);
-        for (auto && confirm : confirmsForAnchor.second) {
-            UniValue itemConfirm(UniValue::VOBJ);
-            itemConfirm.pushKV("confirmHash", confirm.first.ToString());
-            itemConfirm.pushKV("btcTxHash", confirm.second.btcTxHash.ToString());
-            itemConfirm.pushKV("anchorHeight", static_cast<int>(confirm.second.anchorHeight));
-            itemConfirm.pushKV("prevAnchorHeight", static_cast<int>(confirm.second.prevAnchorHeight));
-            confirmsArr.push_back(itemConfirm);
-        }
-        item.pushKV("confirms", confirmsArr);
-        result.push_back(item);
-    }
+    /// @todo panchorAwaitingConfirms - review!
+//    auto confirms = panchorAwaitingConfirms->GetConfirms();
+//    for (auto && confirmsForAnchor : confirms) {
+//        UniValue item(UniValue::VOBJ);
+//        item.pushKV("anchorHash", confirmsForAnchor.first.ToString());
+//        UniValue confirmsArr(UniValue::VARR);
+//        for (auto && confirm : confirmsForAnchor.second) {
+//            UniValue itemConfirm(UniValue::VOBJ);
+//            itemConfirm.pushKV("confirmHash", confirm.first.ToString());
+//            itemConfirm.pushKV("btcTxHash", confirm.second.btcTxHash.ToString());
+//            itemConfirm.pushKV("anchorHeight", static_cast<int>(confirm.second.anchorHeight));
+//            itemConfirm.pushKV("prevAnchorHeight", static_cast<int>(confirm.second.prevAnchorHeight));
+//            confirmsArr.push_back(itemConfirm);
+//        }
+//        item.pushKV("confirms", confirmsArr);
+//        result.push_back(item);
+//    }
     return result;
 }
 
@@ -658,7 +659,7 @@ UniValue spv_setlastheight(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_REQUEST, "command disabled");
 
     fake_spv->lastBlockHeight = request.params[0].get_int();
-    CAnchorIndex::CheckActiveAnchor(true);
+    panchors->CheckActiveAnchor(true);
     return UniValue();
 }
 
