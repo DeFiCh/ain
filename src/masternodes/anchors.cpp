@@ -393,37 +393,31 @@ CAnchorIndex::UnrewardedResult CAnchorIndex::GetUnrewarded() const
 {
     AssertLockHeld(cs_main);
 
+    auto it = panchors->GetActiveAnchor();
+    // skip unconfirmed
+    for (; it && GetAnchorConfirmations(it) < 6; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor))
+        ;
+    // create confirmed set
+    UnrewardedResult confirmed;
+    for (; it ; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor)) {
+        confirmed.insert(it->txHash);
+    }
+
+    // custom comparator for set_difference
     struct cmp {
-        bool operator()(CAnchorIndex::AnchorRec const & a, std::pair<uint256 const, uint256> const & b) const
-        {
-            return a.txHash < b.first;
+        bool operator()(uint256 const & a, std::pair<uint256 const, uint256> const & b) const {
+            return a < b.first;
         }
-        bool operator()(std::pair<uint256 const, uint256> const & a, CAnchorIndex::AnchorRec const & b) const
-        {
-            return a.first < b.txHash;
+        bool operator()(std::pair<uint256 const, uint256> const & a, uint256 const & b) const {
+            return a.first < b;
         }
     };
 
-    std::vector<CAnchorIndex::AnchorRec> out;
-    typedef AnchorIndexImpl::index<AnchorRec::ByBtcTxHash>::type KList;
-    KList const & list = anchors.get<AnchorRec::ByBtcTxHash>();
-    auto const rewards = pmasternodesview->ListAnchorRewards();
-    std::set_difference(list.begin(), list.end(), rewards.begin(), rewards.end(), std::inserter(out, out.end()), cmp());
-
-    UnrewardedResult allUnrewarded;
-    for (auto const & rec : out) {
-        allUnrewarded.insert(rec.txHash);
-    }
-
+    // find unrewarded
     UnrewardedResult result;
-    auto it = panchors->GetActiveAnchor();
-    for (; it; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor)) {
-        if (GetAnchorConfirmations(it) < 6)
-            continue;
-        if (allUnrewarded.find(it->txHash) != allUnrewarded.end()) {
-            result.insert(it->txHash);
-        }
-    }
+    auto const rewards = pmasternodesview->ListAnchorRewards();
+    std::set_difference(confirmed.begin(), confirmed.end(), rewards.begin(), rewards.end(), std::inserter(result, result.end()), cmp());
+
     return result;
 }
 
@@ -779,7 +773,6 @@ void CAnchorAwaitingConfirms::ReVote()
 
         }
     }
-
 }
 
 // for MINERS only!
