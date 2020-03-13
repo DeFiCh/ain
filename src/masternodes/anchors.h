@@ -179,7 +179,6 @@ public:
         CAnchor anchor;
         uint256 txHash;
         THeight btcHeight;
-//        uint32_t btcTxIndex; // does not exist!
 
         ADD_SERIALIZE_METHODS;
 
@@ -188,7 +187,6 @@ public:
             READWRITE(anchor);
             READWRITE(txHash);
             READWRITE(btcHeight);
-//            READWRITE(btcTxIndex);
         }
 
         // tags for multiindex
@@ -305,7 +303,6 @@ public:
 
     // tags for multiindex
     struct ByMsgHash{};     // by message hash (for inv)
-//    struct ByBlockHash{};   // by blockhash (for locator/GETANCHORAUTHS)
     struct ByAnchor{};      // by btctxhash
     struct ByKey{};         // composite, by btctxhash and GetSignHash for miner/reward creation
     struct ByVote{};        // composite, by GetSignHash and signer, helps detect doublesigning
@@ -315,9 +312,8 @@ class CAnchorAwaitingConfirms
 {
     using ConfirmMessageHash = uint256;
     using AnchorTxHash = uint256;
-protected:
-//    std::map<AnchorTxHash, std::map<ConfirmMessageHash, CAnchorConfirmMessage>> confirms;
 
+protected:
     using Confirm = CAnchorConfirmMessage;
 
     typedef boost::multi_index_container<Confirm,
@@ -346,23 +342,21 @@ protected:
                     const_mem_fun<Confirm, CKeyID, &Confirm::GetSigner>
                 >
             >
-
         >
     > Confirms;
 
     Confirms confirms;
 
 public:
-//    void AddAnchor(AnchorTxHash const &txHash);
-//    bool ExistAnchor(AnchorTxHash const &txHash) const;
     bool EraseAnchor(AnchorTxHash const &txHash);
     const CAnchorConfirmMessage *Exist(ConfirmMessageHash const &msgHash) const;
     bool Add(CAnchorConfirmMessage const &newConfirmMessage);
     bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
-//    const std::map<uint256, std::map<uint256, CAnchorConfirmMessage>> GetConfirms() const;
     void Clear();
     void ReVote();
-    std::vector<CAnchorConfirmMessage> GetQuorumFor(CMasternodesView::CTeam const & team);
+    std::vector<CAnchorConfirmMessage> GetQuorumFor(CMasternodesView::CTeam const & team) const;
+
+    void ForEachConfirm(std::function<void(Confirm const &)> callback) const;
 };
 
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')
