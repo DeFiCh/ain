@@ -457,14 +457,17 @@ void CAnchorIndex::CheckActiveAnchor(bool forced)
         if (it)
             panchorauths->PruneOlderThan(it->anchor.height+1);
 
-        /// @todo panchorAwaitingConfirms review! (substraction?)
-        /// @attention - 'it' depends on previous loop conditions (>=6)
+        /// @todo panchorAwaitingConfirms - optimize?
+        /// @attention - 'it' depends on previous loop conditions (>=6).
         if (!::ChainstateActive().IsInitialBlockDownload()) {
-            for (; it; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor)) {
-                if (pmasternodesview->GetRewardForAnchor(it->txHash) == uint256{}) {
-                    pmasternodesview->CreateAndRelayConfirmMessageIfNeed(it->anchor, it->txHash);
-                }
-            }
+//            for (; it; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor)) {
+//                if (pmasternodesview->GetRewardForAnchor(it->txHash) == uint256{}) {
+//                    pmasternodesview->CreateAndRelayConfirmMessageIfNeed(it->anchor, it->txHash);
+//                }
+//            }
+
+            panchorAwaitingConfirms->ReVote();
+
         }
     }
     CValidationState state;
@@ -669,17 +672,6 @@ CKeyID CAnchorConfirmMessage::GetSigner() const
     return (!signature.empty() && pubKey.RecoverCompact(GetSignHash(), signature)) ? pubKey.GetID() : CKeyID{};
 }
 
-//void CAnchorAwaitingConfirms::AddAnchor(AnchorTxHash const &txHash)
-//{
-//    LogPrintf("AnchorConfirms::AddAnchor: Add new anchor! %s\n",  txHash.ToString());
-//    confirms[txHash] = std::map<ConfirmMessageHash, CAnchorConfirmMessage>{};
-//}
-
-//bool CAnchorAwaitingConfirms::ExistAnchor(AnchorTxHash const &txHash) const
-//{
-//    return confirms.find(txHash) != confirms.end();
-//}
-
 bool CAnchorAwaitingConfirms::EraseAnchor(AnchorTxHash const &txHash)
 {
     AssertLockHeld(cs_main);
@@ -698,21 +690,11 @@ const CAnchorConfirmMessage *CAnchorAwaitingConfirms::Exist(ConfirmMessageHash c
     auto const & list = confirms.get<Confirm::ByMsgHash>();
     auto it = list.find(msgHash);
     return it != list.end() ? &(*it) : nullptr;
-
-//    for (auto &&hashAndConfirm : confirms) {
-//        auto it = hashAndConfirm.second.find(hash);
-//        if (it != hashAndConfirm.second.end()) {
-//            return &(it->second);
-//        }
-//    }
-
-//    return nullptr;
 }
 
 bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessage) const
 {
     AssertLockHeld(cs_main);
-//    auto const & currentTeam = pmasternodesview->GetCurrentTeam();
     CKeyID signer = confirmMessage.GetSigner();
     if (signer.IsNull()) {
         LogPrintf("AnchorConfirms::Validate: Warning! Signature incorrect. btcTxHash: %s confirmMessageHash: %s Key: %s\n", confirmMessage.btcTxHash.ToString(), confirmMessage.GetHash().ToString(), signer.ToString());
@@ -730,30 +712,12 @@ bool CAnchorAwaitingConfirms::Add(CAnchorConfirmMessage const &newConfirmMessage
 {
     AssertLockHeld(cs_main);
     return confirms.insert(newConfirmMessage).second;
-
-//    if (confirms.find(newConfirmMessage.btcTxHash) != confirms.end()) {
-//        LogPrintf("AnchorConfirms::Add: Confirm message for existing anchor: %s with hash %s was added\n", newConfirmMessage.btcTxHash.ToString(), newConfirmMessage.GetHash().ToString());
-//        confirms[newConfirmMessage.btcTxHash].insert(std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage));
-//        return ;
-//    }
-
-//    LogPrintf("AnchorConfirms::Add: Confirm message for new anchor: %s with hash %s was added\n", newConfirmMessage.btcTxHash.ToString(), newConfirmMessage.GetHash().ToString());
-//    confirms.insert(std::make_pair(newConfirmMessage.btcTxHash, std::map<ConfirmMessageHash, CAnchorConfirmMessage>{std::make_pair(newConfirmMessage.GetHash(), newConfirmMessage)}));
 }
-
-//const std::map<uint256, std::map<uint256, CAnchorConfirmMessage>> CAnchorAwaitingConfirms::GetConfirms() const
-//{
-//    return confirms;
-//}
 
 void CAnchorAwaitingConfirms::Clear()
 {
+    AssertLockHeld(cs_main);
     Confirms().swap(confirms);
-//    confirms.get<Confirm::ByMsgHash>().clear();
-
-//    for (auto &&hashAndConfirm : confirms) {
-//        hashAndConfirm.second.clear();
-    //    }
 }
 
 void CAnchorAwaitingConfirms::ReVote()
@@ -770,13 +734,12 @@ void CAnchorAwaitingConfirms::ReVote()
                 /// @todo non-optimal! (secondary checks of amI, keys etc...)
                 pmasternodesview->CreateAndRelayConfirmMessageIfNeed(panchors->ExistAnchorByTx(btcTxHash)->anchor, btcTxHash);
             }
-
         }
     }
 }
 
 // for MINERS only!
-std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const CMasternodesView::CTeam & team)
+std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const CMasternodesView::CTeam & team) const
 {
     AssertLockHeld(cs_main);
 
@@ -806,4 +769,12 @@ std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const C
         it = it1; // next group!
     }
     return {};
+}
+
+void CAnchorAwaitingConfirms::ForEachConfirm(std::function<void (const CAnchorAwaitingConfirms::Confirm &)> callback) const
+{
+    AssertLockHeld(cs_main);
+    auto const & list = confirms.get<Confirm::ByKey>();
+    for (auto it = list.begin(); it != list.end(); ++it)
+        callback(*it);
 }
