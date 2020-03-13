@@ -585,23 +585,40 @@ UniValue spv_listanchorconfirms(const JSONRPCRequest& request)
 
     UniValue result(UniValue::VARR);
 
-    /// @todo panchorAwaitingConfirms - review!
-//    auto confirms = panchorAwaitingConfirms->GetConfirms();
-//    for (auto && confirmsForAnchor : confirms) {
-//        UniValue item(UniValue::VOBJ);
-//        item.pushKV("anchorHash", confirmsForAnchor.first.ToString());
-//        UniValue confirmsArr(UniValue::VARR);
-//        for (auto && confirm : confirmsForAnchor.second) {
-//            UniValue itemConfirm(UniValue::VOBJ);
-//            itemConfirm.pushKV("confirmHash", confirm.first.ToString());
-//            itemConfirm.pushKV("btcTxHash", confirm.second.btcTxHash.ToString());
-//            itemConfirm.pushKV("anchorHeight", static_cast<int>(confirm.second.anchorHeight));
-//            itemConfirm.pushKV("prevAnchorHeight", static_cast<int>(confirm.second.prevAnchorHeight));
-//            confirmsArr.push_back(itemConfirm);
-//        }
-//        item.pushKV("confirms", confirmsArr);
-//        result.push_back(item);
-//    }
+    CAnchorConfirmMessage const * prev = nullptr;
+    std::vector<CKeyID> signers;
+    panchorAwaitingConfirms->ForEachConfirm([&result, &prev, &signers](const CAnchorConfirmMessage & confirm) {
+        if (!prev)
+            prev = &confirm;
+
+        if (prev->GetSignHash() != confirm.GetSignHash()) {
+            // flush group
+            UniValue item(UniValue::VOBJ);
+            item.pushKV("confirmHash", prev->GetHash().ToString());
+            item.pushKV("btcTxHash", prev->btcTxHash.ToString());
+            item.pushKV("anchorHeight", static_cast<int>(prev->anchorHeight));
+            item.pushKV("prevAnchorHeight", static_cast<int>(prev->prevAnchorHeight));
+            item.pushKV("signers", signers.size());
+            result.push_back(item);
+
+            // clear
+            signers.clear();
+            prev = &confirm;
+        }
+        signers.push_back(confirm.GetSigner());
+        return true;
+    });
+
+    if (prev) {
+        // place last confirm's group
+        UniValue item(UniValue::VOBJ);
+        item.pushKV("confirmHash", prev->GetHash().ToString());
+        item.pushKV("btcTxHash", prev->btcTxHash.ToString());
+        item.pushKV("anchorHeight", static_cast<int>(prev->anchorHeight));
+        item.pushKV("prevAnchorHeight", static_cast<int>(prev->prevAnchorHeight));
+        item.pushKV("signers", signers.size());
+        result.push_back(item);
+    }
     return result;
 }
 
