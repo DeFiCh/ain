@@ -2161,7 +2161,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
                 if (pindex->pprev) {
                     auto masternodes = mnview.GetMasternodes();
-                    if (nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier, &masternodes)) { /// @todo rewards review - team?????
+                    if (nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier, &masternodes)) {
                         return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                              error("ConnectBlock(): anchor wrong next team"),
                                              REJECT_INVALID, "bad-ar-nextteam");

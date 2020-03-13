@@ -144,7 +144,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
 
-    /// @todo panchorAwaitingConfirms - review!
     auto currentTeam = pmasternodesview->GetCurrentTeam();
     auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
     if (confirms.size() > 0) { // quorum or zero
@@ -184,8 +183,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         pblocktemplate->vTxFees.push_back(0);
         pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
 
-//                /// @todo panchorAwaitingConfirms - REVIEW!
-////                panchorAwaitingConfirms->EraseAnchor(confirmsForAnchor.first);
+        // DO NOT erase votes here! they'll be cleaned after block connection (ONLY!)
+//        panchorAwaitingConfirms->EraseAnchor(confirmsForAnchor.first);
     }
 
     CTransactionRef criminalTx = nullptr;
