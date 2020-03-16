@@ -4005,7 +4005,17 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
         if (!panchorauths->ExistVote(auth.GetSignHash(), operatorAuthAddress))
         {
             auth.SignWithKey(masternodekey);
-            LogPrintf("Anchor auth message signed, hash: %s, height: %d\n", auth.GetHash().ToString(), auth.height);
+            LogPrintf("Anchor auth message signed, hash: %s, height: %d, prev: %s, teamSize: %ld, signHash: %s\n",
+                      auth.GetHash().ToString(),
+                      auth.height,
+                      auth.previousAnchor.ToString(),
+                      auth.nextTeam.size(),
+                      auth.GetSignHash().ToString()
+                      );
+            for (auto node : auth.nextTeam) {
+                LogPrintf("Anchor auth team: %s\n", node.ToString());
+            }
+
             panchorauths->AddAuth(auth);
             vInv.push_back(CInv(MSG_ANCHOR_AUTH, auth.GetHash()));
         }
