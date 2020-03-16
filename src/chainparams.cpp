@@ -402,7 +402,7 @@ public:
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.historyFrame = 300;
-        consensus.mn.anchoringTeamSize = 1;
+        consensus.mn.anchoringTeamSize = 8;
         consensus.mn.anchoringFrequency = 15;
         consensus.mn.anchoringLag = 15;
 
