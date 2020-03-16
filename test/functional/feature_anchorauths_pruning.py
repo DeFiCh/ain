@@ -49,11 +49,11 @@ class AnchorsAuthsPruningTest (DefiTestFramework):
         assert_equal(len(self.nodes[0].spv_listanchorauths()), 5) # + 60,75
 
         # Nothing should change
-        self.nodes[0].spv_setlastheight(6)
+        self.nodes[0].spv_setlastheight(5)
         assert_equal(len(self.nodes[0].spv_listanchorauths()), 5) # 15,30,45,60,75
 
         # Pruning should accure
-        self.nodes[0].spv_setlastheight(7)
+        self.nodes[0].spv_setlastheight(6)
         auths = self.nodes[0].spv_listanchorauths() # 60,75 only
         assert_equal(len(auths), 2)
         assert_equal(auths[0]['blockHeight'], 75)

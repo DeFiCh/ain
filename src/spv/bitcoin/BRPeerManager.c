@@ -1859,7 +1859,10 @@ void BRPeerManagerRescanFromBlockNumber(BRPeerManager *manager, uint32_t blockNu
         needConnect = _BRPeerManagerRescan(manager, block);
     }
     pthread_mutex_unlock(&manager->lock);
-    if (needConnect) BRPeerManagerConnect(manager);
+    if (needConnect) {
+        if (manager->txStatusUpdate) manager->txStatusUpdate(manager->info);    /// @todo check for lastblockheight!
+        BRPeerManagerConnect(manager);
+    }
 }
 
 // the (unverified) best block height reported by connected peers

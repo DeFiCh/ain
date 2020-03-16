@@ -123,8 +123,8 @@ class AnchorsTest (DefiTestFramework):
         self.check_rpc_fails()
 
         estimated = self.nodes[0].spv_estimateanchorcost()
-        assert_equal(self.nodes[0].spv_estimateanchorcost(2000), estimated+490)
-        assert_equal(self.nodes[0].spv_estimateanchorcost(2500), estimated+490+245)
+        assert_equal(self.nodes[0].spv_estimateanchorcost(2000), estimated+662)
+        assert_equal(self.nodes[0].spv_estimateanchorcost(2500), estimated+662+331)
 
         self.nodes[0].spv_createanchortemplate("mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
 

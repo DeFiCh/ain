@@ -308,7 +308,7 @@ bool CSpvWrapper::Rescan(int height)
     LogPrintf("spv: actual new current block %u\n", curHeight);
 
     LOCK(cs_main);
-    panchors->ActivateBestAnchor(curHeight, true);
+    panchors->ActivateBestAnchor(true);
 
     return true;
 }
@@ -399,7 +399,7 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
             LogPrintf("spv: updating anchor %s\n", txHash.ToString());
             CAnchor oldAnchor{exist->anchor};
             if (panchors->AddAnchor(oldAnchor, txHash, blockHeight, true)) {
-                LogPrintf("AnchorConfirms::OnTxUpdated: start relay message %s\n", txHash.ToString());
+                LogPrintf("Anchor added/updated %s\n", txHash.ToString());
             }
         }
     }
@@ -431,7 +431,7 @@ void CSpvWrapper::OnSyncStopped(int error)
 void CSpvWrapper::OnTxStatusUpdate()
 {
     LogPrintf("spv: tx status update\n");
-    CAnchorIndex::CheckActiveAnchor();
+    panchors->CheckActiveAnchor();
 }
 
 void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blocksCount)
