@@ -8,7 +8,7 @@
 - verify anchors rewards
 """
 
-# import time
+import time
 
 from test_framework.test_framework import DefiTestFramework
 
@@ -96,6 +96,7 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[1].spv_setlastheight(6)
         # important to wait here!
         self.sync_blocks(self.nodes[0:2])
+        time.sleep(3)
 
         conf0 = self.nodes[0].spv_listanchorconfirms()
         print ("Confs created, only active anchor:", conf0)
@@ -127,6 +128,7 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[2].generate(2)
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_all()
+        time.sleep(3)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 0)
         assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 1)
         # node2 knows nothing about confirms, should it?
@@ -136,6 +138,7 @@ class AnchorRewardsTest (DefiTestFramework):
         print ("Reward again")
         self.nodes[1].generate(1)
         self.sync_all()
+        time.sleep(3)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 1)
         assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 0)
 
@@ -144,6 +147,7 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[1].spv_setlastheight(6)
         self.nodes[0].generate(60)
         self.sync_all()
+        time.sleep(3)
 
         rewardAddress2 = self.nodes[0].getnewaddress("", "legacy")
         txAnc2 = self.nodes[0].spv_createanchor([{
@@ -156,8 +160,11 @@ class AnchorRewardsTest (DefiTestFramework):
 
         self.nodes[0].spv_setlastheight(7)
         self.nodes[1].spv_setlastheight(7)
+        time.sleep(3)
 
         self.nodes[0].generate(15)
+        self.sync_all()
+        time.sleep(3)
         rewardAddress3 = self.nodes[0].getnewaddress("", "legacy")
         txAnc3 = self.nodes[0].spv_createanchor([{
             'txid': "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
@@ -174,10 +181,12 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[1].spv_setlastheight(13)
         # important to wait here!
         self.sync_blocks(self.nodes[0:2])
-
+        time.sleep(3)
         assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 2)
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
+        time.sleep(3)
+
         assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 1)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 2)
         self.nodes[0].generate(1)
@@ -197,6 +206,7 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[2].generate(3)
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_all()
+        time.sleep(3)
         assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 2)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 1)
 
