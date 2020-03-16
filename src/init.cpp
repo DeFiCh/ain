@@ -449,6 +449,7 @@ void SetupServerArgs()
     gArgs.AddArg("-masternode_owner=<address>", "Masternode owner address (default: empty)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-masternode_operator=<address>", "Masternode operator address (default: empty)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dummypos", "Flag to skip PoS-related checks (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-anchorquorum", "Min quorum size (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 1)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-fakespv", "Fake SPV for testing purposes (default: 0, regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-criminals", "punishment of criminal nodes (default: 0, regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
