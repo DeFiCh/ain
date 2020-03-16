@@ -459,11 +459,11 @@ UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
     ParseHashStr(request.params[0].getValStr(), txHash);
 
     // ! before cs_main lock
-    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
+//    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
 
     auto locked_chain = pwallet->chain().lock();
-
-    return UniValue(panchors->GetAnchorConfirmations(txHash, spvLastHeight));
+//    panchors->UpdateLastHeight(spvLastHeight);
+    return UniValue(panchors->GetAnchorConfirmations(txHash));
 }
 
 UniValue spv_listanchors(const JSONRPCRequest& request)
@@ -487,20 +487,21 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
     // ! before cs_main lock
-    uint32_t const spvLastHeight = spv::pspv->GetLastBlockHeight();
+//    uint32_t const spvLastHeight = spv::pspv->GetLastBlockHeight();
 
     auto locked_chain = pwallet->chain().lock();
 
-    auto const * top = panchors->GetActiveAnchor();
-    auto const * cur = top;
+    auto const * cur = panchors->GetActiveAnchor();
     UniValue result(UniValue::VARR);
-    panchors->ForEachAnchorByBtcHeight([&result, &top, &cur, spvLastHeight](const CAnchorIndex::AnchorRec & rec) {
+    panchors->ForEachAnchorByBtcHeight([&result, &cur](const CAnchorIndex::AnchorRec & rec) {
+        CTxDestination rewardDest = rec.anchor.rewardKeyType == 1 ? CTxDestination(PKHash(rec.anchor.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(rec.anchor.rewardKeyID));
         UniValue anchor(UniValue::VOBJ);
         anchor.pushKV("btcBlockHeight", static_cast<int>(rec.btcHeight));
         anchor.pushKV("btcTxHash", rec.txHash.ToString());
         anchor.pushKV("defiBlockHeight", static_cast<int>(rec.anchor.height));
         anchor.pushKV("defiBlockHash", rec.anchor.blockHash.ToString());
-        anchor.pushKV("confirmations", panchors->GetAnchorConfirmations(&rec, spvLastHeight));
+        anchor.pushKV("rewardAddress", EncodeDestination(rewardDest));
+        anchor.pushKV("confirmations", panchors->GetAnchorConfirmations(&rec));
         bool const isActive = cur && cur->txHash == rec.txHash;
         anchor.pushKV("active", isActive);
         if (isActive) {
@@ -585,20 +586,42 @@ UniValue spv_listanchorconfirms(const JSONRPCRequest& request)
 
     UniValue result(UniValue::VARR);
 
-    auto confirms = panchorAwaitingConfirms->GetConfirms();
-    for (auto && confirmsForAnchor : confirms) {
-        UniValue item(UniValue::VOBJ);
-        item.pushKV("anchorHash", confirmsForAnchor.first.ToString());
-        UniValue confirmsArr(UniValue::VARR);
-        for (auto && confirm : confirmsForAnchor.second) {
-            UniValue itemConfirm(UniValue::VOBJ);
-            itemConfirm.pushKV("confirmHash", confirm.first.ToString());
-            itemConfirm.pushKV("btcTxHash", confirm.second.btcTxHash.ToString());
-            itemConfirm.pushKV("anchorHeight", static_cast<int>(confirm.second.anchorHeight));
-            itemConfirm.pushKV("prevAnchorHeight", static_cast<int>(confirm.second.prevAnchorHeight));
-            confirmsArr.push_back(itemConfirm);
+    CAnchorConfirmMessage const * prev = nullptr;
+    std::vector<CKeyID> signers;
+    panchorAwaitingConfirms->ForEachConfirm([&result, &prev, &signers](const CAnchorConfirmMessage & confirm) {
+        if (!prev)
+            prev = &confirm;
+
+        if (prev->GetSignHash() != confirm.GetSignHash()) {
+            // flush group
+            CTxDestination rewardDest = prev->rewardKeyType == 1 ? CTxDestination(PKHash(prev->rewardKeyID)) : CTxDestination(WitnessV0KeyHash(prev->rewardKeyID));
+            UniValue item(UniValue::VOBJ);
+            item.pushKV("btcTxHash", prev->btcTxHash.ToString());
+            item.pushKV("anchorHeight", static_cast<int>(prev->anchorHeight));
+            item.pushKV("prevAnchorHeight", static_cast<int>(prev->prevAnchorHeight));
+            item.pushKV("rewardAddress", EncodeDestination(rewardDest));
+            item.pushKV("confirmSignHash", prev->GetSignHash().ToString());
+            item.pushKV("signers", signers.size());
+            result.push_back(item);
+
+            // clear
+            signers.clear();
+            prev = &confirm;
         }
-        item.pushKV("confirms", confirmsArr);
+        signers.push_back(confirm.GetSigner());
+        return true;
+    });
+
+    if (prev) {
+        // place last confirm's group
+        CTxDestination rewardDest = prev->rewardKeyType == 1 ? CTxDestination(PKHash(prev->rewardKeyID)) : CTxDestination(WitnessV0KeyHash(prev->rewardKeyID));
+        UniValue item(UniValue::VOBJ);
+        item.pushKV("btcTxHash", prev->btcTxHash.ToString());
+        item.pushKV("anchorHeight", static_cast<int>(prev->anchorHeight));
+        item.pushKV("prevAnchorHeight", static_cast<int>(prev->prevAnchorHeight));
+        item.pushKV("rewardAddress", EncodeDestination(rewardDest));
+        item.pushKV("confirmSignHash", prev->GetSignHash().ToString());
+        item.pushKV("signers", signers.size());
         result.push_back(item);
     }
     return result;
@@ -627,6 +650,8 @@ UniValue spv_listanchorrewards(const JSONRPCRequest& request)
 
     auto rewards = pmasternodesview->ListAnchorRewards();
     for (auto && reward : rewards) { // std::map<AnchorTxHash, RewardTxHash>
+        if (reward.second == uint256{}) // may be empty if deleted until db flush
+            continue;
         UniValue item(UniValue::VOBJ);
         item.pushKV("AnchorTxHash", reward.first.ToString());
         item.pushKV("RewardTxHash", reward.second.ToString());
@@ -658,7 +683,7 @@ UniValue spv_setlastheight(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_REQUEST, "command disabled");
 
     fake_spv->lastBlockHeight = request.params[0].get_int();
-    CAnchorIndex::CheckActiveAnchor(true);
+    panchors->CheckActiveAnchor(true);
     return UniValue();
 }
 

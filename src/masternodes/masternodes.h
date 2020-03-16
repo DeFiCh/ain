@@ -239,7 +239,6 @@ public:
 
     virtual CMasternodes GetMasternodes() const
     {
-        /// for tests now, will be changed
         return allNodes;
     }
 
@@ -270,15 +269,15 @@ public:
     virtual void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact) { assert(false); }
     virtual void EraseCriminal(uint256 const & mnId) { assert(false); }
 
-    virtual void WriteCurrentTeam(std::set<CKeyID> const & currentTeam) { assert(false); }
-    virtual bool LoadCurrentTeam(std::set<CKeyID> & newTeam) { assert(false); }
-    virtual bool EraseCurrentTeam() { assert(false); }
+//    virtual void WriteCurrentTeam(std::set<CKeyID> const & currentTeam) { assert(false); }
+//    virtual bool LoadCurrentTeam(std::set<CKeyID> & newTeam) { assert(false); }
+//    virtual bool EraseCurrentTeam() { assert(false); }
 
-    virtual void WriteAnchorReward(uint256 const & anchorHash, uint256 const & rewardTxHash) { assert(false); }
-    virtual bool EraseAnchorReward(uint256 const & anchorHash) { assert(false); }
+//    virtual void WriteAnchorReward(uint256 const & anchorHash, uint256 const & rewardTxHash) { assert(false); }
+//    virtual bool EraseAnchorReward(uint256 const & anchorHash) { assert(false); }
 
-    virtual void WriteFoundationsDebt(CAmount const foundationsDebt) { assert(false); }
-    virtual bool LoadFoundationsDebt() { assert(false); }
+//    virtual void WriteFoundationsDebt(CAmount const foundationsDebt) { assert(false); }
+//    virtual bool LoadFoundationsDebt() { assert(false); }
 
     bool CanSpend(uint256 const & nodeId, int height) const;
     bool IsAnchorInvolved(uint256 const & nodeId, int height) const;
@@ -291,7 +290,7 @@ public:
 
     // Masternodes Teams
     void SetTeam(CTeam newTeam);
-    const std::set<CKeyID> &GetCurrentTeam();
+    const CTeam &GetCurrentTeam();
     CTeam CalcNextTeam(uint256 stakeModifier, const CMasternodes * masternodes = nullptr);
 
     // Criminals
@@ -318,7 +317,7 @@ public:
     void CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash);
 
     // FoundationsDebt
-    const CAmount GetFoundationsDebt();
+    CAmount GetFoundationsDebt();
     void SetFoundationsDebt(CAmount debt);
 
     // Outside
@@ -374,8 +373,9 @@ public:
 
     CAnchorsRewards ListAnchorRewards() const override
     {
-        auto result = base->ListAnchorRewards();
-        result.insert(rewards.begin(), rewards.end());
+        auto const baseRewards = base->ListAnchorRewards();
+        CAnchorsRewards result(rewards);
+        result.insert(baseRewards.begin(), baseRewards.end());
         return result;
     }
 
