@@ -184,7 +184,7 @@ bool CAnchorAuthIndex::AddAuth(const CAnchorAuthIndex::Auth & auth)
 uint32_t GetMinAnchorQuorum(CMasternodesView::CTeam const & team)
 {
     if (Params().NetworkIDString() == "regtest") {
-        return 1;
+        return gArgs.GetArg("-anchorquorum", 1);
     }
     return  static_cast<uint32_t>(1 + (team.size() * 2) / 3); // 66% + 1
 }
@@ -211,7 +211,7 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest) co
 
     // get freshest consensus:
     for (auto it = list.rbegin(); it != list.rend() && it->height > topHeight; ++it) {
-        LogPrintf("auths: debug %d, %s, %s\n", it->height, it->blockHash.ToString(), it->GetHash().ToString());
+        LogPrintf("auths: debug %d, blockHash %s, signHash %s, msg %s\n", it->height, it->blockHash.ToString(), it->GetSignHash().ToString(), it->GetHash().ToString());
         if (topAnchor && topAnchor->txHash != it->previousAnchor)
             continue;
 
@@ -676,7 +676,7 @@ bool CAnchorAwaitingConfirms::EraseAnchor(AnchorTxHash const &txHash)
 {
     AssertLockHeld(cs_main);
 
-    auto & list = confirms.get<Confirm::ByMsgHash>();
+    auto & list = confirms.get<Confirm::ByAnchor>();
     auto count = list.erase(txHash); // should erase ALL with that key. Check it!
     LogPrintf("AnchorConfirms::EraseAnchor: erase %d confirms for anchor %s\n", count, txHash.ToString());
 

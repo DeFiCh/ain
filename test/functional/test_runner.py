@@ -77,7 +77,6 @@ EXTENDED_SCRIPTS = [
     'mempool_accept.py',# moved to ext due to heavy load for trevis
     'wallet_backup.py', # moved to ext due to heavy load for trevis
     'feature_anchorauths.py',         # moved due to tooo early IBD exit in regtests
-    'feature_anchorauths_pruning.py', # moved due to tooo early IBD exit in regtests
 ]
 
 BASE_SCRIPTS = [
@@ -117,6 +116,8 @@ BASE_SCRIPTS = [
     'wallet_keypool_topup.py',
     'feature_fee_estimation.py',
     'feature_anchors.py',
+    'feature_anchor_rewards.py',
+    'feature_anchorauths_pruning.py',
     'interface_zmq.py',
     'interface_defi_cli.py',
     'mempool_resurrect.py',
