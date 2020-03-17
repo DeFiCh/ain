@@ -114,6 +114,7 @@ class TestNode():
         self.perf_subprocesses = {}
 
         self.p2ps = []
+        self.node_id = None
 
     MnKeys = collections.namedtuple('MnKeys', ['ownerAuthAddress', 'ownerPrivKey', 'operatorAuthAddress', 'operatorPrivKey'])
     PRIV_KEYS = [ # at least node0&1 operator should be non-witness!!! (feature_bip68_sequence.py,interface_zmq,rpc_psbt  fails)
@@ -134,6 +135,17 @@ class TestNode():
         """Return a deterministic priv key in base58, that only depends on the node's index"""
         assert self.index <= len(self.PRIV_KEYS)
         return self.PRIV_KEYS[self.index]
+
+    def get_node_id(self):
+        if self.node_id is not None:
+            return self.node_id
+
+        nodes = self.listmasternodes()
+        genesiskeys = self.get_genesis_keys()
+        for nodekey in nodes.keys():
+            if nodes[nodekey]['operatorAuthAddress'] == genesiskeys.operatorAuthAddress:
+                self.node_id = nodekey
+        return self.node_id
 
     def pullup_mocktime(self):
         TestNode.Mocktime = self.getblockheader(self.getbestblockhash())["time"]

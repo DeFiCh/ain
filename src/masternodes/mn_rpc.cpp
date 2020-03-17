@@ -349,6 +349,8 @@ UniValue mnToJSON(CMasternode const & node)
 
 UniValue listmasternodes(const JSONRPCRequest& request)
 {
+    CWallet* const pwallet = GetWallet(request);
+
     RPCHelpMan{"listmasternodes",
         "\nReturns information about specified masternodes (or all, if list of ids is empty).\n",
         {
@@ -363,12 +365,10 @@ UniValue listmasternodes(const JSONRPCRequest& request)
             "{id:{...},...}     (array) Json object with masternodes information\n"
         },
         RPCExamples{
-            HelpExampleCli("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
-            + HelpExampleRpc("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+            HelpExampleCli("listmasternodes", "\"[mn_id]\" False")
+            + HelpExampleRpc("listmasternodes", "\"[mn_id]\" False")
         },
     }.Check(request);
-
-    LOCK(cs_main);
 
     RPCTypeCheck(request.params, { UniValue::VARR, UniValue::VBOOL }, true);
 
@@ -382,6 +382,8 @@ UniValue listmasternodes(const JSONRPCRequest& request)
     {
         verbose = request.params[1].get_bool();
     }
+
+    auto locked_chain = pwallet->chain().lock();
 
     UniValue ret(UniValue::VOBJ);
     CMasternodes const & mns = pmasternodesview->GetMasternodes();
@@ -409,6 +411,39 @@ UniValue listmasternodes(const JSONRPCRequest& request)
     return ret;
 }
 
+UniValue listcriminalproofs(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"listcriminalproofs",
+        "\nReturns information about criminal proofs (pairs of signed blocks by one MN from different forks).\n",
+        {
+        },
+        RPCResult{
+            "{id:{block1, block2},...}     (array) Json objects with block pairs\n"
+        },
+        RPCExamples{
+            HelpExampleCli("listcriminalproofs", "")
+            + HelpExampleRpc("listcriminalproofs", "")
+        },
+    }.Check(request);
+
+    auto locked_chain = pwallet->chain().lock();
+
+    UniValue ret(UniValue::VOBJ);
+    auto const proofs = pmasternodesview->GetUnpunishedCriminals();
+    for (auto const & proof : proofs) {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("hash1", proof.second.blockHeader.GetHash().ToString());
+        obj.pushKV("height1", proof.second.blockHeader.height);
+        obj.pushKV("hash2", proof.second.conflictBlockHeader.GetHash().ToString());
+        obj.pushKV("height2", proof.second.conflictBlockHeader.height);
+        obj.pushKV("mintedBlocks", proof.second.blockHeader.mintedBlocks);
+        ret.pushKV(proof.first.ToString(), obj);
+    }
+    return ret;
+}
+
 
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
@@ -416,6 +451,7 @@ static const CRPCCommand commands[] =
   { "masternodes",      "createmasternode",         &createmasternode,          { "inputs", "metadata" }  },
   { "masternodes",      "resignmasternode",         &resignmasternode,          { "inputs", "mn_id" }  },
   { "masternodes",      "listmasternodes",          &listmasternodes,           { "list", "verbose" } },
+  { "masternodes",      "listcriminalproofs",       &listcriminalproofs,        { } },
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable &tableRPC)
