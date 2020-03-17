@@ -8,12 +8,10 @@
 - verify anchors rewards
 """
 
-import time
-
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal, \
-    connect_nodes_bi, disconnect_nodes
+    connect_nodes_bi, disconnect_nodes, wait_until
 
 class AnchorRewardsTest (DefiTestFramework):
     def set_test_params(self):
@@ -43,6 +41,16 @@ class AnchorRewardsTest (DefiTestFramework):
         print ("Heights:", self.nodes[0].getblockcount(), "\t", self.nodes[1].getblockcount(), "\t", self.nodes[2].getblockcount())
         # pass
 
+    def authsquorum(self, height, node=None):
+        QUORUM = 2
+        if node is None:
+            node = 0
+        auths = self.nodes[node].spv_listanchorauths()
+        for auth in auths:
+            if auth['blockHeight'] == height and auth['signers'] >= QUORUM:
+                return True
+        return False
+
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
 
@@ -55,6 +63,8 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[0].spv_setlastheight(1)
         rewardAddress0 = self.nodes[0].getnewaddress("", "legacy")
         rewardAddress1 = self.nodes[0].getnewaddress("", "legacy")
+
+        wait_until(lambda: self.authsquorum(15), timeout=10)
         txAnc0 = self.nodes[0].spv_createanchor([{
             'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
             'vout': 3,
@@ -78,7 +88,7 @@ class AnchorRewardsTest (DefiTestFramework):
         else:
             activeAnc = anchors[1]
 
-        print ("Confs init:", self.nodes[0].spv_listanchorconfirms())
+        print ("Confs init:")
         assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 0)
         self.nodes[0].spv_setlastheight(5)
         self.nodes[1].spv_setlastheight(5)
@@ -96,7 +106,7 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[1].spv_setlastheight(6)
         # important to wait here!
         self.sync_blocks(self.nodes[0:2])
-        time.sleep(3)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 1 and self.nodes[0].spv_listanchorconfirms()[0]['signers'] == 2, timeout=10)
 
         conf0 = self.nodes[0].spv_listanchorconfirms()
         print ("Confs created, only active anchor:", conf0)
@@ -111,7 +121,7 @@ class AnchorRewardsTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
         # confirms should disappear
-        assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 0)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 0, timeout=10)
 
         # check reward tx
         rew0 = self.nodes[0].spv_listanchorrewards()
@@ -128,26 +138,24 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[2].generate(2)
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_all()
-        time.sleep(3)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 1, timeout=10) # while rollback, it should appear w/o wait
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 0)
-        assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 1)
         # node2 knows nothing about confirms, should it?
-        assert_equal(len(self.nodes[2].spv_listanchorrewards()), 0)
         assert_equal(len(self.nodes[2].spv_listanchorconfirms()), 0)
+        assert_equal(len(self.nodes[2].spv_listanchorrewards()), 0)
 
         print ("Reward again")
         self.nodes[1].generate(1)
         self.sync_all()
-        time.sleep(3)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 0, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 1)
-        assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 0)
 
         print ("Generate more (2 unpayed rewards at once)")
         self.nodes[0].spv_setlastheight(6)
         self.nodes[1].spv_setlastheight(6)
         self.nodes[0].generate(60)
         self.sync_all()
-        time.sleep(3)
+        wait_until(lambda: self.authsquorum(75), timeout=10)
 
         rewardAddress2 = self.nodes[0].getnewaddress("", "legacy")
         txAnc2 = self.nodes[0].spv_createanchor([{
@@ -160,11 +168,11 @@ class AnchorRewardsTest (DefiTestFramework):
 
         self.nodes[0].spv_setlastheight(7)
         self.nodes[1].spv_setlastheight(7)
-        time.sleep(3)
 
         self.nodes[0].generate(15)
         self.sync_all()
-        time.sleep(3)
+        wait_until(lambda: self.authsquorum(90), timeout=10)
+
         rewardAddress3 = self.nodes[0].getnewaddress("", "legacy")
         txAnc3 = self.nodes[0].spv_createanchor([{
             'txid': "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
@@ -181,16 +189,15 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[1].spv_setlastheight(13)
         # important to wait here!
         self.sync_blocks(self.nodes[0:2])
-        time.sleep(3)
-        assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 2)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 2 and self.nodes[0].spv_listanchorconfirms()[0]['signers'] == 2 and self.nodes[0].spv_listanchorconfirms()[1]['signers'] == 2, timeout=10)
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
-        time.sleep(3)
 
-        assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 1)
+        # there is a tricky place here: the rest of confirms should be revoted, but it is very hard to check in regtest due to the same team
+        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 1 and self.nodes[0].spv_listanchorconfirms()[0]['signers'] == 2, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 2)
         self.nodes[0].generate(1)
-        assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 0)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 0, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 3)
 
         # check reward of anc2 value (should be 5)
@@ -206,8 +213,7 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[2].generate(3)
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_all()
-        time.sleep(3)
-        assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 2)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 2, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 1)
 
 if __name__ == '__main__':
