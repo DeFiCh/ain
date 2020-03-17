@@ -22,7 +22,6 @@
 
 class CTransaction;
 class CAnchor;
-// class CBlockHeader;
 
 static const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};  // 44665478
 
@@ -136,7 +135,6 @@ class CDoubleSignFact
 public:
     CBlockHeader blockHeader;
     CBlockHeader conflictBlockHeader;
-    uint256 wastedTxId;
 
     ADD_SERIALIZE_METHODS;
 
@@ -145,7 +143,6 @@ public:
     {
         READWRITE(blockHeader);
         READWRITE(conflictBlockHeader);
-        READWRITE(wastedTxId);
     }
 
     friend bool operator==(CDoubleSignFact const & a, CDoubleSignFact const & b);
@@ -172,7 +169,7 @@ public:
     };
     typedef std::map<int, std::pair<uint256, MasternodesTxType> > CMnTxsUndo; // txn, undoRec
     typedef std::map<int, CMnTxsUndo> CMnBlocksUndo;
-    typedef std::map<uint256, CDoubleSignFact> CMnCriminals;
+    typedef std::map<uint256, CDoubleSignFact> CMnCriminals; // nodeId, two headers
     typedef std::map<AnchorTxHash, RewardTxHash> CAnchorsRewards;
     typedef std::set<CKeyID> CTeam;
 
@@ -242,17 +239,6 @@ public:
         return allNodes;
     }
 
-    virtual CMnCriminals GetUncaughtCriminals()
-    {
-        CMnCriminals uncaughtCriminals;
-        for (auto && criminal : criminals) {
-            if (criminal.second.wastedTxId == uint256{}) {
-                uncaughtCriminals.insert(criminal);
-            }
-        }
-        return uncaughtCriminals;
-    }
-
     //! Initial load of all data
     virtual bool Load() { assert(false); }
     virtual bool Flush() { assert(false); }
@@ -262,22 +248,14 @@ public:
 
     virtual CMasternode const * ExistMasternode(uint256 const & id) const;
 
+    // "off-chain" data, should be written directly
     virtual void WriteMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true) { assert(false); }
-    virtual bool FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true) { assert(false); }
+    virtual bool FetchMintedHeaders(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true) { assert(false); }
     virtual void EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash) { assert(false); }
 
+    // "off-chain" data, should be written directly
     virtual void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact) { assert(false); }
     virtual void EraseCriminal(uint256 const & mnId) { assert(false); }
-
-//    virtual void WriteCurrentTeam(std::set<CKeyID> const & currentTeam) { assert(false); }
-//    virtual bool LoadCurrentTeam(std::set<CKeyID> & newTeam) { assert(false); }
-//    virtual bool EraseCurrentTeam() { assert(false); }
-
-//    virtual void WriteAnchorReward(uint256 const & anchorHash, uint256 const & rewardTxHash) { assert(false); }
-//    virtual bool EraseAnchorReward(uint256 const & anchorHash) { assert(false); }
-
-//    virtual void WriteFoundationsDebt(CAmount const foundationsDebt) { assert(false); }
-//    virtual bool LoadFoundationsDebt() { assert(false); }
 
     bool CanSpend(uint256 const & nodeId, int height) const;
     bool IsAnchorInvolved(uint256 const & nodeId, int height) const;
@@ -294,13 +272,13 @@ public:
     CTeam CalcNextTeam(uint256 stakeModifier, const CMasternodes * masternodes = nullptr);
 
     // Criminals
-    bool CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader);
-    void MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
-    boost::optional<CDoubleSignFact> FindCriminalProofForMasternode(uint256 const & id);
-    void MarkMasternodeAsWastedCriminal(uint256 const &mnId, uint256 const &txId);
-    void RemoveMasternodeFromCriminals(uint256 const &criminalID);
-    void BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height);
-    void UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata);
+    static bool IsDoubleSigned(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader, CKeyID & minter);
+    void AddCriminalProof(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader);
+    void RemoveCriminalProofs(uint256 const &criminalID);
+    CMnCriminals GetUnpunishedCriminals() const;
+
+    bool BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height);
+    bool UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata);
 
     // Anchors Rewards
     virtual RewardTxHash GetRewardForAnchor(AnchorTxHash const &btcTxHash) const
@@ -435,5 +413,7 @@ extern std::unique_ptr<CMasternodesView> pmasternodesview;
 
 //! Checks if given tx is probably one of custom 'MasternodeTx', returns tx type and serialized metadata in 'data'
 MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<unsigned char> & metadata);
+
+bool IsDoubleSignRestricted(uint64_t height1, uint64_t height2);
 
 #endif // DEFI_MASTERNODES_MASTERNODES_H
