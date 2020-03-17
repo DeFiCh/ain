@@ -185,8 +185,7 @@ bool operator!=(CMasternode const & a, CMasternode const & b)
 bool operator==(CDoubleSignFact const & a, CDoubleSignFact const & b)
 {
     return (a.blockHeader.GetHash() == b.blockHeader.GetHash() &&
-            a.conflictBlockHeader.GetHash() == b.conflictBlockHeader.GetHash() &&
-            a.wastedTxId == b.wastedTxId
+            a.conflictBlockHeader.GetHash() == b.conflictBlockHeader.GetHash()
     );
 }
 
@@ -475,124 +474,86 @@ void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor
     }
 }
 
-bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)
+bool CMasternodesView::IsDoubleSigned(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader, CKeyID & minter)
 {
+    // not necessary to check if such masternode exists or active. this is proof by itself!
     CKeyID firstKey, secondKey;
-    if (!oneHeader.ExtractMinterKey(firstKey)) {
-        // TODO: SS may be throw exception
-        return false;
-    }
-    auto itFirstMN = ExistMasternode(AuthIndex::ByOperator, firstKey);
-    if (!itFirstMN) {
-        // TODO: SS may be throw exception
-        return false;
-    }
-    if (!twoHeader.ExtractMinterKey(secondKey)) {
-        // TODO: SS may be throw exception
-        return false;
-    }
-    auto itSecondMN = ExistMasternode(AuthIndex::ByOperator, firstKey);
-    if (!itSecondMN) {
-        // TODO: SS may be throw exception
+    if (!oneHeader.ExtractMinterKey(firstKey) || !twoHeader.ExtractMinterKey(secondKey)) {
         return false;
     }
 
-    if ((std::max(oneHeader.height, twoHeader.height) - std::min(oneHeader.height, twoHeader.height)) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL &&
-        itFirstMN == itSecondMN &&
+    if (IsDoubleSignRestricted(oneHeader.height, twoHeader.height) &&
+        firstKey == secondKey &&
         oneHeader.mintedBlocks == twoHeader.mintedBlocks &&
         oneHeader.GetHash() != twoHeader.GetHash()
         ) {
-        return false;
+        minter = firstKey;
+        return true;
     }
-    return true;
+    return false;
 }
 
-void CMasternodesView::MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader)
+void CMasternodesView::AddCriminalProof(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader)
 {
-    criminals.emplace(std::make_pair(id, CDoubleSignFact{blockHeader, conflictBlockHeader, uint256{}}));
+    LogPrintf("Add criminal proof for node %s, blocks: %s, %s\n", id.ToString(), blockHeader.GetHash().ToString(), conflictBlockHeader.GetHash().ToString());
+    criminals.emplace(std::make_pair(id, CDoubleSignFact{blockHeader, conflictBlockHeader}));
 }
 
-boost::optional<CDoubleSignFact> CMasternodesView::FindCriminalProofForMasternode(uint256 const & id)
+void CMasternodesView::RemoveCriminalProofs(uint256 const &criminalID)
 {
-    auto it = criminals.find(id);
-    if (it != criminals.end()) {
-        return {it->second};
-    }
-    return {};
+    auto count = criminals.erase(criminalID); // should erase ALL with that key. Check it!
+    LogPrintf("Criminals: erase %d proofs for node %s\n", count, criminalID.ToString());
 }
 
-void CMasternodesView::MarkMasternodeAsWastedCriminal(uint256 const &mnId, uint256 const &txId)
+CMasternodesView::CMnCriminals CMasternodesView::GetUnpunishedCriminals() const
 {
-    if (criminals[mnId].wastedTxId != uint256{} && txId != uint256{}) { // skip repeated transactions
-        return ;
+    CMnCriminals result;
+    for (auto const & criminal : criminals) {
+        // matching with already punished. and this is the ONLY measure!
+        CMasternode const * node = ExistMasternode(criminal.first); // assert?
+        if (node && node->banTx.IsNull()) {
+            result.insert(criminal);
+        }
     }
-    auto it = criminals.find(mnId);
-    if (it != criminals.end()) {
-        criminals[mnId].wastedTxId = txId;
-    }
+    return result;
 }
 
-void CMasternodesView::RemoveMasternodeFromCriminals(uint256 const &criminalID)
-{
-    auto it = criminals.find(criminalID);
-    if (it != criminals.end()) {
-        criminals.erase(it);
-    }
-}
-
-void CMasternodesView::BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height)
+bool CMasternodesView::BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height)
 {
     std::pair<CBlockHeader, CBlockHeader> criminal;
     uint256 mnid;
-    uint32_t index;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> criminal.first >> criminal.second >> mnid;
+    ss >> criminal.first >> criminal.second >> mnid; // mnid is totally unnecessary!
 
-    if (!CheckDoubleSign(criminal.first, criminal.second)) {
-        if (!FindCriminalProofForMasternode(mnid)) {
-            MarkMasternodeAsCriminals(mnid, criminal.first, criminal.second);
-        }
-
+    CKeyID minter;
+    if (IsDoubleSigned(criminal.first, criminal.second, minter)) {
         auto const node = ExistMasternode(mnid);
-        if (node) {
-            auto state = node->GetState(height);
-            if (state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED) {
-                allNodes[mnid] = *node; // !! cause may be cached!
-                allNodes[mnid].banHeight = height;
-                allNodes[mnid].banTx = txid;
-            }
-        }
-
-        MarkMasternodeAsWastedCriminal(mnid, txid);
-    }
-}
-
-void CMasternodesView::UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata)
-{
-    std::pair<CBlockHeader, CBlockHeader> criminal;
-    uint256 mnid;
-    uint32_t index;
-    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> criminal.first >> criminal.second >> mnid;
-
-    auto it = criminals.find(mnid);
-
-    assert(it != criminals.end());
-
-    if (criminals[mnid].wastedTxId != uint256{} && criminals[mnid].wastedTxId != txid) {
-        return ; // skip reverting repeated transactions
-    }
-
-    if (!CheckDoubleSign(criminal.first, criminal.second)) {
-        auto const node = ExistMasternode(mnid);
-        if (node) {
+        if (node && node->operatorAuthAddress == minter && node->banTx.IsNull()) {
             allNodes[mnid] = *node; // !! cause may be cached!
-            allNodes[mnid].banHeight = -1;
-            allNodes[mnid].banTx = {};
+            allNodes[mnid].banHeight = height;
+            allNodes[mnid].banTx = txid;
+            return true;
         }
-
-        MarkMasternodeAsWastedCriminal(mnid, uint256{});
     }
+    return false;
+}
+
+bool CMasternodesView::UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata)
+{
+    std::pair<CBlockHeader, CBlockHeader> criminal;
+    uint256 mnid;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> criminal.first >> criminal.second >> mnid; // mnid is totally unnecessary!
+
+    // there is no need to check doublesigning or smth, we just rolling back previously approved (or ignored) banTx!
+    auto const node = ExistMasternode(mnid);
+    if (node && node->banTx == txid) {
+        allNodes[mnid] = *node; // !! cause may be cached!
+        allNodes[mnid].banHeight = -1;
+        allNodes[mnid].banTx = {};
+        return true;
+    }
+    return false;
 }
 
 bool CMasternodesView::ExtractCriminalProofFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
@@ -791,4 +752,9 @@ MasternodesTxType GuessMasternodeTxType(CTransaction const & tx, std::vector<uns
     }
     metadata.erase(metadata.begin(), metadata.begin() + DfTxMarker.size() + 1);
     return it->second;
+}
+
+bool IsDoubleSignRestricted(uint64_t height1, uint64_t height2)
+{
+    return (std::max(height1, height2) - std::min(height1, height2)) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL;
 }

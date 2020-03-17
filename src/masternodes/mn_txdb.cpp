@@ -124,11 +124,11 @@ void CMasternodesViewDB::WriteMintedBlockHeader(uint256 const & txid, uint64_t c
     if (fIsFakeNet) {
         return;
     }
-
+    // directly!
     db->Write(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash}, blockHeader);
 }
 
-bool CMasternodesViewDB::FindMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet)
+bool CMasternodesViewDB::FetchMintedHeaders(uint256 const & txid, uint64_t const mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet)
 {
     if (fIsFakeNet) {
         return false;
@@ -166,16 +166,19 @@ bool CMasternodesViewDB::FindMintedBlockHeader(uint256 const & txid, uint64_t co
 
 void CMasternodesViewDB::EraseMintedBlockHeader(uint256 const & txid, uint64_t const mintedBlocks, uint256 const & hash)
 {
+    // directly!
     db->Erase(DBMNBlockHeadersKey{DB_MN_BLOCK_HEADERS, DBMNBlockHeadersSearchKey{txid, mintedBlocks}, hash});
 }
 
 void CMasternodesViewDB::WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact)
 {
+    // directly!
     db->Write(make_pair(DB_MN_CRIMINALS, mnId), doubleSignFact);
 }
 
 void CMasternodesViewDB::EraseCriminal(uint256 const & mnId)
 {
+    // directly!
     db->Erase(make_pair(DB_MN_CRIMINALS, mnId));
 }
 
@@ -349,18 +352,6 @@ bool CMasternodesViewDB::Flush()
         }
     }
 
-    /// @todo review criminals!
-    for (auto && it = criminals.begin(); it != criminals.end(); )
-    {
-        if (it->second == CDoubleSignFact()) {
-            EraseCriminal(it->first);
-            it = criminals.erase(it);
-        } else {
-            WriteCriminal(it->first, it->second);
-            ++it;
-        }
-    }
-
     for (auto && it = rewards.begin(); it != rewards.end(); )
     {
         if (it->second == uint256{}) {
@@ -377,6 +368,19 @@ bool CMasternodesViewDB::Flush()
     WriteFoundationsDebt(foundationsDebt);
 
     CommitBatch();
+
+    // off-chain data with direct write. may be saved separately
+    for (auto && it = criminals.begin(); it != criminals.end(); )
+    {
+        if (it->second == CDoubleSignFact()) {
+            EraseCriminal(it->first);
+            it = criminals.erase(it);
+        } else {
+            WriteCriminal(it->first, it->second);
+            ++it;
+        }
+    }
+
     LogPrintf("MN: db saved: last height: %d; masternodes: %d; common undo: %d\n", lastHeight, nMasternodes, nUndo);
 
     return true;
