@@ -95,14 +95,6 @@ protected:
     void WriteMasternode(uint256 const & txid, CMasternode const & node);
     void EraseMasternode(uint256 const & txid);
 
-    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true) override;
-    bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true) override;
-    void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash) override;
-
-    /// @todo review criminals!
-    void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact) override;
-    void EraseCriminal(uint256 const & mnId) override;
-
     void WriteCurrentTeam(std::set<CKeyID> const & currentTeam);
     bool LoadCurrentTeam(std::set<CKeyID> & newTeam);
     bool EraseCurrentTeam();
@@ -118,6 +110,15 @@ protected:
 
     void WriteUndo(int height, CMnTxsUndo const & undo);
     void EraseUndo(int height);
+
+    // "off-chain" data, should be written directly
+    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true) override;
+    bool FetchMintedHeaders(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true) override;
+    void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash) override;
+
+    // "off-chain" data, should be written directly
+    void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact) override;
+    void EraseCriminal(uint256 const & mnId) override;
 
 public:
     bool Load() override;
