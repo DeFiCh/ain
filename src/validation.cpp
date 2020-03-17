@@ -3990,7 +3990,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     for (CBlockIndex const * pindex = tip; pindex && pindex != pindexFork; pindex = pindex->pprev) {
 
         int anchorHeight = (int)pindex->height - consensus.mn.anchoringLag;
-        if (anchorHeight <= 0) {
+        if (anchorHeight <= 0 || (topAnchor && topAnchor->anchor.height >= anchorHeight)) { // important to check prev anchor height!
             break;
         }
         if (pindex->height % consensus.mn.anchoringFrequency != 0) { // "height % 15" rule
