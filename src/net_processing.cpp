@@ -2209,6 +2209,17 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::SENDCMPCT, fAnnounceUsingCMPCTBLOCK, nCMPCTBLOCKVersion));
         }
         pfrom->fSuccessfullyConnected = true;
+
+        // announcing existent anchor confirmations for new connected node:
+        {
+            LOCK(cs_main);
+            panchorAwaitingConfirms->ForEachConfirm([&connman, &msgMaker, &pfrom](const CAnchorConfirmMessage & confirm) {
+                CInv inv(MSG_ANCHOR_CONFIRM, confirm.GetHash());
+                LogPrintf("AnchorConfirms::send inv: confirm message for NEW PEER, hash: %s, peer=%d\n", inv.hash.ToString(), pfrom->GetId());
+                connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
+            });
+        }
+
         return true;
     }
 
