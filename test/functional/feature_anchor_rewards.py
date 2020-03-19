@@ -8,6 +8,8 @@
 - verify anchors rewards
 """
 
+import time
+
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal, \
@@ -140,8 +142,7 @@ class AnchorRewardsTest (DefiTestFramework):
         self.sync_all()
         wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 1, timeout=10) # while rollback, it should appear w/o wait
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 0)
-        # node2 knows nothing about confirms, should it?
-        assert_equal(len(self.nodes[2].spv_listanchorconfirms()), 0)
+        wait_until(lambda: len(self.nodes[2].spv_listanchorconfirms()) == 1, timeout=10) # but wait here
         assert_equal(len(self.nodes[2].spv_listanchorrewards()), 0)
 
         print ("Reward again")
@@ -190,6 +191,13 @@ class AnchorRewardsTest (DefiTestFramework):
         # important to wait here!
         self.sync_blocks(self.nodes[0:2])
         wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 2 and self.nodes[0].spv_listanchorconfirms()[0]['signers'] == 2 and self.nodes[0].spv_listanchorconfirms()[1]['signers'] == 2, timeout=10)
+
+        # check confirmations (revoting) after node restart:
+        self.stop_node(0)
+        self.start_node(0)
+        connect_nodes_bi(self.nodes, 0, 1)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 2 and self.nodes[0].spv_listanchorconfirms()[0]['signers'] == 2 and self.nodes[0].spv_listanchorconfirms()[1]['signers'] == 2, timeout=10)
+
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
