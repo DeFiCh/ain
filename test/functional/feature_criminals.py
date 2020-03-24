@@ -108,15 +108,14 @@ class CriminalsTest (DefiTestFramework):
         self.start_nodes()
         self.import_deterministic_coinbase_privkeys()
 
-        node0id = self.nodes[0].get_node_id()
-        block1 = self.nodes[0].generate(1)[0]
+        self.nodes[0].generate(1)[0]
         self.nodes[1].generate(DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL)
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_blocks(self.nodes[0:2])
 
         assert_equal(len(self.nodes[1].listcriminalproofs()), 0)
         # node 0 generates block in a fork:
-        block2 = self.nodes[0].generate(1)[0]
+        self.nodes[0].generate(1)[0]
         self.sync_blocks(self.nodes[0:2])
         assert_equal(len(self.nodes[1].listcriminalproofs()), 1)
 
@@ -128,18 +127,42 @@ class CriminalsTest (DefiTestFramework):
         self.start_nodes()
         self.import_deterministic_coinbase_privkeys()
 
-        node0id = self.nodes[0].get_node_id()
-        block1 = self.nodes[0].generate(1)[0]
+        self.nodes[0].generate(1)[0]
         self.nodes[1].generate(DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL + 1)
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_blocks(self.nodes[0:2])
 
         assert_equal(len(self.nodes[1].listcriminalproofs()), 0)
         # node 0 generates block in a fork:
-        block2 = self.nodes[0].generate(1)[0]
+        self.nodes[0].generate(1)[0]
         self.sync_blocks(self.nodes[0:2])
         assert_equal(len(self.nodes[1].listcriminalproofs()), 0)
 
+        print ("Stage2: Check own doublsign protection")
+        self.stop_nodes()
+        self.erase_node(0)
+        self.erase_node(1)
+        self.erase_node(2)
+        self.start_nodes()
+        self.import_deterministic_coinbase_privkeys()
+
+        self.nodes[1].generate(1)[0]
+        self.nodes[0].generate(DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL)
+        connect_nodes_bi(self.nodes, 0, 1)
+        self.sync_blocks(self.nodes[0:2])
+
+        assert_equal(len(self.nodes[1].listcriminalproofs()), 0)
+        # node 0 generates block in a fork:
+        blocks = self.nodes[1].generate(1, maxtries=1000)
+        # self.sync_blocks(self.nodes[0:2])
+        assert_equal(len(blocks), 0)
+
+        # gen +1 by node0- now it's ok!
+        self.nodes[0].generate(1)
+        self.sync_blocks(self.nodes[0:2])
+        blocks = self.nodes[1].generate(1)
+        assert_equal(len(blocks), 1)
+        assert_equal(len(self.nodes[1].listcriminalproofs()), 0)
 
 if __name__ == '__main__':
     CriminalsTest ().main ()
