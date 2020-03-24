@@ -163,10 +163,12 @@ class TestNode():
         # height = self.getblockcount()
         minted = 0
         mintedHashes = []
-        while minted < nblocks:
+        i = 0
+        while minted < nblocks and i < maxtries:
             if TestNode.Mocktime is not None:
                 self.setmocktime(TestNode.Mocktime + 1)
-            res = self.generatetoaddress(nblocks=1, address=address, maxtries=maxtries)
+            res = self.generatetoaddress(nblocks=1, address=address, maxtries=1)
+            i += 1
             if res == 1:
                 minted += 1
                 self.pullup_mocktime()
