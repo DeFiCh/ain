@@ -11,9 +11,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal, \
-    connect_nodes_bi, disconnect_nodes, wait_until
-
-from test_framework.blocktools import create_coinbase, create_block, create_transaction, add_witness_commitment
+    connect_nodes_bi
 
 import os
 import shutil
