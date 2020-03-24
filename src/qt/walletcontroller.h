@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_QT_WALLETCONTROLLER_H
-#define BITCOIN_QT_WALLETCONTROLLER_H
+#ifndef DEFI_QT_WALLETCONTROLLER_H
+#define DEFI_QT_WALLETCONTROLLER_H
 
 #include <qt/walletmodel.h>
 #include <sync.h>
@@ -88,4 +88,4 @@ private:
     std::string const m_name;
 };
 
-#endif // BITCOIN_QT_WALLETCONTROLLER_H
+#endif // DEFI_QT_WALLETCONTROLLER_H

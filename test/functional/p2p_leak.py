@@ -14,7 +14,7 @@ import time
 
 from test_framework.messages import msg_getaddr, msg_ping, msg_verack
 from test_framework.mininode import mininode_lock, P2PInterface
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import wait_until
 
 banscore = 10
@@ -43,6 +43,7 @@ class CLazyNode(P2PInterface):
     def on_block(self, message): self.bad_message(message)
     def on_getaddr(self, message): self.bad_message(message)
     def on_headers(self, message): self.bad_message(message)
+    def on_anchorauth(self, message): self.bad_message(message)
     def on_getheaders(self, message): self.bad_message(message)
     def on_ping(self, message): self.bad_message(message)
     def on_mempool(self, message): self.bad_message(message)
@@ -58,7 +59,7 @@ class CLazyNode(P2PInterface):
 # anyway, and eventually get disconnected.
 class CNodeNoVersionBan(CLazyNode):
     # send a bunch of veracks without sending a message. This should get us disconnected.
-    # NOTE: implementation-specific check here. Remove if bitcoind ban behavior changes
+    # NOTE: implementation-specific check here. Remove if defid ban behavior changes
     def on_open(self):
         super().on_open()
         for i in range(banscore):
@@ -88,7 +89,7 @@ class CNodeNoVerackIdle(CLazyNode):
         self.send_message(msg_ping())
         self.send_message(msg_getaddr())
 
-class P2PLeakTest(BitcoinTestFramework):
+class P2PLeakTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.extra_args = [['-banscore=' + str(banscore)]]

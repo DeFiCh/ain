@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_RPC_REGISTER_H
-#define BITCOIN_RPC_REGISTER_H
+#ifndef DEFI_RPC_REGISTER_H
+#define DEFI_RPC_REGISTER_H
 
 /** These are in one header file to avoid creating tons of single-function
  * headers for everything under src/rpc/ */
@@ -21,6 +21,8 @@ void RegisterMiningRPCCommands(CRPCTable &tableRPC);
 void RegisterRawTransactionRPCCommands(CRPCTable &tableRPC);
 /** Register masternodes RPC commands */
 void RegisterMasternodesRPCCommands(CRPCTable &tableRPC);
+/** Register SPV (anchoring) RPC commands */
+void RegisterSpvRPCCommands(CRPCTable &tableRPC);
 
 static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
 {
@@ -30,6 +32,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
     RegisterMiningRPCCommands(t);
     RegisterRawTransactionRPCCommands(t);
     RegisterMasternodesRPCCommands(t);
+    RegisterSpvRPCCommands(t);
 }
 
-#endif // BITCOIN_RPC_REGISTER_H
+#endif // DEFI_RPC_REGISTER_H

@@ -49,7 +49,7 @@ from test_framework.script import (
     OP_CHECKSEQUENCEVERIFY,
     OP_DROP,
 )
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.test_node import TestNode
 from test_framework.util import (
     assert_equal,
@@ -135,7 +135,7 @@ def create_bip112txs(node, bip112inputs, varyOP_CSV, txversion, address, locktim
         txs.append({'tx': signtx, 'sdf': sdf, 'stf': stf})
     return txs
 
-class BIP68_112_113Test(BitcoinTestFramework):
+class BIP68_112_113Test(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True

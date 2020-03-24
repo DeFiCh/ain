@@ -8,7 +8,7 @@ import random
 
 from test_framework.messages import CTransaction, CTxIn, CTxOut, COutPoint, ToHex, COIN
 from test_framework.script import CScript, OP_1, OP_DROP, OP_2, OP_HASH160, OP_EQUAL, hash160, OP_TRUE
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
@@ -124,7 +124,7 @@ def check_estimates(node, fees_seen):
             assert_greater_than_or_equal(i + 1, e["blocks"])
 
 
-class EstimateFeeTest(BitcoinTestFramework):
+class EstimateFeeTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         # mine non-standard txs (e.g. txs with "dust" outputs)

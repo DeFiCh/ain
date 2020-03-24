@@ -45,7 +45,7 @@ from test_framework.script import (
     OP_TRUE,
     SegwitVersion1SignatureHash,
 )
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
@@ -153,7 +153,7 @@ class TestP2PConn(P2PInterface):
         self.wait_for_block(blockhash, timeout)
         return self.last_message["block"].block
 
-class SegWitTest2(BitcoinTestFramework):
+class SegWitTest2(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
