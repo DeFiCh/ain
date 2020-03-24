@@ -12,12 +12,10 @@ Generate 427 more blocks.
 [Consensus] Check that the new NULLDUMMY rules are not enforced on the 431st block.
 [Policy/Consensus] Check that the new NULLDUMMY rules are enforced on the 432nd block.
 """
-import time
-
 from test_framework.blocktools import create_coinbase, create_block, create_transaction, add_witness_commitment
 from test_framework.messages import CTransaction
 from test_framework.script import CScript
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
 NULLDUMMY_ERROR = "non-mandatory-script-verify-flag (Dummy CHECKMULTISIG argument must be zero) (code 64)"
@@ -34,7 +32,7 @@ def trueDummy(tx):
     tx.vin[0].scriptSig = CScript(newscript)
     tx.rehash()
 
-class NULLDUMMYTest(BitcoinTestFramework):
+class NULLDUMMYTest(DefiTestFramework):
 
     def set_test_params(self):
         self.num_nodes = 1
@@ -60,7 +58,7 @@ class NULLDUMMYTest(BitcoinTestFramework):
         self.lastblockhash = self.nodes[0].getbestblockhash()
         self.tip = int("0x" + self.lastblockhash, 0)
         self.lastblockheight = 429
-        self.lastblocktime = int(time.time()) + 429
+        self.lastblocktime = self.nodes[0].getblockheader(self.lastblockhash)["time"]
 
         self.log.info("Test 1: NULLDUMMY compliant base transactions should be accepted to mempool and mined before activation [430]")
         test1txs = [create_transaction(self.nodes[0], coinbase_txid[0], self.ms_address, amount=49)]

@@ -49,7 +49,8 @@ from test_framework.script import (
     OP_CHECKSEQUENCEVERIFY,
     OP_DROP,
 )
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
+from test_framework.test_node import TestNode
 from test_framework.util import (
     assert_equal,
     hex_str_to_bytes,
@@ -134,7 +135,7 @@ def create_bip112txs(node, bip112inputs, varyOP_CSV, txversion, address, locktim
         txs.append({'tx': signtx, 'sdf': sdf, 'stf': stf})
     return txs
 
-class BIP68_112_113Test(BitcoinTestFramework):
+class BIP68_112_113Test(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -173,7 +174,8 @@ class BIP68_112_113Test(BitcoinTestFramework):
 
         self.log.info("Generate blocks in the past for coinbase outputs.")
         long_past_time = int(time.time()) - 600 * 1000  # enough to build up to 1000 blocks 10 minutes apart without worrying about getting into the future
-        self.nodes[0].setmocktime(long_past_time - 100)  # enough so that the generated blocks will still all be before long_past_time
+        # self.nodes[0].setmocktime(long_past_time - 100)  # enough so that the generated blocks will still all be before long_past_time
+        TestNode.Mocktime = long_past_time - 100
         self.coinbase_blocks = self.nodes[0].generate(1 + 16 + 2 * 32 + 1)  # 82 blocks generated for inputs
         self.nodes[0].setmocktime(0)  # set time back to present so yielded blocks aren't in the future as we advance last_block_time
         self.tipheight = 82  # height of the next block to build
@@ -217,7 +219,8 @@ class BIP68_112_113Test(BitcoinTestFramework):
         # 1 normal input
         bip113input = send_generic_input_tx(self.nodes[0], self.coinbase_blocks, self.nodeaddress)
 
-        self.nodes[0].setmocktime(self.last_block_time + 600)
+        TestNode.Mocktime = self.last_block_time + 600
+        # self.nodes[0].setmocktime(self.last_block_time + 600)
         inputblockhash = self.nodes[0].generate(1)[0]  # 1 block generated for inputs to be in chain at height 431
         self.nodes[0].setmocktime(0)
         self.tip = int(inputblockhash, 16)

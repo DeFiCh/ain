@@ -19,7 +19,7 @@ importing nodes pick up the new transactions regardless of whether rescans
 happened previously.
 """
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.address import AddressType
 from test_framework.util import (
     connect_nodes,
@@ -142,9 +142,9 @@ def get_rand_amount():
     return Decimal(str(round(r, 8)))
 
 
-class ImportRescanTest(BitcoinTestFramework):
+class ImportRescanTest(DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2 + len(IMPORT_NODES)
+        self.num_nodes = 2 + len(IMPORT_NODES) # 6
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -160,7 +160,7 @@ class ImportRescanTest(BitcoinTestFramework):
         # Import keys with pruning disabled
         self.start_nodes(extra_args=[[]] * self.num_nodes)
         for n in self.nodes:
-            n.importprivkey(privkey=n.get_genesis_keys().key, label='coinbase')
+            n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase')
         self.stop_nodes()
 
         self.start_nodes()
@@ -189,6 +189,7 @@ class ImportRescanTest(BitcoinTestFramework):
             self.nodes,
             self.nodes[0].getblockheader(self.nodes[0].getbestblockhash())["time"] + TIMESTAMP_WINDOW + 1,
         )
+        self.nodes[0].reset_mocktime() # reset generate's inner Mocktime to mint with those from set_node_times()
         self.nodes[0].generate(1)
         self.sync_all()
 

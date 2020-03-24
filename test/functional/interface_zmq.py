@@ -6,8 +6,8 @@
 import struct
 
 from test_framework.address import ADDRESS_BCRT1_UNSPENDABLE
-from test_framework.test_framework import BitcoinTestFramework
-from test_framework.messages import CTransaction, hash256
+from test_framework.test_framework import DefiTestFramework
+from test_framework.messages import CTransaction, hash256, BLOCK_HEADER_SIZE
 from test_framework.util import assert_equal, connect_nodes
 from io import BytesIO
 from time import sleep
@@ -34,13 +34,13 @@ class ZMQSubscriber:
         return body
 
 
-class ZMQTest (BitcoinTestFramework):
+class ZMQTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_py3_zmq()
-        self.skip_if_no_bitcoind_zmq()
+        self.skip_if_no_defid_zmq()
 
     def run_test(self):
         import zmq
@@ -78,7 +78,6 @@ class ZMQTest (BitcoinTestFramework):
         num_blocks = 5
         self.log.info("Generate %(n)d blocks (and %(n)d coinbase txes)" % {"n": num_blocks})
         genhashes = self.nodes[0].generate(nblocks=num_blocks, address=ADDRESS_BCRT1_UNSPENDABLE)
-
         self.sync_all()
 
         for x in range(num_blocks):
@@ -100,7 +99,7 @@ class ZMQTest (BitcoinTestFramework):
 
             # Should receive the generated raw block.
             block = rawblock.receive()
-            assert_equal(genhashes[x], hash256_reversed(block[:80]).hex())
+            assert_equal(genhashes[x], hash256_reversed(block[:BLOCK_HEADER_SIZE]).hex())
 
         if self.is_wallet_compiled():
             self.log.info("Wait for tx from second node")

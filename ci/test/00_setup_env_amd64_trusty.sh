@@ -12,4 +12,4 @@ export PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libicu-dev libpng-de
 export NO_DEPENDS=1
 export RUN_FUNCTIONAL_TESTS=false
 export GOAL="install"
-export BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --with-gui=no"
+export DEFI_CONFIG="--enable-zmq --with-incompatible-bdb --with-gui=no"

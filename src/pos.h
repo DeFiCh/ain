@@ -1,5 +1,5 @@
-#ifndef BITCOIN_POS_H
-#define BITCOIN_POS_H
+#ifndef DEFI_POS_H
+#define DEFI_POS_H
 
 #include <consensus/params.h>
 #include <arith_uint256.h>
@@ -42,4 +42,4 @@ namespace pos {
     boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter);
 }
 
-#endif // BITCOIN_POS_H
+#endif // DEFI_POS_H

@@ -6,7 +6,6 @@
 
 #include <chainparams.h>
 #include <core_io.h>
-//#include "../init.h"       // pwalletMain
 #include <consensus/validation.h>
 #include <net.h>
 #include <rpc/client.h>
@@ -39,32 +38,8 @@ extern UniValue sendrawtransaction(UniValue const & params, bool fHelp); // in r
 extern UniValue getnewaddress(UniValue const & params, bool fHelp); // in rpcwallet.cpp
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction & tx, std::string const & strHexTx); // in core_io.h
-//extern std::string EncodeHexTx(CTransaction const & tx);
 
 extern void ScriptPubKeyToJSON(CScript const & scriptPubKey, UniValue & out, bool fIncludeHex); // in rawtransaction.cpp
-
-//namespace {
-//// stolen from rpc_tests.cpp, can't import cause it's in tests module (not linked in main binary)
-//UniValue CallRPC(std::string args)
-//{
-//    std::vector<std::string> vArgs;
-//    boost::split(vArgs, args, boost::is_any_of(" \t"));
-//    std::string strMethod = vArgs[0];
-//    vArgs.erase(vArgs.begin());
-//    JSONRPCRequest request;
-//    request.strMethod = strMethod;
-//    request.params = RPCConvertValues(strMethod, vArgs);
-//    request.fHelp = false;
-
-//    if (RPCIsInWarmup(nullptr)) SetRPCWarmupFinished();
-
-//    // nothing to "try/catch" here, will be passed over
-//    UniValue result = tableRPC.execute(request);
-//    return result;
-//}
-
-//} // namespace
-
 
 extern void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options);
 
@@ -91,7 +66,7 @@ static UniValue fundsignsend(CMutableTransaction & mtx, JSONRPCRequest const & r
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
         CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
 
-        CAmount max_raw_tx_fee = {COIN / 10}; /// @todo @maxb check it with 0
+        CAmount max_raw_tx_fee = {COIN / 10}; /// @todo check it with 0
 
         std::string err_string;
         AssertLockNotHeld(cs_main);
@@ -108,30 +83,8 @@ CAmount EstimateMnCreationFee()
 {
     // Current height + (1 day blocks) to avoid rejection;
     int targetHeight = ::ChainActive().Height() + 1 + (60 * 60 / Params().GetConsensus().pos.nTargetSpacing);
-//    size_t targetMnCount = pmasternodesview->GetActiveMasternodes().size() < 4 ? 0 : pmasternodesview->GetActiveMasternodes().size() - 4;
     return GetMnCreationFee(targetHeight);
 }
-
-//UniValue mn_estimatemncreationfee(UniValue const & params, bool fHelp)
-//{
-//    if (fHelp || params.size() != 0)
-//        throw std::runtime_error(
-//            "mn_estimateannouncementfee\n"
-//            "\nEstimates the approximate masternode announcement fee\n"
-//            "\nResult:\n"
-//            "n :    (numeric) estimated fee\n"
-//            "\n"
-//            "\nExample:\n"
-//            + HelpExampleCli("mn_estimatemncreationfee", ""));
-
-//    LOCK(cs_main);
-//    return ValueFromAmount(EstimateMnCreationFee());
-//}
-
-/*
- *
- *  Issued by: any
-*/
 
 void FillInputs(UniValue const & inputs, CMutableTransaction & rawTx)
 {
@@ -153,7 +106,7 @@ void FillInputs(UniValue const & inputs, CMutableTransaction & rawTx)
     }
 }
 
-CWallet* GetWallet(const JSONRPCRequest& request)
+static CWallet* GetWallet(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
@@ -163,11 +116,15 @@ CWallet* GetWallet(const JSONRPCRequest& request)
     return pwallet;
 }
 
-UniValue mn_create(const JSONRPCRequest& request)
+/*
+ *
+ *  Issued by: any
+*/
+UniValue createmasternode(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
-    RPCHelpMan{"mn_create",
+    RPCHelpMan{"createmasternode",
         "\nCreates (and submits to local node and network) a masternode creation transaction with given metadata, spending the given inputs..\n"
         "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
             HelpRequiringPassphrase(pwallet) + "\n",
@@ -193,11 +150,11 @@ UniValue mn_create(const JSONRPCRequest& request)
             "\"hex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            HelpExampleCli("createmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
                                             "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                                "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
-            + HelpExampleRpc("mn_create", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+            + HelpExampleRpc("createmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
                                           "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
                                              "\\\"collateralAddress\\\":\\\"address\\\""
                                             "}\"")
@@ -254,7 +211,7 @@ UniValue mn_create(const JSONRPCRequest& request)
         }
     }
 
-    CDataStream metadata(MnTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(MasternodesTxType::CreateMasternode)
              << static_cast<char>(operatorDest.which()) << operatorAuthKey;
 
@@ -272,23 +229,33 @@ UniValue mn_create(const JSONRPCRequest& request)
 }
 
 
-UniValue mn_resign(const JSONRPCRequest& request)
+UniValue resignmasternode(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
-    RPCHelpMan{"mn_resign",
-        "\nCreates (and submits to local node and network) a transaction resigning your masternode. Collateral will be unlocked after " + std::to_string(GetMnCollateralUnlockDelay()) + " blocks.\n"
+    RPCHelpMan{"resignmasternode",
+        "\nCreates (and submits to local node and network) a transaction resigning your masternode. Collateral will be unlocked after " + std::to_string(GetMnResignDelay()) + " blocks.\n"
         "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the MN's owner (collateral) address" +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
+            {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects. Provide it if you want to spent specific UTXOs",
+                {
+                    {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                        },
+                    },
+                },
+            },
             {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
         },
         RPCResult{
             "\"hex\"                      (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
-            + HelpExampleRpc("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+            HelpExampleCli("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+            + HelpExampleRpc("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
         },
     }.Check(request);
 
@@ -309,10 +276,14 @@ UniValue mn_resign(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("You are not the owner of masternode %s, or it does not exist", nodeIdStr));
         }
         auto nodePtr = pmasternodesview->ExistMasternode(nodeId);
-        if (!nodePtr->resignTx.IsNull())
+        if (nodePtr->banHeight != -1)
         {
-            /// @todo @max adjust delays and heights!
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight + GetMnCollateralUnlockDelay() /*+ GetMnResignDelay() ???*/));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was criminal, banned at height %i by tx %s", nodeIdStr, nodePtr->banHeight, nodePtr->banTx.GetHex()));
+        }
+
+        if (nodePtr->resignHeight != -1)
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode %s was resigned by tx %s; collateral can be spend at block #%d", nodeIdStr, nodePtr->resignTx.GetHex(), nodePtr->resignHeight + GetMnResignDelay()));
         }
         ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
     }
@@ -343,7 +314,7 @@ UniValue mn_resign(const JSONRPCRequest& request)
         rawTx.vin.push_back(CTxIn(vecOutputs[0].tx->GetHash(), vecOutputs[0].i));
     }
 
-    CDataStream metadata(MnTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(MasternodesTxType::ResignMasternode)
              << nodeId;
 
@@ -365,17 +336,20 @@ UniValue mnToJSON(CMasternode const & node)
 
     ret.pushKV("creationHeight", node.creationHeight);
     ret.pushKV("resignHeight", node.resignHeight);
-
     ret.pushKV("resignTx", node.resignTx.GetHex());
-    ret.pushKV("status", node.GetHumanReadableStatus());
-    /// @todo @maxb add unlock height and|or real resign height
+    ret.pushKV("banHeight", node.banHeight);
+    ret.pushKV("banTx", node.banTx.GetHex());
+    ret.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
+    ret.pushKV("mintedBlocks", (uint64_t)node.mintedBlocks);
+
+    /// @todo add unlock height and|or real resign height
 
     return ret;
 }
 
-UniValue mn_list(const JSONRPCRequest& request)
+UniValue listmasternodes(const JSONRPCRequest& request)
 {
-    RPCHelpMan{"mn_list",
+    RPCHelpMan{"listmasternodes",
         "\nReturns information about specified masternodes (or all, if list of ids is empty).\n",
         {
             {"list", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of masternode ids",
@@ -389,8 +363,8 @@ UniValue mn_list(const JSONRPCRequest& request)
             "{id:{...},...}     (array) Json object with masternodes information\n"
         },
         RPCExamples{
-            HelpExampleCli("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
-            + HelpExampleRpc("mn_resign", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+            HelpExampleCli("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+            + HelpExampleRpc("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
         },
     }.Check(request);
 
@@ -417,7 +391,7 @@ UniValue mn_list(const JSONRPCRequest& request)
         for (auto it = mns.begin(); it != mns.end(); ++it)
         {
             if (it->second != CMasternode())
-                ret.pushKV(it->first.GetHex(), verbose ? mnToJSON(it->second) : it->second.GetHumanReadableStatus());
+                ret.pushKV(it->first.GetHex(), verbose ? mnToJSON(it->second) : CMasternode::GetHumanReadableState(it->second.GetState()));
         }
     }
     else
@@ -428,7 +402,7 @@ UniValue mn_list(const JSONRPCRequest& request)
             auto const & node = pmasternodesview->ExistMasternode(id);
             if (node && *node != CMasternode())
             {
-                ret.pushKV(id.GetHex(), verbose ? mnToJSON(*node) : node->GetHumanReadableStatus());
+                ret.pushKV(id.GetHex(), verbose ? mnToJSON(*node) : CMasternode::GetHumanReadableState(node->GetState()));
             }
         }
     }
@@ -439,12 +413,9 @@ UniValue mn_list(const JSONRPCRequest& request)
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
   //  ----------------- ------------------------    -----------------------     ----------
-//  { "masternodes",    "mn_estimateannouncementfee", &mn_estimateannouncementfee, {}  },
-  { "masternodes",      "mn_create",                &mn_create,                 { "inputs", "metadata" }  },
-  { "masternodes",      "mn_resign",                &mn_resign,                 { "mn_id" }  },
-
-  { "masternodes",      "mn_list",                  &mn_list,                   { "list", "verbose" } },
-
+  { "masternodes",      "createmasternode",         &createmasternode,          { "inputs", "metadata" }  },
+  { "masternodes",      "resignmasternode",         &resignmasternode,          { "inputs", "mn_id" }  },
+  { "masternodes",      "listmasternodes",          &listmasternodes,           { "list", "verbose" } },
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable &tableRPC)

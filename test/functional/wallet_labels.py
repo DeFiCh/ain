@@ -11,10 +11,10 @@ RPCs tested are:
 """
 from collections import defaultdict
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
-class WalletLabelsTest(BitcoinTestFramework):
+class WalletLabelsTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
@@ -34,13 +34,13 @@ class WalletLabelsTest(BitcoinTestFramework):
         assert_equal(node.getbalance(), 100)
 
         # there should be 2 address groups
-        # each with 1 address with a balance of 50 Bitcoins
-        address_groups = node.listaddressgroupings()
-        assert_equal(len(address_groups), 2)
+        # each with 1 address with a balance of 50 Defis
+        address_groups = node.listaddressgroupings() # TODO: may be remove genesis (or all) mn_creation txs from listaddressgroupings?
+        assert_equal(len(address_groups), 3) # +1 mn genesis
         # the addresses aren't linked now, but will be after we send to the
         # common address
         linked_addresses = set()
-        for address_group in address_groups:
+        for address_group in address_groups[1:]:
             assert_equal(len(address_group), 1)
             assert_equal(len(address_group[0]), 3)
             assert_equal(address_group[0][1], 50)
@@ -57,10 +57,10 @@ class WalletLabelsTest(BitcoinTestFramework):
         # there should be 1 address group, with the previously
         # unlinked addresses now linked (they both have 0 balance)
         address_groups = node.listaddressgroupings()
-        assert_equal(len(address_groups), 1)
-        assert_equal(len(address_groups[0]), 2)
-        assert_equal(set([a[0] for a in address_groups[0]]), linked_addresses)
-        assert_equal([a[1] for a in address_groups[0]], [0, 0])
+        assert_equal(len(address_groups), 1+1)
+        assert_equal(len(address_groups[0+1]), 2)
+        assert_equal(set([a[0] for a in address_groups[0+1]]), linked_addresses)
+        assert_equal([a[1] for a in address_groups[0+1]], [0, 0])
 
         node.generate(1)
 
