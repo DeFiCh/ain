@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NODE_TRANSACTION_H
-#define BITCOIN_NODE_TRANSACTION_H
+#ifndef DEFI_NODE_TRANSACTION_H
+#define DEFI_NODE_TRANSACTION_H
 
 #include <attributes.h>
 #include <primitives/transaction.h>
@@ -28,4 +28,4 @@
  */
 NODISCARD TransactionError BroadcastTransaction(CTransactionRef tx, std::string& err_string, const CAmount& max_tx_fee, bool relay, bool wait_callback);
 
-#endif // BITCOIN_NODE_TRANSACTION_H
+#endif // DEFI_NODE_TRANSACTION_H

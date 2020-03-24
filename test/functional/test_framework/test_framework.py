@@ -31,7 +31,6 @@ from .util import (
     initialize_datadir,
     sync_blocks,
     sync_mempools,
-    set_node_times,
 )
 
 
@@ -44,7 +43,7 @@ TEST_EXIT_PASSED = 0
 TEST_EXIT_FAILED = 1
 TEST_EXIT_SKIPPED = 77
 
-TMPDIR_PREFIX = "bitcoin_func_test_"
+TMPDIR_PREFIX = "defi_func_test_"
 
 
 class SkipTest(Exception):
@@ -54,30 +53,30 @@ class SkipTest(Exception):
         self.message = message
 
 
-class BitcoinTestMetaClass(type):
-    """Metaclass for BitcoinTestFramework.
+class DefiTestMetaClass(type):
+    """Metaclass for DefiTestFramework.
 
-    Ensures that any attempt to register a subclass of `BitcoinTestFramework`
+    Ensures that any attempt to register a subclass of `DefiTestFramework`
     adheres to a standard whereby the subclass overrides `set_test_params` and
     `run_test` but DOES NOT override either `__init__` or `main`. If any of
     those standards are violated, a ``TypeError`` is raised."""
 
     def __new__(cls, clsname, bases, dct):
-        if not clsname == 'BitcoinTestFramework':
+        if not clsname == 'DefiTestFramework':
             if not ('run_test' in dct and 'set_test_params' in dct):
-                raise TypeError("BitcoinTestFramework subclasses must override "
+                raise TypeError("DefiTestFramework subclasses must override "
                                 "'run_test' and 'set_test_params'")
             if '__init__' in dct or 'main' in dct:
-                raise TypeError("BitcoinTestFramework subclasses may not override "
+                raise TypeError("DefiTestFramework subclasses may not override "
                                 "'__init__' or 'main'")
 
         return super().__new__(cls, clsname, bases, dct)
 
 
-class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
-    """Base class for a bitcoin test script.
+class DefiTestFramework(metaclass=DefiTestMetaClass):
+    """Base class for a defi test script.
 
-    Individual bitcoin test scripts should subclass this class and override the set_test_params() and run_test() methods.
+    Individual defi test scripts should subclass this class and override the set_test_params() and run_test() methods.
 
     Individual tests can also override the following methods to customize the test setup:
 
@@ -100,7 +99,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.supports_cli = False
         self.bind_to_localhost_only = True
         self.set_test_params()
-        self.mocktime = 0
 
         assert hasattr(self, "num_nodes"), "Test must set self.num_nodes in set_test_params()"
 
@@ -109,9 +107,9 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
         parser = argparse.ArgumentParser(usage="%(prog)s [options]")
         parser.add_argument("--nocleanup", dest="nocleanup", default=False, action="store_true",
-                            help="Leave bitcoinds and test.* datadir on exit or error")
+                            help="Leave defids and test.* datadir on exit or error")
         parser.add_argument("--noshutdown", dest="noshutdown", default=False, action="store_true",
-                            help="Don't stop bitcoinds after the test execution")
+                            help="Don't stop defids after the test execution")
         parser.add_argument("--cachedir", dest="cachedir", default=os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + "/../../cache"),
                             help="Directory for caching pregenerated datadirs (default: %(default)s)")
         parser.add_argument("--tmpdir", dest="tmpdir", help="Root directory for datadirs")
@@ -129,7 +127,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         parser.add_argument("--pdbonfailure", dest="pdbonfailure", default=False, action="store_true",
                             help="Attach a python debugger if test fails")
         parser.add_argument("--usecli", dest="usecli", default=False, action="store_true",
-                            help="use bitcoin-cli instead of RPC for all commands")
+                            help="use defi-cli instead of RPC for all commands")
         parser.add_argument("--perf", dest="perf", default=False, action="store_true",
                             help="profile running nodes with perf for the duration of the test")
         parser.add_argument("--randomseed", type=int,
@@ -146,8 +144,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         config = configparser.ConfigParser()
         config.read_file(open(self.options.configfile))
         self.config = config
-        self.options.bitcoind = os.getenv("BITCOIND", default=config["environment"]["BUILDDIR"] + '/src/bitcoind' + config["environment"]["EXEEXT"])
-        self.options.bitcoincli = os.getenv("BITCOINCLI", default=config["environment"]["BUILDDIR"] + '/src/bitcoin-cli' + config["environment"]["EXEEXT"])
+        self.options.defid = os.getenv("DEFID", default=config["environment"]["BUILDDIR"] + '/src/defid' + config["environment"]["EXEEXT"])
+        self.options.deficli = os.getenv("DEFICLI", default=config["environment"]["BUILDDIR"] + '/src/defi-cli' + config["environment"]["EXEEXT"])
 
         os.environ['PATH'] = os.pathsep.join([
             os.path.join(config['environment']['BUILDDIR'], 'src'),
@@ -222,7 +220,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         else:
             for node in self.nodes:
                 node.cleanup_on_exit = False
-            self.log.info("Note: bitcoinds were not stopped and may still be running")
+            self.log.info("Note: defids were not stopped and may still be running")
 
         should_clean_up = (
             not self.options.nocleanup and
@@ -296,9 +294,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.start_nodes()
 
         self.import_deterministic_coinbase_privkeys()
-
-        self.mocktime = self.nodes[0].getblockheader(self.nodes[0].getbestblockhash())["time"]  + 1
-        set_node_times(self.nodes, self.mocktime)
+        # TestNode.Mocktime = int(time.time())
 
         if not self.setup_clean_chain:
             for n in self.nodes:
@@ -307,6 +303,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # must have a timestamp not too old (see IsInitialBlockDownload()).
             self.log.debug('Generate a block with current time')
             # block_hash = self.nodes[0].generate(1)[0]
+            # TestNode.Mocktime = int(time.time())
             self.nodes[0].generate(1)
             block_hash = self.nodes[0].getbestblockhash()
 
@@ -326,24 +323,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 assert str(e).startswith('Method not found')
                 continue
 
-            n.importprivkey(privkey=n.get_genesis_keys().ownerPrivKey, label='coinbase')
-            n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase')
-
-    # def gen_mt(self, count=1, node_id=0, address=None):
-    #     if address is None:
-    #         address = self.nodes[node_id].get_genesis_keys().operatorAuthAddress
-
-    #     minted = 0
-    #     while minted < count:
-    #         # minted += node.mint(1, 1)
-    #         self.nodes[node_id].setmocktime(self.mocktime)
-
-    #         minted += self.nodes[node_id].generatetoaddress(1, address)
-    #         self.mocktime += 2 # 2s per try
-
-    #         # set time only for one node!!!
-    #         self.nodes[node_id].setmocktime(self.mocktime)
-    #         # set_node_times(self.nodes, self.mocktime)
+            n.importprivkey(privkey=n.get_genesis_keys().ownerPrivKey, label='coinbase', rescan=True)
+            n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase', rescan=True)
 
     def run_test(self):
         """Tests must override this method to define test logic"""
@@ -363,7 +344,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         if extra_args is None:
             extra_args = [[]] * num_nodes
         if binary is None:
-            binary = [self.options.bitcoind] * num_nodes
+            binary = [self.options.defid] * num_nodes
         assert_equal(len(extra_confs), num_nodes)
         assert_equal(len(extra_args), num_nodes)
         assert_equal(len(binary), num_nodes)
@@ -374,8 +355,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 chain=self.chain,
                 rpchost=rpchost,
                 timewait=self.rpc_timeout,
-                bitcoind=binary[i],
-                bitcoin_cli=self.options.bitcoincli,
+                defid=binary[i],
+                defi_cli=self.options.deficli,
                 coverage_dir=self.options.coveragedir,
                 cwd=self.options.tmpdir,
                 extra_conf=extra_confs[i],
@@ -385,18 +366,21 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             ))
 
     def start_node(self, i, *args, **kwargs):
-        """Start a bitcoind"""
+        """Start a defid"""
 
         node = self.nodes[i]
 
         node.start(*args, **kwargs)
         node.wait_for_rpc_connection()
 
+        if TestNode.Mocktime is not None:
+            node.setmocktime(TestNode.Mocktime)
+
         if self.options.coveragedir is not None:
             coverage.write_all_rpc_commands(self.options.coveragedir, node.rpc)
 
     def start_nodes(self, extra_args=None, *args, **kwargs):
-        """Start multiple bitcoinds"""
+        """Start multiple defids"""
 
         if extra_args is None:
             extra_args = [None] * self.num_nodes
@@ -416,12 +400,12 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 coverage.write_all_rpc_commands(self.options.coveragedir, node.rpc)
 
     def stop_node(self, i, expected_stderr='', wait=0):
-        """Stop a bitcoind test node"""
+        """Stop a defid test node"""
         self.nodes[i].stop_node(expected_stderr, wait=wait)
         self.nodes[i].wait_until_stopped()
 
     def stop_nodes(self, wait=0):
-        """Stop multiple bitcoind test nodes"""
+        """Stop multiple defid test nodes"""
         for node in self.nodes:
             # Issue RPC to stop nodes
             node.stop_node(wait=wait)
@@ -478,7 +462,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         # User can provide log level as a number or string (eg DEBUG). loglevel was caught as a string, so try to convert it to an int
         ll = int(self.options.loglevel) if self.options.loglevel.isdigit() else self.options.loglevel.upper()
         ch.setLevel(ll)
-        # Format logs the same as bitcoind's debug.log with microprecision (so log files can be concatenated and sorted)
+        # Format logs the same as defid's debug.log with microprecision (so log files can be concatenated and sorted)
         formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d000Z %(name)s (%(levelname)s): %(message)s', datefmt='%Y-%m-%dT%H:%M:%S')
         formatter.converter = time.gmtime
         fh.setFormatter(formatter)
@@ -488,7 +472,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.log.addHandler(ch)
 
         if self.options.trace_rpc:
-            rpc_logger = logging.getLogger("BitcoinRPC")
+            rpc_logger = logging.getLogger("DefiRPC")
             rpc_logger.setLevel(logging.DEBUG)
             rpc_handler = logging.StreamHandler(sys.stdout)
             rpc_handler.setLevel(logging.DEBUG)
@@ -504,12 +488,11 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         cache_node_dir = get_datadir_path(self.options.cachedir, CACHE_NODE_ID)
         assert self.num_nodes <= MAX_NODES
 
-        print (cache_node_dir)
+        self.log.info("This test uses premined chain")
         if not os.path.isdir(cache_node_dir):
             self.log.debug("Creating cache directory {}".format(cache_node_dir))
 
             initialize_datadir(self.options.cachedir, CACHE_NODE_ID, self.chain)
-            print (len(self.nodes))
             self.nodes.append(
                 TestNode(
                     CACHE_NODE_ID,
@@ -519,8 +502,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                     extra_args=[],
                     rpchost=None,
                     timewait=self.rpc_timeout,
-                    bitcoind=self.options.bitcoind,
-                    bitcoin_cli=self.options.bitcoincli,
+                    defid=self.options.defid,
+                    defi_cli=self.options.deficli,
                     coverage_dir=None,
                     cwd=self.options.tmpdir,
                 ))
@@ -532,9 +515,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.nodes[CACHE_NODE_ID].importprivkey(privkey=self.nodes[CACHE_NODE_ID].get_genesis_keys().ownerPrivKey, label='coinbase')
             self.nodes[CACHE_NODE_ID].importprivkey(privkey=self.nodes[CACHE_NODE_ID].get_genesis_keys().operatorPrivKey, label='coinbase')
 
-            # self.mocktime = self.nodes[CACHE_NODE_ID].getblockheader(self.nodes[CACHE_NODE_ID].getbestblockhash())["time"]  + 1
-            # self.nodes[CACHE_NODE_ID].setmocktime(self.mocktime)
-
             # Create a 199-block-long chain; each of the 4 first nodes
             # gets 25 mature blocks and 25 immature.
             # The 4th node gets only 24 immature blocks so that the very last
@@ -542,7 +522,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # This is needed so that we are out of IBD when the test starts,
             # see the tip age check in IsInitialBlockDownload().
             for i in range(8):
-                # self.gen_mt(count=25 if i != 7 else 24, node_id=CACHE_NODE_ID, address=TestNode.PRIV_KEYS[i % 4].operatorAuthAddress)
                 self.nodes[CACHE_NODE_ID].generate(
                     nblocks=25 if i != 7 else 24,
                     address=TestNode.PRIV_KEYS[i % 4].operatorAuthAddress,
@@ -562,14 +541,14 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             os.rmdir(cache_path('wallets'))  # Remove empty wallets dir
 
             for entry in os.listdir(cache_path()):
-                if entry not in ['chainstate', 'blocks', 'masternodes']:  # Only keep chainstate and blocks folder
+                if entry not in ['chainstate', 'blocks', 'masternodes', 'anchors']:  # Only keep chainstate and blocks folder
                     os.remove(cache_path(entry))
 
         for i in range(self.num_nodes):
             self.log.debug("Copy cache directory {} to node {}".format(cache_node_dir, i))
             to_dir = get_datadir_path(self.options.tmpdir, i)
             shutil.copytree(cache_node_dir, to_dir)
-            initialize_datadir(self.options.tmpdir, i, self.chain)  # Overwrite port/rpcport in bitcoin.conf
+            initialize_datadir(self.options.tmpdir, i, self.chain)  # Overwrite port/rpcport in defi.conf
 
     def _initialize_chain_clean(self):
         """Initialize empty blockchain for use by the test.
@@ -586,10 +565,10 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         except ImportError:
             raise SkipTest("python3-zmq module not available.")
 
-    def skip_if_no_bitcoind_zmq(self):
-        """Skip the running test if bitcoind has not been compiled with zmq support."""
+    def skip_if_no_defid_zmq(self):
+        """Skip the running test if defid has not been compiled with zmq support."""
         if not self.is_zmq_compiled():
-            raise SkipTest("bitcoind has not been built with zmq enabled.")
+            raise SkipTest("defid has not been built with zmq enabled.")
 
     def skip_if_no_wallet(self):
         """Skip the running test if wallet has not been compiled."""
@@ -597,12 +576,12 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             raise SkipTest("wallet has not been compiled.")
 
     def skip_if_no_cli(self):
-        """Skip the running test if bitcoin-cli has not been compiled."""
+        """Skip the running test if defi-cli has not been compiled."""
         if not self.is_cli_compiled():
-            raise SkipTest("bitcoin-cli has not been compiled.")
+            raise SkipTest("defi-cli has not been compiled.")
 
     def is_cli_compiled(self):
-        """Checks whether bitcoin-cli was compiled."""
+        """Checks whether defi-cli was compiled."""
         return self.config["components"].getboolean("ENABLE_CLI")
 
     def is_wallet_compiled(self):

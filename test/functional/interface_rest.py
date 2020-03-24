@@ -14,7 +14,7 @@ from struct import pack, unpack
 import http.client
 import urllib.parse
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
@@ -39,7 +39,7 @@ def filter_output_indices_by_value(vouts, value):
         if vout['value'] == value:
             yield vout['n']
 
-class RESTTest (BitcoinTestFramework):
+class RESTTest (DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
@@ -76,7 +76,7 @@ class RESTTest (BitcoinTestFramework):
 
     def run_test(self):
         self.url = urllib.parse.urlparse(self.nodes[0].url)
-        self.log.info("Mine blocks and send Bitcoin to node 1")
+        self.log.info("Mine blocks and send Defi to node 1")
 
         # Random address so node1's balance doesn't increase
         not_related_address = "2MxqoHEdNQTyYeX1mHcbrrpzgojbosTpCvJ"
@@ -271,7 +271,7 @@ class RESTTest (BitcoinTestFramework):
 
         # Compare with normal RPC block response
         rpc_block_json = self.nodes[0].getblock(bb_hash)
-        for key in ['hash', 'confirmations', 'height', 'version', 'merkleroot', 'time', 'nonce', 'bits', 'difficulty', 'chainwork', 'previousblockhash']:
+        for key in ['hash', 'confirmations', 'height', 'version', 'merkleroot', 'time', 'bits', 'difficulty', 'chainwork', 'previousblockhash']:
             assert_equal(json_obj[0][key], rpc_block_json[key])
 
         # See if we can get 5 headers in one response

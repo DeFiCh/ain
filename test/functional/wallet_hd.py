@@ -7,7 +7,7 @@
 import os
 import shutil
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     connect_nodes_bi,
@@ -15,7 +15,7 @@ from test_framework.util import (
 )
 
 
-class WalletHDTest(BitcoinTestFramework):
+class WalletHDTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
@@ -71,6 +71,8 @@ class WalletHDTest(BitcoinTestFramework):
         # otherwise node1 would auto-recover all funds in flag the keypool keys as used
         shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "blocks"))
         shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "chainstate"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "masternodes"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "anchors"))
         shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"), os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"))
         self.start_node(1)
 
@@ -94,6 +96,8 @@ class WalletHDTest(BitcoinTestFramework):
         self.stop_node(1)
         shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "blocks"))
         shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "chainstate"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "masternodes"))
+        shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "anchors"))
         shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"), os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"))
         self.start_node(1, extra_args=self.extra_args[1])
         connect_nodes_bi(self.nodes, 0, 1)

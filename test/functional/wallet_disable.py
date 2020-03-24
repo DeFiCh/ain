@@ -8,10 +8,10 @@
 - Test that it is not possible to mine to an invalid address.
 """
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_raises_rpc_error
 
-class DisableWalletTest (BitcoinTestFramework):
+class DisableWalletTest (DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
@@ -27,7 +27,8 @@ class DisableWalletTest (BitcoinTestFramework):
 
         # Checking mining to an address without a wallet. Generating to a valid address should succeed
         # but generating to an invalid address will fail.
-        self.nodes[0].generatetoaddress(1, 'mneYUmWYsuk7kySiURxCi3AGxrAqZxLgPZ')
+        # NO! we can't mine w/o a wallet!
+        # self.nodes[0].generatetoaddress(1, 'mneYUmWYsuk7kySiURxCi3AGxrAqZxLgPZ')
         assert_raises_rpc_error(-5, "Invalid address", self.nodes[0].generatetoaddress, 1, '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')
 
 if __name__ == '__main__':

@@ -6,11 +6,11 @@
 import os
 
 from test_framework.address import ADDRESS_BCRT1_UNSPENDABLE
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, wait_until, connect_nodes_bi
 
 
-class NotificationsTest(BitcoinTestFramework):
+class NotificationsTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
@@ -46,10 +46,10 @@ class NotificationsTest(BitcoinTestFramework):
         if self.is_wallet_compiled():
             self.log.info("test -walletnotify")
             # wait at most 10 seconds for expected number of files before reading the content
-            wait_until(lambda: len(os.listdir(self.walletnotify_dir)) == block_count, timeout=10)
+            wait_until(lambda: len(os.listdir(self.walletnotify_dir)) == block_count+1, timeout=10) # block_count+1 due to +1 genesis mn tx
 
             # directory content should equal the generated transaction hashes
-            txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions("*", block_count)))
+            txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions("*", block_count+1)))
             assert_equal(sorted(txids_rpc), sorted(os.listdir(self.walletnotify_dir)))
             self.stop_node(1)
             for tx_file in os.listdir(self.walletnotify_dir):
@@ -60,10 +60,10 @@ class NotificationsTest(BitcoinTestFramework):
             self.start_node(1)
             connect_nodes_bi(self.nodes, 0, 1)
 
-            wait_until(lambda: len(os.listdir(self.walletnotify_dir)) == block_count, timeout=10)
+            wait_until(lambda: len(os.listdir(self.walletnotify_dir)) == block_count+1, timeout=10)
 
             # directory content should equal the generated transaction hashes
-            txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions("*", block_count)))
+            txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions("*", block_count+1)))
             assert_equal(sorted(txids_rpc), sorted(os.listdir(self.walletnotify_dir)))
 
         # TODO: add test for `-alertnotify` large fork notifications

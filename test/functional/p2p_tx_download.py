@@ -19,7 +19,7 @@ from test_framework.mininode import (
     P2PInterface,
     mininode_lock,
 )
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     wait_until,
@@ -52,7 +52,7 @@ NUM_INBOUND = 10
 MAX_GETDATA_INBOUND_WAIT = GETDATA_TX_INTERVAL + MAX_GETDATA_RANDOM_DELAY + INBOUND_PEER_TX_DELAY
 
 
-class TxDownloadTest(BitcoinTestFramework):
+class TxDownloadTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = False
         self.num_nodes = 2
@@ -98,7 +98,7 @@ class TxDownloadTest(BitcoinTestFramework):
         )
         tx = self.nodes[0].signrawtransactionwithkey(
             hexstring=tx,
-            privkeys=[self.nodes[0].get_genesis_keys().key],
+            privkeys=[self.nodes[0].get_genesis_keys().operatorPrivKey],
         )['hex']
         ctx = FromHex(CTransaction(), tx)
         txid = int(ctx.rehash(), 16)
@@ -127,6 +127,10 @@ class TxDownloadTest(BitcoinTestFramework):
         self.sync_mempools(timeout=timeout)
 
     def test_in_flight_max(self):
+        # need cause mocktime set in start_node() (if not None), and in setup_nodes()
+        # TODO: refactor mocktime logic
+        self.nodes[0].setmocktime(0)
+
         self.log.info("Test that we don't request more than {} transactions from any peer, every {} minutes".format(
             MAX_GETDATA_IN_FLIGHT, TX_EXPIRY_INTERVAL / 60))
         txids = [i for i in range(MAX_GETDATA_IN_FLIGHT + 2)]
