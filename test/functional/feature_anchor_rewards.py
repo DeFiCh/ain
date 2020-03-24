@@ -55,8 +55,8 @@ class AnchorRewardsTest (DefiTestFramework):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
 
         chain0 = 17+15
-        # disconnect_nodes(self.nodes[0], 1)
         self.nodes[0].generate(chain0)
+        self.sync_all() # important to be synced before next disconnection
         assert_equal(len(self.nodes[0].spv_listanchors()), 0)
 
         print ("Node0: Setting anchors")
@@ -99,6 +99,7 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[1].spv_sendrawtx(txAnc0['txHex'])
         self.nodes[1].spv_sendrawtx(txAnc1['txHex'])
 
+        # important (!) to be synced before disconnection
         # disconnect node2 (BEFORE reward voting!) for future rollback
         disconnect_nodes(self.nodes[1], 2)
 
