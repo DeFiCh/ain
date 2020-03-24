@@ -135,6 +135,9 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey minter
             if (status == Staker::Status::stakeWaiting) {
                 LogPrint(BCLog::STAKING, "Staked, but no kernel found yet\n");
             }
+            if (status == Staker::Status::criminalWaiting) {
+                LogPrint(BCLog::STAKING, "Potential criminal block tried to create\n");
+            }
         }
         catch (const std::runtime_error &e) {
             LogPrintf("GenerateBlocks runtime error: %s\n", e.what());
@@ -160,7 +163,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
                 "\nMine blocks immediately to a specified address (before the RPC call returns)\n",
                 {
                     {"nblocks", RPCArg::Type::NUM, RPCArg::Optional::NO, "How many blocks are generated immediately."},
-                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The address to send the newly generated bitcoin to."},
+                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The address to send the newly generated defi to."},
                     {"maxtries", RPCArg::Type::NUM, /* default */ "-1", "How many iterations to try."},
                 },
                 RPCResult{
@@ -169,7 +172,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
                 RPCExamples{
             "\nGenerate 11 blocks to myaddress\n"
             + HelpExampleCli("generatetoaddress", "11 \"myaddress\"")
-            + "If you are running the bitcoin core wallet, you can get a new address to send the newly generated bitcoin to with:\n"
+            + "If you are running the defi core wallet, you can get a new address to send the newly generated defi to with:\n"
             + HelpExampleCli("getnewaddress", "")
                 },
             }.Check(request);
@@ -243,7 +246,18 @@ static UniValue getmintinginfo(const JSONRPCRequest& request)
     if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
     obj.pushKV("difficulty",       (double)GetDifficulty(::ChainActive().Tip()));
-    obj.pushKV("generate",         gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
+
+    auto mnIds = pmasternodesview->AmIOperator();
+    obj.pushKV("isoperator",       (bool) mnIds);
+    if (mnIds) {
+        obj.pushKV("masternodeid", mnIds->id.GetHex());
+        obj.pushKV("masternodeoperator", mnIds->operatorAuthAddress.GetHex());
+        CMasternode const & node = *pmasternodesview->ExistMasternode(mnIds->id);
+        auto state = node.GetState();
+        obj.pushKV("masternodestate", CMasternode::GetHumanReadableState(state));
+        obj.pushKV("generate", node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
+        obj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);
+    }
     obj.pushKV("networkhashps",    getnetworkhashps(request));
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
     obj.pushKV("chain",            Params().NetworkIDString());

@@ -10,7 +10,7 @@ and that it responds to getdata requests for blocks correctly:
     - disconnect peers who request blocks older than that."""
 from test_framework.messages import CInv, msg_getdata, msg_verack, NODE_NETWORK_LIMITED, NODE_WITNESS
 from test_framework.mininode import P2PInterface, mininode_lock
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.test_node import TestNode
 from test_framework.util import (
     assert_equal,
@@ -36,11 +36,11 @@ class P2PIgnoreInv(P2PInterface):
         getdata_request.inv.append(CInv(2, int(blockhash, 16)))
         self.send_message(getdata_request)
 
-class NodeNetworkLimitedTest(BitcoinTestFramework):
+class NodeNetworkLimitedTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
-        self.extra_args = [['-prune=550', '-addrmantest', '-dummypos=1'], ['-dummypos=1'], ['-dummypos=1']]
+        self.extra_args = [['-prune=550', '-addrmantest', '-dummypos=1', '-nospv'], ['-dummypos=1', '-nospv'], ['-dummypos=1', '-nospv']]
 
     def disconnect_all(self):
         disconnect_nodes(self.nodes[0], 1)

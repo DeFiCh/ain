@@ -5,7 +5,7 @@
 """Test node disconnect and ban behavior"""
 import time
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
@@ -13,10 +13,10 @@ from test_framework.util import (
     wait_until,
 )
 
-class DisconnectBanTest(BitcoinTestFramework):
+class DisconnectBanTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
-        self.extra_args = [['-dummypos=1'], ['-dummypos=1']]
+        self.extra_args = [['-dummypos=1', '-nospv'], ['-dummypos=1', '-nospv']]
 
     def run_test(self):
         self.log.info("Test setban and listbanned RPCs")

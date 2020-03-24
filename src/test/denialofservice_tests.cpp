@@ -145,7 +145,7 @@ static void AddRandomOutboundPeer(std::vector<CNode *> &vNodes, PeerLogicValidat
     connman->AddNode(node);
 }
 
-/// @todo @max fix it or remove (fails cause net params was changed)
+/// @todo fix it or remove (fails cause net params was changed)
 //BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
 //{
 //    auto connman = MakeUnique<CConnmanTest>(0x1337, 0x1337);
@@ -178,7 +178,7 @@ static void AddRandomOutboundPeer(std::vector<CNode *> &vNodes, PeerLogicValidat
 //    // Now tip should definitely be stale, and we should look for an extra
 //    // outbound peer
 //    peerLogic->CheckForStaleTipAndEvictPeers(consensusParams);
-//    BOOST_CHECK(connman->GetTryNewOutboundPeer());            /// @todo @max fails here
+//    BOOST_CHECK(connman->GetTryNewOutboundPeer());            /// @todo fails here
 
 //    // Still no peers should be marked for disconnection
 //    for (const CNode *node : vNodes) {

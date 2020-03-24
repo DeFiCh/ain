@@ -3,13 +3,16 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/masternodes.h>
+#include <masternodes/anchors.h>
 
 #include <chainparams.h>
+#include <net_processing.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <validation.h>
+#include <wallet/wallet.h>
 
 #include <algorithm>
 #include <functional>
@@ -30,11 +33,6 @@ int GetMnActivationDelay()
 int GetMnResignDelay()
 {
     return Params().GetConsensus().mn.resignDelay;
-}
-
-int GetMnCollateralUnlockDelay()
-{
-    return Params().GetConsensus().mn.collateralUnlockDelay;
 }
 
 int GetMnHistoryFrame()
@@ -61,7 +59,9 @@ CMasternode::CMasternode()
     , operatorType(0)
     , creationHeight(0)
     , resignHeight(-1)
+    , banHeight(-1)
     , resignTx()
+    , banTx()
 {
 }
 
@@ -93,9 +93,42 @@ void CMasternode::FromTx(CTransaction const & tx, int heightIn, std::vector<unsi
 
     creationHeight = heightIn;
     resignHeight = -1;
+    banHeight = -1;
 
     resignTx = {};
+    banTx = {};
     mintedBlocks = 0;
+}
+
+CMasternode::State CMasternode::GetState() const
+{
+    return GetState(::ChainActive().Height());
+}
+
+CMasternode::State CMasternode::GetState(int h) const
+{
+    assert (banHeight == -1 || resignHeight == -1); // mutually exclusive!: ban XOR resign
+
+    if (resignHeight == -1 && banHeight == -1) { // enabled or pre-enabled
+        // Special case for genesis block
+        if (creationHeight == 0 || h >= creationHeight + GetMnActivationDelay()) {
+            return State::ENABLED;
+        }
+        return State::PRE_ENABLED;
+    }
+    if (resignHeight != -1) { // pre-resigned or resigned
+        if (h < resignHeight + GetMnResignDelay()) {
+            return State::PRE_RESIGNED;
+        }
+        return State::RESIGNED;
+    }
+    if (banHeight != -1) { // pre-banned or banned
+        if (h < banHeight + GetMnResignDelay()) {
+            return State::PRE_BANNED;
+        }
+        return State::BANNED;
+    }
+    return State::UNKNOWN;
 }
 
 bool CMasternode::IsActive() const
@@ -105,31 +138,28 @@ bool CMasternode::IsActive() const
 
 bool CMasternode::IsActive(int h) const
 {
-    // Special case for genesis block
-    if (creationHeight == 0)
-        return resignHeight == -1 || resignHeight + GetMnResignDelay() > h;
-
-    return  creationHeight + GetMnActivationDelay() <= h && (resignHeight == -1 || resignHeight + GetMnResignDelay() > h);
+    State state = GetState(h);
+    return state == ENABLED || state == PRE_RESIGNED || state == PRE_BANNED;
 }
 
-std::string CMasternode::GetHumanReadableStatus() const
+std::string CMasternode::GetHumanReadableState(State state)
 {
-    return GetHumanReadableStatus(::ChainActive().Height());
-}
-
-std::string CMasternode::GetHumanReadableStatus(int h) const
-{
-    std::string status;
-    if (IsActive(h))
-    {
-        return "active";
+    switch (state) {
+        case PRE_ENABLED:
+            return "PRE_ENABLED";
+        case ENABLED:
+            return "ENABLED";
+        case PRE_RESIGNED:
+            return "PRE_RESIGNED";
+        case RESIGNED:
+            return "RESIGNED";
+        case PRE_BANNED:
+            return "PRE_BANNED";
+        case BANNED:
+            return "BANNED";
+        default:
+            return "UNKNOWN";
     }
-    status += ((creationHeight == 0 || creationHeight + GetMnActivationDelay() <= h)) ? "activated" : "created";
-    if (resignHeight != -1 && resignHeight + GetMnResignDelay() > h)
-    {
-        status += ", resigned";
-    }
-    return status;
 }
 
 bool operator==(CMasternode const & a, CMasternode const & b)
@@ -141,7 +171,9 @@ bool operator==(CMasternode const & a, CMasternode const & b)
             a.operatorAuthAddress == b.operatorAuthAddress &&
             a.creationHeight == b.creationHeight &&
             a.resignHeight == b.resignHeight &&
-            a.resignTx == b.resignTx
+            a.banHeight == b.banHeight &&
+            a.resignTx == b.resignTx &&
+            a.banTx == b.banTx
             );
 }
 
@@ -150,6 +182,18 @@ bool operator!=(CMasternode const & a, CMasternode const & b)
     return !(a == b);
 }
 
+bool operator==(CDoubleSignFact const & a, CDoubleSignFact const & b)
+{
+    return (a.blockHeader.GetHash() == b.blockHeader.GetHash() &&
+            a.conflictBlockHeader.GetHash() == b.conflictBlockHeader.GetHash() &&
+            a.wastedTxId == b.wastedTxId
+    );
+}
+
+bool operator!=(CDoubleSignFact const & a, CDoubleSignFact const & b)
+{
+    return !(a == b);
+}
 
 /*
  * Searching MN index 'nodesByOwner' or 'nodesByOperator' for given 'auth' key
@@ -182,7 +226,7 @@ bool CMasternodesView::CanSpend(const uint256 & nodeId, int height) const
 {
     auto nodePtr = ExistMasternode(nodeId);
     // if not exist or (resigned && delay passed)
-    return !nodePtr || (nodePtr->resignHeight != -1 && nodePtr->resignHeight + GetMnCollateralUnlockDelay() <= height);
+    return !nodePtr || (nodePtr->GetState(height) == CMasternode::RESIGNED) || (nodePtr->GetState(height) == CMasternode::BANNED);
 }
 
 /*
@@ -190,7 +234,7 @@ bool CMasternodesView::CanSpend(const uint256 & nodeId, int height) const
  */
 bool CMasternodesView::IsAnchorInvolved(const uint256 & nodeId, int height) const
 {
-    /// @todo @max to be implemented
+    /// @todo to be implemented
     return false;
 }
 
@@ -227,7 +271,12 @@ bool CMasternodesView::OnMasternodeResign(uint256 const & nodeId, uint256 const 
 {
     // auth already checked!
     auto const node = ExistMasternode(nodeId);
-    if (!node || node->resignHeight != -1 || !node->resignTx.IsNull() || IsAnchorInvolved(nodeId, height))
+    if (!node)
+    {
+        return false;
+    }
+    auto state = node->GetState(height);
+    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED) || IsAnchorInvolved(nodeId, height)) // if already spoiled by resign or ban, or need for anchor
     {
         return false;
     }
@@ -298,8 +347,8 @@ CMasternodesViewCache CMasternodesView::OnUndoBlock(int height)
 /// Call it only for "clear" and "full" (not cached) view
 void CMasternodesView::PruneOlder(int height)
 {
-    return; /// @todo @max temporary off
-//    /// @todo @max add foolproof (for heights, teams and collateral)
+    return; /// @todo temporary off
+//    /// @todo add foolproof (for heights, teams and collateral)
 //    if (height < 0)
 //    {
 //        return;
@@ -309,7 +358,7 @@ void CMasternodesView::PruneOlder(int height)
 //    for (auto && it = allNodes.begin(); it != allNodes.end(); )
 //    {
 //        CMasternode const & node = it->second;
-//        /// @todo @maxb adjust heights (prune delay method?)
+//        /// @todo adjust heights (prune delay method?)
 //        if(node.resignHeight != -1 && node.resignHeight + < height)
 //        {
 //            nodesByOwner.erase(node.ownerAuthAddress);
@@ -320,35 +369,135 @@ void CMasternodesView::PruneOlder(int height)
 //    }
 
 //    // erase undo info
-//    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
+    //    blocksUndo.erase(blocksUndo.begin(), blocksUndo.lower_bound(height));
+}
+
+void CMasternodesView::SetTeam(CTeam newTeam)
+{
+    currentTeam = std::move(newTeam);
+}
+
+const CMasternodesView::CTeam &CMasternodesView::GetCurrentTeam()
+{
+    if (!currentTeam.size())
+        return Params().GetGenesisTeam();
+    return currentTeam;
+}
+
+CAmount CMasternodesView::GetFoundationsDebt()
+{
+    if (foundationsDebt < 0) {
+        assert(false);
+    }
+    return foundationsDebt;
+}
+
+void CMasternodesView::SetFoundationsDebt(CAmount debt) {
+    if (debt >= 0) {
+        foundationsDebt = debt;
+    } else {
+        assert(false);
+    }
+}
+
+CMasternodesView::CTeam CMasternodesView::CalcNextTeam(uint256 stakeModifier, const CMasternodes * masternodes)
+{
+    int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
+
+    std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
+    if (!masternodes) {
+        masternodes = &allNodes;    /// @todo formally this is wrong!
+    }
+    for (auto && it = masternodes->begin(); it != masternodes->end(); ++it) {
+        CMasternode const & node = it->second;
+
+        if(!node.IsActive())
+            continue;
+
+        CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
+        ss << it->first << stakeModifier;
+        priorityMN.insert(std::make_pair(UintToArith256(Hash(ss.begin(), ss.end())), node.operatorAuthAddress));
+    }
+
+    CMasternodesView::CTeam newTeam;
+    auto && it = priorityMN.begin();
+    for (int i = 0; i < anchoringTeamSize && it != priorityMN.end(); ++i, ++it) {
+        newTeam.insert(it->second);
+    }
+
+    return newTeam;
+}
+
+void CMasternodesView::AddRewardForAnchor(AnchorTxHash const &btcTxHash, uint256 const & rewardTxHash)
+{
+    rewards[btcTxHash] = rewardTxHash;
+}
+
+void CMasternodesView::RemoveRewardForAnchor(AnchorTxHash const &btcTxHash)
+{
+    rewards[btcTxHash] = uint256{};
+}
+
+void CMasternodesView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash)
+{
+    auto myIDs = AmIOperator();
+    if (!myIDs || !ExistMasternode(myIDs->id)->IsActive())
+        return ;
+    auto const & currentTeam = GetCurrentTeam();
+    if (currentTeam.find(myIDs->operatorAuthAddress) == currentTeam.end()) {
+        LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Warning! I am not in a team %s\n", myIDs->operatorAuthAddress.ToString());
+        return ;
+    }
+
+    std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+    CKey masternodeKey{};
+    for (auto const wallet : wallets) {
+        if (wallet->GetKey(myIDs->operatorAuthAddress, masternodeKey)) {
+            break;
+        }
+        masternodeKey = CKey{};
+    }
+
+    if (!masternodeKey.IsValid()) {
+        LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Warning! Masternodes is't valid %s\n", myIDs->operatorAuthAddress.ToString());
+        // return error("%s: Can't read masternode operator private key", __func__);
+        return ;
+    }
+
+    auto prev = panchors->ExistAnchorByTx(anchor.previousAnchor);
+    auto confirmMessage = CAnchorConfirmMessage::Create(anchor, prev? prev->anchor.height : 0, btcTxHash, masternodeKey);
+    if (panchorAwaitingConfirms->Add(confirmMessage)) {
+        LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Create message %s\n", confirmMessage.GetHash().GetHex());
+        RelayAnchorConfirm(confirmMessage.GetHash(), *g_connman);
+    }
+    else {
+        LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Warning! not need relay %s because message (or vote!) already exist\n", confirmMessage.GetHash().GetHex());
+    }
 }
 
 bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHeader const & twoHeader)
 {
     CKeyID firstKey, secondKey;
     if (!oneHeader.ExtractMinterKey(firstKey)) {
-        // TODO: (ss) may be throw exception
+        // TODO: SS may be throw exception
         return false;
     }
     auto itFirstMN = ExistMasternode(AuthIndex::ByOperator, firstKey);
     if (!itFirstMN) {
-        // TODO: (ss) may be throw exception
+        // TODO: SS may be throw exception
         return false;
     }
     if (!twoHeader.ExtractMinterKey(secondKey)) {
-        // TODO: (ss) may be throw exception
+        // TODO: SS may be throw exception
         return false;
     }
     auto itSecondMN = ExistMasternode(AuthIndex::ByOperator, firstKey);
     if (!itSecondMN) {
-        // TODO: (ss) may be throw exception
+        // TODO: SS may be throw exception
         return false;
     }
 
-    uint64_t maxHeight = oneHeader.height > twoHeader.height? oneHeader.height : twoHeader.height;
-    uint64_t minHeight = oneHeader.height > twoHeader.height? twoHeader.height : oneHeader.height;
-
-    if ((maxHeight - minHeight) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL &&
+    if ((std::max(oneHeader.height, twoHeader.height) - std::min(oneHeader.height, twoHeader.height)) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL &&
         itFirstMN == itSecondMN &&
         oneHeader.mintedBlocks == twoHeader.mintedBlocks &&
         oneHeader.GetHash() != twoHeader.GetHash()
@@ -360,7 +509,27 @@ bool CMasternodesView::CheckDoubleSign(CBlockHeader const & oneHeader, CBlockHea
 
 void CMasternodesView::MarkMasternodeAsCriminals(uint256 const & id, CBlockHeader const & blockHeader, CBlockHeader const & conflictBlockHeader)
 {
-    criminals.emplace(std::make_pair(id, std::make_pair(blockHeader, conflictBlockHeader)));
+    criminals.emplace(std::make_pair(id, CDoubleSignFact{blockHeader, conflictBlockHeader, uint256{}}));
+}
+
+boost::optional<CDoubleSignFact> CMasternodesView::FindCriminalProofForMasternode(uint256 const & id)
+{
+    auto it = criminals.find(id);
+    if (it != criminals.end()) {
+        return {it->second};
+    }
+    return {};
+}
+
+void CMasternodesView::MarkMasternodeAsWastedCriminal(uint256 const &mnId, uint256 const &txId)
+{
+    if (criminals[mnId].wastedTxId != uint256{} && txId != uint256{}) { // skip repeated transactions
+        return ;
+    }
+    auto it = criminals.find(mnId);
+    if (it != criminals.end()) {
+        criminals[mnId].wastedTxId = txId;
+    }
 }
 
 void CMasternodesView::RemoveMasternodeFromCriminals(uint256 const &criminalID)
@@ -371,29 +540,67 @@ void CMasternodesView::RemoveMasternodeFromCriminals(uint256 const &criminalID)
     }
 }
 
-void CMasternodesView::BlockedCriminalMnCoins(std::vector<unsigned char> & metadata)
+void CMasternodesView::BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height)
 {
-    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     std::pair<CBlockHeader, CBlockHeader> criminal;
-    uint256 txid;
+    uint256 mnid;
     uint32_t index;
-    ss >> criminal.first >> criminal.second >> txid >> index;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> criminal.first >> criminal.second >> mnid;
 
     if (!CheckDoubleSign(criminal.first, criminal.second)) {
-        if (!FindBlockedCriminalCoins(txid, index, fIsFakeNet)) {
-            WriteBlockedCriminalCoins(txid, index, fIsFakeNet);
+        if (!FindCriminalProofForMasternode(mnid)) {
+            MarkMasternodeAsCriminals(mnid, criminal.first, criminal.second);
         }
 
-        // TODO: (SS) may be need add blockheaders to DB ?
+        auto const node = ExistMasternode(mnid);
+        if (node) {
+            auto state = node->GetState(height);
+            if (state == CMasternode::PRE_ENABLED || state == CMasternode::ENABLED) {
+                allNodes[mnid] = *node; // !! cause may be cached!
+                allNodes[mnid].banHeight = height;
+                allNodes[mnid].banTx = txid;
+            }
+        }
+
+        MarkMasternodeAsWastedCriminal(mnid, txid);
     }
 }
 
-bool CMasternodesView::ExtractCriminalCoinsFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
+void CMasternodesView::UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata)
 {
-    if (tx.vin.size() == 0) {
+    std::pair<CBlockHeader, CBlockHeader> criminal;
+    uint256 mnid;
+    uint32_t index;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> criminal.first >> criminal.second >> mnid;
+
+    auto it = criminals.find(mnid);
+
+    assert(it != criminals.end());
+
+    if (criminals[mnid].wastedTxId != uint256{} && criminals[mnid].wastedTxId != txid) {
+        return ; // skip reverting repeated transactions
+    }
+
+    if (!CheckDoubleSign(criminal.first, criminal.second)) {
+        auto const node = ExistMasternode(mnid);
+        if (node) {
+            allNodes[mnid] = *node; // !! cause may be cached!
+            allNodes[mnid].banHeight = -1;
+            allNodes[mnid].banTx = {};
+        }
+
+        MarkMasternodeAsWastedCriminal(mnid, uint256{});
+    }
+}
+
+bool CMasternodesView::ExtractCriminalProofFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
+{
+    if (!tx.IsCoinBase() || tx.vout.size() == 0) {
         return false;
     }
-    CScript const & memo = tx.vin[0].scriptSig;
+    CScript const & memo = tx.vout[0].scriptPubKey;
     CScript::const_iterator pc = memo.begin();
     opcodetype opcode;
     if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
@@ -408,6 +615,29 @@ bool CMasternodesView::ExtractCriminalCoinsFromTx(CTransaction const & tx, std::
         return false;
     }
     metadata.erase(metadata.begin(), metadata.begin() + DfCriminalTxMarker.size());
+    return true;
+}
+
+bool CMasternodesView::ExtractAnchorRewardFromTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
+{
+    if (tx.vout.size() != 2) {
+        return false;
+    }
+    CScript const & memo = tx.vout[0].scriptPubKey;
+    CScript::const_iterator pc = memo.begin();
+    opcodetype opcode;
+    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return false;
+    }
+    if (!memo.GetOp(pc, opcode, metadata) ||
+        (opcode > OP_PUSHDATA1 &&
+         opcode != OP_PUSHDATA2 &&
+         opcode != OP_PUSHDATA4) ||
+        metadata.size() < DfAnchorFinalizeTxMarker.size() + 1 ||
+        memcmp(&metadata[0], &DfAnchorFinalizeTxMarker[0], DfAnchorFinalizeTxMarker.size()) != 0) {
+        return false;
+    }
+    metadata.erase(metadata.begin(), metadata.begin() + DfAnchorFinalizeTxMarker.size());
     return true;
 }
 
@@ -457,6 +687,17 @@ void CMasternodesView::ApplyCache(const CMasternodesView * cache)
         nodesByOperator[pair.first] = pair.second; // possible empty (if deleted)
     }
 
+    for (auto const & pair : cache->criminals) {
+        criminals[pair.first] = pair.second; // possible empty (if deleted)
+    }
+
+    for (auto const & pair : cache->rewards) {
+        rewards[pair.first] = pair.second; // possible empty (if deleted)
+    }
+
+    foundationsDebt = cache->foundationsDebt;
+    currentTeam = cache->currentTeam;
+
     for (auto const & pair : cache->blocksUndo) {
         blocksUndo[pair.first] = pair.second; // possible empty (if deleted)
     }
@@ -464,10 +705,12 @@ void CMasternodesView::ApplyCache(const CMasternodesView * cache)
 
 void CMasternodesView::Clear()
 {
-    lastHeight = 0;
+    lastHeight = 0; /// @todo may be this is wrong!!!
     allNodes.clear();
     nodesByOwner.clear();
     nodesByOperator.clear();
+    criminals.clear();
+    rewards.clear();
 
     blocksUndo.clear();
 }

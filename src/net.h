@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NET_H
-#define BITCOIN_NET_H
+#ifndef DEFI_NET_H
+#define DEFI_NET_H
 
 #include <addrdb.h>
 #include <addrman.h>
@@ -82,7 +82,7 @@ static const uint64_t MAX_UPLOAD_TIMEFRAME = 60 * 60 * 24;
 /** Default for blocks only*/
 static const bool DEFAULT_BLOCKSONLY = false;
 /** -peertimeout default */
-static const int64_t DEFAULT_PEER_CONNECT_TIMEOUT = 600; /// @todo @maxb old value 60
+static const int64_t DEFAULT_PEER_CONNECT_TIMEOUT = 600; // old value 60 (for 1M block)
 
 static const bool DEFAULT_FORCEDNSSEED = false;
 static const size_t DEFAULT_MAXRECEIVEBUFFER = 20 * 5 * 1000;
@@ -892,4 +892,4 @@ public:
 /** Return a timestamp in the future (in microseconds) for exponentially distributed events. */
 int64_t PoissonNextSend(int64_t now, int average_interval_seconds);
 
-#endif // BITCOIN_NET_H
+#endif // DEFI_NET_H

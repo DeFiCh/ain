@@ -8,10 +8,10 @@
 - Test that it is not possible to mine to an invalid address.
 """
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_raises_rpc_error
 
-class DisableWalletTest (BitcoinTestFramework):
+class DisableWalletTest (DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1

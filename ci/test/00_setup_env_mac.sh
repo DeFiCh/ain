@@ -12,4 +12,4 @@ export OSX_SDK=10.11
 export RUN_UNIT_TESTS=false
 export RUN_FUNCTIONAL_TESTS=false
 export GOAL="deploy"
-export BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror"
+export DEFI_CONFIG="--enable-gui --enable-reduce-exports --enable-werror"

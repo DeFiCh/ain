@@ -13,6 +13,7 @@
 #include <consensus/merkle.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
 #include <net.h>
 #include <policy/feerate.h>
@@ -92,6 +93,13 @@ Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn)
 {
+    auto myIDs = pmasternodesview->AmIOperator();
+    if (!myIDs)
+        return nullptr;
+    auto nodePtr = pmasternodesview->ExistMasternode(myIDs->id);
+    if (!nodePtr || !nodePtr->IsActive())
+        return nullptr;
+
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
@@ -136,6 +144,79 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
 
+    auto currentTeam = pmasternodesview->GetCurrentTeam();
+    auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
+    if (confirms.size() > 0) { // quorum or zero
+
+        std::vector<CAnchorConfirmMessage::Signature> sigs;
+        for (auto const & msg : confirms) {
+            sigs.push_back(msg.signature);
+        }
+        CAnchorConfirmMessage const & confirm = confirms[0]; // they are equal except sigs
+        CTxDestination destination = confirm.rewardKeyType == 1 ? CTxDestination(PKHash(confirm.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(confirm.rewardKeyID));
+
+        CDataStream metadata(DfAnchorFinalizeTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+        auto nextTeam = pmasternodesview->CalcNextTeam(pindexPrev->stakeModifier);
+        metadata
+            << confirm.btcTxHash
+            << confirm.anchorHeight
+            << confirm.prevAnchorHeight
+            << confirm.rewardKeyID
+            << confirm.rewardKeyType
+            << nextTeam
+            << currentTeam
+            << sigs;
+
+        CMutableTransaction mTx;
+        mTx.vin.resize(1);
+        mTx.vin[0].prevout.SetNull();
+        mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+        mTx.vout.resize(2);
+        mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+        mTx.vout[0].nValue = 0;
+        mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
+        mTx.vout[1].nValue = GetAnchorSubsidy(confirm.anchorHeight, confirm.prevAnchorHeight, chainparams.GetConsensus());
+
+        LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);
+        pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+
+        pblocktemplate->vTxFees.push_back(0);
+        pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+
+        // DO NOT erase votes here! they'll be cleaned after block connection (ONLY!)
+//        panchorAwaitingConfirms->EraseAnchor(confirmsForAnchor.first);
+    }
+
+    CTransactionRef criminalTx = nullptr;
+    if (!fIsFakeNet && fCriminals && pmasternodesview->GetUncaughtCriminals().size() != 0) {
+        CMasternodesView::CMnCriminals criminals = pmasternodesview->GetUncaughtCriminals();
+        CMasternodesView::CMnCriminals::iterator itCriminalMN = criminals.begin();
+        auto criminal = itCriminalMN->second;
+        assert(!pmasternodesview->CheckDoubleSign(criminal.blockHeader, criminal.conflictBlockHeader));
+        CKeyID key;
+        if (criminal.blockHeader.ExtractMinterKey(key)) {
+            auto itFirstMN = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, key);
+            if (itFirstMN) {
+                CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+                metadata << criminal.blockHeader << criminal.conflictBlockHeader << (*itFirstMN)->second;
+
+                CMutableTransaction newCriminalTx;
+                newCriminalTx.vin.resize(1);
+                newCriminalTx.vin[0].prevout.SetNull();
+                newCriminalTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                newCriminalTx.vout.resize(1);
+                newCriminalTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+                newCriminalTx.vout[0].nValue = 0;
+
+                pblock->vtx.push_back(MakeTransactionRef(std::move(newCriminalTx)));
+                criminalTx = pblock->vtx.back();
+
+                pblocktemplate->vTxFees.push_back(0);
+                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+            }
+        }
+    }
+
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
@@ -149,43 +230,26 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     CMutableTransaction coinbaseTx;
     coinbaseTx.vin.resize(1);
     coinbaseTx.vin[0].prevout.SetNull();
+    coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
     coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
     // Pinch off foundation share
+    CAmount foundationsReward = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
     if (IsValidDestination(chainparams.GetConsensus().foundationAddress) && chainparams.GetConsensus().foundationShare != 0) {
-        coinbaseTx.vout.resize(2);
-        coinbaseTx.vout[1].scriptPubKey = GetScriptForDestination(chainparams.GetConsensus().foundationAddress);
-        coinbaseTx.vout[1].nValue = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
-        coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
-    }
-
-    bool baseScript = true;
-
-    if (!fIsFakeNet && pmasternodesview->GetCriminals().size() != 0) {
-        CMasternodesView::CMnCriminals criminals = pmasternodesview->GetCriminals();
-        CMasternodesView::CMnCriminals::iterator itCriminalMN = criminals.begin();
-        std::pair<CBlockHeader, CBlockHeader> criminal = itCriminalMN->second;
-        assert(!pmasternodesview->CheckDoubleSign(criminal.first, criminal.second));
-        CKeyID key;
-        if (criminal.first.ExtractMinterKey(key)) {
-            auto itFirstMN = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, key);
-            if (itFirstMN) {
-                CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-                metadata << criminal.first << criminal.second << (*itFirstMN)->second << 0; // 0 - number output for blocking
-                coinbaseTx.vin[0].scriptSig = CScript() << OP_RETURN << ToByteVector(metadata);
-
-                baseScript = false;
-            }
+        if (pmasternodesview->GetFoundationsDebt() < foundationsReward) {
+            coinbaseTx.vout.resize(2);
+            coinbaseTx.vout[1].scriptPubKey = GetScriptForDestination(chainparams.GetConsensus().foundationAddress);
+            coinbaseTx.vout[1].nValue = foundationsReward - pmasternodesview->GetFoundationsDebt();
+            coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
+        } else {
+            pmasternodesview->SetFoundationsDebt(pmasternodesview->GetFoundationsDebt() - foundationsReward);
         }
-    }
 
-    if (baseScript) {
-        coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     }
-
 
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
+
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;
 
@@ -195,7 +259,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus().pos);
-    pblock->stakeModifier = uint256{}; // SS
+    pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->operatorAuthAddress);
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 
@@ -205,8 +269,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
     int64_t nTime2 = GetTimeMicros();
 
-    if (pmasternodesview->GetCriminals().size() != 0) {
-        pmasternodesview->RemoveMasternodeFromCriminals(pmasternodesview->GetCriminals().begin()->first);
+    if (pmasternodesview->GetUncaughtCriminals().size() != 0) {
+        pmasternodesview->MarkMasternodeAsWastedCriminal(pmasternodesview->GetUncaughtCriminals().begin()->first, criminalTx->GetHash());
     }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
@@ -511,24 +575,37 @@ namespace pos {
         nLastSteadyTime = std::chrono::steady_clock::now();
 
         bool minted = false;
+        bool potentialCriminalBlock = false;
 
         CBlockIndex* tip = getTip();
 
         // this part of code stay valid until tip got changed
-        /// @todo @maxb is 'tip' can be changed here? is it possible to pull 'getTip()' and mnview access to the upper (calling 'stake()') block?
+        /// @todo is 'tip' can be changed here? is it possible to pull 'getTip()' and mnview access to the upper (calling 'stake()') block?
         uint32_t mintedBlocks(0);
         {
             LOCK(cs_main);
             auto nodePtr = pmasternodesview->ExistMasternode(args.masternodeID);
             if (!nodePtr || !nodePtr->IsActive(tip->height))
             {
-                /// @todo @maxb may be new status for not activated (or already resigned) MN??
+                /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
             }
             mintedBlocks = nodePtr->mintedBlocks;
         }
 
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
+            if (!fIsFakeNet && fCriminals) {
+                std::map <uint256, CBlockHeader> blockHeaders{};
+
+                pmasternodesview->FindMintedBlockHeader(args.masternodeID, mintedBlocks + 1, blockHeaders, fIsFakeNet);
+
+                for (std::pair <uint256, CBlockHeader> blockHeader : blockHeaders) {
+                    if ((std::max(blockHeader.second.height, tip->nHeight + (uint64_t)1) - std::min(blockHeader.second.height, tip->nHeight + (uint64_t)1)) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL) {
+                        potentialCriminalBlock = true;
+                        return;
+                    }
+                }
+            }
             //
             // Create block template
             //
@@ -543,7 +620,7 @@ namespace pos {
 
             // find matching Hash
             pblock->height = tip->nHeight + 1;
-            pblock->mintedBlocks = mintedBlocks + 1; // TODO: (SS) rewrite "0" to actual master nodes mintedBlocks
+            pblock->mintedBlocks = mintedBlocks + 1;
             pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
 
             bool found = false;
@@ -593,7 +670,7 @@ namespace pos {
             minted = true;
         });
 
-        return minted ? Status::minted : Status::stakeWaiting;
+        return minted ? Status::minted : (potentialCriminalBlock? Status::criminalWaiting : Status::stakeWaiting);
     }
 
     CBlockIndex* Staker::getTip() {
@@ -603,7 +680,7 @@ namespace pos {
 
     template <typename F>
     bool Staker::withSearchInterval(F&& f) {
-        const int64_t nTime = GetAdjustedTime(); // TODO: (SS) GetAdjustedTime() + period minting block
+        const int64_t nTime = GetAdjustedTime(); // TODO: SS GetAdjustedTime() + period minting block
 
         if (nTime > nLastCoinStakeSearchTime) {
             f(nTime, nTime - nLastCoinStakeSearchTime);
@@ -629,6 +706,14 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
     while (true) {
         boost::this_thread::interruption_point();
 
+        while (fImporting || fReindex) {
+            boost::this_thread::interruption_point();
+
+            LogPrintf("ThreadStaker: reindex waiting\n");
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(900));
+        }
+
         try {
             Staker::Status status = staker.stake(chainparams, args);
             if (status == Staker::Status::error) {
@@ -644,6 +729,9 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
             }
             if (status == Staker::Status::stakeWaiting) {
                 LogPrint(BCLog::STAKING, "Staked, but no kernel found yet\n");
+            }
+            if (status == Staker::Status::criminalWaiting) {
+                LogPrint(BCLog::STAKING, "Potential criminal block tried to create\n");
             }
         }
         catch (const std::runtime_error &e) {

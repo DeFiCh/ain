@@ -193,7 +193,7 @@ void PaymentServerTests::paymentServerTests()
     // compares 50001 <= BIP70_MAX_PAYMENTREQUEST_SIZE == false
     QCOMPARE(PaymentServer::verifySize(tempFile.size()), false);
 
-    /// @maxb disabled cause cert is dead, total amount changed to *4
+    /// @todo disabled cause cert is dead, total amount changed to *4
     // Payment request with amount overflow (amount is set to 21000001 DFI):
 //    data = DecodeBase64(paymentrequest5_cert2_BASE64);
 //    byteArray = QByteArray((const char*)data.data(), data.size());
