@@ -20,7 +20,7 @@
 #include <boost/algorithm/string/split.hpp>
 
 
-std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes() const
+std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
 {
     std::vector<CTransactionRef> mnTxs;
     for (auto const & addrs : vMasternodes)
@@ -37,6 +37,7 @@ std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes() const
         assert(ownerDest.which() == 1 || ownerDest.which() == 4);
 
         CKeyID operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest)) ;
+        genesisTeam.insert(operatorAuthKey);
         CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
         metadata << static_cast<unsigned char>(MasternodesTxType::CreateMasternode)
                  << static_cast<char>(operatorDest.which()) << operatorAuthKey;
@@ -143,10 +144,20 @@ public:
         // Masternodes' params
         consensus.mn.activationDelay = 1500;
         consensus.mn.resignDelay = 300;
-        consensus.mn.collateralUnlockDelay = 300;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 100 * COIN;
         consensus.mn.historyFrame = 300;
+        consensus.mn.anchoringTeamSize = 5;
+        consensus.mn.anchoringFrequency = 15;
+        consensus.mn.anchoringLag = 15;
+
+        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
+        consensus.spv.anchorSubsidy = 0 * COIN;
+        consensus.spv.subsidyIncreasePeriod = 60;
+        consensus.spv.subsidyIncreaseValue = 5 * COIN;
+        consensus.spv.wallet_xpub = "";
+        consensus.spv.anchors_address = "";
+        consensus.spv.minConfirmations = 6;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -246,7 +257,7 @@ public:
 //        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min
         consensus.pos.nTargetSpacing = 30;
-        consensus.pos.fAllowMinDifficultyBlocks = true;
+        consensus.pos.fAllowMinDifficultyBlocks = false;
         consensus.pos.fNoRetargeting = false; // only for regtest
 
         consensus.pos.coinstakeMaturity = 100;
@@ -270,10 +281,20 @@ public:
         // Masternodes' params
         consensus.mn.activationDelay = 10;
         consensus.mn.resignDelay = 10;
-        consensus.mn.collateralUnlockDelay = 10;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.historyFrame = 300;
+        consensus.mn.anchoringTeamSize = 5;
+        consensus.mn.anchoringFrequency = 15;
+        consensus.mn.anchoringLag = 15;
+
+        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
+        consensus.spv.wallet_xpub = "tpubD8NM49wHzwMsyudhd7UtBChQBykkT1KVAHU4UDjdXt8w8ZaFzEnjxH7Uhptno2YPE616KWCitmXtH5w1RZ4y8SaNBBMr1zcjYqy1ZBkFTRp";
+        consensus.spv.anchors_address = "mtANGiuXturik8b3T7FVe6dV31v3AdEJUt";
+        consensus.spv.anchorSubsidy = 0 * COIN;
+        consensus.spv.subsidyIncreasePeriod = 60;
+        consensus.spv.subsidyIncreaseValue = 5 * COIN;
+        consensus.spv.minConfirmations = 1;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -302,10 +323,10 @@ public:
         vMasternodes.push_back({"75Wramp2iARchHedXcn1qRkQtMpSt9Mi3V", "7Ku81yvqbPkxpWjZpZWZZnWydXyzJozZfN"});
         vMasternodes.push_back({"7LfqHbyh9dBQDjWB6MxcWvH2PBC5iY4wPa", "75q6ftr3QGfBT3DBu15fVfetP6duAgfhNH"});
 
-        genesis = CreateGenesisBlock(1296707317, 0x1d00ffff, 1, consensus.baseBlockSubsidy, CreateGenesisMasternodes()); // old=1296688602
+        genesis = CreateGenesisBlock(1298659543, 0x1d00ffff, 1, consensus.baseBlockSubsidy, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("0x0000088af9af8ea4627c5fb2d6cf2075235caaaf62aae791040700cbcaa05cc7"));
+        assert(consensus.hashGenesisBlock == uint256S("0x00000a7297b606cc18480fe70e5bda5eb4690a18651697f86648395b99265571"));
         assert(genesis.hashMerkleRoot == uint256S("0xae22df3d3b2f6a9f2e7fc8260a649a7928537445b626fa92bc977538a85ad106"));
 
         vFixedSeeds.clear();
@@ -378,10 +399,20 @@ public:
         // Masternodes' params
         consensus.mn.activationDelay = 10;
         consensus.mn.resignDelay = 10;
-        consensus.mn.collateralUnlockDelay = 10;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.historyFrame = 300;
+        consensus.mn.anchoringTeamSize = 8;
+        consensus.mn.anchoringFrequency = 15;
+        consensus.mn.anchoringLag = 15;
+
+        consensus.spv.creationFee = 1000; // should be > bitcoin's dust
+        consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";
+        consensus.spv.anchors_address = "n1h1kShnyiw3qRR6MM1FnwShaNVoVwBTnF";
+        consensus.spv.anchorSubsidy = 0 * COIN;
+        consensus.spv.subsidyIncreasePeriod = 60;
+        consensus.spv.subsidyIncreaseValue = 5 * COIN;
+        consensus.spv.minConfirmations = 1;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;

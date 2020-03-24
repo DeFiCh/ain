@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CONSENSUS_PARAMS_H
-#define BITCOIN_CONSENSUS_PARAMS_H
+#ifndef DEFI_CONSENSUS_PARAMS_H
+#define DEFI_CONSENSUS_PARAMS_H
 
 #include <amount.h>
 #include <script/standard.h>
@@ -101,12 +101,26 @@ struct Params {
         CAmount creationFee;
         CAmount collateralAmount;
         int activationDelay;
-        int resignDelay;
-        int collateralUnlockDelay;
+        int resignDelay; // same delay for criminal ban
         int historyFrame;
+        int anchoringTeamSize;
+        int anchoringFrequency; // create every Nth block
+        int anchoringLag;       // older than Tip() by
     };
     MnParams mn;
+
+    struct SpvParams {
+        CAmount creationFee;
+        CAmount anchorSubsidy;
+        int subsidyIncreasePeriod;
+        CAmount subsidyIncreaseValue;
+        std::string wallet_xpub;
+        std::string anchors_address;
+        int minConfirmations;
+    };
+    SpvParams spv;
+
 };
 } // namespace Consensus
 
-#endif // BITCOIN_CONSENSUS_PARAMS_H
+#endif // DEFI_CONSENSUS_PARAMS_H

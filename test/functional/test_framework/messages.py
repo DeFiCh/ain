@@ -4,11 +4,11 @@
 # Copyright (c) 2010-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Bitcoin test framework primitive and message structures
+"""Defi test framework primitive and message structures
 
 CBlock, CTransaction, CBlockHeader, CTxIn, CTxOut, etc....:
     data structures that should map to corresponding structures in
-    bitcoin/primitives
+    defi/primitives
 
 msg_block, msg_tx, msg_headers, etc.:
     data structures that represent network messages
@@ -184,7 +184,7 @@ def FromHex(obj, hex_string):
 def ToHex(obj):
     return obj.serialize().hex()
 
-# Objects that map to bitcoind objects, which can be serialized/deserialized
+# Objects that map to defid objects, which can be serialized/deserialized
 
 
 class CAddress:
@@ -220,6 +220,45 @@ class CAddress:
                                                          self.ip, self.port)
 
 
+class CAnchorAuth:
+    __slots__ = ("previousAnchor", "height", "blockHash", "nextTeam")
+
+    def __init__(self, previousAnchor=b"\x00"*32, height=0, blockHash=b"\x00"*32, nextTeam=None):
+        self.previousAnchor = previousAnchor if previousAnchor is not None else []
+        self.height = height
+        self.blockHash = blockHash
+        self.nextTeam = nextTeam
+
+    # dummy, untested yet:
+    def deserialize(self, f):
+        self.previousAnchor = deser_uint256(f)
+        self.height = struct.unpack("<I", f.read(4))[0]
+        self.blockHash = deser_uint256(f)
+
+        nit = deser_compact_size(f)
+        self.nextTeam = []
+        for i in range(nit):
+            t = f.read(20)
+            self.nextTeam.append(t)
+        repr (self)
+
+    # dummy, untested yet:
+    def serialize(self):
+        repr (self)
+        r = b""
+        r += ser_uint256(self.previousAnchor)
+        r += struct.pack("<I", self.height)
+        r += ser_uint256(self.blockhash)
+
+        r += ser_compact_size(len(self.nextTeam))
+        for team in self.nextTeam:
+            r += team
+        return r
+
+    def __repr__(self):
+        return "CAnchorAuth(previousAnchor=%064x height=%i blockHash=%064x nextTeam=%s)" % (self.previousAnchor, self.height, self.blockHash, self.nextTeam)
+
+
 class CInv:
     __slots__ = ("hash", "type")
 
@@ -229,7 +268,8 @@ class CInv:
         2: "Block",
         1|MSG_WITNESS_FLAG: "WitnessTx",
         2|MSG_WITNESS_FLAG : "WitnessBlock",
-        4: "CompactBlock"
+        4: "CompactBlock",
+        5: "AnchorAuth"
     }
 
     def __init__(self, t=0, h=0):
@@ -442,7 +482,7 @@ class CTransaction:
         if len(self.vin) == 0:
             flags = struct.unpack("<B", f.read(1))[0]
             # Not sure why flags can't be zero, but this
-            # matches the implementation in bitcoind
+            # matches the implementation in defid
             if (flags != 0):
                 self.vin = deser_vector(f, CTxIn)
                 self.vout = deser_vector(f, CTxOut)
@@ -1122,6 +1162,23 @@ class msg_getblocks:
             % (repr(self.locator), self.hashstop)
 
 
+class msg_anchorauth:
+    __slots__ = ("auth",)
+    command = b"anchorauth"
+
+    def __init__(self, auth=CAnchorAuth()):
+        self.auth = auth
+
+    def deserialize(self, f):
+        self.auth.deserialize(f)
+
+    def serialize(self):
+        return self.auth.serialize()
+
+    def __repr__(self):
+        return "msg_anchorauth(auth=%s)" % (repr(self.auth))
+
+
 class msg_tx:
     __slots__ = ("tx",)
     command = b"tx"
@@ -1332,7 +1389,7 @@ class msg_headers:
         self.headers = headers if headers is not None else []
 
     def deserialize(self, f):
-        # comment in bitcoind indicates these should be deserialized as blocks
+        # comment in defid indicates these should be deserialized as blocks
         blocks = deser_vector(f, CBlock)
         for x in blocks:
             self.headers.append(CBlockHeader(x))

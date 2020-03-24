@@ -15,7 +15,7 @@ Generate 427 more blocks.
 from test_framework.blocktools import create_coinbase, create_block, create_transaction, add_witness_commitment
 from test_framework.messages import CTransaction
 from test_framework.script import CScript
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
 NULLDUMMY_ERROR = "non-mandatory-script-verify-flag (Dummy CHECKMULTISIG argument must be zero) (code 64)"
@@ -32,7 +32,7 @@ def trueDummy(tx):
     tx.vin[0].scriptSig = CScript(newscript)
     tx.rehash()
 
-class NULLDUMMYTest(BitcoinTestFramework):
+class NULLDUMMYTest(DefiTestFramework):
 
     def set_test_params(self):
         self.num_nodes = 1

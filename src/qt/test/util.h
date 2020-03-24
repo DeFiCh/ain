@@ -1,5 +1,5 @@
-#ifndef BITCOIN_QT_TEST_UTIL_H
-#define BITCOIN_QT_TEST_UTIL_H
+#ifndef DEFI_QT_TEST_UTIL_H
+#define DEFI_QT_TEST_UTIL_H
 
 #include <QString>
 
@@ -11,4 +11,4 @@
  */
 void ConfirmMessage(QString* text = nullptr, int msec = 0);
 
-#endif // BITCOIN_QT_TEST_UTIL_H
+#endif // DEFI_QT_TEST_UTIL_H
