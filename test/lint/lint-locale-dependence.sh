@@ -2,8 +2,8 @@
 
 export LC_ALL=C
 KNOWN_VIOLATIONS=(
-    "src/bitcoin-tx.cpp.*stoul"
-    "src/bitcoin-tx.cpp.*trim_right"
+    "src/defi-tx.cpp.*stoul"
+    "src/defi-tx.cpp.*trim_right"
     "src/dbwrapper.cpp.*stoul"
     "src/dbwrapper.cpp:.*vsnprintf"
     "src/httprpc.cpp.*trim"
@@ -20,7 +20,7 @@ KNOWN_VIOLATIONS=(
     "src/util/system.cpp:.*atoi"
 )
 
-REGEXP_IGNORE_EXTERNAL_DEPENDENCIES="^src/(crypto/ctaes/|leveldb/|secp256k1/|tinyformat.h|univalue/)"
+REGEXP_IGNORE_EXTERNAL_DEPENDENCIES="^src/(crypto/ctaes/|leveldb/|secp256k1/|tinyformat.h|univalue|spv/)"
 
 LOCALE_DEPENDENT_FUNCTIONS=(
     alphasort    # LC_COLLATE (via strcoll)

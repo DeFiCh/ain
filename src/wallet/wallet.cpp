@@ -2266,10 +2266,6 @@ CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, boo
             continue;
         }
 
-        if (pwallet->chain().mnFindBlockedCriminalCoins(hashTx ,i)) {
-            continue;
-        }
-
         if (!pwallet->IsSpent(locked_chain, hashTx, i) && (allow_used_addresses || !pwallet->IsUsedDestination(hashTx, i))) {
             const CTxOut &txout = tx->vout[i];
             nCredit += pwallet->GetCredit(txout, filter);
@@ -2556,10 +2552,6 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             }
 
             if (!allow_used_addresses && IsUsedDestination(wtxid, i)) {
-                continue;
-            }
-
-            if (chain().mnFindBlockedCriminalCoins(wtxid ,i)) {
                 continue;
             }
 
@@ -2998,7 +2990,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 
             // Create change script that will be used if we need change
             // TODO: pass in scriptChange instead of reservedest so
-            // change transaction isn't always pay-to-bitcoin-address
+            // change transaction isn't always pay-to-defi-address
             CScript scriptChange;
 
             // coin control: send change to custom address
@@ -4965,4 +4957,17 @@ bool CWallet::AddCryptedKeyInner(const CPubKey &vchPubKey, const std::vector<uns
     mapCryptedKeys[vchPubKey.GetID()] = make_pair(vchPubKey, vchCryptedSecret);
     ImplicitlyLearnRelatedKeyScripts(vchPubKey);
     return true;
+}
+
+CKey GetWalletsKey(const CKeyID & keyid)
+{
+    std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+    CKey key{};
+    for (auto const wallet : wallets) {
+        if (wallet->GetKey(keyid, key)) {
+            break;
+        }
+        key = CKey{};
+    }
+    return key;
 }

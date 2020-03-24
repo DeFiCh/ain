@@ -35,7 +35,7 @@ import os
 from random import randint
 import shutil
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.test_node import TestNode
 from test_framework.util import (
     assert_equal,
@@ -45,7 +45,7 @@ from test_framework.util import (
 )
 
 
-class WalletBackupTest(BitcoinTestFramework):
+class WalletBackupTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
@@ -171,6 +171,7 @@ class WalletBackupTest(BitcoinTestFramework):
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'masternodes'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
 
         # Restore wallets from backup
         shutil.copyfile(os.path.join(self.nodes[0].datadir, 'wallet.bak'), os.path.join(self.nodes[0].datadir, 'regtest', 'wallets', 'wallet.dat'))
@@ -193,6 +194,7 @@ class WalletBackupTest(BitcoinTestFramework):
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'masternodes'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
 
         self.start_three()
 

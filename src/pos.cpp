@@ -17,7 +17,7 @@ bool CheckStakeModifier(const CBlockIndex* pindexPrev, const CBlockHeader& block
     if (blockHeader.hashPrevBlock.IsNull())
         return blockHeader.stakeModifier.IsNull();
 
-    /// @todo @maxb is it possible to pass minter key here, or we really need to extract it srom sig???
+    /// @todo is it possible to pass minter key here, or we really need to extract it srom sig???
     CKeyID key;
     if (!blockHeader.ExtractMinterKey(key)) {
         LogPrintf("CheckStakeModifier: Can't extract minter key\n");
@@ -47,7 +47,7 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
 }
 
 bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView) {
-    /// @todo @maxb may be this is tooooo optimistic? need more validation?
+    /// @todo may be this is tooooo optimistic? need more validation?
     if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
         return true;
     }
@@ -62,7 +62,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         AssertLockHeld(cs_main);
         auto it = mnView->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, minter);
 
-        /// @todo @maxb check height of history frame here (future and past)
+        /// @todo check height of history frame here (future and past)
         if (!it || !mnView->ExistMasternode((*it)->second)->IsActive(blockHeader.height))
         {
             return false;
@@ -81,7 +81,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         uint32_t const mintedBlocks = mnView->ExistMasternode(masternodeID)->mintedBlocks;
         uint32_t const mintedBlocksDiff = mintedBlocks > blockHeader.mintedBlocks ? mintedBlocks - blockHeader.mintedBlocks : blockHeader.mintedBlocks - mintedBlocks;
 
-        /// @todo @maxb this is not so trivial as it seems! implement!!!
+        /// @todo this is not so trivial as it seems! do we need an additional check?
 //        if (mintedBlocksDiff > mintedBlocksMaxDiff)
 //        {
 //            return false;
@@ -96,7 +96,7 @@ bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pinde
         return false;
     }
 
-    /// @todo @max this is our own check of own minted block (just to remember)
+    // this is our own check of own minted block (just to remember)
     return ContextualCheckProofOfStake(blockHeader, params, mnView);
 }
 
