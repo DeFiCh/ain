@@ -6,7 +6,7 @@
 from decimal import Decimal
 import time
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_array_result,
     assert_equal,
@@ -17,7 +17,7 @@ from test_framework.util import (
 )
 
 
-class WalletTest(BitcoinTestFramework):
+class WalletTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.extra_args = [[
@@ -218,9 +218,6 @@ class WalletTest(BitcoinTestFramework):
         node_0_bal = self.check_fee_amount(self.nodes[0].getbalance(), node_0_bal + Decimal('10'), fee_per_byte, self.get_vsize(self.nodes[2].gettransaction(txid)['hex']))
 
         self.start_node(3)
-        print (self.nodes[0].getblockcount())
-        print (self.nodes[3].getblockcount())
-        input ("Pause...")
         connect_nodes_bi(self.nodes, 0, 3)
         self.sync_all()
 
@@ -314,7 +311,8 @@ class WalletTest(BitcoinTestFramework):
         assert_raises_rpc_error(-3, "Invalid amount", self.nodes[0].sendtoaddress, self.nodes[2].getnewaddress(), "1f-4")
 
         # This will raise an exception since generate does not accept a string
-        assert_raises_rpc_error(-1, "not an integer", self.nodes[0].generate, "2")
+        # we have no more "generate" rpc
+        # assert_raises_rpc_error(-1, "not an integer", self.nodes[0].generate, "2")
 
         # This will raise an exception for the invalid private key format
         assert_raises_rpc_error(-5, "Invalid private key encoding", self.nodes[0].importprivkey, "invalid")
@@ -326,14 +324,14 @@ class WalletTest(BitcoinTestFramework):
         # This will raise an exception for attempting to dump the private key of an address you do not own
         assert_raises_rpc_error(-3, "Address does not refer to a key", self.nodes[0].dumpprivkey, temp_address)
 
-        # This will raise an exception for attempting to get the private key of an invalid Bitcoin address
-        assert_raises_rpc_error(-5, "Invalid Bitcoin address", self.nodes[0].dumpprivkey, "invalid")
+        # This will raise an exception for attempting to get the private key of an invalid Defi address
+        assert_raises_rpc_error(-5, "Invalid Defi address", self.nodes[0].dumpprivkey, "invalid")
 
-        # This will raise an exception for attempting to set a label for an invalid Bitcoin address
-        assert_raises_rpc_error(-5, "Invalid Bitcoin address", self.nodes[0].setlabel, "invalid address", "label")
+        # This will raise an exception for attempting to set a label for an invalid Defi address
+        assert_raises_rpc_error(-5, "Invalid Defi address", self.nodes[0].setlabel, "invalid address", "label")
 
         # This will raise an exception for importing an invalid address
-        assert_raises_rpc_error(-5, "Invalid Bitcoin address or script", self.nodes[0].importaddress, "invalid")
+        assert_raises_rpc_error(-5, "Invalid Defi address or script", self.nodes[0].importaddress, "invalid")
 
         # This will raise an exception for attempting to import a pubkey that isn't in hex
         assert_raises_rpc_error(-5, "Pubkey must be a hex string", self.nodes[0].importpubkey, "not hex")

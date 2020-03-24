@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NODE_PSBT_H
-#define BITCOIN_NODE_PSBT_H
+#ifndef DEFI_NODE_PSBT_H
+#define DEFI_NODE_PSBT_H
 
 #include <psbt.h>
 
@@ -40,4 +40,4 @@ struct PSBTAnalysis {
  */
 PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx);
 
-#endif // BITCOIN_NODE_PSBT_H
+#endif // DEFI_NODE_PSBT_H

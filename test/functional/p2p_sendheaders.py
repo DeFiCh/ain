@@ -85,6 +85,8 @@ d. Announce 49 headers that don't connect.
 e. Announce one more that doesn't connect.
    Expect: disconnect.
 """
+import sys
+
 from test_framework.blocktools import create_block, create_coinbase
 from test_framework.messages import CInv
 from test_framework.mininode import (
@@ -100,7 +102,7 @@ from test_framework.mininode import (
     msg_inv,
     msg_sendheaders,
 )
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     wait_until,
@@ -155,6 +157,20 @@ class BaseNode(P2PInterface):
         test_function = lambda: self.last_blockhash_announced == block_hash
         wait_until(test_function, timeout=timeout, lock=mininode_lock)
 
+    def on_message(self, message):
+        """Overloaded base method to completely ignore anchor auths that conflicts with test flow logic"""
+        with mininode_lock:
+            try:
+                command = message.command.decode('ascii')
+                if command == 'inv' and message.inv[-1].type == 5: # 'anchorauth' - ignore anchor auths!!!!
+                    return
+                self.message_count[command] += 1
+                self.last_message[command] = message
+                getattr(self, 'on_' + command)(message)
+            except:
+                print("ERROR delivering %s (%s)" % (repr(message), sys.exc_info()[0]))
+                raise
+
     def on_inv(self, message):
         self.block_announced = True
         self.last_blockhash_announced = message.inv[-1].hash
@@ -202,7 +218,7 @@ class BaseNode(P2PInterface):
             self.block_announced = False
             self.last_message.pop("inv", None)
 
-class SendHeadersTest(BitcoinTestFramework):
+class SendHeadersTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
@@ -212,6 +228,7 @@ class SendHeadersTest(BitcoinTestFramework):
 
         # Clear out block announcements from each p2p listener
         [x.clear_block_announcements() for x in self.nodes[0].p2ps]
+        self.nodes[0].pullup_mocktime() # Need to! Cause 'generate' interleaved with manual block's creation/sending
         self.nodes[0].generate(count)
         return int(self.nodes[0].getbestblockhash(), 16)
 
@@ -322,14 +339,13 @@ class SendHeadersTest(BitcoinTestFramework):
         prev_tip = int(self.nodes[0].getbestblockhash(), 16)
         test_node.send_get_headers(locator=[prev_tip], hashstop=0)
         test_node.sync_with_ping()
-
         # Now that we've synced headers, headers announcements should work
         tip = self.mine_blocks(1)
         inv_node.check_last_inv_announcement(inv=[tip])
         test_node.check_last_headers_announcement(headers=[tip])
 
         height = self.nodes[0].getblockcount() + 1
-        block_time += 10  # Advance far enough ahead
+        block_time += 10  # Advance far enough ahead (in fact, `block_time` isn't consistent here. it'll be better to get last block time in the case of 'generate()' interleaving 'create_block()' )
         for i in range(10):
             self.log.debug("Part 2.{}: starting...".format(i))
             # Mine i blocks, and alternate announcing either via

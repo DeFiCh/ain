@@ -18,19 +18,21 @@ import io
 
 from test_framework.blocktools import add_witness_commitment, create_block, create_coinbase, send_to_witness
 from test_framework.messages import BIP125_SEQUENCE_NUMBER, CTransaction
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
+from test_framework.test_node import TestNode
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
     assert_raises_rpc_error,
     connect_nodes_bi,
     hex_str_to_bytes,
+    set_node_times,
 )
 
 WALLET_PASSPHRASE = "test"
 WALLET_PASSPHRASE_TIMEOUT = 3600
 
-class BumpFeeTest(BitcoinTestFramework):
+class BumpFeeTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
@@ -60,6 +62,9 @@ class BumpFeeTest(BitcoinTestFramework):
         self.sync_all()
         for i in range(25):
             peer_node.sendtoaddress(rbf_node_address, 0.001)
+
+        # we need to move time to sync
+        set_node_times([rbf_node], TestNode.Mocktime)
         self.sync_all()
         peer_node.generate(1)
         self.sync_all()
@@ -293,9 +298,11 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address):
     # This makes it possible to check whether the rbf tx outputs are
     # spendable before the rbf tx is confirmed.
     block = submit_block_with_tx(rbf_node, rbftx)
+
     # Can not abandon conflicted tx
     assert_raises_rpc_error(-5, 'Transaction not eligible for abandonment', lambda: rbf_node.abandontransaction(txid=bumpid))
     rbf_node.invalidateblock(block.hash)
+
     # Call abandon to make sure the wallet doesn't attempt to resubmit
     # the bump tx and hope the wallet does not rebroadcast before we call.
     rbf_node.abandontransaction(bumpid)

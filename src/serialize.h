@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_SERIALIZE_H
-#define BITCOIN_SERIALIZE_H
+#ifndef DEFI_SERIALIZE_H
+#define DEFI_SERIALIZE_H
 
 #include <compat/endian.h>
 
@@ -24,7 +24,7 @@
 #include <prevector.h>
 #include <span.h>
 
-static const unsigned int MAX_SIZE = 0x02000000;
+static const unsigned int MAX_DESER_SIZE = 0x08000000;    // 128M (for submit 64M block via rpc!), old value 32M (0x02000000)
 
 /**
  * Dummy data type to identify deserializing constructors.
@@ -312,7 +312,7 @@ uint64_t ReadCompactSize(Stream& is)
         if (nSizeRet < 0x100000000ULL)
             throw std::ios_base::failure("non-canonical ReadCompactSize()");
     }
-    if (nSizeRet > (uint64_t)MAX_SIZE)
+    if (nSizeRet > (uint64_t)MAX_DESER_SIZE)
         throw std::ios_base::failure("ReadCompactSize(): size too large");
     return nSizeRet;
 }
@@ -1015,4 +1015,4 @@ size_t GetSerializeSizeMany(int nVersion, const T&... t)
     return sc.size();
 }
 
-#endif // BITCOIN_SERIALIZE_H
+#endif // DEFI_SERIALIZE_H
