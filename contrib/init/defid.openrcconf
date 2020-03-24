@@ -1,0 +1,33 @@
+# /etc/conf.d/defid: config file for /etc/init.d/defid
+
+# Config file location
+#DEFID_CONFIGFILE="/etc/defi/defi.conf"
+
+# What directory to write pidfile to?  (created and owned by $DEFID_USER)
+#DEFID_PIDDIR="/var/run/defid"
+
+# What filename to give the pidfile
+#DEFID_PIDFILE="${DEFID_PIDDIR}/defid.pid"
+
+# Where to write defid data (be mindful that the blockchain is large)
+#DEFID_DATADIR="/var/lib/defid"
+
+# User and group to own defid process
+#DEFID_USER="defi"
+#DEFID_GROUP="defi"
+
+# Path to defid executable
+#DEFID_BIN="/usr/bin/defid"
+
+# Nice value to run defid under
+#DEFID_NICE=0
+
+# Additional options (avoid -conf and -datadir, use flags above)
+#DEFID_OPTS=""
+
+# The timeout in seconds OpenRC will wait for defid to terminate
+# after a SIGTERM has been raised.
+# Note that this will be mapped as argument to start-stop-daemon's
+# '--retry' option, which means you can specify a retry schedule
+# here. For more information see man 8 start-stop-daemon.
+DEFID_SIGTERM_TIMEOUT=60

@@ -4,11 +4,11 @@
 # Copyright (c) 2010-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Bitcoin test framework primitive and message structures
+"""Defi test framework primitive and message structures
 
 CBlock, CTransaction, CBlockHeader, CTxIn, CTxOut, etc....:
     data structures that should map to corresponding structures in
-    bitcoin/primitives
+    defi/primitives
 
 msg_block, msg_tx, msg_headers, etc.:
     data structures that represent network messages
@@ -28,7 +28,7 @@ import struct
 import time
 
 from test_framework.siphash import siphash256
-from test_framework.util import hex_str_to_bytes, assert_greater_than
+from test_framework.util import hex_str_to_bytes, assert_equal
 
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -36,9 +36,10 @@ MY_SUBVERSION = b"/python-mininode-tester:0.0.3/"
 MY_RELAY = 1 # from version 70001 onwards, fRelay should be appended to version messages (BIP37)
 
 MAX_LOCATOR_SZ = 101
-MAX_BLOCK_BASE_SIZE = 1000000
+MAX_BLOCK_BASE_SIZE = 1000000 * 16
 
 COIN = 100000000  # 1 btc in satoshis
+MAXMONEY = 21000000 * 4 * COIN
 
 BIP125_SEQUENCE_NUMBER = 0xfffffffd  # Sequence number that is BIP 125 opt-in and BIP 68-opt-out
 
@@ -183,7 +184,7 @@ def FromHex(obj, hex_string):
 def ToHex(obj):
     return obj.serialize().hex()
 
-# Objects that map to bitcoind objects, which can be serialized/deserialized
+# Objects that map to defid objects, which can be serialized/deserialized
 
 
 class CAddress:
@@ -219,6 +220,45 @@ class CAddress:
                                                          self.ip, self.port)
 
 
+class CAnchorAuth:
+    __slots__ = ("previousAnchor", "height", "blockHash", "nextTeam")
+
+    def __init__(self, previousAnchor=b"\x00"*32, height=0, blockHash=b"\x00"*32, nextTeam=None):
+        self.previousAnchor = previousAnchor if previousAnchor is not None else []
+        self.height = height
+        self.blockHash = blockHash
+        self.nextTeam = nextTeam
+
+    # dummy, untested yet:
+    def deserialize(self, f):
+        self.previousAnchor = deser_uint256(f)
+        self.height = struct.unpack("<I", f.read(4))[0]
+        self.blockHash = deser_uint256(f)
+
+        nit = deser_compact_size(f)
+        self.nextTeam = []
+        for i in range(nit):
+            t = f.read(20)
+            self.nextTeam.append(t)
+        repr (self)
+
+    # dummy, untested yet:
+    def serialize(self):
+        repr (self)
+        r = b""
+        r += ser_uint256(self.previousAnchor)
+        r += struct.pack("<I", self.height)
+        r += ser_uint256(self.blockhash)
+
+        r += ser_compact_size(len(self.nextTeam))
+        for team in self.nextTeam:
+            r += team
+        return r
+
+    def __repr__(self):
+        return "CAnchorAuth(previousAnchor=%064x height=%i blockHash=%064x nextTeam=%s)" % (self.previousAnchor, self.height, self.blockHash, self.nextTeam)
+
+
 class CInv:
     __slots__ = ("hash", "type")
 
@@ -228,7 +268,8 @@ class CInv:
         2: "Block",
         1|MSG_WITNESS_FLAG: "WitnessTx",
         2|MSG_WITNESS_FLAG : "WitnessBlock",
-        4: "CompactBlock"
+        4: "CompactBlock",
+        5: "AnchorAuth"
     }
 
     def __init__(self, t=0, h=0):
@@ -441,7 +482,7 @@ class CTransaction:
         if len(self.vin) == 0:
             flags = struct.unpack("<B", f.read(1))[0]
             # Not sure why flags can't be zero, but this
-            # matches the implementation in bitcoind
+            # matches the implementation in defid
             if (flags != 0):
                 self.vin = deser_vector(f, CTxIn)
                 self.vout = deser_vector(f, CTxOut)
@@ -512,7 +553,7 @@ class CTransaction:
     def is_valid(self):
         self.calc_sha256()
         for tout in self.vout:
-            if tout.nValue < 0 or tout.nValue > 21000000 * COIN:
+            if tout.nValue < 0 or tout.nValue > MAXMONEY:
                 return False
         return True
 
@@ -550,11 +591,11 @@ class CBlockHeader:
         self.hashMerkleRoot = 0
         self.nTime = 0
         self.nBits = 0
-        # self.nNonce = 0
+
         self.stakeModifier = 0
         self.nHeight = 0
         self.nMintedBlocks = 0
-        self.sig = b""
+        self.sig = b"0" * 65 # dummy sig to make header fixed length
 
         self.sha256 = None
         self.hash = None
@@ -565,7 +606,6 @@ class CBlockHeader:
         self.hashMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
         self.nBits = struct.unpack("<I", f.read(4))[0]
-        # self.nNonce = struct.unpack("<I", f.read(4))[0]
 
         self.stakeModifier = deser_uint256(f)
         self.nHeight = struct.unpack("<Q", f.read(8))[0]
@@ -588,7 +628,6 @@ class CBlockHeader:
         r += struct.pack("<Q", self.nMintedBlocks)
         r += ser_string(self.sig)
 
-        # r += struct.pack("<I", self.nNonce)
         return r
 
     def calc_sha256(self):
@@ -599,10 +638,11 @@ class CBlockHeader:
             r += ser_uint256(self.hashMerkleRoot)
             r += struct.pack("<I", self.nTime)
             r += struct.pack("<I", self.nBits)
-            # r += struct.pack("<I", self.nNonce)
+
+            r += ser_uint256(self.stakeModifier)
             r += struct.pack("<Q", self.nHeight)
             r += struct.pack("<Q", self.nMintedBlocks)
-            r += ser_uint256(self.stakeModifier)
+            r += ser_string(self.sig)
 
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
@@ -615,10 +655,10 @@ class CBlockHeader:
     def __repr__(self):
         return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x stakeModifier=%064x nHeight=%i nMintedBlocks=%i sig=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks, "0x".join("{:02x}".format(c) for c in self.sig))
+               time.ctime(self.nTime), self.nBits, self.stakeModifier, self.nHeight, self.nMintedBlocks, "".join("{:02x}".format(c) for c in self.sig))
 
 BLOCK_HEADER_SIZE = len(CBlockHeader().serialize())
-assert_greater_than(BLOCK_HEADER_SIZE, 124) # 124 - w\o sig
+assert_equal(BLOCK_HEADER_SIZE, 190)
 
 class CBlock(CBlockHeader):
     __slots__ = ("vtx",)
@@ -686,7 +726,8 @@ class CBlock(CBlockHeader):
         # Commented out due to PoS
         # target = uint256_from_compact(self.nBits)
         # while self.sha256 > target:
-        #     self.nNonce += 1
+        #     # increment stakeModifier here (instead of nTime) due to very complex control of nTime
+        #     self.stakeModifier += 1
         #     self.rehash()
 
     def __repr__(self):
@@ -1121,6 +1162,23 @@ class msg_getblocks:
             % (repr(self.locator), self.hashstop)
 
 
+class msg_anchorauth:
+    __slots__ = ("auth",)
+    command = b"anchorauth"
+
+    def __init__(self, auth=CAnchorAuth()):
+        self.auth = auth
+
+    def deserialize(self, f):
+        self.auth.deserialize(f)
+
+    def serialize(self):
+        return self.auth.serialize()
+
+    def __repr__(self):
+        return "msg_anchorauth(auth=%s)" % (repr(self.auth))
+
+
 class msg_tx:
     __slots__ = ("tx",)
     command = b"tx"
@@ -1331,7 +1389,7 @@ class msg_headers:
         self.headers = headers if headers is not None else []
 
     def deserialize(self, f):
-        # comment in bitcoind indicates these should be deserialized as blocks
+        # comment in defid indicates these should be deserialized as blocks
         blocks = deser_vector(f, CBlock)
         for x in blocks:
             self.headers.append(CBlockHeader(x))

@@ -13,14 +13,14 @@ Two nodes. Node1 is under test. Node0 is providing transactions and generating b
 import os
 import shutil
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     connect_nodes_bi,
 )
 
 
-class KeypoolRestoreTest(BitcoinTestFramework):
+class KeypoolRestoreTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 4
@@ -77,7 +77,8 @@ class KeypoolRestoreTest(BitcoinTestFramework):
 
             self.log.info("Verify keypool is restored and balance is correct")
             assert_equal(self.nodes[idx].getbalance(), 15)
-            assert_equal(self.nodes[idx].listtransactions()[0]['category'], "receive")
+            assert_equal(self.nodes[idx].listtransactions()[1]['category'], "receive") # cause [0] is genesis mn tx
+            assert_equal(self.nodes[idx].listtransactions()[2]['category'], "receive")
             # Check that we have marked all keys up to the used keypool key as used
             assert_equal(self.nodes[idx].getaddressinfo(self.nodes[idx].getnewaddress())['hdkeypath'], "m/0'/0'/110'")
 

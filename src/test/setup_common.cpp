@@ -11,6 +11,7 @@
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
 #include <init.h>
+#include <masternodes/anchors.h>
 #include <masternodes/mn_txdb.h>
 #include <miner.h>
 #include <net.h>
@@ -67,12 +68,16 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         noui_connected = true;
     }
 
-    testMasternodeKeys[uint256S("0x7c4ae2e8361ad2db8a45e99f9483672fd4288485a4de700b565923270e2119ea")] =
+    testMasternodeKeys[uint256S("0x18a2c79448e8feeed9ee3e6a5ea9b2640062557ddac8e9ac2ee04f62ed484f24")] =            // [1] from chainparams
                         TestMasternodeKeys{DecodeSecret("cSCmN1tjcR2yR1eaQo9WmjTMR85SjEoNPqMPWGAApQiTLJH8JF7W"),
                                            DecodeSecret("cVNTRYV43guugJoDgaiPZESvNtnfnUW19YEjhybihwDbLKjyrZNV")};
-    testMasternodeKeys[uint256S("0xa0f5ec92bdf313a003c4d7f83bd207fac90d28220bfd3f9526f79791665381c5")] =
+    testMasternodeKeys[uint256S("0xe86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4")] =            // [0] from chainparams
                         TestMasternodeKeys{DecodeSecret("cRiRQ9cHmy5evDqNDdEV8f6zfbK6epi9Fpz4CRZsmLEmkwy54dWz"),
                                            DecodeSecret("cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC")};
+
+    gArgs.ForceSetArg("-masternode_operator", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ"); // matches with [1] masternode from regtest chainparams (and with testMasternodeKeys.begin())
+    gArgs.ForceSetArg("-spv_testnet", "1");
+    fCriminals = true;
 }
 
 BasicTestingSetup::~BasicTestingSetup()
@@ -104,9 +109,21 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
     ::ChainstateActive().InitCoinsCache();
     assert(::ChainstateActive().CanFlushToDisk());
 
-    pmasternodesview.reset();
-    pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, false, true);
-    pmasternodesview->Load();
+    {
+        LOCK(cs_main);
+
+        pmasternodesview.reset();
+        pmasternodesview = MakeUnique<CMasternodesViewDB>(nMinDbCache << 20, true, true);
+        pmasternodesview->Load();
+
+        panchorauths.reset();
+        panchorauths = MakeUnique<CAnchorAuthIndex>();
+        panchorAwaitingConfirms.reset();
+        panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
+        panchors.reset();
+        panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, true, true);
+        panchors->Load();
+    }
 
     if (!LoadGenesisBlock(chainparams)) {
         throw std::runtime_error("LoadGenesisBlock failed.");
@@ -135,6 +152,12 @@ TestingSetup::~TestingSetup()
     g_banman.reset();
     UnloadBlockIndex();
     g_chainstate.reset();
+
+    panchors.reset();
+    panchorAwaitingConfirms.reset();
+    panchorauths.reset();
+    pmasternodesview.reset();
+
     pblocktree.reset();
 }
 
@@ -171,7 +194,8 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
 
     uint32_t mintedBlocks(0);
     CKey minterKey;
-    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);  /// @todo no self-sufficient logic: BlockAssembler(chainparams).CreateNewBlock() checks AmIOperator():
+                                                                                                        /// so, arg "-masternode_operator" should match with masternodeID !!
     if (pos == testMasternodeKeys.end())
         throw std::runtime_error(std::string(__func__) + ": masternodeID not found");
 

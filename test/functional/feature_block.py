@@ -23,7 +23,7 @@ from test_framework.messages import (
     CTxIn,
     CTxOut,
     MAX_BLOCK_BASE_SIZE,
-    uint256_from_compact,
+    # uint256_from_compact,
     uint256_from_str,
 )
 from test_framework.mininode import P2PDataStore
@@ -49,7 +49,7 @@ from test_framework.script import (
     SignatureHash,
     hash160,
 )
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 from data import invalid_txs
 
@@ -78,7 +78,7 @@ class CBrokenBlock(CBlock):
 DUPLICATE_COINBASE_SCRIPT_SIG = b'\x01\x78'  # Valid for block at height 120
 
 
-class FullBlockTest(BitcoinTestFramework):
+class FullBlockTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -159,6 +159,7 @@ class FullBlockTest(BitcoinTestFramework):
                 self.sign_tx(badtx, attempt_spend_tx)
             badtx.rehash()
             badblock = self.update_block(blockname, [badtx])
+
             self.send_blocks(
                 [badblock], success=False,
                 reject_reason=(template.block_reject_reason or template.reject_reason),
@@ -354,7 +355,7 @@ class FullBlockTest(BitcoinTestFramework):
         b26 = self.update_block(26, [])
         self.send_blocks([b26], success=False, reject_reason='bad-cb-length', reconnect=True)
 
-        # Extend the b26 chain to make sure bitcoind isn't accepting b26
+        # Extend the b26 chain to make sure defid isn't accepting b26
         b27 = self.next_block(27, spend=out[7])
         self.send_blocks([b27], False)
 
@@ -366,7 +367,7 @@ class FullBlockTest(BitcoinTestFramework):
         b28 = self.update_block(28, [])
         self.send_blocks([b28], success=False, reject_reason='bad-cb-length', reconnect=True)
 
-        # Extend the b28 chain to make sure bitcoind isn't accepting b28
+        # Extend the b28 chain to make sure defid isn't accepting b28
         b29 = self.next_block(29, spend=out[7])
         self.send_blocks([b29], False)
 
@@ -461,7 +462,7 @@ class FullBlockTest(BitcoinTestFramework):
         #           redeem_script = COINBASE_PUBKEY, (OP_2DUP+OP_CHECKSIGVERIFY) * 5, OP_CHECKSIG
         #           p2sh_script = OP_HASH160, ripemd160(sha256(script)), OP_EQUAL
         #
-        self.log.info("Check P2SH SIGOPS are correctly counted")
+        self.log.info("Check P2SH SIGOPS are correctly counted (keep calm, sloooww)")
         self.move_tip(35)
         b39 = self.next_block(39)
         b39_outputs = 0
@@ -502,6 +503,7 @@ class FullBlockTest(BitcoinTestFramework):
         # Make sure we didn't accidentally make too big a block. Note that the
         # size of the block has non-determinism due to the ECDSA signature in
         # the first transaction.
+
         while (len(b39.serialize()) >= MAX_BLOCK_BASE_SIZE):
             del b39.vtx[-1]
 
@@ -516,7 +518,7 @@ class FullBlockTest(BitcoinTestFramework):
         #
         # b41 does the same, less one, so it has the maximum sigops permitted.
         #
-        self.log.info("Reject a block with too many P2SH sigops")
+        self.log.info("Reject a block with too many P2SH sigops (keep calm, sloooww)")
         self.move_tip(39)
         b40 = self.next_block(40, spend=out[12])
         sigops = get_legacy_sigopcount_block(b40)
@@ -628,14 +630,15 @@ class FullBlockTest(BitcoinTestFramework):
         self.blocks[46] = b46
         self.send_blocks([b46], success=False, reject_reason='bad-blk-length', reconnect=True)
 
-        self.log.info("Reject a block with invalid work")
-        self.move_tip(44)
-        b47 = self.next_block(47, solve=False)
-        target = uint256_from_compact(b47.nBits)
-        while b47.sha256 < target:
-            b47.nNonce += 1
-            b47.rehash()
-        self.send_blocks([b47], False, force_send=True, reject_reason='high-hash', reconnect=True)
+        # Disabled due to POS complexity emulation
+        # self.log.info("Reject a block with invalid work")
+        # self.move_tip(44)
+        # b47 = self.next_block(47, solve=False)
+        # target = uint256_from_compact(b47.nBits)
+        # while b47.sha256 < target:
+        #     b47.stakeModifier += 1
+        #     b47.rehash()
+        # self.send_blocks([b47], False, force_send=True, reject_reason='high-hash', reconnect=True)
 
         self.log.info("Reject a block with a timestamp >2 hours in the future")
         self.move_tip(44)
@@ -906,7 +909,7 @@ class FullBlockTest(BitcoinTestFramework):
         assert_equal(len(b64a.serialize()), MAX_BLOCK_BASE_SIZE + 8)
         self.send_blocks([b64a], success=False, reject_reason='non-canonical ReadCompactSize()')
 
-        # bitcoind doesn't disconnect us for sending a bloated block, but if we subsequently
+        # defid doesn't disconnect us for sending a bloated block, but if we subsequently
         # resend the header message, it won't send us the getdata message again. Just
         # disconnect and reconnect and then call sync_blocks.
         # TODO: improve this test to be less dependent on P2P DOS behaviour.
@@ -1127,7 +1130,7 @@ class FullBlockTest(BitcoinTestFramework):
         #
         #    The tx'es must be unsigned and pass the node's mempool policy.  It is unsigned for the
         #    rather obscure reason that the Python signature code does not distinguish between
-        #    Low-S and High-S values (whereas the bitcoin code has custom code which does so);
+        #    Low-S and High-S values (whereas the defi code has custom code which does so);
         #    as a result of which, the odds are 50% that the python code will use the right
         #    value and the transaction will be accepted into the mempool. Until we modify the
         #    test framework to support low-S signing, we are out of luck.
@@ -1247,21 +1250,22 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(88)
         LARGE_REORG_SIZE = 1088
         blocks = []
+        BLOCK_SIZE = 1000000 # old value was MAX_BLOCK_BASE_SIZE, changed due to EXTREMELY big chain and slow operation
         spend = out[32]
         for i in range(89, LARGE_REORG_SIZE + 89):
             b = self.next_block(i, spend, version=4)
             tx = CTransaction()
-            script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
+            script_length = BLOCK_SIZE - len(b.serialize()) - 69
             script_output = CScript([b'\x00' * script_length])
             tx.vout.append(CTxOut(0, script_output))
             tx.vin.append(CTxIn(COutPoint(b.vtx[1].sha256, 0)))
             b = self.update_block(i, [tx])
-            assert_equal(len(b.serialize()), MAX_BLOCK_BASE_SIZE)
+            assert_equal(len(b.serialize()), BLOCK_SIZE)
             blocks.append(b)
             self.save_spendable_output()
             spend = self.get_spendable_output()
 
-        self.send_blocks(blocks, True, timeout=480)
+        self.send_blocks(blocks, True, timeout=960)
         chain1_tip = i
 
         # now create alt chain of same length
@@ -1273,14 +1277,14 @@ class FullBlockTest(BitcoinTestFramework):
 
         # extend alt chain to trigger re-org
         block = self.next_block("alt" + str(chain1_tip + 1), version=4)
-        self.send_blocks([block], True, timeout=480)
+        self.send_blocks([block], True, timeout=960)
 
         # ... and re-org back to the first chain
         self.move_tip(chain1_tip)
         block = self.next_block(chain1_tip + 1, version=4)
         self.send_blocks([block], False, force_send=True)
         block = self.next_block(chain1_tip + 2, version=4)
-        self.send_blocks([block], True, timeout=480)
+        self.send_blocks([block], True, timeout=960)
 
         self.log.info("Reject a block with an invalid block header version")
         b_v1 = self.next_block('b_v1', version=1)

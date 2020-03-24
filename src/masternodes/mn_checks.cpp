@@ -67,11 +67,6 @@ bool HasAuth(CTransaction const & tx, CKeyID const & auth)
 bool CheckMasternodeTx(CMasternodesViewCache & mnview, CTransaction const & tx, Consensus::Params const & consensusParams, int height, int txn, bool isCheck)
 {
     bool result = true;
-    /// @todo @maxb txn?
-//    if (tx.IsCoinBase())
-//    {
-//        return true;
-//    }
 
     if (tx.vout.size() > 0)
     {
@@ -125,9 +120,13 @@ bool CheckResignMasternodeTx(CMasternodesViewCache & mnview, CTransaction const 
 {
     uint256 nodeId(metadata);
     auto const node = mnview.ExistMasternode(nodeId);
-    if (!node || node->resignHeight != -1 || !node->resignTx.IsNull() || !HasAuth(tx, node->ownerAuthAddress))
+    if (!node || !HasAuth(tx, node->ownerAuthAddress))
+        return false;
+
+    auto state = node->GetState(height);
+    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED) || mnview.IsAnchorInvolved(nodeId, height) )
     {
-        /// @todo @maxb more verbose? at least, auth?
+        /// @todo more verbose? at least, auth?
         return false;
     }
 
