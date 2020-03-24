@@ -4,10 +4,10 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the listsincelast RPC."""
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_array_result, assert_raises_rpc_error
 
-class ListSinceBlockTest (BitcoinTestFramework):
+class ListSinceBlockTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
@@ -38,15 +38,15 @@ class ListSinceBlockTest (BitcoinTestFramework):
             "confirmations": 1,
         })
         assert_equal(
-            self.nodes[0].listsinceblock(),
-            {"lastblock": blockhash,
+            sorted(self.nodes[0].listsinceblock()),
+            sorted({"lastblock": blockhash,
              "removed": [],
-             "transactions": txs})
+             "transactions": txs}))
         assert_equal(
-            self.nodes[0].listsinceblock(""),
-            {"lastblock": blockhash,
+            sorted(self.nodes[0].listsinceblock("")),
+            sorted({"lastblock": blockhash,
              "removed": [],
-             "transactions": txs})
+             "transactions": txs}))
 
     def test_invalid_blockhash(self):
         assert_raises_rpc_error(-5, "Block not found", self.nodes[0].listsinceblock,

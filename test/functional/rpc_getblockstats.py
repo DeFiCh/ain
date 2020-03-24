@@ -6,7 +6,7 @@
 #
 # Test getblockstats rpc call
 #
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
@@ -16,7 +16,7 @@ import os
 
 TESTSDIR = os.path.dirname(os.path.realpath(__file__))
 
-class GetblockstatsTest(BitcoinTestFramework):
+class GetblockstatsTest(DefiTestFramework):
 
     start_height = 101
     max_stat_pos = 2
@@ -42,7 +42,7 @@ class GetblockstatsTest(BitcoinTestFramework):
         self.nodes[0].setmocktime(mocktime)
         self.nodes[0].generate(101)
 
-        address = self.nodes[0].get_genesis_keys().address
+        address = self.nodes[0].get_genesis_keys().operatorAuthAddress
         self.nodes[0].sendtoaddress(address=address, amount=10, subtractfeefromamount=True)
         self.nodes[0].generate(1)
         self.sync_all()

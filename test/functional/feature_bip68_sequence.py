@@ -9,7 +9,8 @@ import time
 from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, ToHex
 from test_framework.script import CScript
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
+from test_framework.test_node import TestNode
 from test_framework.util import (
     assert_equal,
     assert_greater_than,
@@ -26,7 +27,7 @@ SEQUENCE_LOCKTIME_MASK = 0x0000ffff
 # RPC error for non-BIP68 final transactions
 NOT_FINAL_ERROR = "non-BIP68-final (code 64)"
 
-class BIP68Test(BitcoinTestFramework):
+class BIP68Test(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.extra_args = [
@@ -258,7 +259,8 @@ class BIP68Test(BitcoinTestFramework):
         self.nodes[0].prioritisetransaction(txid=tx2.hash, fee_delta=int(-self.relayfee*COIN))
         cur_time = int(time.time())
         for i in range(10):
-            self.nodes[0].setmocktime(cur_time + 600)
+            # self.nodes[0].setmocktime(cur_time + 600)
+            TestNode.Mocktime = cur_time + 600
             self.nodes[0].generate(1)
             cur_time += 600
 
@@ -271,7 +273,8 @@ class BIP68Test(BitcoinTestFramework):
         self.nodes[0].prioritisetransaction(txid=tx2.hash, fee_delta=int(self.relayfee*COIN))
 
         # Advance the time on the node so that we can test timelocks
-        self.nodes[0].setmocktime(cur_time+600)
+        TestNode.Mocktime = cur_time + 600
+        # self.nodes[0].setmocktime(cur_time+600)
         self.nodes[0].generate(1)
         assert tx2.hash not in self.nodes[0].getrawmempool()
 
@@ -332,7 +335,7 @@ class BIP68Test(BitcoinTestFramework):
         assert tx2.hash in mempool
 
         # Reset the chain and get rid of the mocktimed-blocks
-        self.nodes[0].setmocktime(0)
+        # self.nodes[0].setmocktime(0) # commented cause will be no generation otherwise
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(cur_height+1))
         self.nodes[0].generate(10)
 
@@ -373,7 +376,7 @@ class BIP68Test(BitcoinTestFramework):
 
         # make a block that violates bip68; ensure that the tip updates
         tip = int(self.nodes[0].getbestblockhash(), 16)
-        block = create_block(tip, create_coinbase(self.nodes[0].getblockcount()+1))
+        block = create_block(tip, create_coinbase(self.nodes[0].getblockcount()+1), TestNode.Mocktime)
         block.nVersion = 3
         block.vtx.extend([tx1, tx2, tx3])
         block.hashMerkleRoot = block.calc_merkle_root()

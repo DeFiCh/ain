@@ -35,15 +35,17 @@ import os
 from random import randint
 import shutil
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
+from test_framework.test_node import TestNode
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
     connect_nodes,
+    set_node_times,
 )
 
 
-class WalletBackupTest(BitcoinTestFramework):
+class WalletBackupTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
@@ -60,6 +62,9 @@ class WalletBackupTest(BitcoinTestFramework):
         connect_nodes(self.nodes[2], 3)
         connect_nodes(self.nodes[2], 0)
         self.sync_all()
+        # TestNode.Mocktime = int(time.time())
+        # TestNode.Mocktime = self.nodes[0].getblockheader(self.nodes[0].getbestblockhash())["time"]  + 1
+        # set_node_times(self.nodes, TestNode.Mocktime)
 
     def one_send(self, from_node, to_address):
         if (randint(1,2) == 1):
@@ -80,7 +85,10 @@ class WalletBackupTest(BitcoinTestFramework):
 
         # Have the miner (node3) mine a block.
         # Must sync mempools before mining.
+        print ("bef mempool", TestNode.Mocktime)
+        set_node_times(self.nodes, 0)
         self.sync_mempools()
+        print (TestNode.Mocktime)
         self.nodes[3].generate(1)
         self.sync_blocks()
 
@@ -162,6 +170,8 @@ class WalletBackupTest(BitcoinTestFramework):
         # Start node2 with no chain
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'masternodes'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
 
         # Restore wallets from backup
         shutil.copyfile(os.path.join(self.nodes[0].datadir, 'wallet.bak'), os.path.join(self.nodes[0].datadir, 'regtest', 'wallets', 'wallet.dat'))
@@ -183,6 +193,8 @@ class WalletBackupTest(BitcoinTestFramework):
         #start node2 with no chain
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'masternodes'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
 
         self.start_three()
 

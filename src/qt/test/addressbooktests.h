@@ -1,5 +1,5 @@
-#ifndef BITCOIN_QT_TEST_ADDRESSBOOKTESTS_H
-#define BITCOIN_QT_TEST_ADDRESSBOOKTESTS_H
+#ifndef DEFI_QT_TEST_ADDRESSBOOKTESTS_H
+#define DEFI_QT_TEST_ADDRESSBOOKTESTS_H
 
 #include <QObject>
 #include <QTest>
@@ -12,4 +12,4 @@ private Q_SLOTS:
     void addressBookTests();
 };
 
-#endif // BITCOIN_QT_TEST_ADDRESSBOOKTESTS_H
+#endif // DEFI_QT_TEST_ADDRESSBOOKTESTS_H

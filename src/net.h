@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NET_H
-#define BITCOIN_NET_H
+#ifndef DEFI_NET_H
+#define DEFI_NET_H
 
 #include <addrdb.h>
 #include <addrman.h>
@@ -58,7 +58,7 @@ static const unsigned int MAX_LOCATOR_SZ = 101;
 /** The maximum number of new addresses to accumulate before announcing. */
 static const unsigned int MAX_ADDR_TO_SEND = 1000;
 /** Maximum length of incoming protocol messages (no message over 4 MB is currently acceptable). */
-static const unsigned int MAX_PROTOCOL_MESSAGE_LENGTH = 4 * 1000 * 1000;
+static const unsigned int MAX_PROTOCOL_MESSAGE_LENGTH = 16 * 4 * 1000 * 1000;
 /** Maximum length of the user agent string in `version` message */
 static const unsigned int MAX_SUBVERSION_LENGTH = 256;
 /** Maximum number of automatic outgoing nodes */
@@ -82,11 +82,11 @@ static const uint64_t MAX_UPLOAD_TIMEFRAME = 60 * 60 * 24;
 /** Default for blocks only*/
 static const bool DEFAULT_BLOCKSONLY = false;
 /** -peertimeout default */
-static const int64_t DEFAULT_PEER_CONNECT_TIMEOUT = 60;
+static const int64_t DEFAULT_PEER_CONNECT_TIMEOUT = 600; // old value 60 (for 1M block)
 
 static const bool DEFAULT_FORCEDNSSEED = false;
-static const size_t DEFAULT_MAXRECEIVEBUFFER = 5 * 1000;
-static const size_t DEFAULT_MAXSENDBUFFER    = 1 * 1000;
+static const size_t DEFAULT_MAXRECEIVEBUFFER = 20 * 5 * 1000;
+static const size_t DEFAULT_MAXSENDBUFFER    = 16 * 1 * 1000;
 
 typedef int64_t NodeId;
 
@@ -892,4 +892,4 @@ public:
 /** Return a timestamp in the future (in microseconds) for exponentially distributed events. */
 int64_t PoissonNextSend(int64_t now, int average_interval_seconds);
 
-#endif // BITCOIN_NET_H
+#endif // DEFI_NET_H

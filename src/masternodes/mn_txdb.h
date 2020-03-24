@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_MASTERNODES_MN_TXDB_H
-#define BITCOIN_MASTERNODES_MN_TXDB_H
+#ifndef DEFI_MASTERNODES_MN_TXDB_H
+#define DEFI_MASTERNODES_MN_TXDB_H
 
 #include <dbwrapper.h>
 #include <masternodes/masternodes.h>
@@ -16,6 +16,8 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
+
+class CBlockHeader;
 
 /** Access to the masternodes database (masternodes/) */
 class CMasternodesViewDB : public CMasternodesView
@@ -86,7 +88,6 @@ private:
 
 protected:
     void CommitBatch();
-//    void DropBatch();
 
     bool ReadHeight(int & h);
     void WriteHeight(int h);
@@ -94,17 +95,33 @@ protected:
     void WriteMasternode(uint256 const & txid, CMasternode const & node);
     void EraseMasternode(uint256 const & txid);
 
+    void WriteMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash, CBlockHeader const & blockHeader, bool fIsFakeNet = true) override;
+    bool FindMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, std::map<uint256, CBlockHeader> & blockHeaders, bool fIsFakeNet = true) override;
+    void EraseMintedBlockHeader(uint256 const & txid, uint64_t mintedBlocks, uint256 const & hash) override;
+
+    /// @todo review criminals!
+    void WriteCriminal(uint256 const & mnId, CDoubleSignFact const & doubleSignFact) override;
+    void EraseCriminal(uint256 const & mnId) override;
+
+    void WriteCurrentTeam(std::set<CKeyID> const & currentTeam);
+    bool LoadCurrentTeam(std::set<CKeyID> & newTeam);
+    bool EraseCurrentTeam();
+
+    void WriteAnchorReward(uint256 const & anchorHash, uint256 const & rewardTxHash);
+    void EraseAnchorReward(uint256 const & anchorHash);
+
+    void WriteFoundationsDebt(CAmount const foundationsDebt);
+    bool LoadFoundationsDebt();
+
 //    void WriteDeadIndex(int height, uint256 const & txid, char type);
 //    void EraseDeadIndex(int height, uint256 const & txid);
 
     void WriteUndo(int height, CMnTxsUndo const & undo);
     void EraseUndo(int height);
 
-//    void WriteTeam(int blockHeight, CTeam const & team);
-
 public:
     bool Load() override;
     bool Flush() override;
 };
 
-#endif // BITCOIN_MASTERNODES_MN_TXDB_H
+#endif // DEFI_MASTERNODES_MN_TXDB_H

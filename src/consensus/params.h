@@ -3,10 +3,11 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CONSENSUS_PARAMS_H
-#define BITCOIN_CONSENSUS_PARAMS_H
+#ifndef DEFI_CONSENSUS_PARAMS_H
+#define DEFI_CONSENSUS_PARAMS_H
 
 #include <amount.h>
+#include <script/standard.h>
 #include <uint256.h>
 #include <limits>
 #include <map>
@@ -49,6 +50,9 @@ struct BIP9Deployment {
 struct Params {
     uint256 hashGenesisBlock;
     int nSubsidyHalvingInterval;
+    CAmount baseBlockSubsidy;
+    CTxDestination foundationAddress;
+    uint32_t foundationShare;
     /* Block hash that is excepted from BIP16 enforcement */
     uint256 BIP16Exception;
     /** Block height and hash at which BIP34 becomes active */
@@ -97,12 +101,26 @@ struct Params {
         CAmount creationFee;
         CAmount collateralAmount;
         int activationDelay;
-        int resignDelay;
-        int collateralUnlockDelay;
+        int resignDelay; // same delay for criminal ban
         int historyFrame;
+        int anchoringTeamSize;
+        int anchoringFrequency; // create every Nth block
+        int anchoringLag;       // older than Tip() by
     };
     MnParams mn;
+
+    struct SpvParams {
+        CAmount creationFee;
+        CAmount anchorSubsidy;
+        int subsidyIncreasePeriod;
+        CAmount subsidyIncreaseValue;
+        std::string wallet_xpub;
+        std::string anchors_address;
+        int minConfirmations;
+    };
+    SpvParams spv;
+
 };
 } // namespace Consensus
 
-#endif // BITCOIN_CONSENSUS_PARAMS_H
+#endif // DEFI_CONSENSUS_PARAMS_H
