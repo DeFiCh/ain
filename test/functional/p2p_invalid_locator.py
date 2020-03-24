@@ -7,13 +7,14 @@
 
 from test_framework.messages import msg_getheaders, msg_getblocks, MAX_LOCATOR_SZ
 from test_framework.mininode import P2PInterface
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 
 
-class InvalidLocatorTest(BitcoinTestFramework):
+class InvalidLocatorTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = False
+        self.extra_args = [["-dummypos=1", "-nospv"]]
 
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node

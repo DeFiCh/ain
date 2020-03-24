@@ -10,7 +10,7 @@ import sys
 
 from test_framework import messages
 from test_framework.mininode import P2PDataStore, NetworkThread
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 
 
 class msg_unrecognized:
@@ -28,7 +28,7 @@ class msg_unrecognized:
         return "{}(data={})".format(self.command, self.str_data)
 
 
-class InvalidMessagesTest(BitcoinTestFramework):
+class InvalidMessagesTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -36,10 +36,10 @@ class InvalidMessagesTest(BitcoinTestFramework):
     def run_test(self):
         """
          . Test msg header
-        0. Send a bunch of large (4MB) messages of an unrecognized type. Check to see
+        0. Send a bunch of large (64MB) messages of an unrecognized type. Check to see
            that it isn't an effective DoS against the node.
 
-        1. Send an oversized (4MB+) message and check that we're disconnected.
+        1. Send an oversized (64MB+) message and check that we're disconnected.
 
         2. Send a few messages with an incorrect data size in the header, ensure the
            messages are ignored.
@@ -54,7 +54,7 @@ class InvalidMessagesTest(BitcoinTestFramework):
         node.add_p2p_connection(P2PDataStore())
         conn2 = node.add_p2p_connection(P2PDataStore())
 
-        msg_limit = 4 * 1000 * 1000  # 4MB, per MAX_PROTOCOL_MESSAGE_LENGTH
+        msg_limit = 16 * 4 * 1000 * 1000  # 64MB, per MAX_PROTOCOL_MESSAGE_LENGTH
         valid_data_limit = msg_limit - 5  # Account for the 4-byte length prefix
 
         #
@@ -66,8 +66,9 @@ class InvalidMessagesTest(BitcoinTestFramework):
         msg_at_size = msg_unrecognized(str_data="b" * valid_data_limit)
         assert len(msg_at_size.serialize()) == msg_limit
 
-        increase_allowed = 0.5
-        if [s for s in os.environ.get("BITCOIN_CONFIG", "").split(" ") if "--with-sanitizers" in s and "address" in s]:
+        increase_allowed = 0.7 # was 0.5
+        if [s for s in os.environ.get("DEFI_CONFIG", "").split(" ") if "--with-sanitizers" in s and "address" in s]:
+            # how much we should increase for that "sanitizers"?
             increase_allowed = 3.5
         with node.assert_memory_usage_stable(increase_allowed=increase_allowed):
             self.log.info(
@@ -75,17 +76,17 @@ class InvalidMessagesTest(BitcoinTestFramework):
                 "memory exhaustion. May take a bit...")
 
             # Run a bunch of times to test for memory exhaustion.
-            for _ in range(80):
+            for _ in range(40): # decreased (old value 80) due to VERY slow
                 node.p2p.send_message(msg_at_size)
 
             # Check that, even though the node is being hammered by nonsense from one
             # connection, it can still service other peers in a timely way.
             for _ in range(20):
-                conn2.sync_with_ping(timeout=2)
+                conn2.sync_with_ping(timeout=10) # increased (old value 2)
 
             # Peer 1, despite serving up a bunch of nonsense, should still be connected.
-            self.log.info("Waiting for node to drop junk messages.")
-            node.p2p.sync_with_ping(timeout=120)
+            self.log.info("Waiting for node to drop junk messages. Slow")
+            node.p2p.sync_with_ping(timeout=600) # increased (old value 120) due to VERY slow
             assert node.p2p.is_connected
 
         #
@@ -189,8 +190,8 @@ class InvalidMessagesTest(BitcoinTestFramework):
                 4 +  # magic
                 12  # command
             )
-            # modify len to MAX_SIZE + 1
-            msg = msg[:cut_len] + struct.pack("<I", 0x02000000 + 1) + msg[cut_len + 4:]
+            # modify len to MAX_DESER_SIZE + 1
+            msg = msg[:cut_len] + struct.pack("<I", 0x08000000 + 1) + msg[cut_len + 4:]
             self.nodes[0].p2p.send_raw_message(msg)
             conn.wait_for_disconnect(timeout=1)
             self.nodes[0].disconnect_p2ps()
