@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_CHAIN_H
-#define BITCOIN_CHAIN_H
+#ifndef DEFI_CHAIN_H
+#define DEFI_CHAIN_H
 
 #include <arith_uint256.h>
 #include <consensus/params.h>
@@ -496,4 +496,4 @@ public:
     CBlockIndex* FindEarliestAtLeast(int64_t nTime, int height) const;
 };
 
-#endif // BITCOIN_CHAIN_H
+#endif // DEFI_CHAIN_H

@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_MINER_H
-#define BITCOIN_MINER_H
+#ifndef DEFI_MINER_H
+#define DEFI_MINER_H
 
 #include <optional.h>
 #include <primitives/block.h>
@@ -22,6 +22,7 @@
 class CBlockIndex;
 class CChainParams;
 class CScript;
+class CAnchor;
 
 namespace Consensus { struct Params; };
 
@@ -238,6 +239,7 @@ namespace pos {
             error,
             initWaiting,
             stakeWaiting,
+            criminalWaiting,
             minted,
         };
 
@@ -249,4 +251,4 @@ namespace pos {
     };
 }
 
-#endif // BITCOIN_MINER_H
+#endif // DEFI_MINER_H

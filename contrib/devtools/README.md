@@ -92,7 +92,7 @@ BUILDDIR=$PWD/build contrib/devtools/gen-manpages.sh
 optimize-pngs.py
 ================
 
-A script to optimize png files in the bitcoin
+A script to optimize png files in the defi
 repository (requires pngcrush).
 
 security-check.py and test-security-check.py
@@ -115,10 +115,10 @@ If only supported symbols are used the return value will be 0 and the output wil
 
 If there are 'unsupported' symbols, the return value will be 1 a list like this will be printed:
 
-    .../64/test_bitcoin: symbol memcpy from unsupported version GLIBC_2.14
-    .../64/test_bitcoin: symbol __fdelt_chk from unsupported version GLIBC_2.15
-    .../64/test_bitcoin: symbol std::out_of_range::~out_of_range() from unsupported version GLIBCXX_3.4.15
-    .../64/test_bitcoin: symbol _ZNSt8__detail15_List_nod from unsupported version GLIBCXX_3.4.15
+    .../64/test_defi: symbol memcpy from unsupported version GLIBC_2.14
+    .../64/test_defi: symbol __fdelt_chk from unsupported version GLIBC_2.15
+    .../64/test_defi: symbol std::out_of_range::~out_of_range() from unsupported version GLIBCXX_3.4.15
+    .../64/test_defi: symbol _ZNSt8__detail15_List_nod from unsupported version GLIBCXX_3.4.15
 
 circular-dependencies.py
 ========================

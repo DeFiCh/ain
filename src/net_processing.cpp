@@ -13,6 +13,7 @@
 #include <consensus/validation.h>
 #include <hash.h>
 #include <validation.h>
+#include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
 #include <merkleblock.h>
 #include <netmessagemaker.h>
@@ -21,6 +22,7 @@
 #include <policy/policy.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <spv/spv_wrapper.h>
 #include <random.h>
 #include <reverse_iterator.h>
 #include <scheduler.h>
@@ -33,7 +35,7 @@
 #include <memory>
 
 #if defined(NDEBUG)
-# error "Bitcoin cannot be compiled without assertions."
+# error "Defi cannot be compiled without assertions."
 #endif
 
 /** Expiration time for orphan transactions in seconds */
@@ -608,6 +610,14 @@ static void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vec
 
     // Make sure pindexBestKnownBlock is up to date, we'll need it.
     ProcessBlockAvailability(nodeid);
+
+//    LogPrintf("    TRACE FB1: peer %li, BestKnownBlock: %li, LastCommonBlock: %li, BKB->chainwork: %s, Tip()->nChainWork: %s, nMinimumChainWork: %s\n", nodeid,
+//              state->pindexBestKnownBlock ? state->pindexBestKnownBlock->height : -1,
+//              state->pindexLastCommonBlock ? state->pindexLastCommonBlock->height: -1,
+//              state->pindexBestKnownBlock ? state->pindexBestKnownBlock->nChainWork.ToString() : "none",
+//              ChainActive().Tip()->nChainWork.ToString(),
+//              nMinimumChainWork.ToString()
+//              );
 
     if (state->pindexBestKnownBlock == nullptr || state->pindexBestKnownBlock->nChainWork < ::ChainActive().Tip()->nChainWork || state->pindexBestKnownBlock->nChainWork < nMinimumChainWork) {
         // This peer has nothing interesting.
@@ -1302,9 +1312,67 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     case MSG_BLOCK:
     case MSG_WITNESS_BLOCK:
         return LookupBlockIndex(inv.hash) != nullptr;
+
+    case MSG_ANCHOR_AUTH:
+        return panchorauths->ExistAuth(inv.hash) != nullptr;
+    case MSG_ANCHOR_CONFIRM:
+        return panchorAwaitingConfirms->Exist(inv.hash) != nullptr;
     }
     // Don't know what it is, just say we already got one
     return true;
+}
+
+void RelayGetAnchorAuths(const uint256& lowHash, const uint256& highHash, CConnman& connman)
+{
+    connman.ForEachNode([&lowHash, &highHash, &connman](CNode* pnode)
+    {
+        const CNetMsgMaker msgMaker(pnode->GetSendVersion());
+        LogPrintf("send getauths: from hash: %s to hash: %s, peer=%d\n", lowHash.ToString(), highHash.ToString(), pnode->GetId());
+        connman.PushMessage(pnode, msgMaker.Make(NetMsgType::GETANCHORAUTHS, lowHash, highHash));
+    });
+}
+
+void RelayAnchorAuths(std::vector<CInv> const & vInv, CConnman& connman, CNode* skipNode)
+{
+    connman.ForEachNode([&vInv, &connman, &skipNode](CNode* pnode)
+    {
+        if (pnode != skipNode) {
+            const CNetMsgMaker msgMaker(pnode->GetSendVersion());
+            if (vInv.size() == 1) {
+                LogPrintf("send inv: auth, hash: %s, peer=%d\n", vInv[0].hash.ToString(), pnode->GetId());
+            }
+            else {
+                LogPrintf("send invs: auths, count = %i, peer=%d\n", vInv.size(), pnode->GetId());
+            }
+            connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, vInv));
+        }
+    });
+}
+
+void ResyncHeaders(CConnman & connman)
+{
+    connman.ForEachNode([](CNode* pnode)
+    {
+        LogPrintf("Ask for initial resync for peer=%d\n", pnode->GetId());
+        CNodeState *state = State(pnode->GetId());
+        state->pindexBestKnownBlock = nullptr;
+        state->pindexLastCommonBlock = nullptr;
+        state->fSyncStarted = false;
+    });
+}
+
+void RelayAnchorConfirm(const uint256& hash, CConnman& connman, CNode* skipNode)
+{
+    CInv inv(MSG_ANCHOR_CONFIRM, hash);
+    connman.ForEachNode([&inv, &connman, &skipNode](CNode* pnode)
+    {
+        if (pnode != skipNode) {
+            const CNetMsgMaker msgMaker(pnode->GetSendVersion());
+            LogPrintf("AnchorConfirms::send inv: confirm message, hash: %s, peer=%d\n", inv.hash.ToString(), pnode->GetId());
+            connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
+//           pnode->PushInventory(inv);
+        }
+    });
 }
 
 void RelayTransaction(const uint256& txid, const CConnman& connman)
@@ -1554,6 +1622,31 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
         if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK || inv.type == MSG_CMPCT_BLOCK || inv.type == MSG_WITNESS_BLOCK) {
             it++;
             ProcessGetBlockData(pfrom, chainparams, inv, connman);
+        }
+    }
+
+    {
+        LOCK(cs_main);
+
+        while (it != pfrom->vRecvGetData.end() && (it->type == MSG_ANCHOR_AUTH || it->type == MSG_ANCHOR_CONFIRM)) {
+            const CInv &inv = *it;
+            it++;
+
+            if (inv.type == MSG_ANCHOR_AUTH) {
+                LogPrintf("Searching anchorauth, hash: %s\n", inv.hash.ToString());
+                CAnchorAuthMessage const * auth = panchorauths->ExistAuth(inv.hash);
+                if (auth) {
+                    LogPrintf("PushMessage anchorauth, hash: %s\n", auth->GetHash().ToString());
+                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHORAUTH, *auth));
+                }
+            }
+            if (inv.type == MSG_ANCHOR_CONFIRM) {
+                CAnchorConfirmMessage const * message = panchorAwaitingConfirms->Exist(inv.hash);
+                if (message) {
+                    LogPrintf("PushMessage anchorconfirm, hash: %s\n", message->GetHash().ToString());
+                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHORCONFIRM, *message));
+                }
+            }
         }
     }
 
@@ -2116,6 +2209,17 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::SENDCMPCT, fAnnounceUsingCMPCTBLOCK, nCMPCTBLOCKVersion));
         }
         pfrom->fSuccessfullyConnected = true;
+
+        // announcing existent anchor confirmations for new connected node:
+        {
+            LOCK(cs_main);
+            panchorAwaitingConfirms->ForEachConfirm([&connman, &msgMaker, &pfrom](const CAnchorConfirmMessage & confirm) {
+                CInv inv(MSG_ANCHOR_CONFIRM, confirm.GetHash());
+                LogPrintf("AnchorConfirms::send inv: confirm message for NEW PEER, hash: %s, peer=%d\n", inv.hash.ToString(), pfrom->GetId());
+                connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
+            });
+        }
+
         return true;
     }
 
@@ -2251,6 +2355,16 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     LogPrint(BCLog::NET, "getheaders (%d) %s to peer=%d\n", pindexBestHeader->nHeight, inv.hash.ToString(), pfrom->GetId());
                 }
             }
+            else if (inv.type == MSG_ANCHOR_AUTH) {
+                if (!fAlreadyHave && !fImporting && !fReindex) {
+                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::GETDATA, std::vector<CInv>{inv}));
+                }
+            }
+            else if (inv.type == MSG_ANCHOR_CONFIRM) {
+                if (!fAlreadyHave && !fImporting && !fReindex) {
+                    connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::GETDATA, std::vector<CInv>{inv}));
+                }
+            }
             else
             {
                 pfrom->AddInventoryKnown(inv);
@@ -2282,6 +2396,61 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         pfrom->vRecvGetData.insert(pfrom->vRecvGetData.end(), vInv.begin(), vInv.end());
         ProcessGetData(pfrom, chainparams, connman, interruptMsgProc);
+        return true;
+    }
+
+    if (strCommand == NetMsgType::ANCHORAUTH) {
+        if (fImporting || fReindex) {
+            LogPrint(BCLog::NET, "Ignoring anchorauth from peer=%d because node is in initial block download\n", pfrom->GetId());
+            return true;
+        }
+        CAnchorAuthMessage auth;
+        vRecv >> auth;
+
+        // don't check spv here, but only our anchor index!
+        {
+            LOCK(cs_main);
+            if (panchorauths->ExistAuth(auth.GetHash())) {
+                // reject ? or just skip&
+                return false;
+            }
+            if (panchorauths->ExistVote(auth.GetSignHash(), auth.GetSigner())) {
+                // disconnect immidiately! possible even ban here, but only if sender peer is an author itself
+                pfrom->fDisconnect = true;
+                return false;
+            }
+
+            LogPrintf("Got anchor auth, hash %s, blockheight: %d\n", auth.GetHash().ToString(), auth.height);
+
+            // if valid, add and rebroadcast
+            if (panchorauths->ValidateAuth(auth)) {
+                panchorauths->AddAuth(auth);
+                RelayAnchorAuths({CInv(MSG_ANCHOR_AUTH, auth.GetHash())}, *connman, pfrom);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (strCommand == NetMsgType::ANCHORCONFIRM) {
+        if (fImporting || fReindex) {
+            LogPrint(BCLog::NET, "Ignoring anchorconfirm from peer=%d because node is in initial block download\n", pfrom->GetId());
+            return true;
+        }
+
+        CAnchorConfirmMessage confirmMessage;
+        vRecv >> confirmMessage;
+
+        LOCK(cs_main);
+
+        if (!panchorAwaitingConfirms->Exist(confirmMessage.GetHash())) {
+            LogPrintf("Got anchor confirm, hash %s, Anchor Message hash: %d\n", confirmMessage.GetHash().ToString(), confirmMessage.btcTxHash.ToString());
+            // if valid, AND UNIQUE AGAINST VOTER (this is encapsulated in the index itself) - add and rebroadcast
+            if (panchorAwaitingConfirms->Validate(confirmMessage) && panchorAwaitingConfirms->Add(confirmMessage)) {
+                RelayAnchorConfirm(confirmMessage.GetHash(), *connman, pfrom);
+            }
+        }
+
         return true;
     }
 
@@ -2466,6 +2635,52 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // in the SendMessages logic.
         nodestate->pindexBestHeaderSent = pindex ? pindex : ::ChainActive().Tip();
         connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::HEADERS, vHeaders));
+        return true;
+    }
+
+    if (strCommand == NetMsgType::GETANCHORAUTHS) {
+        uint256 lowHash, highHash;
+        vRecv >> lowHash >> highHash;
+
+        LOCK(cs_main);
+        CBlockIndex const * pLowRequested = LookupBlockIndex(lowHash);
+        if (!pLowRequested || !::ChainActive().Contains(pLowRequested)) {
+            LogPrint(BCLog::NET, "getauths: requested block hash %s not found or is not in active chain\n", lowHash.GetHex());
+            return false;
+        }
+
+        // walking from tip down to the topAnchor or requested block (depends on which is higher)
+        // sending all existing auths that belongs to active chain
+        // possible optimization: stops when first quorum reached (irl, no need to walk deeper)
+        auto topAnchor = panchors->GetActiveAnchor();
+        // limit requested by the top anchor, if any
+        if (topAnchor && topAnchor->anchor.height > pLowRequested->height && topAnchor->anchor.height <= (uint64_t) ::ChainActive().Height()) {
+            pLowRequested = ::ChainActive()[topAnchor->anchor.height];
+            assert(pLowRequested);
+        }
+
+        CBlockIndex const * pHighRequested = LookupBlockIndex(highHash);
+        if (!pHighRequested)
+            pHighRequested = ::ChainActive().Tip();
+
+        LogPrint(BCLog::NET, "getauths down from %d to %d for peer=%d\n", pHighRequested->nHeight, pLowRequested->nHeight, pfrom->GetId());
+        std::vector<CInv> vInv;
+        panchorauths->ForEachAnchorAuthByHeight([pLowRequested, pHighRequested, &vInv](const CAnchorAuthIndex::Auth & auth) {
+            if ((int)auth.height > pHighRequested->nHeight)
+                return true; // continue
+            if ((int)auth.height < pLowRequested->nHeight)
+                return false; // break
+
+            CBlockIndex const * pindex = LookupBlockIndex(auth.blockHash);
+            if (pindex && ::ChainActive().Contains(pindex)) {
+                vInv.push_back(CInv(MSG_ANCHOR_AUTH, auth.GetHash()));
+            }
+            return true;
+        });
+        if (vInv.size() > 0) {
+            LogPrint(BCLog::NET, "getauths: send auths invs: %d to peer=%d\n", vInv.size(), pfrom->GetId());
+            connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::INV, vInv));
+        }
         return true;
     }
 
@@ -3616,6 +3831,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
             pindexBestHeader = ::ChainActive().Tip();
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->fOneShot); // Download if this is a nice peer, or we have no nice peers and this one might do.
         if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex) {
+
             // Only actively request headers from a single peer, unless we're close to today.
             if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {
                 state.fSyncStarted = true;

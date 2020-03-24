@@ -6,11 +6,11 @@
 import os
 
 from test_framework.address import ADDRESS_BCRT1_UNSPENDABLE
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, wait_until, connect_nodes_bi
 
 
-class NotificationsTest(BitcoinTestFramework):
+class NotificationsTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
