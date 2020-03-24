@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NODE_COIN_H
-#define BITCOIN_NODE_COIN_H
+#ifndef DEFI_NODE_COIN_H
+#define DEFI_NODE_COIN_H
 
 #include <map>
 
@@ -19,4 +19,4 @@ class Coin;
  */
 void FindCoins(std::map<COutPoint, Coin>& coins);
 
-#endif // BITCOIN_NODE_COIN_H
+#endif // DEFI_NODE_COIN_H

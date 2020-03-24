@@ -7,9 +7,9 @@
 """
 
 from test_framework.blocktools import add_witness_commitment, create_block, create_coinbase
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 
-class SimpleHashTest (BitcoinTestFramework):
+class SimpleHashTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True

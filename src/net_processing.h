@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NET_PROCESSING_H
-#define BITCOIN_NET_PROCESSING_H
+#ifndef DEFI_NET_PROCESSING_H
+#define DEFI_NET_PROCESSING_H
 
 #include <net.h>
 #include <validationinterface.h>
@@ -93,4 +93,14 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
 /** Relay transaction to every node */
 void RelayTransaction(const uint256&, const CConnman& connman);
 
-#endif // BITCOIN_NET_PROCESSING_H
+/** Relay getauths to every node */
+void RelayGetAnchorAuths(const uint256& lowHash, const uint256& highHash, CConnman& connman);
+
+/** Relay anchor auth to every node, possible skipping the source (rebroadcasting) */
+void RelayAnchorAuths(std::vector<CInv> const & vInv, CConnman& connman, CNode* skipNode = nullptr);
+
+void RelayAnchorConfirm(const uint256&, CConnman& connman, CNode* skipNode = nullptr);
+
+void ResyncHeaders(CConnman& connman);
+
+#endif // DEFI_NET_PROCESSING_H

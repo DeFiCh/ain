@@ -4,13 +4,13 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test RPC help output."""
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
 import os
 
 
-class HelpRpcTest(BitcoinTestFramework):
+class HelpRpcTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
 
@@ -33,7 +33,7 @@ class HelpRpcTest(BitcoinTestFramework):
         # command titles
         titles = [line[3:-3] for line in node.help().splitlines() if line.startswith('==')]
 
-        components = ['Blockchain', 'Control', 'Generating', 'Masternodes', 'Mining', 'Network', 'Rawtransactions', 'Util']
+        components = ['Blockchain', 'Control', 'Generating', 'Masternodes', 'Mining', 'Network', 'Rawtransactions', 'Spv', 'Util']
 
         if self.is_wallet_compiled():
             components.append('Wallet')

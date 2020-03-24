@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_INTERFACES_CHAIN_H
-#define BITCOIN_INTERFACES_CHAIN_H
+#ifndef DEFI_INTERFACES_CHAIN_H
+#define DEFI_INTERFACES_CHAIN_H
 
 #include <optional.h>               // For Optional and nullopt
 #include <primitives/transaction.h> // For CTransactionRef
@@ -36,7 +36,7 @@ class Wallet;
 //! estimate fees, and submit transactions.
 //!
 //! TODO: Current chain methods are too low level, exposing too much of the
-//! internal workings of the bitcoin node, and not being very convenient to use.
+//! internal workings of the defi node, and not being very convenient to use.
 //! Chain methods should be cleaned up and simplified over time. Examples:
 //!
 //! * The Chain::lock() method, which lets clients delay chain tip updates
@@ -147,7 +147,6 @@ public:
     virtual void findCoins(std::map<COutPoint, Coin>& coins) = 0;
 
     virtual bool mnCanSpend(const uint256 & nodeId, int height) const = 0;
-    virtual bool mnFindBlockedCriminalCoins(const uint256 & txid, int index) const = 0;
     virtual CMasternode const * mnExists(const uint256 & nodeId) const = 0;
 
     //! Estimate fraction of total transactions verified if blocks up to
@@ -305,4 +304,4 @@ std::unique_ptr<ChainClient> MakeWalletClient(Chain& chain, std::vector<std::str
 
 } // namespace interfaces
 
-#endif // BITCOIN_INTERFACES_CHAIN_H
+#endif // DEFI_INTERFACES_CHAIN_H

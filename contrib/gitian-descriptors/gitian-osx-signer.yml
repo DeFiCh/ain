@@ -1,5 +1,5 @@
 ---
-name: "bitcoin-dmg-signer"
+name: "defi-dmg-signer"
 distro: "ubuntu"
 suites:
 - "bionic"
@@ -11,7 +11,7 @@ remotes:
 - "url": "https://github.com/bitcoin-core/bitcoin-detached-sigs.git"
   "dir": "signature"
 files:
-- "bitcoin-osx-unsigned.tar.gz"
+- "defi-osx-unsigned.tar.gz"
 script: |
   set -e -o pipefail
 
@@ -30,8 +30,8 @@ script: |
     chmod +x ${WRAP_DIR}/${prog}
   done
 
-  UNSIGNED=bitcoin-osx-unsigned.tar.gz
-  SIGNED=bitcoin-osx-signed.dmg
+  UNSIGNED=defi-osx-unsigned.tar.gz
+  SIGNED=defi-osx-signed.dmg
 
   tar -xf ${UNSIGNED}
   OSX_VOLNAME="$(cat osx_volname)"

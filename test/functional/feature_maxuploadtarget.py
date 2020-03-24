@@ -15,7 +15,7 @@ import time
 
 from test_framework.messages import CInv, msg_getdata
 from test_framework.mininode import P2PInterface
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, mine_large_block
 
 MAXUPLOADTARGET=9376 # moore than 9216 (daily buffer, semi-fixed) !!!
@@ -32,7 +32,7 @@ class TestP2PConn(P2PInterface):
         message.block.calc_sha256()
         self.block_receive_map[message.block.sha256] += 1
 
-class MaxUploadTest(BitcoinTestFramework):
+class MaxUploadTest(DefiTestFramework):
 
     def set_test_params(self):
         self.setup_clean_chain = True
