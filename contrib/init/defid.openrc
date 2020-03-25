@@ -18,8 +18,8 @@ DEFID_BIN=${DEFID_BIN:-/usr/bin/defid}
 DEFID_NICE=${DEFID_NICE:-${NICELEVEL:-0}}
 DEFID_OPTS="${DEFID_OPTS:-${DEFI_OPTS}}"
 
-name="Defi Core Daemon"
-description="Defi cryptocurrency P2P network daemon"
+name="DeFi Blockchain Daemon"
+description="DeFi Blockchain P2P network daemon"
 
 command="/usr/bin/defid"
 command_args="-pid=\"${DEFID_PIDFILE}\" \
