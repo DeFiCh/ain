@@ -1,4 +1,4 @@
-// Copyright (c) 2019 DeFi Foundation
+// Copyright (c) 2019 DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
