@@ -19,7 +19,7 @@ enum HTTPStatusCode
     HTTP_SERVICE_UNAVAILABLE   = 503,
 };
 
-//! Defi RPC error codes
+//! DeFi Blockchain RPC error codes
 enum RPCErrorCode
 {
     //! Standard JSON-RPC 2.0 errors
