@@ -27,7 +27,7 @@ setup_vars() {
     AWS_S3_STORAGE_TYPE=${AWS_S3_STORAGE_TYPE:-"STANDARD"}
 
     # packaging specifics
-    PKG_VERSION_PREFIX=
+    PKG_VERSION_PREFIX=${PKG_VERSION_PREFIX:-}
 }
 
 main() {
