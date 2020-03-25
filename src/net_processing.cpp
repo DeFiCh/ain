@@ -35,7 +35,7 @@
 #include <memory>
 
 #if defined(NDEBUG)
-# error "Defi cannot be compiled without assertions."
+# error "DeFi Blockchain cannot be compiled without assertions."
 #endif
 
 /** Expiration time for orphan transactions in seconds */
