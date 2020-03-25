@@ -1,5 +1,5 @@
 # Linearize
-Construct a linear, no-fork, best version of the Defi blockchain.
+Construct a linear, no-fork, best version of the DeFi Blockchain.
 
 ## Step 1: Download hash list
 
