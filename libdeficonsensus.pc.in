@@ -4,7 +4,7 @@ libdir=@libdir@
 includedir=@includedir@
 
 Name: @PACKAGE_NAME@ consensus library
-Description: Library for the Defi consensus protocol.
+Description: Library for the DeFi Blockchain Consensus Protocol.
 Version: @PACKAGE_VERSION@
 Libs: -L${libdir} -ldeficonsensus
 Cflags: -I${includedir}
