@@ -116,7 +116,7 @@ public:
 };
 
 /**
- * Defi RPC command dispatcher.
+ * DeFi Blockchain RPC command dispatcher.
  */
 class CRPCTable
 {

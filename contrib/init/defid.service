@@ -10,7 +10,7 @@
 # config file.
 
 [Unit]
-Description=Defi daemon
+Description=DeFi Blockchain Daemon
 After=network.target
 
 [Service]
