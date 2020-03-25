@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DeFi Foundation
+// Copyright (c) 2019 DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -55,7 +55,7 @@ std::string DecodeSendResult(int result)
 UniValue spv_sendrawtx(const JSONRPCRequest& request)
 {
     RPCHelpMan{"spv_sendrawtx",
-        "\nSending raw tx to bitcoin blockchain\n",
+        "\nSending raw tx to DeFi Blockchain\n",
         {
             {"rawtx", RPCArg::Type::STR, RPCArg::Optional::NO, "The hex-encoded raw transaction with signature" },
         },

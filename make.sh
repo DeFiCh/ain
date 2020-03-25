@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Copyright (c) 2020 DeFi Blockchain Developers
 # Maker script
 
 set -Eeuo pipefail

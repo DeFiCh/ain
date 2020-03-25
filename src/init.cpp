@@ -761,7 +761,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
 }
 
 /** Sanity checks
- *  Ensure that Defi is running in a usable environment with all
+ *  Ensure that the DeFi Blockchain is running in a usable environment with all
  *  necessary library support.
  */
 static bool InitSanityCheck()
@@ -1193,7 +1193,7 @@ bool AppInitParameterInteraction()
 
 static bool LockDataDirectory(bool probeOnly)
 {
-    // Make sure only a single Defi process is using the data directory.
+    // Make sure only a single DeFi Blockchain process is using the data directory.
     fs::path datadir = GetDataDir();
     if (!DirIsWritable(datadir)) {
         return InitError(strprintf(_("Cannot write to data directory '%s'; check permissions.").translated, datadir.string()));
