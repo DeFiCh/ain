@@ -10,7 +10,7 @@
 
 /**
  * CBaseChainParams defines the base parameters (shared between defi-cli and defid)
- * of a given instance of the Defi system.
+ * of a given instance of the DeFi Blockchain system.
  */
 class CBaseChainParams
 {

@@ -32,7 +32,7 @@ namespace interfaces {
 class Handler;
 class Wallet;
 
-//! Top-level interface for a defi node (defid process).
+//! Top-level interface for a DeFi Blockchain node (defid process).
 class Node
 {
 public:

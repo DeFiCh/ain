@@ -17,7 +17,7 @@ tests and lint scripts can be run as explained in the sections below.
 
 # Running tests locally
 
-Before tests can be run locally, Defi Core must be built.  See the [building instructions](/doc#building) for help.
+Before tests can be run locally, DeFi Blockchain must be built.  See the [building instructions](/doc#building) for help.
 
 
 ### Functional tests
