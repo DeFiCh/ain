@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-#  defid The defi core server.
+#  defid The DeFi Blockchain server.
 #
 #
 # chkconfig: 345 80 20

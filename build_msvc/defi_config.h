@@ -20,13 +20,13 @@
 #define CLIENT_VERSION_REVISION 99
 
 /* Copyright holder(s) before %s replacement */
-#define COPYRIGHT_HOLDERS "The %s developers"
+#define COPYRIGHT_HOLDERS "The %s Developers"
 
 /* Copyright holder(s) */
-#define COPYRIGHT_HOLDERS_FINAL "The Bitcoin Core developers"
+#define COPYRIGHT_HOLDERS_FINAL "The DeFi Blockchain Developers"
 
 /* Replacement for %s in copyright holders string */
-#define COPYRIGHT_HOLDERS_SUBSTITUTION "Bitcoin Core"
+#define COPYRIGHT_HOLDERS_SUBSTITUTION "DeFi Blockchain"
 
 /* Copyright year */
 #define COPYRIGHT_YEAR 2019
@@ -340,19 +340,19 @@
 #define LT_OBJDIR ".libs/"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "https://github.com/bitcoin/bitcoin/issues"
+#define PACKAGE_BUGREPORT "https://github.com/defich/ain/issues"
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME "Defi Core"
+#define PACKAGE_NAME "DeFi Blockchain"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "Defi Core 0.18.99"
+#define PACKAGE_STRING "DeFi Blockchain 0.18.99"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "defi"
 
 /* Define to the home page for this package. */
-#define PACKAGE_URL "https://bitcoincore.org/"
+#define PACKAGE_URL "https://defichain.io/"
 
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "0.18.99"

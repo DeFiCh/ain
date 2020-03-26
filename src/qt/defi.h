@@ -26,7 +26,7 @@ class Handler;
 class Node;
 } // namespace interfaces
 
-/** Class encapsulating Defi Core startup and shutdown.
+/** Class encapsulating DeFi Blockchain startup and shutdown.
  * Allows running startup and shutdown in a different thread from the UI thread.
  */
 class DefiCore: public QObject
