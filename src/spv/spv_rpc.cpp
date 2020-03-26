@@ -341,6 +341,7 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     result.pushKV("defiHash", anchor.blockHash.ToString());
     result.pushKV("defiHeight", (int) anchor.height);
     result.pushKV("estimatedReward", ValueFromAmount(GetAnchorSubsidy(anchor.height, prevAnchorHeight, consensus)));
+    result.pushKV("anchorAddress", Params().GetConsensus().spv.anchors_address);
 
     return result;
 }
@@ -473,27 +474,48 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
     RPCHelpMan{"spv_listanchors",
         "\nList anchors (if any)\n",
         {
+            {"minBtcHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "min btc height, optional (default = -1)"},
+            {"maxBtcHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "max btc height, optional (default = -1)"},
+            {"minConfs", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "min anchor confirmations, optional (default = -1)"},
+            {"maxConfs", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "max anchor confirmations, optional (default = -1)"},
         },
         RPCResult{
             "\"array\"                  Returns array of anchors\n"
         },
         RPCExamples{
-            HelpExampleCli("spv_listanchors", "")
-            + HelpExampleRpc("spv_listanchors", "")
+            HelpExampleCli("spv_listanchors", "1500000 -1 6 -1") // list completely confirmed anchors not older than 1500000 height
+            + HelpExampleRpc("spv_listanchors", "-1 -1 0 0")    // list anchors in mempool (or -1 -1 -1 0)
         },
     }.Check(request);
 
     if (!spv::pspv)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
+    RPCTypeCheck(request.params, { UniValue::VNUM, UniValue::VNUM, UniValue::VNUM, UniValue::VNUM }, true);
+
+
+    int minBtcHeight = request.params.size() > 0 && !request.params[0].isNull() ? request.params[0].get_int() : -1;
+    int maxBtcHeight = request.params.size() > 1 && !request.params[1].isNull() ? request.params[1].get_int() : -1;
+    int minConfs  = request.params.size() > 2 && !request.params[2].isNull() ? request.params[2].get_int() : -1;
+    int maxConfs  = request.params.size() > 3 && !request.params[3].isNull() ? request.params[3].get_int() : -1;
+
     // ! before cs_main lock
-//    uint32_t const spvLastHeight = spv::pspv->GetLastBlockHeight();
+    uint32_t const tmp = spv::pspv->GetLastBlockHeight();
 
     auto locked_chain = pwallet->chain().lock();
 
+    panchors->UpdateLastHeight(tmp); // may be unnecessary but for sure
     auto const * cur = panchors->GetActiveAnchor();
     UniValue result(UniValue::VARR);
-    panchors->ForEachAnchorByBtcHeight([&result, &cur](const CAnchorIndex::AnchorRec & rec) {
+    panchors->ForEachAnchorByBtcHeight([&result, &cur, minBtcHeight, maxBtcHeight, minConfs, maxConfs](const CAnchorIndex::AnchorRec & rec) {
+        // from tip to genesis:
+        auto confs = panchors->GetAnchorConfirmations(&rec);
+        if ( (maxBtcHeight >= 0 && (int)rec.btcHeight > maxBtcHeight) || (minConfs >= 0 && confs < minConfs) )
+            return true; // continue
+        if ( (minBtcHeight >= 0 && (int)rec.btcHeight < minBtcHeight) || (maxConfs >= 0 && confs > maxConfs) )
+            return false; // break
+
+
         CTxDestination rewardDest = rec.anchor.rewardKeyType == 1 ? CTxDestination(PKHash(rec.anchor.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(rec.anchor.rewardKeyID));
         UniValue anchor(UniValue::VOBJ);
         anchor.pushKV("btcBlockHeight", static_cast<int>(rec.btcHeight));
@@ -508,6 +530,7 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
             cur = panchors->GetAnchorByBtcTx(cur->anchor.previousAnchor);
         }
         result.push_back(anchor);
+        return true;
     });
     return result;
 }
@@ -565,20 +588,20 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
     return result;
 }
 
-UniValue spv_listanchorconfirms(const JSONRPCRequest& request)
+UniValue spv_listanchorrewardconfirms(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
-    RPCHelpMan{"spv_listanchorconfirms",
-               "\nList anchor confirms (if any)\n",
+    RPCHelpMan{"spv_listanchorrewardconfirms",
+               "\nList anchor reward confirms (if any)\n",
                {
                },
                RPCResult{
                        "\"array\"                  Returns array of anchor confirms\n"
                },
                RPCExamples{
-                       HelpExampleCli("spv_listanchorconfirms", "")
-                       + HelpExampleRpc("spv_listanchorconfirms", "")
+                       HelpExampleCli("spv_listanchorrewardconfirms", "")
+                       + HelpExampleRpc("spv_listanchorrewardconfirms", "")
                },
     }.Check(request);
 
@@ -699,9 +722,9 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
   { "spv",      "spv_splitutxo",              &spv_splitutxo,             { "parts", "amount" }  },
-  { "spv",      "spv_listanchors",            &spv_listanchors,           { }  },
+  { "spv",      "spv_listanchors",            &spv_listanchors,           { "minBtcHeight", "maxBtcHeight", "minConfs", "maxConfs" }  },
   { "spv",      "spv_listanchorauths",        &spv_listanchorauths,       { }  },
-  { "spv",      "spv_listanchorconfirms",     &spv_listanchorconfirms,    { }  },
+  { "spv",      "spv_listanchorrewardconfirms",     &spv_listanchorrewardconfirms,    { }  },
   { "spv",      "spv_listanchorrewards",      &spv_listanchorrewards,     { }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
 };
