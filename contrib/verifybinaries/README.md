@@ -5,10 +5,10 @@
 Make sure you obtain the proper release signing key and verify the fingerprint with several independent sources.
 
 ```sh
-$ gpg --fingerprint "Defi Core binary release signing key"
+$ gpg --fingerprint "DeFi Blockchain binary release signing key"
 pub   4096R/36C2E964 2015-06-24 [expires: YYYY-MM-DD]
       Key fingerprint = 01EA 5486 DE18 A882 D4C2  6845 90C8 019E 36C2 E964
-uid                  Wladimir J. van der Laan (Defi Core binary release signing key) <laanwj@gmail.com>
+uid                  DeFi Blockchain Team (DeFi Blockchain binary release signing key) <release-team@defichain.io>
 ```
 
 #### Usage:
