@@ -100,6 +100,7 @@ EXPECTED_HOLDER_NAMES = [
     "Intel Corporation",
     "The Zcash developers",
     "Jeremy Rubin",
+    "DeFi Blockchain Developers",
 ]
 
 DOMINANT_STYLE_COMPILED = {}
@@ -544,7 +545,7 @@ Usage:
     $ ./copyright_header.py insert <file>
 
 Arguments:
-    <file> - A source file in the defi repository.
+    <file> - A source file in the DeFi Blockchain repository.
 """
 
 def insert_cmd(argv):
