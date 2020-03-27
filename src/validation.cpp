@@ -2674,7 +2674,7 @@ std::set<CBlockIndex*, CBlockIndexWorkComparator> FilterAnchorSatisfying(std::se
 {
     AssertLockHeld(cs_main);
 
-    if (!gArgs.GetBoolArg("-anchorsbinding", false))
+    if (!gArgs.GetBoolArg("-anchorsbinding", true))
         return source;
 
     if (panchors->GetActiveAnchor() == nullptr)
@@ -3013,7 +3013,7 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
 
     {
         LOCK2(cs_main, ::mempool.cs);
-        if (gArgs.GetBoolArg("-anchorsbinding", false))
+        if (gArgs.GetBoolArg("-anchorsbinding", true))
             RollBackIfTipConflictsWithAnchors(state, chainparams);
     }
 
