@@ -1,3 +1,7 @@
+.code
+.idea
+build
+
 *.tar.gz
 
 *.exe
@@ -137,3 +141,6 @@ db4/
 osx_volname
 dist/
 *.background.tiff
+
+# spv
+!src/spv/Makefile
