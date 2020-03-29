@@ -9,7 +9,7 @@ Building with Visual Studio is an alternative to the Linux based [cross-compiler
 
 Dependencies
 ---------------------
-A number of [open source libraries](../doc/dependencies.md) are required in order to be able to build the DeFi blockchain.
+A number of [open source libraries](../doc/dependencies.md) are required in order to be able to build the DeFi Blockchain.
 
 Options for installing the dependencies in a Visual Studio compatible manner are:
 
