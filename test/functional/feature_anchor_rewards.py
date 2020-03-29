@@ -55,8 +55,8 @@ class AnchorRewardsTest (DefiTestFramework):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
 
         chain0 = 17+15
-        # disconnect_nodes(self.nodes[0], 1)
         self.nodes[0].generate(chain0)
+        self.sync_all() # important to be synced before next disconnection
         assert_equal(len(self.nodes[0].spv_listanchors()), 0)
 
         print ("Node0: Setting anchors")
@@ -89,16 +89,17 @@ class AnchorRewardsTest (DefiTestFramework):
             activeAnc = anchors[1]
 
         print ("Confs init:")
-        assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 0)
+        assert_equal(len(self.nodes[0].spv_listanchorrewardconfirms()), 0)
         self.nodes[0].spv_setlastheight(5)
         self.nodes[1].spv_setlastheight(5)
-        assert_equal(len(self.nodes[0].spv_listanchorconfirms()), 0)
+        assert_equal(len(self.nodes[0].spv_listanchorrewardconfirms()), 0)
 
         print ("Node1: Setting anchors")
         self.nodes[1].spv_setlastheight(1)
         self.nodes[1].spv_sendrawtx(txAnc0['txHex'])
         self.nodes[1].spv_sendrawtx(txAnc1['txHex'])
 
+        # important (!) to be synced before disconnection
         # disconnect node2 (BEFORE reward voting!) for future rollback
         disconnect_nodes(self.nodes[1], 2)
 
@@ -106,9 +107,9 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[1].spv_setlastheight(6)
         # important to wait here!
         self.sync_blocks(self.nodes[0:2])
-        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 1 and self.nodes[0].spv_listanchorconfirms()[0]['signers'] == 2, timeout=10)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 1 and self.nodes[0].spv_listanchorrewardconfirms()[0]['signers'] == 2, timeout=10)
 
-        conf0 = self.nodes[0].spv_listanchorconfirms()
+        conf0 = self.nodes[0].spv_listanchorrewardconfirms()
         print ("Confs created, only active anchor:", conf0)
         assert_equal(len(conf0), 1)
         assert_equal(conf0[0]['anchorHeight'], 15)
@@ -121,7 +122,7 @@ class AnchorRewardsTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
         # confirms should disappear
-        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 0, timeout=10)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 0, timeout=10)
 
         # check reward tx
         rew0 = self.nodes[0].spv_listanchorrewards()
@@ -138,15 +139,15 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[2].generate(2)
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_all()
-        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 1, timeout=10) # while rollback, it should appear w/o wait
+        wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 1, timeout=10) # while rollback, it should appear w/o wait
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 0)
-        wait_until(lambda: len(self.nodes[2].spv_listanchorconfirms()) == 1, timeout=10) # but wait here
+        wait_until(lambda: len(self.nodes[2].spv_listanchorrewardconfirms()) == 1, timeout=10) # but wait here
         assert_equal(len(self.nodes[2].spv_listanchorrewards()), 0)
 
         print ("Reward again")
         self.nodes[1].generate(1)
         self.sync_all()
-        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 0, timeout=10)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 0, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 1)
 
         print ("Generate more (2 unpayed rewards at once)")
@@ -188,22 +189,22 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[1].spv_setlastheight(13)
         # important to wait here!
         self.sync_blocks(self.nodes[0:2])
-        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 2 and self.nodes[0].spv_listanchorconfirms()[0]['signers'] == 2 and self.nodes[0].spv_listanchorconfirms()[1]['signers'] == 2, timeout=10)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 2 and self.nodes[0].spv_listanchorrewardconfirms()[0]['signers'] == 2 and self.nodes[0].spv_listanchorrewardconfirms()[1]['signers'] == 2, timeout=10)
 
         # check confirmations (revoting) after node restart:
         self.stop_node(0)
         self.start_node(0)
         connect_nodes_bi(self.nodes, 0, 1)
-        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 2 and self.nodes[0].spv_listanchorconfirms()[0]['signers'] == 2 and self.nodes[0].spv_listanchorconfirms()[1]['signers'] == 2, timeout=10)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 2 and self.nodes[0].spv_listanchorrewardconfirms()[0]['signers'] == 2 and self.nodes[0].spv_listanchorrewardconfirms()[1]['signers'] == 2, timeout=10)
 
         self.nodes[0].generate(1)
         self.sync_blocks(self.nodes[0:2])
 
         # there is a tricky place here: the rest of confirms should be revoted, but it is very hard to check in regtest due to the same team
-        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 1 and self.nodes[0].spv_listanchorconfirms()[0]['signers'] == 2, timeout=10)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 1 and self.nodes[0].spv_listanchorrewardconfirms()[0]['signers'] == 2, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 2)
         self.nodes[0].generate(1)
-        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 0, timeout=10)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 0, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 3)
 
         # check reward of anc2 value (should be 5)
@@ -219,7 +220,7 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[2].generate(3)
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_all()
-        wait_until(lambda: len(self.nodes[0].spv_listanchorconfirms()) == 2, timeout=10)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 2, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 1)
 
 if __name__ == '__main__':
