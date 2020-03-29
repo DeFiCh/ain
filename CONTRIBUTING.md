@@ -21,7 +21,7 @@ list.
 Communication Channels
 ----------------------
 
-Most communication about the DeFi blockchain development happens on IRC, in the
+Most communication about DeFi Blockchain development happens on IRC, in the
 #bitcoin-core-dev channel on Freenode. The easiest way to participate on IRC is
 with the web client, [webchat.freenode.net](https://webchat.freenode.net/). Chat
 history logs can be found
@@ -88,7 +88,7 @@ the pull request affects. Valid areas as:
   - `refactor` for structural changes that do not change behavior
   - `rpc`, `rest` or `zmq` for changes to the RPC, REST or ZMQ APIs
   - `script` for changes to the scripts and tools
-  - `test` for changes to the DeFi blockchain unit tests or QA tests
+  - `test` for changes to DeFi Blockchain unit tests or QA tests
   - `util` or `lib` for changes to the utils or libraries
   - `wallet` for changes to the wallet code
   - `build` for changes to the GNU Autotools, reproducible builds or CI code
@@ -194,11 +194,11 @@ workload on reviewing.
 "Decision Making" Process
 -------------------------
 
-The following applies to code changes to the DeFi blockchain project (and related
+The following applies to code changes to the DeFi Blockchain project (and related
 projects such as libsecp256k1), and is not to be confused with overall DeFi
 Network Protocol consensus changes.
 
-Whether a pull request is merged into the DeFi blockchain rests with the project merge
+Whether a pull request is merged into DeFi Blockchain rests with the project merge
 maintainers and ultimately the project lead.
 
 Maintainers will take into consideration if a patch is in line with the general
