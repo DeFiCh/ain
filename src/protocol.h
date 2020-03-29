@@ -256,14 +256,14 @@ enum ServiceFlags : uint64_t {
     // Nothing
     NODE_NONE = 0,
     // NODE_NETWORK means that the node is capable of serving the complete block chain. It is currently
-    // set by all DeFi blockchain non pruned nodes, and is unset by SPV clients or other light clients.
+    // set by all DeFi Blockchain non pruned nodes, and is unset by SPV clients or other light clients.
     NODE_NETWORK = (1 << 0),
     // NODE_GETUTXO means the node is capable of responding to the getutxo protocol request.
-    // DeFi blockchain does not support this but a patch set called DeFi XT does.
+    // DeFi Blockchain does not support this but a patch set called DeFi XT does.
     // See BIP 64 for details on how this is implemented.
     NODE_GETUTXO = (1 << 1),
     // NODE_BLOOM means the node is capable and willing to handle bloom-filtered connections.
-    // DeFi blockchain nodes used to support this by default, without advertising this bit,
+    // DeFi Blockchain nodes used to support this by default, without advertising this bit,
     // but no longer do as of protocol version 70011 (= NO_BLOOM_VERSION)
     NODE_BLOOM = (1 << 2),
     // NODE_WITNESS indicates that a node can be asked for blocks and transactions including
