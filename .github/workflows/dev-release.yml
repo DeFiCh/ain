@@ -1,0 +1,31 @@
+name: dev-release
+on:
+  push:
+    branches:
+      - staging
+      - develop
+      - master
+    tags:
+      - "ci-*"
+  pull_request:
+    branches:
+      - staging
+      - develop
+      - master
+    tags:
+      - "ci-*"
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build & Package
+      run: PKG_VERSION_PREFIX="$(git rev-parse --abbrev-ref HEAD)-" ./make.sh release-git
+    - name: Publish
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: ./make.sh publish

@@ -118,6 +118,7 @@ BASE_SCRIPTS = [
     'feature_anchors.py',
     'feature_anchor_rewards.py',
     'feature_anchorauths_pruning.py',
+    'feature_criminals.py',
     'interface_zmq.py',
     'interface_defi_cli.py',
     'mempool_resurrect.py',
