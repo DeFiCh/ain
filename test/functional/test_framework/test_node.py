@@ -114,6 +114,7 @@ class TestNode():
         self.perf_subprocesses = {}
 
         self.p2ps = []
+        self.node_id = None
 
     MnKeys = collections.namedtuple('MnKeys', ['ownerAuthAddress', 'ownerPrivKey', 'operatorAuthAddress', 'operatorPrivKey'])
     PRIV_KEYS = [ # at least node0&1 operator should be non-witness!!! (feature_bip68_sequence.py,interface_zmq,rpc_psbt  fails)
@@ -135,6 +136,17 @@ class TestNode():
         assert self.index <= len(self.PRIV_KEYS)
         return self.PRIV_KEYS[self.index]
 
+    def get_node_id(self):
+        if self.node_id is not None:
+            return self.node_id
+
+        nodes = self.listmasternodes()
+        genesiskeys = self.get_genesis_keys()
+        for nodekey in nodes.keys():
+            if nodes[nodekey]['operatorAuthAddress'] == genesiskeys.operatorAuthAddress:
+                self.node_id = nodekey
+        return self.node_id
+
     def pullup_mocktime(self):
         TestNode.Mocktime = self.getblockheader(self.getbestblockhash())["time"]
 
@@ -151,10 +163,12 @@ class TestNode():
         # height = self.getblockcount()
         minted = 0
         mintedHashes = []
-        while minted < nblocks:
+        i = 0
+        while minted < nblocks and i < maxtries:
             if TestNode.Mocktime is not None:
                 self.setmocktime(TestNode.Mocktime + 1)
-            res = self.generatetoaddress(nblocks=1, address=address, maxtries=maxtries)
+            res = self.generatetoaddress(nblocks=1, address=address, maxtries=1)
+            i += 1
             if res == 1:
                 minted += 1
                 self.pullup_mocktime()
