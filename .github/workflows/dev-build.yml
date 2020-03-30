@@ -22,7 +22,7 @@ jobs:
     - name: Build & Package
       run: PKG_VERSION_PREFIX="$(git rev-parse --abbrev-ref HEAD)-" ./make.sh release-git
     - name: Publish
-    - uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v1
       with:
         name: defichain-x86_64-pc-linux-gnu
         path: ./build/defichain-defichain-x86_64-pc-linux-gnu-*
