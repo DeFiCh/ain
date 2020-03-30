@@ -685,10 +685,10 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
 
 fs::path GetDefaultDataDir()
 {
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\DeFi Blockchain
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\DeFi Blockchain
-    // Mac: ~/Library/Application Support/DeFi Blockchain
-    // Unix: ~/.defi-blockchain
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\DeFi
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\DeFi
+    // Mac: ~/Library/Application Support/DeFi
+    // Unix: ~/.defi
 #ifdef WIN32
     // Windows
     return GetSpecialFolderPath(CSIDL_APPDATA) / "DeFi Blockchain";
@@ -701,10 +701,10 @@ fs::path GetDefaultDataDir()
         pathRet = fs::path(pszHome);
 #ifdef MAC_OSX
     // Mac
-    return pathRet / "Library/Application Support/DeFi Blockchain";
+    return pathRet / "Library/Application Support/DeFi";
 #else
     // Unix
-    return pathRet / ".defi-blockchain";
+    return pathRet / ".defi";
 #endif
 #endif
 }
