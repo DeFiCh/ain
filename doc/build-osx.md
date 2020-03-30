@@ -1,5 +1,7 @@
 # macOS Build Instructions and Notes
 
+> NOTE: This section is a work in progress for DeFi Blockchain, and may not be applicable at it's current state.
+
 The commands in this guide should be executed in a Terminal application.
 The built-in one is located in
 ```
