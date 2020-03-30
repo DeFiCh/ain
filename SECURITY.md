@@ -1,5 +1,7 @@
 # Security Policy
 
+> NOTE: This section is a work in progress for DeFi Blockchain, and may not be applicable at it's current state.
+
 ## Supported Versions
 
 See our website for versions of DeFi Blockchain that are currently supported with
