@@ -113,9 +113,11 @@ package() {
         # XREF: #pkg-name
         local pkg_name="${img_prefix}-${target}-${pkg_ver_prefix}${img_version}.tar.gz"
         local pkg_path=$(readlink -m "${release_dir}/${pkg_name}")
+        local pkg_base_dir="${img_prefix}-${img_version}"
+
         mkdir -p $(dirname ${pkg_path})
 
-        docker run --rm "${img}" bash -c "tar -czf - *" >"${pkg_path}"
+        docker run --rm "${img}" bash -c "tar --transform 's,^./,${pkg_base_dir}/,' -czf - ./*" >"${pkg_path}"
         echo "> package: ${pkg_path}"
     done
 }
@@ -181,13 +183,15 @@ dev_package() {
     # XREF: #pkg-name
     local pkg_name="${img_prefix}-${target}-${pkg_ver_prefix}${img_version}.tar.gz"
     local pkg_path=$(readlink -m "${release_dir}/${pkg_name}")
+    local pkg_base_dir="${img_prefix}-${img_version}"
+
     mkdir -p $(dirname ${pkg_path})
 
     echo "> packaging: ${pkg_name}"
 
     pushd ./src/ >/dev/null
     # XREF: #defi-package-bins
-    tar -cvzf ${pkg_path} ./defid ./defi-cli ./defi-wallet ./defi-tx
+    tar --transform "s,^./,${pkg_base_dir}/," -cvzf ${pkg_path} ./defid ./defi-cli ./defi-wallet ./defi-tx
     popd >/dev/null
     echo "> package: ${pkg_path}"
 }
