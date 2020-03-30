@@ -1,5 +1,8 @@
 UNIX BUILD NOTES
 ====================
+
+> NOTE: This section is a work in progress for DeFi Blockchain, and may not be applicable at it's current state.
+
 Some notes on how to build Bitcoin Core in Unix.
 
 (For BSD specific instructions, see `build-*bsd.md` in this directory.)
