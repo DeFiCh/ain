@@ -1,6 +1,8 @@
 WINDOWS BUILD NOTES
 ====================
 
+> NOTE: This section is a work in progress for DeFi Blockchain, and may not be applicable at it's current state.
+
 Below are some notes on how to build Bitcoin Core for Windows.
 
 The options known to work for building Bitcoin Core on Windows are:
