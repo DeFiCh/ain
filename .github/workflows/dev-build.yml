@@ -1,19 +1,16 @@
-name: dev-release
 on:
   push:
     branches:
       - staging
       - develop
       - master
-    tags:
-      - "ci-*"
+      - ci/*
   pull_request:
     branches:
       - staging
       - develop
       - master
-    tags:
-      - "ci-*"
+      - ci/*
 jobs:
   release:
     runs-on: ${{ matrix.os }}
@@ -25,7 +22,7 @@ jobs:
     - name: Build & Package
       run: PKG_VERSION_PREFIX="$(git rev-parse --abbrev-ref HEAD)-" ./make.sh release-git
     - name: Publish
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      run: ./make.sh publish
+    - uses: actions/upload-artifact@v1
+      with:
+        name: defichain-x86_64-pc-linux-gnu
+        path: ./build/defichain-defichain-x86_64-pc-linux-gnu-*
