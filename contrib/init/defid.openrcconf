@@ -1,20 +1,20 @@
 # /etc/conf.d/defid: config file for /etc/init.d/defid
 
 # Config file location
-#DEFID_CONFIGFILE="/etc/defi-blockchain/defi.conf"
+#DEFID_CONFIGFILE="/etc/defi/defi.conf"
 
 # What directory to write pidfile to?  (created and owned by $DEFID_USER)
-#DEFID_PIDDIR="/var/run/defi-blockchain"
+#DEFID_PIDDIR="/var/run/defi"
 
 # What filename to give the pidfile
 #DEFID_PIDFILE="${DEFID_PIDDIR}/defid.pid"
 
 # Where to write defid data (be mindful that the blockchain is large)
-#DEFID_DATADIR="/var/lib/defi-blockchain"
+#DEFID_DATADIR="/var/lib/defi"
 
 # User and group to own defid process
-#DEFID_USER="defi-blockchain"
-#DEFID_GROUP="defi-blockchain"
+#DEFID_USER="defi"
+#DEFID_GROUP="defi"
 
 # Path to defid executable
 #DEFID_BIN="/usr/bin/defid"

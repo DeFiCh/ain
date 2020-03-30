@@ -55,8 +55,8 @@ The `includeconf=<file>` option in the `defi.conf` file can be used to include a
 
 Operating System | Data Directory | Example Path
 -- | -- | --
-Windows | `%APPDATA%\DeFi Blockchain\` | `C:\Users\username\AppData\Roaming\DeFi Blockchain\defi.conf`
-Linux | `$HOME/.defi-blockchain/` | `/home/username/.defi-blockchain/defi.conf`
-macOS | `$HOME/Library/Application Support/DeFi Blockchain/` | `/Users/username/Library/Application Support/DeFi Blockchain/defi.conf`
+Windows | `%APPDATA%\DeFi Blockchain\` | `C:\Users\username\AppData\Roaming\DeFi\defi.conf`
+Linux | `$HOME/.defi/` | `/home/username/.defi/defi.conf`
+macOS | `$HOME/Library/Application Support/DeFi/` | `/Users/username/Library/Application Support/DeFi/defi.conf`
 
 You can find an example defi.conf file in [share/examples/defi.conf](../share/examples/defi.conf).
