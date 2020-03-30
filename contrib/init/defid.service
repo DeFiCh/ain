@@ -5,7 +5,7 @@
 # See "man systemd.service" for details.
 
 # Note that almost all daemon options could be specified in
-# /etc/defi-blockchain/defi.conf, but keep in mind those explicitly
+# /etc/defi/defi.conf, but keep in mind those explicitly
 # specified as arguments in ExecStart= will override those in the
 # config file.
 
@@ -15,38 +15,38 @@ After=network.target
 
 [Service]
 ExecStart=/usr/bin/defid -daemon \
-                            -pid=/run/defi-blockchain/defid.pid \
-                            -conf=/etc/defi-blockchain/defi.conf \
-                            -datadir=/var/lib/defi-blockchain
+                            -pid=/run/defi/defid.pid \
+                            -conf=/etc/defi/defi.conf \
+                            -datadir=/var/lib/defi
 
 # Make sure the config directory is readable by the service user
 PermissionsStartOnly=true
-ExecStartPre=/bin/chgrp defi-blockchain /etc/defi-blockchain
+ExecStartPre=/bin/chgrp defi /etc/defi
 
 # Process management
 ####################
 
 Type=forking
-PIDFile=/run/defi-blockchain/defid.pid
+PIDFile=/run/defi/defid.pid
 Restart=on-failure
 
 # Directory creation and permissions
 ####################################
 
 # Run as defi:defi
-User=defi-blockchain
-Group=defi-blockchain
+User=defi
+Group=defi
 
 # /run/defid
 RuntimeDirectory=defid
 RuntimeDirectoryMode=0710
 
-# /etc/defi-blockchain
-ConfigurationDirectory=defi-blockchain
+# /etc/defi
+ConfigurationDirectory=defi
 ConfigurationDirectoryMode=0710
 
-# /var/lib/defi-blockchain
-StateDirectory=defi-blockchain
+# /var/lib/defi
+StateDirectory=defi
 StateDirectoryMode=0710
 
 # Hardening measures
