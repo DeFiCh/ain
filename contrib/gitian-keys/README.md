@@ -1,5 +1,7 @@
 ## PGP keys of Gitian builders and Developers
 
+> NOTE: This section is a work in progress for DeFi Blockchain, and may not be applicable at it's current state.
+
 The file `keys.txt` contains fingerprints of the public keys of Gitian builders
 and active developers.
 
