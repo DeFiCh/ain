@@ -1,18 +1,42 @@
 ARG TARGET=arm-linux-gnueabihf
 
-### Builder that acts as a base for building Defichain with basics dependencies 
-### that are required throughout the process
-FROM defichain-builder-${TARGET} as depends-builder
+# -----------
+FROM ubuntu:18.04 as builder-base
 ARG TARGET
+LABEL org.defichain.name="defichain-builder-base"
+LABEL org.defichain.arch=${TARGET}
+
+RUN apt update && apt dist-upgrade -y
+
+# Setup Defichain build dependencies. Refer to depends/README.md and doc/build-unix.md
+# from the source root for info on the builder setup  
+
+RUN apt install -y software-properties-common build-essential libtool autotools-dev automake \
+pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
+libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
+libminiupnpc-dev libzmq3-dev libqrencode-dev \
+curl cmake \
+g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+
+# For Berkeley DB - but we don't need as we do a depends build.
+# RUN apt install -y libdb-dev
+
+# -----------
+FROM builder-base as depends-builder
+ARG TARGET
+LABEL org.defichain.name="defichain-depends-builder"
+LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work/depends
 COPY ./depends .
 # XREF: #depends-make
 RUN make HOST=${TARGET} NO_QT=1
 
-### Builder that does the actual Defichain build
-FROM defichain-builder-${TARGET} as builder
+# -----------
+FROM builder-base as builder
 ARG TARGET
+LABEL org.defichain.name="defichain-builder"
+LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /work
 
@@ -30,8 +54,12 @@ RUN ./configure --prefix=`pwd`/depends/${TARGET} \
 
 RUN make
 
+# -----------
 ### Actual image that contains defi binaries
 FROM arm32v7/ubuntu:18.04
+ARG TARGET
+LABEL org.defichain.name="defichain"
+LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
 
