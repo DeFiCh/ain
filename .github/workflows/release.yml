@@ -8,14 +8,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04]
+        include:
+          - os: ubuntu-18.04
+            artifact_name: build/defichain-x86_64-pc-linux-gnu-*.tar.gz
+            asset_name: defichain-x86_64-pc-linux-gnu
     steps:
     - uses: actions/checkout@v2
-    - name: Build & Package
-      run: ./make.sh release-git
-    - name: Publish
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_S3_BUCKET: defichain/release
-      run: ./make.sh publish
+    - name: Build and package
+      run: ./make.sh docker-release-git
+    - name: Upload release
+      uses: svenstaro/upload-release-action@v1-release
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ${{ matrix.artifact_name }}
+        asset_name: ${{ matrix.asset_name }}
+        tag: ${{ github.ref }}
