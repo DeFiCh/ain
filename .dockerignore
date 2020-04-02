@@ -1,6 +1,19 @@
 .github
 contrib/dockerfiles
 
+# depends
+
+depends/built
+depends/work
+depends/sources
+depends/x86_64*
+depends/i686*
+depends/mips*
+depends/arm*
+depends/aarch64*
+depends/riscv32*
+depends/riscv64*
+
 ## Copy of .gitignore
 
 .code
