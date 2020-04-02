@@ -5,13 +5,13 @@ on:
 
 jobs:
   cleanup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     timeout-minutes: 10
 
     steps:
-    - name: Cleanup aged artifacts
+    - name: Prune artifacts
       uses: c-hive/gha-remove-artifacts@v1
       with:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        age: '1 month'
+        age: '3 weeks'
         skip-tags: false
