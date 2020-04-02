@@ -1,8 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright (c) 2020 DeFi Blockchain Developers
 # Maker script
 
+# shellcheck disable=SC2155
+
+export LC_ALL=C
 set -Eeuo pipefail
 
 setup_vars() {
@@ -14,20 +17,10 @@ setup_vars() {
     DOCKER_DEV_VOLUME_SUFFIX=${DOCKER_DEV_VOLUME_SUFFIX:-"dev-data"}
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
+    # shellcheck disable=SC2206
+    # This intentionally word-splits the array as env arg can only be strings.
     # Other options available: x86_64-w64-mingw32
     TARGETS=(${TARGETS:-"x86_64-pc-linux-gnu"})
-
-    ## AWS config for S3 upload
-    AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}         # ci
-    AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} # ci
-    AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"ap-southeast-1"}
-
-    # use defichain/release for tagged releases from ci
-    AWS_S3_BUCKET=${AWS_S3_BUCKET:-"defichain/dev"}
-    AWS_S3_STORAGE_TYPE=${AWS_S3_STORAGE_TYPE:-"STANDARD"}
-
-    # packaging specifics
-    PKG_VERSION_PREFIX=${PKG_VERSION_PREFIX:-}
 }
 
 main() {
@@ -38,6 +31,7 @@ main() {
 
     # Get all functions declared in this file except ones starting with
     # '_' or the ones in the list
+    # shellcheck disable=SC2207
     COMMANDS=($(declare -F | cut -d" " -f3 | grep -v -E "^_.*$|main|setup_vars")) || true
 
     # Commands use `-` instead of `_` for getopts consistency. Flip this.
@@ -68,98 +62,112 @@ _cleanup() {
 help() {
     echo "Usage: $0 <commands>"
     printf "\nCommands:\n"
-    # NOTE: intentionally unquoted to leave out empty ones
-    local cmds=(${COMMANDS[@]//dev_*/})
-    printf "\t%s\n" "${cmds[@]//_/-}"
-    printf "\nDeveloper Commands: \n"
-    local cmds=($(printf "%s\n" "${COMMANDS[@]}" | grep "^dev_")) || true
-    printf "\t%s\n" "${cmds[@]//_/-}"
-    printf "\nNote: The developer commands assume that it's run on an environment \n"
+    printf "\t%s\n" "${COMMANDS[@]//_/-}"
+    printf "\nNote: All non-docker commands assume that it's run on an environment \n"
     printf "with correct arch and the pre-requisites properly configured. \n"
 }
 
-build() {
-    local targets=${TARGETS[@]}
-    local img_prefix=${IMAGE_PREFIX}
-    local img_version=${IMAGE_VERSION}
-    local dockerfiles_dir=${DOCKERFILES_DIR}
-    local docker_context=${DOCKER_ROOT_CONTEXT}
+# -------------- Docker ---------------
 
-    for target in ${targets[@]}; do
+docker_build() {
+    local targets=("${TARGETS[@]}")
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local dockerfiles_dir="${DOCKERFILES_DIR}"
+    local docker_context="${DOCKER_ROOT_CONTEXT}"
+
+    for target in "${targets[@]}"; do
         local img="${img_prefix}-${target}:${img_version}"
         echo "> building: ${img}"
-
-        local builder_docker_file="${dockerfiles_dir}/builder-${target}.dockerfile"
         local docker_file="${dockerfiles_dir}/${target}.dockerfile"
-        
-        echo "> docker build: ${img_prefix}-builder-${target}"
-        docker build -t "${img_prefix}-builder-${target}" - <${builder_docker_file}
         echo "> docker build: ${img}"
-        docker build -f ${docker_file} -t "${img}" "${docker_context}"
+        docker build -f "${docker_file}" -t "${img}" "${docker_context}"
     done
 }
 
-package() {
-    local targets=${TARGETS[@]}
-    local img_prefix=${IMAGE_PREFIX}
-    local img_version=${IMAGE_VERSION}
-    local release_dir=${RELEASE_DIR}
-    local pkg_ver_prefix=${PKG_VERSION_PREFIX//\//-}
+docker_package() {
+    local targets=("${TARGETS[@]}")
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local release_dir="${RELEASE_DIR}"
 
-    for target in ${targets[@]}; do
+    for target in "${targets[@]}"; do
         local img="${img_prefix}-${target}:${img_version}"
         echo "> packaging: ${img}"
 
         # XREF: #pkg-name
-        local pkg_name="${img_prefix}-${target}-${pkg_ver_prefix}${img_version}.tar.gz"
-        local pkg_path=$(readlink -m "${release_dir}/${pkg_name}")
-        local pkg_base_dir="${img_prefix}-${img_version}"
+        local pkg_name="${img_prefix}-${target}-${img_version}"
+        local pkg_tar_file_name="${pkg_name}.tar.gz"
+        local pkg_path="${release_dir}/${pkg_tar_file_name}"
 
-        mkdir -p $(dirname ${pkg_path})
+        mkdir -p "${release_dir}"
 
-        docker run --rm "${img}" bash -c "tar --transform 's,^./,${pkg_base_dir}/,' -czf - ./*" >"${pkg_path}"
+        docker run --rm "${img}" bash -c \
+            "tar --transform 's,^./,${pkg_name}/,' -czf - ./*" >"${pkg_path}"
+
         echo "> package: ${pkg_path}"
     done
 }
 
-sign() {
-    # TODO: generate sha sums and sign
-    :
+docker_deploy() {
+    local targets=("${TARGETS[@]}")
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local release_dir="${RELEASE_DIR}"
+
+    for target in "${targets[@]}"; do
+        local img="${img_prefix}-${target}:${img_version}"
+        echo "> deploy from: ${img}"
+
+        local pkg_name="${img_prefix}-${target}-${img_version}"
+        local pkg_dir="${release_dir}/${pkg_name}"
+
+        mkdir -p "${pkg_dir}"
+
+        local cid=$(docker create "${img}")
+        local e=0
+
+        { docker cp "${cid}:/app/." "${pkg_dir}" 2>/dev/null && e=1; } || true
+        docker rm "${cid}"
+
+        if [[ "$e" == "1" ]]; then
+            echo "> deployed into: ${pkg_dir}"
+        else 
+            echo "> failed: please sure package is built first"
+        fi
+    done
 }
 
-release() {
-    build
-    package
+docker_release() {
+    docker_build
+    docker_package
     sign
 }
 
-release_git() {
-    # If we have a tagged version (for proper releases), then just
-    # release it with the tag, otherwise we use the commit hash
-    local current_tag=$(git tag --points-at HEAD | head -1)
-    local current_commit=$(git rev-parse --short HEAD)
-
-    if [[ -z $current_tag ]]; then
-        IMAGE_VERSION="${current_commit}"
-    else
-        IMAGE_VERSION="${current_tag}"
-    fi
-
-    echo "> version: ${IMAGE_VERSION}"
-
-    release
+docker_package_git() {
+    git_version
+    docker_package
 }
 
-dev_pkg_install_deps() {
-    sudo apt update && sudo apt dist-upgrade -y
-    sudo apt install -y software-properties-common build-essential libtool autotools-dev automake \
-        pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
-        libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-        libminiupnpc-dev libzmq3-dev libqrencode-dev \
-        curl cmake
+docker_release_git() {
+    git_version
+    docker_release
 }
 
-dev_build() {
+docker_deploy_git() {
+    git_version
+    docker_build
+    docker_deploy
+}
+
+docker_clean() {
+    rm -rf "${RELEASE_DIR}"
+    docker_clean_images
+}
+
+# ----------- Direct builds ---------------
+
+build() {
     local target=${1:-"x86_64-pc-linux-gnu"}
 
     echo "> dev build: ${target}"
@@ -169,98 +177,226 @@ dev_build() {
     popd >/dev/null
     ./autogen.sh
     # XREF: #make-configure
-    ./configure --prefix=$(pwd)/depends/${target} --without-gui --disable-tests
+    ./configure --prefix="$(pwd)/depends/${target}" --without-gui --disable-tests
     make
 }
 
-dev_package() {
+package() {
     local target=${1:-"x86_64-pc-linux-gnu"}
-    local img_prefix=${IMAGE_PREFIX}
-    local img_version=${IMAGE_VERSION}
-    local release_dir=${RELEASE_DIR}
-    local pkg_ver_prefix=${PKG_VERSION_PREFIX//\//-}
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local release_dir="${RELEASE_DIR}"
 
     # XREF: #pkg-name
-    local pkg_name="${img_prefix}-${target}-${pkg_ver_prefix}${img_version}.tar.gz"
-    local pkg_path=$(readlink -m "${release_dir}/${pkg_name}")
-    local pkg_base_dir="${img_prefix}-${img_version}"
+    local pkg_name="${img_prefix}-${target}-${img_version}"
+    local pkg_tar_file_name="${pkg_name}.tar.gz"
+    local pkg_path="${release_dir}/${pkg_tar_file_name}"
 
-    mkdir -p $(dirname ${pkg_path})
+    mkdir -p "${release_dir}"
 
     echo "> packaging: ${pkg_name}"
 
-    pushd ./src/ >/dev/null
     # XREF: #defi-package-bins
-    tar --transform "s,^./,${pkg_base_dir}/," -cvzf ${pkg_path} ./defid ./defi-cli ./defi-wallet ./defi-tx
-    popd >/dev/null
+    tar --transform "s,^./src/,${pkg_name}/," -cvzf "${pkg_path}" \
+        ./src/defid ./src/defi-cli ./src/defi-wallet ./src/defi-tx
     echo "> package: ${pkg_path}"
 }
 
-dev_release() {
+release() {
     local target=${1:-"x86_64-pc-linux-gnu"}
-    dev_build "${target}"
-    dev_package "${target}"
+    
+    build "${target}"
+    package "${target}"
+    sign
 }
 
-dev_build_on_docker() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-    local img_prefix=${IMAGE_PREFIX}
-    local img_version=${IMAGE_VERSION}
-    local dockerfiles_dir=${DOCKERFILES_DIR}
-    local docker_context=${DOCKER_ROOT_CONTEXT}
-    local docker_dev_volume_suffix=${DOCKER_DEV_VOLUME_SUFFIX}
+# -------------- Docker dev -------------------
 
-    local img="${img_prefix}-${target}-dev:${img_version}"
+docker_dev_build() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
+
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local dockerfiles_dir="${DOCKERFILES_DIR}"
+    local docker_context="${DOCKER_ROOT_CONTEXT}"
+    local docker_dev_volume_suffix="${DOCKER_DEV_VOLUME_SUFFIX}"
+
+    local img="${img_prefix}-dev-${target}:${img_version}"
     echo "> building: ${img}"
 
-    local builder_docker_file="${dockerfiles_dir}/builder-${target}.dockerfile"
+    local builders_docker_file="${dockerfiles_dir}/${target}.dockerfile"
     local docker_file="${dockerfiles_dir}/${target}-dev.dockerfile"
 
-    docker build -t "${img_prefix}-builder-${target}" - <${builder_docker_file}
-    docker build -f ${docker_file} -t "${img}" "${docker_context}"
-    docker run -v ${img_prefix}-${target}-${docker_dev_volume_suffix}:/data ${img}
+    docker build --target "builder-base" \
+        -t "${img_prefix}-builder-base-${target}" - <"${builders_docker_file}"
+    docker build -f "${docker_file}" -t "${img}" "${docker_context}"
+    docker run --rm -v "${img_prefix}-${target}-${docker_dev_volume_suffix}:/data" "${img}"
+
+    echo "> built: ${img}"
 }
 
-dev_package_on_docker() {
+docker_dev_package() {
     local target=${1:-"x86_64-pc-linux-gnu"}
 
-    # TODO: package from volume
-    echo "> todo: package from volume"
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local release_dir="${RELEASE_DIR}"
+    local docker_dev_volume_suffix="${DOCKER_DEV_VOLUME_SUFFIX}"
+
+    # XREF: #pkg-name
+    local pkg_name="${img_prefix}-${target}-${img_version}"
+    local pkg_tar_file_name="${pkg_name}.tar.gz"
+    local pkg_path="${release_dir}/${pkg_tar_file_name}"
+
+    local vol="${img_prefix}-${target}-${docker_dev_volume_suffix}"
+
+    echo "> from: ${vol}"
+
+    mkdir -p "${release_dir}"
+
+    local cid=$(docker create -v "${vol}:/data" ubuntu:18.04)
+    local e=0
+    
+    { docker cp "${cid}:/data/${pkg_path}" "${pkg_path}" 2>/dev/null && e=1; } || true
+    docker rm "${cid}" >/dev/null
+    
+    if [[ "$e" == "1" ]]; then
+        echo "> deployed into: ${pkg_path}"
+    else 
+        echo "> failed: please sure package is built first"
+    fi
 }
 
-dev_release_on_docker() {
+docker_dev_release() {
     local target=${1:-"x86_64-pc-linux-gnu"}
 
-    dev_build_on_docker "${target}"
-    dev_package_on_docker "${target}"
+    docker_dev_build "${target}"
+    docker_dev_package "${target}"
+    sign
 }
 
-publish() {
-    for file in ${RELEASE_DIR}/*; do
-        _aws_put_s3 ${file}
-    done
+docker_dev_clean() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
+
+    docker_dev_clean_images
+    docker_dev_clean_volumes "${target}"
 }
 
-_aws_put_s3() {
-    local pkg_file="${1?-package file required}"
-    local s3_bucket=${AWS_S3_BUCKET?-AWS_S3_BUCKET bucket env required}
+docker_clean_images() {
+    echo "> clean: defichain images"
 
-    local pkg_name="$(basename ${pkg_file})"
+    local imgs="$(docker images -f label=org.defichain.name=defichain -q)"
+    if [[ -n "${imgs}" ]]; then
+        # shellcheck disable=SC2086
+        docker rmi ${imgs} --force
+        _docker_clean_builder_base
+    fi
+}
 
-    if [[ -z $(command -v aws) ]]; then
-        echo "> AWS CLI required for deployment to S3"
-        exit 1
+docker_dev_clean_images() {
+    echo "> clean: defichain-dev images"
+
+    local imgs="$(docker images -f label=org.defichain.name=defichain-dev -q)"
+    if [[ -n "${imgs}" ]]; then
+        # shellcheck disable=SC2086
+        docker rmi ${imgs} --force
+        _docker_clean_builder_base
+    fi
+}
+
+docker_dev_clean_volumes() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
+
+    local img_prefix="${IMAGE_PREFIX}"
+    local docker_dev_volume_suffix="${DOCKER_DEV_VOLUME_SUFFIX}"
+    local vol="${img_prefix}-${target}-${docker_dev_volume_suffix}"
+    
+    echo "> clean: docker volume: ${vol}"
+
+    docker volume rm "${vol}" || true
+}
+
+_docker_clean_builder_base() {
+    echo "> clean: defichain-builder-base images"
+
+    # shellcheck disable=SC2046
+    docker rmi $(docker images -f label=org.defichain.name=defichain-builder-base -q) \
+        2>/dev/null || true
+}
+
+docker_purge() {
+    echo "> clean: defichain* images"
+
+    # shellcheck disable=SC2046
+    docker rmi $(docker images -f label=org.defichain.name -q) \
+        2>/dev/null || true
+
+    docker_dev_clean_volumes
+}
+
+# -------------- Misc -----------------
+
+sign() {
+    # TODO: generate sha sums and sign
+    :
+}
+
+git_version() {
+    # If we have a tagged version (for proper releases), then just
+    # release it with the tag, otherwise we use the commit hash
+    local current_tag=$(git tag --points-at HEAD | head -1)
+    local current_commit=$(git rev-parse --short HEAD)
+    local current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+    if [[ -z $current_tag ]]; then
+        IMAGE_VERSION="${current_branch}-${current_commit}"
+    else
+        IMAGE_VERSION="${current_tag}"
     fi
 
-    aws s3 cp ${pkg_file} s3://${s3_bucket}/${pkg_name}
+    echo "> version: ${IMAGE_VERSION}"
 }
 
-dev_clean() {
+pkg_install_deps() {
+    sudo apt update && sudo apt dist-upgrade -y
+    sudo apt install -y software-properties-common build-essential libtool autotools-dev automake \
+        pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
+        libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
+        libminiupnpc-dev libzmq3-dev libqrencode-dev \
+        curl cmake
+}
+
+purge() {
+    clean
+    dev_clean
+    dev_clean_depends
+    # shellcheck disable=SC2119
+    docker_purge
+}
+
+clean_depends() {
+    pushd ./depends >/dev/null
+    make clean-all || true
+    rm -rf built
+    rm -rf work
+    rm -rf sources
+    rm -rf x86_64*
+    rm -rf i686*
+    rm -rf mips*
+    rm -rf arm*
+    rm -rf aarch64*
+    rm -rf riscv32*
+    rm -rf riscv64*
+    popd >/dev/null
+}
+
+clean() {
     make clean || true
     make distclean || true
-    rm -rf ${RELEASE_DIR}
+    rm -rf "${RELEASE_DIR}"
 
     # All untracked git files that's left over after clean
+    find . -type d -name ".deps" -exec rm -rf {} + || true
 
     rm -rf src/secp256k1/Makefile.in
     rm -rf src/secp256k1/aclocal.m4
@@ -322,13 +458,6 @@ dev_clean() {
     rm -rf src/Makefile.in
     rm -rf src/config/defi-config.h.in
     rm -rf src/config/defi-config.h.in~
-}
-
-dev_purge() {
-    dev_clean
-    pushd ./depends >/dev/null
-    make clean-all || true
-    popd >/dev/null
 }
 
 main "$@"
