@@ -76,6 +76,8 @@ docker_build() {
     local dockerfiles_dir="${DOCKERFILES_DIR}"
     local docker_context="${DOCKER_ROOT_CONTEXT}"
 
+    echo "> docker-build";
+
     for target in "${targets[@]}"; do
         local img="${img_prefix}-${target}:${img_version}"
         echo "> building: ${img}"
@@ -90,6 +92,8 @@ docker_package() {
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
+
+    echo "> docker-package";
 
     for target in "${targets[@]}"; do
         local img="${img_prefix}-${target}:${img_version}"
@@ -115,6 +119,8 @@ docker_deploy() {
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
 
+    echo "> docker-deploy";
+
     for target in "${targets[@]}"; do
         local img="${img_prefix}-${target}:${img_version}"
         echo "> deploy from: ${img}"
@@ -132,7 +138,7 @@ docker_deploy() {
 
         if [[ "$e" == "1" ]]; then
             echo "> deployed into: ${pkg_dir}"
-        else 
+        else
             echo "> failed: please sure package is built first"
         fi
     done
@@ -170,7 +176,7 @@ docker_clean() {
 build() {
     local target=${1:-"x86_64-pc-linux-gnu"}
 
-    echo "> dev build: ${target}"
+    echo "> build: ${target}"
     pushd ./depends >/dev/null
     # XREF: #depends-make
     make NO_QT=1
@@ -194,7 +200,7 @@ package() {
 
     mkdir -p "${release_dir}"
 
-    echo "> packaging: ${pkg_name}"
+    echo "> package from: ${pkg_name}"
 
     # XREF: #defi-package-bins
     tar --transform "s,^./src/,${pkg_name}/," -cvzf "${pkg_path}" \
@@ -204,7 +210,7 @@ package() {
 
 release() {
     local target=${1:-"x86_64-pc-linux-gnu"}
-    
+
     build "${target}"
     package "${target}"
     sign
@@ -222,7 +228,9 @@ docker_dev_build() {
     local docker_dev_volume_suffix="${DOCKER_DEV_VOLUME_SUFFIX}"
 
     local img="${img_prefix}-dev-${target}:${img_version}"
-    echo "> building: ${img}"
+    local vol="${img_prefix}-${target}-${docker_dev_volume_suffix}"
+
+    echo "> docker-dev-build: ${img}"
 
     local builders_docker_file="${dockerfiles_dir}/${target}.dockerfile"
     local docker_file="${dockerfiles_dir}/${target}-dev.dockerfile"
@@ -230,7 +238,7 @@ docker_dev_build() {
     docker build --target "builder-base" \
         -t "${img_prefix}-builder-base-${target}" - <"${builders_docker_file}"
     docker build -f "${docker_file}" -t "${img}" "${docker_context}"
-    docker run --rm -v "${img_prefix}-${target}-${docker_dev_volume_suffix}:/data" "${img}"
+    docker run --rm -v "${vol}:/data" "${img}"
 
     echo "> built: ${img}"
 }
@@ -247,22 +255,21 @@ docker_dev_package() {
     local pkg_name="${img_prefix}-${target}-${img_version}"
     local pkg_tar_file_name="${pkg_name}.tar.gz"
     local pkg_path="${release_dir}/${pkg_tar_file_name}"
-
     local vol="${img_prefix}-${target}-${docker_dev_volume_suffix}"
 
-    echo "> from: ${vol}"
+    echo "> docker-dev-package: ${pkg_name}"
 
     mkdir -p "${release_dir}"
 
     local cid=$(docker create -v "${vol}:/data" ubuntu:18.04)
     local e=0
-    
+
     { docker cp "${cid}:/data/${pkg_path}" "${pkg_path}" 2>/dev/null && e=1; } || true
     docker rm "${cid}" >/dev/null
-    
+
     if [[ "$e" == "1" ]]; then
-        echo "> deployed into: ${pkg_path}"
-    else 
+        echo "> package: ${pkg_path}"
+    else
         echo "> failed: please sure package is built first"
     fi
 }
@@ -310,10 +317,10 @@ docker_dev_clean_volumes() {
     local img_prefix="${IMAGE_PREFIX}"
     local docker_dev_volume_suffix="${DOCKER_DEV_VOLUME_SUFFIX}"
     local vol="${img_prefix}-${target}-${docker_dev_volume_suffix}"
-    
+
     echo "> clean: docker volume: ${vol}"
 
-    docker volume rm "${vol}" || true
+    docker volume rm "${vol}" 2>/dev/null || true
 }
 
 _docker_clean_builder_base() {
@@ -368,8 +375,7 @@ pkg_install_deps() {
 
 purge() {
     clean
-    dev_clean
-    dev_clean_depends
+    clean_depends
     # shellcheck disable=SC2119
     docker_purge
 }
