@@ -204,7 +204,7 @@ public:
     CAnchorIndex(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
     bool Load();
 
-    void ForEachAnchorByBtcHeight(std::function<void(const CAnchorIndex::AnchorRec &)> callback) const;
+    void ForEachAnchorByBtcHeight(std::function<bool(const CAnchorIndex::AnchorRec &)> callback) const;
     AnchorRec const * GetActiveAnchor() const;
     bool ActivateBestAnchor(bool forced = false); // rescan anchors
 
