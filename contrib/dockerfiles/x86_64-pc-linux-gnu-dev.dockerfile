@@ -9,4 +9,4 @@ WORKDIR /data
 COPY . .
 
 VOLUME [ "/data" ]
-CMD [ "bash", "-c", "./make.sh dev-release" ]
+CMD [ "bash", "-c", "./make.sh release" ]
