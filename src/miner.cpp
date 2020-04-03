@@ -93,13 +93,6 @@ Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn)
 {
-    auto myIDs = pmasternodesview->AmIOperator();
-    if (!myIDs)
-        return nullptr;
-    auto nodePtr = pmasternodesview->ExistMasternode(myIDs->id);
-    if (!nodePtr || !nodePtr->IsActive())
-        return nullptr;
-
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
@@ -116,6 +109,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
     LOCK2(cs_main, mempool.cs);
+    // in fact, this may be redundant cause it was checked upthere in the miner
+    auto myIDs = pmasternodesview->AmIOperator();
+    if (!myIDs)
+        return nullptr;
+    auto nodePtr = pmasternodesview->ExistMasternode(myIDs->id);
+    if (!nodePtr || !nodePtr->IsActive())
+        return nullptr;
+
     CBlockIndex* pindexPrev = ::ChainActive().Tip();
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
@@ -188,32 +189,32 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     CTransactionRef criminalTx = nullptr;
-    if (!fIsFakeNet && fCriminals && pmasternodesview->GetUncaughtCriminals().size() != 0) {
-        CMasternodesView::CMnCriminals criminals = pmasternodesview->GetUncaughtCriminals();
-        CMasternodesView::CMnCriminals::iterator itCriminalMN = criminals.begin();
-        auto criminal = itCriminalMN->second;
-        assert(!pmasternodesview->CheckDoubleSign(criminal.blockHeader, criminal.conflictBlockHeader));
-        CKeyID key;
-        if (criminal.blockHeader.ExtractMinterKey(key)) {
+    if (fCriminals) {
+        CMasternodesView::CMnCriminals criminals = pmasternodesview->GetUnpunishedCriminals();
+        if (criminals.size() != 0) {
+            CMasternodesView::CMnCriminals::iterator itCriminalMN = criminals.begin();
+            auto const & proof = itCriminalMN->second;
+            CKeyID key;
+            assert(pmasternodesview->IsDoubleSigned(proof.blockHeader, proof.conflictBlockHeader, key));
             auto itFirstMN = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, key);
-            if (itFirstMN) {
-                CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-                metadata << criminal.blockHeader << criminal.conflictBlockHeader << (*itFirstMN)->second;
+            assert(itFirstMN && (*itFirstMN)->second == itCriminalMN->first);
 
-                CMutableTransaction newCriminalTx;
-                newCriminalTx.vin.resize(1);
-                newCriminalTx.vin[0].prevout.SetNull();
-                newCriminalTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-                newCriminalTx.vout.resize(1);
-                newCriminalTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-                newCriminalTx.vout[0].nValue = 0;
+            CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+            metadata << proof.blockHeader << proof.conflictBlockHeader << (*itFirstMN)->second;
 
-                pblock->vtx.push_back(MakeTransactionRef(std::move(newCriminalTx)));
-                criminalTx = pblock->vtx.back();
+            CMutableTransaction newCriminalTx;
+            newCriminalTx.vin.resize(1);
+            newCriminalTx.vin[0].prevout.SetNull();
+            newCriminalTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+            newCriminalTx.vout.resize(1);
+            newCriminalTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+            newCriminalTx.vout[0].nValue = 0;
 
-                pblocktemplate->vTxFees.push_back(0);
-                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
-            }
+            pblock->vtx.push_back(MakeTransactionRef(std::move(newCriminalTx)));
+            criminalTx = pblock->vtx.back();
+
+            pblocktemplate->vTxFees.push_back(0);
+            pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
         }
     }
 
@@ -268,10 +269,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
     int64_t nTime2 = GetTimeMicros();
-
-    if (pmasternodesview->GetUncaughtCriminals().size() != 0) {
-        pmasternodesview->MarkMasternodeAsWastedCriminal(pmasternodesview->GetUncaughtCriminals().begin()->first, criminalTx->GetHash());
-    }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
 
@@ -585,7 +582,7 @@ namespace pos {
         {
             LOCK(cs_main);
             auto nodePtr = pmasternodesview->ExistMasternode(args.masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->height))
+            if (!nodePtr || !nodePtr->IsActive(tip->height)) /// @todo miner: height+1 or nHeight+1 ???
             {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
@@ -594,13 +591,14 @@ namespace pos {
         }
 
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
-            if (!fIsFakeNet && fCriminals) {
+            if (fCriminals) {
                 std::map <uint256, CBlockHeader> blockHeaders{};
-
-                pmasternodesview->FindMintedBlockHeader(args.masternodeID, mintedBlocks + 1, blockHeaders, fIsFakeNet);
-
-                for (std::pair <uint256, CBlockHeader> blockHeader : blockHeaders) {
-                    if ((std::max(blockHeader.second.height, tip->nHeight + (uint64_t)1) - std::min(blockHeader.second.height, tip->nHeight + (uint64_t)1)) <= DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL) {
+                {
+                    LOCK(cs_main);
+                    pmasternodesview->FetchMintedHeaders(args.masternodeID, mintedBlocks + 1, blockHeaders, fIsFakeNet);
+                }
+                for (std::pair <uint256, CBlockHeader> const & blockHeader : blockHeaders) {
+                    if (IsDoubleSignRestricted(blockHeader.second.height, tip->nHeight + (uint64_t)1)) {
                         potentialCriminalBlock = true;
                         return;
                     }
