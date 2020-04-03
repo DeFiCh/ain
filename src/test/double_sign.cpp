@@ -81,10 +81,11 @@ BOOST_AUTO_TEST_CASE(check_doublesign)
 
     pmasternodesview->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[0].GetHash(), criminalsBlockHeaders[0], false);
     pmasternodesview->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[1].GetHash(), criminalsBlockHeaders[1], false);
-    BOOST_CHECK(!pmasternodesview->CheckDoubleSign(criminalsBlockHeaders[0], criminalsBlockHeaders[1]));
+    CKeyID dummy;
+    BOOST_CHECK(pmasternodesview->IsDoubleSigned(criminalsBlockHeaders[0], criminalsBlockHeaders[1], dummy));
 
     std::map<uint256, CBlockHeader> blockHeaders;
-    BOOST_CHECK(pmasternodesview->FindMintedBlockHeader(masternodeID, mintedBlocks, blockHeaders, false));
+    BOOST_CHECK(pmasternodesview->FetchMintedHeaders(masternodeID, mintedBlocks, blockHeaders, false));
     BOOST_CHECK(blockHeaders.size() == 2);
 }
 
@@ -100,14 +101,15 @@ BOOST_AUTO_TEST_CASE(check_criminal_entities)
     CValidationState state;
 
     BOOST_CHECK(ProcessNewBlockHeaders(criminalsBlockHeaders, state, Params()));
-    CMasternodesView::CMnCriminals criminals = pmasternodesview->GetUncaughtCriminals();
+    CMasternodesView::CMnCriminals criminals = pmasternodesview->GetUnpunishedCriminals();
     BOOST_CHECK(criminals.size() == 1);
     BOOST_CHECK(criminals.begin()->first == masternodeID);
-    BOOST_CHECK(criminals[masternodeID].blockHeader.GetHash() == criminalsBlockHeaders[0].GetHash() ||
-                criminals[masternodeID].blockHeader.GetHash() == criminalsBlockHeaders[1].GetHash());
-    BOOST_CHECK(criminals[masternodeID].conflictBlockHeader.GetHash() == criminalsBlockHeaders[0].GetHash() ||
-                criminals[masternodeID].conflictBlockHeader.GetHash() == criminalsBlockHeaders[1].GetHash());
-    BOOST_CHECK(criminals[masternodeID].conflictBlockHeader.GetHash() != criminals[masternodeID].blockHeader.GetHash());
+    auto const & proof = criminals.begin()->second;
+    BOOST_CHECK(proof.blockHeader.GetHash() == criminalsBlockHeaders[0].GetHash() ||
+                proof.blockHeader.GetHash() == criminalsBlockHeaders[1].GetHash());
+    BOOST_CHECK(proof.conflictBlockHeader.GetHash() == criminalsBlockHeaders[0].GetHash() ||
+                proof.conflictBlockHeader.GetHash() == criminalsBlockHeaders[1].GetHash());
+    BOOST_CHECK(proof.conflictBlockHeader.GetHash() != proof.blockHeader.GetHash());
 }
 
 BOOST_AUTO_TEST_CASE(check_blocking_criminal_coins)
