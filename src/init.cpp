@@ -1911,7 +1911,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
 
                 CMasternode const & node = *pmasternodesview->ExistMasternode(myIDs->id);
-                CTxDestination destination = node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress));
+                CTxDestination destination = node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress));
 
                 CScript coinbaseScript = GetScriptForDestination(destination);
 
