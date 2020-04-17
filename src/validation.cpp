@@ -3725,30 +3725,35 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             return true;
         }
 
-        if (!fIsFakeNet && !pos::ContextualCheckProofOfStake(block, chainparams.GetConsensus(), pmasternodesview.get())) {
-            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: Consensus::ContextualCheckProofOfStake: block %s: bad-pos-header (MN not exist or can't stake)", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
+        /// @attention It looks like we can't check ContextualCheckProofOfStake here anymore! Due to 'minter' may be not created/activated at this time!
+//        if (!fIsFakeNet && !pos::ContextualCheckProofOfStake(block, chainparams.GetConsensus(), pmasternodesview.get())) {
+//            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: Consensus::ContextualCheckProofOfStake: block %s: bad-pos-header (MN not exist or can't stake)", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
+//        }
+        if (!fIsFakeNet && !pos::CheckHeaderSignature(block)) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: Consensus::CheckHeaderSignature: block %s: bad-pos-header-signature", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header-signature");
         }
 
-        // Add MintedBlockHeader entity to DB and check for criminal
+        // Add MintedBlockHeader entity to DB and check for criminal (limited application for now due to possible "far future" of the header)
         if (fCriminals) {
-            // valid and safe due to previous 'ContextualCheckProofOfStake' call
             CKeyID minterKey;
             assert(block.ExtractMinterKey(minterKey));
             auto it = pmasternodesview->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, minterKey);
-            auto const & nodeId = (*it)->second;
+            if (it) {
+                auto const & nodeId = (*it)->second;
 
-            std::map <uint256, CBlockHeader> blockHeaders{};
-            pmasternodesview->FetchMintedHeaders(nodeId, block.mintedBlocks, blockHeaders, fIsFakeNet);
-            if (blockHeaders.find(hash) == blockHeaders.end()) {
-                pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block, fIsFakeNet);
-            }
+                std::map <uint256, CBlockHeader> blockHeaders{};
+                pmasternodesview->FetchMintedHeaders(nodeId, block.mintedBlocks, blockHeaders, fIsFakeNet);
+                if (blockHeaders.find(hash) == blockHeaders.end()) {
+                    pmasternodesview->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block, fIsFakeNet);
+                }
 
-            auto state = pmasternodesview->ExistMasternode(nodeId)->GetState(block.height);
-            if (state != CMasternode::PRE_BANNED && state != CMasternode::BANNED) { // deny check & addition if masternode was already punished
-                for (std::pair <uint256, CBlockHeader> const & blockHeader : blockHeaders) {
-                    if (IsDoubleSignRestricted(block.height, blockHeader.second.height)) { // we already have equal minters and even mintedBlocks counter
-                        // this is the ONLY place
-                        pmasternodesview->AddCriminalProof(nodeId, block, blockHeader.second);
+                auto state = pmasternodesview->ExistMasternode(nodeId)->GetState(block.height);
+                if (state != CMasternode::PRE_BANNED && state != CMasternode::BANNED) { // deny check & addition if masternode was already punished
+                    for (std::pair <uint256, CBlockHeader> const & blockHeader : blockHeaders) {
+                        if (IsDoubleSignRestricted(block.height, blockHeader.second.height)) { // we already have equal minters and even mintedBlocks counter
+                            // this is the ONLY place
+                            pmasternodesview->AddCriminalProof(nodeId, block, blockHeader.second);
+                        }
                     }
                 }
             }
@@ -3917,7 +3922,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         if (pindex->nChainWork < nMinimumChainWork) return true;
     }
 
-    if (!CheckBlock(block, state, chainparams.GetConsensus()) ||
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), false) || // false cause we can check pos context only on ConnectBlock
         !ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev)) {
         assert(IsBlockReason(state.GetReason()));
         if (state.IsInvalid() && state.GetReason() != ValidationInvalidReason::BLOCK_MUTATED) {
@@ -4066,7 +4071,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
 
         // Ensure that CheckBlock() passes before calling AcceptBlock, as
         // belt-and-suspenders.
-        bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus());
+        bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus(), false); // false cause we can check pos context only on ConnectBlock
         if (ret) {
             // Store to disk
             ret = ::ChainstateActive().AcceptBlock(pblock, state, chainparams, &pindex, fForceProcessing, nullptr, fNewBlock);
@@ -4106,7 +4111,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
     return true;
 }
 
-bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOS, bool fCheckMerkleRoot)
+bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckMerkleRoot)
 {
     AssertLockHeld(cs_main);
     assert(pindexPrev && pindexPrev == ::ChainActive().Tip());
@@ -4123,7 +4128,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     // NOTE: ContextualCheckProofOfStake is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, chainparams.GetConsensus(), fCheckPOS, fCheckMerkleRoot))
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), false, fCheckMerkleRoot))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
@@ -4538,7 +4543,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, chainparams.GetConsensus()))
+        if (nCheckLevel >= 1 && !CheckBlock(block, state, chainparams.GetConsensus(), false)) // false cause we can check pos context only on ConnectBlock
             return error("%s: *** found bad block at %d, hash=%s (%s)\n", __func__,
                          pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
         // check level 2: verify undo validity
