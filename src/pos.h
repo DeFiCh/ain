@@ -39,7 +39,7 @@ namespace pos {
 
     boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key);
 
-    boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter);
+    boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams);
 }
 
 #endif // DEFI_POS_H
