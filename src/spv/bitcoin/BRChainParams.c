@@ -130,7 +130,7 @@ static const char BRTestBech32[] = "tb";
 
 static const BRChainParams BRMainNetParamsRecord = {
     BRMainNetDNSSeeds,
-    8333,                  // standardPort
+    8555,                  // standardPort
     0xd9b4bef9,            // magicNumber
     SERVICES_NODE_WITNESS, // services
     BRMainNetVerifyDifficulty,
@@ -147,7 +147,7 @@ const BRChainParams *BRMainNetParams = &BRMainNetParamsRecord;
 
 static const BRChainParams BRTestNetParamsRecord = {
     BRTestNetDNSSeeds,
-    18333,                 // standardPort
+    18555,                 // standardPort
     0x0709110b,            // magicNumber
     SERVICES_NODE_WITNESS, // services
     BRTestNetVerifyDifficulty,
