@@ -13,5 +13,5 @@ jobs:
       uses: c-hive/gha-remove-artifacts@v1
       with:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        age: '3 weeks'
-        skip-tags: false
+        age: '4 weeks'
+        skip-tags: true
