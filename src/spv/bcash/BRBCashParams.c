@@ -169,7 +169,7 @@ static int BRBCashTestNetVerifyDifficulty(const BRMerkleBlock *block, const BRSe
 
 static const BRChainParams BRBCashParamsRecord = {
     BRBCashDNSSeeds,
-    8333,                // standardPort
+    8555,                // standardPort
     0xe8f3e1e3,          // magicNumber
     SERVICES_NODE_BCASH, // services
     BRBCashVerifyDifficulty,
@@ -180,7 +180,7 @@ const BRChainParams *BRBCashParams = &BRBCashParamsRecord;
 
 static const BRChainParams BRBCashTestNetParamsRecord = {
     BRBCashTestNetDNSSeeds,
-    18333,               // standardPort
+    18555,               // standardPort
     0xf4f3e5f4,          // magicNumber
     SERVICES_NODE_BCASH, // services
     BRBCashTestNetVerifyDifficulty,
