@@ -265,7 +265,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 
     CValidationState state;
-    if (!TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false)) {
+    if (!TestBlockValidity(state, chainparams, *pblock, pindexPrev, false)) {
         throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
     int64_t nTime2 = GetTimeMicros();
@@ -653,7 +653,7 @@ namespace pos {
             //
             {
                 LOCK(cs_main);
-                err = pos::CheckSignedBlock(pblock, tip, chainparams, args.minterKey.GetPubKey().GetID());
+                err = pos::CheckSignedBlock(pblock, tip, chainparams);
                 if (err) {
                     LogPrint(BCLog::STAKING, "CheckSignedBlock(): %s \n", *err);
                     return;
