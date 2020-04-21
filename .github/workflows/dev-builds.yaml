@@ -17,6 +17,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-18.04]
+    env:
+      BUILD_VERSION: latest # Computed
     steps:
     - uses: actions/checkout@v2
     - name: Build and package
@@ -24,5 +26,5 @@ jobs:
     - name: Publish artifacts
       uses: actions/upload-artifact@v2-preview
       with:
-        name: defichain-ci-x86_64-pc-linux-gnu
-        path: ./build/defichain-*
+        name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
