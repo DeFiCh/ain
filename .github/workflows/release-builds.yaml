@@ -5,6 +5,9 @@ on:
 jobs:
   x86_64-linux-gnu:
     runs-on: ubuntu-18.04
+    env:
+      BUILD_VERSION: latest # Computed
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
     - uses: actions/checkout@v2
     - name: Build and package
@@ -12,5 +15,25 @@ jobs:
     - name: Publish artifacts
       uses: actions/upload-artifact@v2-preview
       with:
-        name: defichain-ci-x86_64-pc-linux-gnu
-        path: ./build/defichain-*
+        name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: ${{ github.ref }}
+        draft: false
+        prerelease: false
+    - name: Upload release asset
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+        asset_content_type: application/gzip
