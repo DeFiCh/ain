@@ -100,14 +100,15 @@ docker_package() {
         echo "> packaging: ${img}"
 
         # XREF: #pkg-name
-        local pkg_name="${img_prefix}-${target}-${img_version}"
+        local pkg_name="${img_prefix}-${img_version}-${target}"
         local pkg_tar_file_name="${pkg_name}.tar.gz"
-        local pkg_path="${release_dir}/${pkg_tar_file_name}"
+        local pkg_path="$(realpath "${release_dir}/${pkg_tar_file_name}")"
+        local versioned_name="${img_prefix}-${img_version}"
 
         mkdir -p "${release_dir}"
 
         docker run --rm "${img}" bash -c \
-            "tar --transform 's,^./,${pkg_name}/,' -czf - ./*" >"${pkg_path}"
+            "tar --transform 's,^./,${versioned_name}/,' -czf - ./*" >"${pkg_path}"
 
         echo "> package: ${pkg_path}"
     done
@@ -125,19 +126,21 @@ docker_deploy() {
         local img="${img_prefix}-${target}:${img_version}"
         echo "> deploy from: ${img}"
 
-        local pkg_name="${img_prefix}-${target}-${img_version}"
-        local pkg_dir="${release_dir}/${pkg_name}"
+        # XREF: #pkg-name
+        local pkg_name="${img_prefix}-${img_version}-${target}"
+        local versioned_name="${img_prefix}-${img_version}"
+        local versioned_release_dir="${release_dir}/${versioned_name}"
 
-        mkdir -p "${pkg_dir}"
+        rm -rf "${versioned_release_dir}" && mkdir -p "${versioned_release_dir}"
 
         local cid=$(docker create "${img}")
         local e=0
 
-        { docker cp "${cid}:/app/." "${pkg_dir}" 2>/dev/null && e=1; } || true
+        { docker cp "${cid}:/app/." "${versioned_release_dir}" 2>/dev/null && e=1; } || true
         docker rm "${cid}"
 
         if [[ "$e" == "1" ]]; then
-            echo "> deployed into: ${pkg_dir}"
+            echo "> deployed into: ${versioned_release_dir}"
         else
             echo "> failed: please sure package is built first"
         fi
@@ -160,7 +163,7 @@ docker_release_git() {
     docker_release
 }
 
-docker_deploy_git() {
+docker_build_deploy_git() {
     git_version
     docker_build
     docker_deploy
@@ -187,24 +190,51 @@ build() {
     make
 }
 
-package() {
+deploy() {
     local target=${1:-"x86_64-pc-linux-gnu"}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
 
     # XREF: #pkg-name
-    local pkg_name="${img_prefix}-${target}-${img_version}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
-    local pkg_path="${release_dir}/${pkg_tar_file_name}"
+    local versioned_name="${img_prefix}-${img_version}"
+    local versioned_release_path="$(realpath "${release_dir}/${versioned_name}")"
+
+    echo "> deploy into: ${release_dir}"
 
     mkdir -p "${release_dir}"
 
-    echo "> package from: ${pkg_name}"
+    pushd "${release_dir}" >/dev/null
+    rm -rf ./${versioned_name} && mkdir "${versioned_name}"
+    popd >/dev/null
 
-    # XREF: #defi-package-bins
-    tar --transform "s,^./src/,${pkg_name}/," -cvzf "${pkg_path}" \
-        ./src/defid ./src/defi-cli ./src/defi-wallet ./src/defi-tx
+    make prefix=/ DESTDIR="${versioned_release_path}" install && cp README.md "${versioned_release_path}/"
+
+    echo "> deployed: ${versioned_release_path}"
+}
+
+package() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local release_dir="${RELEASE_DIR}"
+
+    deploy "${target}"
+
+    # XREF: #pkg-name
+    local pkg_name="${img_prefix}-${img_version}-${target}"
+    local pkg_tar_file_name="${pkg_name}.tar.gz"
+    local pkg_path="$(realpath ${release_dir}/${pkg_tar_file_name})"
+
+    local versioned_name="${img_prefix}-${img_version}"
+    local versioned_release_dir="${release_dir}/${versioned_name}"
+
+    echo "> packaging: ${pkg_name}"
+
+    pushd "${versioned_release_dir}" >/dev/null
+    tar --transform "s,^./,${versioned_name}/," -cvzf "${pkg_path}" ./*
+    popd >/dev/null
+
     echo "> package: ${pkg_path}"
 }
 
@@ -252,7 +282,7 @@ docker_dev_package() {
     local docker_dev_volume_suffix="${DOCKER_DEV_VOLUME_SUFFIX}"
 
     # XREF: #pkg-name
-    local pkg_name="${img_prefix}-${target}-${img_version}"
+    local pkg_name="${img_prefix}-${img_version}-${target}"
     local pkg_tar_file_name="${pkg_name}.tar.gz"
     local pkg_path="${release_dir}/${pkg_tar_file_name}"
     local vol="${img_prefix}-${target}-${docker_dev_volume_suffix}"

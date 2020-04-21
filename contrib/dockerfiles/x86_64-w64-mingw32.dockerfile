@@ -52,6 +52,7 @@ RUN ./autogen.sh
 RUN CONFIG_SITE=`pwd`/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/
 
 RUN make
+RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
 
 # -----------
 ### Actual image that contains defi binaries
@@ -62,10 +63,4 @@ LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
 
-# XREF: #defi-package-bins
-COPY --from=builder \
-    ./work/src/defid.exe \
-    ./work/src/defi-cli.exe \
-    ./work/src/defi-wallet.exe \
-    ./work/src/defi-tx.exe \
-    ./
+COPY --from=builder /app/. ./
