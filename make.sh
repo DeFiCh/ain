@@ -102,15 +102,15 @@ docker_package() {
         # XREF: #pkg-name
         local pkg_name="${img_prefix}-${img_version}-${target}"
         local pkg_tar_file_name="${pkg_name}.tar.gz"
-        local pkg_path="$(realpath "${release_dir}/${pkg_tar_file_name}")"
+        local pkg_rel_path="${release_dir}/${pkg_tar_file_name}"
         local versioned_name="${img_prefix}-${img_version}"
 
         mkdir -p "${release_dir}"
 
         docker run --rm "${img}" bash -c \
-            "tar --transform 's,^./,${versioned_name}/,' -czf - ./*" >"${pkg_path}"
+            "tar --transform 's,^./,${versioned_name}/,' -czf - ./*" >"${pkg_rel_path}"
 
-        echo "> package: ${pkg_path}"
+        echo "> package: ${pkg_rel_path}"
     done
 }
 
@@ -196,13 +196,13 @@ deploy() {
     local img_version="${IMAGE_VERSION}"
     local release_dir="${RELEASE_DIR}"
 
+    mkdir -p "${release_dir}"
+
     # XREF: #pkg-name
     local versioned_name="${img_prefix}-${img_version}"
-    local versioned_release_path="$(realpath "${release_dir}/${versioned_name}")"
-
-    echo "> deploy into: ${release_dir}"
-
-    mkdir -p "${release_dir}"
+    local versioned_release_path="$(readlink -m "${release_dir}/${versioned_name}")"
+    
+    echo "> deploy into: ${release_dir} from ${versioned_release_path}"
 
     pushd "${release_dir}" >/dev/null
     rm -rf ./${versioned_name} && mkdir "${versioned_name}"
@@ -224,12 +224,12 @@ package() {
     # XREF: #pkg-name
     local pkg_name="${img_prefix}-${img_version}-${target}"
     local pkg_tar_file_name="${pkg_name}.tar.gz"
-    local pkg_path="$(realpath ${release_dir}/${pkg_tar_file_name})"
+    local pkg_path="$(readlink -m ${release_dir}/${pkg_tar_file_name})"
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_dir="${release_dir}/${versioned_name}"
 
-    echo "> packaging: ${pkg_name}"
+    echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
 
     pushd "${versioned_release_dir}" >/dev/null
     tar --transform "s,^./,${versioned_name}/," -cvzf "${pkg_path}" ./*
@@ -386,9 +386,14 @@ git_version() {
     local current_branch=$(git rev-parse --abbrev-ref HEAD)
 
     if [[ -z $current_tag ]]; then
-        IMAGE_VERSION="${current_branch}-${current_commit}"
+        # Replace `/` in branch names with `-` as / is trouble
+        IMAGE_VERSION="${current_branch//\//-}-${current_commit}"
     else
         IMAGE_VERSION="${current_tag}"
+        # strip the 'v' infront of version tags
+        if [[ "$IMAGE_VERSION" =~ ^v[0-9]\.[0-9] ]]; then
+            IMAGE_VERSION="${IMAGE_VERSION##v}"
+        fi
     fi
 
     echo "> version: ${IMAGE_VERSION}"
