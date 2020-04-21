@@ -92,12 +92,9 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
 }
 
 bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CMasternodesView* mnView) {
-    if (!pos::CheckStakeModifier(pindexPrev, blockHeader)) {
-        return false;
-    }
 
     // this is our own check of own minted block (just to remember)
-    return ContextualCheckProofOfStake(blockHeader, params, mnView);
+    return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView);
 }
 
 unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params)
@@ -186,11 +183,11 @@ boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const 
     return {};
 }
 
-boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams, CKeyID minter) {
+boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pblock, const CBlockIndex* pindexPrev, const CChainParams& chainparams) {
     uint256 hashBlock = pblock->GetHash();
 
     // verify hash target and signature of coinstake tx
-    if (!pos::CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pmasternodesview.get()))
+    if (!CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pmasternodesview.get()))
         return {std::string{} + "proof-of-stake checking failed"};
 
     LogPrint(BCLog::STAKING, "new proof-of-stake block found hash: %s\n", hashBlock.GetHex());
