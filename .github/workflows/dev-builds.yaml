@@ -1,7 +1,5 @@
 on:
   push:
-    tags:
-      - "v*"
     branches:
       - staging
       - develop
