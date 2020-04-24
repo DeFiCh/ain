@@ -424,8 +424,8 @@ BOOST_AUTO_TEST_CASE(caddrinfo_get_tried_bucket)
     uint256 nKey1 = (uint256)(CHashWriter(SER_GETHASH, 0) << 1).GetHash();
     uint256 nKey2 = (uint256)(CHashWriter(SER_GETHASH, 0) << 2).GetHash();
 
-
-    BOOST_CHECK_EQUAL(info1.GetTriedBucket(nKey1), 17);
+    // TODO (pvl): Verify hash again. Changed from 17 to 77 after port change 
+    BOOST_CHECK_EQUAL(info1.GetTriedBucket(nKey1), 77);
 
     // Test: Make sure key actually randomizes bucket placement. A fail on
     //  this test could be a security issue.
