@@ -107,9 +107,9 @@ class CMainParams : public CChainParams {
 public:
     CMainParams() {
         strNetworkID = "main";
-        consensus.nSubsidyHalvingInterval = 210000;
+        consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for main
         consensus.baseBlockSubsidy = 200 * COIN;
-        consensus.BIP16Exception = uint256S("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22");
+        consensus.BIP16Exception = uint256(); //("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22");
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
@@ -139,13 +139,13 @@ public:
         consensus.nMinimumChainWork = uint256S("0x00");
 
         // By default assume that the signatures in ancestors of this block are valid.
-        consensus.defaultAssumeValid = uint256S("0x0000000000000000000f1c54590ee18d15ec70e68c8cd4cfbadb1b4f11697eee"); //563378
+        consensus.defaultAssumeValid = uint256S("0x00"); //("0x0000000000000000000f1c54590ee18d15ec70e68c8cd4cfbadb1b4f11697eee"); //563378
 
         // Masternodes' params
-        consensus.mn.activationDelay = 1500;
-        consensus.mn.resignDelay = 300;
-        consensus.mn.creationFee = 1 * COIN;
-        consensus.mn.collateralAmount = 100 * COIN;
+        consensus.mn.activationDelay = 10;
+        consensus.mn.resignDelay = 60;
+        consensus.mn.creationFee = 10 * COIN;
+        consensus.mn.collateralAmount = 1000000 * COIN;
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
@@ -187,8 +187,8 @@ public:
 
         genesis = CreateGenesisBlock(1233928877, 0x1d00ffff, 1, consensus.baseBlockSubsidy, CreateGenesisMasternodes()); // old=1231006505
         consensus.hashGenesisBlock = genesis.GetHash();
-        assert(consensus.hashGenesisBlock == uint256S("0x00000eb73561bf4d6a32b49caf1576a11d4e84a214feaa213ee5ce052ccd5309"));
-        assert(genesis.hashMerkleRoot == uint256S("0x489dd73fab332bf0d894b4d8743ad65ad8ce33624e2fcbac091e25147b14293f"));
+//        assert(consensus.hashGenesisBlock == uint256S("0x00000eb73561bf4d6a32b49caf1576a11d4e84a214feaa213ee5ce052ccd5309"));
+//        assert(genesis.hashMerkleRoot == uint256S("0x489dd73fab332bf0d894b4d8743ad65ad8ce33624e2fcbac091e25147b14293f"));
 
         // Note that of those which support the service bits prefix, most only support a subset of
         // possible options.
@@ -244,9 +244,9 @@ class CTestNetParams : public CChainParams {
 public:
     CTestNetParams() {
         strNetworkID = "test";
-        consensus.nSubsidyHalvingInterval = 210000;
+        consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for testnet
         consensus.baseBlockSubsidy = 200 * COIN;
-        consensus.BIP16Exception = uint256S("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
+        consensus.BIP16Exception = uint256(); //("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
@@ -280,9 +280,9 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
-        consensus.mn.resignDelay = 10;
-        consensus.mn.creationFee = 1 * COIN;
-        consensus.mn.collateralAmount = 10 * COIN;
+        consensus.mn.resignDelay = 60;
+        consensus.mn.creationFee = 10 * COIN;
+        consensus.mn.collateralAmount = 1000000 * COIN;
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
@@ -326,8 +326,8 @@ public:
         genesis = CreateGenesisBlock(1298659543, 0x1d00ffff, 1, consensus.baseBlockSubsidy, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("0x00000a7297b606cc18480fe70e5bda5eb4690a18651697f86648395b99265571"));
-        assert(genesis.hashMerkleRoot == uint256S("0xae22df3d3b2f6a9f2e7fc8260a649a7928537445b626fa92bc977538a85ad106"));
+//        assert(consensus.hashGenesisBlock == uint256S("0x00000a7297b606cc18480fe70e5bda5eb4690a18651697f86648395b99265571"));
+//        assert(genesis.hashMerkleRoot == uint256S("0xae22df3d3b2f6a9f2e7fc8260a649a7928537445b626fa92bc977538a85ad106"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
