@@ -211,7 +211,7 @@ class BlockchainTest(DefiTestFramework):
         assert_equal(res['transactions'], 209) # old value 200
         assert_equal(res['height'], 200)
         assert_equal(res['txouts'], 209) # old value 200
-        assert_equal(res['bogosize'], 15711) # old value 15000
+        assert_equal(res['bogosize'], 15669) # old value 15000
         assert_equal(res['bestblock'], node.getblockhash(200))
         size = res['disk_size']
         assert size > 6400
@@ -228,7 +228,7 @@ class BlockchainTest(DefiTestFramework):
         assert_equal(res2['total_amount'], Decimal('130')) # old value 0
         assert_equal(res2['height'], 0)
         assert_equal(res2['txouts'], 9) # old value 0
-        assert_equal(res2['bogosize'], 711), # old value 0
+        assert_equal(res2['bogosize'], 669), # old value 0
         assert_equal(res2['bestblock'], node.getblockhash(0))
         assert_equal(len(res2['hash_serialized_2']), 64)
 
