@@ -53,15 +53,13 @@ std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
     return mnTxs;
 }
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward, std::vector<CTransactionRef> const & extraTxs)
+static CBlock CreateGenesisBlock(const char* pszTimestamp, uint32_t nTime, uint32_t nBits, int32_t nVersion, const std::vector<CTxOut> & premined, std::vector<CTransactionRef> const & extraTxs)
 {
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
-    txNew.vout.resize(1);
+    txNew.vout = premined;
     txNew.vin[0].scriptSig = CScript() << 0 << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
-    txNew.vout[0].nValue = genesisReward;
-    txNew.vout[0].scriptPubKey = genesisOutputScript;
 
     CBlock genesis;
     genesis.nTime           = nTime;
@@ -93,11 +91,12 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
  *     CTxOut(nValue=50.00000000, scriptPubKey=0x5F1DF16B2B704C8A578D0B)
  *   vMerkleTree: 4a5e1e
  */
-static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward, std::vector<CTransactionRef> const & extraTxs)
+static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nBits, int32_t nVersion, const std::vector<CTxOut> & premined, std::vector<CTransactionRef> const & extraTxs)
 {
     const char* pszTimestamp = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-    const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
-    return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nBits, nVersion, genesisReward, extraTxs);
+//    const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
+//    return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nBits, nVersion, genesisReward, extraTxs);
+    return CreateGenesisBlock(pszTimestamp, nTime, nBits, nVersion, premined, extraTxs);
 }
 
 /**
@@ -118,7 +117,7 @@ public:
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
 //        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
-        consensus.pos.nTargetTimespan = 12 * 60 * 60;
+        consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30; // seconds
         consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
         consensus.pos.fNoRetargeting = false; // only for regtest
@@ -182,10 +181,32 @@ public:
         bech32_hrp = "df";
 
         // (!) after prefixes set
-        consensus.foundationAddress = CNoDestination();
+        consensus.foundationAddress = DecodeDestination("dZcHjYhKtEM88TtZLjp314H2xZjkztXtRc", *this);
         consensus.foundationShare = 10;
 
-        genesis = CreateGenesisBlock(1233928877, 0x1d00ffff, 1, consensus.baseBlockSubsidy, CreateGenesisMasternodes()); // old=1231006505
+        // owner base58, operator base58
+        vMasternodes.push_back({"8PuErAcazqccCVzRcc8vJ3wFaZGm4vFbLe", "8J846CKFF83Jcj5m4EReJmxiaJ6Jy1Y6Ea"});
+        vMasternodes.push_back({"8RPZm7SVUNhGN1RgGY3R92rvRkZBwETrCX", "8bzHwhaF2MaVs4owRvpWtZQVug3mKuJji2"});
+        vMasternodes.push_back({"8KRsoeCRKHUFFmAGGJbRBAgraXiUPUVuXn", "8cHaEaqRsz7fgW1eAjeroB5Bau5NfJNbtk"});
+
+        std::vector<CTxOut> premined;
+        premined.push_back(CTxOut(58800000 * COIN, GetScriptForDestination(DecodeDestination("8ZWWN1nX8drxJBSMG1VS9jH4ciBSvA9nxp", *this))));
+        premined.push_back(CTxOut(44100000 * COIN, GetScriptForDestination(DecodeDestination("8aGPBahDX4oAXx9okpGRzHPS3Td1pZaLgU", *this))));
+        premined.push_back(CTxOut(11760000 * COIN, GetScriptForDestination(DecodeDestination("8RGSkdaft9EmSXXp6b2UFojwttfJ5BY29r", *this))));
+        premined.push_back(CTxOut(11760000 * COIN, GetScriptForDestination(DecodeDestination("8L7qGjjHRa3Agks6incPomWCfLSMPYipmU", *this))));
+        premined.push_back(CTxOut(29400000 * COIN, GetScriptForDestination(DecodeDestination("dcZ3NXrpbNWvx1rhiGvXStM6EQtHLc44c9", *this))));
+        premined.push_back(CTxOut(14700000 * COIN, GetScriptForDestination(DecodeDestination("dMty9CfknKEaXqJuSgYkvvyF6UB6ffrZXG", *this))));
+        premined.push_back(CTxOut(64680000 * COIN, GetScriptForDestination(DecodeDestination("dZcY1ZNm5bkquz2J74smKqokuPoVpPvGWu", *this))));
+        premined.push_back(CTxOut(235200000 * COIN, GetScriptForDestination(DecodeDestination("dP8dvN5pnwbsxFcfN9DyqPVZi1fVHicDd2", *this))));
+        premined.push_back(CTxOut(117600000 * COIN, GetScriptForDestination(DecodeDestination("dMs1xeSGZbGnTJWqTwjR4mcjp2egpEXG6M", *this))));
+        {
+            CAmount sum_premined{0};
+            for (CTxOut const & out : premined)
+                sum_premined += out.nValue;
+            assert(sum_premined == 588000000 * COIN);
+        }
+
+        genesis = CreateGenesisBlock(1233928877, 0x1d00ffff, 1, premined, CreateGenesisMasternodes()); // old=1231006505
         consensus.hashGenesisBlock = genesis.GetHash();
 //        assert(consensus.hashGenesisBlock == uint256S("0x00000eb73561bf4d6a32b49caf1576a11d4e84a214feaa213ee5ce052ccd5309"));
 //        assert(genesis.hashMerkleRoot == uint256S("0x489dd73fab332bf0d894b4d8743ad65ad8ce33624e2fcbac091e25147b14293f"));
@@ -255,7 +276,7 @@ public:
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
 //        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
-        consensus.pos.nTargetTimespan = 5 * 60; // 5 min
+        consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30;
         consensus.pos.fAllowMinDifficultyBlocks = false;
         consensus.pos.fNoRetargeting = false; // only for regtest
@@ -323,7 +344,12 @@ public:
         vMasternodes.push_back({"75Wramp2iARchHedXcn1qRkQtMpSt9Mi3V", "7Ku81yvqbPkxpWjZpZWZZnWydXyzJozZfN"});
         vMasternodes.push_back({"7LfqHbyh9dBQDjWB6MxcWvH2PBC5iY4wPa", "75q6ftr3QGfBT3DBu15fVfetP6duAgfhNH"});
 
-        genesis = CreateGenesisBlock(1298659543, 0x1d00ffff, 1, consensus.baseBlockSubsidy, CreateGenesisMasternodes()); // old=1296688602
+        std::vector<CTxOut> premined;
+        premined.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tjJFYoSHDYtysGhr2WVYB7rMt1s6Nm5Mtz", *this))));
+        premined.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tYXt1fN5kwGhHdRfTMJRHX8VDpYNjZpyCX", *this))));
+        premined.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tYyFtqW3KfZr7RewseEayH7zxuguZTR7jN", *this))));
+
+        genesis = CreateGenesisBlock(1298659543, 0x1d00ffff, 1, premined, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
 //        assert(consensus.hashGenesisBlock == uint256S("0x00000a7297b606cc18480fe70e5bda5eb4690a18651697f86648395b99265571"));
@@ -447,7 +473,7 @@ public:
         vMasternodes.push_back({"bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv"});
         vMasternodes.push_back({"bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r"});
 
-        genesis = CreateGenesisBlock(1297225381, 0x207fffff, 1, consensus.baseBlockSubsidy, CreateGenesisMasternodes()); // old=1296688602
+        genesis = CreateGenesisBlock(1297225381, 0x207fffff, 1, { CTxOut(consensus.baseBlockSubsidy, CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG) }, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
         assert(consensus.hashGenesisBlock == uint256S("0x00000e6e3c0fff02894aea8e46f76507d6f54dbb1b227f6911c09c2ce8117351"));
