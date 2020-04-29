@@ -47,7 +47,7 @@ class PremineTest (DefiTestFramework):
         assert(utxo0[0]['spendable'] == True)
 
         addr = self.nodes[1].getnewaddress("", "legacy")
-        sendTx = self.nodes[0].sendtoaddress(addr, 42)
+        self.nodes[0].sendtoaddress(addr, 42)
         self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
