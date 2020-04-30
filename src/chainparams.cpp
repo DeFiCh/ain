@@ -310,8 +310,8 @@ public:
         consensus.mn.anchoringLag = 15;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
-        consensus.spv.wallet_xpub = "tpubD8NM49wHzwMsyudhd7UtBChQBykkT1KVAHU4UDjdXt8w8ZaFzEnjxH7Uhptno2YPE616KWCitmXtH5w1RZ4y8SaNBBMr1zcjYqy1ZBkFTRp";
-        consensus.spv.anchors_address = "mtANGiuXturik8b3T7FVe6dV31v3AdEJUt";
+        consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY";
+        consensus.spv.anchors_address = "mpAkq2LyaUvKrJm2agbswrkn3QG9febnqL";
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
@@ -339,21 +339,21 @@ public:
         consensus.foundationShare = 10;
 
         // owner base58, operator base58
-        vMasternodes.push_back({"7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", "7Grgx69MZJ4wDKRx1bBxLqTnU9T3quKW7n"});
-        vMasternodes.push_back({"7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", "773MiaEtQK2HAwWj55gyuRiU8tSwowRTTW"});
-        vMasternodes.push_back({"75Wramp2iARchHedXcn1qRkQtMpSt9Mi3V", "7Ku81yvqbPkxpWjZpZWZZnWydXyzJozZfN"});
-        vMasternodes.push_back({"7LfqHbyh9dBQDjWB6MxcWvH2PBC5iY4wPa", "75q6ftr3QGfBT3DBu15fVfetP6duAgfhNH"});
+        vMasternodes.push_back({"7BUYP9XmFdLFUBNE1BCXgjaTFA2jpA27Bs", "7Jxwv6zHx4GtaCsG2B1zDgRBKFGf5Mpq3G"});
+        vMasternodes.push_back({"75T71nz565BBFFuVnV7rq2ghKzGcTpGn11", "7QAwDD4AVFvY5eSUo6ky9Dyab1yTf4uKHd"});
+        vMasternodes.push_back({"7GCfWCWzFnuNxt3tzLUUWCMitE5N4V26e2", "77FTh5SKpG9xuMsUWJe4wZexyCVdE65viD"});
+        vMasternodes.push_back({"7GRrtG5fwuuRpDLMatR3mn9dVtJYkuQLSR", "76VXuzfFx3Ta84rFeLRKDNADskoHnyrrRS"});
 
         std::vector<CTxOut> premined;
         premined.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tjJFYoSHDYtysGhr2WVYB7rMt1s6Nm5Mtz", *this))));
         premined.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tYXt1fN5kwGhHdRfTMJRHX8VDpYNjZpyCX", *this))));
         premined.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tYyFtqW3KfZr7RewseEayH7zxuguZTR7jN", *this))));
 
-        genesis = CreateGenesisBlock(1586625325, 0x1d00ffff, 1, premined, CreateGenesisMasternodes()); // old=1296688602
+        genesis = CreateGenesisBlock(1586099762, 0x1d00ffff, 1, premined, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("0x000000334d6e6ed77022510b095a661b661d52fd24a24198152d5c697980a850"));
-        assert(genesis.hashMerkleRoot == uint256S("0x900298cdf8dfa69db390a264f65672dfd2bbee01dcaf0a560bb77f89dab01040"));
+        assert(consensus.hashGenesisBlock == uint256S("0x000004a689359fa744d93819c762387a88b1483d6e8ffa40ac307d85e390f66a"));
+        assert(genesis.hashMerkleRoot == uint256S("0xd22a4361f3b77240fa4b8d3cb32eab9a1ff2076b34961c2540bfff4a4d5ac77d"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
