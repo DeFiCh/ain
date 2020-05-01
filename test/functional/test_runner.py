@@ -129,7 +129,7 @@ BASE_SCRIPTS = [
     'rpc_getchaintips.py',
     'rpc_misc.py',
     'rpc_mn_basic.py',
-    'feature_premine.py',
+    'feature_initdist.py',
     'interface_rest.py',
     'mempool_spend_coinbase.py',
     'wallet_avoidreuse.py',
