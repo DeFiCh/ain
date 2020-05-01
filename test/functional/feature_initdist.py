@@ -13,7 +13,7 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import connect_nodes_bi
 
-class PremineTest (DefiTestFramework):
+class InitDistTest (DefiTestFramework):
     def set_test_params(self):
         # 3 nodes used just for "clean" balanses for 0&1. node#2 used for generation
         self.num_nodes = 3
@@ -57,4 +57,4 @@ class PremineTest (DefiTestFramework):
 
 
 if __name__ == '__main__':
-    PremineTest ().main ()
+    InitDistTest ().main ()
