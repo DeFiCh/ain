@@ -475,7 +475,7 @@ public:
 
         genesis = CreateGenesisBlock(1579045065, 0x207fffff, 1, {
                                          CTxOut(consensus.baseBlockSubsidy,
-                                         GetScriptForDestination(DecodeDestination("mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c", *this)) // 6th masternode owner. for premine tests
+                                         GetScriptForDestination(DecodeDestination("mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c", *this)) // 6th masternode owner. for initdist tests
                                          )},
                                      CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
