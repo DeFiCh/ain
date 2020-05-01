@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the masternodes RPC.
 
-- verify that premined coins is spendable
+- verify that initdist coins is spendable
 """
 
 
@@ -33,7 +33,7 @@ class PremineTest (DefiTestFramework):
 
     def run_test(self):
 
-        self.nodes[0].importprivkey(privkey=self.nodes[0].PRIV_KEYS[5].ownerPrivKey, label='premined')
+        self.nodes[0].importprivkey(privkey=self.nodes[0].PRIV_KEYS[5].ownerPrivKey, label='initdist')
 
         assert(self.nodes[0].getbalance() == 0)
         assert(self.nodes[1].getbalance() == 0)
