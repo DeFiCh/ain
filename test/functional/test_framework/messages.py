@@ -39,7 +39,7 @@ MAX_LOCATOR_SZ = 101
 MAX_BLOCK_BASE_SIZE = 1000000 * 16
 
 COIN = 100000000  # 1 btc in satoshis
-MAXMONEY = 21000000 * 4 * COIN
+MAXMONEY = 1200000000 * COIN # old value 21000000 * 4
 
 BIP125_SEQUENCE_NUMBER = 0xfffffffd  # Sequence number that is BIP 125 opt-in and BIP 68-opt-out
 

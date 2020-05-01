@@ -250,7 +250,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
     }
 
     // no need to load|keep peers!!!
-    manager = BRPeerManagerNew(BRGetChainParams(), wallet, 1572480000, blocks.data(), blocks.size(), NULL, 0); // date is 31/10/2019 - first block (1584558) in testnet with regtest anchoring address
+    manager = BRPeerManagerNew(BRGetChainParams(), wallet, 1588291200, blocks.data(), blocks.size(), NULL, 0); // date is 1 May 2020
 
     // can't wrap member function as static "C" function here:
     BRPeerManagerSetCallbacks(manager, this, syncStarted, syncStopped, txStatusUpdate,
