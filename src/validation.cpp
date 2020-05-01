@@ -905,6 +905,15 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
  */
 bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus::Params& consensusParams, uint256& hashBlock, const CBlockIndex* const block_index)
 {
+    for (auto && genesisTx : Params().GenesisBlock().vtx) {
+        if (genesisTx->GetHash() == hash) {
+            // Return genesis tx
+            hashBlock = consensusParams.hashGenesisBlock;
+            txOut = genesisTx;
+            return true;
+        }
+    }
+
     LOCK(cs_main);
 
     if (!block_index) {
@@ -990,6 +999,12 @@ bool ReadBlockFromDisk(CBlock& block, const FlatFilePos& pos, const Consensus::P
 
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus::Params& consensusParams)
 {
+    if (pindex->GetBlockHash() == consensusParams.hashGenesisBlock) {
+        // Return genesis block
+        block = Params().GenesisBlock();
+        return true;
+    }
+
     FlatFilePos blockPos;
     {
         LOCK(cs_main);
@@ -1052,6 +1067,9 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 {
+    if (Params().NetworkIDString() != CBaseChainParams::REGTEST)
+        return consensusParams.baseBlockSubsidy;
+
     int halvings = nHeight / consensusParams.nSubsidyHalvingInterval;
     // Force block reward to zero when right shift is undefined.
     if (halvings >= 64)
@@ -1842,14 +1860,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                              ", current block = " + std::to_string(pindex->nHeight) + ". Please restart with -reindex to recover.");
     }
 
-    // Special case for the genesis block, skipping connection of its transactions
-    // (its coinbase is unspendable)
+    // Special case for the genesis block
     if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
         if (!fJustCheck) {
             view.SetBestBlock(pindex->GetBlockHash());
             // init view|db with genesis here
-            for (size_t i = 1; i < block.vtx.size(); ++i) {
+            for (size_t i = 0; i < block.vtx.size(); ++i) {
                 CheckMasternodeTx(mnview, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
+                AddCoins(view, *block.vtx[i], 0);
             }
         }
         return true;

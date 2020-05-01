@@ -488,7 +488,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         cache_node_dir = get_datadir_path(self.options.cachedir, CACHE_NODE_ID)
         assert self.num_nodes <= MAX_NODES
 
-        self.log.info("This test uses premined chain")
+        self.log.info("This test uses initdist chain")
         if not os.path.isdir(cache_node_dir):
             self.log.debug("Creating cache directory {}".format(cache_node_dir))
 
