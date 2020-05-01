@@ -53,12 +53,12 @@ std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
     return mnTxs;
 }
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, uint32_t nTime, uint32_t nBits, int32_t nVersion, const std::vector<CTxOut> & premined, std::vector<CTransactionRef> const & extraTxs)
+static CBlock CreateGenesisBlock(const char* pszTimestamp, uint32_t nTime, uint32_t nBits, int32_t nVersion, const std::vector<CTxOut> & initdist, std::vector<CTransactionRef> const & extraTxs)
 {
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
-    txNew.vout = premined;
+    txNew.vout = initdist;
     txNew.vin[0].scriptSig = CScript() << 0 << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
 
     CBlock genesis;
@@ -91,12 +91,12 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, uint32_t nTime, uint3
  *     CTxOut(nValue=50.00000000, scriptPubKey=0x5F1DF16B2B704C8A578D0B)
  *   vMerkleTree: 4a5e1e
  */
-static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nBits, int32_t nVersion, const std::vector<CTxOut> & premined, std::vector<CTransactionRef> const & extraTxs)
+static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nBits, int32_t nVersion, const std::vector<CTxOut> & initdist, std::vector<CTransactionRef> const & extraTxs)
 {
     const char* pszTimestamp = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
 //    const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
 //    return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nBits, nVersion, genesisReward, extraTxs);
-    return CreateGenesisBlock(pszTimestamp, nTime, nBits, nVersion, premined, extraTxs);
+    return CreateGenesisBlock(pszTimestamp, nTime, nBits, nVersion, initdist, extraTxs);
 }
 
 /**
@@ -189,24 +189,24 @@ public:
         vMasternodes.push_back({"8RPZm7SVUNhGN1RgGY3R92rvRkZBwETrCX", "8bzHwhaF2MaVs4owRvpWtZQVug3mKuJji2"});
         vMasternodes.push_back({"8KRsoeCRKHUFFmAGGJbRBAgraXiUPUVuXn", "8cHaEaqRsz7fgW1eAjeroB5Bau5NfJNbtk"});
 
-        std::vector<CTxOut> premined;
-        premined.push_back(CTxOut(58800000 * COIN, GetScriptForDestination(DecodeDestination("8ZWWN1nX8drxJBSMG1VS9jH4ciBSvA9nxp", *this))));
-        premined.push_back(CTxOut(44100000 * COIN, GetScriptForDestination(DecodeDestination("8aGPBahDX4oAXx9okpGRzHPS3Td1pZaLgU", *this))));
-        premined.push_back(CTxOut(11760000 * COIN, GetScriptForDestination(DecodeDestination("8RGSkdaft9EmSXXp6b2UFojwttfJ5BY29r", *this))));
-        premined.push_back(CTxOut(11760000 * COIN, GetScriptForDestination(DecodeDestination("8L7qGjjHRa3Agks6incPomWCfLSMPYipmU", *this))));
-        premined.push_back(CTxOut(29400000 * COIN, GetScriptForDestination(DecodeDestination("dcZ3NXrpbNWvx1rhiGvXStM6EQtHLc44c9", *this))));
-        premined.push_back(CTxOut(14700000 * COIN, GetScriptForDestination(DecodeDestination("dMty9CfknKEaXqJuSgYkvvyF6UB6ffrZXG", *this))));
-        premined.push_back(CTxOut(64680000 * COIN, GetScriptForDestination(DecodeDestination("dZcY1ZNm5bkquz2J74smKqokuPoVpPvGWu", *this))));
-        premined.push_back(CTxOut(235200000 * COIN, GetScriptForDestination(DecodeDestination("dP8dvN5pnwbsxFcfN9DyqPVZi1fVHicDd2", *this))));
-        premined.push_back(CTxOut(117600000 * COIN, GetScriptForDestination(DecodeDestination("dMs1xeSGZbGnTJWqTwjR4mcjp2egpEXG6M", *this))));
+        std::vector<CTxOut> initdist;
+        initdist.push_back(CTxOut(58800000 * COIN, GetScriptForDestination(DecodeDestination("8ZWWN1nX8drxJBSMG1VS9jH4ciBSvA9nxp", *this))));
+        initdist.push_back(CTxOut(44100000 * COIN, GetScriptForDestination(DecodeDestination("8aGPBahDX4oAXx9okpGRzHPS3Td1pZaLgU", *this))));
+        initdist.push_back(CTxOut(11760000 * COIN, GetScriptForDestination(DecodeDestination("8RGSkdaft9EmSXXp6b2UFojwttfJ5BY29r", *this))));
+        initdist.push_back(CTxOut(11760000 * COIN, GetScriptForDestination(DecodeDestination("8L7qGjjHRa3Agks6incPomWCfLSMPYipmU", *this))));
+        initdist.push_back(CTxOut(29400000 * COIN, GetScriptForDestination(DecodeDestination("dcZ3NXrpbNWvx1rhiGvXStM6EQtHLc44c9", *this))));
+        initdist.push_back(CTxOut(14700000 * COIN, GetScriptForDestination(DecodeDestination("dMty9CfknKEaXqJuSgYkvvyF6UB6ffrZXG", *this))));
+        initdist.push_back(CTxOut(64680000 * COIN, GetScriptForDestination(DecodeDestination("dZcY1ZNm5bkquz2J74smKqokuPoVpPvGWu", *this))));
+        initdist.push_back(CTxOut(235200000 * COIN, GetScriptForDestination(DecodeDestination("dP8dvN5pnwbsxFcfN9DyqPVZi1fVHicDd2", *this))));
+        initdist.push_back(CTxOut(117600000 * COIN, GetScriptForDestination(DecodeDestination("dMs1xeSGZbGnTJWqTwjR4mcjp2egpEXG6M", *this))));
         {
-            CAmount sum_premined{0};
-            for (CTxOut const & out : premined)
-                sum_premined += out.nValue;
-            assert(sum_premined == 588000000 * COIN);
+            CAmount sum_initdist{0};
+            for (CTxOut const & out : initdist)
+                sum_initdist += out.nValue;
+            assert(sum_initdist == 588000000 * COIN);
         }
 
-        genesis = CreateGenesisBlock(1587883831, 0x1d00ffff, 1, premined, CreateGenesisMasternodes()); // old=1231006505
+        genesis = CreateGenesisBlock(1587883831, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1231006505
         consensus.hashGenesisBlock = genesis.GetHash();
         assert(consensus.hashGenesisBlock == uint256S("0x00000f692f0f43845a0befda67f614d891c4b75bce4ff1965b5a269440c6443e"));
         assert(genesis.hashMerkleRoot == uint256S("0x4161a4faafedd4580ac8a0fdd681358dc21f91d24513bc15b35717eb8f3fb0ea"));
@@ -344,12 +344,12 @@ public:
         vMasternodes.push_back({"7GCfWCWzFnuNxt3tzLUUWCMitE5N4V26e2", "77FTh5SKpG9xuMsUWJe4wZexyCVdE65viD"});
         vMasternodes.push_back({"7GRrtG5fwuuRpDLMatR3mn9dVtJYkuQLSR", "76VXuzfFx3Ta84rFeLRKDNADskoHnyrrRS"});
 
-        std::vector<CTxOut> premined;
-        premined.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tjJFYoSHDYtysGhr2WVYB7rMt1s6Nm5Mtz", *this))));
-        premined.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tYXt1fN5kwGhHdRfTMJRHX8VDpYNjZpyCX", *this))));
-        premined.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tYyFtqW3KfZr7RewseEayH7zxuguZTR7jN", *this))));
+        std::vector<CTxOut> initdist;
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tjJFYoSHDYtysGhr2WVYB7rMt1s6Nm5Mtz", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tYXt1fN5kwGhHdRfTMJRHX8VDpYNjZpyCX", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tYyFtqW3KfZr7RewseEayH7zxuguZTR7jN", *this))));
 
-        genesis = CreateGenesisBlock(1586099762, 0x1d00ffff, 1, premined, CreateGenesisMasternodes()); // old=1296688602
+        genesis = CreateGenesisBlock(1586099762, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
         assert(consensus.hashGenesisBlock == uint256S("0x000004a689359fa744d93819c762387a88b1483d6e8ffa40ac307d85e390f66a"));
