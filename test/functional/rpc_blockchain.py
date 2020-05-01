@@ -206,11 +206,12 @@ class BlockchainTest(DefiTestFramework):
         node = self.nodes[0]
         res = node.gettxoutsetinfo()
 
-        assert_equal(res['total_amount'], Decimal('8725.00000000'))
-        assert_equal(res['transactions'], 200)
+        # genesis txs are now taken into account too!!!
+        assert_equal(res['total_amount'], Decimal('8855.00000000')) # old value '8725.00000000'
+        assert_equal(res['transactions'], 209) # old value 200
         assert_equal(res['height'], 200)
-        assert_equal(res['txouts'], 200)
-        assert_equal(res['bogosize'], 15000),
+        assert_equal(res['txouts'], 209) # old value 200
+        assert_equal(res['bogosize'], 15669) # old value 15000
         assert_equal(res['bestblock'], node.getblockhash(200))
         size = res['disk_size']
         assert size > 6400
@@ -223,11 +224,11 @@ class BlockchainTest(DefiTestFramework):
         node.invalidateblock(b1hash)
 
         res2 = node.gettxoutsetinfo()
-        assert_equal(res2['transactions'], 0)
-        assert_equal(res2['total_amount'], Decimal('0'))
+        assert_equal(res2['transactions'], 9) # old value 0
+        assert_equal(res2['total_amount'], Decimal('130')) # old value 0
         assert_equal(res2['height'], 0)
-        assert_equal(res2['txouts'], 0)
-        assert_equal(res2['bogosize'], 0),
+        assert_equal(res2['txouts'], 9) # old value 0
+        assert_equal(res2['bogosize'], 669), # old value 0
         assert_equal(res2['bestblock'], node.getblockhash(0))
         assert_equal(len(res2['hash_serialized_2']), 64)
 

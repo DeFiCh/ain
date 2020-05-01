@@ -68,9 +68,12 @@ class RawTransactionsTest(DefiTestFramework):
         self.nodes[0].generate(5)
         self.sync_all()
 
-        self.log.info('Test getrawtransaction on genesis block coinbase returns an error')
+        self.log.info('Test getrawtransactions on genesis block')
         block = self.nodes[0].getblock(self.nodes[0].getblockhash(0))
-        assert_raises_rpc_error(-5, "The genesis block coinbase is not considered an ordinary transaction", self.nodes[0].getrawtransaction, block['merkleroot'])
+        # Now it's OK to request genesis txs!
+        # assert_raises_rpc_error(-5, "The genesis block coinbase is not considered an ordinary transaction", self.nodes[0].getrawtransaction, block['merkleroot'])
+        for tx in block['tx']:
+            assert (self.nodes[0].getrawtransaction(tx) != "")
 
         self.log.info('Check parameter types and required parameters of createrawtransaction')
         # Test `createrawtransaction` required parameters
