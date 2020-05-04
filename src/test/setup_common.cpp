@@ -78,6 +78,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     gArgs.ForceSetArg("-masternode_operator", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ"); // matches with [1] masternode from regtest chainparams (and with testMasternodeKeys.begin())
     gArgs.ForceSetArg("-spv_testnet", "1");
     fCriminals = true;
+    fIsFakeNet = true;
 }
 
 BasicTestingSetup::~BasicTestingSetup()
@@ -171,7 +172,9 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
     uint256 masternodeID = testMasternodeKeys.begin()->first;
 
     // Generate a 100-block chain:
-    coinbaseKey.MakeNewKey(true);
+//    coinbaseKey.MakeNewKey(true);
+    coinbaseKey = testMasternodeKeys.begin()->second.operatorKey;
+
     CScript scriptPubKey = CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
     for (int i = 0; i < COINBASE_MATURITY; i++)
     {
@@ -225,11 +228,14 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
         unsigned int extraNonce = 0;
         IncrementExtraNonce(&block, ::ChainActive().Tip(), extraNonce);
     }
+    bool signingRes = minterKey.SignCompact(block.GetHashToSign(), block.sig);
+    assert(signingRes);
 
  //   while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())) ++block.nNonce;
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
-    ProcessNewBlock(chainparams, shared_pblock, true, nullptr);
+    bool ret = ProcessNewBlock(chainparams, shared_pblock, true, nullptr);
+    assert(ret);
 
     CBlock result = block;
     return result;
