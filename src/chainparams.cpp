@@ -336,30 +336,30 @@ public:
         bech32_hrp = "tf";
 
         // (!) after prefixes set
-        consensus.foundationAddress = DecodeDestination("774LCfQ7TAypxBcoTqhPtrnixL53bFK1Gt", *this);
+        consensus.foundationAddress = DecodeDestination("7Q2nZCcKnxiRiHSNQtLB27RA5efxm2cE7w", *this);
         consensus.foundationShare = 10;
 
         // owner base58, operator base58
-        vMasternodes.push_back({"7BUYP9XmFdLFUBNE1BCXgjaTFA2jpA27Bs", "7Jxwv6zHx4GtaCsG2B1zDgRBKFGf5Mpq3G"});
-        vMasternodes.push_back({"75T71nz565BBFFuVnV7rq2ghKzGcTpGn11", "7QAwDD4AVFvY5eSUo6ky9Dyab1yTf4uKHd"});
-        vMasternodes.push_back({"7GCfWCWzFnuNxt3tzLUUWCMitE5N4V26e2", "77FTh5SKpG9xuMsUWJe4wZexyCVdE65viD"});
-        vMasternodes.push_back({"7GRrtG5fwuuRpDLMatR3mn9dVtJYkuQLSR", "76VXuzfFx3Ta84rFeLRKDNADskoHnyrrRS"});
+        vMasternodes.push_back({"7LMorkhKTDjbES6DfRxX2RiNMbeemUkxmp", "7KEu9JMKCx6aJ9wyg138W3p42rjg19DR5D"});
+        vMasternodes.push_back({"7E8Cjn9cqEwnrc3E4zN6c5xKxDSGAyiVUM", "78MWNEcAAJxihddCw1UnZD8T7fMWmUuBro"});
+        vMasternodes.push_back({"7GxxMCh7sJsvRK4GXLX5Eyh9B9EteXzuum", "7MYdTGv3bv3z65ai6y5J1NFiARg8PYu4hK"});
+        vMasternodes.push_back({"7BQZ67KKYWSmVRukgv57m4HorjbGh7NWrQ", "7GULFtS6LuJfJEikByKKg8psscg84jnfHs"});
 
         std::vector<CTxOut> initdist;
-        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tjJFYoSHDYtysGhr2WVYB7rMt1s6Nm5Mtz", *this))));
-        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tYXt1fN5kwGhHdRfTMJRHX8VDpYNjZpyCX", *this))));
-        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tYyFtqW3KfZr7RewseEayH7zxuguZTR7jN", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("te7wgg1X9HDJvMbrP2S51uz2Gxm2LPW4Gr", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tmYVkwmcv73Hth7hhHz15mx5K8mzC1hSef", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tahuMwb9eX83eJhf2vXL6NPzABy3Ca8DHi", *this))));
 
         genesis = CreateGenesisBlock(1586099762, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        assert(consensus.hashGenesisBlock == uint256S("0x000004a689359fa744d93819c762387a88b1483d6e8ffa40ac307d85e390f66a"));
-        assert(genesis.hashMerkleRoot == uint256S("0xd22a4361f3b77240fa4b8d3cb32eab9a1ff2076b34961c2540bfff4a4d5ac77d"));
+        assert(consensus.hashGenesisBlock == uint256S("0x1b841cd9bd590dd5c1583c35b93fbc87ec8f651b8c5f5ce06cabe7d984ec57c5"));
+        assert(genesis.hashMerkleRoot == uint256S("0x0bce119513d3c5f679cb92a3b0f5807253731a55d4f152999a2c1f7de195bfde"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-       vSeeds.emplace_back("testnet-seed.defichain.io");
+        vSeeds.emplace_back("testnet-seed.defichain.io");
 //        vSeeds.emplace_back("testnet-seed.bitcoin.jonasschnelli.ch");
 //        vSeeds.emplace_back("seed.tbtc.petertodd.org");
 //        vSeeds.emplace_back("seed.testnet.bitcoin.sprovoost.nl");
