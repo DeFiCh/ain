@@ -23,6 +23,26 @@ DEFI_TX_BIN=$(top_builddir)/src/$(DEFI_TX_NAME)$(EXEEXT)
 DEFI_WALLET_BIN=$(top_builddir)/src/$(DEFI_WALLET_TOOL_NAME)$(EXEEXT)
 DEFI_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEXT)
 
+support_examples_dir = $(pkgdatadir)/examples
+support_examples__DATA = $(top_srcdir)/share/examples/default.conf \
+		$(top_srcdir)/share/examples/pruned.conf
+
+support_rpcauth_dir = $(pkgdatadir)/rpcauth
+support_rpcauth__DATA = $(top_srcdir)/share/rpcauth/rpcauth.py \
+		$(top_srcdir)/share/rpcauth/README.md
+
+support_shell_dir = $(pkgdatadir)/shell
+support_shell__DATA = $(top_srcdir)/contrib/defi-cli.bash-completion \
+		$(top_srcdir)/contrib/defi-tx.bash-completion \
+		$(top_srcdir)/contrib/defid.bash-completion
+		
+support_services_dir = $(pkgdatadir)/services
+support_services__DATA = $(top_srcdir)/contrib/init/defid.conf \
+		$(top_srcdir)/contrib/init/defid.init \
+		$(top_srcdir)/contrib/init/defid.openrc \
+		$(top_srcdir)/contrib/init/defid.openrcconf \
+		$(top_srcdir)/contrib/init/defid.service
+
 empty :=
 space := $(empty) $(empty)
 
