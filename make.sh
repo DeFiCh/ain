@@ -17,6 +17,8 @@ setup_vars() {
     DOCKER_DEV_VOLUME_SUFFIX=${DOCKER_DEV_VOLUME_SUFFIX:-"dev-data"}
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
+    EXTRA_BUILD_OPTS=${EXTRA_BUILD_OPTS:-}
+
     # shellcheck disable=SC2206
     # This intentionally word-splits the array as env arg can only be strings.
     # Other options available: x86_64-w64-mingw32
@@ -178,6 +180,7 @@ docker_clean() {
 
 build() {
     local target=${1:-"x86_64-pc-linux-gnu"}
+    local extra_build_opts=${EXTRA_BUILD_OPTS:-}
 
     echo "> build: ${target}"
     pushd ./depends >/dev/null
@@ -186,7 +189,7 @@ build() {
     popd >/dev/null
     ./autogen.sh
     # XREF: #make-configure
-    ./configure --prefix="$(pwd)/depends/${target}" --without-gui
+    ./configure --prefix="$(pwd)/depends/${target}" --without-gui ${extra_build_opts}
     make
 }
 
