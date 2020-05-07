@@ -4,7 +4,7 @@
 #DEFID_CONFIGFILE="/etc/defi/defi.conf"
 
 # What directory to write pidfile to?  (created and owned by $DEFID_USER)
-#DEFID_PIDDIR="/var/run/defi"
+#DEFID_PIDDIR="/var/run/defid"
 
 # What filename to give the pidfile
 #DEFID_PIDFILE="${DEFID_PIDDIR}/defid.pid"

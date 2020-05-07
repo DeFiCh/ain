@@ -15,7 +15,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/bin/defid -daemon \
-                            -pid=/run/defi/defid.pid \
+                            -pid=/run/defid/defid.pid \
                             -conf=/etc/defi/defi.conf \
                             -datadir=/var/lib/defi
 
@@ -27,7 +27,7 @@ ExecStartPre=/bin/chgrp defi /etc/defi
 ####################
 
 Type=forking
-PIDFile=/run/defi/defid.pid
+PIDFile=/run/defid/defid.pid
 Restart=on-failure
 
 # Directory creation and permissions
