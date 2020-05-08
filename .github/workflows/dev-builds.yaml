@@ -1,5 +1,7 @@
 on:
   push:
+    tags:
+      - "!v*"
     branches:
       - staging
       - develop
@@ -11,6 +13,7 @@ on:
       - develop
       - master
       - ci/*
+   
 jobs:
   x86_64-linux-gnu:
     runs-on: ${{ matrix.os }}
