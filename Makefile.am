@@ -31,17 +31,17 @@ support_rpcauth_dir = $(pkgdatadir)/rpcauth
 support_rpcauth__DATA = $(top_srcdir)/share/rpcauth/rpcauth.py \
 		$(top_srcdir)/share/rpcauth/README.md
 
-support_shell_dir = $(pkgdatadir)/shell
-support_shell__DATA = $(top_srcdir)/contrib/defi-cli.bash-completion \
-		$(top_srcdir)/contrib/defi-tx.bash-completion \
-		$(top_srcdir)/contrib/defid.bash-completion
-		
-support_services_dir = $(pkgdatadir)/services
-support_services__DATA = $(top_srcdir)/contrib/init/defid.conf \
+support_service_dir = $(pkgdatadir)/service
+support_service__DATA = $(top_srcdir)/contrib/init/defid.conf \
 		$(top_srcdir)/contrib/init/defid.init \
 		$(top_srcdir)/contrib/init/defid.openrc \
 		$(top_srcdir)/contrib/init/defid.openrcconf \
 		$(top_srcdir)/contrib/init/defid.service
+
+support_bash_dir = $(datadir)/bash-completion/completions
+support_bash__DATA = $(top_srcdir)/contrib/defi-cli.bash-completion \
+		$(top_srcdir)/contrib/defi-tx.bash-completion \
+		$(top_srcdir)/contrib/defid.bash-completion
 
 empty :=
 space := $(empty) $(empty)
