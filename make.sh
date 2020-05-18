@@ -14,7 +14,6 @@ setup_vars() {
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
-    DOCKER_DEV_VOLUME_SUFFIX=${DOCKER_DEV_VOLUME_SUFFIX:-"dev-data"}
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
     EXTRA_BUILD_OPTS=${EXTRA_BUILD_OPTS:-}
@@ -53,7 +52,8 @@ main() {
 
 _ensure_script_dir() {
     _WORKING_DIR="$(pwd)"
-    local dir="$(dirname "${BASH_SOURCE[0]}")"
+    local dir
+    dir="$(dirname "${BASH_SOURCE[0]}")"
     _SCRIPT_DIR="$(cd "${dir}/" && pwd)"
 }
 
@@ -67,6 +67,82 @@ help() {
     printf "\t%s\n" "${COMMANDS[@]//_/-}"
     printf "\nNote: All non-docker commands assume that it's run on an environment \n"
     printf "with correct arch and the pre-requisites properly configured. \n"
+}
+
+# ----------- Direct builds ---------------
+
+build() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
+    local extra_build_opts=${EXTRA_BUILD_OPTS:-}
+
+    echo "> build: ${target}"
+    pushd ./depends >/dev/null
+    # XREF: #depends-make
+    make NO_QT=1
+    popd >/dev/null
+    ./autogen.sh
+    # XREF: #make-configure
+    ./configure --prefix="$(pwd)/depends/${target}" --without-gui ${extra_build_opts}
+    make
+}
+
+deploy() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local release_dir="${RELEASE_DIR}"
+
+    mkdir -p "${release_dir}"
+
+    # XREF: #pkg-name
+    local versioned_name="${img_prefix}-${img_version}"
+    local versioned_release_path
+    versioned_release_path="$(readlink -m "${release_dir}/${versioned_name}")"
+    
+    echo "> deploy into: ${release_dir} from ${versioned_release_path}"
+
+    pushd "${release_dir}" >/dev/null
+    rm -rf ./${versioned_name} && mkdir "${versioned_name}"
+    popd >/dev/null
+
+    make prefix=/ DESTDIR="${versioned_release_path}" install && cp README.md "${versioned_release_path}/"
+
+    echo "> deployed: ${versioned_release_path}"
+}
+
+package() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local release_dir="${RELEASE_DIR}"
+
+    deploy "${target}"
+
+    # XREF: #pkg-name
+    local pkg_name="${img_prefix}-${img_version}-${target}"
+    local pkg_tar_file_name="${pkg_name}.tar.gz"
+
+    local pkg_path
+    pkg_path="$(readlink -m ${release_dir}/${pkg_tar_file_name})"
+
+    local versioned_name="${img_prefix}-${img_version}"
+    local versioned_release_dir="${release_dir}/${versioned_name}"
+
+    echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
+
+    pushd "${versioned_release_dir}" >/dev/null
+    tar --transform "s,^./,${versioned_name}/," -cvzf "${pkg_path}" ./*
+    popd >/dev/null
+
+    echo "> package: ${pkg_path}"
+}
+
+release() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
+
+    build "${target}"
+    package "${target}"
+    sign
 }
 
 # -------------- Docker ---------------
@@ -135,7 +211,8 @@ docker_deploy() {
 
         rm -rf "${versioned_release_dir}" && mkdir -p "${versioned_release_dir}"
 
-        local cid=$(docker create "${img}")
+        local cid 
+        cid=$(docker create "${img}")
         local e=0
 
         { docker cp "${cid}:/app/." "${versioned_release_dir}" 2>/dev/null && e=1; } || true
@@ -176,184 +253,16 @@ docker_clean() {
     docker_clean_images
 }
 
-# ----------- Direct builds ---------------
-
-build() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-    local extra_build_opts=${EXTRA_BUILD_OPTS:-}
-
-    echo "> build: ${target}"
-    pushd ./depends >/dev/null
-    # XREF: #depends-make
-    make NO_QT=1
-    popd >/dev/null
-    ./autogen.sh
-    # XREF: #make-configure
-    ./configure --prefix="$(pwd)/depends/${target}" --without-gui ${extra_build_opts}
-    make
-}
-
-deploy() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-    local img_prefix="${IMAGE_PREFIX}"
-    local img_version="${IMAGE_VERSION}"
-    local release_dir="${RELEASE_DIR}"
-
-    mkdir -p "${release_dir}"
-
-    # XREF: #pkg-name
-    local versioned_name="${img_prefix}-${img_version}"
-    local versioned_release_path="$(readlink -m "${release_dir}/${versioned_name}")"
-    
-    echo "> deploy into: ${release_dir} from ${versioned_release_path}"
-
-    pushd "${release_dir}" >/dev/null
-    rm -rf ./${versioned_name} && mkdir "${versioned_name}"
-    popd >/dev/null
-
-    make prefix=/ DESTDIR="${versioned_release_path}" install && cp README.md "${versioned_release_path}/"
-
-    echo "> deployed: ${versioned_release_path}"
-}
-
-package() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-    local img_prefix="${IMAGE_PREFIX}"
-    local img_version="${IMAGE_VERSION}"
-    local release_dir="${RELEASE_DIR}"
-
-    deploy "${target}"
-
-    # XREF: #pkg-name
-    local pkg_name="${img_prefix}-${img_version}-${target}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
-    local pkg_path="$(readlink -m ${release_dir}/${pkg_tar_file_name})"
-
-    local versioned_name="${img_prefix}-${img_version}"
-    local versioned_release_dir="${release_dir}/${versioned_name}"
-
-    echo "> packaging: ${pkg_name} from ${versioned_release_dir}"
-
-    pushd "${versioned_release_dir}" >/dev/null
-    tar --transform "s,^./,${versioned_name}/," -cvzf "${pkg_path}" ./*
-    popd >/dev/null
-
-    echo "> package: ${pkg_path}"
-}
-
-release() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-
-    build "${target}"
-    package "${target}"
-    sign
-}
-
-# -------------- Docker dev -------------------
-
-docker_dev_build() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-
-    local img_prefix="${IMAGE_PREFIX}"
-    local img_version="${IMAGE_VERSION}"
-    local dockerfiles_dir="${DOCKERFILES_DIR}"
-    local docker_context="${DOCKER_ROOT_CONTEXT}"
-    local docker_dev_volume_suffix="${DOCKER_DEV_VOLUME_SUFFIX}"
-
-    local img="${img_prefix}-dev-${target}:${img_version}"
-    local vol="${img_prefix}-${target}-${docker_dev_volume_suffix}"
-
-    echo "> docker-dev-build: ${img}"
-
-    local builders_docker_file="${dockerfiles_dir}/${target}.dockerfile"
-    local docker_file="${dockerfiles_dir}/${target}-dev.dockerfile"
-
-    docker build --target "builder-base" \
-        -t "${img_prefix}-builder-base-${target}" - <"${builders_docker_file}"
-    docker build -f "${docker_file}" -t "${img}" "${docker_context}"
-    docker run --rm -v "${vol}:/data" "${img}"
-
-    echo "> built: ${img}"
-}
-
-docker_dev_package() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-
-    local img_prefix="${IMAGE_PREFIX}"
-    local img_version="${IMAGE_VERSION}"
-    local release_dir="${RELEASE_DIR}"
-    local docker_dev_volume_suffix="${DOCKER_DEV_VOLUME_SUFFIX}"
-
-    # XREF: #pkg-name
-    local pkg_name="${img_prefix}-${img_version}-${target}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
-    local pkg_path="${release_dir}/${pkg_tar_file_name}"
-    local vol="${img_prefix}-${target}-${docker_dev_volume_suffix}"
-
-    echo "> docker-dev-package: ${pkg_name}"
-
-    mkdir -p "${release_dir}"
-
-    local cid=$(docker create -v "${vol}:/data" ubuntu:18.04)
-    local e=0
-
-    { docker cp "${cid}:/data/${pkg_path}" "${pkg_path}" 2>/dev/null && e=1; } || true
-    docker rm "${cid}" >/dev/null
-
-    if [[ "$e" == "1" ]]; then
-        echo "> package: ${pkg_path}"
-    else
-        echo "> failed: please sure package is built first"
-    fi
-}
-
-docker_dev_release() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-
-    docker_dev_build "${target}"
-    docker_dev_package "${target}"
-    sign
-}
-
-docker_dev_clean() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-
-    docker_dev_clean_images
-    docker_dev_clean_volumes "${target}"
-}
-
 docker_clean_images() {
     echo "> clean: defichain images"
 
-    local imgs="$(docker images -f label=org.defichain.name=defichain -q)"
+    local imgs
+    imgs="$(docker images -f label=org.defichain.name=defichain -q)"
     if [[ -n "${imgs}" ]]; then
         # shellcheck disable=SC2086
         docker rmi ${imgs} --force
         _docker_clean_builder_base
     fi
-}
-
-docker_dev_clean_images() {
-    echo "> clean: defichain-dev images"
-
-    local imgs="$(docker images -f label=org.defichain.name=defichain-dev -q)"
-    if [[ -n "${imgs}" ]]; then
-        # shellcheck disable=SC2086
-        docker rmi ${imgs} --force
-        _docker_clean_builder_base
-    fi
-}
-
-docker_dev_clean_volumes() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-
-    local img_prefix="${IMAGE_PREFIX}"
-    local docker_dev_volume_suffix="${DOCKER_DEV_VOLUME_SUFFIX}"
-    local vol="${img_prefix}-${target}-${docker_dev_volume_suffix}"
-
-    echo "> clean: docker volume: ${vol}"
-
-    docker volume rm "${vol}" 2>/dev/null || true
 }
 
 _docker_clean_builder_base() {
@@ -370,8 +279,6 @@ docker_purge() {
     # shellcheck disable=SC2046
     docker rmi $(docker images -f label=org.defichain.name -q) \
         2>/dev/null || true
-
-    docker_dev_clean_volumes
 }
 
 # -------------- Misc -----------------
@@ -384,9 +291,13 @@ sign() {
 git_version() {
     # If we have a tagged version (for proper releases), then just
     # release it with the tag, otherwise we use the commit hash
-    local current_tag=$(git tag --points-at HEAD | head -1)
-    local current_commit=$(git rev-parse --short HEAD)
-    local current_branch=$(git rev-parse --abbrev-ref HEAD)
+    local current_tag
+    local current_commit
+    local current_branch
+
+    current_tag=$(git tag --points-at HEAD | head -1)
+    current_commit=$(git rev-parse --short HEAD)
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
 
     if [[ -z $current_tag ]]; then
         # Replace `/` in branch names with `-` as / is trouble
@@ -422,16 +333,16 @@ purge() {
 clean_depends() {
     pushd ./depends >/dev/null
     make clean-all || true
-    rm -rf built
-    rm -rf work
-    rm -rf sources
-    rm -rf x86_64*
-    rm -rf i686*
-    rm -rf mips*
-    rm -rf arm*
-    rm -rf aarch64*
-    rm -rf riscv32*
-    rm -rf riscv64*
+    rm -rf built \
+        work \
+        sources \
+        x86_64* \
+        i686* \
+        mips* \
+        arm* \
+        aarch64* \
+        riscv32* \
+        riscv64*
     popd >/dev/null
 }
 
@@ -443,66 +354,66 @@ clean() {
     # All untracked git files that's left over after clean
     find . -type d -name ".deps" -exec rm -rf {} + || true
 
-    rm -rf src/secp256k1/Makefile.in
-    rm -rf src/secp256k1/aclocal.m4
-    rm -rf src/secp256k1/autom4te.cache/
-    rm -rf src/secp256k1/build-aux/compile
-    rm -rf src/secp256k1/build-aux/config.guess
-    rm -rf src/secp256k1/build-aux/config.sub
-    rm -rf src/secp256k1/build-aux/depcomp
-    rm -rf src/secp256k1/build-aux/install-sh
-    rm -rf src/secp256k1/build-aux/ltmain.sh
-    rm -rf src/secp256k1/build-aux/m4/libtool.m4
-    rm -rf src/secp256k1/build-aux/m4/ltoptions.m4
-    rm -rf src/secp256k1/build-aux/m4/ltsugar.m4
-    rm -rf src/secp256k1/build-aux/m4/ltversion.m4
-    rm -rf src/secp256k1/build-aux/m4/lt~obsolete.m4
-    rm -rf src/secp256k1/build-aux/missing
-    rm -rf src/secp256k1/build-aux/test-driver
-    rm -rf src/secp256k1/configure
-    rm -rf src/secp256k1/src/libsecp256k1-config.h.in
-    rm -rf src/secp256k1/src/libsecp256k1-config.h.in~
-    rm -rf src/univalue/Makefile.in
-    rm -rf src/univalue/aclocal.m4
-    rm -rf src/univalue/autom4te.cache/
-    rm -rf src/univalue/build-aux/compile
-    rm -rf src/univalue/build-aux/config.guess
-    rm -rf src/univalue/build-aux/config.sub
-    rm -rf src/univalue/build-aux/depcomp
-    rm -rf src/univalue/build-aux/install-sh
-    rm -rf src/univalue/build-aux/ltmain.sh
-    rm -rf src/univalue/build-aux/m4/libtool.m4
-    rm -rf src/univalue/build-aux/m4/ltoptions.m4
-    rm -rf src/univalue/build-aux/m4/ltsugar.m4
-    rm -rf src/univalue/build-aux/m4/ltversion.m4
-    rm -rf src/univalue/build-aux/m4/lt~obsolete.m4
-    rm -rf src/univalue/build-aux/missing
-    rm -rf src/univalue/build-aux/test-driver
-    rm -rf src/univalue/configure
-    rm -rf src/univalue/univalue-config.h.in
-    rm -rf src/univalue/univalue-config.h.in~
+    rm -rf src/secp256k1/Makefile.in \
+        src/secp256k1/aclocal.m4 \
+        src/secp256k1/autom4te.cache/ \
+        src/secp256k1/build-aux/compile \
+        src/secp256k1/build-aux/config.guess \
+        src/secp256k1/build-aux/config.sub \
+        src/secp256k1/build-aux/depcomp \
+        src/secp256k1/build-aux/install-sh \
+        src/secp256k1/build-aux/ltmain.sh \
+        src/secp256k1/build-aux/m4/libtool.m4 \
+        src/secp256k1/build-aux/m4/ltoptions.m4 \
+        src/secp256k1/build-aux/m4/ltsugar.m4 \
+        src/secp256k1/build-aux/m4/ltversion.m4 \
+        src/secp256k1/build-aux/m4/lt~obsolete.m4 \
+        src/secp256k1/build-aux/missing \
+        src/secp256k1/build-aux/test-driver \
+        src/secp256k1/configure \
+        src/secp256k1/src/libsecp256k1-config.h.in \
+        src/secp256k1/src/libsecp256k1-config.h.in~ \
+        src/univalue/Makefile.in \
+        src/univalue/aclocal.m4 \
+        src/univalue/autom4te.cache/ \
+        src/univalue/build-aux/compile \
+        src/univalue/build-aux/config.guess \
+        src/univalue/build-aux/config.sub \
+        src/univalue/build-aux/depcomp \
+        src/univalue/build-aux/install-sh \
+        src/univalue/build-aux/ltmain.sh \
+        src/univalue/build-aux/m4/libtool.m4 \
+        src/univalue/build-aux/m4/ltoptions.m4 \
+        src/univalue/build-aux/m4/ltsugar.m4 \
+        src/univalue/build-aux/m4/ltversion.m4 \
+        src/univalue/build-aux/m4/lt~obsolete.m4 \
+        src/univalue/build-aux/missing \
+        src/univalue/build-aux/test-driver \
+        src/univalue/configure \
+        src/univalue/univalue-config.h.in \
+        src/univalue/univalue-config.h.in~
 
-    rm -rf ./autom4te.cache
-    rm -rf Makefile.in
-    rm -rf aclocal.m4
-    rm -rf build-aux/compile
-    rm -rf build-aux/config.guess
-    rm -rf build-aux/config.sub
-    rm -rf build-aux/depcomp
-    rm -rf build-aux/install-sh
-    rm -rf build-aux/ltmain.sh
-    rm -rf build-aux/m4/libtool.m4
-    rm -rf build-aux/m4/ltoptions.m4
-    rm -rf build-aux/m4/ltsugar.m4
-    rm -rf build-aux/m4/ltversion.m4
-    rm -rf build-aux/m4/lt~obsolete.m4
-    rm -rf build-aux/missing
-    rm -rf build-aux/test-driver
-    rm -rf configure
-    rm -rf doc/man/Makefile.in
-    rm -rf src/Makefile.in
-    rm -rf src/config/defi-config.h.in
-    rm -rf src/config/defi-config.h.in~
+    rm -rf ./autom4te.cache \
+        Makefile.in \
+        aclocal.m4 \
+        build-aux/compile \
+        build-aux/config.guess \
+        build-aux/config.sub \
+        build-aux/depcomp \
+        build-aux/install-sh \
+        build-aux/ltmain.sh \
+        build-aux/m4/libtool.m4 \
+        build-aux/m4/ltoptions.m4 \
+        build-aux/m4/ltsugar.m4 \
+        build-aux/m4/ltversion.m4 \
+        build-aux/m4/lt~obsolete.m4 \
+        build-aux/missing \
+        build-aux/test-driver \
+        configure \
+        doc/man/Makefile.in \
+        src/Makefile.in \
+        src/config/defi-config.h.in \
+        src/config/defi-config.h.in~
 }
 
 main "$@"
