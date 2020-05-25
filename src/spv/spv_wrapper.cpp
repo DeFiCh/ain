@@ -551,13 +551,13 @@ std::vector<CScript> EncapsulateMeta(TBytes const & meta)
 
     std::vector<CScript> result;
     // first part with OP_RETURN
-    size_t opReturnSize = std::min(ss.size(), 80ul);
+    size_t opReturnSize = std::min<size_t>(ss.size(), 80);
     CScript opReturnScript = CScript() << OP_RETURN << TBytes(ss.begin(), ss.begin() + opReturnSize);
     result.push_back(opReturnScript);
 
     // rest of the data in p2wsh keys
     for (auto it = ss.begin() + opReturnSize; it != ss.end(); ) {
-        auto chunkSize = std::min(ss.end() - it, 32l);
+        auto chunkSize = std::min<size_t>(ss.end() - it, 32);
         TBytes chunk(it, it + chunkSize);
         if (chunkSize < 32) {
             chunk.resize(32);
