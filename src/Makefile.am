@@ -263,59 +263,65 @@ obj/build.h: FORCE
 	  "$(abs_top_srcdir)"
 libdefi_util_a-clientversion.$(OBJEXT): obj/build.h
 
-libdefi_spv_a_CFLAGS = $(AM_CFLAGS) -I./spv -I./spv/support -I./secp256k1 -I./secp256k1/src -Wno-format-extra-args -std=gnu99 -lm -lbsd
-#-lpthread
+libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive -I./spv -I./spv/support -I./secp256k1 -I./secp256k1/src -Wno-format-extra-args -lm -lbsd 
+libdefi_spv_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdefi_spv_a_SOURCES = \
-  spv/bcash/BRBCashAddr.c \
+  spv/bcash/BRBCashAddr.cpp \
   spv/bcash/BRBCashAddr.h \
-  spv/bcash/BRBCashParams.c \
+  spv/bcash/BRBCashParams.cpp \
   spv/bcash/BRBCashParams.h \
-  spv/bitcoin/BRBIP38Key.c \
+  spv/bitcoin/BRBIP38Key.cpp \
   spv/bitcoin/BRBIP38Key.h \
-  spv/bitcoin/BRBloomFilter.c \
+  spv/bitcoin/BRBloomFilter.cpp \
   spv/bitcoin/BRBloomFilter.h \
-  spv/bitcoin/BRChainParams.c \
+  spv/bitcoin/BRChainParams.cpp \
   spv/bitcoin/BRChainParams.h \
-  spv/bitcoin/BRMerkleBlock.c \
+  spv/bitcoin/BRMerkleBlock.cpp \
   spv/bitcoin/BRMerkleBlock.h \
-  spv/bitcoin/BRPaymentProtocol.c \
+  spv/bitcoin/BRPaymentProtocol.cpp \
   spv/bitcoin/BRPaymentProtocol.h \
-  spv/bitcoin/BRPeer.c \
+  spv/bitcoin/BRPeer.cpp \
   spv/bitcoin/BRPeer.h \
-  spv/bitcoin/BRPeerManager.c \
+  spv/bitcoin/BRPeerManager.cpp \
   spv/bitcoin/BRPeerManager.h \
-  spv/bitcoin/BRTransaction.c \
+  spv/bitcoin/BRTransaction.cpp \
   spv/bitcoin/BRTransaction.h \
-  spv/bitcoin/BRWallet.c \
+  spv/bitcoin/BRWallet.cpp \
   spv/bitcoin/BRWallet.h \
-  spv/bitcoin/BRWalletManager.c \
+  spv/bitcoin/BRWalletManager.cpp \
   spv/bitcoin/BRWalletManager.h \
-  spv/support/BRAddress.c \
+  spv/support/BRAddress.cpp \
   spv/support/BRAddress.h \
   spv/support/BRArray.h \
-  spv/support/BRAssert.c \
+  spv/support/BRAssert.cpp \
   spv/support/BRAssert.h \
-  spv/support/BRBase58.c \
+  spv/support/BRBase58.cpp \
   spv/support/BRBase58.h \
-  spv/support/BRBech32.c \
+  spv/support/BRBech32.cpp \
   spv/support/BRBech32.h \
-  spv/support/BRBIP32Sequence.c \
+  spv/support/BRBIP32Sequence.cpp \
   spv/support/BRBIP32Sequence.h \
-  spv/support/BRBIP39Mnemonic.c \
+  spv/support/BRBIP39Mnemonic.cpp \
   spv/support/BRBIP39Mnemonic.h \
   spv/support/BRBIP39WordsEn.h \
-  spv/support/BRCrypto.c \
+  spv/support/BRCrypto.cpp \
   spv/support/BRCrypto.h \
-  spv/support/BRFileService.c \
+  spv/support/BRFileService.cpp \
   spv/support/BRFileService.h \
   spv/support/BRInt.h \
-  spv/support/BRKey.c \
-  spv/support/BRKeyECIES.c \
+  spv/support/BRKey.cpp \
+  spv/support/BRKeyECIES.cpp \
   spv/support/BRKeyECIES.h \
   spv/support/BRKey.h \
   spv/support/BRLargeInt.h \
-  spv/support/BRSet.c \
+  spv/support/BRSet.cpp \
   spv/support/BRSet.h
+
+# for gen /secp256k1/src/ecmult_static_context.h
+LIBSECP256K1_GEN = $(srcdir)/secp256k1/src/ecmult_static_context.h
+nodist_libdefi_spv_a_SOURCES = $(LIBSECP256K1_GEN)
+BUILT_SOURCES = $(LIBSECP256K1_GEN)
+$(LIBSECP256K1_GEN): $(LIBSECP256K1)
 
 # server: shared between defid and defi-qt
 # Contains code accessing mempool and chain state that is meant to be separated

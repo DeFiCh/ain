@@ -1844,13 +1844,13 @@ int BRBIP32SequenceTests()
     printf("\n");
 
     BRBIP32PrivKey(&key, &seed, sizeof(seed), SEQUENCE_INTERNAL_CHAIN, 2 | 0x80000000);
-    printf("000102030405060708090a0b0c0d0e0f/0H/1/2H prv = %s\n", u256hex(key.secret));
+    printf("000102030405060708090a0b0c0d0e0f/0H/1/2H prv = %s\n", u256hex(key.secret).c_str());
     if (! UInt256Eq(key.secret, toUInt256("cbce0d719ecf7431d88e6a89fa1483e02e35092af60c042b1df2ff59fa424dca")))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRBIP32PrivKey() test 1\n", __func__);
     
     // test for correct zero padding of private keys
     BRBIP32PrivKey(&key, &seed, sizeof(seed), SEQUENCE_EXTERNAL_CHAIN, 97);
-    printf("000102030405060708090a0b0c0d0e0f/0H/0/97 prv = %s\n", u256hex(key.secret));
+    printf("000102030405060708090a0b0c0d0e0f/0H/0/97 prv = %s\n", u256hex(key.secret).c_str());
     if (! UInt256Eq(key.secret, toUInt256("00136c1ad038f9a00871895322a487ed14f1cdc4d22ad351cfa1a0d235975dd7")))
         r = 0, fprintf(stderr, "***FAILED*** %s: BRBIP32PrivKey() test 2\n", __func__);
     
@@ -1868,7 +1868,7 @@ int BRBIP32SequenceTests()
     uint8_t pubKey[33];
 
     BRBIP32PubKey(pubKey, sizeof(pubKey), mpk, SEQUENCE_EXTERNAL_CHAIN, 0);
-    printf("000102030405060708090a0b0c0d0e0f/0H/0/0 pub = %02x%s\n", pubKey[0], u256hex(*(UInt256 *)&pubKey[1]));
+    printf("000102030405060708090a0b0c0d0e0f/0H/0/0 pub = %02x%s\n", pubKey[0], u256hex(*(UInt256 *)&pubKey[1]).c_str());
     if (pubKey[0] != 0x02 ||
         ! UInt256Eq(*(UInt256 *)&pubKey[1],
                     toUInt256("7b6a7dd645507d775215a9035be06700e1ed8c541da9351b4bd14bd50ab61428")))
@@ -2198,18 +2198,18 @@ static void walletBalanceChanged(void *info, uint64_t balance)
 
 static void walletTxAdded(void *info, BRTransaction *tx)
 {
-    printf("tx added: %s\n", u256hex(tx->txHash));
+    printf("tx added: %s\n", u256hex(tx->txHash).c_str());
 }
 
 static void walletTxUpdated(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight,
                             uint32_t timestamp)
 {
-    for (size_t i = 0; i < txCount; i++) printf("tx updated: %s\n", u256hex(txHashes[i]));
+    for (size_t i = 0; i < txCount; i++) printf("tx updated: %s\n", u256hex(txHashes[i]).c_str());
 }
 
 static void walletTxDeleted(void *info, UInt256 txHash, int notifyUser, int recommendRescan)
 {
-    printf("tx deleted: %s\n", u256hex(txHash));
+    printf("tx deleted: %s\n", u256hex(txHash).c_str());
 }
 
 // TODO: test standard free transaction no change

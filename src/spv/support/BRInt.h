@@ -28,36 +28,18 @@
 #include "BRLargeInt.h"
 
 #include <inttypes.h>
+#include <string>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
-#define UINT128_ZERO ((const UInt128) { .u64 = { 0, 0 } })
-#define UINT160_ZERO ((const UInt160) { .u32 = { 0, 0, 0, 0, 0 } })
-#define UINT256_ZERO ((const UInt256) { .u64 = { 0, 0, 0, 0 } })
-#define UINT512_ZERO ((const UInt512) { .u64 = { 0, 0, 0, 0, 0, 0, 0, 0 } })
+constexpr UInt128 UINT128_ZERO = { .u64 = { 0, 0 } };
+constexpr UInt160 UINT160_ZERO = { .u32 = { 0, 0, 0, 0, 0 } };
+constexpr UInt256 UINT256_ZERO = { .u64 = { 0, 0, 0, 0 } };
+constexpr UInt512 UINT512_ZERO = { .u64 = { 0, 0, 0, 0, 0, 0, 0, 0 } };
 
 // hex encoding/decoding
-
-#define u256hex(u) ((const char[]) {\
-    _hexc((u).u8[ 0] >> 4), _hexc((u).u8[ 0]), _hexc((u).u8[ 1] >> 4), _hexc((u).u8[ 1]),\
-    _hexc((u).u8[ 2] >> 4), _hexc((u).u8[ 2]), _hexc((u).u8[ 3] >> 4), _hexc((u).u8[ 3]),\
-    _hexc((u).u8[ 4] >> 4), _hexc((u).u8[ 4]), _hexc((u).u8[ 5] >> 4), _hexc((u).u8[ 5]),\
-    _hexc((u).u8[ 6] >> 4), _hexc((u).u8[ 6]), _hexc((u).u8[ 7] >> 4), _hexc((u).u8[ 7]),\
-    _hexc((u).u8[ 8] >> 4), _hexc((u).u8[ 8]), _hexc((u).u8[ 9] >> 4), _hexc((u).u8[ 9]),\
-    _hexc((u).u8[10] >> 4), _hexc((u).u8[10]), _hexc((u).u8[11] >> 4), _hexc((u).u8[11]),\
-    _hexc((u).u8[12] >> 4), _hexc((u).u8[12]), _hexc((u).u8[13] >> 4), _hexc((u).u8[13]),\
-    _hexc((u).u8[14] >> 4), _hexc((u).u8[14]), _hexc((u).u8[15] >> 4), _hexc((u).u8[15]),\
-    _hexc((u).u8[16] >> 4), _hexc((u).u8[16]), _hexc((u).u8[17] >> 4), _hexc((u).u8[17]),\
-    _hexc((u).u8[18] >> 4), _hexc((u).u8[18]), _hexc((u).u8[19] >> 4), _hexc((u).u8[19]),\
-    _hexc((u).u8[20] >> 4), _hexc((u).u8[20]), _hexc((u).u8[21] >> 4), _hexc((u).u8[21]),\
-    _hexc((u).u8[22] >> 4), _hexc((u).u8[22]), _hexc((u).u8[23] >> 4), _hexc((u).u8[23]),\
-    _hexc((u).u8[24] >> 4), _hexc((u).u8[24]), _hexc((u).u8[25] >> 4), _hexc((u).u8[25]),\
-    _hexc((u).u8[26] >> 4), _hexc((u).u8[26]), _hexc((u).u8[27] >> 4), _hexc((u).u8[27]),\
-    _hexc((u).u8[28] >> 4), _hexc((u).u8[28]), _hexc((u).u8[29] >> 4), _hexc((u).u8[29]),\
-    _hexc((u).u8[30] >> 4), _hexc((u).u8[30]), _hexc((u).u8[31] >> 4), _hexc((u).u8[31]), '\0' })
 
 #define toUInt256(s) ((const UInt256) { .u8 = {\
     (uint8_t)((_hexu((s)[ 0]) << 4) | _hexu((s)[ 1])), (uint8_t)((_hexu((s)[ 2]) << 4) | _hexu((s)[ 3])),\
@@ -77,9 +59,29 @@ extern "C" {
     (uint8_t)((_hexu((s)[56]) << 4) | _hexu((s)[57])), (uint8_t)((_hexu((s)[58]) << 4) | _hexu((s)[59])),\
     (uint8_t)((_hexu((s)[60]) << 4) | _hexu((s)[61])), (uint8_t)((_hexu((s)[62]) << 4) | _hexu((s)[63])) } })
 
-#define _hexc(u) ((char) (((u) & 0x0f) + ((((u) & 0x0f) <= 9) ? '0' : 'a' - 0x0a)))
-#define _hexu(c) (((c) >= '0' && (c) <= '9') ? (c) - '0' : ((c) >= 'a' && (c) <= 'f') ? (c) - ('a' - 0x0a) :\
-                  ((c) >= 'A' && (c) <= 'F') ? (c) - ('A' - 0x0a) : -1)
+inline static char _hexc(uint8_t u) { return ((char) (((u) & 0x0f) + ((((u) & 0x0f) <= 9) ? '0' : 'a' - 0x0a))); }
+inline static uint8_t _hexu(char c) { return (((c) >= '0' && (c) <= '9') ? (c) - '0' : ((c) >= 'a' && (c) <= 'f') ? (c) - ('a' - 0x0a) : ((c) >= 'A' && (c) <= 'F') ? (c) - ('A' - 0x0a) : -1); }
+
+inline static std::string u256hex(UInt256 const & u)
+{
+    return {
+        _hexc((u).u8[ 0] >> 4), _hexc((u).u8[ 0]), _hexc((u).u8[ 1] >> 4), _hexc((u).u8[ 1]),
+        _hexc((u).u8[ 2] >> 4), _hexc((u).u8[ 2]), _hexc((u).u8[ 3] >> 4), _hexc((u).u8[ 3]),
+        _hexc((u).u8[ 4] >> 4), _hexc((u).u8[ 4]), _hexc((u).u8[ 5] >> 4), _hexc((u).u8[ 5]),
+        _hexc((u).u8[ 6] >> 4), _hexc((u).u8[ 6]), _hexc((u).u8[ 7] >> 4), _hexc((u).u8[ 7]),
+        _hexc((u).u8[ 8] >> 4), _hexc((u).u8[ 8]), _hexc((u).u8[ 9] >> 4), _hexc((u).u8[ 9]),
+        _hexc((u).u8[10] >> 4), _hexc((u).u8[10]), _hexc((u).u8[11] >> 4), _hexc((u).u8[11]),
+        _hexc((u).u8[12] >> 4), _hexc((u).u8[12]), _hexc((u).u8[13] >> 4), _hexc((u).u8[13]),
+        _hexc((u).u8[14] >> 4), _hexc((u).u8[14]), _hexc((u).u8[15] >> 4), _hexc((u).u8[15]),
+        _hexc((u).u8[16] >> 4), _hexc((u).u8[16]), _hexc((u).u8[17] >> 4), _hexc((u).u8[17]),
+        _hexc((u).u8[18] >> 4), _hexc((u).u8[18]), _hexc((u).u8[19] >> 4), _hexc((u).u8[19]),
+        _hexc((u).u8[20] >> 4), _hexc((u).u8[20]), _hexc((u).u8[21] >> 4), _hexc((u).u8[21]),
+        _hexc((u).u8[22] >> 4), _hexc((u).u8[22]), _hexc((u).u8[23] >> 4), _hexc((u).u8[23]),
+        _hexc((u).u8[24] >> 4), _hexc((u).u8[24]), _hexc((u).u8[25] >> 4), _hexc((u).u8[25]),
+        _hexc((u).u8[26] >> 4), _hexc((u).u8[26]), _hexc((u).u8[27] >> 4), _hexc((u).u8[27]),
+        _hexc((u).u8[28] >> 4), _hexc((u).u8[28]), _hexc((u).u8[29] >> 4), _hexc((u).u8[29]),
+        _hexc((u).u8[30] >> 4), _hexc((u).u8[30]), _hexc((u).u8[31] >> 4), _hexc((u).u8[31])/*, '\0'*/ };
+}
 
 // unaligned memory access helpers
 
