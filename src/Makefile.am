@@ -293,8 +293,6 @@ libdefi_spv_a_SOURCES = \
   spv/support/BRAddress.cpp \
   spv/support/BRAddress.h \
   spv/support/BRArray.h \
-  spv/support/BRAssert.cpp \
-  spv/support/BRAssert.h \
   spv/support/BRBase58.cpp \
   spv/support/BRBase58.h \
   spv/support/BRBech32.cpp \
@@ -316,6 +314,8 @@ libdefi_spv_a_SOURCES = \
   spv/support/BRLargeInt.h \
   spv/support/BRSet.cpp \
   spv/support/BRSet.h
+#  spv/support/BRAssert.cpp
+#  spv/support/BRAssert.h
 
 # for gen /secp256k1/src/ecmult_static_context.h
 LIBSECP256K1_GEN = $(srcdir)/secp256k1/src/ecmult_static_context.h
