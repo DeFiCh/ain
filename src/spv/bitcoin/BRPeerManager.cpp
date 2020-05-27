@@ -36,7 +36,9 @@
 
 //#include <compat.h>
 
-#include <pthread.h>
+#include <boost/thread.hpp>
+
+//#include <pthread.h>
 #include <errno.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -201,7 +203,8 @@ struct BRPeerManagerStruct {
     void (*savePeers)(void *info, int replace, const BRPeer peers[], size_t peersCount);
     int (*networkIsReachable)(void *info);
     void (*threadCleanup)(void *info);
-    pthread_mutex_t lock;
+//    pthread_mutex_t lock;
+    boost::mutex lock;
 };
 
 static void _BRPeerManagerPeerMisbehavin(BRPeerManager *manager, BRPeer *peer)
@@ -368,7 +371,7 @@ static void _updateFilterRerequestDone(void *info, int success)
     free(info);
     
     if (success) {
-        pthread_mutex_lock(&manager->lock);
+        manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
 
         if ((peer->flags & PEER_FLAG_NEEDSUPDATE) == 0) {
             UInt256 locators[_BRPeerManagerBlockLocators(manager, NULL, 0)];
@@ -377,7 +380,7 @@ static void _updateFilterRerequestDone(void *info, int success)
             BRPeerSendGetblocks(peer, locators, count, UINT256_ZERO);
         }
 
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     }
 }
 
@@ -390,7 +393,7 @@ static void _updateFilterLoadDone(void *info, int success)
     free(info);
     
     if (success) {
-        pthread_mutex_lock(&manager->lock);
+        manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
         BRPeerSetNeedsFilterUpdate(peer, 0);
         peer->flags &= ~PEER_FLAG_NEEDSUPDATE;
         
@@ -406,7 +409,7 @@ static void _updateFilterLoadDone(void *info, int success)
         }
         else BRPeerSendMempool(peer, NULL, 0, NULL, NULL); // if not syncing, request mempool
         
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     }
 }
 
@@ -417,7 +420,7 @@ static void _updateFilterPingDone(void *info, int success)
     BRPeerCallbackInfo *peerInfo;
     
     if (success) {
-        pthread_mutex_lock(&manager->lock);
+        manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
         peer_log(peer, "updating filter with newly created wallet addresses");
         if (manager->bloomFilter) BRBloomFilterFree(manager->bloomFilter);
         manager->bloomFilter = NULL;
@@ -443,7 +446,7 @@ static void _updateFilterPingDone(void *info, int success)
             }
         }
 
-         pthread_mutex_unlock(&manager->lock);
+         manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     }
     else free(info);
 }
@@ -474,7 +477,7 @@ static void _requestUnrelayedTxGetdataDone(void *info, int success)
     size_t count = 0;
 
     free(info);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     if (success) peer->flags |= PEER_FLAG_SYNCED;
     
     for (size_t i = array_count(manager->connectedPeers); i > 0; i--) {
@@ -516,7 +519,7 @@ static void _requestUnrelayedTxGetdataDone(void *info, int success)
         }
     }
 
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
 }
 
 static void _BRPeerManagerRequestUnrelayedTx(BRPeerManager *manager, BRPeer *peer)
@@ -571,7 +574,7 @@ static void _mempoolDone(void *info, int success)
     
     if (success) {
         peer_log(peer, "mempool request finished");
-        pthread_mutex_lock(&manager->lock);
+        manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
         if (manager->syncStartHeight > 0) {
             peer_log(peer, "sync succeeded");
             syncFinished = 1;
@@ -580,7 +583,7 @@ static void _mempoolDone(void *info, int success)
 
         _BRPeerManagerRequestUnrelayedTx(manager, peer);
         BRPeerSendGetaddr(peer); // request a list of other bitcoin peers
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
         if (manager->txStatusUpdate) manager->txStatusUpdate(manager->info);
         if (syncFinished && manager->syncStopped) manager->syncStopped(manager->info, 0);
     }
@@ -592,12 +595,12 @@ static void _loadBloomFilterDone(void *info, int success)
     BRPeer *peer = ((BRPeerCallbackInfo *)info)->peer;
     BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
 
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     
     if (success) {
         BRPeerSendMempool(peer, manager->publishedTxHashes, array_count(manager->publishedTxHashes), info,
                           _mempoolDone);
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     }
     else {
         free(info);
@@ -605,10 +608,10 @@ static void _loadBloomFilterDone(void *info, int success)
         if (peer == manager->downloadPeer) {
             peer_log(peer, "sync succeeded");
             _BRPeerManagerSyncStopped(manager);
-            pthread_mutex_unlock(&manager->lock);
+            manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
             if (manager->syncStopped) manager->syncStopped(manager->info, 0);
         }
-        else pthread_mutex_unlock(&manager->lock);
+        else manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     }
 }
 
@@ -683,10 +686,12 @@ static void *_findPeersThreadRoutine(void *arg)
     UInt128 *addrList, *addr;
     time_t now = time(NULL), age;
     
-    pthread_cleanup_push(manager->threadCleanup, manager->info);
+//    pthread_cleanup_push(manager->threadCleanup, manager->info);
+    threadCleanup guard(manager->threadCleanup, manager->info);
+
     addrList = _addressLookup(((BRFindPeersInfo *)arg)->hostname);
     free(arg);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     
     for (addr = addrList; addr && ! UInt128IsZero(*addr); addr++) {
         age = 24*60*60 + BRRand(2*24*60*60); // add between 1 and 3 days
@@ -694,9 +699,10 @@ static void *_findPeersThreadRoutine(void *arg)
     }
 
     manager->dnsThreadCount--;
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     if (addrList) free(addrList);
-    pthread_cleanup_pop(1);
+//    pthread_cleanup_pop(1);
+    guard.commit();
     return NULL;
 }
 
@@ -706,8 +712,8 @@ static void _BRPeerManagerFindPeers(BRPeerManager *manager)
     uint64_t services = SERVICES_NODE_NETWORK | SERVICES_NODE_BLOOM | manager->params->services;
     time_t now = time(NULL);
     struct timespec ts;
-    pthread_t thread;
-    pthread_attr_t attr;
+//    pthread_t thread;
+//    pthread_attr_t attr;
     UInt128 *addr, *addrList;
     BRFindPeersInfo *info;
     
@@ -720,24 +726,35 @@ static void _BRPeerManagerFindPeers(BRPeerManager *manager)
     else {
         size_t peerCount = array_count(manager->peers);
 
+        std::vector<boost::thread> tmpDnsThreads;
+
         for (size_t i = 1; manager->params->dnsSeeds[i]; i++) {
             info = calloc(1, sizeof(BRFindPeersInfo));
             assert(info != NULL);
             info->manager = manager;
             info->hostname = manager->params->dnsSeeds[i];
             info->services = services;
-            if (pthread_attr_init(&attr) == 0 && pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) == 0 &&
-                pthread_create(&thread, &attr, _findPeersThreadRoutine, info) == 0) manager->dnsThreadCount++;
-            else free (info);
+
+//            boost::thread::attributes attrs;
+//            attrs.set_stack_size(PTHREAD_STACK_SIZE);
+            tmpDnsThreads.push_back(boost::thread(boost::bind(_findPeersThreadRoutine, info)));
+//            thread.reset(new boost::thread(attrs, boost::bind(_findPeersThreadRoutine, info)));
+            tmpDnsThreads.back().detach();
+//            ctx->thread->detach();
+            manager->dnsThreadCount++;
+
+//            if (pthread_attr_init(&attr) == 0 && pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) == 0 &&
+//                pthread_create(&thread, &attr, _findPeersThreadRoutine, info) == 0) manager->dnsThreadCount++;
+//            else free (info);
         }
 
         ts.tv_sec = 0;
         ts.tv_nsec = 1;
 
         do {
-            pthread_mutex_unlock(&manager->lock);
+            manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
             nanosleep(&ts, NULL); // pthread_yield() isn't POSIX standard :(
-            pthread_mutex_lock(&manager->lock);
+            manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
         } while (manager->dnsThreadCount > 0/* && array_count(manager->peers) < PEER_MAX_CONNECTIONS*/); /// @attention wait for dns threads exit!
         peer_log(0, "dns: %ld peers added", array_count(manager->peers) - peerCount);
 
@@ -752,7 +769,7 @@ static void _peerConnected(void *info)
     BRPeerCallbackInfo *peerInfo;
     time_t now = time(NULL);
 
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     if (peer->timestamp > now + 2*60*60 || peer->timestamp < now - 2*60*60) peer->timestamp = now; // sanity check
 
     // TODO: XXX does this work with 0.11 pruned nodes?
@@ -828,7 +845,7 @@ static void _peerConnected(void *info)
         }
     }
 
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
 }
 
 static void _peerDisconnected(void *info, int error)
@@ -840,7 +857,7 @@ static void _peerDisconnected(void *info, int error)
     size_t txCount = 0;
     
     //free(info);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
 
     BRPublishedTx pubTx[array_count(manager->publishedTx)];
     
@@ -908,7 +925,7 @@ static void _peerDisconnected(void *info, int error)
     }
 
     BRPeerFree(peer);
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     
     for (size_t i = 0; i < txCount; i++) {
         pubTx[i].callback(pubTx[i].info, txError);
@@ -926,7 +943,7 @@ static void _peerRelayedPeers(void *info, const BRPeer peers[], size_t peersCoun
     BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
     time_t now = time(NULL);
 
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     peer_log(peer, "relayed %zu peer(s)", peersCount);
 
     array_add_array(manager->peers, peers, peersCount);
@@ -943,7 +960,7 @@ static void _peerRelayedPeers(void *info, const BRPeer peers[], size_t peersCoun
     BRPeer save[peersCount];
 
     for (size_t i = 0; i < peersCount; i++) save[i] = manager->peers[i];
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     
     // peer relaying is complete when we receive <1000
     if (peersCount > 1 && peersCount < 1000 &&
@@ -959,7 +976,7 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
     int isWalletTx = 0, hasPendingCallbacks = 0;
     size_t relayCount = 0;
     
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     peer_log(peer, "relayed tx: %s", u256hex(tx->txHash).c_str());
     
     UInt256 hash = tx->txHash;
@@ -1029,7 +1046,7 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
         BRWalletUpdateTransactions(manager->wallet, &tx->txHash, 1, TX_UNCONFIRMED, (uint32_t)time(NULL));
     }
     
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     if (txCallback) {
         peer_log(peer, "cbtrace: relayed tx: %s", u256hex(UInt256Reverse(hash)).c_str());
         txCallback(txInfo, 0);
@@ -1045,7 +1062,7 @@ static void _peerHasTx(void *info, UInt256 txHash)
     int isWalletTx = 0, hasPendingCallbacks = 0;
     size_t relayCount = 0;
     
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     tx = BRWalletTransactionForHash(manager->wallet, txHash);
     peer_log(peer, "has tx: %s", u256hex(txHash).c_str());
 
@@ -1086,7 +1103,7 @@ static void _peerHasTx(void *info, UInt256 txHash)
         _BRTxPeerListRemovePeer(manager->txRequests, txHash, peer);
     }
     
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     if (pubTx.callback) {
         peer_log(peer, "cbtrace: has tx: %s", u256hex(UInt256Reverse(txHash)).c_str());
         pubTx.callback(pubTx.info, 0);
@@ -1099,7 +1116,7 @@ static void _peerRejectedTx(void *info, UInt256 txHash, uint8_t code)
     BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
     BRTransaction *tx, *t;
 
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     peer_log(peer, "rejected tx: %s", u256hex(txHash).c_str());
     tx = BRWalletTransactionForHash(manager->wallet, txHash);
     _BRTxPeerListRemovePeer(manager->txRequests, txHash, peer);
@@ -1123,7 +1140,7 @@ static void _peerRejectedTx(void *info, UInt256 txHash, uint8_t code)
         }
     }
 
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     if (manager->txStatusUpdate) manager->txStatusUpdate(manager->info);
 }
 
@@ -1192,7 +1209,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
     
     assert(txHashes != NULL);
     txCount = BRMerkleBlockTxHashes(block, txHashes, txCount);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     prev = BRSetGet(manager->blocks, &block->prevBlock);
 
     if (prev) {
@@ -1400,7 +1417,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
     if (j > 0) i -= (i > BLOCK_DIFFICULTY_INTERVAL - j) ? BLOCK_DIFFICULTY_INTERVAL - j : i;
     assert(i == 0 || (saveBlocks[i - 1]->height % BLOCK_DIFFICULTY_INTERVAL) == 0);
     if (i > 0 && manager->saveBlocks) manager->saveBlocks(manager->info, (i > 1 ? 1 : 0), saveBlocks, i);
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     
     if (block && block->height != BLOCK_UNKNOWN_HEIGHT && block->height >= BRPeerLastBlock(peer) &&
         manager->txStatusUpdate) {
@@ -1416,14 +1433,14 @@ static void _peerDataNotfound(void *info, const UInt256 txHashes[], size_t txCou
     BRPeer *peer = ((BRPeerCallbackInfo *)info)->peer;
     BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
 
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
 
     for (size_t i = 0; i < txCount; i++) {
         _BRTxPeerListRemovePeer(manager->txRelays, txHashes[i], peer);
         _BRTxPeerListRemovePeer(manager->txRequests, txHashes[i], peer);
     }
 
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
 }
 
 static void _peerSetFeePerKb(void *info, uint64_t feePerKb)
@@ -1432,7 +1449,7 @@ static void _peerSetFeePerKb(void *info, uint64_t feePerKb)
     BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
     uint64_t maxFeePerKb = 0, secondFeePerKb = 0;
     
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     
     for (size_t i = array_count(manager->connectedPeers); i > 0; i--) { // find second highest fee rate
         p = manager->connectedPeers[i - 1];
@@ -1446,7 +1463,7 @@ static void _peerSetFeePerKb(void *info, uint64_t feePerKb)
         BRWalletSetFeePerKb(manager->wallet, secondFeePerKb*3/2);
     }
 
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
 }
 
 static BRTransaction *_peerRequestedTx(void *info, UInt256 txHash)
@@ -1456,7 +1473,7 @@ static BRTransaction *_peerRequestedTx(void *info, UInt256 txHash)
     BRPublishedTx pubTx = { NULL, NULL, NULL };
     int hasPendingCallbacks = 0, error = 0;
 
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
 
     for (size_t i = array_count(manager->publishedTx); i > 0; i--) {
         if (UInt256Eq(manager->publishedTxHashes[i - 1], txHash)) {
@@ -1475,7 +1492,7 @@ static BRTransaction *_peerRequestedTx(void *info, UInt256 txHash)
     _BRTxPeerListAddPeer(&manager->txRelays, txHash, peer);
     if (pubTx.tx) BRWalletRegisterTransaction(manager->wallet, pubTx.tx);
     if (pubTx.tx && ! BRWalletTransactionIsValid(manager->wallet, pubTx.tx)) error = EINVAL;
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     if (pubTx.callback) {
         peer_log(peer, "cbtrace: tx requested: %s, %s", strerror(error), u256hex(UInt256Reverse(txHash)).c_str());
         pubTx.callback(pubTx.info, error);
@@ -1495,9 +1512,9 @@ static void _peerThreadCleanup(void *info)
     BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
 
     free(info);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     manager->peerThreadCount--;
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     if (manager->threadCleanup) manager->threadCleanup(manager->info);
 }
 
@@ -1567,7 +1584,7 @@ BRPeerManager *BRPeerManagerNew(const BRChainParams *params, BRWallet *wallet, u
     array_new(manager->txRequests, 10);
     array_new(manager->publishedTx, 10);
     array_new(manager->publishedTxHashes, 10);
-    pthread_mutex_init(&manager->lock, NULL);
+//    pthread_mutex_init(&manager->lock, NULL);
     manager->threadCleanup = _dummyThreadCleanup;
 
     peer_log(0, "\n\n\nSPV NEW SESSION");
@@ -1612,11 +1629,11 @@ void BRPeerManagerSetFixedPeer(BRPeerManager *manager, UInt128 address, uint16_t
 {
     assert(manager != NULL);
     BRPeerManagerDisconnect(manager);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     manager->maxConnectCount = UInt128IsZero(address) ? PEER_MAX_CONNECTIONS : 1;
     manager->fixedPeer = ((const BRPeer) { address, port, 0, 0, 0 });
     array_clear(manager->peers);
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
 }
 
 // current connect status
@@ -1625,7 +1642,7 @@ BRPeerStatus BRPeerManagerConnectStatus(BRPeerManager *manager)
     BRPeerStatus status = BRPeerStatusDisconnected;
     
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     if (manager->isConnected != 0) status = BRPeerStatusConnected;
 
     for (size_t i = array_count(manager->connectedPeers); i > 0 && status == BRPeerStatusDisconnected; i--) {
@@ -1633,7 +1650,7 @@ BRPeerStatus BRPeerManagerConnectStatus(BRPeerManager *manager)
         status = BRPeerStatusConnecting;
     }
 
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     return status;
 }
 
@@ -1641,9 +1658,9 @@ BRPeerStatus BRPeerManagerConnectStatus(BRPeerManager *manager)
 void BRPeerManagerConnect(BRPeerManager *manager)
 {
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     if (manager->isConnectRun) {
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
         return;
     }
     manager->isConnectRun = 1;
@@ -1652,9 +1669,9 @@ void BRPeerManagerConnect(BRPeerManager *manager)
     if ((! manager->downloadPeer || manager->lastBlock->height < manager->estimatedHeight) &&
         manager->syncStartHeight == 0) {
         manager->syncStartHeight = manager->lastBlock->height + 1;
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
         if (manager->syncStarted) manager->syncStarted(manager->info);
-        pthread_mutex_lock(&manager->lock);
+        manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     }
     
     while (array_count(manager->connectedPeers) < manager->maxConnectCount) {
@@ -1693,9 +1710,9 @@ void BRPeerManagerConnect(BRPeerManager *manager)
                 BRPeerSetEarliestKeyTime(info->peer, manager->earliestKeyTime);
 
                 if (!BRPeerConnect(info->peer)) {
-                    pthread_mutex_unlock(&manager->lock);
+                    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
                     _peerDisconnected(info, ENOTCONN);
-                    pthread_mutex_lock(&manager->lock);
+                    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
                     manager->peerThreadCount--;
                 }
             }
@@ -1706,12 +1723,12 @@ void BRPeerManagerConnect(BRPeerManager *manager)
         // it seems that this is dead branch for now
         _BRPeerManagerSyncStopped(manager);
         manager->isConnectRun = 0;
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
         if (manager->syncStopped) manager->syncStopped(manager->info, ENETUNREACH);
     }
     else {
         manager->isConnectRun = 0;
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     }
 }
 
@@ -1722,7 +1739,7 @@ void BRPeerManagerDisconnect(BRPeerManager *manager)
     BRPeer *p;
     
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
 
     // prevent new peers from being spawned
     maxConnectCount = manager->maxConnectCount;
@@ -1737,21 +1754,21 @@ void BRPeerManagerDisconnect(BRPeerManager *manager)
 
     peerThreadCount = manager->peerThreadCount;
     dnsThreadCount = manager->dnsThreadCount;
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     ts.tv_sec = 0;
     ts.tv_nsec = 1;
     
     while (peerThreadCount > 0 || dnsThreadCount > 0) {
         nanosleep(&ts, NULL); // pthread_yield() isn't POSIX standard :(
-        pthread_mutex_lock(&manager->lock);
+        manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
         peerThreadCount = manager->peerThreadCount;
         dnsThreadCount = manager->dnsThreadCount;
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     }
 
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     manager->maxConnectCount = maxConnectCount;
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
 }
 
 static int _BRPeerManagerRescan(BRPeerManager *manager, BRMerkleBlock *newLastBlock) {
@@ -1777,7 +1794,7 @@ static int _BRPeerManagerRescan(BRPeerManager *manager, BRMerkleBlock *newLastBl
 void BRPeerManagerRescan(BRPeerManager *manager)
 {
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     
     int needConnect = 0;
     if (manager->isConnected) {
@@ -1795,7 +1812,7 @@ void BRPeerManagerRescan(BRPeerManager *manager)
 
         needConnect = _BRPeerManagerRescan(manager, newLastBlock);
     }
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     if (needConnect) BRPeerManagerConnect(manager);
 }
 
@@ -1803,7 +1820,7 @@ void BRPeerManagerRescan(BRPeerManager *manager)
 void BRPeerManagerRescanFromLastHardcodedCheckpoint(BRPeerManager *manager)
 {
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
 
     int needConnect = 0;
     if (manager->isConnected) {
@@ -1813,7 +1830,7 @@ void BRPeerManagerRescanFromLastHardcodedCheckpoint(BRPeerManager *manager)
             needConnect = _BRPeerManagerRescan(manager, BRSetGet (manager->blocks, &hash));
         }
     }
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     if (needConnect) BRPeerManagerConnect(manager);
 }
 
@@ -1842,7 +1859,7 @@ static BRMerkleBlock *_BRPeerManagerLookupBlockFromBlockNumber(BRPeerManager *ma
 void BRPeerManagerRescanFromBlockNumber(BRPeerManager *manager, uint32_t blockNumber)
 {
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
 
     int needConnect = 0;
     if (manager->isConnected) {
@@ -1861,7 +1878,7 @@ void BRPeerManagerRescanFromBlockNumber(BRPeerManager *manager, uint32_t blockNu
 
         needConnect = _BRPeerManagerRescan(manager, block);
     }
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     if (needConnect) {
         if (manager->txStatusUpdate) manager->txStatusUpdate(manager->info);    /// @todo check for lastblockheight!
         BRPeerManagerConnect(manager);
@@ -1874,10 +1891,10 @@ uint32_t BRPeerManagerEstimatedBlockHeight(BRPeerManager *manager)
     uint32_t height;
     
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     height = (manager->lastBlock->height < manager->estimatedHeight) ? manager->estimatedHeight :
              manager->lastBlock->height;
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     return height;
 }
 
@@ -1887,9 +1904,9 @@ uint32_t BRPeerManagerLastBlockHeight(BRPeerManager *manager)
     uint32_t height;
     
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     height = manager->lastBlock->height;
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     return height;
 }
 
@@ -1899,9 +1916,9 @@ uint32_t BRPeerManagerLastBlockTimestamp(BRPeerManager *manager)
     uint32_t timestamp;
     
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     timestamp = manager->lastBlock->timestamp;
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     return timestamp;
 }
 
@@ -1912,7 +1929,7 @@ double BRPeerManagerSyncProgress(BRPeerManager *manager, uint32_t startHeight)
     double progress;
     
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     if (startHeight == 0) startHeight = manager->syncStartHeight;
     
     if (! manager->downloadPeer && manager->syncStartHeight == 0) {
@@ -1926,7 +1943,7 @@ double BRPeerManagerSyncProgress(BRPeerManager *manager, uint32_t startHeight)
     }
     else progress = 1.0;
 
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     return progress;
 }
 
@@ -1936,13 +1953,13 @@ size_t BRPeerManagerPeerCount(BRPeerManager *manager)
     size_t count = 0;
     
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     
     for (size_t i = array_count(manager->connectedPeers); i > 0; i--) {
         if (BRPeerConnectStatus(manager->connectedPeers[i - 1]) != BRPeerStatusDisconnected) count++;
     }
     
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     return count;
 }
 
@@ -1950,14 +1967,14 @@ size_t BRPeerManagerPeerCount(BRPeerManager *manager)
 const char *BRPeerManagerDownloadPeerName(BRPeerManager *manager)
 {
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
 
     if (manager->downloadPeer) {
         sprintf(manager->downloadPeerName, "%s:%d", BRPeerHost(manager->downloadPeer), manager->downloadPeer->port);
     }
     else manager->downloadPeerName[0] = '\0';
     
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     return manager->downloadPeerName;
 }
 
@@ -1967,9 +1984,9 @@ static void _publishTxInvDone(void *info, int success)
     BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
     
     free(info);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     _BRPeerManagerRequestUnrelayedTx(manager, peer);
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
 }
 
 // publishes tx to bitcoin network (do not call BRTransactionFree() on tx afterward)
@@ -1978,24 +1995,24 @@ void BRPeerManagerPublishTx(BRPeerManager *manager, BRTransaction *tx, void *inf
 {
     assert(manager != NULL);
     assert(tx != NULL && BRTransactionIsSigned(tx));
-    if (tx) pthread_mutex_lock(&manager->lock);
+    if (tx) manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     
     if (tx && ! BRTransactionIsSigned(tx)) {
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
         if (callback) callback(info, EINVAL); // transaction not signed
         tx = NULL;
     }
     else if (tx && ! manager->isConnected) {
         int connectFailureCount = manager->connectFailureCount;
 
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
 
         if (connectFailureCount >= MAX_CONNECT_FAILURES ||
             (manager->networkIsReachable && ! manager->networkIsReachable(manager->info))) {
             if (callback) callback(info, ENOTCONN); // not connected to bitcoin network
             tx = NULL;
         }
-        else pthread_mutex_lock(&manager->lock);
+        else manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     }
     
     if (tx) {
@@ -2003,7 +2020,7 @@ void BRPeerManagerPublishTx(BRPeerManager *manager, BRTransaction *tx, void *inf
         
         tx->timestamp = (uint32_t)time(NULL); // set timestamp to publish time
         if (_BRPeerManagerAddTxToPublishList(manager, tx, info, callback) != 0) {
-            pthread_mutex_unlock(&manager->lock);
+            manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
             if (callback)
                 callback(info, EALREADY);
             return;
@@ -2031,7 +2048,7 @@ void BRPeerManagerPublishTx(BRPeerManager *manager, BRTransaction *tx, void *inf
             }
         }
 
-        pthread_mutex_unlock(&manager->lock);
+        manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     }
 }
 
@@ -2042,7 +2059,7 @@ size_t BRPeerManagerRelayCount(BRPeerManager *manager, UInt256 txHash)
 
     assert(manager != NULL);
     assert(! UInt256IsZero(txHash));
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     
     for (size_t i = array_count(manager->txRelays); i > 0; i--) {
         if (! UInt256Eq(manager->txRelays[i - 1].txHash, txHash)) continue;
@@ -2050,7 +2067,7 @@ size_t BRPeerManagerRelayCount(BRPeerManager *manager, UInt256 txHash)
         break;
     }
     
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     return count;
 }
 
@@ -2064,7 +2081,7 @@ void BRPeerManagerFree(BRPeerManager *manager)
     BRTransaction *tx;
     
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
     array_free(manager->peers);
     for (size_t i = array_count(manager->connectedPeers); i > 0; i--) BRPeerFree(manager->connectedPeers[i - 1]);
     array_free(manager->connectedPeers);
@@ -2087,8 +2104,8 @@ void BRPeerManagerFree(BRPeerManager *manager)
 
     array_free(manager->publishedTx);
     array_free(manager->publishedTxHashes);
-    pthread_mutex_unlock(&manager->lock);
-    pthread_mutex_destroy(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
+//    pthread_mutex_destroy(&manager->lock);
     free(manager);
     peer_log(0, "SPV SESSION ENDS");
 }
@@ -2099,7 +2116,7 @@ void BRPeerManagerCancelPendingTxs(BRPeerManager *manager)
     int txError = ECANCELED;
 
     assert(manager != NULL);
-    pthread_mutex_lock(&manager->lock);
+    manager->lock.lock(); // pthread_mutex_lock(&manager->lock);
 
     // do not free txs itself - it will be done by manager
     BRPublishedTx pubTx[array_count(manager->publishedTx)];
@@ -2111,7 +2128,7 @@ void BRPeerManagerCancelPendingTxs(BRPeerManager *manager)
         manager->publishedTx[i - 1].info = NULL;
         peer_log(0, "cbtrace on exit: tx canceled: %s, %s", strerror(txError), u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])).c_str());
     }
-    pthread_mutex_unlock(&manager->lock);
+    manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
 
     for (size_t i = 0; i < txCount; i++) {
         pubTx[i].callback(pubTx[i].info, txError);
