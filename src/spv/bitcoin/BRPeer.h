@@ -138,7 +138,22 @@ struct BRPeerStruct {
 };
 typedef struct BRPeerStruct BRPeer;
 
-#define BR_PEER_NONE ((const BRPeer) { UINT128_ZERO, 0, 0, 0, 0 })
+struct threadCleanup {
+    threadCleanup(void (*cleanup)(void *), void *info) : m_cleanup(cleanup), m_info(info), m_commit( false ) {}
+    ~threadCleanup()
+    {
+        if (!m_commit && m_cleanup)
+            m_cleanup(m_info);
+    }
+    void commit() { m_commit = true; }
+
+private:
+    void (*m_cleanup)(void *info);
+    void *m_info;
+    bool m_commit;
+};
+
+constexpr BRPeer BR_PEER_NONE = { UINT128_ZERO, 0, 0, 0, 0 };
 
 // NOTE: BRPeer functions are not thread-safe
 

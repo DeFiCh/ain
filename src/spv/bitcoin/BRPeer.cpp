@@ -38,7 +38,7 @@
 
 #include <boost/thread.hpp>
 
-#include <pthread.h>
+//#include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -60,6 +60,9 @@
 #define WITNESS_FLAG       0x40000000
 
 #define PTHREAD_STACK_SIZE  (512 * 1024)
+
+//static boost::thread_group BRPeersThreads;
+
 
 // the standard blockchain download protocol works as follows (for SPV mode):
 // - local peer sends getblocks
@@ -138,8 +141,10 @@ typedef struct {
     void (**volatile pongCallback)(void *info, int success);
     void *volatile mempoolInfo;
     void (*volatile mempoolCallback)(void *info, int success);
-    pthread_t thread;
-    pthread_mutex_t lock;
+    std::unique_ptr<boost::thread> thread;
+//    pthread_t thread;
+//    pthread_mutex_t lock;
+    boost::mutex lock;
 } BRPeerContext;
 
 void BRPeerSendVersionMessage(BRPeer *peer);
@@ -175,17 +180,20 @@ static void _BRPeerDidConnect(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
 
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     if (ctx->status == BRPeerStatusConnecting && ctx->sentVerack && ctx->gotVerack) {
         peer_log(peer, "handshake completed");
         ctx->disconnectTime = DBL_MAX;
         ctx->status = BRPeerStatusConnected;
         peer_log(peer, "connected with lastblock: %"PRIu32, ctx->lastblock);
-        pthread_mutex_unlock(&ctx->lock);
+//        pthread_mutex_unlock(&ctx->lock);
+        ctx->lock.unlock();
         if (ctx->connected) ctx->connected(ctx->info);
     }
     else {
-        pthread_mutex_unlock(&ctx->lock);
+//        pthread_mutex_unlock(&ctx->lock);
+        ctx->lock.unlock();
     }
 }
 
@@ -408,9 +416,11 @@ static int _BRPeerAcceptInvMessage(BRPeer *peer, const uint8_t *msg, size_t msgL
                 BRPeerSendPing(peer, ctx->mempoolInfo, ctx->mempoolCallback);
                 ctx->mempoolCallback = NULL;
 
-                pthread_mutex_lock(&ctx->lock);
+//                pthread_mutex_lock(&ctx->lock);
+                ctx->lock.lock();
                 ctx->mempoolTime = DBL_MAX;
-                pthread_mutex_unlock(&ctx->lock);
+//                pthread_mutex_unlock(&ctx->lock);
+                ctx->lock.unlock();
 
             }
         }
@@ -831,9 +841,11 @@ static int _BRPeerAcceptFeeFilterMessage(BRPeer *peer, const uint8_t *msg, size_
         r = 0;
     }
     else {
-        pthread_mutex_lock(&ctx->lock);
+//        pthread_mutex_lock(&ctx->lock);
+        ctx->lock.lock();
         ctx->feePerKb = UInt64GetLE(msg);
-        pthread_mutex_unlock(&ctx->lock);
+//        pthread_mutex_unlock(&ctx->lock);
+        ctx->lock.unlock();
         
         peer_log(peer, "got feefilter with rate %"PRIu64, ctx->feePerKb);
         if (ctx->setFeePerKb) ctx->setFeePerKb(ctx->info, ctx->feePerKb);
@@ -883,9 +895,11 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
     int count, arg = 0, err = 0, on = 1, r = 1;
     int sock;
 
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     sock = ctx->socket = socket(domain, SOCK_STREAM, 0);
-    pthread_mutex_unlock(&ctx->lock);
+//    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     if (sock < 0) {
         err = errno;
@@ -955,10 +969,12 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
 static int _peerCheckAndGetSocket (BRPeerContext *ctx, int *socket) {
     int exists;
 
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     exists = ctx->socket >= 0;
     if (NULL != socket) *socket = ctx->socket;
-    pthread_mutex_unlock(&ctx->lock);
+//    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     return exists;
 }
@@ -966,9 +982,11 @@ static int _peerCheckAndGetSocket (BRPeerContext *ctx, int *socket) {
 static int _peerGetSocket (BRPeerContext *ctx) {
     int socket;
 
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     socket = ctx->socket;
-    pthread_mutex_unlock(&ctx->lock);
+//    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     return socket;
 }
@@ -976,9 +994,11 @@ static int _peerGetSocket (BRPeerContext *ctx) {
 static double _peerGetDisconnectTime (BRPeerContext *ctx) {
     double value;
 
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     value = ctx->disconnectTime;
-    pthread_mutex_unlock(&ctx->lock);
+//    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     return value;
 }
@@ -986,9 +1006,11 @@ static double _peerGetDisconnectTime (BRPeerContext *ctx) {
 static double _peerGetMempoolTime (BRPeerContext *ctx) {
     double value;
 
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     value = ctx->mempoolTime;
-    pthread_mutex_unlock(&ctx->lock);
+//    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     return value;
 }
@@ -1000,7 +1022,8 @@ static void *_peerThreadRoutine(void *arg)
     BRPeerContext *ctx = arg;
     int socket, error = 0;
 
-    pthread_cleanup_push(ctx->threadCleanup, ctx->info);
+    threadCleanup guard(ctx->threadCleanup, ctx->info);
+//    pthread_cleanup_push(ctx->threadCleanup, ctx->info);
     
     if (_BRPeerOpenSocket(peer, PF_INET6, CONNECT_TIMEOUT, &error)) {
         struct timeval tv;
@@ -1031,9 +1054,11 @@ static void *_peerThreadRoutine(void *arg)
                     BRPeerSendPing(peer, ctx->mempoolInfo, ctx->mempoolCallback);
                     ctx->mempoolCallback = NULL;
 
-                    pthread_mutex_lock(&ctx->lock);
+//                    pthread_mutex_lock(&ctx->lock);
+                    ctx->lock.lock();
                     ctx->mempoolTime = DBL_MAX;
-                    pthread_mutex_unlock(&ctx->lock);
+//                    pthread_mutex_unlock(&ctx->lock);
+                    ctx->lock.unlock();
                 }
 
                 while (sizeof(uint32_t) <= len && UInt32GetLE(header) != ctx->magicNumber) {
@@ -1099,10 +1124,12 @@ static void *_peerThreadRoutine(void *arg)
         free(payload);
     }
 
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     socket = ctx->socket;
     ctx->status = BRPeerStatusDisconnected;
-    pthread_mutex_unlock(&ctx->lock);
+//    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     if (socket >= 0) close(socket);
     peer_log(peer, "disconnected");
@@ -1119,7 +1146,9 @@ static void *_peerThreadRoutine(void *arg)
     if (ctx->mempoolCallback) ctx->mempoolCallback(ctx->mempoolInfo, 0);
     ctx->mempoolCallback = NULL;
     if (ctx->disconnected) ctx->disconnected(ctx->info, error);
-    pthread_cleanup_pop(1);
+//    pthread_cleanup_pop(1);
+    /// @todo spv: debug for proper thread cleanup!
+//    guard.commit();
     return NULL; // detached threads don't need to return a value
 }
 
@@ -1149,11 +1178,11 @@ BRPeer *BRPeerNew(uint32_t magicNumber)
     ctx->thread = 0;
 
     {
-        pthread_mutexattr_t attr;
-        pthread_mutexattr_init(&attr);
-        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
-        pthread_mutex_init(&ctx->lock, &attr);
-        pthread_mutexattr_destroy(&attr);
+//        pthread_mutexattr_t attr;
+//        pthread_mutexattr_init(&attr);
+//        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+//        pthread_mutex_init(&ctx->lock, &attr);
+//        pthread_mutexattr_destroy(&attr);
     }
 
     return &ctx->peer;
@@ -1221,9 +1250,11 @@ BRPeerStatus BRPeerConnectStatus(BRPeer *peer)
     BRPeerContext *ctx = (BRPeerContext *)peer;
     BRPeerStatus status = 0;
 
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     status = ctx->status;
-    pthread_mutex_unlock(&ctx->lock);
+//    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     return status;
 }
@@ -1233,9 +1264,10 @@ int BRPeerConnect(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
     struct timeval tv;
-    pthread_attr_t attr;
+//    pthread_attr_t attr;
 
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     if (ctx->status == BRPeerStatusDisconnected || ctx->waitingForNetwork) { /// @todo check all places with "->waitingForNetwork"
         ctx->status = BRPeerStatusConnecting;
     
@@ -1251,29 +1283,38 @@ int BRPeerConnect(BRPeer *peer)
             // No race - set before the thread starts.
             ctx->disconnectTime = tv.tv_sec + (double)tv.tv_usec/1000000 + CONNECT_TIMEOUT;
 
-            if (pthread_attr_init(&attr) != 0) {
-                // error = ENOMEM;
-                peer_log(peer, "error creating thread");
-                ctx->status = BRPeerStatusDisconnected;
-                //if (ctx->disconnected) ctx->disconnected(ctx->info, error);
-            }
-            else if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0 ||
-                     pthread_attr_setstacksize(&attr, PTHREAD_STACK_SIZE) != 0 ||
-                     pthread_create(&ctx->thread, &attr, _peerThreadRoutine, peer) != 0) {
+//            if (pthread_attr_init(&attr) != 0) {
+//                // error = ENOMEM;
+//                peer_log(peer, "error creating thread");
+//                ctx->status = BRPeerStatusDisconnected;
+//                //if (ctx->disconnected) ctx->disconnected(ctx->info, error);
+//            }
+//            else // if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0 ||
+//                     pthread_attr_setstacksize(&attr, PTHREAD_STACK_SIZE) != 0 ||
+//                     pthread_create(&ctx->thread, &attr, _peerThreadRoutine, peer) != 0)
+            {
+                boost::thread::attributes attrs;
+                attrs.set_stack_size(PTHREAD_STACK_SIZE);
+                ctx->thread.reset(new boost::thread(attrs, boost::bind(_peerThreadRoutine, peer)));
+                ctx->thread->detach();
+                        //BRPeersThreads.create_thread(std::bind(&ThreadImport, vImportFiles));
+
                 // error = EAGAIN;
-                peer_log(peer, "error creating thread");
-                pthread_attr_destroy(&attr);
-                ctx->thread = 0; // otherwise may be UB
-                ctx->status = BRPeerStatusDisconnected;
+//                peer_log(peer, "error creating thread");
+//                pthread_attr_destroy(&attr);
+//                ctx->thread = 0; // otherwise may be UB
+//                ctx->status = BRPeerStatusDisconnected;
                 //if (ctx->disconnected) ctx->disconnected(ctx->info, error);
-            }
-            else {
-                pthread_mutex_unlock(&ctx->lock);
+//            }
+//            else {
+//                pthread_mutex_unlock(&ctx->lock);
+                ctx->lock.unlock();
                 return 1; // thread successful run
             }
         }
     }
-    pthread_mutex_unlock(&ctx->lock);
+//    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
     return 0;
 }
 
@@ -1284,9 +1325,11 @@ void BRPeerDisconnect(BRPeer *peer)
     int socket = -1;
 
     if (_peerCheckAndGetSocket(ctx, &socket)) {
-        pthread_mutex_lock(&ctx->lock);
+//        pthread_mutex_lock(&ctx->lock);
+        ctx->lock.lock();
         ctx->status = BRPeerStatusDisconnected;
-        pthread_mutex_unlock(&ctx->lock);
+//        pthread_mutex_unlock(&ctx->lock);
+        ctx->lock.unlock();
 
         if (shutdown(socket, SHUT_RDWR) < 0) peer_log(peer, "%s: %s", __func__, strerror(errno));
         close(socket);
@@ -1300,9 +1343,11 @@ void BRPeerScheduleDisconnect(BRPeer *peer, double seconds)
     struct timeval tv;
     
     gettimeofday(&tv, NULL);
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     ctx->disconnectTime = (seconds < 0) ? DBL_MAX : tv.tv_sec + (double)tv.tv_usec/1000000 + seconds;
-    pthread_mutex_unlock(&ctx->lock);
+//    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 }
 
 // call this when wallet addresses need to be added to bloom filter
@@ -1372,10 +1417,11 @@ uint64_t BRPeerFeePerKb(BRPeer *peer)
     BRPeerContext *ctx = (BRPeerContext *)peer;
     uint64_t feePerKb;
 
-    pthread_mutex_lock(&ctx->lock);
+//    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     feePerKb = ctx->feePerKb;
-    pthread_mutex_unlock(&ctx->lock);
-
+//    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
     return feePerKb;
 }
 
@@ -1501,9 +1547,11 @@ void BRPeerSendMempool(BRPeer *peer, const UInt256 knownTxHashes[], size_t known
         if (completionCallback) {
             gettimeofday(&tv, NULL);
 
-            pthread_mutex_lock(&ctx->lock);
+//            pthread_mutex_lock(&ctx->lock);
+            ctx->lock.lock();
             ctx->mempoolTime = tv.tv_sec + (double)tv.tv_usec/1000000 + 10.0;
-            pthread_mutex_unlock(&ctx->lock);
+//            pthread_mutex_unlock(&ctx->lock);
+            ctx->lock.unlock();
 
             ctx->mempoolInfo = info;
             ctx->mempoolCallback = completionCallback;
@@ -1672,7 +1720,7 @@ void BRPeerFree(BRPeer *peer)
     if (ctx->pongCallback) array_free(ctx->pongCallback);
     if (ctx->pongInfo) array_free(ctx->pongInfo);
     
-    pthread_mutex_destroy(&ctx->lock);
+//    pthread_mutex_destroy(&ctx->lock);
     free(ctx);
 }
 
