@@ -107,11 +107,11 @@ static int BRMainNetVerifyDifficulty(const BRMerkleBlock *block, const BRSet *bl
     // check if we hit a difficulty transition, and find previous transition block
     if ((block->height % BLOCK_DIFFICULTY_INTERVAL) == 0) {
         for (i = 0, b = block; b && i < BLOCK_DIFFICULTY_INTERVAL; i++) {
-            b = BRSetGet(blockSet, &b->prevBlock);
+            b = (BRMerkleBlock*)BRSetGet(blockSet, &b->prevBlock);
         }
     }
 
-    previous = BRSetGet(blockSet, &block->prevBlock);
+    previous = (BRMerkleBlock*)BRSetGet(blockSet, &block->prevBlock);
     return BRMerkleBlockVerifyDifficulty(block, previous, (b) ? b->timestamp : 0);
 }
 

@@ -60,12 +60,15 @@ size_t BRKeyECIESAES128SHA256Encrypt(BRKey *pubKey, void *out, size_t outLen, BR
     // encrypt
     BRSHA256(buf, data, dataLen);
     BRHMACDRBG(iv, sizeof(iv), K, V, BRSHA256, 32, encKey, 16, buf, 32, NULL, 0); // generate iv
-    memcpy(&out[pkLen], iv, sizeof(iv));
-    BRAESCTR(&out[pkLen + sizeof(iv)], encKey, 16, iv, data, dataLen);
+//    memcpy(&out[pkLen], iv, sizeof(iv));
+    memcpy(out + pkLen, iv, sizeof(iv));
+//    BRAESCTR(&out[pkLen + sizeof(iv)], encKey, 16, iv, data, dataLen);
+    BRAESCTR(out + pkLen + sizeof(iv), encKey, 16, iv, data, dataLen);
     mem_clean(shared, sizeof(shared));
     
     // tag with mac
-    BRHMAC(&out[pkLen + sizeof(iv) + dataLen], BRSHA256, 32, macKey, 32, &out[pkLen], sizeof(iv) + dataLen);
+//    BRHMAC(&out[pkLen + sizeof(iv) + dataLen], BRSHA256, 32, macKey, 32, &out[pkLen], sizeof(iv) + dataLen);
+    BRHMAC(out + pkLen + sizeof(iv) + dataLen, BRSHA256, 32, macKey, 32, out + pkLen, sizeof(iv) + dataLen);
     mem_clean(macKey, sizeof(macKey));
     return pkLen + sizeof(iv) + dataLen + 32;
 }
@@ -95,15 +98,18 @@ size_t BRKeyECIESAES128SHA256Decrypt(BRKey *privKey, void *out, size_t outLen, c
     BRSHA256(macKey, &shared[16], 16);
     
     // verify mac tag
-    BRHMAC(mac, BRSHA256, 32, macKey, 32, &data[pkLen], dataLen - (pkLen + 32));
+//    BRHMAC(mac, BRSHA256, 32, macKey, 32, &data[pkLen], dataLen - (pkLen + 32));
+    BRHMAC(mac, BRSHA256, 32, macKey, 32, data + pkLen, dataLen - (pkLen + 32));
     mem_clean(macKey, sizeof(macKey));
     for (i = 0; i < 32; i++) r |= mac[i] ^ ((uint8_t *)data)[dataLen + i - 32]; // constant time compare
     mem_clean(mac, sizeof(mac));
     if (r != 0) return 0;
     
     // decrypt
-    memcpy(iv, &data[pkLen], sizeof(iv));
-    BRAESCTR(out, encKey, 16, iv, &data[pkLen + sizeof(iv)], dataLen - (pkLen + sizeof(iv) + 32));
+//    memcpy(iv, &data[pkLen], sizeof(iv));
+    memcpy(iv, data + pkLen, sizeof(iv));
+//    BRAESCTR(out, encKey, 16, iv, &data[pkLen + sizeof(iv)], dataLen - (pkLen + sizeof(iv) + 32));
+    BRAESCTR(out, encKey, 16, iv, data + pkLen + sizeof(iv), dataLen - (pkLen + sizeof(iv) + 32));
     mem_clean(shared, sizeof(shared));
     return dataLen - (pkLen + sizeof(iv) + 32);
 }
