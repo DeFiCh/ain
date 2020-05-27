@@ -96,8 +96,8 @@ static const BRMerkleBlock *_medianBlock(const BRMerkleBlock *b, const BRSet *bl
 {
     const BRMerkleBlock *b0 = NULL, *b1 = NULL, *b2 = b;
 
-    b1 = (b2) ? BRSetGet(blockSet, &b2->prevBlock) : NULL;
-    b0 = (b1) ? BRSetGet(blockSet, &b1->prevBlock) : NULL;
+    b1 = (b2) ? (BRMerkleBlock*)BRSetGet(blockSet, &b2->prevBlock) : NULL;
+    b0 = (b1) ? (BRMerkleBlock*)BRSetGet(blockSet, &b1->prevBlock) : NULL;
     if (b0 && b2 && b0->timestamp > b2->timestamp) b = b0, b0 = b2, b2 = b;
     if (b0 && b1 && b0->timestamp > b1->timestamp) b = b0, b0 = b1, b1 = b;
     if (b1 && b2 && b1->timestamp > b2->timestamp) b = b1, b1 = b2, b2 = b;
@@ -115,11 +115,11 @@ static int BRBCashVerifyDifficulty(const BRMerkleBlock *block, const BRSet *bloc
     assert(blockSet != NULL);
 
     if (block && block->height >= 504032) { // D601 hard fork height: https://reviews.bitcoinabc.org/D601
-        last = BRSetGet(blockSet, &block->prevBlock);
+        last = (BRMerkleBlock*)BRSetGet(blockSet, &block->prevBlock);
         last = _medianBlock(last, blockSet);
 
         for (i = 0, first = block; first && i <= 144; i++) {
-            first = BRSetGet(blockSet, &first->prevBlock);
+            first = (BRMerkleBlock*)BRSetGet(blockSet, &first->prevBlock);
         }
 
         first = _medianBlock(first, blockSet);
@@ -141,7 +141,7 @@ static int BRBCashVerifyDifficulty(const BRMerkleBlock *block, const BRSet *bloc
             while (work + w < w) w >>= 8, work >>= 8, size--;
             work += w;
 
-            b = BRSetGet(blockSet, &b->prevBlock);
+            b = (BRMerkleBlock*)BRSetGet(blockSet, &b->prevBlock);
         }
 
         // work = work*10*60/timespan

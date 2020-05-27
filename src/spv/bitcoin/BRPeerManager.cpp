@@ -33,6 +33,9 @@
 #include <limits.h>
 #include <time.h>
 #include <assert.h>
+
+//#include <compat.h>
+
 #include <pthread.h>
 #include <errno.h>
 #include <netdb.h>
@@ -236,7 +239,7 @@ static int _BRPeerManagerAddTxToPublishList(BRPeerManager *manager, BRTransactio
     if (tx && tx->blockHeight == TX_UNCONFIRMED) {
         for (size_t i = array_count(manager->publishedTx); i > 0; i--) {
             if (BRTransactionEq(manager->publishedTx[i - 1].tx, tx)) {
-                peer_log(0, "tx ignored: already pending, %s", u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])));
+                peer_log(0, "tx ignored: already pending, %s", u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])).c_str());
                 return -1;
             }
         }
@@ -502,7 +505,7 @@ static void _requestUnrelayedTxGetdataDone(void *info, int success)
             
             if (! isPublishing && _BRTxPeerListCount(manager->txRelays, hash) == 0 &&
                 _BRTxPeerListCount(manager->txRequests, hash) == 0) {
-                peer_log(peer, "removing tx unconfirmed at: %d, txHash: %s", manager->lastBlock->height, u256hex(hash));
+                peer_log(peer, "removing tx unconfirmed at: %d, txHash: %s", manager->lastBlock->height, u256hex(hash).c_str());
                 assert(tx[i - 1]->blockHeight == TX_UNCONFIRMED);
                 BRWalletRemoveTransaction(manager->wallet, hash);
             }
@@ -891,7 +894,7 @@ static void _peerDisconnected(void *info, int error)
     if (txError) {
         for (size_t i = array_count(manager->publishedTx); i > 0; i--) {
             if (manager->publishedTx[i - 1].callback == NULL) continue;
-            peer_log(peer, "cbtrace on disconnect: tx canceled: %s, %s", strerror(txError), u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])));
+            peer_log(peer, "cbtrace on disconnect: tx canceled: %s, %s", strerror(txError), u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])).c_str());
             pubTx[txCount++] = manager->publishedTx[i - 1];
             manager->publishedTx[i - 1].callback = NULL;
             manager->publishedTx[i - 1].info = NULL;
@@ -957,7 +960,7 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
     size_t relayCount = 0;
     
     pthread_mutex_lock(&manager->lock);
-    peer_log(peer, "relayed tx: %s", u256hex(tx->txHash));
+    peer_log(peer, "relayed tx: %s", u256hex(tx->txHash).c_str());
     
     UInt256 hash = tx->txHash;
     for (size_t i = array_count(manager->publishedTx); i > 0; i--) { // see if tx is in list of published tx
@@ -1028,7 +1031,7 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
     
     pthread_mutex_unlock(&manager->lock);
     if (txCallback) {
-        peer_log(peer, "cbtrace: relayed tx: %s", u256hex(UInt256Reverse(hash)));
+        peer_log(peer, "cbtrace: relayed tx: %s", u256hex(UInt256Reverse(hash)).c_str());
         txCallback(txInfo, 0);
     }
 }
@@ -1044,7 +1047,7 @@ static void _peerHasTx(void *info, UInt256 txHash)
     
     pthread_mutex_lock(&manager->lock);
     tx = BRWalletTransactionForHash(manager->wallet, txHash);
-    peer_log(peer, "has tx: %s", u256hex(txHash));
+    peer_log(peer, "has tx: %s", u256hex(txHash).c_str());
 
     for (size_t i = array_count(manager->publishedTx); i > 0; i--) { // see if tx is in list of published tx
         if (UInt256Eq(manager->publishedTxHashes[i - 1], txHash)) {
@@ -1085,7 +1088,7 @@ static void _peerHasTx(void *info, UInt256 txHash)
     
     pthread_mutex_unlock(&manager->lock);
     if (pubTx.callback) {
-        peer_log(peer, "cbtrace: has tx: %s", u256hex(UInt256Reverse(txHash)));
+        peer_log(peer, "cbtrace: has tx: %s", u256hex(UInt256Reverse(txHash)).c_str());
         pubTx.callback(pubTx.info, 0);
     }
 }
@@ -1097,7 +1100,7 @@ static void _peerRejectedTx(void *info, UInt256 txHash, uint8_t code)
     BRTransaction *tx, *t;
 
     pthread_mutex_lock(&manager->lock);
-    peer_log(peer, "rejected tx: %s", u256hex(txHash));
+    peer_log(peer, "rejected tx: %s", u256hex(txHash).c_str());
     tx = BRWalletTransactionForHash(manager->wallet, txHash);
     _BRTxPeerListRemovePeer(manager->txRequests, txHash, peer);
 
@@ -1140,7 +1143,7 @@ static int _BRPeerManagerVerifyBlock(BRPeerManager *manager, BRMerkleBlock *bloc
         }
 
         if (! b) {
-            peer_log(peer, "missing previous difficulty tansition, can't verify block: %s", u256hex(block->blockHash));
+            peer_log(peer, "missing previous difficulty tansition, can't verify block: %s", u256hex(block->blockHash).c_str());
             r = 0;
         }
         else prevBlock = b->prevBlock;
@@ -1159,7 +1162,7 @@ static int _BRPeerManagerVerifyBlock(BRPeerManager *manager, BRMerkleBlock *bloc
     // verify block difficulty
     if (r && ! manager->params->verifyDifficulty(block, manager->blocks)) {
         peer_log(peer, "relayed block with invalid difficulty target %x, blockHash: %s", block->target,
-                 u256hex(block->blockHash));
+                 u256hex(block->blockHash).c_str());
         r = 0;
     }
     
@@ -1168,8 +1171,8 @@ static int _BRPeerManagerVerifyBlock(BRPeerManager *manager, BRMerkleBlock *bloc
 
         // verify blockchain checkpoints
         if (checkpoint && ! BRMerkleBlockEq(block, checkpoint)) {
-            peer_log(peer, "relayed a block that differs from the checkpoint at height %"PRIu32", blockHash: %s, "
-                     "expected: %s", block->height, u256hex(block->blockHash), u256hex(checkpoint->blockHash));
+            peer_log(peer, "relayed a block that differs from the checkpoint at height %" PRIu32 ", blockHash: %s, "
+                     "expected: %s", block->height, u256hex(block->blockHash).c_str(), u256hex(checkpoint->blockHash).c_str());
             r = 0;
         }
     }
@@ -1213,7 +1216,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
         // false positive rate sanity check
         if (BRPeerConnectStatus(peer) == BRPeerStatusConnected &&
             manager->fpRate > BLOOM_DEFAULT_FALSEPOSITIVE_RATE*10.0) {
-            peer_log(peer, "bloom filter false positive rate %f too high after %"PRIu32" blocks, disconnecting...",
+            peer_log(peer, "bloom filter false positive rate %f too high after %" PRIu32 " blocks, disconnecting...",
                      manager->fpRate, manager->lastBlock->height + 1 - manager->filterUpdateHeight);
             BRPeerDisconnect(peer);
         }
@@ -1238,8 +1241,8 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
         }
     }
     else if (! prev) { // block is an orphan
-        peer_log(peer, "relayed orphan block %s, previous %s, last block is %s, height %"PRIu32,
-                 u256hex(block->blockHash), u256hex(block->prevBlock), u256hex(manager->lastBlock->blockHash),
+        peer_log(peer, "relayed orphan block %s, previous %s, last block is %s, height %" PRIu32,
+                 u256hex(block->blockHash).c_str(), u256hex(block->prevBlock).c_str(), u256hex(manager->lastBlock->blockHash).c_str(),
                  manager->lastBlock->height);
         
         if (block->timestamp + 7*24*60*60 < time(NULL)) { // ignore orphans older than one week ago
@@ -1270,7 +1273,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
     }
     else if (UInt256Eq(block->prevBlock, manager->lastBlock->blockHash)) { // new block extends main chain
         if ((block->height % 500) == 0 || txCount > 0 || block->height >= BRPeerLastBlock(peer)) {
-            peer_log(peer, "adding block #%"PRIu32", false positive rate: %f", block->height, manager->fpRate);
+            peer_log(peer, "adding block #%" PRIu32 ", false positive rate: %f", block->height, manager->fpRate);
         }
         
         BRSetAdd(manager->blocks, block);
@@ -1294,7 +1297,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
     }
     else if (BRSetContains(manager->blocks, block)) { // we already have the block (or at least the header)
         if ((block->height % 500) == 0 || txCount > 0 || block->height >= BRPeerLastBlock(peer)) {
-            peer_log(peer, "relayed existing block #%"PRIu32, block->height);
+            peer_log(peer, "relayed existing block #%" PRIu32, block->height);
         }
         
         b = manager->lastBlock;
@@ -1316,18 +1319,18 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
     }
     else if (manager->lastBlock->height < BRPeerLastBlock(peer) &&
              block->height > manager->lastBlock->height + 1) { // special case, new block mined durring rescan
-        peer_log(peer, "marking new block #%"PRIu32" as orphan until rescan completes", block->height);
+        peer_log(peer, "marking new block #%" PRIu32 " as orphan until rescan completes", block->height);
         BRSetAdd(manager->orphans, block); // mark as orphan til we're caught up
         manager->lastOrphan = block;
     }
     else if (block->height <= manager->params->checkpoints[manager->params->checkpointsCount - 1].height) { // old fork
-        peer_log(peer, "ignoring block on fork older than most recent checkpoint, block #%"PRIu32", hash: %s",
-                 block->height, u256hex(block->blockHash));
+        peer_log(peer, "ignoring block on fork older than most recent checkpoint, block #%" PRIu32 ", hash: %s",
+                 block->height, u256hex(block->blockHash).c_str());
         BRMerkleBlockFree(block);
         block = NULL;
     }
     else { // new block is on a fork
-        peer_log(peer, "chain fork reached height %"PRIu32, block->height);
+        peer_log(peer, "chain fork reached height %" PRIu32, block->height);
         BRSetAdd(manager->blocks, block);
 
         // TODO: calculate chain work and use that instead of block height to determine longest chain
@@ -1342,7 +1345,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
 
             assert (NULL != b);
             assert (NULL != block);
-            peer_log(peer, "reorganizing chain from height %"PRIu32", new height is %"PRIu32, b->height, block->height);
+            peer_log(peer, "reorganizing chain from height %" PRIu32 ", new height is %" PRIu32, b->height, block->height);
         
             BRWalletSetTxUnconfirmedAfter(manager->wallet, b->height); // mark tx after the join point as unconfirmed
 
@@ -1439,7 +1442,7 @@ static void _peerSetFeePerKb(void *info, uint64_t feePerKb)
     
     if (secondFeePerKb*3/2 > DEFAULT_FEE_PER_KB && secondFeePerKb*3/2 <= MAX_FEE_PER_KB &&
         secondFeePerKb*3/2 > BRWalletFeePerKb(manager->wallet)) {
-        peer_log(peer, "increasing feePerKb to %"PRIu64" based on feefilter messages from peers", secondFeePerKb*3/2);
+        peer_log(peer, "increasing feePerKb to %" PRIu64 " based on feefilter messages from peers", secondFeePerKb*3/2);
         BRWalletSetFeePerKb(manager->wallet, secondFeePerKb*3/2);
     }
 
@@ -1474,7 +1477,7 @@ static BRTransaction *_peerRequestedTx(void *info, UInt256 txHash)
     if (pubTx.tx && ! BRWalletTransactionIsValid(manager->wallet, pubTx.tx)) error = EINVAL;
     pthread_mutex_unlock(&manager->lock);
     if (pubTx.callback) {
-        peer_log(peer, "cbtrace: tx requested: %s, %s", strerror(error), u256hex(UInt256Reverse(txHash)));
+        peer_log(peer, "cbtrace: tx requested: %s, %s", strerror(error), u256hex(UInt256Reverse(txHash)).c_str());
         pubTx.callback(pubTx.info, error);
     }
     return pubTx.tx;
@@ -2106,7 +2109,7 @@ void BRPeerManagerCancelPendingTxs(BRPeerManager *manager)
         pubTx[txCount++] = manager->publishedTx[i - 1];
         manager->publishedTx[i - 1].callback = NULL;
         manager->publishedTx[i - 1].info = NULL;
-        peer_log(0, "cbtrace on exit: tx canceled: %s, %s", strerror(txError), u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])));
+        peer_log(0, "cbtrace on exit: tx canceled: %s, %s", strerror(txError), u256hex(UInt256Reverse(manager->publishedTxHashes[i - 1])).c_str());
     }
     pthread_mutex_unlock(&manager->lock);
 
