@@ -385,7 +385,7 @@ fileServiceSave (BRFileService fs,
     uint8_t *bytes = handler->writer (handler->context, fs, entity, &bytesCount);
 
     char filename[strlen(fs->pathToType) + 1 + strlen(type) + 1 + 2*sizeof(UInt256) + 1];
-    sprintf (filename, "%s/%s/%s", fs->pathToType, type, u256hex(identifier));
+    sprintf (filename, "%s/%s/%s", fs->pathToType, type, u256hex(identifier).c_str());
 
     FILE *file = fopen (filename, "wb");
     if (NULL == file) { fileServiceFailedUnix (fs, bytes, NULL, errno); return; }
@@ -425,7 +425,7 @@ fileServiceRemove (BRFileService fs,
     if (NULL == entityType) { fileServiceFailedImpl (fs, NULL, NULL, "missed type"); return; };
 
     char filename[strlen(fs->pathToType) + 1 + strlen(type) + 1 + 2*sizeof(UInt256) + 1];
-    sprintf (filename, "%s/%s/%s", fs->pathToType, type, u256hex(identifier));
+    sprintf (filename, "%s/%s/%s", fs->pathToType, type, u256hex(identifier).c_str());
 
     // If failed, then what?
     remove (filename);
