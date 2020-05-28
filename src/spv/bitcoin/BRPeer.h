@@ -85,6 +85,10 @@ extern int spv_log2console;
 extern "C" {
 #endif
 
+#ifndef INET6_ADDRSTRLEN // defined in netinet/in.h
+#define INET6_ADDRSTRLEN 46
+#endif
+
 #define SERVICES_NODE_NETWORK 0x01 // services value indicating a node carries full blocks, not just headers
 #define SERVICES_NODE_BLOOM   0x04 // BIP111: https://github.com/bitcoin/bips/blob/master/bip-0111.mediawiki
 #define SERVICES_NODE_WITNESS 0x08 // BIP144: https://github.com/bitcoin/bips/blob/master/bip-0144.mediawiki
