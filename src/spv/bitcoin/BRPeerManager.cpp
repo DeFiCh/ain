@@ -34,15 +34,15 @@
 #include <time.h>
 #include <assert.h>
 
-//#include <compat.h>
+#include <compat.h>
 
 #include <boost/thread.hpp>
 
 //#include <pthread.h>
-#include <errno.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+//#include <errno.h>
+//#include <netdb.h>
+//#include <sys/socket.h>
+//#include <netinet/in.h>
 
 #define PROTOCOL_TIMEOUT      20.0
 #define MAX_CONNECT_FAILURES  20 // notify user of network problems after this many connect failures in a row
@@ -1491,7 +1491,7 @@ static BRTransaction *_peerRequestedTx(void *info, UInt256 txHash)
 
     _BRTxPeerListAddPeer(&manager->txRelays, txHash, peer);
     if (pubTx.tx) BRWalletRegisterTransaction(manager->wallet, pubTx.tx);
-    if (pubTx.tx && ! BRWalletTransactionIsValid(manager->wallet, pubTx.tx)) error = EINVAL;
+    if (pubTx.tx && ! BRWalletTransactionIsValid(manager->wallet, pubTx.tx)) error = WSAEINVAL;
     manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
     if (pubTx.callback) {
         peer_log(peer, "cbtrace: tx requested: %s, %s", strerror(error), u256hex(UInt256Reverse(txHash)).c_str());
@@ -1999,7 +1999,7 @@ void BRPeerManagerPublishTx(BRPeerManager *manager, BRTransaction *tx, void *inf
     
     if (tx && ! BRTransactionIsSigned(tx)) {
         manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
-        if (callback) callback(info, EINVAL); // transaction not signed
+        if (callback) callback(info, WSAEINVAL); // transaction not signed
         tx = NULL;
     }
     else if (tx && ! manager->isConnected) {
@@ -2022,7 +2022,7 @@ void BRPeerManagerPublishTx(BRPeerManager *manager, BRTransaction *tx, void *inf
         if (_BRPeerManagerAddTxToPublishList(manager, tx, info, callback) != 0) {
             manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
             if (callback)
-                callback(info, EALREADY);
+                callback(info, WSAEALREADY);
             return;
         }
 

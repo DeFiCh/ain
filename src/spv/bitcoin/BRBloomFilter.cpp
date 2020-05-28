@@ -33,6 +33,10 @@
 
 #define BLOOM_MAX_HASH_FUNCS 50
 
+#ifdef WIN32 // dont know why they are absent in win and how to properly define them. so, quick patch it:
+# define M_LN2      0.69314718055994530942	/* log_e 2 */
+#endif
+
 inline static uint32_t _BRBloomFilterHash(const BRBloomFilter *filter, const uint8_t *data, size_t dataLen,
                                           uint32_t hashNum)
 {
