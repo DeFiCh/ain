@@ -21,7 +21,7 @@
 #include <util/strencodings.h>
 #include <string.h>
 #include <inttypes.h>
-#include <errno.h>
+//#include <errno.h>
 
 extern RecursiveMutex cs_main;
 
@@ -803,7 +803,7 @@ void CSpvWrapper::OnSendRawTx(BRTransaction *tx, std::promise<int> * promise)
     }
     else {
         if (promise)
-            promise->set_value(EINVAL);
+            promise->set_value(WSAEINVAL);
         BRTransactionFree(tx);
     }
 }

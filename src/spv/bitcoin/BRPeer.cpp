@@ -34,19 +34,19 @@
 #include <inttypes.h>
 #include <string.h>
 
-//#include <compat.h>
+#include <compat.h>
 
 #include <boost/thread.hpp>
 
 //#include <pthread.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+//#include <unistd.h>
+//#include <fcntl.h>
+//#include <errno.h>
+//#include <netdb.h>
+//#include <sys/socket.h>
+//#include <sys/time.h>
+//#include <netinet/in.h>
+//#include <arpa/inet.h>
 
 #define HEADER_LENGTH      24
 #define MAX_MSG_LENGTH     0x02000000
@@ -60,8 +60,6 @@
 #define WITNESS_FLAG       0x40000000
 
 #define PTHREAD_STACK_SIZE  (512 * 1024)
-
-//static boost::thread_group BRPeersThreads;
 
 
 // the standard blockchain download protocol works as follows (for SPV mode):
@@ -122,7 +120,7 @@ typedef struct {
     BRMerkleBlock *currentBlock;
     UInt256 *currentBlockTxHashes, *knownBlockHashes, *knownTxHashes;
     BRSet *knownTxHashSet;
-    volatile int socket;
+    volatile SOCKET socket;
     void *info;
     void (*connected)(void *info);
     void (*disconnected)(void *info, int error);
@@ -893,7 +891,7 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
     fd_set fds;
     socklen_t addrLen, optLen;
     int count, arg = 0, err = 0, on = 1, r = 1;
-    int sock;
+    SOCKET sock = INVALID_SOCKET;
 
 //    pthread_mutex_lock(&ctx->lock);
     ctx->lock.lock();
@@ -901,22 +899,36 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
 //    pthread_mutex_unlock(&ctx->lock);
     ctx->lock.unlock();
 
-    if (sock < 0) {
-        err = errno;
+    if (sock == INVALID_SOCKET) {
+        err = WSAGetLastError();
         r = 0;
     }
     else {
+#ifdef WIN32
+        DWORD millis = 1000;
+        DWORD wOn = 1;
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (sockopt_arg_type) &millis, sizeof(millis));
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (sockopt_arg_type) &millis, sizeof(millis));
+        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (sockopt_arg_type) &wOn, sizeof(wOn));
+#else
         tv.tv_sec = 1; // one second timeout for send/receive, so thread doesn't block for too long
         tv.tv_usec = 0;
-        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on));
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (sockopt_arg_type) &tv, sizeof(tv));
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (sockopt_arg_type) &tv, sizeof(tv));
+        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (sockopt_arg_type) &on, sizeof(on));
 #ifdef SO_NOSIGPIPE // BSD based systems have a SO_NOSIGPIPE socket option to supress SIGPIPE signals
         setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
 #endif
+#endif
+
+#ifdef WIN32
+        u_long nOne = 1;
+        if (ioctlsocket(sock, FIONBIO, &nOne) == SOCKET_ERROR) r = 0; // in win it is blocked by default, unblock
+#else
         arg = fcntl(sock, F_GETFL, NULL);
         if (arg < 0 || fcntl(sock, F_SETFL, arg | O_NONBLOCK) < 0) r = 0; // temporarily set socket non-blocking
-        if (! r) err = errno;
+#endif
+        if (! r) err = WSAGetLastError();
     }
 
     if (r) {
@@ -935,9 +947,9 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
             addrLen = sizeof(struct sockaddr_in);
         }
         
-        if (connect(sock, (struct sockaddr *)&addr, addrLen) < 0) err = errno;
+        if (connect(sock, (struct sockaddr *)&addr, addrLen) < 0) err = WSAGetLastError();
         
-        if (err == EINPROGRESS) {
+        if (err == WSAEINPROGRESS) {
             err = 0;
             optLen = sizeof(err);
             tv.tv_sec = timeout;
@@ -946,9 +958,9 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
             FD_SET(sock, &fds);
             count = select(sock + 1, NULL, &fds, NULL, &tv);
 
-            if (count <= 0 || getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &optLen) < 0 || err) {
+            if (count <= 0 || getsockopt(sock, SOL_SOCKET, SO_ERROR, (sockopt_arg_type)&err, &optLen) < 0 || err) {
                 if (count == 0) err = ETIMEDOUT;
-                if (count < 0 || ! err) err = errno;
+                if (count < 0 || ! err) err = WSAGetLastError();
                 r = 0;
             }
         }
@@ -958,7 +970,13 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
         else if (err) r = 0;
 
         if (r) peer_log(peer, "socket connected");
+
+#ifdef WIN32
+        u_long nZero = 0;
+        ioctlsocket(sock, FIONBIO, &nZero);
+#else
         fcntl(sock, F_SETFL, arg); // restore socket non-blocking status
+#endif
     }
 
     if (! r && err) peer_log(peer, "connect error: %s", strerror(err));
@@ -966,12 +984,12 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
     return r;
 }
 
-static int _peerCheckAndGetSocket (BRPeerContext *ctx, int *socket) {
+static int _peerCheckAndGetSocket (BRPeerContext *ctx, SOCKET *socket) {
     int exists;
 
 //    pthread_mutex_lock(&ctx->lock);
     ctx->lock.lock();
-    exists = ctx->socket >= 0;
+    exists = ctx->socket != INVALID_SOCKET;
     if (NULL != socket) *socket = ctx->socket;
 //    pthread_mutex_unlock(&ctx->lock);
     ctx->lock.unlock();
@@ -979,8 +997,8 @@ static int _peerCheckAndGetSocket (BRPeerContext *ctx, int *socket) {
     return exists;
 }
 
-static int _peerGetSocket (BRPeerContext *ctx) {
-    int socket;
+static SOCKET _peerGetSocket (BRPeerContext *ctx) {
+    SOCKET socket;
 
 //    pthread_mutex_lock(&ctx->lock);
     ctx->lock.lock();
@@ -1020,7 +1038,8 @@ static void *_peerThreadRoutine(void *arg)
 {
     BRPeer *peer = arg;
     BRPeerContext *ctx = arg;
-    int socket, error = 0;
+    int error = 0;
+    SOCKET socket;
 
     threadCleanup guard(ctx->threadCleanup, ctx->info);
 //    pthread_cleanup_push(ctx->threadCleanup, ctx->info);
@@ -1040,11 +1059,12 @@ static void *_peerThreadRoutine(void *arg)
         while (_peerCheckAndGetSocket(ctx, &socket) && ! error) {
             len = 0;
 
-            while (socket >= 0 && ! error && len < HEADER_LENGTH) {
-                n = read(socket, &header[len], sizeof(header) - len);
+            while (socket != INVALID_SOCKET && ! error && len < HEADER_LENGTH) {
+//                n = read(socket, &header[len], sizeof(header) - len);
+                n = recv(socket, (char*)&header[len], sizeof(header) - len, 0);
                 if (n > 0) len += n;
                 if (n == 0) error = ECONNRESET;
-                if (n < 0 && errno != EWOULDBLOCK) error = errno;
+                if (n < 0 && WSAGetLastError() != WSAEWOULDBLOCK) error = WSAGetLastError();
                 gettimeofday(&tv, NULL);
                 time = tv.tv_sec + (double)tv.tv_usec/1000000;
                 if (! error && time >= _peerGetDisconnectTime(ctx)) error = ETIMEDOUT;
@@ -1092,11 +1112,12 @@ static void *_peerThreadRoutine(void *arg)
                     socket = _peerGetSocket(ctx);
                     msgTimeout = time + MESSAGE_TIMEOUT;
                     
-                    while (socket >= 0 && ! error && len < msgLen) {
-                        n = read(socket, &payload[len], msgLen - len);
+                    while (socket != INVALID_SOCKET && ! error && len < msgLen) {
+//                        n = read(socket, &payload[len], msgLen - len);
+                        n = recv(socket, (char *) &payload[len], msgLen - len, 0);
                         if (n > 0) len += n;
                         if (n == 0) error = ECONNRESET;
-                        if (n < 0 && errno != EWOULDBLOCK) error = errno;
+                        if (n < 0 && WSAGetLastError() != WSAEWOULDBLOCK) error = WSAGetLastError();
                         gettimeofday(&tv, NULL);
                         time = tv.tv_sec + (double)tv.tv_usec/1000000;
                         if (n > 0) msgTimeout = time + MESSAGE_TIMEOUT;
@@ -1131,7 +1152,14 @@ static void *_peerThreadRoutine(void *arg)
 //    pthread_mutex_unlock(&ctx->lock);
     ctx->lock.unlock();
 
-    if (socket >= 0) close(socket);
+    if (socket != INVALID_SOCKET) {
+#ifdef WIN32
+        closesocket(socket);
+#else
+        close(socket);
+#endif
+    }
+
     peer_log(peer, "disconnected");
     
     while (array_count(ctx->pongCallback) > 0) {
@@ -1173,7 +1201,7 @@ BRPeer *BRPeerNew(uint32_t magicNumber)
     ctx->pingTime = DBL_MAX;
     ctx->mempoolTime = DBL_MAX;
     ctx->disconnectTime = DBL_MAX;
-    ctx->socket = -1;
+    ctx->socket = INVALID_SOCKET;
     ctx->threadCleanup = _dummyThreadCleanup;
     ctx->thread = 0;
 
@@ -1322,7 +1350,7 @@ int BRPeerConnect(BRPeer *peer)
 void BRPeerDisconnect(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
-    int socket = -1;
+    SOCKET socket = INVALID_SOCKET;
 
     if (_peerCheckAndGetSocket(ctx, &socket)) {
 //        pthread_mutex_lock(&ctx->lock);
@@ -1331,8 +1359,13 @@ void BRPeerDisconnect(BRPeer *peer)
 //        pthread_mutex_unlock(&ctx->lock);
         ctx->lock.unlock();
 
-        if (shutdown(socket, SHUT_RDWR) < 0) peer_log(peer, "%s: %s", __func__, strerror(errno));
+#ifdef WIN32
+        if (shutdown(socket, SD_BOTH) == SOCKET_ERROR) peer_log(peer, "%s: %s", __func__, strerror(WSAGetLastError()));
+        closesocket(socket);
+#else
+        if (shutdown(socket, SHUT_RDWR) == SOCKET_ERROR) peer_log(peer, "%s: %s", __func__, strerror(WSAGetLastError()));
         close(socket);
+#endif
     }
 }
 
@@ -1441,7 +1474,8 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
         size_t off = 0;
         ssize_t n = 0;
         struct timeval tv;
-        int socket, error = 0;
+        int error = 0;
+        SOCKET socket = INVALID_SOCKET;
         
         UInt32SetLE(&buf[off], ctx->magicNumber);
         off += sizeof(uint32_t);
@@ -1456,12 +1490,12 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
         peer_log(peer, "sending %s", type);
         msgLen = 0;
         socket = _peerGetSocket(ctx);
-        if (socket < 0) error = ENOTCONN;
+        if (socket == INVALID_SOCKET) error = ENOTCONN;
         
-        while (socket >= 0 && ! error && msgLen < sizeof(buf)) {
+        while (socket != INVALID_SOCKET && ! error && msgLen < sizeof(buf)) {
             n = send(socket, &buf[msgLen], sizeof(buf) - msgLen, MSG_NOSIGNAL);
             if (n >= 0) msgLen += n;
-            if (n < 0 && errno != EWOULDBLOCK) error = errno;
+            if (n < 0 && WSAGetLastError() != WSAEWOULDBLOCK) error = WSAGetLastError();
             gettimeofday(&tv, NULL);
             if (! error && tv.tv_sec + (double)tv.tv_usec/1000000 >= _peerGetDisconnectTime(ctx)) error = ETIMEDOUT;
             socket = _peerGetSocket(ctx);

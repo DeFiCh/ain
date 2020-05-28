@@ -288,8 +288,6 @@ libdefi_spv_a_SOURCES = \
   spv/bitcoin/BRTransaction.h \
   spv/bitcoin/BRWallet.cpp \
   spv/bitcoin/BRWallet.h \
-  spv/bitcoin/BRWalletManager.cpp \
-  spv/bitcoin/BRWalletManager.h \
   spv/support/BRAddress.cpp \
   spv/support/BRAddress.h \
   spv/support/BRArray.h \
@@ -304,8 +302,6 @@ libdefi_spv_a_SOURCES = \
   spv/support/BRBIP39WordsEn.h \
   spv/support/BRCrypto.cpp \
   spv/support/BRCrypto.h \
-  spv/support/BRFileService.cpp \
-  spv/support/BRFileService.h \
   spv/support/BRInt.h \
   spv/support/BRKey.cpp \
   spv/support/BRKeyECIES.cpp \
@@ -316,6 +312,10 @@ libdefi_spv_a_SOURCES = \
   spv/support/BRSet.h
 #  spv/support/BRAssert.cpp
 #  spv/support/BRAssert.h
+#  spv/support/BRFileService.cpp
+#  spv/support/BRFileService.h 
+#  spv/bitcoin/BRWalletManager.cpp
+#  spv/bitcoin/BRWalletManager.h 
 
 # for gen /secp256k1/src/ecmult_static_context.h
 LIBSECP256K1_GEN = $(srcdir)/secp256k1/src/ecmult_static_context.h
