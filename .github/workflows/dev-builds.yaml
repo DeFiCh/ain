@@ -25,7 +25,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build and package
-      run: ./make.sh docker-release-git
+      run: TARGETS="x86_64-apple-darwin11 x86_64-pc-linux-gnu" ./make.sh docker-release-git
     - name: Publish artifacts
       uses: actions/upload-artifact@v2-preview
       with:
