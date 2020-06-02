@@ -1,4 +1,4 @@
-Masternodes short manual
+Setup masternodes
 -----------------
 To start minting, user should become a "masternode" by sending special transaction, which locks collateral and burns an announcement fee. After got banned or resigning, announcement fee isn't refunded (only masternode collateral is refunded).
 
