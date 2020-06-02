@@ -15,7 +15,7 @@ For more information:
 - Visit the [DeFi Blockchain website](https://defichain.io)
 - Read our [white paper](https://defichain.io/white-paper/)
 
-Downloadable binaries will be made available soon.
+Downloadable binaries are available at 
 
 ### Bitcoin Core
 
@@ -31,6 +31,13 @@ DeFi Blockchain has done significant modifications from Bitcoin Core, for instan
 - Configuration defaults (mainnet ports: `8555/4`, testnet ports: `18555/4`, regnet ports: `19555/4`, etc)
 
 Merges from upstream (Bitcoin Core) will be done selectively if it applies to the improved functionality and security of DeFi Blockchain.
+
+## Quick Documentation
+
+- [Running a node](./doc/setup-nodes.md)
+- [Running a node with docker](./doc/setup-nodes-docker.md)
+- [Running a masternode](./doc/setup-masternodes.md)
+- [Building from scratch](./doc/build-quick.md)
 
 ## License
 
