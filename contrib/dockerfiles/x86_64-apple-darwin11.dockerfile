@@ -1,4 +1,4 @@
-ARG TARGET=arm-linux-gnueabihf
+ARG TARGET=x86_64-apple-darwin11
 
 # -----------
 FROM ubuntu:18.04 as builder-base
@@ -16,7 +16,7 @@ pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
 libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
 libminiupnpc-dev libzmq3-dev libqrencode-dev \
 curl cmake \
-g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+python3-dev python3-pip libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick
 
 # For Berkeley DB - but we don't need as we do a depends build.
 # RUN apt install -y libdb-dev
@@ -46,18 +46,14 @@ COPY . .
 RUN ./autogen.sh
 
 # XREF: #make-configure
-RUN ./configure --prefix=`pwd`/depends/${TARGET} \
-    --enable-glibc-back-compat \
-    --enable-reduce-exports \
-    --without-gui \
-    LDFLAGS="-static-libstdc++"
+RUN ./configure --prefix=`pwd`/depends/${TARGET} --without-gui
 
 RUN make
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
 
 # -----------
 ### Actual image that contains defi binaries
-FROM arm32v7/ubuntu:18.04
+FROM ubuntu:18.04
 ARG TARGET
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
@@ -65,4 +61,3 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /app
 
 COPY --from=builder /app/. ./
-
