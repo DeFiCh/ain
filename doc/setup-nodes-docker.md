@@ -1,6 +1,6 @@
 # defi/defichain
 
-The DeFi Blockchain docker image, current with support for the following platforms:
+The DeFi Blockchain docker image, currently with support for the following platforms:
 
 * `amd64` (x86_64)
 
@@ -15,7 +15,7 @@ Read more at: https://defichain.io
 ## Tags
 
 - `latest` ([Dockerfile](https://raw.githubusercontent.com/DeFiCh/ain/master/contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile))
-- `1.0.0-beta4`, `1.0.0-beta4`
+- `1.0.0-beta4`
 
 **Picking the right tag**
 
@@ -26,16 +26,16 @@ Read more at: https://defichain.io
 
 ### Quick usage
 
-#### Background
+#### Service
 
 ```sh
 ❯ docker run -d defi/defichain
 ```
 
-#### Interactively
+#### Interactive
 
 ```sh
-❯ docker run --rm -it defi/defichain
+❯ docker run -it defi/defichain
 ```
 
 ### How to use this image
@@ -67,7 +67,7 @@ Example:
   -rpcauth='foo:7d9ba5ae63c3d4dc30583ff4fe65a67e$9e3634e81c11659e3de036d0bf88f89cd169c1039e6e09607562d54765c649cc'
 ```
 
-_Note: [learn more](#using-rpcauth-for-remote-authentication) about how `-rpcauth` works for remote authentication._
+_Note: More about how `-rpcauth` works for remote authentication are explained below._
 
 You can also mount a directory in a volume under `/root/.defi` in case you want to access it on the host:
 
@@ -111,7 +111,7 @@ Start by launching the DeFi Blockchain daemon:
 Then, inside the running `defi-node` container, locally execute the query to the daemon using `defi-cli`:
 
 ```sh
-❯ docker exec defi-node defi-cli -regtest getmininginfo
+❯ docker exec defi-node defi-cli -regtest getmintinginfo
 
 {
   "blocks": 0,
