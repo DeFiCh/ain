@@ -1526,7 +1526,7 @@ static void _dummyThreadCleanup(void *info)
 BRPeerManager *BRPeerManagerNew(const BRChainParams *params, BRWallet *wallet, uint32_t earliestKeyTime,
                                 BRMerkleBlock *blocks[], size_t blocksCount, const BRPeer peers[], size_t peersCount)
 {
-    BRPeerManager *manager = (BRPeerManager *)calloc(1, sizeof(*manager));
+    BRPeerManager *manager = new BRPeerManager{};
     BRMerkleBlock orphan, *block = NULL;
     
     assert(manager != NULL);
@@ -2106,7 +2106,7 @@ void BRPeerManagerFree(BRPeerManager *manager)
     array_free(manager->publishedTxHashes);
     manager->lock.unlock(); // pthread_mutex_unlock(&manager->lock);
 //    pthread_mutex_destroy(&manager->lock);
-    free(manager);
+    delete manager;
     peer_log(0, "SPV SESSION ENDS");
 }
 
