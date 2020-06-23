@@ -480,7 +480,7 @@ void CSpvWrapper::WriteTx(const BRTransaction *tx)
 
 void CSpvWrapper::UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t timestamp)
 {
-    auto const key{std::make_pair(DB_SPVTXS, hash)};
+    std::pair<char, uint256> const key{std::make_pair(DB_SPVTXS, hash)};
     std::pair<TBytes, std::pair<uint32_t, uint32_t> > txrec;
     if (db->Read(key, txrec)) {
         txrec.second.first = blockHeight;

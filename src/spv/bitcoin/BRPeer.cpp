@@ -184,7 +184,7 @@ static void _BRPeerDidConnect(BRPeer *peer)
         peer_log(peer, "handshake completed");
         ctx->disconnectTime = DBL_MAX;
         ctx->status = BRPeerStatusConnected;
-        peer_log(peer, "connected with lastblock: %"PRIu32, ctx->lastblock);
+        peer_log(peer, "connected with lastblock: %" PRIu32, ctx->lastblock);
 //        pthread_mutex_unlock(&ctx->lock);
         ctx->lock.unlock();
         if (ctx->connected) ctx->connected(ctx->info);
@@ -238,7 +238,7 @@ static int _BRPeerAcceptVersionMessage(BRPeer *peer, const uint8_t *msg, size_t 
             r = 0;
         }
         else if (ctx->version < MIN_PROTO_VERSION) {
-            peer_log(peer, "protocol version %"PRIu32" not supported", ctx->version);
+            peer_log(peer, "protocol version %" PRIu32 " not supported", ctx->version);
             r = 0;
         }
         else {
@@ -248,7 +248,7 @@ static int _BRPeerAcceptVersionMessage(BRPeer *peer, const uint8_t *msg, size_t 
             off += strLen;
             ctx->lastblock = UInt32GetLE(&msg[off]);
             off += sizeof(uint32_t);
-            peer_log(peer, "got version %"PRIu32", services %"PRIx64", useragent:\"%s\"", ctx->version, peer->services,
+            peer_log(peer, "got version %" PRIu32 ", services %" PRIx64 ", useragent:\"%s\"", ctx->version, peer->services,
                      ctx->useragent);
             BRPeerSendVerackMessage(peer);
         }
@@ -347,7 +347,7 @@ static int _BRPeerAcceptInvMessage(BRPeer *peer, const uint8_t *msg, size_t msgL
         peer_log(peer, "got inv with %zu item(s)", count);
 
         for (i = 0; i < count; i++) {
-            type = UInt32GetLE(&msg[off]);
+            type = (inv_type)UInt32GetLE(&msg[off]);
             
             switch (type) { // inv messages only use inv_tx or inv_block
                 case inv_tx: transactions[txCount++] = &msg[off + sizeof(uint32_t)]; break;
@@ -565,7 +565,7 @@ static int _BRPeerAcceptGetdataMessage(BRPeer *peer, const uint8_t *msg, size_t 
         peer_log(peer, "got getdata with %zu item(s)", count);
         
         for (size_t i = 0; i < count; i++) {
-            inv_type type = UInt32GetLE(&msg[off]);
+            inv_type type = (inv_type)UInt32GetLE(&msg[off]);
             UInt256 hash = UInt256Get(&msg[off + sizeof(uint32_t)]);
             
             switch (type) {
@@ -600,7 +600,7 @@ static int _BRPeerAcceptGetdataMessage(BRPeer *peer, const uint8_t *msg, size_t 
 
         if (notfound) {
             size_t bufLen = BRVarIntSize(array_count(notfound)) + 36*array_count(notfound), o = 0;
-            uint8_t *buf = malloc(bufLen);
+            uint8_t *buf = (uint8_t *)malloc(bufLen);
             
             assert(buf != NULL);
             o += BRVarIntSet(&buf[o], (o <= bufLen ? bufLen - o : 0), array_count(notfound));
@@ -638,7 +638,7 @@ static int _BRPeerAcceptNotfoundMessage(BRPeer *peer, const uint8_t *msg, size_t
         array_new(blockHashes, 1);
         
         for (size_t i = 0; i < count; i++) {
-            type = UInt32GetLE(&msg[off]);
+            type = (inv_type)UInt32GetLE(&msg[off]);
             hash = UInt256Get(&msg[off + sizeof(uint32_t)]);
             
             switch (type) {
@@ -693,7 +693,7 @@ static int _BRPeerAcceptPongMessage(BRPeer *peer, const uint8_t *msg, size_t msg
         r = 0;
     }
     else if (UInt64GetLE(msg) != ctx->nonce) {
-        peer_log(peer, "pong message has wrong nonce: %"PRIu64", expected: %"PRIu64, UInt64GetLE(msg), ctx->nonce);
+        peer_log(peer, "pong message has wrong nonce: %" PRIu64 ", expected: %" PRIu64, UInt64GetLE(msg), ctx->nonce);
         r = 0;
     }
     else if (array_count(ctx->pongCallback) == 0) {
@@ -752,7 +752,7 @@ static int _BRPeerAcceptMerkleblockMessage(BRPeer *peer, const uint8_t *msg, siz
     }
     else {
         size_t count = BRMerkleBlockTxHashes(block, NULL, 0);
-        UInt256 _hashes[128], *hashes = (count <= 128) ? _hashes : malloc(count*sizeof(UInt256));
+        UInt256 _hashes[128], *hashes = (count <= 128) ? _hashes : (UInt256 *)malloc(count*sizeof(UInt256));
         
         assert(hashes != NULL);
         count = BRMerkleBlockTxHashes(block, hashes, count);
@@ -845,7 +845,7 @@ static int _BRPeerAcceptFeeFilterMessage(BRPeer *peer, const uint8_t *msg, size_
 //        pthread_mutex_unlock(&ctx->lock);
         ctx->lock.unlock();
         
-        peer_log(peer, "got feefilter with rate %"PRIu64, ctx->feePerKb);
+        peer_log(peer, "got feefilter with rate %" PRIu64, ctx->feePerKb);
         if (ctx->setFeePerKb) ctx->setFeePerKb(ctx->info, ctx->feePerKb);
     }
     
@@ -1036,8 +1036,8 @@ static double _peerGetMempoolTime (BRPeerContext *ctx) {
 
 static void *_peerThreadRoutine(void *arg)
 {
-    BRPeer *peer = arg;
-    BRPeerContext *ctx = arg;
+    BRPeer *peer = (BRPeer *)arg;
+    BRPeerContext *ctx = (BRPeerContext *)arg;
     int error = 0;
     SOCKET socket;
 
@@ -1047,7 +1047,7 @@ static void *_peerThreadRoutine(void *arg)
     if (_BRPeerOpenSocket(peer, PF_INET6, CONNECT_TIMEOUT, &error)) {
         struct timeval tv;
         double time = 0, msgTimeout;
-        uint8_t header[HEADER_LENGTH], *payload = malloc(0x1000);
+        uint8_t header[HEADER_LENGTH], *payload = (uint8_t *)malloc(0x1000);
         size_t len = 0, payloadLen = 0x1000;
         ssize_t n = 0;
 
@@ -1102,11 +1102,11 @@ static void *_peerThreadRoutine(void *arg)
                 UInt256 hash;
                 
                 if (msgLen > MAX_MSG_LENGTH) { // check message length
-                    peer_log(peer, "error reading %s, message length %"PRIu32" is too long", type, msgLen);
+                    peer_log(peer, "error reading %s, message length %" PRIu32 " is too long", type, msgLen);
                     error = EPROTO;
                 }
                 else {
-                    if (msgLen > payloadLen) payload = realloc(payload, (payloadLen = msgLen));
+                    if (msgLen > payloadLen) payload = (uint8_t *)realloc(payload, (payloadLen = msgLen));
                     assert(payload != NULL);
                     len = 0;
                     socket = _peerGetSocket(ctx);
@@ -1132,7 +1132,7 @@ static void *_peerThreadRoutine(void *arg)
                         BRSHA256_2(&hash, payload, msgLen);
                         
                         if (UInt32GetLE(&hash) != checksum) { // verify checksum
-                            peer_log(peer, "error reading %s, invalid checksum %x, expected %x, payload length:%"PRIu32
+                            peer_log(peer, "error reading %s, invalid checksum %x, expected %x, payload length:%" PRIu32
                                      ", SHA256_2:%s", type, UInt32GetLE(&hash), checksum, msgLen, u256hex(hash).c_str());
                             error = EPROTO;
                         }
@@ -1187,7 +1187,7 @@ static void _dummyThreadCleanup(void *info)
 // returns a newly allocated BRPeer struct that must be freed by calling BRPeerFree()
 BRPeer *BRPeerNew(uint32_t magicNumber)
 {
-    BRPeerContext *ctx = calloc(1, sizeof(*ctx));
+    BRPeerContext *ctx = (BRPeerContext *)calloc(1, sizeof(*ctx));
     
     assert(ctx != NULL);
     ctx->magicNumber = magicNumber;
@@ -1276,7 +1276,7 @@ void BRPeerSetCurrentBlockHeight(BRPeer *peer, uint32_t currentBlockHeight)
 BRPeerStatus BRPeerConnectStatus(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
-    BRPeerStatus status = 0;
+    BRPeerStatus status = BRPeerStatusDisconnected;
 
 //    pthread_mutex_lock(&ctx->lock);
     ctx->lock.lock();
@@ -1410,7 +1410,7 @@ const char *BRPeerHost(BRPeer *peer)
 void BRPeerHostSafe(BRPeer const *peer, char *host)
 {
     if (!peer) {
-        host[0] == '\0';
+        host[0] = '\0';
         return;
     }
 

@@ -31,8 +31,8 @@
 // ecies-aes128-sha256 as specified in SEC 1, 5.1: http://www.secg.org/SEC1-Ver-1.0.pdf
 // NOTE: these are not implemented using constant time algorithms
 
-size_t BRKeyECIESAES128SHA256Encrypt(BRKey *pubKey, void *out, size_t outLen, BRKey *ephemKey,
-                                     const void *data, size_t dataLen)
+size_t BRKeyECIESAES128SHA256Encrypt(BRKey *pubKey, uint8_t *out, size_t outLen, BRKey *ephemKey,
+                                     const uint8_t *data, size_t dataLen)
 {
     uint8_t *encKey, macKey[32], shared[32], iv[16], K[32], V[32], buf[36] = { 0, 0, 0, 1 };
     size_t pkLen = ephemKey ? BRKeyPubKey(ephemKey, NULL, 0) : 0;
@@ -73,7 +73,7 @@ size_t BRKeyECIESAES128SHA256Encrypt(BRKey *pubKey, void *out, size_t outLen, BR
     return pkLen + sizeof(iv) + dataLen + 32;
 }
 
-size_t BRKeyECIESAES128SHA256Decrypt(BRKey *privKey, void *out, size_t outLen, const void *data, size_t dataLen)
+size_t BRKeyECIESAES128SHA256Decrypt(BRKey *privKey, uint8_t *out, size_t outLen, const uint8_t *data, size_t dataLen)
 {
     uint8_t *encKey, macKey[32], shared[32], mac[32], iv[16], buf[36] = { 0, 0, 0, 1 }, r = 0;
     size_t i, pkLen;
@@ -137,7 +137,7 @@ void BRKeyPigeonPairingKey(BRKey *privKey, BRKey *pairingKey, const void *identi
     BRKeySetSecret(pairingKey, &secret, 1);
 }
 
-size_t BRKeyPigeonEncrypt(BRKey *privKey, void *out, size_t outLen, BRKey *pubKey, const void *nonce12, const void *data, size_t dataLen)
+size_t BRKeyPigeonEncrypt(BRKey *privKey, uint8_t *out, size_t outLen, BRKey *pubKey, const void *nonce12, const void *data, size_t dataLen)
 {
     if (! out) return dataLen + 16;
     
@@ -148,7 +148,7 @@ size_t BRKeyPigeonEncrypt(BRKey *privKey, void *out, size_t outLen, BRKey *pubKe
     return outSize;
 }
 
-size_t BRKeyPigeonDecrypt(BRKey *privKey, void *out, size_t outLen, BRKey *pubKey, const void *nonce12, const void *data, size_t dataLen)
+size_t BRKeyPigeonDecrypt(BRKey *privKey, uint8_t *out, size_t outLen, BRKey *pubKey, const void *nonce12, const void *data, size_t dataLen)
 {
     if (! out) return (dataLen < 16) ? 0 : dataLen - 16;
     

@@ -568,7 +568,7 @@ void BRMD5(void *md16, const void *data, size_t dataLen)
 #define fmix32(h) ((h) ^= (h) >> 16, (h) *= 0x85ebca6b, (h) ^= (h) >> 13, (h) *= 0xc2b2ae35, (h) ^= (h) >> 16)
 
 // murmurHash3 (x86_32): https://code.google.com/p/smhasher/ - for non-cryptographic use only
-uint32_t BRMurmur3_32(const void *data, size_t dataLen, uint32_t seed)
+uint32_t BRMurmur3_32(const uint8_t *data, size_t dataLen, uint32_t seed)
 {
     const uint8_t *d = data;
     uint32_t h = seed, k = 0;
@@ -794,7 +794,7 @@ void BRPoly1305(void *mac16, const void *key32, const void *data, size_t dataLen
 // chacha20 stream cipher: https://cr.yp.to/chacha.html
 void BRChacha20(void *out, const void *key32, const void *iv8, const void *data, size_t dataLen, uint64_t counter)
 {
-    static const char sigma[16] = "expand 32-byte k";
+    static const char sigma[] = "expand 32-byte k";
     uint32_t b[16], s[16], x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
     size_t i, j;
     
@@ -1021,7 +1021,7 @@ void BRAESECBEncrypt(void *buf16, const void *key, size_t keyLen)
     assert(keyLen == 16 || keyLen == 24 || keyLen == 32);
     
     _BRAESExpandKey(k, key, keyLen);
-    _BRAESCipher(buf16, k, keyLen);
+    _BRAESCipher((uint8_t *)buf16, k, keyLen);
     mem_clean(k, sizeof(k));
 }
 
@@ -1034,7 +1034,7 @@ void BRAESECBDecrypt(void *buf16, const void *key, size_t keyLen)
     assert(keyLen == 16 || keyLen == 24 || keyLen == 32);
     
     _BRAESExpandKey(k, key, keyLen);
-    _BRAESDecipher(buf16, k, keyLen);
+    _BRAESDecipher((uint8_t *)buf16, k, keyLen);
     mem_clean(k, sizeof(k));
 }
 
@@ -1181,7 +1181,7 @@ static void _blockmix_salsa8(uint64_t *dest, const uint64_t *src, uint64_t *b, u
 void BRScrypt(void *dk, size_t dkLen, const void *pw, size_t pwLen, const void *salt, size_t saltLen,
               unsigned n, unsigned r, unsigned p)
 {
-    uint64_t x[16*r], y[16*r], z[8], *v = malloc(128*r*n), m;
+    uint64_t x[16*r], y[16*r], z[8], *v = (uint64_t *)malloc(128*r*n), m;
     uint32_t b[32*r*p];
     
     assert(v != NULL);
