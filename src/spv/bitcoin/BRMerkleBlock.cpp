@@ -76,7 +76,7 @@ inline static int _ceil_log2(int x)
 // returns a newly allocated merkle block struct that must be freed by calling BRMerkleBlockFree()
 BRMerkleBlock *BRMerkleBlockNew(void)
 {
-    BRMerkleBlock *block = calloc(1, sizeof(*block));
+    BRMerkleBlock *block = (BRMerkleBlock *)calloc(1, sizeof(*block));
 
     assert(block != NULL);
     
@@ -126,13 +126,13 @@ BRMerkleBlock *BRMerkleBlockParse(const uint8_t *buf, size_t bufLen)
             block->hashesCount = (size_t)BRVarInt(&buf[off], (off <= bufLen ? bufLen - off : 0), &len);
             off += len;
             len = block->hashesCount*sizeof(UInt256);
-            block->hashes = (off + len <= bufLen) ? malloc(len) : NULL;
+            block->hashes = (off + len <= bufLen) ? (UInt256 *)malloc(len) : NULL;
             if (block->hashes) memcpy(block->hashes, &buf[off], len);
             off += len;
             block->flagsLen = (size_t)BRVarInt(&buf[off], (off <= bufLen ? bufLen - off : 0), &len);
             off += len;
             len = block->flagsLen;
-            block->flags = (off + len <= bufLen) ? malloc(len) : NULL;
+            block->flags = (off + len <= bufLen) ? (uint8_t *)malloc(len) : NULL;
             if (block->flags) memcpy(block->flags, &buf[off], len);
         }
         

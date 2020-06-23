@@ -64,7 +64,7 @@ void BRKeccak256(void *md32, const void *data, size_t dataLen);
 void BRMD5(void *md16, const void *data, size_t dataLen);
 
 // murmurHash3 (x86_32): https://code.google.com/p/smhasher/ - for non cryptographic use only
-uint32_t BRMurmur3_32(const void *data, size_t dataLen, uint32_t seed);
+uint32_t BRMurmur3_32(const uint8_t *data, size_t dataLen, uint32_t seed);
 
 // sipHash-64: https://131002.net/siphash
 uint64_t BRSip64(const void *key16, const void *data, size_t dataLen);
