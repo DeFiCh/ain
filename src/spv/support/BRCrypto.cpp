@@ -29,20 +29,38 @@
 
 // endian swapping
 #if __BIG_ENDIAN__ || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-#define be32(x) (x)
-#define le32(x) ((((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | (((x) & 0xff000000) >> 24))
-#define be64(x) (x)
-#define le64(x) ((union { uint32_t u32[2]; uint64_t u64; }) { le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64)
+inline static uint32_t be32(uint32_t x) { return x; }
+inline static uint32_t le32(uint32_t x) { return (((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | (((x) & 0xff000000) >> 24); }
+inline static uint64_t be64(uint64_t x) { return x; }
+inline static uint64_t le64(uint64_t x) {
+    union conv { uint32_t u32[2]; uint64_t u64; };
+    return conv{ le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64;
+}
 #elif __LITTLE_ENDIAN__ || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-#define le32(x) (x)
-#define be32(x) ((((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | (((x) & 0xff000000) >> 24))
-#define le64(x) (x)
-#define be64(x) ((union { uint32_t u32[2]; uint64_t u64; }) { be32((uint32_t)((x) >> 32)), be32((uint32_t)(x)) }.u64)
+inline static uint32_t le32(uint32_t x) { return x; }
+inline static uint32_t be32(uint32_t x) { return (((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | (((x) & 0xff000000) >> 24); }
+inline static uint64_t le64(uint64_t x) { return x; }
+inline static uint64_t be64(uint64_t x) {
+    union conv { uint32_t u32[2]; uint64_t u64; };
+    return conv{ le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64;
+}
 #else // unknown endianess
-#define be32(x) ((union { uint8_t u8[4]; uint32_t u32; }) { (x) >> 24, (x) >> 16, (x) >> 8, (x) }.u32)
-#define le32(x) ((union { uint8_t u8[4]; uint32_t u32; }) { (x), (x) >> 8, (x) >> 16, (x) >> 24 }.u32)
-#define be64(x) ((union { uint32_t u32[2]; uint64_t u64; }) { be32((uint32_t)((x) >> 32)), be32((uint32_t)(x)) }.u64)
-#define le64(x) ((union { uint32_t u32[2]; uint64_t u64; }) { le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64)
+inline static uint32_t be32(uint32_t x) {
+    union conv { uint8_t u8[4]; uint32_t u32; };
+    return conv{ (x) >> 24, (x) >> 16, (x) >> 8, (x) }.u32;
+}
+inline static uint32_t le32(uint32_t x) {
+    union conv { uint8_t u8[4]; uint32_t u32; };
+    return conv{ (x), (x) >> 8, (x) >> 16, (x) >> 24 }.u32;
+}
+inline static uint64_t be64(uint64_t x) {
+    union conv { uint32_t u32[2]; uint64_t u64; };
+    return conv{ be32((uint32_t)((x) >> 32)), be32((uint32_t)(x)) }.u64;
+}
+inline static uint64_t le64(uint64_t x) {
+    union conv { uint32_t u32[2]; uint64_t u64; };
+    return conv{ le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64;
+}
 #endif
 
 // bitwise left rotation
