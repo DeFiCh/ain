@@ -1187,8 +1187,8 @@ static void _dummyThreadCleanup(void *info)
 // returns a newly allocated BRPeer struct that must be freed by calling BRPeerFree()
 BRPeer *BRPeerNew(uint32_t magicNumber)
 {
-    BRPeerContext *ctx = (BRPeerContext *)calloc(1, sizeof(*ctx));
-    
+    BRPeerContext *ctx = new BRPeerContext{};
+
     assert(ctx != NULL);
     ctx->magicNumber = magicNumber;
     array_new(ctx->useragent, 40);
@@ -1755,7 +1755,7 @@ void BRPeerFree(BRPeer *peer)
     if (ctx->pongInfo) array_free(ctx->pongInfo);
     
 //    pthread_mutex_destroy(&ctx->lock);
-    free(ctx);
+    delete ctx;
 }
 
 void BRPeerAcceptMessageTest(BRPeer *peer, const uint8_t *msg, size_t msgLen, const char *type)
