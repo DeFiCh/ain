@@ -116,7 +116,7 @@ inline static int _BRWalletTxIsAscending(BRWallet *wallet, const BRTransaction *
     }
 
     for (size_t i = 0; i < tx1->inCount; i++) {
-        if (_BRWalletTxIsAscending(wallet, BRSetGet(wallet->allTx, &(tx1->inputs[i].txHash)), tx2)) return 1;
+        if (_BRWalletTxIsAscending(wallet, (BRTransaction *)BRSetGet(wallet->allTx, &(tx1->inputs[i].txHash)), tx2)) return 1;
     }
 
     return 0;
@@ -161,7 +161,7 @@ static int _BRWalletContainsTx(BRWallet *wallet, const BRTransaction *tx)
     }
     
     for (size_t i = 0; ! r && i < tx->inCount; i++) {
-        BRTransaction *t = BRSetGet(wallet->allTx, &tx->inputs[i].txHash);
+        BRTransaction *t = (BRTransaction *)BRSetGet(wallet->allTx, &tx->inputs[i].txHash);
         uint32_t n = tx->inputs[i].index;
         
         pkh = (t && n < t->outCount) ? BRScriptPKH(t->outputs[n].script, t->outputs[n].scriptLen) : NULL;
@@ -254,7 +254,7 @@ static void _BRWalletUpdateBalance(BRWallet *wallet)
         // transaction ordering is not guaranteed, so check the entire UTXO set against the entire spent output set
         for (j = array_count(wallet->utxos); j > 0; j--) {
             if (! BRSetContains(wallet->spentOutputs, &wallet->utxos[j - 1])) continue;
-            t = BRSetGet(wallet->allTx, &wallet->utxos[j - 1].hash);
+            t = (BRTransaction *)BRSetGet(wallet->allTx, &wallet->utxos[j - 1].hash);
             balance -= t->outputs[wallet->utxos[j - 1].n].amount;
             array_rm(wallet->utxos, j - 1);
         }
@@ -278,7 +278,7 @@ BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPub
     const uint8_t *pkh;
 
     assert(transactions != NULL || txCount == 0);
-    wallet = calloc(1, sizeof(*wallet));
+    wallet = (BRWallet *)calloc(1, sizeof(*wallet));
     assert(wallet != NULL);
     array_new(wallet->utxos, 100);
     array_new(wallet->transactions, txCount + 100);
@@ -637,7 +637,7 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
     //       attacker double spending and requesting a refund
     for (i = 0; i < array_count(wallet->utxos); i++) {
         o = &wallet->utxos[i];
-        tx = BRSetGet(wallet->allTx, o);
+        tx = (BRTransaction *)BRSetGet(wallet->allTx, o);
         if (! tx || o->n >= tx->outCount) continue;
         BRTransactionAddInput(transaction, tx->txHash, o->n, tx->outputs[o->n].amount,
                               tx->outputs[o->n].script, tx->outputs[o->n].scriptLen, NULL, 0, NULL, 0, TXIN_SEQUENCE);
@@ -812,7 +812,7 @@ void BRWalletRemoveTransaction(BRWallet *wallet, UInt256 txHash)
     assert(wallet != NULL);
     assert(! UInt256IsZero(txHash));
     wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
-    tx = BRSetGet(wallet->allTx, &txHash);
+    tx = (BRTransaction *)BRSetGet(wallet->allTx, &txHash);
 
     if (tx) {
         array_new(hashes, 0);
@@ -877,7 +877,7 @@ BRTransaction *BRWalletTransactionForHash(BRWallet *wallet, UInt256 txHash)
     assert(wallet != NULL);
     assert(! UInt256IsZero(txHash));
     wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
-    tx = BRSetGet(wallet->allTx, &txHash);
+    tx = (BRTransaction *)BRSetGet(wallet->allTx, &txHash);
     wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
     return tx;
 }
@@ -990,7 +990,7 @@ void BRWalletUpdateTransactions(BRWallet *wallet, const UInt256 txHashes[], size
     if (blockHeight > wallet->blockHeight) wallet->blockHeight = blockHeight;
     
     for (i = 0, j = 0; txHashes && i < txCount; i++) {
-        tx = BRSetGet(wallet->allTx, &txHashes[i]);
+        tx = (BRTransaction *)BRSetGet(wallet->allTx, &txHashes[i]);
         if (! tx || (tx->blockHeight == blockHeight && tx->timestamp == timestamp)) continue;
         tx->timestamp = timestamp;
         tx->blockHeight = blockHeight;
@@ -1071,7 +1071,7 @@ uint64_t BRWalletAmountSentByTx(BRWallet *wallet, const BRTransaction *tx)
     wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
     
     for (size_t i = 0; tx && i < tx->inCount; i++) {
-        BRTransaction *t = BRSetGet(wallet->allTx, &tx->inputs[i].txHash);
+        BRTransaction *t = (BRTransaction *)BRSetGet(wallet->allTx, &tx->inputs[i].txHash);
         uint32_t n = tx->inputs[i].index;
         const uint8_t *pkh;
 
@@ -1095,7 +1095,7 @@ uint64_t BRWalletFeeForTx(BRWallet *wallet, const BRTransaction *tx)
     wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
     
     for (size_t i = 0; tx && i < tx->inCount && amount != UINT64_MAX; i++) {
-        BRTransaction *t = BRSetGet(wallet->allTx, &tx->inputs[i].txHash);
+        BRTransaction *t = (BRTransaction *)BRSetGet(wallet->allTx, &tx->inputs[i].txHash);
         uint32_t n = tx->inputs[i].index;
         
         if (t && n < t->outCount) {
@@ -1194,7 +1194,7 @@ uint64_t BRWalletMaxOutputAmount(BRWallet *wallet)
 
     for (i = array_count(wallet->utxos); i > 0; i--) {
         o = &wallet->utxos[i - 1];
-        tx = BRSetGet(wallet->allTx, &o->hash);
+        tx = (BRTransaction *)BRSetGet(wallet->allTx, &o->hash);
         if (! tx || o->n >= tx->outCount) continue;
         inCount++;
         amount += tx->outputs[o->n].amount;
@@ -1214,7 +1214,7 @@ uint64_t BRWalletMaxOutputAmount(BRWallet *wallet)
 
 static void _setApplyFreeTx(void *info, void *tx)
 {
-    BRTransactionFree(tx);
+    BRTransactionFree((BRTransaction *)tx);
 }
 
 // frees memory allocated for wallet, and calls BRTransactionFree() for all registered transactions
