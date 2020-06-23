@@ -278,7 +278,7 @@ BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPub
     const uint8_t *pkh;
 
     assert(transactions != NULL || txCount == 0);
-    wallet = (BRWallet *)calloc(1, sizeof(*wallet));
+    wallet = new BRWallet{};
     assert(wallet != NULL);
     array_new(wallet->utxos, 100);
     array_new(wallet->transactions, txCount + 100);
@@ -1236,7 +1236,7 @@ void BRWalletFree(BRWallet *wallet)
     array_free(wallet->utxos);
     wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
 //    pthread_mutex_destroy(&wallet->lock);
-    free(wallet);
+    delete wallet;
 }
 
 // returns the given amount (in satoshis) in local currency units (i.e. pennies, pence)
