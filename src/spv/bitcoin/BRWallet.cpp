@@ -85,7 +85,6 @@ struct BRWalletStruct {
     void (*txAdded)(void *info, BRTransaction *tx);
     void (*txUpdated)(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp);
     void (*txDeleted)(void *info, UInt256 txHash, int notifyUser, int recommendRescan);
-//    pthread_mutex_t lock;
     boost::mutex lock;
 };
 
@@ -294,7 +293,6 @@ BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPub
     wallet->spentOutputs = BRSetNew(BRUTXOHash, BRUTXOEq, txCount + 100);
     wallet->usedPKH = BRSetNew(_pkhHash, _pkhEq, txCount + 100);
     wallet->allPKH = BRSetNew(_pkhHash, _pkhEq, txCount + 100);
-//    pthread_mutex_init(&wallet->lock, NULL);
 
     for (size_t i = 0; transactions && i < txCount; i++) {
         tx = transactions[i];
@@ -357,7 +355,7 @@ size_t BRWalletUnusedAddrs(BRWallet *wallet, BRAddress addrs[], uint32_t gapLimi
 
     assert(wallet != NULL);
     assert(gapLimit > 0);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     if (internal == SEQUENCE_EXTERNAL_CHAIN) chain = wallet->externalChain;
     if (internal == SEQUENCE_INTERNAL_CHAIN) chain = wallet->internalChain;
     assert(chain != NULL);
@@ -405,7 +403,7 @@ size_t BRWalletUnusedAddrs(BRWallet *wallet, BRAddress addrs[], uint32_t gapLimi
         }
     }
 
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return j;
 }
 
@@ -415,9 +413,9 @@ uint64_t BRWalletBalance(BRWallet *wallet)
     uint64_t balance;
 
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     balance = wallet->balance;
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return balance;
 }
 
@@ -425,14 +423,14 @@ uint64_t BRWalletBalance(BRWallet *wallet)
 size_t BRWalletUTXOs(BRWallet *wallet, BRUTXO *utxos, size_t utxosCount)
 {
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     if (! utxos || array_count(wallet->utxos) < utxosCount) utxosCount = array_count(wallet->utxos);
 
     for (size_t i = 0; utxos && i < utxosCount; i++) {
         utxos[i] = wallet->utxos[i];
     }
 
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return utxosCount;
 }
 
@@ -441,14 +439,14 @@ size_t BRWalletUTXOs(BRWallet *wallet, BRUTXO *utxos, size_t utxosCount)
 size_t BRWalletTransactions(BRWallet *wallet, BRTransaction *transactions[], size_t txCount)
 {
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     if (! transactions || array_count(wallet->transactions) < txCount) txCount = array_count(wallet->transactions);
 
     for (size_t i = 0; transactions && i < txCount; i++) {
         transactions[i] = wallet->transactions[i];
     }
     
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return txCount;
 }
 
@@ -460,7 +458,7 @@ size_t BRWalletTxUnconfirmedBefore(BRWallet *wallet, BRTransaction *transactions
     size_t total, n = 0;
 
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     total = array_count(wallet->transactions);
     while (n < total && wallet->transactions[(total - n) - 1]->blockHeight >= blockHeight) n++;
     if (! transactions || n < txCount) txCount = n;
@@ -469,7 +467,7 @@ size_t BRWalletTxUnconfirmedBefore(BRWallet *wallet, BRTransaction *transactions
         transactions[i] = wallet->transactions[(total - n) + i];
     }
 
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return txCount;
 }
 
@@ -479,9 +477,9 @@ uint64_t BRWalletTotalSent(BRWallet *wallet)
     uint64_t totalSent;
     
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     totalSent = wallet->totalSent;
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return totalSent;
 }
 
@@ -491,9 +489,9 @@ uint64_t BRWalletTotalReceived(BRWallet *wallet)
     uint64_t totalReceived;
     
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     totalReceived = wallet->totalReceived;
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return totalReceived;
 }
 
@@ -503,18 +501,18 @@ uint64_t BRWalletFeePerKb(BRWallet *wallet)
     uint64_t feePerKb;
     
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     feePerKb = wallet->feePerKb;
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return feePerKb;
 }
 
 void BRWalletSetFeePerKb(BRWallet *wallet, uint64_t feePerKb)
 {
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     wallet->feePerKb = feePerKb;
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
 }
 
 // returns the first unused external address (bech32 pay-to-witness-pubkey-hash)
@@ -545,7 +543,7 @@ size_t BRWalletAllAddrs(BRWallet *wallet, BRAddress addrs[], size_t addrsCount)
     size_t i, internalCount = 0, externalCount = 0;
     
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     internalCount = (! addrs || array_count(wallet->internalChain) < addrsCount) ?
                     array_count(wallet->internalChain) : addrsCount;
 
@@ -560,7 +558,7 @@ size_t BRWalletAllAddrs(BRWallet *wallet, BRAddress addrs[], size_t addrsCount)
         _BRWalletAddressFromHash160(wallet, addrs[internalCount + i].s, sizeof(*addrs), wallet->externalChain[i]);
     }
 
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return internalCount + externalCount;
 }
 
@@ -572,10 +570,10 @@ int BRWalletContainsAddress(BRWallet *wallet, const char *addr)
     
     assert(wallet != NULL);
     assert(addr != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     if (addr) BRAddressHash160(&pkh, addr);
     r = BRSetContains(wallet->allPKH, &pkh);
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return r;
 }
 
@@ -587,10 +585,10 @@ int BRWalletAddressIsUsed(BRWallet *wallet, const char *addr)
     
     assert(wallet != NULL);
     assert(addr != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     if (addr) BRAddressHash160(&pkh, addr);
     r = BRSetContains(wallet->usedPKH, &pkh);
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return r;
 }
 
@@ -628,7 +626,7 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
     }
     
     minAmount = BRWalletMinOutputAmount(wallet);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     feeAmount = _txFee(wallet->feePerKb, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
     
     // TODO: use up all UTXOs for all used addresses to avoid leaving funds in addresses whose public key is revealed
@@ -649,7 +647,7 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
             // check for sufficient total funds before building a smaller transaction
             if (wallet->balance < amount + _txFee(wallet->feePerKb, 10 + array_count(wallet->utxos)*TX_INPUT_SIZE +
                                                   (outCount + 1)*TX_OUTPUT_SIZE + cpfpSize)) break;
-            wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+            wallet->lock.unlock();
 
             if (outputs[outCount - 1].amount > amount + feeAmount + minAmount - balance) {
                 BRTxOutput newOutputs[outCount];
@@ -664,7 +662,7 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
             else transaction = BRWalletCreateTxForOutputs(wallet, outputs, outCount - 1); // remove last output
 
             balance = amount = feeAmount = 0;
-            wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+            wallet->lock.lock();
             break;
         }
         
@@ -684,7 +682,7 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
         if (balance == amount + feeAmount || balance >= amount + feeAmount + minAmount) break;
     }
     
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     
     if (transaction && (outCount < 1 || balance < amount + feeAmount)) { // no outputs/insufficient funds
         BRTransactionFree(transaction);
@@ -713,7 +711,7 @@ int BRWalletSignTransaction(BRWallet *wallet, BRTransaction *tx, const void *see
     
     assert(wallet != NULL);
     assert(tx != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     forkId = wallet->forkId;
     
     for (i = 0; tx && i < tx->inCount; i++) {
@@ -728,7 +726,7 @@ int BRWalletSignTransaction(BRWallet *wallet, BRTransaction *tx, const void *see
         }
     }
 
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
 
     BRKey keys[internalCount + externalCount];
 
@@ -752,9 +750,9 @@ int BRWalletContainsTransaction(BRWallet *wallet, const BRTransaction *tx)
     
     assert(wallet != NULL);
     assert(tx != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     if (tx) r = _BRWalletContainsTx(wallet, tx);
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return r;
 }
 
@@ -767,7 +765,7 @@ int BRWalletRegisterTransaction(BRWallet *wallet, BRTransaction *tx)
     assert(tx != NULL && BRTransactionIsSigned(tx));
     
     if (tx && BRTransactionIsSigned(tx)) {
-        wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+        wallet->lock.lock();
 
         if (! BRSetContains(wallet->allTx, tx)) {
             if (_BRWalletContainsTx(wallet, tx)) {
@@ -787,7 +785,7 @@ int BRWalletRegisterTransaction(BRWallet *wallet, BRTransaction *tx)
             }
         }
     
-        wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+        wallet->lock.unlock();
     }
     else r = 0;
 
@@ -811,7 +809,7 @@ void BRWalletRemoveTransaction(BRWallet *wallet, UInt256 txHash)
 
     assert(wallet != NULL);
     assert(! UInt256IsZero(txHash));
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     tx = (BRTransaction *)BRSetGet(wallet->allTx, &txHash);
 
     if (tx) {
@@ -830,7 +828,7 @@ void BRWalletRemoveTransaction(BRWallet *wallet, UInt256 txHash)
         }
         
         if (array_count(hashes) > 0) {
-            wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+            wallet->lock.unlock();
             
             for (size_t i = array_count(hashes); i > 0; i--) {
                 BRWalletRemoveTransaction(wallet, hashes[i - 1]);
@@ -846,7 +844,7 @@ void BRWalletRemoveTransaction(BRWallet *wallet, UInt256 txHash)
             }
             
             _BRWalletUpdateBalance(wallet);
-            wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+            wallet->lock.unlock();
             
             // if this is for a transaction we sent, and it wasn't already known to be invalid, notify user
             if (BRWalletAmountSentByTx(wallet, tx) > 0 && BRWalletTransactionIsValid(wallet, tx)) {
@@ -866,7 +864,7 @@ void BRWalletRemoveTransaction(BRWallet *wallet, UInt256 txHash)
         
         array_free(hashes);
     }
-    else wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    else wallet->lock.unlock();
 }
 
 // returns the transaction with the given hash if it's been registered in the wallet
@@ -876,9 +874,9 @@ BRTransaction *BRWalletTransactionForHash(BRWallet *wallet, UInt256 txHash)
     
     assert(wallet != NULL);
     assert(! UInt256IsZero(txHash));
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     tx = (BRTransaction *)BRSetGet(wallet->allTx, &txHash);
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return tx;
 }
 
@@ -895,7 +893,7 @@ int BRWalletTransactionIsValid(BRWallet *wallet, const BRTransaction *tx)
     // TODO: XXX conflicted tx with the same wallet outputs should be presented as the same tx to the user
 
     if (tx && tx->blockHeight == TX_UNCONFIRMED) { // only unconfirmed transactions can be invalid
-        wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+        wallet->lock.lock();
 
         if (! BRSetContains(wallet->allTx, tx)) {
             for (size_t i = 0; r && i < tx->inCount; i++) {
@@ -904,7 +902,7 @@ int BRWalletTransactionIsValid(BRWallet *wallet, const BRTransaction *tx)
         }
         else if (BRSetContains(wallet->invalidTx, tx)) r = 0;
 
-        wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+        wallet->lock.unlock();
 
         for (size_t i = 0; r && i < tx->inCount; i++) {
             t = BRWalletTransactionForHash(wallet, tx->inputs[i].txHash);
@@ -925,9 +923,9 @@ int BRWalletTransactionIsPending(BRWallet *wallet, const BRTransaction *tx)
     
     assert(wallet != NULL);
     assert(tx != NULL && BRTransactionIsSigned(tx));
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     blockHeight = wallet->blockHeight;
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
 
     if (tx && tx->blockHeight == TX_UNCONFIRMED) { // only unconfirmed transactions can be postdated
         if (BRTransactionVSize(tx) > TX_MAX_SIZE) r = 1; // check transaction size is under TX_MAX_SIZE
@@ -986,7 +984,7 @@ void BRWalletUpdateTransactions(BRWallet *wallet, const UInt256 txHashes[], size
     
     assert(wallet != NULL);
     assert(txHashes != NULL || txCount == 0);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     if (blockHeight > wallet->blockHeight) wallet->blockHeight = blockHeight;
     
     for (i = 0, j = 0; txHashes && i < txCount; i++) {
@@ -1013,7 +1011,7 @@ void BRWalletUpdateTransactions(BRWallet *wallet, const UInt256 txHashes[], size
     }
     
     if (needsUpdate) _BRWalletUpdateBalance(wallet);
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     if (j > 0 && wallet->txUpdated) wallet->txUpdated(wallet->callbackInfo, hashes, j, blockHeight, timestamp);
 }
 
@@ -1023,7 +1021,7 @@ void BRWalletSetTxUnconfirmedAfter(BRWallet *wallet, uint32_t blockHeight)
     size_t i, j, count;
     
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     wallet->blockHeight = blockHeight;
     count = i = array_count(wallet->transactions);
     while (i > 0 && wallet->transactions[i - 1]->blockHeight > blockHeight) i--;
@@ -1037,7 +1035,7 @@ void BRWalletSetTxUnconfirmedAfter(BRWallet *wallet, uint32_t blockHeight)
     }
     
     if (count > 0) _BRWalletUpdateBalance(wallet);
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     if (count > 0 && wallet->txUpdated) wallet->txUpdated(wallet->callbackInfo, hashes, count, TX_UNCONFIRMED, 0);
 }
 
@@ -1049,7 +1047,7 @@ uint64_t BRWalletAmountReceivedFromTx(BRWallet *wallet, const BRTransaction *tx)
     
     assert(wallet != NULL);
     assert(tx != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     
     // TODO: don't include outputs below TX_MIN_OUTPUT_AMOUNT
     for (size_t i = 0; tx && i < tx->outCount; i++) {
@@ -1057,7 +1055,7 @@ uint64_t BRWalletAmountReceivedFromTx(BRWallet *wallet, const BRTransaction *tx)
         if (pkh && BRSetContains(wallet->allPKH, pkh)) amount += tx->outputs[i].amount;
     }
     
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return amount;
 }
 
@@ -1068,7 +1066,7 @@ uint64_t BRWalletAmountSentByTx(BRWallet *wallet, const BRTransaction *tx)
     
     assert(wallet != NULL);
     assert(tx != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     
     for (size_t i = 0; tx && i < tx->inCount; i++) {
         BRTransaction *t = (BRTransaction *)BRSetGet(wallet->allTx, &tx->inputs[i].txHash);
@@ -1081,7 +1079,7 @@ uint64_t BRWalletAmountSentByTx(BRWallet *wallet, const BRTransaction *tx)
         }
     }
     
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return amount;
 }
 
@@ -1092,7 +1090,7 @@ uint64_t BRWalletFeeForTx(BRWallet *wallet, const BRTransaction *tx)
     
     assert(wallet != NULL);
     assert(tx != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     
     for (size_t i = 0; tx && i < tx->inCount && amount != UINT64_MAX; i++) {
         BRTransaction *t = (BRTransaction *)BRSetGet(wallet->allTx, &tx->inputs[i].txHash);
@@ -1104,7 +1102,7 @@ uint64_t BRWalletFeeForTx(BRWallet *wallet, const BRTransaction *tx)
         else amount = UINT64_MAX;
     }
     
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     
     for (size_t i = 0; tx && i < tx->outCount && amount != UINT64_MAX; i++) {
         amount -= tx->outputs[i].amount;
@@ -1120,7 +1118,7 @@ uint64_t BRWalletBalanceAfterTx(BRWallet *wallet, const BRTransaction *tx)
     
     assert(wallet != NULL);
     assert(tx != NULL && BRTransactionIsSigned(tx));
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     balance = wallet->balance;
     
     for (size_t i = array_count(wallet->transactions); tx && i > 0; i--) {
@@ -1129,7 +1127,7 @@ uint64_t BRWalletBalanceAfterTx(BRWallet *wallet, const BRTransaction *tx)
         break;
     }
 
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return balance;
 }
 
@@ -1139,9 +1137,9 @@ uint64_t BRWalletFeeForTxSize(BRWallet *wallet, size_t size)
     uint64_t fee;
     
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     fee = _txFee(wallet->feePerKb, size);
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return fee;
 }
 
@@ -1175,9 +1173,9 @@ uint64_t BRWalletMinOutputAmount(BRWallet *wallet)
     uint64_t amount;
     
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     amount = (TX_MIN_OUTPUT_AMOUNT*wallet->feePerKb + MIN_FEE_PER_KB - 1)/MIN_FEE_PER_KB;
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     return (amount > TX_MIN_OUTPUT_AMOUNT) ? amount : TX_MIN_OUTPUT_AMOUNT;
 }
 
@@ -1190,7 +1188,7 @@ uint64_t BRWalletMaxOutputAmount(BRWallet *wallet)
     size_t i, txSize, cpfpSize = 0, inCount = 0;
 
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
 
     for (i = array_count(wallet->utxos); i > 0; i--) {
         o = &wallet->utxos[i - 1];
@@ -1207,7 +1205,7 @@ uint64_t BRWalletMaxOutputAmount(BRWallet *wallet)
 
     txSize = 8 + BRVarIntSize(inCount) + TX_INPUT_SIZE*inCount + BRVarIntSize(2) + TX_OUTPUT_SIZE*2;
     fee = _txFee(wallet->feePerKb, txSize + cpfpSize);
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
+    wallet->lock.unlock();
     
     return (amount > fee) ? amount - fee : 0;
 }
@@ -1221,7 +1219,7 @@ static void _setApplyFreeTx(void *info, void *tx)
 void BRWalletFree(BRWallet *wallet)
 {
     assert(wallet != NULL);
-    wallet->lock.lock(); // pthread_mutex_lock(&wallet->lock);
+    wallet->lock.lock();
     BRSetFree(wallet->allPKH);
     BRSetFree(wallet->usedPKH);
     BRSetFree(wallet->invalidTx);
@@ -1234,8 +1232,7 @@ void BRWalletFree(BRWallet *wallet)
     array_free(wallet->balanceHist);
     array_free(wallet->transactions);
     array_free(wallet->utxos);
-    wallet->lock.unlock(); // pthread_mutex_unlock(&wallet->lock);
-//    pthread_mutex_destroy(&wallet->lock);
+    wallet->lock.unlock();
     delete wallet;
 }
 

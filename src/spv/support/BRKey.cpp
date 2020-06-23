@@ -59,7 +59,6 @@
 #pragma clang diagnostic pop
 #pragma GCC diagnostic pop
 
-//static pthread_once_t _rand_once = PTHREAD_ONCE_INIT;
 static std::once_flag _rand_once;
 
 static void _rand_init (void) {
@@ -76,7 +75,6 @@ uint32_t BRRand(uint32_t upperBound)
 {
     uint32_t r;
 
-//    pthread_once(&_rand_once, _rand_init);
     std::call_once(_rand_once, _rand_init);
 
     if (upperBound == 0 || upperBound > BR_RAND_MAX) upperBound = BR_RAND_MAX;
@@ -90,7 +88,6 @@ uint32_t BRRand(uint32_t upperBound)
 
 
 static secp256k1_context *_ctx = NULL;
-//static pthread_once_t _ctx_once = PTHREAD_ONCE_INIT;
 static std::once_flag _ctx_once;
 
 static void _ctx_init()
@@ -102,7 +99,6 @@ static void _ctx_init()
 // returns true on success
 int BRSecp256k1ModAdd(UInt256 *a, const UInt256 *b)
 {
-//    pthread_once(&_ctx_once, _ctx_init);
     std::call_once(_ctx_once, _ctx_init);
     return secp256k1_ec_privkey_tweak_add(_ctx, (unsigned char *)a, (const unsigned char *)b);
 }
@@ -111,7 +107,6 @@ int BRSecp256k1ModAdd(UInt256 *a, const UInt256 *b)
 // returns true on success
 int BRSecp256k1ModMul(UInt256 *a, const UInt256 *b)
 {
-//    pthread_once(&_ctx_once, _ctx_init);
     std::call_once(_ctx_once, _ctx_init);
     return secp256k1_ec_privkey_tweak_mul(_ctx, (unsigned char *)a, (const unsigned char *)b);
 }
@@ -123,7 +118,6 @@ int BRSecp256k1PointGen(BRECPoint *p, const UInt256 *i)
     secp256k1_pubkey pubkey;
     size_t pLen = sizeof(*p);
     
-//    pthread_once(&_ctx_once, _ctx_init);
     std::call_once(_ctx_once, _ctx_init);
     return (secp256k1_ec_pubkey_create(_ctx, &pubkey, (const unsigned char *)i) &&
             secp256k1_ec_pubkey_serialize(_ctx, (unsigned char *)p, &pLen, &pubkey, SECP256K1_EC_COMPRESSED));
@@ -136,7 +130,6 @@ int BRSecp256k1PointAdd(BRECPoint *p, const UInt256 *i)
     secp256k1_pubkey pubkey;
     size_t pLen = sizeof(*p);
     
-//    pthread_once(&_ctx_once, _ctx_init);
     std::call_once(_ctx_once, _ctx_init);
     return (secp256k1_ec_pubkey_parse(_ctx, &pubkey, (const unsigned char *)p, sizeof(*p)) &&
             secp256k1_ec_pubkey_tweak_add(_ctx, &pubkey, (const unsigned char *)i) &&
@@ -150,7 +143,6 @@ int BRSecp256k1PointMul(BRECPoint *p, const UInt256 *i)
     secp256k1_pubkey pubkey;
     size_t pLen = sizeof(*p);
     
-//    pthread_once(&_ctx_once, _ctx_init);
     std::call_once(_ctx_once, _ctx_init);
     return (secp256k1_ec_pubkey_parse(_ctx, &pubkey, (const unsigned char *)p, sizeof(*p)) &&
             secp256k1_ec_pubkey_tweak_mul(_ctx, &pubkey, (const unsigned char *)i) &&
@@ -206,7 +198,6 @@ int BRKeySetSecret(BRKey *key, const UInt256 *secret, int compressed)
     assert(key != NULL);
     assert(secret != NULL);
     
-//    pthread_once(&_ctx_once, _ctx_init);
     std::call_once(_ctx_once, _ctx_init);
     BRKeyClean(key);
     key->secret = UInt256Get(secret);
@@ -262,7 +253,6 @@ int BRKeySetPubKey(BRKey *key, const uint8_t *pubKey, size_t pkLen)
     assert(pubKey != NULL);
     assert(pkLen == 33 || pkLen == 65);
     
-//    pthread_once(&_ctx_once, _ctx_init);
     std::call_once(_ctx_once, _ctx_init);
     BRKeyClean(key);
     memcpy(key->pubKey, pubKey, pkLen);
@@ -453,7 +443,6 @@ size_t BRKeyCompactSign(const BRKey *key, void *compactSig, size_t sigLen, UInt2
 // assigns pubKey recovered from compactSig to key and returns true on success
 int BRKeyRecoverPubKey(BRKey *key, UInt256 md, const void *compactSig, size_t sigLen)
 {
-//    pthread_once(&_ctx_once, _ctx_init);
     std::call_once(_ctx_once, _ctx_init);
 
     int r = 0, compressed = 0, recid = 0;
