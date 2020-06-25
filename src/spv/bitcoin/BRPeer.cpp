@@ -36,8 +36,6 @@
 
 #include <compat.h>
 
-#include <boost/thread.hpp>
-
 //#include <pthread.h>
 //#include <unistd.h>
 //#include <fcntl.h>
@@ -92,6 +90,7 @@
 
 char const * spv_logfilename = NULL;
 int spv_log2console = 1;
+boost::mutex log_mutex;
 
 typedef enum {
     inv_undefined = 0,
@@ -911,11 +910,14 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
 #endif
 
 #ifdef WIN32
-        u_long nOne = 1;
-        if (ioctlsocket(sock, FIONBIO, &nOne) == SOCKET_ERROR) r = 0; // in win it is blocked by default, unblock
+        // I cant make it work with non-blocking sockets. Blocking is less effective, but it works
+//        u_long nOne = 1;
+//        if (ioctlsocket(sock, FIONBIO, &nOne) == SOCKET_ERROR) {
+//            r = 0; // in win it is blocked by default, unblock
+//        }
 #else
         arg = fcntl(sock, F_GETFL, NULL);
-        if (arg < 0 || fcntl(sock, F_SETFL, arg | O_NONBLOCK) < 0) r = 0; // temporarily set socket non-blocking
+        if (arg < 0 || fcntl(sock, F_SETFL, arg | O_NONBLOCK) == SOCKET_ERROR) r = 0; // temporarily set socket non-blocking
 #endif
         if (! r) err = WSAGetLastError();
     }
@@ -936,9 +938,11 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
             addrLen = sizeof(struct sockaddr_in);
         }
         
-        if (connect(sock, (struct sockaddr *)&addr, addrLen) < 0) err = WSAGetLastError();
-        
-        if (err == WSAEINPROGRESS) {
+        if (connect(sock, (struct sockaddr *)&addr, addrLen) == SOCKET_ERROR) {
+            err = WSAGetLastError();
+        }
+
+        if (err == WSAEINPROGRESS) {  // WSAEALREADY && WSAEWOULDBLOCK is for win (but I rather cant make it work with non-blocking sockets)
             err = 0;
             optLen = sizeof(err);
             tv.tv_sec = timeout;
@@ -947,7 +951,7 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
             FD_SET(sock, &fds);
             count = select(sock + 1, NULL, &fds, NULL, &tv);
 
-            if (count <= 0 || getsockopt(sock, SOL_SOCKET, SO_ERROR, (sockopt_arg_type)&err, &optLen) < 0 || err) {
+            if (count <= 0 || getsockopt(sock, SOL_SOCKET, SO_ERROR, (sockopt_arg_type)&err, &optLen) == SOCKET_ERROR || err) {
                 if (count == 0) err = ETIMEDOUT;
                 if (count < 0 || ! err) err = WSAGetLastError();
                 r = 0;
@@ -956,19 +960,20 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
         else if (err && domain == PF_INET6 && _BRPeerIsIPv4(peer)) {
             return _BRPeerOpenSocket(peer, PF_INET, timeout, error); // fallback to IPv4
         }
-        else if (err) r = 0;
+        else if (err) {
+            r = 0;
+        }
 
         if (r) peer_log(peer, "socket connected");
 
 #ifdef WIN32
-        u_long nZero = 0;
-        ioctlsocket(sock, FIONBIO, &nZero);
+//        u_long nZero = 0;
+//        ioctlsocket(sock, FIONBIO, &nZero);
 #else
         fcntl(sock, F_SETFL, arg); // restore socket non-blocking status
 #endif
     }
-
-    if (! r && err) peer_log(peer, "connect error: %s", strerror(err));
+    if (! r && err) peer_log(peer, "connect error: %d: %s", err, strerror(err));
     if (error && err) *error = err;
     return r;
 }
@@ -1014,7 +1019,6 @@ static double _peerGetMempoolTime (BRPeerContext *ctx) {
     return value;
 }
 
-
 static void *_peerThreadRoutine(void *arg)
 {
     BRPeer *peer = (BRPeer *)arg;
@@ -1045,6 +1049,12 @@ static void *_peerThreadRoutine(void *arg)
                 if (n > 0) len += n;
                 if (n == 0) error = ECONNRESET;
                 if (n < 0 && WSAGetLastError() != WSAEWOULDBLOCK) error = WSAGetLastError();
+                if (error == WSAENOTSOCK) {
+                    ctx->lock.lock();
+                    socket = ctx->socket = INVALID_SOCKET;
+                    ctx->lock.unlock();
+                    continue;
+                }
                 gettimeofday(&tv, NULL);
                 time = tv.tv_sec + (double)tv.tv_usec/1000000;
                 if (! error && time >= _peerGetDisconnectTime(ctx)) error = ETIMEDOUT;
@@ -1067,7 +1077,7 @@ static void *_peerThreadRoutine(void *arg)
             }
             
             if (error) {
-                peer_log(peer, "peer error: %s", strerror(error));
+                peer_log(peer, "peer error: %d: %s", error, strerror(error));
             }
             else if (header[15] != 0) { // verify header type field is NULL terminated
                 peer_log(peer, "malformed message header: type not NULL terminated");
@@ -1096,6 +1106,12 @@ static void *_peerThreadRoutine(void *arg)
                         if (n > 0) len += n;
                         if (n == 0) error = ECONNRESET;
                         if (n < 0 && WSAGetLastError() != WSAEWOULDBLOCK) error = WSAGetLastError();
+                        if (error == WSAENOTSOCK) {
+                            ctx->lock.lock();
+                            socket = ctx->socket = INVALID_SOCKET;
+                            ctx->lock.unlock();
+                            continue;
+                        }
                         gettimeofday(&tv, NULL);
                         time = tv.tv_sec + (double)tv.tv_usec/1000000;
                         if (n > 0) msgTimeout = time + MESSAGE_TIMEOUT;
@@ -1104,7 +1120,7 @@ static void *_peerThreadRoutine(void *arg)
                     }
                     
                     if (error) {
-                        peer_log(peer, "peer error: %s", strerror(error));
+                        peer_log(peer, "peer error: %d: %s", error, strerror(error));
                     }
                     else if (len == msgLen) {
                         BRSHA256_2(&hash, payload, msgLen);

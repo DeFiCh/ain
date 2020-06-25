@@ -31,11 +31,13 @@
 #include "BRInt.h"
 #include <stddef.h>
 #include <inttypes.h>
+#include <boost/thread.hpp>
 
 //#ifndef __cplusplus
 /// define logs
 #define console_peer_log(peer, ...) { \
     if (spv_log2console) { \
+        log_mutex.lock(); \
         if (peer) { \
             char host[INET6_ADDRSTRLEN]; \
             BRPeerHostSafe((BRPeer const*)peer, host); \
@@ -43,6 +45,7 @@
         } else { \
             _peer_log(_va_first(__VA_ARGS__, NULL) "\n", _va_rest(__VA_ARGS__, NULL)); \
         } \
+        log_mutex.unlock(); \
     } \
 }
 
@@ -52,6 +55,7 @@
 #define _va_rest(first, ...) __VA_ARGS__
 
 #define file_peer_log(peer, ...) { \
+    log_mutex.lock(); \
     FILE* logfile = NULL; \
     if (spv_logfilename && (logfile = fopen(spv_logfilename, "a"))) { \
         setbuf(logfile, NULL); \
@@ -64,6 +68,7 @@
         } \
         fclose(logfile); \
     } \
+    log_mutex.unlock(); \
 }
 //#endif
 
@@ -80,6 +85,7 @@
 
 extern char const * spv_logfilename;
 extern int spv_log2console;
+extern boost::mutex log_mutex;
 
 #ifdef __cplusplus
 extern "C" {
