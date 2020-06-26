@@ -145,15 +145,22 @@ static void _BRSHA256Compress(uint32_t *r, const uint32_t *x)
     uint32_t a = r[0], b = r[1], c = r[2], d = r[3], e = r[4], f = r[5], g = r[6], h = r[7], t1, t2, w[64];
     
     for (i = 0; i < 16; i++) w[i] = be32(x[i]);
-    for (; i < 64; i++) w[i] = s3(w[i - 2]) + w[i - 7] + s2(w[i - 15]) + w[i - 16];
+    for (; i < 64; i++) w[i] = (uint32_t)((uint64_t)s3(w[i - 2]) + w[i - 7] + s2(w[i - 15]) + w[i - 16]);
     
     for (i = 0; i < 64; i++) {
-        t1 = h + s1(e) + ch(e, f, g) + k[i] + w[i];
-        t2 = s0(a) + maj(a, b, c);
-        h = g, g = f, f = e, e = d + t1, d = c, c = b, b = a, a = t1 + t2;
+        t1 = (uint32_t)((uint64_t)h + s1(e) + ch(e, f, g) + k[i] + w[i]);
+        t2 = (uint32_t)((uint64_t)s0(a) + maj(a, b, c));
+        h = g, g = f, f = e, e = (uint32_t)((uint64_t)d + t1), d = c, c = b, b = a, a = (uint32_t)((uint64_t)t1 + t2);
     }
     
-    r[0] += a, r[1] += b, r[2] += c, r[3] += d, r[4] += e, r[5] += f, r[6] += g, r[7] += h;
+    r[0] = (uint32_t)((uint64_t)r[0] + a);
+    r[1] = (uint32_t)((uint64_t)r[1] + b);
+    r[2] = (uint32_t)((uint64_t)r[2] + c);
+    r[3] = (uint32_t)((uint64_t)r[3] + d);
+    r[4] = (uint32_t)((uint64_t)r[4] + e);
+    r[5] = (uint32_t)((uint64_t)r[5] + f);
+    r[6] = (uint32_t)((uint64_t)r[6] + g);
+    r[7] = (uint32_t)((uint64_t)r[7] + h);
     var_clean(&a, &b, &c, &d, &e, &f, &g, &h, &t1, &t2);
     mem_clean(w, sizeof(w));
 }
@@ -229,6 +236,12 @@ void BRSHA256_2(void *md32, const void *data, size_t dataLen)
 #define S2(x) (ror64((x), 1) ^ ror64((x), 8) ^ ((x) >> 7))
 #define S3(x) (ror64((x), 19) ^ ror64((x), 61) ^ ((x) >> 6))
 
+static inline uint64_t sum64(uint64_t a, uint64_t b) {
+    uint64_t low = (a & ~((uint32_t) 0)) + (b & ~((uint32_t) 0));
+    uint64_t high = (a >> 32) + (b >> 32) + (low >> 32);
+    return (high << 32) + (low & ~((uint32_t) 0));
+}
+
 static void _BRSHA512Compress(uint64_t *r, const uint64_t *x)
 {
     static const uint64_t k[] = {
@@ -254,15 +267,22 @@ static void _BRSHA512Compress(uint64_t *r, const uint64_t *x)
     uint64_t a = r[0], b = r[1], c = r[2], d = r[3], e = r[4], f = r[5], g = r[6], h = r[7], t1, t2, w[80];
     
     for (i = 0; i < 16; i++) w[i] = be64(x[i]);
-    for (; i < 80; i++) w[i] = S3(w[i - 2]) + w[i - 7] + S2(w[i - 15]) + w[i - 16];
+    for (; i < 80; i++) w[i] = sum64(sum64(S3(w[i - 2]), w[i - 7]), sum64(S2(w[i - 15]), w[i - 16]));
     
     for (i = 0; i < 80; i++) {
-        t1 = h + S1(e) + ch(e, f, g) + k[i] + w[i];
-        t2 = S0(a) + maj(a, b, c);
-        h = g, g = f, f = e, e = d + t1, d = c, c = b, b = a, a = t1 + t2;
+        t1 = sum64(sum64(sum64(h, S1(e)), sum64(ch(e, f, g), k[i])), w[i]);
+        t2 = sum64(S0(a), maj(a, b, c));
+        h = g, g = f, f = e, e = sum64(d, t1), d = c, c = b, b = a, a = sum64(t1, t2);
     }
     
-    r[0] += a, r[1] += b, r[2] += c, r[3] += d, r[4] += e, r[5] += f, r[6] += g, r[7] += h;
+    r[0] = sum64(r[0], a);
+    r[1] = sum64(r[1], b);
+    r[2] = sum64(r[2], c);
+    r[3] = sum64(r[3], d);
+    r[4] = sum64(r[4], e);
+    r[5] = sum64(r[5], f);
+    r[6] = sum64(r[6], g);
+    r[7] = sum64(r[7], h);
     var_clean(&a, &b, &c, &d, &e, &f, &g, &h, &t1, &t2);
     mem_clean(w, sizeof(w));
 }
@@ -327,7 +347,7 @@ void BRSHA512(void *md64, const void *data, size_t dataLen)
 #define j(x, y, z) ((x) ^ ((y) | ~(z)))
 
 // basic ripemd operation
-#define rmd(a, b, c, d, e, f, g, h, i, j) ((a) = rol32((f) + (b) + le32(c) + (d), (e)) + (g), (f) = (g), (g) = (h),\
+#define rmd(a, b, c, d, e, f, g, h, i, j) ((a) = (uint32_t)(((uint64_t)rol32((uint32_t)((uint64_t)(f) + (b) + le32(c) + (d)), (e))) + (g)), (f) = (g), (g) = (h),\
                                            (h) = rol32((i), 10), (i) = (j), (j) = (a))
 
 static void _BRRMDCompress(uint32_t *r, const uint32_t *x)
@@ -371,8 +391,8 @@ static void _BRRMDCompress(uint32_t *r, const uint32_t *x)
     for (i = 0; i < 16; i++) rmd(t, j(bl, cl, dl), x[rl5[i]], 0xa953fd4e, sl5[i], al, el, dl, cl, bl); // round 5 left
     for (i = 0; i < 16; i++) rmd(t, f(br, cr, dr), x[rr5[i]], 0x00000000, sr5[i], ar, er, dr, cr, br); // round 5 right
     
-    t = r[1] + cl + dr; // final result for r[0]
-    r[1] = r[2] + dl + er, r[2] = r[3] + el + ar, r[3] = r[4] + al + br, r[4] = r[0] + bl + cr, r[0] = t; // combine
+    t = (uint32_t)((uint64_t)r[1] + cl + dr); // final result for r[0]
+    r[1] = (uint32_t)((uint64_t)r[2] + dl + er), r[2] = (uint32_t)((uint64_t)r[3] + el + ar), r[3] = (uint32_t)((uint64_t)r[4] + al + br), r[4] = (uint32_t)((uint64_t)r[0] + bl + cr), r[0] = t; // combine
     var_clean(&al, &bl, &cl, &dl, &el, &ar, &br, &cr, &dr, &er, &t);
 }
 
