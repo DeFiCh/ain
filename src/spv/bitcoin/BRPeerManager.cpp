@@ -172,7 +172,7 @@ inline static int _BRPrevBlockEq(const void *block, const void *otherBlock)
 inline static size_t _BRBlockHeightHash(const void *block)
 {
     // (FNV_OFFSET xor height)*FNV_PRIME
-    return (size_t)((0x811C9dc5 ^ ((const BRMerkleBlock *)block)->height)*0x01000193);
+    return (size_t)((uint64_t)(0x811C9dc5 ^ ((const BRMerkleBlock *)block)->height) * 0x01000193);
 }
 
 // true if block and otherBlock have equal height values

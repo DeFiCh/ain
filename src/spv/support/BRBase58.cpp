@@ -54,7 +54,7 @@ size_t BRBase58Encode(char *str, size_t strLen, const uint8_t *data, size_t data
             carry /= 58;
         }
         
-        var_clean(&carry);
+        carry = 0;
     }
     
     i = 0;
@@ -62,7 +62,7 @@ size_t BRBase58Encode(char *str, size_t strLen, const uint8_t *data, size_t data
     len = (zcount + sizeof(buf) - i) + 1;
 
     if (str && len <= strLen) {
-        while (zcount-- > 0) *(str++) = chars[0];
+        for (; zcount > 0; --zcount) *(str++) = chars[0];
         while (i < sizeof(buf)) *(str++) = chars[buf[i++]];
         *str = '\0';
     }
@@ -85,33 +85,37 @@ size_t BRBase58Decode(uint8_t *data, size_t dataLen, const char *str)
     
     while (str && *str) {
         uint32_t carry = *(const uint8_t *)(str++);
-        
         switch (carry) {
             case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
                 carry -= '1';
                 break;
                 
             case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H':
-                carry += 9 - 'A';
+                carry += 9;
+                carry -= 'A';
                 break;
                 
             case 'J': case 'K': case 'L': case 'M': case 'N':
-                carry += 17 - 'J';
+                carry += 17;
+                carry -= 'J';
                 break;
                 
             case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y':
             case 'Z':
-                carry += 22 - 'P';
+                carry += 22;
+                carry -= 'P';
                 break;
                 
             case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h': case 'i': case 'j':
             case 'k':
-                carry += 33 - 'a';
+                carry += 33;
+                carry -= 'a';
                 break;
                 
             case 'm': case 'n': case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v':
             case 'w': case 'x': case 'y': case 'z':
-                carry += 44 - 'm';
+                carry += 44;
+                carry -= 'm';
                 break;
                 
             default:
@@ -125,8 +129,7 @@ size_t BRBase58Decode(uint8_t *data, size_t dataLen, const char *str)
             buf[j - 1] = carry & 0xff;
             carry >>= 8;
         }
-        
-        var_clean(&carry);
+        carry = 0;
     }
     
     while (i < sizeof(buf) && buf[i] == 0) i++; // skip leading zeroes
