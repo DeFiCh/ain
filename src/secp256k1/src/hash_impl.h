@@ -21,10 +21,10 @@
 #define sigma1(x) (((x) >> 17 | (x) << 15) ^ ((x) >> 19 | (x) << 13) ^ ((x) >> 10))
 
 #define Round(a,b,c,d,e,f,g,h,k,w) do { \
-    uint32_t t1 = (h) + Sigma1(e) + Ch((e), (f), (g)) + (k) + (w); \
-    uint32_t t2 = Sigma0(a) + Maj((a), (b), (c)); \
-    (d) += t1; \
-    (h) = t1 + t2; \
+    uint32_t t1 = (uint32_t) ((uint64_t)(h) + (uint64_t)Sigma1(e) + (uint64_t)Ch((e), (f), (g)) + (uint64_t)(k) + (uint64_t)(w)); \
+    uint32_t t2 = (uint32_t) ((uint64_t)Sigma0(a) + (uint64_t)Maj((a), (b), (c))); \
+    (d) = (uint32_t) ((uint64_t)(d) + t1); \
+    (h) = (uint32_t) ((uint64_t)t1 + t2); \
 } while(0)
 
 #ifdef WORDS_BIGENDIAN
