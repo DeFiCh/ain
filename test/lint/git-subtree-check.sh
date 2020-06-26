@@ -3,9 +3,10 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-exit
-
 export LC_ALL=C
+
+exit # turn it off! we don't use any git subtrees
+
 DIR="$1"
 COMMIT="$2"
 if [ -z "$COMMIT" ]; then
