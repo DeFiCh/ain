@@ -25,6 +25,8 @@
 #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
+#include <boost/thread.hpp>
+
 #include <dbwrapper.h>
 
 
