@@ -32,7 +32,7 @@ DeFi Blockchain has done significant modifications from Bitcoin Core, for instan
 
 Merges from upstream (Bitcoin Core) will be done selectively if it applies to the improved functionality and security of DeFi Blockchain.
 
-## Quick Documentation
+## Quick Start
 
 - [Running a node](./doc/setup-nodes.md)
 - [Running a node with docker](./doc/setup-nodes-docker.md)
