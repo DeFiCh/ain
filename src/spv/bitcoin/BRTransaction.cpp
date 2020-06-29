@@ -236,7 +236,7 @@ static size_t _BRTransactionWitnessData(const BRTransaction *tx, uint8_t *data, 
     
     if (sigHash != SIGHASH_SINGLE && sigHash != SIGHASH_NONE) {
         size_t bufLen = _BRTransactionOutputData(tx, NULL, 0, SIZE_MAX);
-        uint8_t _buf[0x1000], *buf = (bufLen <= 0x1000) ? _buf : malloc(bufLen);
+        uint8_t _buf[0x1000], *buf = (bufLen <= 0x1000) ? _buf : (uint8_t *)malloc(bufLen);
         
         bufLen = _BRTransactionOutputData(tx, buf, bufLen, SIZE_MAX);
         if (data && off + sizeof(UInt256) <= dataLen) BRSHA256_2(&data[off], buf, bufLen); // SIGHASH_ALL outputs hash
@@ -353,7 +353,7 @@ static size_t _BRTransactionData(const BRTransaction *tx, uint8_t *data, size_t 
 // returns a newly allocated empty transaction that must be freed by calling BRTransactionFree()
 BRTransaction *BRTransactionNew(void)
 {
-    BRTransaction *tx = calloc(1, sizeof(*tx));
+    BRTransaction *tx = (BRTransaction *)calloc(1, sizeof(*tx));
 
     assert(tx != NULL);
     tx->version = TX_VERSION;
@@ -478,7 +478,7 @@ BRTransaction *BRTransactionParse(const uint8_t *buf, size_t bufLen)
     }
     else if (isSigned && witnessFlag) {
         BRSHA256_2(&tx->wtxHash, buf, off);
-        sBuf = malloc((witnessOff - 2) + sizeof(uint32_t));
+        sBuf = (uint8_t *)malloc((witnessOff - 2) + sizeof(uint32_t));
         UInt32SetLE(sBuf, tx->version);
         memcpy(&sBuf[sizeof(uint32_t)], &buf[sizeof(uint32_t) + 2], witnessOff - (sizeof(uint32_t) + 2));
         UInt32SetLE(&sBuf[witnessOff - 2], tx->lockTime);
