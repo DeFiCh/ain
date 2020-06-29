@@ -57,7 +57,7 @@ bench_bench_defi_LDADD = \
   $(LIBDEFI_UTIL) \
   $(LIBDEFI_CONSENSUS) \
   $(LIBDEFI_CRYPTO) \
-  $(LIBSPV) \
+  $(LIBDEFI_SPV) \
   $(LIBLEVELDB) \
   $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \

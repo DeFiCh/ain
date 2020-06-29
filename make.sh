@@ -20,7 +20,7 @@ setup_vars() {
 
     # shellcheck disable=SC2206
     # This intentionally word-splits the array as env arg can only be strings.
-    # Other options available: x86_64-w64-mingw32
+    # Other options available: x86_64-w64-mingw32 x86_64-apple-darwin11
     TARGETS=(${TARGETS:-"x86_64-pc-linux-gnu"})
 }
 
@@ -157,6 +157,9 @@ docker_build() {
     echo "> docker-build";
 
     for target in "${targets[@]}"; do
+        if [[ "$target" == "x86_64-apple-darwin11" ]]; then
+            pkg_ensure_mac_sdk
+        fi
         local img="${img_prefix}-${target}:${img_version}"
         echo "> building: ${img}"
         local docker_file="${dockerfiles_dir}/${target}.dockerfile"
@@ -323,6 +326,28 @@ pkg_install_deps() {
         curl cmake
 }
 
+pkg_ensure_mac_sdk() {
+    local sdk_name="MacOSX10.11.sdk"
+    local pkg="${sdk_name}.tar.xz"
+
+    echo "> ensuring mac sdk"
+
+    mkdir -p ./depends/SDKs
+    pushd ./depends/SDKs >/dev/null
+    if [[ ! -d "$sdk_name" ]]; then
+        if [[ ! -f "${pkg}" ]]; then
+            wget https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.11.sdk.tar.xz 
+        fi
+        tar -xvf "${pkg}"
+    fi
+    rm "${pkg}" 2>/dev/null || true
+    popd >/dev/null
+}
+
+clean_mac_sdk() {
+    rm -rf ./depends/SDKs
+}
+
 purge() {
     clean
     clean_depends
@@ -333,6 +358,7 @@ purge() {
 clean_depends() {
     pushd ./depends >/dev/null
     make clean-all || true
+    clean_mac_sdk
     rm -rf built \
         work \
         sources \
