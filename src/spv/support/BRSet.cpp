@@ -58,7 +58,7 @@ static void _BRSetInit(BRSet *set, size_t (*hash)(const void *), int (*eq)(const
     while (i < TABLE_SIZES_LEN && tableSizes[i] < capacity) i++;
 
     if (i + 1 < TABLE_SIZES_LEN) { // use next larger table size to keep load factor below 2/3 at capacity
-        set->table = calloc(tableSizes[i + 1], sizeof(void *));
+        set->table = (void**)calloc(tableSizes[i + 1], sizeof(void *));
         assert(set->table != NULL);
         set->size = tableSizes[i + 1];
     }
@@ -75,7 +75,7 @@ static void _BRSetInit(BRSet *set, size_t (*hash)(const void *), int (*eq)(const
 // capacity is the maximum estimated number of items the set will need to hold
 BRSet *BRSetNew(size_t (*hash)(const void *), int (*eq)(const void *, const void *), size_t capacity)
 {
-    BRSet *set = calloc(1, sizeof(*set));
+    BRSet *set = (BRSet *)calloc(1, sizeof(*set));
     
     assert(set != NULL);
     _BRSetInit(set, hash, eq, capacity);
@@ -167,13 +167,13 @@ size_t BRSetCount(const BRSet *set)
 }
 
 // true if an item equivalant to the given item is contained in set
-int BRSetContains(const BRSet *set, const void *item)
+bool BRSetContains(const BRSet *set, const void *item)
 {
     return (BRSetGet(set, item) != NULL);
 }
 
 // true if any items in otherSet are contained in set
-int BRSetIntersects(const BRSet *set, const BRSet *otherSet)
+bool BRSetIntersects(const BRSet *set, const BRSet *otherSet)
 {
     assert(set != NULL);
     assert(otherSet != NULL);
@@ -183,10 +183,10 @@ int BRSetIntersects(const BRSet *set, const BRSet *otherSet)
     
     while (i < size) {
         t = otherSet->table[i++];
-        if (t && BRSetGet(set, t) != NULL) return 1;
+        if (t && BRSetGet(set, t) != NULL) return true;
     }
     
-    return 0;
+    return false;
 }
 
 // returns member item from set equivalent to given item, or NULL if there is none

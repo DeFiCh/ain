@@ -54,10 +54,10 @@ void BRSetClear(BRSet *set);
 size_t BRSetCount(const BRSet *set);
 
 // true if an item equivalant to the given item is contained in set
-int BRSetContains(const BRSet *set, const void *item);
+bool BRSetContains(const BRSet *set, const void *item);
 
 // true if any items in otherSet are contained in set
-int BRSetIntersects(const BRSet *set, const BRSet *otherSet);
+bool BRSetIntersects(const BRSet *set, const BRSet *otherSet);
 
 // returns member item from set equivalent to given item, or NULL if there is none
 void *BRSetGet(const BRSet *set, const void *item);
