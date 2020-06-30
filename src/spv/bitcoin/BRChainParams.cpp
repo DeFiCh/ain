@@ -107,11 +107,11 @@ static int BRMainNetVerifyDifficulty(const BRMerkleBlock *block, const BRSet *bl
     // check if we hit a difficulty transition, and find previous transition block
     if ((block->height % BLOCK_DIFFICULTY_INTERVAL) == 0) {
         for (i = 0, b = block; b && i < BLOCK_DIFFICULTY_INTERVAL; i++) {
-            b = BRSetGet(blockSet, &b->prevBlock);
+            b = (BRMerkleBlock*)BRSetGet(blockSet, &b->prevBlock);
         }
     }
 
-    previous = BRSetGet(blockSet, &block->prevBlock);
+    previous = (BRMerkleBlock*)BRSetGet(blockSet, &block->prevBlock);
     return BRMerkleBlockVerifyDifficulty(block, previous, (b) ? b->timestamp : 0);
 }
 
@@ -130,7 +130,7 @@ static const char BRTestBech32[] = "tb";
 
 static const BRChainParams BRMainNetParamsRecord = {
     BRMainNetDNSSeeds,
-    8555,                  // standardPort
+    8333,                  // standardPort
     0xd9b4bef9,            // magicNumber
     SERVICES_NODE_WITNESS, // services
     BRMainNetVerifyDifficulty,
@@ -147,7 +147,7 @@ const BRChainParams *BRMainNetParams = &BRMainNetParamsRecord;
 
 static const BRChainParams BRTestNetParamsRecord = {
     BRTestNetDNSSeeds,
-    18555,                 // standardPort
+    18333,                 // standardPort
     0x0709110b,            // magicNumber
     SERVICES_NODE_WITNESS, // services
     BRTestNetVerifyDifficulty,
