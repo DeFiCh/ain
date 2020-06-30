@@ -566,7 +566,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
             UniValue item(UniValue::VOBJ);
             item.pushKV("blockHeight", static_cast<int>(prev->height));
             item.pushKV("blockHash", prev->blockHash.ToString());
-            item.pushKV("signers", signers.size());
+            item.pushKV("signers", (uint64_t)signers.size());
             result.push_back(item);
 
             // clear
@@ -582,7 +582,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
         UniValue item(UniValue::VOBJ);
         item.pushKV("blockHeight", static_cast<int>(prev->height));
         item.pushKV("blockHash", prev->blockHash.ToString());
-        item.pushKV("signers", signers.size());
+        item.pushKV("signers", (uint64_t)signers.size());
         result.push_back(item);
     }
     return result;
@@ -624,7 +624,7 @@ UniValue spv_listanchorrewardconfirms(const JSONRPCRequest& request)
             item.pushKV("prevAnchorHeight", static_cast<int>(prev->prevAnchorHeight));
             item.pushKV("rewardAddress", EncodeDestination(rewardDest));
             item.pushKV("confirmSignHash", prev->GetSignHash().ToString());
-            item.pushKV("signers", signers.size());
+            item.pushKV("signers", (uint64_t)signers.size());
             result.push_back(item);
 
             // clear
@@ -644,7 +644,7 @@ UniValue spv_listanchorrewardconfirms(const JSONRPCRequest& request)
         item.pushKV("prevAnchorHeight", static_cast<int>(prev->prevAnchorHeight));
         item.pushKV("rewardAddress", EncodeDestination(rewardDest));
         item.pushKV("confirmSignHash", prev->GetSignHash().ToString());
-        item.pushKV("signers", signers.size());
+        item.pushKV("signers", (uint64_t)signers.size());
         result.push_back(item);
     }
     return result;
