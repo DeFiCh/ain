@@ -33,6 +33,8 @@
 #include <wallet/wallet.h>
 #include <warnings.h>
 
+#include <boost/thread.hpp>
+
 #include <memory>
 #include <stdint.h>
 

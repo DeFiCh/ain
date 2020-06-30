@@ -33,15 +33,18 @@
 #include <float.h>
 #include <inttypes.h>
 #include <string.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <netinet/in.h>	
-#include <arpa/inet.h>
+
+#include <compat.h>
+
+//#include <pthread.h>
+//#include <unistd.h>
+//#include <fcntl.h>
+//#include <errno.h>
+//#include <netdb.h>
+//#include <sys/socket.h>
+//#include <sys/time.h>
+//#include <netinet/in.h>
+//#include <arpa/inet.h>
 
 #define HEADER_LENGTH      24
 #define MAX_MSG_LENGTH     0x02000000
@@ -55,6 +58,7 @@
 #define WITNESS_FLAG       0x40000000
 
 #define PTHREAD_STACK_SIZE  (512 * 1024)
+
 
 // the standard blockchain download protocol works as follows (for SPV mode):
 // - local peer sends getblocks
@@ -86,6 +90,7 @@
 
 char const * spv_logfilename = NULL;
 int spv_log2console = 1;
+boost::mutex log_mutex;
 
 typedef enum {
     inv_undefined = 0,
@@ -114,7 +119,7 @@ typedef struct {
     BRMerkleBlock *currentBlock;
     UInt256 *currentBlockTxHashes, *knownBlockHashes, *knownTxHashes;
     BRSet *knownTxHashSet;
-    volatile int socket;
+    volatile SOCKET socket;
     void *info;
     void (*connected)(void *info);
     void (*disconnected)(void *info, int error);
@@ -133,8 +138,8 @@ typedef struct {
     void (**volatile pongCallback)(void *info, int success);
     void *volatile mempoolInfo;
     void (*volatile mempoolCallback)(void *info, int success);
-    pthread_t thread;
-    pthread_mutex_t lock;
+    std::unique_ptr<boost::thread> thread;
+    boost::mutex lock;
 } BRPeerContext;
 
 void BRPeerSendVersionMessage(BRPeer *peer);
@@ -170,17 +175,17 @@ static void _BRPeerDidConnect(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
 
-    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     if (ctx->status == BRPeerStatusConnecting && ctx->sentVerack && ctx->gotVerack) {
         peer_log(peer, "handshake completed");
         ctx->disconnectTime = DBL_MAX;
         ctx->status = BRPeerStatusConnected;
-        peer_log(peer, "connected with lastblock: %"PRIu32, ctx->lastblock);
-        pthread_mutex_unlock(&ctx->lock);
+        peer_log(peer, "connected with lastblock: %" PRIu32, ctx->lastblock);
+        ctx->lock.unlock();
         if (ctx->connected) ctx->connected(ctx->info);
     }
     else {
-        pthread_mutex_unlock(&ctx->lock);
+        ctx->lock.unlock();
     }
 }
 
@@ -227,7 +232,7 @@ static int _BRPeerAcceptVersionMessage(BRPeer *peer, const uint8_t *msg, size_t 
             r = 0;
         }
         else if (ctx->version < MIN_PROTO_VERSION) {
-            peer_log(peer, "protocol version %"PRIu32" not supported", ctx->version);
+            peer_log(peer, "protocol version %" PRIu32 " not supported", ctx->version);
             r = 0;
         }
         else {
@@ -237,7 +242,7 @@ static int _BRPeerAcceptVersionMessage(BRPeer *peer, const uint8_t *msg, size_t 
             off += strLen;
             ctx->lastblock = UInt32GetLE(&msg[off]);
             off += sizeof(uint32_t);
-            peer_log(peer, "got version %"PRIu32", services %"PRIx64", useragent:\"%s\"", ctx->version, peer->services,
+            peer_log(peer, "got version %" PRIu32 ", services %" PRIx64 ", useragent:\"%s\"", ctx->version, peer->services,
                      ctx->useragent);
             BRPeerSendVerackMessage(peer);
         }
@@ -336,7 +341,7 @@ static int _BRPeerAcceptInvMessage(BRPeer *peer, const uint8_t *msg, size_t msgL
         peer_log(peer, "got inv with %zu item(s)", count);
 
         for (i = 0; i < count; i++) {
-            type = UInt32GetLE(&msg[off]);
+            type = (inv_type)UInt32GetLE(&msg[off]);
             
             switch (type) { // inv messages only use inv_tx or inv_block
                 case inv_tx: transactions[txCount++] = &msg[off + sizeof(uint32_t)]; break;
@@ -403,9 +408,9 @@ static int _BRPeerAcceptInvMessage(BRPeer *peer, const uint8_t *msg, size_t msgL
                 BRPeerSendPing(peer, ctx->mempoolInfo, ctx->mempoolCallback);
                 ctx->mempoolCallback = NULL;
 
-                pthread_mutex_lock(&ctx->lock);
+                ctx->lock.lock();
                 ctx->mempoolTime = DBL_MAX;
-                pthread_mutex_unlock(&ctx->lock);
+                ctx->lock.unlock();
 
             }
         }
@@ -432,7 +437,7 @@ static int _BRPeerAcceptTxMessage(BRPeer *peer, const uint8_t *msg, size_t msgLe
     }
     else {
         txHash = tx->txHash;
-        peer_log(peer, "got tx: %s", u256hex(txHash));
+        peer_log(peer, "got tx: %s", u256hex(txHash).c_str());
 
         if (ctx->relayedTx) {
             ctx->relayedTx(ctx->info, tx);
@@ -505,7 +510,7 @@ static int _BRPeerAcceptHeadersMessage(BRPeer *peer, const uint8_t *msg, size_t 
                     r = 0;
                 }
                 else if (! BRMerkleBlockIsValid(block, (uint32_t)now)) {
-                    peer_log(peer, "invalid block header: %s", u256hex(block->blockHash));
+                    peer_log(peer, "invalid block header: %s", u256hex(block->blockHash).c_str());
                     BRMerkleBlockFree(block);
                     r = 0;
                 }
@@ -552,7 +557,7 @@ static int _BRPeerAcceptGetdataMessage(BRPeer *peer, const uint8_t *msg, size_t 
         peer_log(peer, "got getdata with %zu item(s)", count);
         
         for (size_t i = 0; i < count; i++) {
-            inv_type type = UInt32GetLE(&msg[off]);
+            inv_type type = (inv_type)UInt32GetLE(&msg[off]);
             UInt256 hash = UInt256Get(&msg[off + sizeof(uint32_t)]);
             
             switch (type) {
@@ -578,7 +583,7 @@ static int _BRPeerAcceptGetdataMessage(BRPeer *peer, const uint8_t *msg, size_t 
                 default:
                     if (! notfound) array_new(notfound, 1);
                     array_add(notfound, *(struct inv_item *)&msg[off]);
-                    peer_log(peer, "not found: type = %i, data= %s", type, u256hex(UInt256Reverse(hash)));
+                    peer_log(peer, "not found: type = %i, data= %s", type, u256hex(UInt256Reverse(hash)).c_str());
                     break;
             }
             
@@ -587,7 +592,7 @@ static int _BRPeerAcceptGetdataMessage(BRPeer *peer, const uint8_t *msg, size_t 
 
         if (notfound) {
             size_t bufLen = BRVarIntSize(array_count(notfound)) + 36*array_count(notfound), o = 0;
-            uint8_t *buf = malloc(bufLen);
+            uint8_t *buf = (uint8_t *)malloc(bufLen);
             
             assert(buf != NULL);
             o += BRVarIntSet(&buf[o], (o <= bufLen ? bufLen - o : 0), array_count(notfound));
@@ -625,7 +630,7 @@ static int _BRPeerAcceptNotfoundMessage(BRPeer *peer, const uint8_t *msg, size_t
         array_new(blockHashes, 1);
         
         for (size_t i = 0; i < count; i++) {
-            type = UInt32GetLE(&msg[off]);
+            type = (inv_type)UInt32GetLE(&msg[off]);
             hash = UInt256Get(&msg[off + sizeof(uint32_t)]);
             
             switch (type) {
@@ -680,7 +685,7 @@ static int _BRPeerAcceptPongMessage(BRPeer *peer, const uint8_t *msg, size_t msg
         r = 0;
     }
     else if (UInt64GetLE(msg) != ctx->nonce) {
-        peer_log(peer, "pong message has wrong nonce: %"PRIu64", expected: %"PRIu64, UInt64GetLE(msg), ctx->nonce);
+        peer_log(peer, "pong message has wrong nonce: %" PRIu64 ", expected: %" PRIu64, UInt64GetLE(msg), ctx->nonce);
         r = 0;
     }
     else if (array_count(ctx->pongCallback) == 0) {
@@ -726,7 +731,7 @@ static int _BRPeerAcceptMerkleblockMessage(BRPeer *peer, const uint8_t *msg, siz
         r = 0;
     }
     else if (! BRMerkleBlockIsValid(block, (uint32_t)time(NULL))) {
-        peer_log(peer, "invalid merkleblock: %s", u256hex(block->blockHash));
+        peer_log(peer, "invalid merkleblock: %s", u256hex(block->blockHash).c_str());
         BRMerkleBlockFree(block);
         block = NULL;
         r = 0;
@@ -739,7 +744,7 @@ static int _BRPeerAcceptMerkleblockMessage(BRPeer *peer, const uint8_t *msg, siz
     }
     else {
         size_t count = BRMerkleBlockTxHashes(block, NULL, 0);
-        UInt256 _hashes[128], *hashes = (count <= 128) ? _hashes : malloc(count*sizeof(UInt256));
+        UInt256 _hashes[128], *hashes = (count <= 128) ? _hashes : (UInt256 *)malloc(count*sizeof(UInt256));
         
         assert(hashes != NULL);
         count = BRMerkleBlockTxHashes(block, hashes, count);
@@ -805,7 +810,7 @@ static int _BRPeerAcceptRejectMessage(BRPeer *peer, const uint8_t *msg, size_t m
             off += hashLen;
 
             if (! UInt256IsZero(txHash)) {
-                peer_log(peer, "rejected %s code: 0x%x reason: \"%s\" txid: %s", type, code, reason, u256hex(txHash));
+                peer_log(peer, "rejected %s code: 0x%x reason: \"%s\" txid: %s", type, code, reason, u256hex(txHash).c_str());
                 if (ctx->rejectedTx) ctx->rejectedTx(ctx->info, txHash, code);
             }
             else peer_log(peer, "rejected %s code: 0x%x reason: \"%s\"", type, code, reason);
@@ -826,11 +831,11 @@ static int _BRPeerAcceptFeeFilterMessage(BRPeer *peer, const uint8_t *msg, size_
         r = 0;
     }
     else {
-        pthread_mutex_lock(&ctx->lock);
+        ctx->lock.lock();
         ctx->feePerKb = UInt64GetLE(msg);
-        pthread_mutex_unlock(&ctx->lock);
+        ctx->lock.unlock();
         
-        peer_log(peer, "got feefilter with rate %"PRIu64, ctx->feePerKb);
+        peer_log(peer, "got feefilter with rate %" PRIu64, ctx->feePerKb);
         if (ctx->setFeePerKb) ctx->setFeePerKb(ctx->info, ctx->feePerKb);
     }
     
@@ -843,7 +848,7 @@ static int _BRPeerAcceptMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen,
     int r = 1;
     
     if (ctx->currentBlock && strncmp(MSG_TX, type, 12) != 0) { // if we receive a non-tx message, merkleblock is done
-        peer_log(peer, "incomplete merkleblock %s, expected %zu more tx, got %s", u256hex(ctx->currentBlock->blockHash),
+        peer_log(peer, "incomplete merkleblock %s, expected %zu more tx, got %s", u256hex(ctx->currentBlock->blockHash).c_str(),
                  array_count(ctx->currentBlockTxHashes), type);
         array_clear(ctx->currentBlockTxHashes);
         ctx->currentBlock = NULL;
@@ -876,28 +881,45 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
     fd_set fds;
     socklen_t addrLen, optLen;
     int count, arg = 0, err = 0, on = 1, r = 1;
-    int sock;
+    SOCKET sock = INVALID_SOCKET;
 
-    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     sock = ctx->socket = socket(domain, SOCK_STREAM, 0);
-    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
-    if (sock < 0) {
-        err = errno;
+    if (sock == INVALID_SOCKET) {
+        err = WSAGetLastError();
         r = 0;
     }
     else {
+#ifdef WIN32
+        DWORD millis = 1000;
+        DWORD wOn = 1;
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (sockopt_arg_type) &millis, sizeof(millis));
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (sockopt_arg_type) &millis, sizeof(millis));
+        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (sockopt_arg_type) &wOn, sizeof(wOn));
+#else
         tv.tv_sec = 1; // one second timeout for send/receive, so thread doesn't block for too long
         tv.tv_usec = 0;
-        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on));
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (sockopt_arg_type) &tv, sizeof(tv));
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (sockopt_arg_type) &tv, sizeof(tv));
+        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (sockopt_arg_type) &on, sizeof(on));
 #ifdef SO_NOSIGPIPE // BSD based systems have a SO_NOSIGPIPE socket option to supress SIGPIPE signals
         setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
 #endif
+#endif
+
+#ifdef WIN32
+        // I cant make it work with non-blocking sockets. Blocking is less effective, but it works
+//        u_long nOne = 1;
+//        if (ioctlsocket(sock, FIONBIO, &nOne) == SOCKET_ERROR) {
+//            r = 0; // in win it is blocked by default, unblock
+//        }
+#else
         arg = fcntl(sock, F_GETFL, NULL);
-        if (arg < 0 || fcntl(sock, F_SETFL, arg | O_NONBLOCK) < 0) r = 0; // temporarily set socket non-blocking
-        if (! r) err = errno;
+        if (arg < 0 || fcntl(sock, F_SETFL, arg | O_NONBLOCK) == SOCKET_ERROR) r = 0; // temporarily set socket non-blocking
+#endif
+        if (! r) err = WSAGetLastError();
     }
 
     if (r) {
@@ -916,9 +938,11 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
             addrLen = sizeof(struct sockaddr_in);
         }
         
-        if (connect(sock, (struct sockaddr *)&addr, addrLen) < 0) err = errno;
-        
-        if (err == EINPROGRESS) {
+        if (connect(sock, (struct sockaddr *)&addr, addrLen) == SOCKET_ERROR) {
+            err = WSAGetLastError();
+        }
+
+        if (err == WSAEINPROGRESS) {  // WSAEALREADY && WSAEWOULDBLOCK is for win (but I rather cant make it work with non-blocking sockets)
             err = 0;
             optLen = sizeof(err);
             tv.tv_sec = timeout;
@@ -927,43 +951,50 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
             FD_SET(sock, &fds);
             count = select(sock + 1, NULL, &fds, NULL, &tv);
 
-            if (count <= 0 || getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &optLen) < 0 || err) {
+            if (count <= 0 || getsockopt(sock, SOL_SOCKET, SO_ERROR, (sockopt_arg_type)&err, &optLen) == SOCKET_ERROR || err) {
                 if (count == 0) err = ETIMEDOUT;
-                if (count < 0 || ! err) err = errno;
+                if (count < 0 || ! err) err = WSAGetLastError();
                 r = 0;
             }
         }
         else if (err && domain == PF_INET6 && _BRPeerIsIPv4(peer)) {
             return _BRPeerOpenSocket(peer, PF_INET, timeout, error); // fallback to IPv4
         }
-        else if (err) r = 0;
+        else if (err) {
+            r = 0;
+        }
 
         if (r) peer_log(peer, "socket connected");
-        fcntl(sock, F_SETFL, arg); // restore socket non-blocking status
-    }
 
-    if (! r && err) peer_log(peer, "connect error: %s", strerror(err));
+#ifdef WIN32
+//        u_long nZero = 0;
+//        ioctlsocket(sock, FIONBIO, &nZero);
+#else
+        fcntl(sock, F_SETFL, arg); // restore socket non-blocking status
+#endif
+    }
+    if (! r && err) peer_log(peer, "connect error: %d: %s", err, strerror(err));
     if (error && err) *error = err;
     return r;
 }
 
-static int _peerCheckAndGetSocket (BRPeerContext *ctx, int *socket) {
+static int _peerCheckAndGetSocket (BRPeerContext *ctx, SOCKET *socket) {
     int exists;
 
-    pthread_mutex_lock(&ctx->lock);
-    exists = ctx->socket >= 0;
+    ctx->lock.lock();
+    exists = ctx->socket != INVALID_SOCKET;
     if (NULL != socket) *socket = ctx->socket;
-    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     return exists;
 }
 
-static int _peerGetSocket (BRPeerContext *ctx) {
-    int socket;
+static SOCKET _peerGetSocket (BRPeerContext *ctx) {
+    SOCKET socket;
 
-    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     socket = ctx->socket;
-    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     return socket;
 }
@@ -971,9 +1002,9 @@ static int _peerGetSocket (BRPeerContext *ctx) {
 static double _peerGetDisconnectTime (BRPeerContext *ctx) {
     double value;
 
-    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     value = ctx->disconnectTime;
-    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     return value;
 }
@@ -981,26 +1012,26 @@ static double _peerGetDisconnectTime (BRPeerContext *ctx) {
 static double _peerGetMempoolTime (BRPeerContext *ctx) {
     double value;
 
-    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     value = ctx->mempoolTime;
-    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     return value;
 }
 
-
 static void *_peerThreadRoutine(void *arg)
 {
-    BRPeer *peer = arg;
-    BRPeerContext *ctx = arg;
-    int socket, error = 0;
+    BRPeer *peer = (BRPeer *)arg;
+    BRPeerContext *ctx = (BRPeerContext *)arg;
+    int error = 0;
+    SOCKET socket;
 
-    pthread_cleanup_push(ctx->threadCleanup, ctx->info);
+    threadCleanup guard(ctx->threadCleanup, ctx->info);
     
     if (_BRPeerOpenSocket(peer, PF_INET6, CONNECT_TIMEOUT, &error)) {
         struct timeval tv;
         double time = 0, msgTimeout;
-        uint8_t header[HEADER_LENGTH], *payload = malloc(0x1000);
+        uint8_t header[HEADER_LENGTH], *payload = (uint8_t *)malloc(0x1000);
         size_t len = 0, payloadLen = 0x1000;
         ssize_t n = 0;
 
@@ -1012,11 +1043,18 @@ static void *_peerThreadRoutine(void *arg)
         while (_peerCheckAndGetSocket(ctx, &socket) && ! error) {
             len = 0;
 
-            while (socket >= 0 && ! error && len < HEADER_LENGTH) {
-                n = read(socket, &header[len], sizeof(header) - len);
+            while (socket != INVALID_SOCKET && ! error && len < HEADER_LENGTH) {
+//                n = read(socket, &header[len], sizeof(header) - len);
+                n = recv(socket, (char*)&header[len], sizeof(header) - len, 0);
                 if (n > 0) len += n;
                 if (n == 0) error = ECONNRESET;
-                if (n < 0 && errno != EWOULDBLOCK) error = errno;
+                if (n < 0 && WSAGetLastError() != WSAEWOULDBLOCK) error = WSAGetLastError();
+                if (error == WSAENOTSOCK) {
+                    ctx->lock.lock();
+                    socket = ctx->socket = INVALID_SOCKET;
+                    ctx->lock.unlock();
+                    continue;
+                }
                 gettimeofday(&tv, NULL);
                 time = tv.tv_sec + (double)tv.tv_usec/1000000;
                 if (! error && time >= _peerGetDisconnectTime(ctx)) error = ETIMEDOUT;
@@ -1026,9 +1064,9 @@ static void *_peerThreadRoutine(void *arg)
                     BRPeerSendPing(peer, ctx->mempoolInfo, ctx->mempoolCallback);
                     ctx->mempoolCallback = NULL;
 
-                    pthread_mutex_lock(&ctx->lock);
+                    ctx->lock.lock();
                     ctx->mempoolTime = DBL_MAX;
-                    pthread_mutex_unlock(&ctx->lock);
+                    ctx->lock.unlock();
                 }
 
                 while (sizeof(uint32_t) <= len && UInt32GetLE(header) != ctx->magicNumber) {
@@ -1039,7 +1077,7 @@ static void *_peerThreadRoutine(void *arg)
             }
             
             if (error) {
-                peer_log(peer, "peer error: %s", strerror(error));
+                peer_log(peer, "peer error: %d: %s", error, strerror(error));
             }
             else if (header[15] != 0) { // verify header type field is NULL terminated
                 peer_log(peer, "malformed message header: type not NULL terminated");
@@ -1052,21 +1090,28 @@ static void *_peerThreadRoutine(void *arg)
                 UInt256 hash;
                 
                 if (msgLen > MAX_MSG_LENGTH) { // check message length
-                    peer_log(peer, "error reading %s, message length %"PRIu32" is too long", type, msgLen);
+                    peer_log(peer, "error reading %s, message length %" PRIu32 " is too long", type, msgLen);
                     error = EPROTO;
                 }
                 else {
-                    if (msgLen > payloadLen) payload = realloc(payload, (payloadLen = msgLen));
+                    if (msgLen > payloadLen) payload = (uint8_t *)realloc(payload, (payloadLen = msgLen));
                     assert(payload != NULL);
                     len = 0;
                     socket = _peerGetSocket(ctx);
                     msgTimeout = time + MESSAGE_TIMEOUT;
                     
-                    while (socket >= 0 && ! error && len < msgLen) {
-                        n = read(socket, &payload[len], msgLen - len);
+                    while (socket != INVALID_SOCKET && ! error && len < msgLen) {
+//                        n = read(socket, &payload[len], msgLen - len);
+                        n = recv(socket, (char *) &payload[len], msgLen - len, 0);
                         if (n > 0) len += n;
                         if (n == 0) error = ECONNRESET;
-                        if (n < 0 && errno != EWOULDBLOCK) error = errno;
+                        if (n < 0 && WSAGetLastError() != WSAEWOULDBLOCK) error = WSAGetLastError();
+                        if (error == WSAENOTSOCK) {
+                            ctx->lock.lock();
+                            socket = ctx->socket = INVALID_SOCKET;
+                            ctx->lock.unlock();
+                            continue;
+                        }
                         gettimeofday(&tv, NULL);
                         time = tv.tv_sec + (double)tv.tv_usec/1000000;
                         if (n > 0) msgTimeout = time + MESSAGE_TIMEOUT;
@@ -1075,14 +1120,14 @@ static void *_peerThreadRoutine(void *arg)
                     }
                     
                     if (error) {
-                        peer_log(peer, "peer error: %s", strerror(error));
+                        peer_log(peer, "peer error: %d: %s", error, strerror(error));
                     }
                     else if (len == msgLen) {
                         BRSHA256_2(&hash, payload, msgLen);
                         
                         if (UInt32GetLE(&hash) != checksum) { // verify checksum
-                            peer_log(peer, "error reading %s, invalid checksum %x, expected %x, payload length:%"PRIu32
-                                     ", SHA256_2:%s", type, UInt32GetLE(&hash), checksum, msgLen, u256hex(hash));
+                            peer_log(peer, "error reading %s, invalid checksum %x, expected %x, payload length:%" PRIu32
+                                     ", SHA256_2:%s", type, UInt32GetLE(&hash), checksum, msgLen, u256hex(hash).c_str());
                             error = EPROTO;
                         }
                         else if (! _BRPeerAcceptMessage(peer, payload, msgLen, type)) error = EPROTO;
@@ -1094,12 +1139,19 @@ static void *_peerThreadRoutine(void *arg)
         free(payload);
     }
 
-    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     socket = ctx->socket;
     ctx->status = BRPeerStatusDisconnected;
-    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
-    if (socket >= 0) close(socket);
+    if (socket != INVALID_SOCKET) {
+#ifdef WIN32
+        closesocket(socket);
+#else
+        close(socket);
+#endif
+    }
+
     peer_log(peer, "disconnected");
     
     while (array_count(ctx->pongCallback) > 0) {
@@ -1114,7 +1166,8 @@ static void *_peerThreadRoutine(void *arg)
     if (ctx->mempoolCallback) ctx->mempoolCallback(ctx->mempoolInfo, 0);
     ctx->mempoolCallback = NULL;
     if (ctx->disconnected) ctx->disconnected(ctx->info, error);
-    pthread_cleanup_pop(1);
+    /// @todo spv: debug for proper thread cleanup!
+//    guard.commit();
     return NULL; // detached threads don't need to return a value
 }
 
@@ -1125,8 +1178,8 @@ static void _dummyThreadCleanup(void *info)
 // returns a newly allocated BRPeer struct that must be freed by calling BRPeerFree()
 BRPeer *BRPeerNew(uint32_t magicNumber)
 {
-    BRPeerContext *ctx = calloc(1, sizeof(*ctx));
-    
+    BRPeerContext *ctx = new BRPeerContext{};
+
     assert(ctx != NULL);
     ctx->magicNumber = magicNumber;
     array_new(ctx->useragent, 40);
@@ -1139,17 +1192,9 @@ BRPeer *BRPeerNew(uint32_t magicNumber)
     ctx->pingTime = DBL_MAX;
     ctx->mempoolTime = DBL_MAX;
     ctx->disconnectTime = DBL_MAX;
-    ctx->socket = -1;
+    ctx->socket = INVALID_SOCKET;
     ctx->threadCleanup = _dummyThreadCleanup;
     ctx->thread = 0;
-
-    {
-        pthread_mutexattr_t attr;
-        pthread_mutexattr_init(&attr);
-        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
-        pthread_mutex_init(&ctx->lock, &attr);
-        pthread_mutexattr_destroy(&attr);
-    }
 
     return &ctx->peer;
 }
@@ -1214,11 +1259,11 @@ void BRPeerSetCurrentBlockHeight(BRPeer *peer, uint32_t currentBlockHeight)
 BRPeerStatus BRPeerConnectStatus(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
-    BRPeerStatus status = 0;
+    BRPeerStatus status = BRPeerStatusDisconnected;
 
-    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     status = ctx->status;
-    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 
     return status;
 }
@@ -1228,9 +1273,8 @@ int BRPeerConnect(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
     struct timeval tv;
-    pthread_attr_t attr;
 
-    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     if (ctx->status == BRPeerStatusDisconnected || ctx->waitingForNetwork) { /// @todo check all places with "->waitingForNetwork"
         ctx->status = BRPeerStatusConnecting;
     
@@ -1245,30 +1289,17 @@ int BRPeerConnect(BRPeer *peer)
 
             // No race - set before the thread starts.
             ctx->disconnectTime = tv.tv_sec + (double)tv.tv_usec/1000000 + CONNECT_TIMEOUT;
-
-            if (pthread_attr_init(&attr) != 0) {
-                // error = ENOMEM;
-                peer_log(peer, "error creating thread");
-                ctx->status = BRPeerStatusDisconnected;
-                //if (ctx->disconnected) ctx->disconnected(ctx->info, error);
-            }
-            else if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0 ||
-                     pthread_attr_setstacksize(&attr, PTHREAD_STACK_SIZE) != 0 ||
-                     pthread_create(&ctx->thread, &attr, _peerThreadRoutine, peer) != 0) {
-                // error = EAGAIN;
-                peer_log(peer, "error creating thread");
-                pthread_attr_destroy(&attr);
-                ctx->thread = 0; // otherwise may be UB
-                ctx->status = BRPeerStatusDisconnected;
-                //if (ctx->disconnected) ctx->disconnected(ctx->info, error);
-            }
-            else {
-                pthread_mutex_unlock(&ctx->lock);
+            {
+                boost::thread::attributes attrs;
+                attrs.set_stack_size(PTHREAD_STACK_SIZE);
+                ctx->thread.reset(new boost::thread(attrs, boost::bind(_peerThreadRoutine, peer)));
+                ctx->thread->detach();
+                ctx->lock.unlock();
                 return 1; // thread successful run
             }
         }
     }
-    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
     return 0;
 }
 
@@ -1276,15 +1307,20 @@ int BRPeerConnect(BRPeer *peer)
 void BRPeerDisconnect(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
-    int socket = -1;
+    SOCKET socket = INVALID_SOCKET;
 
     if (_peerCheckAndGetSocket(ctx, &socket)) {
-        pthread_mutex_lock(&ctx->lock);
+        ctx->lock.lock();
         ctx->status = BRPeerStatusDisconnected;
-        pthread_mutex_unlock(&ctx->lock);
+        ctx->lock.unlock();
 
-        if (shutdown(socket, SHUT_RDWR) < 0) peer_log(peer, "%s: %s", __func__, strerror(errno));
+#ifdef WIN32
+        if (shutdown(socket, SD_BOTH) == SOCKET_ERROR) peer_log(peer, "%s: %s", __func__, strerror(WSAGetLastError()));
+        closesocket(socket);
+#else
+        if (shutdown(socket, SHUT_RDWR) == SOCKET_ERROR) peer_log(peer, "%s: %s", __func__, strerror(WSAGetLastError()));
         close(socket);
+#endif
     }
 }
 
@@ -1295,9 +1331,9 @@ void BRPeerScheduleDisconnect(BRPeer *peer, double seconds)
     struct timeval tv;
     
     gettimeofday(&tv, NULL);
-    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     ctx->disconnectTime = (seconds < 0) ? DBL_MAX : tv.tv_sec + (double)tv.tv_usec/1000000 + seconds;
-    pthread_mutex_unlock(&ctx->lock);
+    ctx->lock.unlock();
 }
 
 // call this when wallet addresses need to be added to bloom filter
@@ -1327,7 +1363,7 @@ const char *BRPeerHost(BRPeer *peer)
 void BRPeerHostSafe(BRPeer const *peer, char *host)
 {
     if (!peer) {
-        host[0] == '\0';
+        host[0] = '\0';
         return;
     }
 
@@ -1367,10 +1403,9 @@ uint64_t BRPeerFeePerKb(BRPeer *peer)
     BRPeerContext *ctx = (BRPeerContext *)peer;
     uint64_t feePerKb;
 
-    pthread_mutex_lock(&ctx->lock);
+    ctx->lock.lock();
     feePerKb = ctx->feePerKb;
-    pthread_mutex_unlock(&ctx->lock);
-
+    ctx->lock.unlock();
     return feePerKb;
 }
 
@@ -1390,7 +1425,8 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
         size_t off = 0;
         ssize_t n = 0;
         struct timeval tv;
-        int socket, error = 0;
+        int error = 0;
+        SOCKET socket = INVALID_SOCKET;
         
         UInt32SetLE(&buf[off], ctx->magicNumber);
         off += sizeof(uint32_t);
@@ -1405,12 +1441,12 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
         peer_log(peer, "sending %s", type);
         msgLen = 0;
         socket = _peerGetSocket(ctx);
-        if (socket < 0) error = ENOTCONN;
+        if (socket == INVALID_SOCKET) error = ENOTCONN;
         
-        while (socket >= 0 && ! error && msgLen < sizeof(buf)) {
+        while (socket != INVALID_SOCKET && ! error && msgLen < sizeof(buf)) {
             n = send(socket, &buf[msgLen], sizeof(buf) - msgLen, MSG_NOSIGNAL);
             if (n >= 0) msgLen += n;
-            if (n < 0 && errno != EWOULDBLOCK) error = errno;
+            if (n < 0 && WSAGetLastError() != WSAEWOULDBLOCK) error = WSAGetLastError();
             gettimeofday(&tv, NULL);
             if (! error && tv.tv_sec + (double)tv.tv_usec/1000000 >= _peerGetDisconnectTime(ctx)) error = ETIMEDOUT;
             socket = _peerGetSocket(ctx);
@@ -1496,9 +1532,9 @@ void BRPeerSendMempool(BRPeer *peer, const UInt256 knownTxHashes[], size_t known
         if (completionCallback) {
             gettimeofday(&tv, NULL);
 
-            pthread_mutex_lock(&ctx->lock);
+            ctx->lock.lock();
             ctx->mempoolTime = tv.tv_sec + (double)tv.tv_usec/1000000 + 10.0;
-            pthread_mutex_unlock(&ctx->lock);
+            ctx->lock.unlock();
 
             ctx->mempoolInfo = info;
             ctx->mempoolCallback = completionCallback;
@@ -1531,8 +1567,8 @@ void BRPeerSendGetheaders(BRPeer *peer, const UInt256 locators[], size_t locator
     off += sizeof(UInt256);
 
     if (locatorsCount > 0) {
-        peer_log(peer, "calling getheaders with %zu locators: [%s,%s %s]", locatorsCount, u256hex(locators[0]),
-                 (locatorsCount > 2 ? " ...," : ""), (locatorsCount > 1 ? u256hex(locators[locatorsCount - 1]) : ""));
+        peer_log(peer, "calling getheaders with %zu locators: [%s,%s %s]", locatorsCount, u256hex(locators[0]).c_str(),
+                 (locatorsCount > 2 ? " ...," : ""), (locatorsCount > 1 ? u256hex(locators[locatorsCount - 1]).c_str() : ""));
         BRPeerSendMessage(peer, msg, off, MSG_GETHEADERS);
     }
 }
@@ -1556,8 +1592,8 @@ void BRPeerSendGetblocks(BRPeer *peer, const UInt256 locators[], size_t locators
     off += sizeof(UInt256);
     
     if (locatorsCount > 0) {
-        peer_log(peer, "calling getblocks with %zu locators: [%s,%s %s]", locatorsCount, u256hex(locators[0]),
-                 (locatorsCount > 2 ? " ...," : ""), (locatorsCount > 1 ? u256hex(locators[locatorsCount - 1]) : ""));
+        peer_log(peer, "calling getblocks with %zu locators: [%s,%s %s]", locatorsCount, u256hex(locators[0]).c_str(),
+                 (locatorsCount > 2 ? " ...," : ""), (locatorsCount > 1 ? u256hex(locators[locatorsCount - 1]).c_str() : ""));
         BRPeerSendMessage(peer, msg, off, MSG_GETBLOCKS);
     }
 }
@@ -1667,8 +1703,7 @@ void BRPeerFree(BRPeer *peer)
     if (ctx->pongCallback) array_free(ctx->pongCallback);
     if (ctx->pongInfo) array_free(ctx->pongInfo);
     
-    pthread_mutex_destroy(&ctx->lock);
-    free(ctx);
+    delete ctx;
 }
 
 void BRPeerAcceptMessageTest(BRPeer *peer, const uint8_t *msg, size_t msgLen, const char *type)
