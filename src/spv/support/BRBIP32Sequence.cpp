@@ -283,7 +283,8 @@ BRMasterPubKey BRBIP32ParseMasterPubKey(const char *str)
     uint8_t data[4 + sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(UInt256) + 33];
     size_t dataLen = BRBase58CheckDecode(data, sizeof(data), str);
     if (dataLen == sizeof(data) && memcmp(data, BRGetChainParams()->bip32_xpub, 4) == 0) {
-        mpk.fingerPrint = ((union { uint8_t u8[4]; uint32_t u32; }){ data[5], data[6], data[7], data[8] }).u32;
+        union conv { uint8_t u8[4]; uint32_t u32; };
+        mpk.fingerPrint = (conv{ data[5], data[6], data[7], data[8] }).u32;
         mpk.chainCode = UInt256Get(&data[13]);
         memcpy(mpk.pubKey, &data[45], sizeof(mpk.pubKey));
     }

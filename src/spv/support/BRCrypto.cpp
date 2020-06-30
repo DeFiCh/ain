@@ -29,20 +29,38 @@
 
 // endian swapping
 #if __BIG_ENDIAN__ || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-#define be32(x) (x)
-#define le32(x) ((((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | (((x) & 0xff000000) >> 24))
-#define be64(x) (x)
-#define le64(x) ((union { uint32_t u32[2]; uint64_t u64; }) { le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64)
+inline static uint32_t be32(uint32_t x) { return x; }
+inline static uint32_t le32(uint32_t x) { return (((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | (((x) & 0xff000000) >> 24); }
+inline static uint64_t be64(uint64_t x) { return x; }
+inline static uint64_t le64(uint64_t x) {
+    union conv { uint32_t u32[2]; uint64_t u64; };
+    return conv{ le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64;
+}
 #elif __LITTLE_ENDIAN__ || (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-#define le32(x) (x)
-#define be32(x) ((((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | (((x) & 0xff000000) >> 24))
-#define le64(x) (x)
-#define be64(x) ((union { uint32_t u32[2]; uint64_t u64; }) { be32((uint32_t)((x) >> 32)), be32((uint32_t)(x)) }.u64)
+inline static uint32_t le32(uint32_t x) { return x; }
+inline static uint32_t be32(uint32_t x) { return (((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | (((x) & 0xff0000) >> 8) | (((x) & 0xff000000) >> 24); }
+inline static uint64_t le64(uint64_t x) { return x; }
+inline static uint64_t be64(uint64_t x) {
+    union conv { uint32_t u32[2]; uint64_t u64; };
+    return conv{ le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64;
+}
 #else // unknown endianess
-#define be32(x) ((union { uint8_t u8[4]; uint32_t u32; }) { (x) >> 24, (x) >> 16, (x) >> 8, (x) }.u32)
-#define le32(x) ((union { uint8_t u8[4]; uint32_t u32; }) { (x), (x) >> 8, (x) >> 16, (x) >> 24 }.u32)
-#define be64(x) ((union { uint32_t u32[2]; uint64_t u64; }) { be32((uint32_t)((x) >> 32)), be32((uint32_t)(x)) }.u64)
-#define le64(x) ((union { uint32_t u32[2]; uint64_t u64; }) { le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64)
+inline static uint32_t be32(uint32_t x) {
+    union conv { uint8_t u8[4]; uint32_t u32; };
+    return conv{ (x) >> 24, (x) >> 16, (x) >> 8, (x) }.u32;
+}
+inline static uint32_t le32(uint32_t x) {
+    union conv { uint8_t u8[4]; uint32_t u32; };
+    return conv{ (x), (x) >> 8, (x) >> 16, (x) >> 24 }.u32;
+}
+inline static uint64_t be64(uint64_t x) {
+    union conv { uint32_t u32[2]; uint64_t u64; };
+    return conv{ be32((uint32_t)((x) >> 32)), be32((uint32_t)(x)) }.u64;
+}
+inline static uint64_t le64(uint64_t x) {
+    union conv { uint32_t u32[2]; uint64_t u64; };
+    return conv{ le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64;
+}
 #endif
 
 // bitwise left rotation
@@ -127,15 +145,22 @@ static void _BRSHA256Compress(uint32_t *r, const uint32_t *x)
     uint32_t a = r[0], b = r[1], c = r[2], d = r[3], e = r[4], f = r[5], g = r[6], h = r[7], t1, t2, w[64];
     
     for (i = 0; i < 16; i++) w[i] = be32(x[i]);
-    for (; i < 64; i++) w[i] = s3(w[i - 2]) + w[i - 7] + s2(w[i - 15]) + w[i - 16];
+    for (; i < 64; i++) w[i] = (uint32_t)((uint64_t)s3(w[i - 2]) + w[i - 7] + s2(w[i - 15]) + w[i - 16]);
     
     for (i = 0; i < 64; i++) {
-        t1 = h + s1(e) + ch(e, f, g) + k[i] + w[i];
-        t2 = s0(a) + maj(a, b, c);
-        h = g, g = f, f = e, e = d + t1, d = c, c = b, b = a, a = t1 + t2;
+        t1 = (uint32_t)((uint64_t)h + s1(e) + ch(e, f, g) + k[i] + w[i]);
+        t2 = (uint32_t)((uint64_t)s0(a) + maj(a, b, c));
+        h = g, g = f, f = e, e = (uint32_t)((uint64_t)d + t1), d = c, c = b, b = a, a = (uint32_t)((uint64_t)t1 + t2);
     }
     
-    r[0] += a, r[1] += b, r[2] += c, r[3] += d, r[4] += e, r[5] += f, r[6] += g, r[7] += h;
+    r[0] = (uint32_t)((uint64_t)r[0] + a);
+    r[1] = (uint32_t)((uint64_t)r[1] + b);
+    r[2] = (uint32_t)((uint64_t)r[2] + c);
+    r[3] = (uint32_t)((uint64_t)r[3] + d);
+    r[4] = (uint32_t)((uint64_t)r[4] + e);
+    r[5] = (uint32_t)((uint64_t)r[5] + f);
+    r[6] = (uint32_t)((uint64_t)r[6] + g);
+    r[7] = (uint32_t)((uint64_t)r[7] + h);
     var_clean(&a, &b, &c, &d, &e, &f, &g, &h, &t1, &t2);
     mem_clean(w, sizeof(w));
 }
@@ -211,6 +236,12 @@ void BRSHA256_2(void *md32, const void *data, size_t dataLen)
 #define S2(x) (ror64((x), 1) ^ ror64((x), 8) ^ ((x) >> 7))
 #define S3(x) (ror64((x), 19) ^ ror64((x), 61) ^ ((x) >> 6))
 
+static inline uint64_t sum64(uint64_t a, uint64_t b) {
+    uint64_t low = (a & ~((uint32_t) 0)) + (b & ~((uint32_t) 0));
+    uint64_t high = (a >> 32) + (b >> 32) + (low >> 32);
+    return (high << 32) + (low & ~((uint32_t) 0));
+}
+
 static void _BRSHA512Compress(uint64_t *r, const uint64_t *x)
 {
     static const uint64_t k[] = {
@@ -236,15 +267,22 @@ static void _BRSHA512Compress(uint64_t *r, const uint64_t *x)
     uint64_t a = r[0], b = r[1], c = r[2], d = r[3], e = r[4], f = r[5], g = r[6], h = r[7], t1, t2, w[80];
     
     for (i = 0; i < 16; i++) w[i] = be64(x[i]);
-    for (; i < 80; i++) w[i] = S3(w[i - 2]) + w[i - 7] + S2(w[i - 15]) + w[i - 16];
+    for (; i < 80; i++) w[i] = sum64(sum64(S3(w[i - 2]), w[i - 7]), sum64(S2(w[i - 15]), w[i - 16]));
     
     for (i = 0; i < 80; i++) {
-        t1 = h + S1(e) + ch(e, f, g) + k[i] + w[i];
-        t2 = S0(a) + maj(a, b, c);
-        h = g, g = f, f = e, e = d + t1, d = c, c = b, b = a, a = t1 + t2;
+        t1 = sum64(sum64(sum64(h, S1(e)), sum64(ch(e, f, g), k[i])), w[i]);
+        t2 = sum64(S0(a), maj(a, b, c));
+        h = g, g = f, f = e, e = sum64(d, t1), d = c, c = b, b = a, a = sum64(t1, t2);
     }
     
-    r[0] += a, r[1] += b, r[2] += c, r[3] += d, r[4] += e, r[5] += f, r[6] += g, r[7] += h;
+    r[0] = sum64(r[0], a);
+    r[1] = sum64(r[1], b);
+    r[2] = sum64(r[2], c);
+    r[3] = sum64(r[3], d);
+    r[4] = sum64(r[4], e);
+    r[5] = sum64(r[5], f);
+    r[6] = sum64(r[6], g);
+    r[7] = sum64(r[7], h);
     var_clean(&a, &b, &c, &d, &e, &f, &g, &h, &t1, &t2);
     mem_clean(w, sizeof(w));
 }
@@ -309,7 +347,7 @@ void BRSHA512(void *md64, const void *data, size_t dataLen)
 #define j(x, y, z) ((x) ^ ((y) | ~(z)))
 
 // basic ripemd operation
-#define rmd(a, b, c, d, e, f, g, h, i, j) ((a) = rol32((f) + (b) + le32(c) + (d), (e)) + (g), (f) = (g), (g) = (h),\
+#define rmd(a, b, c, d, e, f, g, h, i, j) ((a) = (uint32_t)(((uint64_t)rol32((uint32_t)((uint64_t)(f) + (b) + le32(c) + (d)), (e))) + (g)), (f) = (g), (g) = (h),\
                                            (h) = rol32((i), 10), (i) = (j), (j) = (a))
 
 static void _BRRMDCompress(uint32_t *r, const uint32_t *x)
@@ -353,8 +391,8 @@ static void _BRRMDCompress(uint32_t *r, const uint32_t *x)
     for (i = 0; i < 16; i++) rmd(t, j(bl, cl, dl), x[rl5[i]], 0xa953fd4e, sl5[i], al, el, dl, cl, bl); // round 5 left
     for (i = 0; i < 16; i++) rmd(t, f(br, cr, dr), x[rr5[i]], 0x00000000, sr5[i], ar, er, dr, cr, br); // round 5 right
     
-    t = r[1] + cl + dr; // final result for r[0]
-    r[1] = r[2] + dl + er, r[2] = r[3] + el + ar, r[3] = r[4] + al + br, r[4] = r[0] + bl + cr, r[0] = t; // combine
+    t = (uint32_t)((uint64_t)r[1] + cl + dr); // final result for r[0]
+    r[1] = (uint32_t)((uint64_t)r[2] + dl + er), r[2] = (uint32_t)((uint64_t)r[3] + el + ar), r[3] = (uint32_t)((uint64_t)r[4] + al + br), r[4] = (uint32_t)((uint64_t)r[0] + bl + cr), r[0] = t; // combine
     var_clean(&al, &bl, &cl, &dl, &el, &ar, &br, &cr, &dr, &er, &t);
 }
 
@@ -568,7 +606,7 @@ void BRMD5(void *md16, const void *data, size_t dataLen)
 #define fmix32(h) ((h) ^= (h) >> 16, (h) *= 0x85ebca6b, (h) ^= (h) >> 13, (h) *= 0xc2b2ae35, (h) ^= (h) >> 16)
 
 // murmurHash3 (x86_32): https://code.google.com/p/smhasher/ - for non-cryptographic use only
-uint32_t BRMurmur3_32(const void *data, size_t dataLen, uint32_t seed)
+uint32_t BRMurmur3_32(const uint8_t *data, size_t dataLen, uint32_t seed)
 {
     const uint8_t *d = data;
     uint32_t h = seed, k = 0;
@@ -794,7 +832,7 @@ void BRPoly1305(void *mac16, const void *key32, const void *data, size_t dataLen
 // chacha20 stream cipher: https://cr.yp.to/chacha.html
 void BRChacha20(void *out, const void *key32, const void *iv8, const void *data, size_t dataLen, uint64_t counter)
 {
-    static const char sigma[16] = "expand 32-byte k";
+    static const char sigma[] = "expand 32-byte k";
     uint32_t b[16], s[16], x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
     size_t i, j;
     
@@ -1021,7 +1059,7 @@ void BRAESECBEncrypt(void *buf16, const void *key, size_t keyLen)
     assert(keyLen == 16 || keyLen == 24 || keyLen == 32);
     
     _BRAESExpandKey(k, key, keyLen);
-    _BRAESCipher(buf16, k, keyLen);
+    _BRAESCipher((uint8_t *)buf16, k, keyLen);
     mem_clean(k, sizeof(k));
 }
 
@@ -1034,7 +1072,7 @@ void BRAESECBDecrypt(void *buf16, const void *key, size_t keyLen)
     assert(keyLen == 16 || keyLen == 24 || keyLen == 32);
     
     _BRAESExpandKey(k, key, keyLen);
-    _BRAESDecipher(buf16, k, keyLen);
+    _BRAESDecipher((uint8_t *)buf16, k, keyLen);
     mem_clean(k, sizeof(k));
 }
 
@@ -1181,7 +1219,7 @@ static void _blockmix_salsa8(uint64_t *dest, const uint64_t *src, uint64_t *b, u
 void BRScrypt(void *dk, size_t dkLen, const void *pw, size_t pwLen, const void *salt, size_t saltLen,
               unsigned n, unsigned r, unsigned p)
 {
-    uint64_t x[16*r], y[16*r], z[8], *v = malloc(128*r*n), m;
+    uint64_t x[16*r], y[16*r], z[8], *v = (uint64_t *)malloc(128*r*n), m;
     uint32_t b[32*r*p];
     
     assert(v != NULL);

@@ -48,7 +48,7 @@ static UniValue fundsignsend(CMutableTransaction & mtx, JSONRPCRequest const & r
     CAmount fee;
     int change_position;
     UniValue options(UniValue::VOBJ);
-    options.pushKV("changePosition", mtx.vout.size());
+    options.pushKV("changePosition", (uint64_t)mtx.vout.size());
     FundTransaction(pwallet, mtx, fee, change_position, options);
 
     JSONRPCRequest new_request;

@@ -31,18 +31,21 @@
 #include "BRInt.h"
 #include <stddef.h>
 #include <inttypes.h>
+#include <boost/thread.hpp>
 
-#ifndef __cplusplus
+//#ifndef __cplusplus
 /// define logs
 #define console_peer_log(peer, ...) { \
     if (spv_log2console) { \
+        log_mutex.lock(); \
         if (peer) { \
             char host[INET6_ADDRSTRLEN]; \
             BRPeerHostSafe((BRPeer const*)peer, host); \
-            _peer_log("%s:%"PRIu16" " _va_first(__VA_ARGS__, NULL) "\n", host, ((BRPeer const*)peer)->port, _va_rest(__VA_ARGS__, NULL)); \
+            _peer_log("%s:%" PRIu16 " " _va_first(__VA_ARGS__, NULL) "\n", host, ((BRPeer const*)peer)->port, _va_rest(__VA_ARGS__, NULL)); \
         } else { \
             _peer_log(_va_first(__VA_ARGS__, NULL) "\n", _va_rest(__VA_ARGS__, NULL)); \
         } \
+        log_mutex.unlock(); \
     } \
 }
 
@@ -52,20 +55,22 @@
 #define _va_rest(first, ...) __VA_ARGS__
 
 #define file_peer_log(peer, ...) { \
+    log_mutex.lock(); \
     FILE* logfile = NULL; \
     if (spv_logfilename && (logfile = fopen(spv_logfilename, "a"))) { \
         setbuf(logfile, NULL); \
         if (peer) { \
             char host[INET6_ADDRSTRLEN]; \
             BRPeerHostSafe((BRPeer const*)peer, host); \
-            fprintf(logfile, "%s:%"PRIu16" " _va_first(__VA_ARGS__, NULL) "\n", host, ((BRPeer const*)peer)->port, _va_rest(__VA_ARGS__, NULL)); \
+            fprintf(logfile, "%s:%" PRIu16 " " _va_first(__VA_ARGS__, NULL) "\n", host, ((BRPeer const*)peer)->port, _va_rest(__VA_ARGS__, NULL)); \
         } else { \
             fprintf(logfile, _va_first(__VA_ARGS__, NULL) "\n", _va_rest(__VA_ARGS__, NULL)); \
         } \
         fclose(logfile); \
     } \
+    log_mutex.unlock(); \
 }
-#endif
+//#endif
 
 #if defined(TARGET_OS_MAC)
 #include <Foundation/Foundation.h>
@@ -80,9 +85,14 @@
 
 extern char const * spv_logfilename;
 extern int spv_log2console;
+extern boost::mutex log_mutex;
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#ifndef INET6_ADDRSTRLEN // defined in netinet/in.h
+#define INET6_ADDRSTRLEN 46
 #endif
 
 #define SERVICES_NODE_NETWORK 0x01 // services value indicating a node carries full blocks, not just headers
@@ -138,7 +148,22 @@ struct BRPeerStruct {
 };
 typedef struct BRPeerStruct BRPeer;
 
-#define BR_PEER_NONE ((const BRPeer) { UINT128_ZERO, 0, 0, 0, 0 })
+struct threadCleanup {
+    threadCleanup(void (*cleanup)(void *), void *info) : m_cleanup(cleanup), m_info(info), m_commit( false ) {}
+    ~threadCleanup()
+    {
+        if (!m_commit && m_cleanup)
+            m_cleanup(m_info);
+    }
+    void commit() { m_commit = true; }
+
+private:
+    void (*m_cleanup)(void *info);
+    void *m_info;
+    bool m_commit;
+};
+
+constexpr BRPeer BR_PEER_NONE = { UINT128_ZERO, 0, 0, 0, 0 };
 
 // NOTE: BRPeer functions are not thread-safe
 
