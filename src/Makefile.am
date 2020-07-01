@@ -19,17 +19,14 @@ else
 LIBUNIVALUE = $(UNIVALUE_LIBS)
 endif
 
-LIBSPV=spv/libspv.a
-$(LIBSPV):
-	pwd && $(MAKE) -C $(builddir)/spv lib
-SPV_CFLAGS=-I. -I./spv -I./spv/support -I./spv/bitcoin -I./spv/bcash
-# -I./secp256k1
+LIBDEFI_SPV=libdefi_spv.a
+SPV_INCLUDES=-I. -I./spv -I./spv/support -I./spv/bitcoin -I./spv/bcash
 
 DEFI_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS)
 
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
 DEFI_INCLUDES += $(UNIVALUE_CFLAGS)
-DEFI_INCLUDES += $(SPV_CFLAGS)
+DEFI_INCLUDES += $(SPV_INCLUDES)
 
 LIBDEFI_SERVER=libdefi_server.a
 LIBDEFI_COMMON=libdefi_common.a
@@ -74,6 +71,7 @@ EXTRA_LIBRARIES += \
   $(LIBDEFI_CRYPTO) \
   $(LIBDEFI_UTIL) \
   $(LIBDEFI_COMMON) \
+  $(LIBDEFI_SPV) \
   $(LIBDEFI_CONSENSUS) \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_CLI) \
@@ -264,6 +262,66 @@ obj/build.h: FORCE
 	@$(top_srcdir)/share/genbuild.sh "$(abs_top_builddir)/src/obj/build.h" \
 	  "$(abs_top_srcdir)"
 libdefi_util_a-clientversion.$(OBJEXT): obj/build.h
+
+libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive -I./spv -I./spv/support -I./secp256k1 -I./secp256k1/src -Wno-format-extra-args -lm -lbsd 
+libdefi_spv_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libdefi_spv_a_SOURCES = \
+  spv/bcash/BRBCashAddr.cpp \
+  spv/bcash/BRBCashAddr.h \
+  spv/bcash/BRBCashParams.cpp \
+  spv/bcash/BRBCashParams.h \
+  spv/bitcoin/BRBIP38Key.cpp \
+  spv/bitcoin/BRBIP38Key.h \
+  spv/bitcoin/BRBloomFilter.cpp \
+  spv/bitcoin/BRBloomFilter.h \
+  spv/bitcoin/BRChainParams.cpp \
+  spv/bitcoin/BRChainParams.h \
+  spv/bitcoin/BRMerkleBlock.cpp \
+  spv/bitcoin/BRMerkleBlock.h \
+  spv/bitcoin/BRPaymentProtocol.cpp \
+  spv/bitcoin/BRPaymentProtocol.h \
+  spv/bitcoin/BRPeer.cpp \
+  spv/bitcoin/BRPeer.h \
+  spv/bitcoin/BRPeerManager.cpp \
+  spv/bitcoin/BRPeerManager.h \
+  spv/bitcoin/BRTransaction.cpp \
+  spv/bitcoin/BRTransaction.h \
+  spv/bitcoin/BRWallet.cpp \
+  spv/bitcoin/BRWallet.h \
+  spv/support/BRAddress.cpp \
+  spv/support/BRAddress.h \
+  spv/support/BRArray.h \
+  spv/support/BRBase58.cpp \
+  spv/support/BRBase58.h \
+  spv/support/BRBech32.cpp \
+  spv/support/BRBech32.h \
+  spv/support/BRBIP32Sequence.cpp \
+  spv/support/BRBIP32Sequence.h \
+  spv/support/BRBIP39Mnemonic.cpp \
+  spv/support/BRBIP39Mnemonic.h \
+  spv/support/BRBIP39WordsEn.h \
+  spv/support/BRCrypto.cpp \
+  spv/support/BRCrypto.h \
+  spv/support/BRInt.h \
+  spv/support/BRKey.cpp \
+  spv/support/BRKeyECIES.cpp \
+  spv/support/BRKeyECIES.h \
+  spv/support/BRKey.h \
+  spv/support/BRLargeInt.h \
+  spv/support/BRSet.cpp \
+  spv/support/BRSet.h
+#  spv/support/BRAssert.cpp
+#  spv/support/BRAssert.h
+#  spv/support/BRFileService.cpp
+#  spv/support/BRFileService.h 
+#  spv/bitcoin/BRWalletManager.cpp
+#  spv/bitcoin/BRWalletManager.h 
+
+# for gen /secp256k1/src/ecmult_static_context.h
+LIBSECP256K1_GEN = $(srcdir)/secp256k1/src/ecmult_static_context.h
+nodist_libdefi_spv_a_SOURCES = $(LIBSECP256K1_GEN)
+BUILT_SOURCES = $(LIBSECP256K1_GEN)
+$(LIBSECP256K1_GEN): $(LIBSECP256K1)
 
 # server: shared between defid and defi-qt
 # Contains code accessing mempool and chain state that is meant to be separated
@@ -566,7 +624,7 @@ defid_LDADD = \
   $(LIBDEFI_SERVER) \
   $(LIBDEFI_COMMON) \
   $(LIBUNIVALUE) \
-  $(LIBSPV) \
+  $(LIBDEFI_SPV) \
   $(LIBDEFI_UTIL) \
   $(LIBDEFI_ZMQ) \
   $(LIBDEFI_CONSENSUS) \
@@ -633,7 +691,7 @@ defi_wallet_LDADD = \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_COMMON) \
   $(LIBDEFI_CONSENSUS) \
-  $(LIBSPV) \
+  $(LIBDEFI_SPV) \
   $(LIBDEFI_UTIL) \
   $(LIBDEFI_CRYPTO) \
   $(LIBDEFI_ZMQ) \
@@ -698,7 +756,6 @@ $(top_srcdir)/$(subdir)/config/defi-config.h.in:  $(am__configure_deps)
 clean-local:
 	-$(MAKE) -C secp256k1 clean
 	-$(MAKE) -C univalue clean
-	-$(MAKE) -C spv clean
 	-rm -f leveldb/*/*.gcda leveldb/*/*.gcno leveldb/helpers/memenv/*.gcda leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
 	-rm -rf test/__pycache__
