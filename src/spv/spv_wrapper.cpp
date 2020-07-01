@@ -21,7 +21,7 @@
 #include <util/strencodings.h>
 #include <string.h>
 #include <inttypes.h>
-#include <errno.h>
+//#include <errno.h>
 
 extern RecursiveMutex cs_main;
 
@@ -480,7 +480,7 @@ void CSpvWrapper::WriteTx(const BRTransaction *tx)
 
 void CSpvWrapper::UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t timestamp)
 {
-    auto const key{std::make_pair(DB_SPVTXS, hash)};
+    std::pair<char, uint256> const key{std::make_pair(DB_SPVTXS, hash)};
     std::pair<TBytes, std::pair<uint32_t, uint32_t> > txrec;
     if (db->Read(key, txrec)) {
         txrec.second.first = blockHeight;
@@ -551,13 +551,13 @@ std::vector<CScript> EncapsulateMeta(TBytes const & meta)
 
     std::vector<CScript> result;
     // first part with OP_RETURN
-    size_t opReturnSize = std::min(ss.size(), 80ul);
+    size_t opReturnSize = std::min<size_t>(ss.size(), 80);
     CScript opReturnScript = CScript() << OP_RETURN << TBytes(ss.begin(), ss.begin() + opReturnSize);
     result.push_back(opReturnScript);
 
     // rest of the data in p2wsh keys
     for (auto it = ss.begin() + opReturnSize; it != ss.end(); ) {
-        auto chunkSize = std::min(ss.end() - it, 32l);
+        auto chunkSize = std::min<size_t>(ss.end() - it, 32);
         TBytes chunk(it, it + chunkSize);
         if (chunkSize < 32) {
             chunk.resize(32);
@@ -803,7 +803,7 @@ void CSpvWrapper::OnSendRawTx(BRTransaction *tx, std::promise<int> * promise)
     }
     else {
         if (promise)
-            promise->set_value(EINVAL);
+            promise->set_value(WSAEINVAL);
         BRTransactionFree(tx);
     }
 }
