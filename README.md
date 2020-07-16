@@ -15,7 +15,7 @@ For more information:
 - Visit the [DeFi Blockchain website](https://defichain.io)
 - Read our [white paper](https://defichain.io/white-paper/)
 
-Downloadable binaries are available at 
+Downloadable binaries are available from the [GitHub Releases](https://github.com/DeFiCh/ain/releases) page. 
 
 ### Bitcoin Core
 
@@ -32,7 +32,7 @@ DeFi Blockchain has done significant modifications from Bitcoin Core, for instan
 
 Merges from upstream (Bitcoin Core) will be done selectively if it applies to the improved functionality and security of DeFi Blockchain.
 
-## Quick Documentation
+## Quick Start
 
 - [Running a node](./doc/setup-nodes.md)
 - [Running a node with docker](./doc/setup-nodes-docker.md)
