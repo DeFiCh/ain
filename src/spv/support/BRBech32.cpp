@@ -34,14 +34,20 @@
 
 // bech32 address format: https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki
 
-#define polymod(x) ((((x) & 0x1ffffff) << 5) ^ (-(((x) >> 25) & 1) & 0x3b6a57b2) ^\
-                    (-(((x) >> 26) & 1) & 0x26508e6d) ^ (-(((x) >> 27) & 1) & 0x1ea119fa) ^\
-                    (-(((x) >> 28) & 1) & 0x3d4233dd) ^ (-(((x) >> 29) & 1) & 0x2a1462b3))
+//#define polymod(x) ((((x) & 0x1ffffff) << 5) ^ (-(((x) >> 25) & 1) & 0x3b6a57b2) ^\
+//                    (-(((x) >> 26) & 1) & 0x26508e6d) ^ (-(((x) >> 27) & 1) & 0x1ea119fa) ^\
+//                    (-(((x) >> 28) & 1) & 0x3d4233dd) ^ (-(((x) >> 29) & 1) & 0x2a1462b3))
+
+#define polymod(x) ((((x) & 0x1ffffff) << 5) ^ ((((x) >> 25) & 1) ? 0x3b6a57b2 : 0) ^\
+                    ((((x) >> 26) & 1) ? 0x26508e6d : 0) ^ ((((x) >> 27) & 1) ? 0x1ea119fa : 0) ^\
+                    ((((x) >> 28) & 1) ? 0x3d4233dd : 0) ^ ((((x) >> 29) & 1) ? 0x2a1462b3 : 0))
+
 
 // returns the number of bytes written to data42 (maximum of 42)
 size_t BRBech32Decode(char *hrp84, uint8_t *data42, const char *addr)
 {
-    size_t i, j, bufLen, addrLen, sep;
+    size_t i, bufLen, addrLen, sep;
+    int j;
     uint32_t x, chk = 1;
     uint8_t c, ver = 0xff, buf[52], upper = 0, lower = 0;
 
