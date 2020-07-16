@@ -1,21 +1,26 @@
 # defi/defichain
 
-The DeFi Blockchain docker image, currently with support for the following platforms:
+## Quick reference 
 
-* `amd64` (x86_64)
+- **Maintained by**: [DeFi Blockchain Developers](https://github.com/defich/ain)
+- **Where to get help**: [GitHub](https://github.com/defich/ain/issues)
+
+The DeFi Blockchain docker image, currently supports the following platforms:
+
+- `amd64` (x86_64)
 
 <!-- [![defi/defichain][docker-pulls-image]][docker-hub-url] [![defi/defichain][docker-stars-image]][docker-hub-url] -->
 
 ## What is DeFi Blockchain?
 
-DeFi Blockchain’s primary vision is to enable decentralized finance with Bitcoin-grade security, strength and immutability. It's a blockchain dedicated to fast, intelligent and transparent financial services, accessible by everyone.
+DeFi Blockchain's primary vision is to enable decentralized finance with Bitcoin-grade security, strength and immutability. It's a blockchain dedicated to fast, intelligent and transparent financial services, accessible by everyone.
 
 Read more at: https://defichain.io
 
-## Tags
+## Tags and respective Dockerfile links
 
-- `latest` ([Dockerfile](https://raw.githubusercontent.com/DeFiCh/ain/master/contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile))
-- `1.0.0-beta4`
+- `latest` ([Dockerfile](https://github.com/DeFiCh/ain/blob/master/contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile))
+- Dockerfiles for each tag can be found in the defichain repo similar to the latest.
 
 **Picking the right tag**
 
@@ -38,15 +43,16 @@ Read more at: https://defichain.io
 ❯ docker run -it defi/defichain
 ```
 
-### How to use this image
+### Image details
 
 - This image contains the main distribution package as downloaded, with the main binaries - `defid`, `defi-cli` and `defi-tx`.
 - The package is at `/app`.
 - All the binaries from the package are also in the `PATH` for convenience.
-- Data volume is at `/root/.defi`. Feel free to mount a host dir there for further convenience. 
-- Default conf, if found is picked up from `/root/.defi/defi.conf`
+- Process run unprivileged inside the container as user `defi` and group `defi`
+- Data volume is at `/data`, (The default data dir `/home/defi/.defi` is symlinked to it). `/data` is used for convenience to change volumes with docker. (For instance `docker run -it -v "defi-data:/data" defi/defichain`) 
+- Default conf, if found is picked up from `/data/defi.conf`
 - Use `docker logs` for default logging from stdout
-- For custom commands, just use `defid`/`defi-cli` similar to how `bitcoind`/`bitcoin-cli` works. 
+- For custom commands, just use `defid`/`defi-cli` similar to how `bitcoind`/`bitcoin-cli` works.
 
 #### Default ports
 
@@ -69,10 +75,10 @@ Example:
 
 _Note: More about how `-rpcauth` works for remote authentication are explained below._
 
-You can also mount a directory in a volume under `/root/.defi` in case you want to access it on the host:
+You can also mount a directory in a volume under `/data` in case you want to access it on the host:
 
 ```sh
-❯ docker run -v ${PWD}/data:/root/.defi -it --rm defi/defichain \
+❯ docker run -v ${PWD}/data-dir:/data -it --rm defi/defichain \
   defid \
   -printtoconsole \
   -regtest=1
@@ -126,7 +132,7 @@ Then, inside the running `defi-node` container, locally execute the query to the
 }
 ```
 
-In the background, `defi-cli` read the information automatically from `/root/.defi/regtest/.cookie`. In production, the path would not contain the regtest part.
+In the background, `defi-cli` read the information automatically from `/data/regtest/.cookie`. In production, the path would not contain the regtest part.
 
 #### Using rpcauth for remote authentication
 
