@@ -107,10 +107,10 @@ int BRAddressHash160(void *md20, const char *addr);
 int BRAddressIsValid(const char *addr);
 
 // returns a hash value for addr suitable for use in a hashtable
-inline static size_t BRAddressHash(const void *addr)
-{
-    return BRMurmur3_32(addr, strlen((const char *)addr), 0);
-}
+//inline static size_t BRAddressHash(const void *addr)
+//{
+//    return BRMurmur3_32(addr, strlen((const char *)addr), 0);
+//}
 
 // true if addr and otherAddr are equal
 inline static int BRAddressEq(const void *addr, const void *otherAddr)
