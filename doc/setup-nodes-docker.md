@@ -17,11 +17,10 @@ DeFi Blockchain's primary vision is to enable decentralized finance with Bitcoin
 
 Read more at: https://defichain.io
 
-## Supported tags and respective Dockerfile links
+## Tags and respective Dockerfile links
 
 - `latest` ([Dockerfile](https://github.com/DeFiCh/ain/blob/master/contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile))
-- `1.0.0-rc1` ([Dockerfile](https://github.com/DeFiCh/ain/blob/v1.0.0-rc1/contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile))
-- `1.0.0-beta4` ([Dockerfile](https://github.com/DeFiCh/ain/blob/v1.0.0-beta4/contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile))
+- Dockerfiles for each tag can be found in the defichain repo similar to the latest.
 
 **Picking the right tag**
 

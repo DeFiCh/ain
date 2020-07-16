@@ -42,7 +42,7 @@ inline static uint32_t be32(uint32_t x) { return (((x) & 0xff) << 24) | (((x) & 
 inline static uint64_t le64(uint64_t x) { return x; }
 inline static uint64_t be64(uint64_t x) {
     union conv { uint32_t u32[2]; uint64_t u64; };
-    return conv{ le32((uint32_t)(x)), le32((uint32_t)((x) >> 32)) }.u64;
+    return conv{ be32((uint32_t)((x) >> 32)), be32((uint32_t)(x)) }.u64;
 }
 #else // unknown endianess
 inline static uint32_t be32(uint32_t x) {
