@@ -15,7 +15,7 @@ For more information:
 - Visit the [DeFi Blockchain website](https://defichain.io)
 - Read our [white paper](https://defichain.io/white-paper/)
 
-Official binaries are available from the [GitHub Releases](https://github.com/DeFiCh/ain/releases) page. 
+Downloadable binaries are available from the [GitHub Releases](https://github.com/DeFiCh/ain/releases) page. 
 
 ### Bitcoin Core
 
