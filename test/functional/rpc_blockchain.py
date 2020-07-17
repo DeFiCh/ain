@@ -19,7 +19,7 @@ Tests correspond to code in rpc/blockchain.cpp.
 """
 
 from decimal import Decimal
-import http.client
+# import http.client
 import subprocess
 
 from test_framework.test_framework import DefiTestFramework
@@ -288,7 +288,7 @@ class BlockchainTest(DefiTestFramework):
         assert_raises(subprocess.TimeoutExpired, lambda: self.nodes[0].process.wait(timeout=3))
         try:
             self.nodes[0].generate(1)
-        except (ConnectionError, http.client.BadStatusLine):
+        except: # (ConnectionError, http.client.BadStatusLine): # pass on ANY exception
             pass  # The node already shut down before response
         self.log.debug('Node should stop at this height...')
         self.nodes[0].wait_until_stopped()
