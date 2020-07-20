@@ -275,6 +275,7 @@ UniValue createmasternode(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
                            "Cannot create Masternode while still in Initial Block Download");
     }
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, true);
     if (request.params[0].isNull() || request.params[1].isNull()) {
@@ -361,6 +362,7 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
                            "Cannot resign Masternode while still in Initial Block Download");
     }
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR}, true);
 
@@ -369,9 +371,7 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
     CTxDestination ownerDest;
 
     {
-        pwallet->BlockUntilSyncedToCurrentChain();
-        auto locked_chain = pwallet->chain().lock();
-
+        LOCK(cs_main);
         auto nodePtr = pcustomcsview->GetMasternode(nodeId);
         ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(
                 WitnessV0KeyHash(nodePtr->ownerAuthAddress));
@@ -406,42 +406,51 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
 
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
-UniValue mnToJSON(CMasternode const& node) {
+UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose) {
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV("ownerAuthAddress", EncodeDestination(
-            node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(
-                    WitnessV0KeyHash(node.ownerAuthAddress))));
-    ret.pushKV("operatorAuthAddress", EncodeDestination(
-            node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) : CTxDestination(
-                    WitnessV0KeyHash(node.operatorAuthAddress))));
+    if (!verbose) {
+        ret.pushKV(nodeId.GetHex(), CMasternode::GetHumanReadableState(node.GetState()));
+    }
+    else {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("ownerAuthAddress", EncodeDestination(
+                node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(
+                        WitnessV0KeyHash(node.ownerAuthAddress))));
+        obj.pushKV("operatorAuthAddress", EncodeDestination(
+                node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) : CTxDestination(
+                        WitnessV0KeyHash(node.operatorAuthAddress))));
 
-    ret.pushKV("creationHeight", node.creationHeight);
-    ret.pushKV("resignHeight", node.resignHeight);
-    ret.pushKV("resignTx", node.resignTx.GetHex());
-    ret.pushKV("banHeight", node.banHeight);
-    ret.pushKV("banTx", node.banTx.GetHex());
-    ret.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
-    ret.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
+        obj.pushKV("creationHeight", node.creationHeight);
+        obj.pushKV("resignHeight", node.resignHeight);
+        obj.pushKV("resignTx", node.resignTx.GetHex());
+        obj.pushKV("banHeight", node.banHeight);
+        obj.pushKV("banTx", node.banTx.GetHex());
+        obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
+        obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
 
-    /// @todo add unlock height and|or real resign height
-
+        /// @todo add unlock height and|or real resign height
+        ret.pushKV(nodeId.GetHex(), obj);
+    }
     return ret;
 }
 
 UniValue listmasternodes(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"listmasternodes",
                "\nReturns information about specified masternodes (or all, if list of ids is empty).\n",
                {
-                       {"list", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of masternode ids",
-                        {
-                                {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Masternode's id"},
+                        {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                         {
+                                 {"start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                                  "Optional first key to iterate from, in lexicographical order."
+                                  "Typically it's set to last ID from previous request."},
+                                 {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                  "If true, then iterate including starting position. False by default"},
+                                 {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Maximum number of orders to return, 100 by default"},
+                         },
                         },
-                       },
-                       {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Flag for verbose list (default = true), otherwise only ids and statuses listed"},
+                        {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                    "Flag for verbose list (default = true), otherwise only ids are listed"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with masternodes information\n"
@@ -452,45 +461,87 @@ UniValue listmasternodes(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL}, true);
-
-    UniValue inputs(UniValue::VARR);
-    if (request.params.size() > 0) {
-        inputs = request.params[0].get_array();
-    }
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
     }
-
-    auto locked_chain = pwallet->chain().lock();
-
-    UniValue ret(UniValue::VOBJ);
-    if (inputs.empty()) {
-        // Dumps all!
-        pcustomcsview->ForEachMasternode([&ret, verbose](uint256 const& nodeId, CMasternode& node) {
-            ret.pushKV(nodeId.GetHex(), verbose ? mnToJSON(node) : CMasternode::GetHumanReadableState(node.GetState()));
-            return true;
-        });
-    } else {
-        for (size_t idx = 0; idx < inputs.size(); ++idx) {
-            uint256 id = ParseHashV(inputs[idx], "masternode id");
-            auto const node = pcustomcsview->GetMasternode(id);
-            if (node) {
-                ret.pushKV(id.GetHex(),
-                           verbose ? mnToJSON(*node) : CMasternode::GetHumanReadableState(node->GetState()));
+    // parse pagination
+    size_t limit = 100;
+    uint256 start = {};
+    {
+        if (request.params.size() > 0) {
+            bool including_start = false;
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                start = ParseHashV(paginationObj["start"], "start");
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
             }
         }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
     }
+
+    UniValue ret(UniValue::VOBJ);
+
+    LOCK(cs_main);
+    pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternode& node) {
+        ret.pushKVs(mnToJSON(nodeId, node, verbose));
+        limit--;
+        return limit != 0;
+    }, start);
+
     return ret;
 }
 
-UniValue listcriminalproofs(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+UniValue getmasternode(const JSONRPCRequest& request) {
+    RPCHelpMan{"getmasternode",
+               "\nReturns information about specified masternode.\n",
+               {
+                       {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Masternode's id"},
+               },
+               RPCResult{
+                       "{id:{...}}     (object) Json object with masternode information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getmasternode", "\"mn_id\"")
+                       + HelpExampleRpc("getmasternode", "\"mn_id\"")
+               },
+    }.Check(request);
 
+    uint256 id = ParseHashV(request.params[0], "masternode id");
+
+    LOCK(cs_main);
+    auto node = pcustomcsview->GetMasternode(id);
+    if (node) {
+        return mnToJSON(id, *node, true); // or maybe just node, w/o id?
+    }
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
+}
+
+UniValue listcriminalproofs(const JSONRPCRequest& request) {
     RPCHelpMan{"listcriminalproofs",
                "\nReturns information about criminal proofs (pairs of signed blocks by one MN from different forks).\n",
                {
+                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                         {
+                             {"start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                              "Optional first key to iterate from, in lexicographical order."
+                              "Typically it's set to last ID from previous request."},
+                             {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                              "If true, then iterate including starting position. False by default"},
+                             {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                              "Maximum number of orders to return, 100 by default"},
+                         },
+                    },
                },
                RPCResult{
                        "{id:{block1, block2},...}     (array) Json objects with block pairs\n"
@@ -501,18 +552,43 @@ UniValue listcriminalproofs(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    auto locked_chain = pwallet->chain().lock();
+    // parse pagination
+    size_t limit = 100;
+    uint256 start = {};
+    {
+        if (request.params.size() > 0) {
+            bool including_start = false;
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                start = ParseHashV(paginationObj["start"], "start");
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
+
+    LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
     auto const proofs = pcriminals->GetUnpunishedCriminals();
-    for (auto const& proof : proofs) {
+    for (auto it = proofs.lower_bound(start); it != proofs.end() && limit != 0; ++it, --limit) {
         UniValue obj(UniValue::VOBJ);
-        obj.pushKV("hash1", proof.second.blockHeader.GetHash().ToString());
-        obj.pushKV("height1", proof.second.blockHeader.height);
-        obj.pushKV("hash2", proof.second.conflictBlockHeader.GetHash().ToString());
-        obj.pushKV("height2", proof.second.conflictBlockHeader.height);
-        obj.pushKV("mintedBlocks", proof.second.blockHeader.mintedBlocks);
-        ret.pushKV(proof.first.ToString(), obj);
+        obj.pushKV("hash1", it->second.blockHeader.GetHash().ToString());
+        obj.pushKV("height1", it->second.blockHeader.height);
+        obj.pushKV("hash2", it->second.conflictBlockHeader.GetHash().ToString());
+        obj.pushKV("height2", it->second.conflictBlockHeader.height);
+        obj.pushKV("mintedBlocks", it->second.blockHeader.mintedBlocks);
+        ret.pushKV(it->first.ToString(), obj);
     }
     return ret;
 }
@@ -575,6 +651,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create token while still in Initial Block Download");
     }
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, true);
     if (request.params[0].isNull() || request.params[1].isNull()) {
@@ -583,23 +660,11 @@ UniValue createtoken(const JSONRPCRequest& request) {
                            "{\"symbol\",\"collateralDest\"}");
     }
     UniValue metaObj = request.params[1].get_obj();
-//    RPCTypeCheckObj(metaObj, {
-//                        { "symbol", UniValue::VSTR },
-//                        { "name", UniValue::VSTR },
-//                        { "decimal", UniValue::VNUM },
-//                        { "limit", UniValue::VNUM },
-//                        { "mintable", UniValue::VBOOL },
-//                        { "tradeable", UniValue::VBOOL },
-//                        { "collateralAddress", UniValue::VSTR },
-//                    },
-//                    true, true);
 
     std::string collateralAddress = metaObj["collateralAddress"].getValStr();
-
     CTxDestination collateralDest = DecodeDestination(collateralAddress);
     if (collateralDest.which() == 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "collateralAddress (" + collateralAddress + ") does not refer to any valid address");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "collateralAddress (" + collateralAddress + ") does not refer to any valid address");
     }
 
     int height{0};
@@ -679,6 +744,7 @@ UniValue destroytoken(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
                            "Cannot resign Masternode while still in Initial Block Download");
     }
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR}, true);
 
@@ -686,8 +752,7 @@ UniValue destroytoken(const JSONRPCRequest& request) {
     CTxDestination ownerDest;
     uint256 creationTx{};
     {
-        pwallet->BlockUntilSyncedToCurrentChain();
-        auto locked_chain = pwallet->chain().lock();
+        LOCK(cs_main);
         DCT_ID id;
         auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
         if (!token) {
@@ -753,27 +818,36 @@ UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool verbose) {
 //            tokenObj.pushKV("collateralAddress", tokenImpl.destructionHeight);
         }
     }
-    return tokenObj;
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV(id.ToString(), tokenObj);
+    return ret;
 }
 
 // @todo implement pagination, similar to list* calls below
 UniValue listtokens(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request); // @todo what do we need wallet for? shouldn't it be usable without wallet?
-
     RPCHelpMan{"listtokens",
                "\nReturns information about tokens.\n",
                {
-                       {"key", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                        "One of the keys may be specified (id/symbol/creationTx), otherwise all tokens listed"},
-                       {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Flag for verbose list (default = true), otherwise only ids and names listed"},
+                        {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                            {
+                                 {"start", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Optional first key to iterate from, in lexicographical order."
+                                  "Typically it's set to last ID from previous request."},
+                                 {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                  "If true, then iterate including starting position. False by default"},
+                                 {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Maximum number of tokens to return, 100 by default"},
+                            },
+                        },
+                        {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                    "Flag for verbose list (default = true), otherwise only ids, symbols and names are listed"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with tokens information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listtokens", "GOLD False")
-                       + HelpExampleRpc("listtokens", "GOLD False")
+                       HelpExampleCli("listtokens", "{\"start\":128} False")
+                       + HelpExampleRpc("listtokens", "{\"start\":128} False")
                },
     }.Check(request);
 
@@ -782,41 +856,68 @@ UniValue listtokens(const JSONRPCRequest& request) {
         verbose = request.params[1].get_bool();
     }
 
-    auto locked_chain = pwallet->chain().lock();
-
-    UniValue ret(UniValue::VOBJ);
-    if (request.params.size()) {
-        UniValue key = request.params[0];
-        if (key.getType() == UniValue::VNUM) {
-            auto id = key.get_int();
-            auto tokenPtr = pcustomcsview->GetToken(DCT_ID{(uint32_t) id});
-            if (tokenPtr) {
-                ret.pushKV(std::to_string(id), tokenToJSON(DCT_ID{(uint32_t) id}, *tokenPtr, verbose));
+    // parse pagination
+    size_t limit = 100;
+    DCT_ID start{0};
+    {
+        if (request.params.size() > 0) {
+            bool including_start = false;
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
             }
-        } else if (request.params[0].getType() == UniValue::VSTR) {
-            std::string key = request.params[0].getValStr();
-            uint256 tx;
-            if (ParseHashStr(key, tx)) {
-                auto pair = pcustomcsview->GetTokenByCreationTx(tx);
-                if (pair) {
-                    ret.pushKV(pair->first.ToString(), tokenToJSON(pair->first, pair->second, verbose));
-                }
-            } else {
-                auto pair = pcustomcsview->GetToken(key);
-                if (pair) {
-                    ret.pushKV(pair->first.ToString(), tokenToJSON(pair->first, *pair->second, verbose));
-                }
+            if (!paginationObj["start"].isNull()) {
+                start.v = (uint32_t) paginationObj["start"].get_int();
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                ++start.v;
             }
         }
-        return ret;
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
     }
 
-    // Dumps all!
-    pcustomcsview->ForEachToken([&ret, verbose](DCT_ID const& id, CToken const& token) {
-        ret.pushKV(id.ToString(), tokenToJSON(id, token, verbose));
-        return true;
-    });
+    LOCK(cs_main);
+
+    UniValue ret(UniValue::VOBJ);
+    pcustomcsview->ForEachToken([&](DCT_ID const& id, CToken const& token) {
+        ret.pushKVs(tokenToJSON(id, token, verbose));
+
+        limit--;
+        return limit != 0;
+    }, start);
+
     return ret;
+}
+
+UniValue gettoken(const JSONRPCRequest& request) {
+    RPCHelpMan{"gettoken",
+               "\nReturns information about token.\n",
+               {
+                       {"key", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "One of the keys may be specified (id/symbol/creationTx)"},
+               },
+               RPCResult{
+                       "{id:{...}}     (array) Json object with token information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("gettoken", "GOLD")
+                       + HelpExampleRpc("gettoken", "GOLD")
+               },
+    }.Check(request);
+
+    LOCK(cs_main);
+
+    DCT_ID id;
+    auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
+    if (token) {
+        return tokenToJSON(id, *token, true);
+    }
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }
 
 UniValue minttokens(const JSONRPCRequest& request) {
@@ -863,6 +964,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
                            "Cannot resign Masternode while still in Initial Block Download");
     }
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR}, true);
 
@@ -1035,6 +1137,7 @@ UniValue createorder(const JSONRPCRequest& request) {
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, false);
     UniValue metaObj = request.params[1].get_obj();
@@ -1133,6 +1236,7 @@ UniValue destroyorder(const JSONRPCRequest& request) {
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     // decode params
     uint256 msg{};
@@ -1217,6 +1321,7 @@ UniValue matchorders(const JSONRPCRequest& request) {
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR, UniValue::VSTR, UniValue::VSTR}, false);
 
@@ -1275,6 +1380,7 @@ UniValue matchordersinfo(const JSONRPCRequest& request) {
     const uint256 order_carol = ParseHashV(request.params[1], "order_carol");
 
     // calculate the math of matching
+    LOCK(cs_main);
     const auto resV = GetMatchOrdersInfo(*pcustomcsview, CMatchOrdersMessage{order_alice, order_carol, CScript{}});
     if (!resV.ok) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Order wasn't matched: " + resV.msg);
@@ -1365,6 +1471,7 @@ UniValue listorders(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VARR);
 
+    LOCK(cs_main);
     pcustomcsview->ForEachOrder([&](uint256 const& txid, COrder const & order) {
         ret.push_back(orderToJSON(txid, order, verbose));
 
@@ -1392,6 +1499,7 @@ UniValue getorder(const JSONRPCRequest& request) {
 
     const uint256 id = ParseHashV(request.params[0], "txid");
 
+    LOCK(cs_main);
     const auto val = pcustomcsview->GetOrder(id);
     if (val) {
         return orderToJSON(id, *val, true);
@@ -1501,6 +1609,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VARR);
 
+    LOCK(cs_main);
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
         ret.push_back(accountToJSON(owner, balance, verbose));
 
@@ -1567,6 +1676,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VARR);
 
+    LOCK(cs_main);
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
         if (owner != reqOwner) {
             return false;
@@ -1873,11 +1983,13 @@ static const CRPCCommand commands[] =
                 //  ----------------- ------------------------    -----------------------     ----------
                 {"masternodes", "createmasternode",   &createmasternode,   {"inputs", "metadata"}},
                 {"masternodes", "resignmasternode",   &resignmasternode,   {"inputs", "mn_id"}},
-                {"masternodes", "listmasternodes",    &listmasternodes,    {"list",   "verbose"}},
+                {"masternodes", "listmasternodes",    &listmasternodes,    {"pagination", "verbose"}},
+                {"masternodes", "getmasternode",      &getmasternode,      {"mn_id"}},
                 {"masternodes", "listcriminalproofs", &listcriminalproofs, {}},
                 {"tokens",      "createtoken",        &createtoken,        {"inputs", "metadata"}},
                 {"tokens",      "destroytoken",       &destroytoken,       {"inputs", "symbol"}},
-                {"tokens",      "listtokens",         &listtokens,         {"key",    "verbose"}},
+                {"tokens",      "listtokens",         &listtokens,         {"pagination", "verbose"}},
+                {"tokens",      "gettoken",           &gettoken,           {"key" }},
                 {"tokens",      "minttokens",         &minttokens,         {"inputs", "symbol", "amounts"}},
                 {"dex",         "createorder",        &createorder,        {"inputs", "metadata"}},
                 {"dex",         "destroyorder",       &destroyorder,       {"inputs", "order_txid", "owner_address"}},

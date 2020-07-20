@@ -114,7 +114,7 @@ public:
     boost::optional<CMasternode> GetMasternode(uint256 const & id) const;
     boost::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
     boost::optional<uint256> GetMasternodeIdByOwner(CKeyID const & id) const;
-    void ForEachMasternode(std::function<bool(uint256 const & id, CMasternode & node)> callback);
+    void ForEachMasternode(std::function<bool(uint256 const & id, CMasternode & node)> callback, uint256 const & start = uint256());
 
     void IncrementMintedBy(CKeyID const & minter);
     void DecrementMintedBy(CKeyID const & minter);

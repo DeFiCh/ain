@@ -67,9 +67,9 @@ boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> CStableTokens::GetTo
 
 }
 
-bool CStableTokens::ForEach(std::function<bool (const DCT_ID &, CToken const &)> callback) const
+bool CStableTokens::ForEach(std::function<bool (const DCT_ID &, CToken const &)> callback, DCT_ID const & start) const
 {
-    for (auto && it = tokens.begin(); it != tokens.end(); ++it) {
+    for (auto && it = tokens.lower_bound(start); it != tokens.end(); ++it) {
         if (!callback(it->first, it->second))
             return false;
     }
@@ -139,7 +139,7 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
         auto pair = GetTokenByCreationTx(tx);
         if (pair) {
             id = pair->first;
-            return MakeUnique<CToken>(pair->second);
+            return MakeUnique<CTokenImpl>(pair->second);
         }
     }
     else {
@@ -152,12 +152,15 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
     return {};
 }
 
-void CTokensView::ForEachToken(std::function<bool (const DCT_ID &, const CToken &)> callback)
+void CTokensView::ForEachToken(std::function<bool (const DCT_ID &, const CToken &)> callback, DCT_ID const & start)
 {
-    if (!CStableTokens::Instance().ForEach(callback))
+    if (!CStableTokens::Instance().ForEach([&] (const DCT_ID & id, CToken const & token) {
+        return callback(id, token);
+    }, start)) {
         return; // if was inturrupted
+    }
 
-    DCT_ID tokenId{0};
+    DCT_ID tokenId = start;
     auto hint = WrapVarInt(tokenId.v);
 
     ForEach<ID, CVarInt<VarIntMode::DEFAULT, uint32_t>, CTokenImpl>([&tokenId, &callback] (CVarInt<VarIntMode::DEFAULT, uint32_t> const &, CTokenImpl tokenImpl) {

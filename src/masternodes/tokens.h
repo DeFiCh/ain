@@ -112,7 +112,7 @@ public:
     static CStableTokens const & Instance();
     std::unique_ptr<CToken> GetToken(DCT_ID id) const;
     boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> GetToken(std::string const & symbol) const;
-    bool ForEach(std::function<bool(DCT_ID const & id, CToken const & token)> callback) const;
+    bool ForEach(std::function<bool(DCT_ID const & id, CToken const & token)> callback, DCT_ID const & start) const;
 };
 
 
@@ -129,7 +129,7 @@ public:
     boost::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
     std::unique_ptr<CToken> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
 
-    void ForEachToken(std::function<bool(DCT_ID const & id, CToken const & token)> callback);
+    void ForEachToken(std::function<bool(DCT_ID const & id, CToken const & token)> callback, DCT_ID const & start = DCT_ID{0});
 
     Res CreateToken(CTokenImpl const & token);
     bool RevertCreateToken(uint256 const & txid);

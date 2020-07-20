@@ -210,9 +210,11 @@ boost::optional<uint256> CMasternodesView::GetMasternodeIdByOwner(const CKeyID &
     return ReadBy<Owner, uint256>(id);
 }
 
-void CMasternodesView::ForEachMasternode(std::function<bool (const uint256 &, CMasternode &)> callback)
+void CMasternodesView::ForEachMasternode(std::function<bool (const uint256 &, CMasternode &)> callback, uint256 const & start)
 {
-    ForEach<ID, uint256, CMasternode>(callback);
+    ForEach<ID, uint256, CMasternode>([&callback] (uint256 const & txid, CMasternode & node) {
+        return callback(txid, node);
+    }, start);
 }
 
 void CMasternodesView::IncrementMintedBy(const CKeyID & minter)
