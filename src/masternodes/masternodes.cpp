@@ -324,7 +324,7 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
     // auth already checked!
     auto node = GetMasternode(nodeId);
     if (!node) {
-        return Res::Err("node %s does not exists", nodeId.ToString()); /// @todo it was checked
+        return Res::Err("node %s does not exists", nodeId.ToString());
     }
     auto state = node->GetState(height);
     if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED) /*|| IsAnchorInvolved(nodeId, height)*/) { // if already spoiled by resign or ban, or need for anchor
@@ -499,40 +499,8 @@ void CCustomCSView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, c
 
 }
 
-/// @todo refactor to split dependencies
 void CCustomCSView::OnUndoTx(uint256 const & txid, uint32_t height)
 {
-    // @todo confirm erasure of old code
-    /*TBytes metadata;
-    CustomTxType txType = GuessCustomTxType(tx, metadata);
-
-    uint256 txid = tx.GetHash();
-    switch (txType) {
-        case CustomTxType::CreateMasternode:
-        {
-            UnCreateMasternode(txid);
-        }
-        break;
-        case CustomTxType::ResignMasternode:
-        {
-            uint256 nodeId(metadata);
-            UnResignMasternode(nodeId, txid);
-        }
-        break;
-        case CustomTxType::CreateToken:
-        {
-            RevertCreateToken(txid);
-        }
-        break;
-        case CustomTxType::DestroyToken:
-        {
-            uint256 tokenId(metadata);
-            RevertDestroyToken(tokenId, txid);
-        }
-        break;
-        default:
-        break;
-    }*/
     const auto undo = this->GetUndo(UndoKey{height, txid});
     if (!undo) {
         return; // not custom tx, or no changes done

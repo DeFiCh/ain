@@ -14,11 +14,15 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
-class TokensRpcBasicTest (DefiTestFramework):
+class TokensBasicTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
+        # node0: main
+        # node1: revert of destroy
+        # node2: revert create (all)
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0'], ['-txnotokens=0'], ['-txnotokens=0']]
+
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -31,7 +35,6 @@ class TokensRpcBasicTest (DefiTestFramework):
 
         # CREATION:
         #========================
-        # @todo: check for different types of addresses (in fact, they were already checked, just extend test cases)
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
 
         # Fail to create: Insufficient funds (not matured coins)
@@ -45,7 +48,7 @@ class TokensRpcBasicTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Insufficient funds" in errorString)
 
-        # Create token 'GOLD' (128)
+        print ("Create token 'GOLD' (128)...")
         self.nodes[0].generate(1)
         createTokenTx = self.nodes[0].createtoken([], {
             "symbol": "GOLD",
@@ -66,14 +69,21 @@ class TokensRpcBasicTest (DefiTestFramework):
         assert("collateral-locked-in-mempool," in errorString)
 
         self.nodes[0].generate(1)
+        self.sync_blocks([self.nodes[0], self.nodes[1]])
+
         # At this point, token was created
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 2)
         assert_equal(tokens['128']["symbol"], "GOLD")
         assert_equal(tokens['128']["creationTx"], createTokenTx)
 
-        # Check 'listtokens' output
-        assert_equal(len(self.nodes[0].listtokens()), 2)
+        # check sync:
+        tokens = self.nodes[1].listtokens()
+        assert_equal(len(tokens), 2)
+        assert_equal(tokens['128']["symbol"], "GOLD")
+        assert_equal(tokens['128']["creationTx"], createTokenTx)
+
+        # Check 'gettoken' output
         t0 = self.nodes[0].gettoken(0)
         assert_equal(t0['0']['symbol'], "DFI")
         assert_equal(self.nodes[0].gettoken("DFI"), t0)
@@ -82,8 +92,6 @@ class TokensRpcBasicTest (DefiTestFramework):
         assert_equal(self.nodes[0].gettoken("GOLD"), t128)
         assert_equal(self.nodes[0].gettoken(createTokenTx), t128)
 
-
-        self.sync_blocks(self.nodes[0:2])
         # Stop node #1 for future revert
         self.stop_node(1)
 
@@ -95,38 +103,30 @@ class TokensRpcBasicTest (DefiTestFramework):
         assert("collateral-locked," in errorString)
 
 
-        # # RESIGNING:
-        # #========================
+        # RESIGNING:
+        #========================
+        # Try to resign w/o auth (no money on auth/collateral address)
         try:
             self.nodes[0].destroytoken([], "GOLD")
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Can't find any UTXO's" in errorString)
 
-        # Funding auth addresses (for minting and resigning)
+        # Funding auth address for resigning
         fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
-        fundingTx2 = self.nodes[0].sendtoaddress(collateral0, 1)
         self.nodes[0].generate(1)
 
-        mintingTx = self.nodes[0].minttokens([], "GOLD", { self.nodes[0].getnewaddress("", "legacy"): 100 })
-        self.nodes[0].generate(1)
-
-        # input ("pause")
-        print (self.nodes[0].listunspent(0, 9999999, [], True, {"tokenId": 128}))
-        # input ("pause")
-        tokenAddr = self.nodes[0].getnewaddress("", "legacy")
-        sendcreateTokenTx = self.nodes[0].sendtoaddress("GOLD" + "@" + tokenAddr, 10)
-        self.nodes[0].generate(1)
-        utxos = self.nodes[0].listunspent(0, 9999999, [], True, {"tokenId": 128})
-        if (utxos[0]['amount'] == 90):
-            assert(utxos[1]['amount'] == 10)
-        else:
-            assert(utxos[0]['amount'] == 10)
-            assert(utxos[1]['amount'] == 90)
-
+        print ("Destroy token...")
         destroyTx = self.nodes[0].destroytoken([], "GOLD")
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], destroyTx)
+
+        # Try to mint destroyed token ('minting' is not the task of current test, but let's check it here)
+        try:
+            self.nodes[0].minttokens([], "100@GOLD")
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("already destroyed" in errorString)
 
         # Spend unlocked collateral
         # This checks two cases at once:
@@ -139,7 +139,7 @@ class TokensRpcBasicTest (DefiTestFramework):
 
         # REVERTING:
         #========================
-
+        print ("Reverting...")
         # Revert token destruction!
         self.start_node(1)
         self.nodes[1].generate(5)
@@ -149,7 +149,7 @@ class TokensRpcBasicTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_blocks(self.nodes[0:2])
 
-        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([fundingTx, destroyTx, fundingTx2, mintingTx, sendcreateTokenTx]))
+        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([fundingTx, destroyTx]))
         assert_equal(self.nodes[0].listtokens()['128']['destructionHeight'], -1)
         assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
 
@@ -160,7 +160,7 @@ class TokensRpcBasicTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
         assert_equal(len(self.nodes[0].listtokens()), 1)
-        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([createTokenTx, fundingTx, destroyTx, fundingTx2]))
+        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([createTokenTx, fundingTx, destroyTx]))
 
 if __name__ == '__main__':
-    TokensRpcBasicTest ().main ()
+    TokensBasicTest ().main ()

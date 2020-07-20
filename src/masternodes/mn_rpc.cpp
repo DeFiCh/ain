@@ -924,7 +924,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"minttokens",
-               "\nCreates (and submits to local node and network) a transaction minting your token. \n"
+               "\nCreates (and submits to local node and network) a transaction minting your token (for accounts and/or UTXOs). \n"
                "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -939,13 +939,9 @@ UniValue minttokens(const JSONRPCRequest& request) {
                                 },
                         },
                        },
-                       {"symbol", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol"},
-                       {"amounts", RPCArg::Type::OBJ, RPCArg::Optional::NO, "A json object with addresses and amounts",
-                        {
-                                {"address", RPCArg::Type::AMOUNT, RPCArg::Optional::NO,
-                                 "The defi address is the key, the numeric amount (can be string) in " + CURRENCY_UNIT +
-                                 " is the value"},
-                        },
+                       {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Amount in amount@token format. "
+                        "If multiple tokens are to be minted, specify an array [\"amount1@t1\", \"amount2@t2\"]"
                        },
                },
                RPCResult{
@@ -958,116 +954,71 @@ UniValue minttokens(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-//    throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Temporary OFF until wallet with tokens completely implemented!");
-
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
                            "Cannot resign Masternode while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR}, true);
-
-    std::string const symbol = request.params[1].getValStr();
-    UniValue sendTo = request.params[2].get_obj();
-
-    CTxDestination ownerDest;
-    DCT_ID tokenId{};
-    {
-        auto locked_chain = pwallet->chain().lock();
-        auto pair = pcustomcsview->GetToken(symbol);
-        if (!pair) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", symbol));
-        }
-        if (pair->first < CTokensView::DCT_ID_START) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is a 'stable coin'", symbol));
-        }
-        auto token = static_cast<CTokenImplementation const& >(*pair->second);
-        if (token.destructionTx != uint256{}) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER,
-                               strprintf("Token %s already destroyed at height %i by tx %s", symbol,
-                                         token.destructionHeight, token.destructionTx.GetHex()));
-        }
-        LOCK(pwallet->cs_wallet);
-        auto wtx = pwallet->GetWalletTx(token.creationTx);
-        if (!wtx || !ExtractDestination(wtx->tx->vout[1].scriptPubKey, ownerDest)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER,
-                               strprintf("Can't extract destination for token's %s collateral", symbol));
-        }
-        tokenId = pair->first;
-    }
-
-    // @todo use DecodeRecipients instead
-
-    std::set<CTxDestination> destinations; // just for duplication control
-    std::vector<CTxOut> vecSend;
-
-    std::vector<std::string> keys = sendTo.getKeys();
-    for (const std::string& name_ : keys) {
-        CTxDestination dest = DecodeDestination(name_);
-        if (!IsValidDestination(dest)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Defi address: ") + name_);
-        }
-
-        if (destinations.count(dest)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
-        }
-        destinations.insert(dest);
-
-        CScript scriptPubKey = GetScriptForDestination(dest);
-        CAmount nAmount = AmountFromValue(sendTo[name_]);
-        if (nAmount <= 0)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
-
-        vecSend.push_back(CTxOut(nAmount, scriptPubKey, tokenId));
-    }
+    const CBalances minted = DecodeAmounts(pwallet, request.params[1], "");
 
     CMutableTransaction rawTx;
 
+    // auth
+    {
+        for (auto const & kv : minted.balances) {
+            if (kv.first < CTokensView::DCT_ID_START) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is a 'stable coin', can't mint stable coin", kv.first.ToString()));
+            }
+            CTxDestination ownerDest;
+            {
+                LOCK(cs_main);
+                auto token = pcustomcsview->GetToken(kv.first);
+                if (!token) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
+                }
+
+                auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
+                if (tokenImpl.destructionTx != uint256{}) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                       strprintf("Token %s already destroyed at height %i by tx %s", tokenImpl.symbol,
+                                                 tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex()));
+                }
+                LOCK(pwallet->cs_wallet);
+                auto wtx = pwallet->GetWalletTx(tokenImpl.creationTx);
+                if (!wtx || !ExtractDestination(wtx->tx->vout[1].scriptPubKey, ownerDest)) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                       strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
+                }
+            }
+            rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[0].get_array());
+        }
+    }
+
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::MintToken);
+    metadata << static_cast<unsigned char>(CustomTxType::MintToken)
+             << minted; /// @note here, that whole CBalances serialized!, not a 'minted.balances'!
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[0].get_array());
-
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
-    rawTx.vout.insert(rawTx.vout.end(), vecSend.begin(), vecSend.end());
 
-    // Now try to fund and sign manually:
+    // fund
+    rawTx = fund(rawTx, request, pwallet);
 
-    CTransactionRef tx_new;
+    // check execution
     {
-        CCoinControl coinControl;
-        coinControl.fAllowOtherInputs = true;
-
-        for (const CTxIn& txin : rawTx.vin) {
-            coinControl.Select(txin.prevout);
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        const auto res = ApplyMintTokenTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx),
+                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted }));
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
-
-        auto locked_chain = pwallet->chain().lock();
-        LOCK(pwallet->cs_wallet);
-        CAmount nFeeRet;
-        std::string strFailReason;
-        int changePos = rawTx.vout.size();
-
-        if (!pwallet->CreateMintTokenTransaction(*locked_chain, rawTx, tx_new, nFeeRet, changePos, strFailReason,
-                                                 coinControl)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
-        }
-
-    }
-    CAmount max_raw_tx_fee = {COIN / 10}; /// @todo check it with 0
-    std::string err_string;
-    AssertLockNotHeld(cs_main);
-    const TransactionError err = BroadcastTransaction(tx_new, err_string, max_raw_tx_fee, /*relay*/
-                                                      true, /*wait_callback*/ false);
-    if (TransactionError::OK != err) {
-        throw JSONRPCTransactionError(err, err_string);
     }
 
-    return tx_new->GetHash().GetHex();
+    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
 UniValue orderToJSON(uint256 const& id, COrder const& val, bool verbose) {
@@ -1542,7 +1493,7 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
     }
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("key", owner.GetHex() + "@" + amount.nTokenId.ToString());
+    obj.pushKV("key", owner.GetHex() /*+ "@" + amount.nTokenId.ToString()*/);
     obj.pushKV("owner", ownerObj);
     obj.pushKV("amount", amount.ToString());
     return obj;
@@ -1810,9 +1761,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("accounttoaccount", "[] sender_address "
-                                                     "'{\"address1\":\"1.0@DFI\","
-                                                     "\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]"
-                                                     "}'")
+                                                     "'{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}'")
                },
     }.Check(request);
 
@@ -1871,7 +1820,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"accounttoutxos",
-               "\nCreates (and submits to local node and network) a transfer transaction from the specified account to the specfied accounts.\n"
+               "\nCreates (and submits to local node and network) a transfer transaction from the specified account to UTXOs.\n"
                "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -1899,8 +1848,8 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("accounttoutxos", "[] sender_address 100@DFI")
-                       + HelpExampleCli("accounttoutxos", "[] sender_address '[\"100@DFI\", \"200@BTC\", \"10000@129\"]'")
+                       HelpExampleCli("accounttoutxos", "[] sender_address '{\"address1\":\"100@DFI\"}'")
+                       + HelpExampleCli("accounttoutxos", "[] sender_address '{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}'")
                },
     }.Check(request);
 
@@ -1990,7 +1939,7 @@ static const CRPCCommand commands[] =
                 {"tokens",      "destroytoken",       &destroytoken,       {"inputs", "symbol"}},
                 {"tokens",      "listtokens",         &listtokens,         {"pagination", "verbose"}},
                 {"tokens",      "gettoken",           &gettoken,           {"key" }},
-                {"tokens",      "minttokens",         &minttokens,         {"inputs", "symbol", "amounts"}},
+                {"tokens",      "minttokens",         &minttokens,         {"inputs", "amounts"}},
                 {"dex",         "createorder",        &createorder,        {"inputs", "metadata"}},
                 {"dex",         "destroyorder",       &destroyorder,       {"inputs", "order_txid", "owner_address"}},
                 {"dex",         "matchorders",        &matchorders,        {"inputs", "matcher", "alice", "carol"}},

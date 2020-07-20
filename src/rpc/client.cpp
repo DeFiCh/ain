@@ -187,7 +187,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listtokens", 1, "verbose" },
     { "gettoken", 0, "key" },
     { "minttokens", 0, "inputs" },
-    { "minttokens", 2, "amounts" },
+    { "minttokens", 1, "amounts" },
     { "createorder", 0, "inputs" },
     { "createorder", 1, "metadata" },
     { "matchorders", 0, "inputs" },

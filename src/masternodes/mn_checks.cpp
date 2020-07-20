@@ -143,6 +143,9 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::DestroyToken:
                 res = ApplyDestroyTokenTx(mnview, coins, tx, height, metadata);
                 break;
+            case CustomTxType::MintToken:
+                res = ApplyMintTokenTx(mnview, coins, tx, metadata);
+                break;
             case CustomTxType::CreateOrder:
                 res = ApplyCreateOrderTx(mnview, coins, tx, height, metadata);
                 break;
@@ -314,6 +317,48 @@ Res ApplyDestroyTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, C
     }
     return Res::Ok(base);
 }
+
+Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata)
+{
+    const std::string base{"Token minting"};
+
+    CBalances minted;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> minted;
+    if (!ss.empty()) {
+        return Res::Err("MintToken tx deserialization failed: excess %d bytes", ss.size());
+    }
+
+    // check auth and increase balance of token's owner
+    for (auto const & kv : minted.balances) {
+        DCT_ID tokenId = kv.first;
+        if (tokenId < CTokensView::DCT_ID_START)
+            return Res::Err("%s: token %s is a 'stable coin', can't mint stable coin!", base, tokenId.ToString());
+
+        auto token = mnview.GetToken(kv.first);
+        if (!token) {
+            throw Res::Err("%s: token %s does not exist!", tokenId.ToString());
+        }
+
+        auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
+        if (tokenImpl.destructionTx != uint256{}) {
+            throw Res::Err("%s: token %s already destroyed at height %i by tx %s", base, tokenImpl.symbol,
+                                         tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex());
+        }
+        const Coin& auth = coins.AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
+        if (!HasAuth(tx, coins, auth.out.scriptPubKey)) {
+            return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
+        }
+        const auto res = mnview.AddBalance(auth.out.scriptPubKey, CTokenAmount{kv.first,kv.second});
+        if (!res.ok) {
+            return Res::Err("%s: %s", base, res.msg);
+        }
+    }
+
+    return Res::Ok(base);
+}
+
+
 
 Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
 {
