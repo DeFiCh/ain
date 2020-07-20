@@ -1169,7 +1169,7 @@ UniValue destroyorder(const JSONRPCRequest& request) {
                        },
                        {"order_txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO,
                         "Txid of the order transaction to destroy"},
-                       {"owner", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                       {"owner_address", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
                         "Order owner address. Not required if order is expired."},
                },
                RPCResult{
@@ -1928,30 +1928,30 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
 }
 
 static const CRPCCommand commands[] =
-        { //  category          name                        actor (function)            params
-                //  ----------------- ------------------------    -----------------------     ----------
-                {"masternodes", "createmasternode",   &createmasternode,   {"inputs", "metadata"}},
-                {"masternodes", "resignmasternode",   &resignmasternode,   {"inputs", "mn_id"}},
-                {"masternodes", "listmasternodes",    &listmasternodes,    {"pagination", "verbose"}},
-                {"masternodes", "getmasternode",      &getmasternode,      {"mn_id"}},
-                {"masternodes", "listcriminalproofs", &listcriminalproofs, {}},
-                {"tokens",      "createtoken",        &createtoken,        {"inputs", "metadata"}},
-                {"tokens",      "destroytoken",       &destroytoken,       {"inputs", "symbol"}},
-                {"tokens",      "listtokens",         &listtokens,         {"pagination", "verbose"}},
-                {"tokens",      "gettoken",           &gettoken,           {"key" }},
-                {"tokens",      "minttokens",         &minttokens,         {"inputs", "amounts"}},
-                {"dex",         "createorder",        &createorder,        {"inputs", "metadata"}},
-                {"dex",         "destroyorder",       &destroyorder,       {"inputs", "order_txid", "owner_address"}},
-                {"dex",         "matchorders",        &matchorders,        {"inputs", "matcher", "alice", "carol"}},
-                {"dex",         "listorders",         &listorders,         {"pagination", "verbose"}},
-                {"dex",         "getorder",           &getorder,           {"txid"}},
-                {"dex",         "matchordersinfo",    &matchordersinfo,    {"alice", "carol"}},
-                {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose"}},
-                {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination"}},
-                {"accounts",    "utxostoaccount",     &utxostoaccount,     {"inputs", "amounts"}},
-                {"accounts",    "accounttoaccount",   &accounttoaccount,   {"inputs", "sender", "to"}},
-                {"accounts",    "accounttoutxos",     &accounttoutxos,     {"inputs", "sender", "to"}},
-        };
+{ //  category      name                  actor (function)     params
+  //  ----------------- ------------------------    -----------------------     ----------
+    {"masternodes", "createmasternode",   &createmasternode,   {"inputs", "metadata"}},
+    {"masternodes", "resignmasternode",   &resignmasternode,   {"inputs", "mn_id"}},
+    {"masternodes", "listmasternodes",    &listmasternodes,    {"pagination", "verbose"}},
+    {"masternodes", "getmasternode",      &getmasternode,      {"mn_id"}},
+    {"masternodes", "listcriminalproofs", &listcriminalproofs, {}},
+    {"tokens",      "createtoken",        &createtoken,        {"inputs", "metadata"}},
+    {"tokens",      "destroytoken",       &destroytoken,       {"inputs", "token"}},
+    {"tokens",      "listtokens",         &listtokens,         {"pagination", "verbose"}},
+    {"tokens",      "gettoken",           &gettoken,           {"key" }},
+    {"tokens",      "minttokens",         &minttokens,         {"inputs", "amounts"}},
+    {"dex",         "createorder",        &createorder,        {"inputs", "metadata"}},
+    {"dex",         "destroyorder",       &destroyorder,       {"inputs", "order_txid", "owner_address"}},
+    {"dex",         "matchorders",        &matchorders,        {"inputs", "order_alice", "order_carol", "matcher" }},
+    {"dex",         "listorders",         &listorders,         {"pagination", "verbose"}},
+    {"dex",         "getorder",           &getorder,           {"txid"}},
+    {"dex",         "matchordersinfo",    &matchordersinfo,    {"order_alice", "order_carol"}},
+    {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose"}},
+    {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination"}},
+    {"accounts",    "utxostoaccount",     &utxostoaccount,     {"inputs", "amounts"}},
+    {"accounts",    "accounttoaccount",   &accounttoaccount,   {"inputs", "from", "to"}},
+    {"accounts",    "accounttoutxos",     &accounttoutxos,     {"inputs", "from", "to"}},
+};
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
