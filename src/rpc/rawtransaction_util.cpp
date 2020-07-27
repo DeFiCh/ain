@@ -23,36 +23,37 @@
 
 #include <string>
 
-std::function<void(std::string)> JSONRPCErrorThrower(int code, const std::string& prefix) {
-    return [=](const std::string& msg) {
+std::function<void(int, std::string)> JSONRPCErrorThrower(const std::string& prefix) {
+    return [=](int code, const std::string& msg) {
         throw JSONRPCError(code, prefix + ": " + msg);
     };
 }
 
-std::pair<std::string, std::string> SplitTokenAddress(std::string const & output)
+
+std::pair<std::string, std::string> SplitAmount(std::string const & output)
 {
     const unsigned char TOKEN_SPLITTER = '@';
     size_t pos = output.rfind(TOKEN_SPLITTER);
-    std::string address = (pos != std::string::npos) ? output.substr(pos+1) : output;
-    std::string token_str = (pos != std::string::npos) ? output.substr(0, pos) : "";
-    return { token_str, address };
+    std::string token_id = (pos != std::string::npos) ? output.substr(pos+1) : "";
+    std::string amount = (pos != std::string::npos) ? output.substr(0, pos) : output;
+    return { amount, token_id };
 }
 
-static std::pair<std::string, std::string> SplitAmount(std::string const & tokenAmount)
+ResVal<std::pair<CAmount, std::string>> ParseTokenAmount(std::string const & tokenAmount)
 {
-    return SplitTokenAddress(tokenAmount);
-}
-
-ResVal<std::pair<CAmount, std::string>> ParseTokenAmount(std::string const & tokenAmount) {
     const auto strs = SplitAmount(tokenAmount);
 
-    CAmount amount;
+    CAmount amount{0};
     if (!ParseFixedPoint(strs.first, 8, &amount))
-        return Res::Err("Invalid amount");
+        return Res::ErrCode(RPC_TYPE_ERROR, "Invalid amount");
+    if (amount <= 0) {
+        return Res::ErrCode(RPC_TYPE_ERROR, "Amount out of range"); // keep it for tests compatibility
+    }
     return {{amount, strs.second}, Res::Ok()};
 }
 
-ResVal<CTokenAmount> GuessTokenAmount(std::string const & tokenAmount, const interfaces::Chain & chain) {
+ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain, std::string const & tokenAmount)
+{
     const auto parsed = ParseTokenAmount(tokenAmount);
     if (!parsed.ok) {
         return {parsed.res()};
@@ -72,20 +73,72 @@ ResVal<CTokenAmount> GuessTokenAmount(std::string const & tokenAmount, const int
     }
 }
 
-TokenDestination::TokenDestination(const std::string & output, const interfaces::Chain & chain)
-    : tokenId(DCT_ID{0})
-    , destination(CNoDestination())
-{
-    auto pair = SplitTokenAddress(output);
 
-    destination = DecodeDestination(pair.second);
-    if (!IsValidDestination(destination)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Defi address: ") + pair.second);
+// decodes either base58/bech32 address, or a hex format
+CScript DecodeScript(std::string const& str)
+{
+    if (IsHex(str)) {
+        const auto raw = ParseHex(str);
+        CScript result{raw.begin(), raw.end()};
+        txnouttype dummy;
+        if (IsStandard(result, dummy)) {
+            return result;
+        }
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "recipient script (" + str + ") does not solvable/non-standard");;
     }
-    std::unique_ptr<CToken> token = chain.existTokenGuessId(pair.first, tokenId);
-    if (!token) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Defi token: ") + pair.first);
+    const auto dest = DecodeDestination(str);
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "recipient (" + str + ") does not refer to any valid address");
     }
+    return GetScriptForDestination(dest);
+}
+
+CTokenAmount DecodeAmount(interfaces::Chain const & chain, UniValue const& amountUni, std::string const& name)
+{
+    // decode amounts
+    std::string strAmount;
+    if (amountUni.isArray()) { // * amounts
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, name + ": expected single amount");
+    } else if (amountUni.isNum()) { // legacy format for '0' token
+        strAmount = amountUni.getValStr() + "@" + DCT_ID{0}.ToString();
+    } else { // only 1 amount
+        strAmount = amountUni.get_str();
+    }
+    return GuessTokenAmount(chain, strAmount).ValOrException(JSONRPCErrorThrower(name));
+}
+
+CBalances DecodeAmounts(interfaces::Chain const & chain, UniValue const& amountsUni, std::string const& name)
+{
+    // decode amounts
+    CBalances amounts;
+    if (amountsUni.isArray()) { // * amounts
+        for (const auto& amountUni : amountsUni.get_array().getValues()) {
+            amounts.Add(DecodeAmount(chain, amountUni, name));
+        }
+    } else {
+        amounts.Add(DecodeAmount(chain, amountsUni, name));
+    }
+    return amounts;
+}
+
+// decodes recipients from formats:
+// "addr": 123.0,
+// "addr": "123.0@0",
+// "addr": "123.0@DFI",
+// "addr": ["123.0@DFI", "123.0@0", ...]
+std::map<CScript, CBalances> DecodeRecipients(interfaces::Chain const & chain, UniValue const& sendTo)
+{
+    std::map<CScript, CBalances> recipients;
+    for (const std::string& addr : sendTo.getKeys()) {
+        // decode recipient
+        const auto recipient = DecodeScript(addr);
+        if (recipients.find(recipient) != recipients.end()) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, addr + ": duplicate recipient");
+        }
+        // decode amounts and substitute
+        recipients[recipient] = DecodeAmounts(chain, sendTo[addr], addr);
+    }
+    return recipients;
 }
 
 CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, interfaces::Chain const & chain)
@@ -161,7 +214,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
     }
 
     // Duplicate checking
-    std::set<TokenDestination> destinations;
+    std::set<CTxDestination> destinations;
     bool has_data{false};
 
     for (const std::string& name_ : outputs.getKeys()) {
@@ -175,16 +228,20 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             CTxOut out(0, CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
         } else {
-            TokenDestination token_dest(name_, chain);
-            if (!destinations.insert(token_dest).second) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated pair 'token@address': ") + name_);
+            CTxDestination destination = DecodeDestination(name_); // it will be more clear to decode it straight to the CScript, but lets keep destination for tests compatibility
+            if (!IsValidDestination(destination)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Defi address: ") + name_);
             }
+            if (!destinations.insert(destination).second) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
+            }
+            CScript scriptPubKey = GetScriptForDestination(destination);
 
-            CScript scriptPubKey = GetScriptForDestination(token_dest.destination);
-            CAmount nAmount = AmountFromValue(outputs[name_]);
-
-            CTxOut out(nAmount, scriptPubKey, token_dest.tokenId);
-            rawTx.vout.push_back(out);
+            auto amounts = DecodeAmounts(chain, outputs[name_], name_);
+            for (auto const & kv : amounts.balances) {
+                CTxOut out(kv.second, scriptPubKey, kv.first);
+                rawTx.vout.push_back(out);
+            }
         }
     }
 

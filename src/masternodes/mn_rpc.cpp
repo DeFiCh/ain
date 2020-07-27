@@ -101,63 +101,6 @@ std::string ScriptToString(CScript const& script) {
     }
     return EncodeDestination(dest);
 }
-// decodes either base58/bech32 address, or a hex format
-CScript DecodeScript(std::string const& str) {
-    if (IsHex(str)) {
-        const auto raw = ParseHex(str);
-        return CScript{raw.begin(), raw.end()};
-    }
-    const auto dest = DecodeDestination(str);
-    if (!IsValidDestination(dest)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "recipient (" + str + ") does not refer to any valid address");
-    }
-    return GetScriptForDestination(dest);
-}
-
-static CTokenAmount DecodeAmount(const CWallet* pwallet, UniValue const& amountUni, std::string const& name) {
-    // decode amounts
-    std::string strAmount;
-    if (amountUni.isArray()) { // * amounts
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, name + ": expected single amount");
-    } else if (amountUni.isNum()) { // legacy format for '0' token
-        strAmount = amountUni.getValStr() + "@" + DCT_ID{0}.ToString();
-    } else { // only 1 amount
-        strAmount = amountUni.get_str();
-    }
-    return GuessTokenAmount(strAmount, pwallet->chain()).ValOrException(JSONRPCErrorThrower(RPC_INVALID_PARAMETER, name));
-}
-
-static CBalances DecodeAmounts(const CWallet* pwallet, UniValue const& amountsUni, std::string const& name) {
-    // decode amounts
-    CBalances amounts;
-    if (amountsUni.isArray()) { // * amounts
-        for (const auto& amountUni : amountsUni.get_array().getValues()) {
-            amounts.Add(DecodeAmount(pwallet, amountUni, name));
-        }
-    } else {
-        amounts.Add(DecodeAmount(pwallet, amountsUni, name));
-    }
-    return amounts;
-}
-
-// decodes recipients from formats:
-// "addr": 123.0,
-// "addr": "123.0@0",
-// "addr": "123.0@DFI",
-// "addr": ["123.0@DFI", "123.0@0", ...]
-static std::map<CScript, CBalances> DecodeRecipients(const CWallet* pwallet, UniValue const& sendTo) {
-    std::map<CScript, CBalances> recipients;
-    for (const std::string& addr : sendTo.getKeys()) {
-        // decode recipient
-        const auto recipient = DecodeScript(addr);
-        if (recipients.find(recipient) != recipients.end()) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, addr + ": duplicate recipient");
-        }
-        // decode amounts and substitute
-        recipients[recipient] = DecodeAmounts(pwallet, sendTo[addr], addr);
-    }
-    return recipients;
-}
 
 CAmount EstimateMnCreationFee() {
     // Current height + (1 day blocks) to avoid rejection;
@@ -960,7 +903,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    const CBalances minted = DecodeAmounts(pwallet, request.params[1], "");
+    const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[1], "");
 
     CMutableTransaction rawTx;
 
@@ -1085,7 +1028,8 @@ UniValue createorder(const JSONRPCRequest& request) {
     };
     h.Check(request);
 
-    if (pwallet->chain().isInitialBlockDownload()) {
+    auto & chain = pwallet->chain();
+    if (chain.isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
@@ -1098,10 +1042,10 @@ UniValue createorder(const JSONRPCRequest& request) {
 
     // decode amounts
     CCreateOrderMessage msg{};
-    msg.take = DecodeAmount(pwallet, metaObj["take"], "take");
-    msg.give = DecodeAmount(pwallet, metaObj["give"], "give");
+    msg.take = DecodeAmount(chain, metaObj["take"], "take");
+    msg.give = DecodeAmount(chain, metaObj["give"], "give");
     if (!metaObj["premium"].isNull()) {
-        msg.premium = DecodeAmount(pwallet, metaObj["premium"], "premium");
+        msg.premium = DecodeAmount(chain, metaObj["premium"], "premium");
     }
     if (!metaObj["timeinforce"].isNull()) {
         msg.timeInForce = (uint32_t) metaObj["timeinforce"].get_int();
@@ -1467,7 +1411,7 @@ CScript hexToScript(std::string const& str) {
 }
 
 BalanceKey decodeBalanceKey(std::string const& str) {
-    const auto pair = SplitTokenAddress(str);
+    const auto pair = SplitAmount(str);
     DCT_ID tokenID{};
     if (!pair.second.empty()) {
         auto id = DCT_ID::FromString(pair.second);
@@ -1687,7 +1631,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
 
     // decode recipients
     CUtxosToAccountMessage msg{};
-    msg.to = DecodeRecipients(pwallet, request.params[1].get_obj());
+    msg.to = DecodeRecipients(pwallet->chain(), request.params[1].get_obj());
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -1774,7 +1718,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     // decode sender and recipients
     CAccountToAccountMessage msg{};
     msg.from = DecodeScript(request.params[1].get_str());
-    msg.to = DecodeRecipients(pwallet, request.params[2].get_obj());
+    msg.to = DecodeRecipients(pwallet->chain(), request.params[2].get_obj());
     if (SumAllTransfers(msg.to).balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
@@ -1862,7 +1806,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     // decode sender and recipients
     CAccountToUtxosMessage msg{};
     msg.from = DecodeScript(request.params[1].get_str());
-    const auto to = DecodeRecipients(pwallet, request.params[2]);
+    const auto to = DecodeRecipients(pwallet->chain(), request.params[2]);
     msg.balances = SumAllTransfers(to);
     if (msg.balances.balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");

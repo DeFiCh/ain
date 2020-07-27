@@ -338,7 +338,7 @@ static CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet 
     if (nValue <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
-    if (nValue > curBalance[DCT_ID{tokenId}])
+    if (nValue > curBalance[tokenId])
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 
     // Parse Defi address
@@ -414,21 +414,13 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
-    auto pair = SplitTokenAddress(request.params[0].get_str());
-    CTxDestination dest = DecodeDestination(pair.second);
+    CTxDestination dest = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(dest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
-    DCT_ID tokenId;
-    std::unique_ptr<CToken> token = pwallet->chain().existTokenGuessId(pair.first, tokenId);
-    if (!token) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Defi token: ") + pair.first);
-    }
 
     // Amount
-    CAmount nAmount = AmountFromValue(request.params[1]);
-    if (nAmount <= 0)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
+    CTokenAmount const tokenAmount = DecodeAmount(pwallet->chain(), request.params[1], request.params[0].get_str()); // don't support multiple tokens due to "SendMoney()" compatibility
 
     // Wallet comments
     mapValue_t mapValue;
@@ -438,7 +430,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         mapValue["to"] = request.params[3].get_str();
 
     bool fSubtractFeeFromAmount = false;
-    if (!request.params[4].isNull() && tokenId == DCT_ID{0}) { // ignore fSubtractFeeFromAmount for tokens
+    if (!request.params[4].isNull() && tokenAmount.nTokenId == DCT_ID{0}) { // ignore fSubtractFeeFromAmount for tokens
         fSubtractFeeFromAmount = request.params[4].get_bool();
     }
 
@@ -463,7 +455,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(*locked_chain, pwallet, dest, nAmount, tokenId, fSubtractFeeFromAmount, coin_control, std::move(mapValue));
+    CTransactionRef tx = SendMoney(*locked_chain, pwallet, dest, tokenAmount.nValue, tokenAmount.nTokenId, fSubtractFeeFromAmount, coin_control, std::move(mapValue));
     return tx->GetHash().GetHex();
 }
 
@@ -924,30 +916,23 @@ static UniValue sendmany(const JSONRPCRequest& request)
         }
     }
 
-    std::set<TokenDestination> destinations;
+
+    std::map<CScript, CBalances> recip = DecodeRecipients(pwallet->chain(), sendTo);
     std::vector<CRecipient> vecSend;
 
-    std::vector<std::string> keys = sendTo.getKeys();
-    for (const std::string& name_ : keys) {
-        TokenDestination token_dest(name_, pwallet->chain());
-        if (!destinations.insert(token_dest).second) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated pair 'token@address': ") + name_);
-        }
-
-        CScript scriptPubKey = GetScriptForDestination(token_dest.destination);
-        CAmount nAmount = AmountFromValue(sendTo[name_]);
-        if (nAmount <= 0)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
+    for (auto const & scriptBalances : recip) {
 
         bool fSubtractFeeFromAmount = false;
         for (unsigned int idx = 0; idx < subtractFeeFromAmount.size(); idx++) {
             const UniValue& addr = subtractFeeFromAmount[idx];
-            if (addr.get_str() == name_ && token_dest.tokenId == DCT_ID{0})
+            if (DecodeScript(addr.get_str()) == scriptBalances.first)
                 fSubtractFeeFromAmount = true;
         }
 
-        CRecipient recipient = {scriptPubKey, nAmount, token_dest.tokenId, fSubtractFeeFromAmount};
-        vecSend.push_back(recipient);
+        for (auto tokenAmount : scriptBalances.second.balances) {
+            CRecipient recipient = {scriptBalances.first, tokenAmount.second, tokenAmount.first, fSubtractFeeFromAmount && (tokenAmount.first == DCT_ID{0}) };
+            vecSend.push_back(recipient);
+        }
     }
 
     EnsureWalletIsUnlocked(pwallet);

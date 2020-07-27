@@ -81,7 +81,7 @@ class TokensMintingTest (DefiTestFramework):
         print ("Check 'sendmany' for tokens:")
         alienSendAddr = self.nodes[1].getnewaddress("", "legacy")
         # check sending of different tokens on same address
-        self.nodes[0].sendmany("", { "GOLD" + "@" + alienSendAddr : 10, "SILVER" + "@" + alienSendAddr : 20 })
+        self.nodes[0].sendmany("", { alienSendAddr : [ str(10) + "@GOLD", str(20) + "@SILVER"] })
         self.nodes[0].generate(1)
         self.sync_blocks()
 
