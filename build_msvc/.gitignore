@@ -1,0 +1,12 @@
+# Build directories
+Debug/*
+Release/*
+.vs
+packages/*
+*/Obj
+*/Debug
+*/Release
+*/x64
+*.vcxproj.user
+*.vcxproj
+*/Win32

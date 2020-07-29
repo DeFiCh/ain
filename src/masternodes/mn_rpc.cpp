@@ -1423,7 +1423,7 @@ BalanceKey decodeBalanceKey(std::string const& str) {
     return {hexToScript(pair.first), tokenID};
 }
 
-UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose) {
+UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexed_amounts) {
     // encode CScript into JSON
     UniValue ownerObj(UniValue::VOBJ);
     ScriptPubKeyToUniv(owner, ownerObj, true);
@@ -1437,9 +1437,18 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
     }
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("key", owner.GetHex() /*+ "@" + amount.nTokenId.ToString()*/);
+    obj.pushKV("key", owner.GetHex() + "@" + amount.nTokenId.ToString());
     obj.pushKV("owner", ownerObj);
-    obj.pushKV("amount", amount.ToString());
+
+    if (indexed_amounts) {
+        UniValue amountObj(UniValue::VOBJ);
+        amountObj.pushKV(amount.nTokenId.ToString(), ValueFromAmount(amount.nValue));
+        obj.pushKV("amount", amountObj);
+    }
+    else {
+        obj.pushKV("amount", amount.ToString());
+    }
+
     return obj;
 }
 
@@ -1459,7 +1468,9 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                         },
                        },
                        {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                   "Flag for verbose list (default = true), otherwise limited objects are listed"}
+                                   "Flag for verbose list (default = true), otherwise limited objects are listed"},
+                       {"indexed_amounts", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                        "Format of amounts output (default = false): (true: {tokenid:amount}, false: \"amount@tokenid\")"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with accounts information\n"
@@ -1501,12 +1512,17 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
     }
+    bool indexed_amounts = false;
+    if (request.params.size() > 2) {
+        indexed_amounts = request.params[2].get_bool();
+    }
+
 
     UniValue ret(UniValue::VARR);
 
     LOCK(cs_main);
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
-        ret.push_back(accountToJSON(owner, balance, verbose));
+        ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
 
         limit--;
         return limit != 0;
@@ -1532,7 +1548,9 @@ UniValue getaccount(const JSONRPCRequest& request) {
                                  "Maximum number of orders to return, 100 by default"},
                         },
                        },
-               },
+                       {"indexed_amounts", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                        "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = [\"amount@tokenid\"...])"},
+         },
                RPCResult{
                        "{...}     (array) Json object with order information\n"
                },
@@ -1568,8 +1586,15 @@ UniValue getaccount(const JSONRPCRequest& request) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
     }
+    bool indexed_amounts = false;
+    if (request.params.size() > 2) {
+        indexed_amounts = request.params[2].get_bool();
+    }
 
     UniValue ret(UniValue::VARR);
+    if (indexed_amounts) {
+        ret.setObject();
+    }
 
     LOCK(cs_main);
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
@@ -1577,12 +1602,14 @@ UniValue getaccount(const JSONRPCRequest& request) {
             return false;
         }
 
-        ret.push_back(balance.ToString());
+        if (indexed_amounts)
+            ret.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
+        else
+            ret.push_back(balance.ToString());
 
         limit--;
         return limit != 0;
     }, BalanceKey{reqOwner, start});
-
     return ret;
 }
 
