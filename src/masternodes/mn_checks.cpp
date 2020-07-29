@@ -405,6 +405,7 @@ Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     if (!res.ok) {
         return Res::Err("%s: %s", base, res.msg);
     }
+
     return Res::Ok(base);
 }
 

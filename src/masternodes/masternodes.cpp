@@ -509,6 +509,39 @@ void CCustomCSView::OnUndoTx(uint256 const & txid, uint32_t height)
     this->DelUndo(UndoKey{height, txid}); // erase undo data, it served its purpose
 }
 
+Res CCustomCSView::DismissExpiredOrders(uint32_t expiryHeight)
+{
+    std::set<uint256> expiredOrders;
+    // just scan for expired first
+    ForEachExpiredOrder([&expiredOrders] (uint256 orderTx) {
+        expiredOrders.insert(orderTx);
+        return true;
+    }, expiryHeight);
+
+    const auto base = strprintf("Dismiss of expired order");
+
+    // dismiss (return funds)
+    for (auto const & orderTx : expiredOrders) {
+        auto order = GetOrder(orderTx);
+        assert(order);
+
+        // defund tokens
+        auto res = AddBalance(order->owner, order->give);
+        if (!res.ok) {
+            return Res::Err("%s %s: %s", base, orderTx.ToString(), res.msg);
+        }
+        res = AddBalance(order->owner, order->premium);
+        if (!res.ok) {
+            return Res::Err("%s %s: %s", base, orderTx.ToString(), res.msg);
+        }
+        res = DelOrder(orderTx); // will delete both indexes
+        if (!res.ok) {
+            return Res::Err("%s %s: %s", base, orderTx.ToString(), res.msg);
+        }
+    }
+    return Res::Ok();
+}
+
 bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
 {
     auto node = GetMasternode(txId);
