@@ -4,6 +4,9 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 export LC_ALL=C
+
+exit # turn it off! we don't use any git subtrees
+
 DIR="$1"
 COMMIT="$2"
 if [ -z "$COMMIT" ]; then
