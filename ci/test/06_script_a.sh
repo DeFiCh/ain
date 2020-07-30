@@ -28,7 +28,6 @@ END_FOLD
 
 BEGIN_FOLD distdir
 DOCKER_EXEC make distdir VERSION=$HOST
-DOCKER_EXEC cp -r ../src/spv/bcash ../src/spv/bitcoin ../src/spv/support ../src/spv/Makefile  "defi-$HOST/src/spv/"
 DOCKER_EXEC cp -r ../share  "defi-$HOST/"
 DOCKER_EXEC cp -r ../contrib  "defi-$HOST/"
 END_FOLD

@@ -3,20 +3,110 @@ on:
     tags:
       - "v*"
 jobs:
-  x86_64-linux-gnu:
+
+  linux:
     runs-on: ubuntu-18.04
     env:
       BUILD_VERSION: latest # Computed
     if: startsWith(github.ref, 'refs/tags/')
+    
     steps:
     - uses: actions/checkout@v2
+
     - name: Build and package
       run: ./make.sh docker-release-git
+
     - name: Publish artifacts
       uses: actions/upload-artifact@v2-preview
       with:
         name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
         path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+
+    # Linux build additionally pushes the docker images to docker hub on successful build
+    - name: Tag dockerhub build
+      if: ${{ github.repository == 'DeFiCh/ain' }}
+      run: >
+        docker tag defichain-x86_64-pc-linux-gnu:${{ env.BUILD_VERSION }}
+        defichain-x86_64-pc-linux-gnu:dockerhub-latest
+
+    - uses: docker/build-push-action@v1
+    # Make sure to only build on ain repo. Also add in additional restrictions here if needed to
+    # make sure we don't push unnecessary images to docker
+      if: ${{ github.repository == 'DeFiCh/ain' }}
+      with:
+        username: ${{ secrets.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+        path: ./contrib/dockerfiles/dockerhub
+        dockerfile: ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile
+        repository: defi/defichain
+        tags: latest,${{ env.BUILD_VERSION }}
+
+  windows:
+    runs-on: ubuntu-18.04
+    env:
+      BUILD_VERSION: latest # Computed
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build and package
+      run: TARGETS="x86_64-w64-mingw32" ./make.sh docker-release-git
+      
+    - name: Publish artifact - x86_64-w64-mingw32
+      uses: actions/upload-artifact@v2-preview
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
+  
+  macos:
+    runs-on: ubuntu-18.04
+    env:
+      BUILD_VERSION: latest # Computed
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build and package
+      run: TARGETS="x86_64-apple-darwin11" ./make.sh docker-release-git
+
+    - name: Publish artifact - x86_64-apple-darwin11
+      uses: actions/upload-artifact@v2-preview
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
+
+  create-release:
+    needs:
+      - linux
+      - windows
+      - macos
+    runs-on: ubuntu-18.04
+    env:
+      BUILD_VERSION: latest # Computed
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: compute build version
+      run: ./make.sh git-version
+
+    - name: cleanup work dir
+      run: rm -rf *
+
+    - name: get all build artifacts
+      uses: actions/download-artifact@v2
+
+    - name: zip package for windows
+      run: | 
+        set -e
+        cd defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
+        tar xzf defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
+        zip -r "defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip" \
+          defichain-${{ env.BUILD_VERSION }}/
+
     - name: Create release
       id: create_release
       uses: actions/create-release@v1
@@ -27,13 +117,33 @@ jobs:
         release_name: ${{ github.ref }}
         draft: false
         prerelease: false
-    - name: Upload release asset
-      id: upload-release-asset 
+
+    - name: Upload release asset - linux
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload release asset - windows
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip
+        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip
+        asset_content_type: application/zip
+
+    - name: Upload release asset - macos
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
+        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
         asset_content_type: application/gzip

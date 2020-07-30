@@ -28,6 +28,8 @@
 #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
+#include <boost/thread.hpp>
+
 typedef struct BRWalletStruct BRWallet;
 typedef struct BRPeerManagerStruct BRPeerManager;
 typedef struct BRMerkleBlockStruct BRMerkleBlock;

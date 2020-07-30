@@ -15,7 +15,7 @@ For more information:
 - Visit the [DeFi Blockchain website](https://defichain.io)
 - Read our [white paper](https://defichain.io/white-paper/)
 
-Downloadable binaries will be made available soon.
+Downloadable binaries are available from the [GitHub Releases](https://github.com/DeFiCh/ain/releases) page. 
 
 ### Bitcoin Core
 
@@ -32,6 +32,13 @@ DeFi Blockchain has done significant modifications from Bitcoin Core, for instan
 
 Merges from upstream (Bitcoin Core) will be done selectively if it applies to the improved functionality and security of DeFi Blockchain.
 
+## Quick Start
+
+- [Running a node](./doc/setup-nodes.md)
+- [Running a node with docker](./doc/setup-nodes-docker.md)
+- [Running a masternode](./doc/setup-masternodes.md)
+- [Building from scratch](./doc/build-quick.md)
+
 ## License
 
 DeFi Blockchain is released under the terms of the MIT license. See [COPYING](COPYING) for more
@@ -40,7 +47,7 @@ information or see https://opensource.org/licenses/MIT.
 ## Development Process
 
 The `master` branch is regularly built and tested, but is not guaranteed to be
-completely stable. [Tags](https://github.com/bitcoin/bitcoin/tags) are created
+completely stable. [Tags](https://github.com/DeFiCh/ain/tags) are created
 regularly to indicate new official, stable release versions of DeFi Blockchain.
 
 The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md).
