@@ -13,7 +13,6 @@ on:
       - develop
       - staging
       - ci/*
-   
 jobs:
   
   linux:
