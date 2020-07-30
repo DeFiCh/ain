@@ -1037,7 +1037,7 @@ UniValue createorder(const JSONRPCRequest& request) {
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, false);
     UniValue metaObj = request.params[1].get_obj();
     if (metaObj["owner"].isNull() || metaObj["give"].isNull() || metaObj["take"].isNull()) {
-        throw std::runtime_error(h.ToString());
+        throw JSONRPCError(RPC_INVALID_PARAMS, h.ToString());
     }
 
     // decode amounts
@@ -1125,7 +1125,7 @@ UniValue destroyorder(const JSONRPCRequest& request) {
     };
     h.Check(request);
     if (request.params.size() < 2) {
-        throw std::runtime_error(h.ToString());
+        throw JSONRPCError(RPC_INVALID_PARAMS, h.ToString());
     }
 
     if (pwallet->chain().isInitialBlockDownload()) {
@@ -1210,7 +1210,7 @@ UniValue matchorders(const JSONRPCRequest& request) {
     };
     h.Check(request);
     if (request.params.size() < 4) {
-        throw std::runtime_error(h.ToString());
+        throw JSONRPCError(RPC_INVALID_PARAMS, h.ToString());
     }
 
     if (pwallet->chain().isInitialBlockDownload()) {
