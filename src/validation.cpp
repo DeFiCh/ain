@@ -2320,7 +2320,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         cache.Flush();
         // write undo
         if (!undo.before.empty()) {
-            mnview.SetUndo(UndoKey{pindex->nHeight, uint256() }, undo); // "zero hash"
+            mnview.SetUndo(UndoKey{static_cast<uint32_t>(pindex->nHeight), uint256() }, undo); // "zero hash"
         }
     }
 
