@@ -169,10 +169,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createwallet", 4, "avoid_reuse"},
     { "getnodeaddresses", 0, "count"},
     { "stop", 0, "wait" },
-    { "createmasternode", 0, "inputs" },
-    { "createmasternode", 1, "metadata" },
-    { "resignmasternode", 0, "inputs" },
-    { "resignmasternode", 1, "mn_id" },
+    { "createmasternode", 2, "inputs" },
+    { "resignmasternode", 1, "inputs" },
     { "listmasternodes", 0, "list" },
     { "listmasternodes", 1, "verbose" },
 
