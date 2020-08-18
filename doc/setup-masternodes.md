@@ -78,10 +78,10 @@ where address is the new owner address you have created.
 In order to participate in the staking algorithm, you must broadcast to the network that you intend to participate, this can be done by running a command using the Defi CLI, the command is:
 
 ```
-defi-cli createmasternode "[]" "{\"operatorAuthAddress\":\"address\",\"collateralAddress\":\"address\"}"
+~/.defi/defi-cli createmasternode address
 ```
 
-where "address" for both operator and collateral address should be the new legacy address you created.
+where `address` for both operator and collateral address should be the new legacy address you created.
 
 ### Step 6 - Configure the masternode and restart
 
@@ -117,10 +117,10 @@ Perform steps 1-4 the same as the above section for operating your own masternod
 In order to participate in the staking algorithm, you must broadcast to the network that you intend to participate, this can be done by running a command using the Defi CLI, the command is:
 
 ```
-defi-cli createmasternode "[]" "{\"operatorAuthAddress\":\"OPERATOR_ADDRESS\",\"collateralAddress\":\"OWNER_ADDRESS\"}"
+~/.defi/defi-cli createmasternode OWNER_ADDRESS OPERATOR_ADDRESS
 ``` 
 
-where `OPERATOR_ADDRESS` is the address for the operator and `OWNER_ADDRESS` is the address for the collateral/owner node.
+where `OWNER_ADDRESS` is the address for the collateral/owner node and `OPERATOR_ADDRESS` is the address for the operator.
 
 ### Step 6 - Configure the masternode and restart
 
