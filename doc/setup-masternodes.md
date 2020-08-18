@@ -16,18 +16,18 @@ In this scenario, operator's address will be equal to the owner's (collateral) a
 
 The first step is to download the binaries. Here are links to binaries for Linux and Macosx:
 
-[Linux v1.0.0-rc1](https://github.com/DeFiCh/ain/releases/download/v1.0.0-rc1/defichain-1.0.0-rc1-x86_64-pc-linux-gnu.tar.gz)
-[Mac OSX v1.0.0-rc1](https://github.com/DeFiCh/ain/releases/download/v1.0.0-rc1/defichain-1.0.0-rc1-x86_64-apple-darwin11.tar.gz)
+[Linux v1.0.1](https://github.com/DeFiCh/ain/releases/download/v1.0.1/defichain-1.0.1-x86_64-pc-linux-gnu.tar.gz)
+[Mac OSX v1.0.1](https://github.com/DeFiCh/ain/releases/download/v1.0.1/defichain-1.0.1-x86_64-apple-darwin11.tar.gz)
 
 We can download this on Linux using the command:
 
 ```
-wget https://github.com/DeFiCh/ain/releases/download/v1.0.0-rc1/defichain-1.0.0-rc1-x86_64-pc-linux-gnu.tar.gz
+wget https://github.com/DeFiCh/ain/releases/download/v1.0.1/defichain-1.0.1-x86_64-pc-linux-gnu.tar.gz
 ```
 
 Following that we can extract the tar file by running:
 ```
-tar -xvzf defichain-1.0.0-rc1-x86_64-pc-linux-gnu.tar.gz
+tar -xvzf defichain-1.0.1-x86_64-pc-linux-gnu.tar.gz
 ```
 
 ### Step 2 - Copy binaries to user directory
@@ -40,7 +40,7 @@ mkdir ~/.defi
 
 Now copy the binaries by running:
 ```
-cp ./defichain-1.0.0-beta4/bin/* ~/.defi
+cp ./defichain-1.0.1/bin/* ~/.defi
 ```
 
 ### Step 3 - Setting up crontab to keep our node running in the background
