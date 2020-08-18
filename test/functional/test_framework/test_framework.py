@@ -555,7 +555,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             for i in range(8):
                 self.nodes[CACHE_NODE_ID].generate(
                     nblocks=25 if i != 7 else 24,
-                    address=TestNode.PRIV_KEYS[i % 4].operatorAuthAddress,
+                    address=TestNode.PRIV_KEYS[i % 4].ownerAuthAddress,
                 )
 
             assert_equal(self.nodes[CACHE_NODE_ID].getblockchaininfo()["blocks"], 199)
