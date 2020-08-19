@@ -28,67 +28,8 @@ std::string trim_ws(std::string const & str)
     return str.substr(first, (last - first + 1));
 }
 
-void CStableTokens::Initialize(CStableTokens & dst)
-{
-    // Default CToken()
-    //    : symbol("")
-    //    , name("")
-    //    , decimal(8)
-    //    , limit(0)
-    //    , flags(uint8_t(TokenFlags::Default))
-
-    CToken DFI;
-    DFI.symbol = CURRENCY_UNIT;
-    DFI.name = "Default Defi token";
-    /// ? what about Mintable|Tradable???
-
-    dst.tokens[DCT_ID{0}] = DFI;
-    dst.indexedBySymbol[DFI.symbol] = DCT_ID{0};
-}
-
-std::unique_ptr<CToken> CStableTokens::GetToken(DCT_ID id) const
-{
-    auto it = tokens.find(id);
-    if (it != tokens.end()) {
-        return MakeUnique<CToken>(it->second);
-    }
-    return {};
-}
-
-boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> CStableTokens::GetToken(const std::string & symbol) const
-{
-    auto it = indexedBySymbol.find(symbol);
-    if (it != indexedBySymbol.end()) {
-        auto token = GetToken(it->second);
-        assert(token);
-        return { std::make_pair(it->second, std::move(token)) };
-    }
-    return {};
-
-}
-
-bool CStableTokens::ForEach(std::function<bool (const DCT_ID &, CToken const &)> callback, DCT_ID const & start) const
-{
-    for (auto && it = tokens.lower_bound(start); it != tokens.end(); ++it) {
-        if (!callback(it->first, it->second))
-            return false;
-    }
-    return true;
-}
-
-const CStableTokens & CStableTokens::Instance()
-{
-    static CStableTokens dst;
-    static std::once_flag initialized;
-    std::call_once (initialized, CStableTokens::Initialize, dst);
-    return dst;
-}
-
 std::unique_ptr<CToken> CTokensView::GetToken(DCT_ID id) const
 {
-    if (id < DCT_ID_START) {
-        return CStableTokens::Instance().GetToken(id);
-    }
     auto tokenImpl = ReadBy<ID, CTokenImpl>(WrapVarInt(id.v)); // @todo change serialization of DCT_ID to VarInt by default?
     if (tokenImpl)
         return MakeUnique<CTokenImpl>(*tokenImpl);
@@ -98,14 +39,10 @@ std::unique_ptr<CToken> CTokensView::GetToken(DCT_ID id) const
 
 boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetToken(const std::string & symbol) const
 {
-    auto dst = CStableTokens::Instance().GetToken(symbol);
-    if (dst)
-        return dst;
-
     DCT_ID id;
     auto varint = WrapVarInt(id.v);
     if (ReadBy<Symbol, std::string>(symbol, varint)) {
-        assert(id >= DCT_ID_START);
+//        assert(id >= DCT_ID_START);// ? not needed anymore?
         return { std::make_pair(id, std::move(GetToken(id)))};
     }
     return {};
@@ -154,12 +91,6 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
 
 void CTokensView::ForEachToken(std::function<bool (const DCT_ID &, const CToken &)> callback, DCT_ID const & start)
 {
-    if (!CStableTokens::Instance().ForEach([&] (const DCT_ID & id, CToken const & token) {
-        return callback(id, token);
-    }, start)) {
-        return; // if was inturrupted
-    }
-
     DCT_ID tokenId = start;
     auto hint = WrapVarInt(tokenId.v);
 
@@ -167,6 +98,22 @@ void CTokensView::ForEachToken(std::function<bool (const DCT_ID &, const CToken 
         return callback(tokenId, tokenImpl);
     }, hint);
 
+}
+
+Res CTokensView::CreateDFIToken()
+{
+    CTokenImpl token;
+    token.symbol = CURRENCY_UNIT;
+    token.name = "Default Defi token";
+    token.creationTx = uint256();
+    token.creationHeight = 0;
+    token.flags |= (uint8_t)CToken::TokenFlags::isDAT;
+
+    DCT_ID id{0};
+    WriteBy<ID>(WrapVarInt(id.v), token);
+    WriteBy<Symbol>(token.symbol, WrapVarInt(id.v));
+    WriteBy<CreationTx>(token.creationTx, WrapVarInt(id.v));
+    return Res::Ok();
 }
 
 Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
@@ -178,7 +125,22 @@ Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }
-    DCT_ID id = IncrementLastDctId();
+
+    DCT_ID id{0};
+    if(token.flags & (uint8_t)CToken::TokenFlags::isDAT) {
+        ForEachToken([&](DCT_ID const& currentId, CToken const& token) {
+            if(currentId < DCT_ID_START)
+                id.v = currentId.v + 1;
+            return currentId < DCT_ID_START;
+        }, id);
+        if(id == DCT_ID_START) {
+            LogPrintf("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n");
+            assert (false);
+        }
+    }
+    else
+        id = IncrementLastDctId();
+
     WriteBy<ID>(WrapVarInt(id.v), token);
     WriteBy<Symbol>(token.symbol, WrapVarInt(id.v));
     WriteBy<CreationTx>(token.creationTx, WrapVarInt(id.v));
@@ -204,6 +166,19 @@ bool CTokensView::RevertCreateToken(const uint256 & txid)
     EraseBy<CreationTx>(token.creationTx);
     DecrementLastDctId();
     return true;
+}
+
+Res CTokensView::UpdateToken(const uint256 &tokenTx)
+{
+    auto pair = GetTokenByCreationTx(tokenTx);
+    if (!pair) {
+        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
+    }
+    CTokenImpl & tokenImpl = pair->second;
+    tokenImpl.flags ^= (uint8_t)CToken::TokenFlags::isDAT;
+
+    WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
+    return Res::Ok();
 }
 
 Res CTokensView::DestroyToken(uint256 const & tokenTx, const uint256 & txid, int height)

@@ -563,6 +563,8 @@ UniValue createtoken(const JSONRPCRequest& request) {
                                 {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                  "Token's name (optional), no longer than " +
                                  std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
+                                {"isDAT", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                 "Token's 'isDAT' property (bool, optional), default is 'False'"},
                                 {"decimal", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                  "Token's decimal places (optional, fixed to 8 for now, unchecked)"},
                                 {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
@@ -619,6 +621,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     CToken token;
     token.symbol = trim_ws(metaObj["symbol"].getValStr()).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     token.name = trim_ws(metaObj["name"].getValStr()).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+    token.flags = metaObj["isDAT"].getBool() ? token.flags | (uint8_t)CToken::TokenFlags::isDAT : token.flags; // setting isDAT
 //    token.decimal = metaObj["name"].get_int(); // fixed for now, check range later
 //    token.limit = metaObj["limit"].get_int(); // fixed for now, check range later
 //    token.flags = metaObj["mintable"].get_bool() ? token.flags | CToken::TokenFlags::Mintable : token.flags; // fixed for now, check later
@@ -633,6 +636,26 @@ UniValue createtoken(const JSONRPCRequest& request) {
 
     CMutableTransaction rawTx;
 
+    if(metaObj["isDAT"].getBool())
+    {
+        for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
+        {
+            if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
+            {
+                CTxDestination destination;
+                if (!ExtractDestination(*it, destination)) {
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
+                }
+                try {
+                    rawTx.vin = GetAuthInputs(pwallet, destination, request.params[0].get_array());
+                }
+                catch (const UniValue& objError) {}
+            }
+        }
+        if(rawTx.vin.size() == 0)
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
+    }
+
     rawTx.vin = GetInputs(request.params[0].get_array());
 
     rawTx.vout.push_back(CTxOut(GetTokenCreationFee(height), scriptMeta));
@@ -644,7 +667,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyCreateTokenTx(mnview_dummy, CTransaction(rawTx), height,
+        const auto res = ApplyCreateTokenTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), height,
                                       ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, token}));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
@@ -742,6 +765,117 @@ UniValue destroytoken(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
+UniValue updatetoken(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"updatetoken",
+               "\nCreates (and submits to local node and network) a transaction of token promotion to isDAT or demotion from isDAT. Collateral will be unlocked.\n"
+               "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects. Provide it if you want to spent specific UTXOs",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                    {
+                           {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol, id or creation tx"},
+                           {"isDAT", RPCArg::Type::BOOL, RPCArg::Optional::NO, "Token's 'isDAT' new property (bool)"},
+                    },
+                   },
+
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("updatetoken", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" '{\"token\":\"DFI\","
+                                                     "\"isDAT\":true,"
+                                                     "}'")
+                       + HelpExampleRpc("updatetoken", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" '{\"token\":\"DFI\","
+                                                       "\"isDAT\":true,"
+                                                       "}'")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot resign Masternode while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, true);
+
+    UniValue metaObj = request.params[1].get_obj();
+
+    std::string const tokenStr = trim_ws(metaObj["token"].getValStr());
+    CTxDestination ownerDest;
+    uint256 creationTx{};
+    {
+        LOCK(cs_main);
+        DCT_ID id;
+        auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+        if (!token) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
+        }
+        if (id < CTokensView::DCT_ID_START) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is a 'stable coin'", tokenStr));
+        }
+        LOCK(pwallet->cs_wallet);
+        auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
+        creationTx = tokenImpl.creationTx;
+    }
+
+    CMutableTransaction rawTx;
+
+    for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
+    {
+        if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
+        {
+            CTxDestination destination;
+            if (!ExtractDestination(*it, destination)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
+            }
+            try {
+                rawTx.vin = GetAuthInputs(pwallet, destination, request.params[0].get_array());
+            }
+            catch (const UniValue& objError) {}
+        }
+    }
+    if(rawTx.vin.size() == 0)
+        throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::UpdateToken)
+             << creationTx << metaObj["isDAT"].getBool();
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    rawTx = fund(rawTx, request, pwallet);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        const auto res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
+                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, creationTx, metaObj["isDAT"].getBool()}));
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+}
+
 UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
     tokenObj.pushKV("symbol", token.symbol);
@@ -751,6 +885,7 @@ UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool verbose) {
         tokenObj.pushKV("limit", token.limit);
         tokenObj.pushKV("mintable", token.IsMintable());
         tokenObj.pushKV("tradeable", token.IsTradeable());
+        tokenObj.pushKV("isDAT", token.IsDAT());
         if (id >= CTokensView::DCT_ID_START) {
             CTokenImplementation const& tokenImpl = static_cast<CTokenImplementation const&>(token);
             tokenObj.pushKV("creationTx", tokenImpl.creationTx.ToString());
@@ -1908,6 +2043,7 @@ static const CRPCCommand commands[] =
     {"masternodes", "listcriminalproofs", &listcriminalproofs, {}},
     {"tokens",      "createtoken",        &createtoken,        {"inputs", "metadata"}},
     {"tokens",      "destroytoken",       &destroytoken,       {"inputs", "token"}},
+    {"tokens",      "updatetoken",        &updatetoken,        {"inputs", "metadata"}},
     {"tokens",      "listtokens",         &listtokens,         {"pagination", "verbose"}},
     {"tokens",      "gettoken",           &gettoken,           {"key" }},
     {"tokens",      "minttokens",         &minttokens,         {"inputs", "amounts"}},
