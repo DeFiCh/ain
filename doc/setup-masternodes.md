@@ -16,18 +16,18 @@ In this scenario, operator's address will be equal to the owner's (collateral) a
 
 The first step is to download the binaries. Here are links to binaries for Linux and Macosx:
 
-[Linux v1.0.0-rc1](https://github.com/DeFiCh/ain/releases/download/v1.0.0-rc1/defichain-1.0.0-rc1-x86_64-pc-linux-gnu.tar.gz)
-[Mac OSX v1.0.0-rc1](https://github.com/DeFiCh/ain/releases/download/v1.0.0-rc1/defichain-1.0.0-rc1-x86_64-apple-darwin11.tar.gz)
+[Linux v1.0.1](https://github.com/DeFiCh/ain/releases/download/v1.0.1/defichain-1.0.1-x86_64-pc-linux-gnu.tar.gz)
+[Mac OSX v1.0.1](https://github.com/DeFiCh/ain/releases/download/v1.0.1/defichain-1.0.1-x86_64-apple-darwin11.tar.gz)
 
 We can download this on Linux using the command:
 
 ```
-wget https://github.com/DeFiCh/ain/releases/download/v1.0.0-rc1/defichain-1.0.0-rc1-x86_64-pc-linux-gnu.tar.gz
+wget https://github.com/DeFiCh/ain/releases/download/v1.0.1/defichain-1.0.1-x86_64-pc-linux-gnu.tar.gz
 ```
 
 Following that we can extract the tar file by running:
 ```
-tar -xvzf defichain-1.0.0-rc1-x86_64-pc-linux-gnu.tar.gz
+tar -xvzf defichain-1.0.1-x86_64-pc-linux-gnu.tar.gz
 ```
 
 ### Step 2 - Copy binaries to user directory
@@ -40,7 +40,7 @@ mkdir ~/.defi
 
 Now copy the binaries by running:
 ```
-cp ./defichain-1.0.0-beta4/bin/* ~/.defi
+cp ./defichain-1.0.1/bin/* ~/.defi
 ```
 
 ### Step 3 - Setting up crontab to keep our node running in the background
@@ -78,10 +78,10 @@ where address is the new owner address you have created.
 In order to participate in the staking algorithm, you must broadcast to the network that you intend to participate, this can be done by running a command using the Defi CLI, the command is:
 
 ```
-defi-cli createmasternode "[]" "{\"operatorAuthAddress\":\"address\",\"collateralAddress\":\"address\"}"
+~/.defi/defi-cli createmasternode address
 ```
 
-where "address" for both operator and collateral address should be the new legacy address you created.
+where `address` for both operator and collateral address should be the new legacy address you created.
 
 ### Step 6 - Configure the masternode and restart
 
@@ -117,10 +117,10 @@ Perform steps 1-4 the same as the above section for operating your own masternod
 In order to participate in the staking algorithm, you must broadcast to the network that you intend to participate, this can be done by running a command using the Defi CLI, the command is:
 
 ```
-defi-cli createmasternode "[]" "{\"operatorAuthAddress\":\"OPERATOR_ADDRESS\",\"collateralAddress\":\"OWNER_ADDRESS\"}"
+~/.defi/defi-cli createmasternode OWNER_ADDRESS OPERATOR_ADDRESS
 ``` 
 
-where `OPERATOR_ADDRESS` is the address for the operator and `OWNER_ADDRESS` is the address for the collateral/owner node.
+where `OWNER_ADDRESS` is the address for the collateral/owner node and `OPERATOR_ADDRESS` is the address for the operator.
 
 ### Step 6 - Configure the masternode and restart
 
