@@ -13,7 +13,6 @@ src/defi-tx
 src/defi-wallet
 src/test/test_defi
 src/test/test_defi_fuzzy
-src/qt/test/test_defi-qt
 
 # autoreconf
 Makefile.in
@@ -44,18 +43,6 @@ share/setup.nsi
 share/qt/Info.plist
 
 src/univalue/gen
-
-src/qt/*.moc
-src/qt/moc_*.cpp
-src/qt/forms/ui_*.h
-
-src/qt/test/moc*.cpp
-
-src/qt/defi-qt.config
-src/qt/defi-qt.creator
-src/qt/defi-qt.creator.user
-src/qt/defi-qt.files
-src/qt/defi-qt.includes
 
 .deps
 .dirstamp
@@ -92,8 +79,6 @@ src/qt/defi-qt.includes
 *.qm
 Makefile
 !depends/Makefile
-defi-qt
-Defi-Qt.app
 background.tiff*
 
 # Qt Creator
@@ -101,7 +86,6 @@ Makefile.am.user
 
 # Unit-tests
 Makefile.test
-defi-qt_test
 
 # Resources cpp
 qrc_*.cpp
