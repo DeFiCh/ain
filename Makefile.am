@@ -17,7 +17,6 @@ pkgconfig_DATA = libdeficonsensus.pc
 endif
 
 DEFID_BIN=$(top_builddir)/src/$(DEFI_DAEMON_NAME)$(EXEEXT)
-DEFI_QT_BIN=$(top_builddir)/src/qt/$(DEFI_GUI_NAME)$(EXEEXT)
 DEFI_CLI_BIN=$(top_builddir)/src/$(DEFI_CLI_NAME)$(EXEEXT)
 DEFI_TX_BIN=$(top_builddir)/src/$(DEFI_TX_NAME)$(EXEEXT)
 DEFI_WALLET_BIN=$(top_builddir)/src/$(DEFI_WALLET_TOOL_NAME)$(EXEEXT)
@@ -95,7 +94,6 @@ dist-hook:
 $(DEFI_WIN_INSTALLER): all-recursive
 	$(MKDIR_P) $(top_builddir)/release
 	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFID_BIN) $(top_builddir)/release
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_QT_BIN) $(top_builddir)/release
 	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_CLI_BIN) $(top_builddir)/release
 	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_TX_BIN) $(top_builddir)/release
 	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(DEFI_WALLET_BIN) $(top_builddir)/release
@@ -118,10 +116,6 @@ $(OSX_APP)/Contents/Info.plist: $(OSX_PLIST)
 $(OSX_APP)/Contents/Resources/defi.icns: $(OSX_INSTALLER_ICONS)
 	$(MKDIR_P) $(@D)
 	$(INSTALL_DATA) $< $@
-
-$(OSX_APP)/Contents/MacOS/Defi-Qt: all-recursive
-	$(MKDIR_P) $(@D)
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM)  $(DEFI_QT_BIN) $@
 
 $(OSX_APP)/Contents/Resources/Base.lproj/InfoPlist.strings:
 	$(MKDIR_P) $(@D)
@@ -182,9 +176,6 @@ endif
 if TARGET_WINDOWS
 deploy: $(DEFI_WIN_INSTALLER)
 endif
-
-$(DEFI_QT_BIN): FORCE
-	$(MAKE) -C src qt/$(@F)
 
 $(DEFID_BIN): FORCE
 	$(MAKE) -C src $(@F)
