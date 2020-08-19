@@ -54,7 +54,6 @@ OSX_BACKGROUND_IMAGE_DPIS=36 72
 OSX_DSSTORE_GEN=$(top_srcdir)/contrib/macdeploy/custom_dsstore.py
 OSX_DEPLOY_SCRIPT=$(top_srcdir)/contrib/macdeploy/macdeployqtplus
 OSX_FANCY_PLIST=$(top_srcdir)/contrib/macdeploy/fancy.plist
-OSX_INSTALLER_ICONS=$(top_srcdir)/src/qt/res/icons/defi.icns
 OSX_PLIST=$(top_builddir)/share/qt/Info.plist #not installed
 OSX_QT_TRANSLATIONS = da,de,es,hu,ru,uk,zh_CN,zh_TW
 
@@ -77,7 +76,7 @@ WINDOWS_PACKAGING = $(top_srcdir)/share/pixmaps/defi.ico \
   $(top_srcdir)/share/pixmaps/nsis-wizard.bmp \
   $(top_srcdir)/doc/README_windows.txt
 
-OSX_PACKAGING = $(OSX_DEPLOY_SCRIPT) $(OSX_FANCY_PLIST) $(OSX_INSTALLER_ICONS) \
+OSX_PACKAGING = $(OSX_DEPLOY_SCRIPT) $(OSX_FANCY_PLIST) \
   $(top_srcdir)/contrib/macdeploy/$(OSX_BACKGROUND_SVG) \
   $(OSX_DSSTORE_GEN) \
   $(top_srcdir)/contrib/macdeploy/detached-sig-apply.sh \
@@ -110,10 +109,6 @@ $(OSX_APP)/Contents/Resources/empty.lproj:
 	@touch $@ 
 
 $(OSX_APP)/Contents/Info.plist: $(OSX_PLIST)
-	$(MKDIR_P) $(@D)
-	$(INSTALL_DATA) $< $@
-
-$(OSX_APP)/Contents/Resources/defi.icns: $(OSX_INSTALLER_ICONS)
 	$(MKDIR_P) $(@D)
 	$(INSTALL_DATA) $< $@
 
