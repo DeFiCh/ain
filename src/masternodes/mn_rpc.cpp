@@ -174,42 +174,29 @@ UniValue createmasternode(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"createmasternode",
-               "\nCreates (and submits to local node and network) a masternode creation transaction with given metadata.\n"
-               "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               "\nCreates (and submits to local node and network) a masternode creation transaction with given owner and operator addresses, spending the given inputs..\n"
+               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
-                        {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
-                        },
+                   {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address for keeping collateral amount (any P2PKH or P2WKH address) - used as owner key"},
+                   {"operatorAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional (== ownerAddress) masternode operator auth address (P2PKH only, unique)"},
+                   {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                       {
+                           {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                               {
+                                   {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                   {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                               },
+                           },
                        },
-                       {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                                {"operatorAuthAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                 "Masternode operator auth address (P2PKH only, unique)"},
-                                {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "Any valid address for keeping collateral amount (any P2PKH or P2WKH address) - used as owner key"},
-                        },
-                       },
+                   },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("createmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
-                                                          "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                                          "\\\"collateralAddress\\\":\\\"address\\\""
-                                                          "}\"")
-                       + HelpExampleRpc("createmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
-                                                            "\"{\\\"operatorAuthAddress\\\":\\\"address\\\","
-                                                            "\\\"collateralAddress\\\":\\\"address\\\""
-                                                            "}\"")
+                   HelpExampleCli("createmasternode", "ownerAddress operatorAddress \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                   + HelpExampleRpc("createmasternode", "ownerAddress operatorAddress \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
                },
     }.Check(request);
 
@@ -220,25 +207,22 @@ UniValue createmasternode(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, true);
-    if (request.params[0].isNull() || request.params[1].isNull()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameters, arguments 1 and 2 must be non-null, and argument 2 expected as object with "
-                           "{\"operatorAuthAddress\",\"collateralAddress\"}");
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
+    if (request.params[0].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, at least argument 1 must be non-null");
     }
-    UniValue metaObj = request.params[1].get_obj();
-    RPCTypeCheckObj(metaObj, {
-                            {"operatorAuthAddress", UniValue::VSTR},
-                            {"collateralAddress",   UniValue::VSTR}
-                    },
-                    true, true);
 
-    std::string collateralAddress = metaObj["collateralAddress"].getValStr();
-    std::string operatorAuthAddressBase58 = metaObj["operatorAuthAddress"].getValStr();
+    std::string ownerAddress = request.params[0].getValStr();
+    std::string operatorAddress = request.params.size() > 1 ? request.params[1].getValStr() : ownerAddress;
+    CTxDestination ownerDest = DecodeDestination(ownerAddress); // type will be checked on apply/create
+    CTxDestination operatorDest = DecodeDestination(operatorAddress);
 
-    CTxDestination collateralDest = DecodeDestination(collateralAddress);
-    CTxDestination operatorDest = operatorAuthAddressBase58 == "" ? collateralDest : DecodeDestination(operatorAuthAddressBase58);
-    CKeyID operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest));
+    // check type here cause need operatorAuthKey. all other validation (for owner for ex.) in further apply/create
+    if (operatorDest.which() != 1 && operatorDest.which() != 4) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAddress (" + operatorAddress + ") does not refer to a P2PKH or P2WPKH address");
+    }
+
+    CKeyID const operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest));
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
@@ -249,10 +233,12 @@ UniValue createmasternode(const JSONRPCRequest& request) {
 
     CMutableTransaction rawTx;
 
-    rawTx.vin = GetInputs(request.params[0].get_array());
+    if (request.params.size() > 2) {
+        rawTx.vin = GetInputs(request.params[2].get_array());
+    }
 
     rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(), scriptMeta));
-    rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(), GetScriptForDestination(collateralDest)));
+    rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(), GetScriptForDestination(ownerDest)));
 
     rawTx = fund(rawTx, request, pwallet);
 
@@ -276,10 +262,11 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
     RPCHelpMan{"resignmasternode",
                "\nCreates (and submits to local node and network) a transaction resigning your masternode. Collateral will be unlocked after " +
                std::to_string(GetMnResignDelay()) + " blocks.\n"
-                                                    "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the MN's owner (collateral) address" +
+                                                    "The last optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the MN's owner (collateral) address" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                   {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
+                   {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects. Provide it if you want to spent specific UTXOs",
                         {
                                 {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -289,15 +276,14 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
                                  },
                                 },
                         },
-                       },
-                       {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
+                   },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
-                       + HelpExampleRpc("resignmasternode", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"mn_id\"")
+                   HelpExampleCli("resignmasternode", "mn_id \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                   + HelpExampleRpc("resignmasternode", "mn_id \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
                },
     }.Check(request);
 
@@ -307,21 +293,23 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR}, true);
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VARR }, true);
 
-    std::string const nodeIdStr = request.params[1].getValStr();
+    std::string const nodeIdStr = request.params[0].getValStr();
     uint256 nodeId = uint256S(nodeIdStr);
     CTxDestination ownerDest;
 
     {
         LOCK(cs_main);
         auto nodePtr = pcustomcsview->GetMasternode(nodeId);
-        ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(
-                WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+        if (!nodePtr) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
+        }
+        ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
     }
 
     CMutableTransaction rawTx;
-    rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[0].get_array());
+    rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params.size() > 1 ? request.params[1].get_array() : UniValue(UniValue::VARR));
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::ResignMasternode)
