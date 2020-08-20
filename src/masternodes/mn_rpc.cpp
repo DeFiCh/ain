@@ -1586,8 +1586,8 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
 static const CRPCCommand commands[] =
 { //  category      name                  actor (function)     params
   //  ----------------- ------------------------    -----------------------     ----------
-    {"masternodes", "createmasternode",   &createmasternode,   {"inputs", "metadata"}},
-    {"masternodes", "resignmasternode",   &resignmasternode,   {"inputs", "mn_id"}},
+    {"masternodes", "createmasternode",   &createmasternode,   {"ownerAddress", "operatorAddress", "inputs"}},
+    {"masternodes", "resignmasternode",   &resignmasternode,   {"mn_id", "inputs"}},
     {"masternodes", "listmasternodes",    &listmasternodes,    {"pagination", "verbose"}},
     {"masternodes", "getmasternode",      &getmasternode,      {"mn_id"}},
     {"masternodes", "listcriminalproofs", &listcriminalproofs, {}},
