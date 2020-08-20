@@ -16,7 +16,6 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
 DEFI_DAEMON_NAME=defid
-DEFI_GUI_NAME=defi-qt
 DEFI_CLI_NAME=defi-cli
 DEFI_TX_NAME=defi-tx
 DEFI_WALLET_TOOL_NAME=defi-wallet
@@ -965,18 +964,10 @@ if test "x$enable_fuzz" = "xyes"; then
   build_defi_wallet=no
   build_defid=no
   build_defi_libs=no
-  defi_enable_qt=no
-  defi_enable_qt_test=no
-  defi_enable_qt_dbus=no
   enable_wallet=no
   use_bench=no
   use_upnp=no
   use_zmq=no
-else
-  DEFI_QT_INIT
-
-  dnl sets $defi_enable_qt, $defi_enable_qt_test, $defi_enable_qt_dbus
-  DEFI_QT_CONFIGURE([$use_pkgconfig])
 fi
 
 if test x$enable_wallet != xno; then
@@ -1013,7 +1004,7 @@ if test x$have_miniupnpc != xno; then
 fi
 fi
 
-if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defid$defi_enable_qt$use_tests$use_bench = xnonononononono; then
+if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defid$use_tests$use_bench = xnonononononono; then
     use_boost=no
 else
     use_boost=yes
@@ -1197,13 +1188,8 @@ if test x$use_pkgconfig = xyes; then
     [
       PKG_CHECK_MODULES([SSL], [libssl],, [AC_MSG_ERROR(openssl not found.)])
       PKG_CHECK_MODULES([CRYPTO], [libcrypto],,[AC_MSG_ERROR(libcrypto not found.)])
-      if test x$enable_bip70 != xno; then
-        DEFI_QT_CHECK([PKG_CHECK_MODULES([PROTOBUF], [protobuf], [have_protobuf=yes], [have_protobuf=no])])
-      fi
-      if test x$use_qr != xno; then
-        DEFI_QT_CHECK([PKG_CHECK_MODULES([QR], [libqrencode], [have_qrencode=yes], [have_qrencode=no])])
-      fi
-      if test x$build_defi_cli$build_defid$defi_enable_qt$use_tests != xnononono; then
+
+      if test x$build_defi_cli$build_defid$use_tests != xnononono; then
         PKG_CHECK_MODULES([EVENT], [libevent],, [AC_MSG_ERROR(libevent not found.)])
         if test x$TARGET_OS != xwindows; then
           PKG_CHECK_MODULES([EVENT_PTHREADS], [libevent_pthreads],, [AC_MSG_ERROR(libevent_pthreads not found.)])
@@ -1228,7 +1214,7 @@ else
   AC_CHECK_HEADER([openssl/ssl.h],, AC_MSG_ERROR(libssl headers missing),)
   AC_CHECK_LIB([ssl],         [main],SSL_LIBS=-lssl, AC_MSG_ERROR(libssl missing))
 
-  if test x$build_defi_cli$build_defid$defi_enable_qt$use_tests != xnononono; then
+  if test x$build_defi_cli$build_defid$use_tests != xnononono; then
     AC_CHECK_HEADER([event2/event.h],, AC_MSG_ERROR(libevent headers missing),)
     AC_CHECK_LIB([event],[main],EVENT_LIBS=-levent,AC_MSG_ERROR(libevent missing))
     if test x$TARGET_OS != xwindows; then
@@ -1257,14 +1243,6 @@ else
         ZMQ_CFLAGS="$ZMQ_CFLAGS -DZMQ_STATIC"
       ;;
     esac
-  fi
-
-  if test x$enable_bip70 != xno; then
-    DEFI_QT_CHECK(AC_CHECK_LIB([protobuf] ,[main],[PROTOBUF_LIBS=-lprotobuf], [have_protobuf=no]))
-  fi
-  if test x$use_qr != xno; then
-    DEFI_QT_CHECK([AC_CHECK_LIB([qrencode], [main],[QR_LIBS=-lqrencode], [have_qrencode=no])])
-    DEFI_QT_CHECK([AC_CHECK_HEADER([qrencode.h],, have_qrencode=no)])
   fi
 fi
 
@@ -1295,7 +1273,7 @@ dnl univalue check
 
 need_bundled_univalue=yes
 
-if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defid$defi_enable_qt$use_tests$use_bench = xnonononononono; then
+if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defid$use_tests$use_bench = xnonononononono; then
   need_bundled_univalue=no
 else
 
@@ -1339,11 +1317,6 @@ AM_CONDITIONAL([EMBEDDED_UNIVALUE],[test x$need_bundled_univalue = xyes])
 AC_SUBST(UNIVALUE_CFLAGS)
 AC_SUBST(UNIVALUE_LIBS)
 
-
-if test x$have_protobuf != xno &&
-   test x$enable_bip70 != xno; then
-  DEFI_QT_PATH_PROGS([PROTOC], [protoc],$protoc_bin_path)
-fi
 
 AC_MSG_CHECKING([whether to build defid])
 AM_CONDITIONAL([BUILD_DEFID], [test x$build_defid = xyes])
@@ -1428,63 +1401,6 @@ else
   fi
 fi
 
-dnl these are only used when qt is enabled
-BUILD_TEST_QT=""
-if test x$defi_enable_qt != xno; then
-  dnl enable dbus support
-  AC_MSG_CHECKING([whether to build GUI with support for D-Bus])
-  if test x$defi_enable_qt_dbus != xno; then
-    AC_DEFINE([USE_DBUS],[1],[Define if dbus support should be compiled in])
-  fi
-  AC_MSG_RESULT($defi_enable_qt_dbus)
-
-  dnl enable qr support
-  AC_MSG_CHECKING([whether to build GUI with support for QR codes])
-  if test x$have_qrencode = xno; then
-    if test x$use_qr = xyes; then
-     AC_MSG_ERROR("QR support requested but cannot be built. use --without-qrencode")
-    fi
-    AC_MSG_RESULT(no)
-  else
-    if test x$use_qr != xno; then
-      AC_MSG_RESULT(yes)
-      AC_DEFINE([USE_QRCODE],[1],[Define if QR support should be compiled in])
-      use_qr=yes
-    else
-      AC_MSG_RESULT(no)
-    fi
-  fi
-
-  if test x$XGETTEXT = x; then
-    AC_MSG_WARN("xgettext is required to update qt translations")
-  fi
-
-  AC_MSG_CHECKING([whether to build test_defi-qt])
-  if test x$use_gui_tests$defi_enable_qt_test = xyesyes; then
-    AC_MSG_RESULT([yes])
-    BUILD_TEST_QT="yes"
-  else
-    AC_MSG_RESULT([no])
-  fi
-
-  AC_MSG_CHECKING([whether to build BIP70 support])
-  if test x$have_protobuf = xno; then
-    if test x$enable_bip70 = xyes; then
-      AC_MSG_ERROR(protobuf missing)
-    fi
-    enable_bip70=no
-    AC_MSG_RESULT(no)
-  else
-    if test x$enable_bip70 != xno; then
-      AC_DEFINE([ENABLE_BIP70],[1],[Define if BIP70 support should be compiled in])
-      enable_bip70=yes
-      AC_MSG_RESULT([yes])
-    else
-      AC_MSG_RESULT([no])
-    fi
-  fi
-fi
-
 AM_CONDITIONAL([ENABLE_ZMQ], [test "x$use_zmq" = "xyes"])
 
 AC_MSG_CHECKING([whether to build test_defi])
@@ -1503,7 +1419,7 @@ else
   AC_MSG_RESULT([no])
 fi
 
-if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defi_libs$build_defid$defi_enable_qt$use_bench$use_tests = xnononononononono; then
+if test x$build_defi_wallet$build_defi_cli$build_defi_tx$build_defi_libs$build_defid$use_bench$use_tests = xnononononononono; then
   AC_MSG_ERROR([No targets! Please specify at least one of: --with-utils --with-libs --with-daemon --with-gui --enable-bench or --enable-tests])
 fi
 
@@ -1513,8 +1429,6 @@ AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
 AM_CONDITIONAL([ENABLE_WALLET],[test x$enable_wallet = xyes])
 AM_CONDITIONAL([ENABLE_TESTS],[test x$BUILD_TEST = xyes])
 AM_CONDITIONAL([ENABLE_FUZZ],[test x$enable_fuzz = xyes])
-AM_CONDITIONAL([ENABLE_QT],[test x$defi_enable_qt = xyes])
-AM_CONDITIONAL([ENABLE_QT_TESTS],[test x$BUILD_TEST_QT = xyes])
 AM_CONDITIONAL([ENABLE_BIP70],[test x$enable_bip70 = xyes])
 AM_CONDITIONAL([ENABLE_BENCH],[test x$use_bench = xyes])
 AM_CONDITIONAL([USE_QRCODE], [test x$use_qr = xyes])
@@ -1547,7 +1461,6 @@ AC_SUBST(COPYRIGHT_HOLDERS, "_COPYRIGHT_HOLDERS")
 AC_SUBST(COPYRIGHT_HOLDERS_SUBSTITUTION, "_COPYRIGHT_HOLDERS_SUBSTITUTION")
 AC_SUBST(COPYRIGHT_HOLDERS_FINAL, "_COPYRIGHT_HOLDERS_FINAL")
 AC_SUBST(DEFI_DAEMON_NAME)
-AC_SUBST(DEFI_GUI_NAME)
 AC_SUBST(DEFI_CLI_NAME)
 AC_SUBST(DEFI_TX_NAME)
 AC_SUBST(DEFI_WALLET_TOOL_NAME)
@@ -1649,11 +1562,6 @@ esac
 echo
 echo "Options used to compile and link:"
 echo "  with wallet   = $enable_wallet"
-echo "  with gui / qt = $defi_enable_qt"
-if test x$defi_enable_qt != xno; then
-    echo "    with bip70  = $enable_bip70"
-    echo "    with qr     = $use_qr"
-fi
 echo "  with zmq      = $use_zmq"
 echo "  with test     = $use_tests"
 if test x$use_tests != xno; then
