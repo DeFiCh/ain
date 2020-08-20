@@ -6,7 +6,7 @@
 #include <core_io.h>
 #include <primitives/transaction.h>
 
-/// @attention make sure that it does not overlap with those in masternodes.cpp/orders.cpp !!!
+/// @attention make sure that it does not overlap with other views !!!
 const unsigned char CTokensView::ID          ::prefix = 'T';
 const unsigned char CTokensView::Symbol      ::prefix = 'S';
 const unsigned char CTokensView::CreationTx  ::prefix = 'c';

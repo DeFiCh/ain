@@ -84,7 +84,6 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
 
-        assert_equal(len(self.nodes[0].listorders()), 0)
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 

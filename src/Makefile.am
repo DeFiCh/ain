@@ -158,9 +158,6 @@ DEFI_CORE_H = \
   masternodes/criminals.h \
   masternodes/masternodes.h \
   masternodes/mn_checks.h \
-  masternodes/order.h \
-  masternodes/orders.h \
-  masternodes/orders_matching.h \
   masternodes/res.h \
   masternodes/tokens.h \
   masternodes/undo.h \
@@ -363,8 +360,6 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
-  masternodes/orders.cpp \
-  masternodes/orders_matching.cpp \
   masternodes/tokens.cpp \
   masternodes/undos.cpp \
   miner.cpp \

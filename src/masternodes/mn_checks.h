@@ -7,7 +7,6 @@
 
 #include <consensus/params.h>
 #include <masternodes/masternodes.h>
-#include <masternodes/orders_matching.h>
 #include <vector>
 #include <cstring>
 
@@ -38,10 +37,10 @@ enum class CustomTxType : unsigned char
     MintToken           = 'M',
     DestroyToken        = 'D',
     UpdateToken         = 'N',
-    // dex orders
-    CreateOrder         = 'O',
-    DestroyOrder        = 'E',
-    MatchOrders         = 'A',
+    // dex orders - just not to overlap in future
+//    CreateOrder         = 'O',
+//    DestroyOrder        = 'E',
+//    MatchOrders         = 'A',
     // accounts
     UtxosToAccount     = 'U',
     AccountToUtxos     = 'b',
@@ -49,7 +48,7 @@ enum class CustomTxType : unsigned char
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMDNOEAUbB";
+    char const txtypes[] = "CRTMDNUbB";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -88,15 +87,9 @@ Res ApplyDestroyTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, C
 Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
 
-Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
-Res ApplyDestroyOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
-Res ApplyMatchOrdersTx(CCustomCSView & mnview, CTransaction const & tx, std::vector<unsigned char> const & metadata);
-
 Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, std::vector<unsigned char> const & metadata);
 Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
 Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
-
-ResVal<std::pair<OrdersMatching, std::pair<COrder, COrder>>> GetMatchOrdersInfo(CCustomCSView const & mnview, CMatchOrdersMessage const& match);
 
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256 & txid);
 
