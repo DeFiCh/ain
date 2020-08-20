@@ -132,6 +132,8 @@ BASE_SCRIPTS = [
     'feature_initdist.py',
     'feature_tokens_basic.py',
     'feature_tokens_minting.py',
+    'feature_tokens_dat.py',
+    'feature_accounts_n_utxos.py',
     'interface_rest.py',
     'mempool_spend_coinbase.py',
     'wallet_avoidreuse.py',
