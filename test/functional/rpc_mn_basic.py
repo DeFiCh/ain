@@ -34,18 +34,20 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         # Fail to create: Insufficient funds (not matured coins)
         try:
-            idnode0 = self.nodes[0].createmasternode(
-                collateral0
-            )
+            idnode0 = self.nodes[0].createmasternode([], {
+                # "operatorAuthAddress": operator0,
+                "collateralAddress": collateral0
+            })
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Insufficient funds" in errorString)
 
         # Create node0
         self.nodes[0].generate(1)
-        idnode0 = self.nodes[0].createmasternode(
-            collateral0
-        )
+        idnode0 = self.nodes[0].createmasternode([], {
+            # "operatorAuthAddress": operator0,
+            "collateralAddress": collateral0
+        })
 
         # Create and sign (only) collateral spending tx
         spendTx = self.nodes[0].createrawtransaction([{'txid':idnode0, 'vout':1}],[{collateral0:9.999}])
@@ -79,9 +81,18 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         # RESIGNING:
         #========================
-        # Fail to resign: Have no money on ownerauth address
+        # Fail to resign: Forget to place params in config
         try:
-            self.nodes[0].resignmasternode(idnode0)
+            self.nodes[0].resignmasternode([], idnode0)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("You are not the owner" in errorString)
+
+        # Restart with new params, but have no money on ownerauth address
+        self.restart_node(0, extra_args=['-masternode_owner='+collateral0])
+        self.nodes[0].generate(1) # to broke "initial block downloading"
+        try:
+            self.nodes[0].resignmasternode([], idnode0)
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Can't find any UTXO's" in errorString)
@@ -89,7 +100,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # Funding auth address and successful resign
         fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
         self.nodes[0].generate(1)
-        resignTx = self.nodes[0].resignmasternode(idnode0)
+        resignTx = self.nodes[0].resignmasternode([], idnode0)
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "PRE_RESIGNED")
         self.nodes[0].generate(10)
