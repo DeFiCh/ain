@@ -643,8 +643,8 @@ UniValue createtoken(const JSONRPCRequest& request) {
         if(rawTx.vin.size() == 0)
             throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
     }
-
-    rawTx.vin = GetInputs(request.params[0].get_array());
+    else
+        rawTx.vin = GetInputs(request.params[0].get_array());
 
     rawTx.vout.push_back(CTxOut(GetTokenCreationFee(height), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetTokenCollateralAmount(), GetScriptForDestination(collateralDest)));
