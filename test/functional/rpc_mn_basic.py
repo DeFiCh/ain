@@ -34,20 +34,19 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         # Fail to create: Insufficient funds (not matured coins)
         try:
-            idnode0 = self.nodes[0].createmasternode([], {
-                # "operatorAuthAddress": operator0,
-                "collateralAddress": collateral0
-            })
+            idnode0 = self.nodes[0].createmasternode(
+                collateral0
+            )
         except JSONRPCException as e:
             errorString = e.error['message']
+            print (errorString)
         assert("Insufficient funds" in errorString)
 
         # Create node0
         self.nodes[0].generate(1)
-        idnode0 = self.nodes[0].createmasternode([], {
-            # "operatorAuthAddress": operator0,
-            "collateralAddress": collateral0
-        })
+        idnode0 = self.nodes[0].createmasternode(
+            collateral0
+        )
 
         # Create and sign (only) collateral spending tx
         spendTx = self.nodes[0].createrawtransaction([{'txid':idnode0, 'vout':1}],[{collateral0:9.999}])
@@ -82,9 +81,9 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         # RESIGNING:
         #========================
-        self.nodes[0].generate(1) # to broke "initial block downloading"
+        # Fail to resign: Have no money on ownerauth address
         try:
-            self.nodes[0].resignmasternode([], idnode0)
+            self.nodes[0].resignmasternode(idnode0)
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Can't find any UTXO's" in errorString)
@@ -92,7 +91,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # Funding auth address and successful resign
         fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
         self.nodes[0].generate(1)
-        resignTx = self.nodes[0].resignmasternode([], idnode0)
+        resignTx = self.nodes[0].resignmasternode(idnode0)
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "PRE_RESIGNED")
         self.nodes[0].generate(10)
