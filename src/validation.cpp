@@ -2311,8 +2311,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // make all changes to the new cache/snapshot to make it possible to take a diff later:
         CCustomCSView cache(mnview);
 
-        cache.DismissExpiredOrders(pindex->nHeight);
-
+//        cache.CallYourInterblockProcessingsHere();
 
         // construct undo
         auto& flushable = dynamic_cast<CFlushableStorageKV&>(cache.GetRaw());

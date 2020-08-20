@@ -115,7 +115,6 @@ BASE_SCRIPTS = [
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
     'feature_fee_estimation.py',
-    'feature_orders.py',
     'feature_anchors.py',
     'feature_anchor_rewards.py',
     'feature_anchorauths_pruning.py',

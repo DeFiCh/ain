@@ -10,7 +10,6 @@
 #include <pubkey.h>
 #include <serialize.h>
 #include <masternodes/accounts.h>
-#include <masternodes/orders.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <uint256.h>
@@ -180,7 +179,6 @@ class CCustomCSView
         , public CFoundationsDebtView
         , public CAnchorRewardsView
         , public CTokensView
-        , public COrdersView
         , public CAccountsView
         , public CUndosView
 {
@@ -201,7 +199,6 @@ public:
 
     // simplified version of undo, without any unnecessary undo data
     void OnUndoTx(uint256 const & txid, uint32_t height);
-    Res DismissExpiredOrders(uint32_t expiryHeight);
 
     bool CanSpend(const uint256 & txId, int height) const;
 

@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/mn_checks.h>
-#include <masternodes/orders_matching.h>
 #include <masternodes/res.h>
 #include <masternodes/balances.h>
 
@@ -148,15 +147,6 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 break;
             case CustomTxType::MintToken:
                 res = ApplyMintTokenTx(mnview, coins, tx, metadata);
-                break;
-            case CustomTxType::CreateOrder:
-                res = ApplyCreateOrderTx(mnview, coins, tx, height, metadata);
-                break;
-            case CustomTxType::DestroyOrder:
-                res = ApplyDestroyOrderTx(mnview, coins, tx, height, metadata);
-                break;
-            case CustomTxType::MatchOrders:
-                res = ApplyMatchOrdersTx(mnview, tx, metadata);
                 break;
             case CustomTxType::UtxosToAccount:
                 res = ApplyUtxosToAccountTx(mnview, tx, metadata);
@@ -401,159 +391,6 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
     return Res::Ok(base);
 }
 
-
-
-Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
-{
-    // Check quick conditions first
-    CCreateOrderMessage orderMsg;
-    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> orderMsg; // @todo make Apply* functions fully exception-less for additional clarity. add helper function for deserialization
-    if (!ss.empty()) {
-        return Res::Err("Creation of order: deserialization failed: excess %d bytes", ss.size());
-    }
-    COrder order(orderMsg, height);
-    const auto base = strprintf("Creation of order, take=%s, give=%s, premium=%s", order.take.ToString(), order.give.ToString(), order.premium.ToString());
-
-    if (order.give.nValue == 0 || order.take.nValue == 0) {
-        return Res::Err("%s: %s", base, "zero order value(s)");
-    }
-    if (order.give.nTokenId == order.take.nTokenId) {
-        return Res::Err("%s: %s", base, "token IDs to buy/sell must be different");
-    }
-    // check auth
-    if (!HasAuth(tx, coins, order.owner)) {
-        return Res::Err("%s: %s", base, "tx must have at least one input from order owner");
-    }
-    // subtract funds
-    auto res = mnview.SubBalance(order.owner, order.give);
-    if (!res.ok) {
-        return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", base, res.msg);
-    }
-    res = mnview.SubBalance(order.owner, order.premium);
-    if (!res.ok) {
-        return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", base, res.msg);
-    }
-    // check tokens are tradeable
-    const auto tokenTake = mnview.GetToken(order.take.nTokenId);
-    if (!tokenTake || !tokenTake->IsTradeable()) {
-        return Res::Err("%s: tokenID %s isn't tradeable", base, order.take.nTokenId.ToString());
-    }
-    const auto tokenGive = mnview.GetToken(order.take.nTokenId);
-    if (!tokenGive || !tokenGive->IsTradeable()) {
-        return Res::Err("%s: tokenID %s isn't tradeable", base, order.give.nTokenId.ToString());
-    }
-
-    res = mnview.SetOrder(tx.GetHash(), order);
-    if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
-    }
-
-    return Res::Ok(base);
-}
-
-Res ApplyDestroyOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
-{
-    if (metadata.size() != sizeof(uint256)) {
-        return Res::Err("Order destruction: %s", "metadata must contain 32 bytes");
-    }
-    uint256 const orderTx(metadata);
-    const auto base = strprintf("Destruction of order %s", orderTx.GetHex());
-    auto order = mnview.GetOrder(orderTx);
-    if (!order) {
-        return Res::Err("%s: %s", base, "order not found");
-    }
-    const bool isExpired = order->timeInForce != 0 && height >= (order->creationHeight + order->timeInForce);
-    if (!isExpired && !HasAuth(tx, coins, order->owner)) {
-        return Res::Err("%s: %s", base, "non-expired order destruction isn't authorized");
-    }
-
-    // defund tokens
-    auto res = mnview.AddBalance(order->owner, order->give);
-    if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
-    }
-    res = mnview.AddBalance(order->owner, order->premium);
-    if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
-    }
-
-    res = mnview.DelOrder(orderTx);
-    if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
-    }
-    return Res::Ok(base);
-}
-
-ResVal<std::pair<OrdersMatching, std::pair<COrder, COrder>>> GetMatchOrdersInfo(CCustomCSView const & mnview, CMatchOrdersMessage const& match)
-{
-    // read orders
-    const auto aliceOrder = mnview.GetOrder(match.aliceOrderTx);
-    if (!aliceOrder) {
-        return Res::Err("Alice's order not found");
-    }
-    const auto carolOrder = mnview.GetOrder(match.carolOrderTx);
-    if (!carolOrder) {
-        return Res::Err("Carol's order not found");
-    }
-
-    // calculate the math of matching
-    auto receipt = OrdersMatching::Calculate(*aliceOrder, *carolOrder);
-    if (!receipt.ok) {
-        return receipt.res();
-    }
-    return {{*receipt.val, {*aliceOrder, *carolOrder}}, Res::Ok()};
-}
-
-Res ApplyMatchOrdersTx(CCustomCSView & mnview, CTransaction const & tx, std::vector<unsigned char> const & metadata)
-{
-    // deserialize
-    CMatchOrdersMessage match;
-    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> match;
-    if (!ss.empty()) {
-        return Res::Err("Matching tx deserialization failed: excess %d bytes", ss.size());
-    }
-    const auto base = strprintf("Matching of orders %s/%s", match.aliceOrderTx.ToString(), match.carolOrderTx.ToString());
-
-    // calculate the math of matching
-    const auto resV = GetMatchOrdersInfo(mnview, match);
-    if (!resV.ok) {
-        return Res::Err("%s: %s", base, resV.msg);
-    }
-    auto& receipt = resV.val->first;
-    const auto& aliceOrder = resV.val->second.first;
-    const auto& carolOrder = resV.val->second.second;
-
-    // increase balances
-    mnview.AddBalance(aliceOrder.owner, receipt.alice.take);
-    mnview.AddBalance(carolOrder.owner, receipt.carol.take);
-    mnview.AddBalances(match.matcher, receipt.matcherTake);
-
-    // apply changes to orders in memory
-    const auto newAliceOrder = OrdersMatching::ApplyOrderDiff(aliceOrder, receipt.alice);
-    const auto newCarolOrder = OrdersMatching::ApplyOrderDiff(carolOrder, receipt.carol);
-
-    // write order changes in DB
-    Res res = Res::Ok();
-    if (newAliceOrder) {
-        res = mnview.SetOrder(match.aliceOrderTx, *newAliceOrder);
-    } else {
-        res = mnview.DelOrder(match.aliceOrderTx);
-    }
-    if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
-    }
-    if (newCarolOrder) {
-        res = mnview.SetOrder(match.carolOrderTx, *newCarolOrder);
-    } else {
-        res = mnview.DelOrder(match.carolOrderTx);
-    }
-    if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
-    }
-    return Res::Ok(base);
-}
 
 Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, std::vector<unsigned char> const & metadata)
 {
