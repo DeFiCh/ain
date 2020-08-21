@@ -75,12 +75,32 @@ class AccountsAndUTXOsTest (DefiTestFramework):
             errorString = e.error['message']
         assert("JSON value is not a string as expected" in errorString)
 
+        # missing (account exists, but does not belong)
+        try:
+            self.nodes[0].accounttoaccount([], accountSilver, {accountGold: "100@SILVER"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Can't find any UTXO" in errorString)
+
         # transfer
         self.nodes[0].accounttoaccount([], accountGold, {toGold: "100@GOLD"})
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
         assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], 100)
+
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], self.nodes[1].getaccount(accountGold, {}, True)[idGold])
+        assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], self.nodes[1].getaccount(toGold, {}, True)[idGold])
+
+        # transfer between nodes
+        self.nodes[1].accounttoaccount([], accountSilver, {accountGold: "100@SILVER"})
+        self.nodes[1].generate(1)
+
+        assert_equal(self.nodes[1].getaccount(accountSilver, {}, True)[idSilver], initialSilver - 100)
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idSilver], 100)
+
+        assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], self.nodes[1].getaccount(accountSilver, {}, True)[idSilver])
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idSilver], self.nodes[1].getaccount(accountGold, {}, True)[idSilver])
 
         # utxostoaccount
         #========================
@@ -107,6 +127,9 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         # transfer
         initialBalance = self.nodes[0].getbalances()['mine']['trusted']
         self.nodes[0].utxostoaccount([], {accountGold: "100@DFI"})
+        # # balance should not change before generation
+        # assert_equal(initialBalance, self.nodes[0].getbalances()['mine']['trusted'])
+        self.nodes[0].generate(1)
         assert(initialBalance != self.nodes[0].getbalances()['mine']['trusted'])
 
         # accounttoutxos
@@ -132,13 +155,19 @@ class AccountsAndUTXOsTest (DefiTestFramework):
             errorString = e.error['message']
         assert("JSON value is not a string as expected" in errorString)
 
+        # missing (account exists, but does not belong)
+        try:
+            self.nodes[0].accounttoutxos([], accountSilver, {accountGold: "100@SILVER"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Can't find any UTXO" in errorString)
+
         # transfer
-        #print (self.nodes[0].getaccount(accountGold, {}, True))
-        #try:
-        #    self.nodes[0].accounttoutxos([], accountGold, {accountGold: "100@DFI"})
-        #except JSONRPCException as e:
-        #    errorString = e.error['message']
-        #print (errorString)
+        self.nodes[0].accounttoutxos([], accountGold, {accountGold: "100@GOLD"})
+        self.nodes[0].generate(1)
+
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 200)
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], self.nodes[1].getaccount(accountGold, {}, True)[idGold])
 
         # REVERTING:
         #========================
@@ -156,7 +185,7 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
         # print ("Mempool: ", self.nodes[0].getrawmempool())
-        assert_equal(len(self.nodes[0].getrawmempool()), 3) # 3 txs
+        assert_equal(len(self.nodes[0].getrawmempool()), 5) # 5 txs
 
 
 if __name__ == '__main__':
