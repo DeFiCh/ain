@@ -14,7 +14,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
-from decimal import Decimal
+# from decimal import Decimal
 
 class AccountsAndUTXOsTest (DefiTestFramework):
     def set_test_params(self):
