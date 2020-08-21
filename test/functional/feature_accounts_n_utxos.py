@@ -44,6 +44,7 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         print("Initial SILVER:", initialSilver, ", id", idSilver)
 
         toGold = self.nodes[1].getnewaddress("", "legacy")
+        toSilver = self.nodes[0].getnewaddress("", "legacy")
 
         # accounttoaccount
         #========================
@@ -93,14 +94,21 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], self.nodes[1].getaccount(toGold, {}, True)[idGold])
 
         # transfer between nodes
-        self.nodes[1].accounttoaccount([], accountSilver, {accountGold: "100@SILVER"})
+        self.nodes[1].accounttoaccount([], accountSilver, {toSilver: "100@SILVER"})
         self.nodes[1].generate(1)
 
         assert_equal(self.nodes[1].getaccount(accountSilver, {}, True)[idSilver], initialSilver - 100)
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idSilver], 100)
+        assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[idSilver], 100)
 
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], self.nodes[1].getaccount(accountSilver, {}, True)[idSilver])
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idSilver], self.nodes[1].getaccount(accountGold, {}, True)[idSilver])
+        assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[idSilver], self.nodes[1].getaccount(toSilver, {}, True)[idSilver])
+
+        # missing (account exists, there are tokens, but not token 0)
+        try:
+            self.nodes[0].accounttoaccount([], toSilver, {accountGold: "100@SILVER"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Can't find any UTXO" in errorString)
 
         # utxostoaccount
         #========================
@@ -158,6 +166,13 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         # missing (account exists, but does not belong)
         try:
             self.nodes[0].accounttoutxos([], accountSilver, {accountGold: "100@SILVER"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Can't find any UTXO" in errorString)
+
+        # missing (account exists, there are tokens, but not token 0)
+        try:
+            self.nodes[0].accounttoutxos([], toSilver, {accountGold: "100@SILVER"})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Can't find any UTXO" in errorString)
