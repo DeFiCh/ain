@@ -107,12 +107,6 @@ ZMQ dependencies (provides ZMQ API):
 
     sudo apt-get install libzmq3-dev
 
-GUI dependencies:
-
-If you want to build bitcoin-qt, make sure that the required packages for Qt development
-are installed. Qt 5 is necessary to build the GUI.
-To build without GUI pass `--without-gui`.
-
 To build with Qt 5 you need the following:
 
     sudo apt-get install libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools libprotobuf-dev protobuf-compiler
@@ -262,7 +256,7 @@ This example lists the steps necessary to setup and build a command line only, n
     git clone https://github.com/bitcoin/bitcoin.git
     cd bitcoin/
     ./autogen.sh
-    ./configure --disable-wallet --without-gui --without-miniupnpc
+    ./configure --disable-wallet --without-miniupnpc
     make check
 
 Note:
