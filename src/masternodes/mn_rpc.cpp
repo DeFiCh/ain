@@ -1583,6 +1583,99 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
+UniValue createpoolpair(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"createpoolpair",
+               "\nCreates (and submits to local node and network) a poolpair transaction with given metadata.\n"
+               "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+                       {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                                {"tokenA", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                "One of the keys may be specified (id/symbol)"},
+                                {"tokenB", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                "One of the keys may be specified (id/symbol)"},
+                                {"comission", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                                "Pool comission, up to 10^-8"},
+                                {"status", RPCArg::Type::BOOL, RPCArg::Optional::NO,
+                                "Pool Status: True is Active, False is Restricted"},
+                                {"pairSymbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                 "Pair symbol (unique), no longer than " +
+                                 std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("createpoolpair", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                                          "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
+                                                          "\\\"tokenB\\\":\\\"MyToken2\\\""
+                                                          "\\\"comission\\\":\\\"0.001\\\""
+                                                          "\\\"status\\\":\\\"True\\\""
+                                                          "}\"")
+                       + HelpExampleRpc("createpoolpair", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
+                                                            "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
+                                                          "\\\"tokenB\\\":\\\"MyToken2\\\""
+                                                          "\\\"comission\\\":\\\"0.001\\\""
+                                                          "\\\"status\\\":\\\"True\\\""
+                                                            "}\"")
+               },
+    }.Check(request);
+
+    CPoolPair poolPair;
+    //fill here
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::CreateToken)
+             << poolPair;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    CMutableTransaction rawTx;
+
+    for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
+    {
+        if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
+        {
+            CTxDestination destination;
+            if (!ExtractDestination(*it, destination)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
+            }
+            try {
+                rawTx.vin = GetAuthInputs(pwallet, destination, request.params[0].get_array());
+            }
+            catch (const UniValue& objError) {}
+        }
+    }
+    if(rawTx.vin.size() == 0)
+        throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
+
+    rawTx = fund(rawTx, request, pwallet);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+    }
+    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+}
+
 static const CRPCCommand commands[] =
 { //  category      name                  actor (function)     params
   //  ----------------- ------------------------    -----------------------     ----------
@@ -1602,6 +1695,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "utxostoaccount",     &utxostoaccount,     {"inputs", "amounts"}},
     {"accounts",    "accounttoaccount",   &accounttoaccount,   {"inputs", "from", "to"}},
     {"accounts",    "accounttoutxos",     &accounttoutxos,     {"inputs", "from", "to"}},
+    {"poolpair",    "createpoolpair",     &createpoolpair,     {"inputs", "metadata"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

@@ -160,6 +160,7 @@ DEFI_CORE_H = \
   masternodes/mn_checks.h \
   masternodes/res.h \
   masternodes/tokens.h \
+  masternodes/poolpairs.h \
   masternodes/undo.h \
   masternodes/undos.h \
   memusage.h \
@@ -361,6 +362,7 @@ libdefi_server_a_SOURCES = \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
   masternodes/tokens.cpp \
+  masternodes/poolpairs.cpp \
   masternodes/undos.cpp \
   miner.cpp \
   net.cpp \
