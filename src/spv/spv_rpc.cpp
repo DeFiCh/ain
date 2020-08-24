@@ -671,15 +671,13 @@ UniValue spv_listanchorrewards(const JSONRPCRequest& request)
 
     UniValue result(UniValue::VARR);
 
-    auto rewards = pmasternodesview->ListAnchorRewards();
-    for (auto && reward : rewards) { // std::map<AnchorTxHash, RewardTxHash>
-        if (reward.second == uint256{}) // may be empty if deleted until db flush
-            continue;
+    pcustomcsview->ForEachAnchorReward([&result] (uint256 const & btcHash, uint256 & rewardHash) {
         UniValue item(UniValue::VOBJ);
-        item.pushKV("AnchorTxHash", reward.first.ToString());
-        item.pushKV("RewardTxHash", reward.second.ToString());
+        item.pushKV("AnchorTxHash", btcHash.ToString());
+        item.pushKV("RewardTxHash", rewardHash.ToString());
         result.push_back(item);
-    }
+        return true;
+    });
 
     return result;
 }

@@ -348,13 +348,13 @@ public:
     {
         const auto bal = m_wallet->GetBalance();
         WalletBalances result;
-        result.balance = bal.m_mine_trusted;
-        result.unconfirmed_balance = bal.m_mine_untrusted_pending;
+        result.balance = bal.m_mine_trusted.at(DCT_ID{0});                          // tokens: WalletBalances used by qt only so unimplemented; `at(0)` is safe due to initialization
+        result.unconfirmed_balance = bal.m_mine_untrusted_pending.at(DCT_ID{0});    // tokens: WalletBalances used by qt only so unimplemented; `at(0)` is safe due to initialization
         result.immature_balance = bal.m_mine_immature;
         result.have_watch_only = m_wallet->HaveWatchOnly();
         if (result.have_watch_only) {
-            result.watch_only_balance = bal.m_watchonly_trusted;
-            result.unconfirmed_watch_only_balance = bal.m_watchonly_untrusted_pending;
+            result.watch_only_balance = bal.m_watchonly_trusted.at(DCT_ID{0});      // tokens: WalletBalances used by qt only so unimplemented; `at(0)` is safe due to initialization
+            result.unconfirmed_watch_only_balance = bal.m_watchonly_untrusted_pending.at(DCT_ID{0}); // tokens: WalletBalances used by qt only so unimplemented; `at(0)` is safe due to initialization
             result.immature_watch_only_balance = bal.m_watchonly_immature;
         }
         return result;
@@ -371,7 +371,7 @@ public:
         num_blocks = locked_chain->getHeight().get_value_or(-1);
         return true;
     }
-    CAmount getBalance() override { return m_wallet->GetBalance().m_mine_trusted; }
+    CAmount getBalance() override { return m_wallet->GetBalance().m_mine_trusted.at(DCT_ID{0}); } // tokens: used in qt only so dummy/unimplemented; safe at(0) cause inited
     CAmount getAvailableBalance(const CCoinControl& coin_control) override
     {
         return m_wallet->GetAvailableBalance(&coin_control);
@@ -388,13 +388,13 @@ public:
         LOCK(m_wallet->cs_wallet);
         return m_wallet->IsMine(txout);
     }
-    CAmount getDebit(const CTxIn& txin, isminefilter filter) override
+    CTokenAmount getDebit(const CTxIn& txin, isminefilter filter) override
     {
         auto locked_chain = m_wallet->chain().lock();
         LOCK(m_wallet->cs_wallet);
         return m_wallet->GetDebit(txin, filter);
     }
-    CAmount getCredit(const CTxOut& txout, isminefilter filter) override
+    CTokenAmount getCredit(const CTxOut& txout, isminefilter filter) override
     {
         auto locked_chain = m_wallet->chain().lock();
         LOCK(m_wallet->cs_wallet);

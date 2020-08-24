@@ -314,6 +314,37 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 assert_equal(chain_info["blocks"], 200)
                 assert_equal(chain_info["initialblockdownload"], False)
 
+    def setup_tokens(self):
+        # creates two tokens: GOLD for node#0 and SILVER for node1. Mint by 1000 for them
+        assert(self.setup_clean_chain == True)
+        assert('-txnotokens=0' in self.extra_args[0])
+        assert('-txnotokens=0' in self.extra_args[1])
+        self.nodes[0].generate(25)
+        self.nodes[1].generate(25)
+        self.sync_all()
+        self.nodes[0].generate(100)
+        self.sync_all()
+
+        self.nodes[0].createtoken([], {
+            "symbol": "GOLD",
+            "name": "shiny gold",
+            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress # collateralGold
+        })
+        self.nodes[1].createtoken([], {
+            "symbol": "SILVER",
+            "name": "just silver",
+            "collateralAddress": self.nodes[1].get_genesis_keys().ownerAuthAddress # collateralSilver
+        })
+        self.sync_mempools()
+        self.nodes[0].generate(1)
+        # At this point, tokens was created
+        tokens = self.nodes[0].listtokens()
+        assert_equal(len(tokens), 3)
+
+        self.nodes[0].minttokens([], "1000@GOLD")
+        self.nodes[1].minttokens([], "2000@SILVER")
+        self.sync_mempools()
+        self.nodes[0].generate(1)
 
     def import_deterministic_coinbase_privkeys(self):
         for n in self.nodes:
@@ -524,7 +555,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             for i in range(8):
                 self.nodes[CACHE_NODE_ID].generate(
                     nblocks=25 if i != 7 else 24,
-                    address=TestNode.PRIV_KEYS[i % 4].operatorAuthAddress,
+                    address=TestNode.PRIV_KEYS[i % 4].ownerAuthAddress,
                 )
 
             assert_equal(self.nodes[CACHE_NODE_ID].getblockchaininfo()["blocks"], 199)
@@ -541,7 +572,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             os.rmdir(cache_path('wallets'))  # Remove empty wallets dir
 
             for entry in os.listdir(cache_path()):
-                if entry not in ['chainstate', 'blocks', 'masternodes', 'anchors']:  # Only keep chainstate and blocks folder
+                if entry not in ['chainstate', 'blocks', 'enhancedcs', 'anchors', 'criminals']:  # Only keep chainstate and blocks folder
                     os.remove(cache_path(entry))
 
         for i in range(self.num_nodes):

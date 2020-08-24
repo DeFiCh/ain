@@ -97,6 +97,7 @@ class TestNode():
             "-masternode_operator="+self.get_genesis_keys().operatorAuthAddress,
             "-dummypos=1",
             "-nospv",
+            "-txnotokens=1",
         ]
 
         self.cli = TestNodeCLI(defi_cli, self.datadir)
@@ -158,7 +159,7 @@ class TestNode():
 
     def generate(self, nblocks, maxtries=1000000, address=None):
         if address is None:
-            address = self.get_genesis_keys().operatorAuthAddress
+            address = self.get_genesis_keys().ownerAuthAddress
 
         # height = self.getblockcount()
         minted = 0

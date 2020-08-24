@@ -1314,9 +1314,9 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
         return LookupBlockIndex(inv.hash) != nullptr;
 
     case MSG_ANCHOR_AUTH:
-        return panchorauths->ExistAuth(inv.hash) != nullptr;
+        return panchorauths->GetAuth(inv.hash) != nullptr;
     case MSG_ANCHOR_CONFIRM:
-        return panchorAwaitingConfirms->Exist(inv.hash) != nullptr;
+        return panchorAwaitingConfirms->GetConfirm(inv.hash) != nullptr;
     }
     // Don't know what it is, just say we already got one
     return true;
@@ -1634,14 +1634,14 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
 
             if (inv.type == MSG_ANCHOR_AUTH) {
                 LogPrintf("Searching anchorauth, hash: %s\n", inv.hash.ToString());
-                CAnchorAuthMessage const * auth = panchorauths->ExistAuth(inv.hash);
+                CAnchorAuthMessage const * auth = panchorauths->GetAuth(inv.hash);
                 if (auth) {
                     LogPrintf("PushMessage anchorauth, hash: %s\n", auth->GetHash().ToString());
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHORAUTH, *auth));
                 }
             }
             if (inv.type == MSG_ANCHOR_CONFIRM) {
-                CAnchorConfirmMessage const * message = panchorAwaitingConfirms->Exist(inv.hash);
+                CAnchorConfirmMessage const * message = panchorAwaitingConfirms->GetConfirm(inv.hash);
                 if (message) {
                     LogPrintf("PushMessage anchorconfirm, hash: %s\n", message->GetHash().ToString());
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHORCONFIRM, *message));
@@ -1939,7 +1939,7 @@ void static ProcessOrphanTx(CConnman* connman, std::set<uint256>& orphan_work_se
             EraseOrphanTx(orphanHash);
             done = true;
         }
-        mempool.xcheck(&::ChainstateActive().CoinsTip(), pmasternodesview.get());
+        mempool.xcheck(&::ChainstateActive().CoinsTip(), pcustomcsview.get());
     }
 }
 
@@ -2410,11 +2410,11 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         // don't check spv here, but only our anchor index!
         {
             LOCK(cs_main);
-            if (panchorauths->ExistAuth(auth.GetHash())) {
+            if (panchorauths->GetAuth(auth.GetHash())) {
                 // reject ? or just skip&
                 return false;
             }
-            if (panchorauths->ExistVote(auth.GetSignHash(), auth.GetSigner())) {
+            if (panchorauths->GetVote(auth.GetSignHash(), auth.GetSigner())) {
                 // disconnect immidiately! possible even ban here, but only if sender peer is an author itself
                 pfrom->fDisconnect = true;
                 return false;
@@ -2443,7 +2443,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         LOCK(cs_main);
 
-        if (!panchorAwaitingConfirms->Exist(confirmMessage.GetHash())) {
+        if (!panchorAwaitingConfirms->GetConfirm(confirmMessage.GetHash())) {
             LogPrintf("Got anchor confirm, hash %s, Anchor Message hash: %d\n", confirmMessage.GetHash().ToString(), confirmMessage.btcTxHash.ToString());
             // if valid, AND UNIQUE AGAINST VOTER (this is encapsulated in the index itself) - add and rebroadcast
             if (panchorAwaitingConfirms->Validate(confirmMessage) && panchorAwaitingConfirms->Add(confirmMessage)) {
@@ -2714,7 +2714,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         if (!AlreadyHave(inv) &&
             AcceptToMemoryPool(mempool, state, ptx, &fMissingInputs, &lRemovedTxn, false /* bypass_limits */, 0 /* nAbsurdFee */)) {
-            mempool.xcheck(&::ChainstateActive().CoinsTip(), pmasternodesview.get());
+            mempool.xcheck(&::ChainstateActive().CoinsTip(), pcustomcsview.get());
             RelayTransaction(tx.GetHash(), *connman);
             for (unsigned int i = 0; i < tx.vout.size(); i++) {
                 auto it_by_prev = mapOrphanTransactionsByPrev.find(COutPoint(inv.hash, i));

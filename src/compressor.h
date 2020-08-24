@@ -105,6 +105,8 @@ public:
         }
         CScriptCompressor cscript(REF(txout.scriptPubKey));
         READWRITE(cscript);
+        /// @todo tokens: may be totally change format due to effective coins indexing
+        READWRITE(VARINT(txout.nTokenId.v));
     }
 };
 

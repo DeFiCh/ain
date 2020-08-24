@@ -358,6 +358,7 @@ const std::list<SectionInfo> ArgsManager::GetUnrecognizedSections() const
     static const std::set<std::string> available_sections{
         CBaseChainParams::REGTEST,
         CBaseChainParams::TESTNET,
+        CBaseChainParams::DEVNET,
         CBaseChainParams::MAIN
     };
 
@@ -954,15 +955,18 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
 std::string ArgsManager::GetChainName() const
 {
     LOCK(cs_args);
-    bool fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest");
-    bool fTestNet = ArgsManagerHelper::GetNetBoolArg(*this, "-testnet");
+    int fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest") ? 1 : 0;
+    int fTestNet = ArgsManagerHelper::GetNetBoolArg(*this, "-testnet") ? 1 : 0;
+    int fDevNet  = ArgsManagerHelper::GetNetBoolArg(*this, "-devnet") ? 1 : 0;
 
-    if (fTestNet && fRegTest)
-        throw std::runtime_error("Invalid combination of -regtest and -testnet.");
+    if (fTestNet + fDevNet + fRegTest > 1)
+        throw std::runtime_error("Invalid combination of -regtest and -testnet."); // do not modify this message, it brakes unittests
     if (fRegTest)
         return CBaseChainParams::REGTEST;
     if (fTestNet)
         return CBaseChainParams::TESTNET;
+    if (fDevNet)
+        return CBaseChainParams::DEVNET;
     return CBaseChainParams::MAIN;
 }
 
