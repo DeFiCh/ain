@@ -98,7 +98,7 @@ class TxDownloadTest(DefiTestFramework):
         )
         tx = self.nodes[0].signrawtransactionwithkey(
             hexstring=tx,
-            privkeys=[self.nodes[0].get_genesis_keys().operatorPrivKey],
+            privkeys=[self.nodes[0].get_genesis_keys().ownerPrivKey],
         )['hex']
         ctx = FromHex(CTransaction(), tx)
         txid = int(ctx.rehash(), 16)

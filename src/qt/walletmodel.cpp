@@ -157,7 +157,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
                 const unsigned char* scriptStr = (const unsigned char*)out.script().data();
                 CScript scriptPubKey(scriptStr, scriptStr+out.script().size());
                 CAmount nAmount = out.amount();
-                CRecipient recipient = {scriptPubKey, nAmount, rcp.fSubtractFeeFromAmount};
+                CRecipient recipient = {scriptPubKey, nAmount, 0, rcp.fSubtractFeeFromAmount}; /// @todo tokens: unimplemented in qt, replace 0
                 vecSend.push_back(recipient);
             }
             if (subtotal <= 0)
@@ -181,7 +181,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             ++nAddresses;
 
             CScript scriptPubKey = GetScriptForDestination(DecodeDestination(rcp.address.toStdString()));
-            CRecipient recipient = {scriptPubKey, rcp.amount, rcp.fSubtractFeeFromAmount};
+            CRecipient recipient = {scriptPubKey, rcp.amount, 0, rcp.fSubtractFeeFromAmount}; /// @todo tokens: unimplemented in qt, replace 0
             vecSend.push_back(recipient);
 
             total += rcp.amount;

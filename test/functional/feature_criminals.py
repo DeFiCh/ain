@@ -50,8 +50,9 @@ class CriminalsTest (DefiTestFramework):
         os.remove(os.path.join(self.nodes[n].datadir, 'regtest', 'wallets', 'wallet.dat'))
         shutil.rmtree(os.path.join(self.nodes[n].datadir, 'regtest', 'blocks'))
         shutil.rmtree(os.path.join(self.nodes[n].datadir, 'regtest', 'chainstate'))
-        shutil.rmtree(os.path.join(self.nodes[n].datadir, 'regtest', 'masternodes'))
+        shutil.rmtree(os.path.join(self.nodes[n].datadir, 'regtest', 'enhancedcs'))
         shutil.rmtree(os.path.join(self.nodes[n].datadir, 'regtest', 'anchors'))
+        shutil.rmtree(os.path.join(self.nodes[n].datadir, 'regtest', 'criminals'))
 
     def run_test(self):
         DOUBLE_SIGN_MINIMUM_PROOF_INTERVAL = 100

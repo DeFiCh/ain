@@ -6,6 +6,7 @@
 
 #include <consensus/consensus.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/mn_checks.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
@@ -160,7 +161,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     return nSigOps;
 }
 
-bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, const CMasternodesView * mnview, int nSpendHeight, CAmount& txfee)
+bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, const CCustomCSView * mnview, int nSpendHeight, CAmount& txfee)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -168,7 +169,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
                          strprintf("%s: inputs missing/spent", __func__));
     }
 
-    CAmount nValueIn = 0;
+    TAmounts nValuesIn;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         const COutPoint &prevout = tx.vin[i].prevout;
         const Coin& coin = inputs.AccessCoin(prevout);
@@ -181,30 +182,58 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         }
 
         // Check for negative or overflow input values
-        nValueIn += coin.out.nValue;
-        if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValueIn)) {
+        nValuesIn[coin.out.nTokenId] += coin.out.nValue;
+        if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValuesIn[coin.out.nTokenId])) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
         }
+        /// @todo tokens: later match the range with TotalSupply
 
-        if (prevout.n == 1 && !mnview->CanSpend(prevout.hash, nSpendHeight))
-        {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "mn-collateral-locked",
+        if (prevout.n == 1 && !mnview->CanSpend(prevout.hash, nSpendHeight)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-collateral-locked",
                 strprintf("tried to spend locked collateral for %s", prevout.hash.ToString())); /// @todo may be somehow place the height of unlocking?
         }
     }
 
-    const CAmount value_out = tx.GetValueOut();
-    if (nValueIn < value_out) {
+    /// @attention Keep the order of checks not to break old tests
+    TAmounts non_minted_values_out = GetNonMintedValuesOut(tx);
+
+    // special (old) case for 'DFI'. Do not "optimize" due to tests compatibility
+    if (nValuesIn[DCT_ID{0}] < non_minted_values_out[DCT_ID{0}]) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-in-belowout",
-            strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
+            strprintf("value in (%s) < value out (%s)", FormatMoney(nValuesIn[DCT_ID{0}]), FormatMoney(non_minted_values_out[DCT_ID{0}])));
     }
 
     // Tally transaction fees
-    const CAmount txfee_aux = nValueIn - value_out;
+    const CAmount txfee_aux = nValuesIn[DCT_ID{0}] - non_minted_values_out[DCT_ID{0}];
     if (!MoneyRange(txfee_aux)) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-fee-outofrange");
     }
-
     txfee = txfee_aux;
+
+    // after fee calc it is guaranteed that both values[0] exists (even if zero)
+    if (tx.nVersion < CTransaction::TOKENS_MIN_VERSION && (nValuesIn.size() > 1 || non_minted_values_out.size() > 1)) {
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-tokens-in-old-version-tx");
+    }
+
+    // check for tokens values
+    std::vector<unsigned char> dummy;
+    const auto txType = GuessCustomTxType(tx, dummy);
+
+    if (NotAllowedToFail(txType)) {
+        auto res = ApplyCustomTx(const_cast<CCustomCSView&>(*mnview), inputs, tx, Params(), nSpendHeight, true); // note for 'isCheck == true' here
+        if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
+        }
+    }
+
+    for (auto const & kv : non_minted_values_out) {
+        DCT_ID const & tokenId = kv.first;
+
+        if (nValuesIn[tokenId] < kv.second) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-minttokens-in-belowout",
+                strprintf("token (%s) value in (%s) < value out (%s)", tokenId.ToString(), FormatMoney(nValuesIn[tokenId]), FormatMoney(kv.second)));
+
+        }
+    }
     return true;
 }

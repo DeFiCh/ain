@@ -44,6 +44,7 @@ static const int TOOLTIP_WRAP_THRESHOLD = 80;
 #define QAPP_ORG_DOMAIN "defi.org"
 #define QAPP_APP_NAME_DEFAULT "Defi-Qt"
 #define QAPP_APP_NAME_TESTNET "Defi-Qt-testnet"
+#define QAPP_APP_NAME_DEVNET "Defi-Qt-devnet"
 #define QAPP_APP_NAME_REGTEST "Defi-Qt-regtest"
 
 /* One gigabyte (GB) in bytes */

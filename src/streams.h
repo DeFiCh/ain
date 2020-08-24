@@ -447,6 +447,13 @@ public:
             s.write((char*)vch.data(), vch.size() * sizeof(value_type));
     }
 
+    template <typename T>
+    unsigned int GetSerializeSize(const T& obj)
+    {
+        // Tells the size of the object if serialized to this stream
+        return ::GetSerializeSize(obj, nType, nVersion);
+    }
+
     template<typename T>
     CDataStream& operator<<(const T& obj)
     {

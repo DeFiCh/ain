@@ -14,6 +14,7 @@
 #include <util/rbf.h>
 #include <util/system.h>
 #include <util/validation.h>
+#include <masternodes/mn_checks.h>
 
 //! Check whether transaction has descendant in wallet or mempool, or has been
 //! mined, or conflicts with a mined transaction. Return a feebumper::Result.
@@ -117,7 +118,7 @@ Result CreateTotalBumpTransaction(const CWallet* wallet, const uint256& txid, co
     }
 
     // calculate the old fee and fee-rate
-    old_fee = wtx.GetDebit(ISMINE_SPENDABLE) - wtx.tx->GetValueOut();
+    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[DCT_ID{0}] - GetNonMintedValueOut(*wtx.tx, DCT_ID{});
     CFeeRate nOldFeeRate(old_fee, txSize);
     // The wallet uses a conservative WALLET_INCREMENTAL_RELAY_FEE value to
     // future proof against changes to network wide policy for incremental relay
@@ -179,7 +180,7 @@ Result CreateTotalBumpTransaction(const CWallet* wallet, const uint256& txid, co
 
     // If the output would become dust, discard it (converting the dust to fee)
     poutput->nValue -= nDelta;
-    if (poutput->nValue <= GetDustThreshold(*poutput, GetDiscardRate(*wallet))) {
+    if (poutput->nValue <= GetDustThreshold(*poutput, mtx.nVersion, GetDiscardRate(*wallet))) {
         wallet->WalletLogPrintf("Bumping fee and discarding dust output\n");
         new_fee += poutput->nValue;
         mtx.vout.erase(mtx.vout.begin() + nOutput);
@@ -221,7 +222,7 @@ Result CreateRateBumpTransaction(CWallet* wallet, const uint256& txid, const CCo
     std::vector<CRecipient> recipients;
     for (const auto& output : wtx.tx->vout) {
         if (!wallet->IsChange(output)) {
-            CRecipient recipient = {output.scriptPubKey, output.nValue, false};
+            CRecipient recipient = {output.scriptPubKey, output.nValue, output.nTokenId, false};
             recipients.push_back(recipient);
         } else {
             CTxDestination change_dest;
@@ -233,7 +234,7 @@ Result CreateRateBumpTransaction(CWallet* wallet, const uint256& txid, const CCo
     // Get the fee rate of the original transaction. This is calculated from
     // the tx fee/vsize, so it may have been rounded down. Add 1 satoshi to the
     // result.
-    old_fee = wtx.GetDebit(ISMINE_SPENDABLE) - wtx.tx->GetValueOut();
+    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[DCT_ID{0}] - wtx.tx->GetValueOut();
     int64_t txSize = GetVirtualTransactionSize(*(wtx.tx));
     // Feerate of thing we are bumping
     CFeeRate feerate(old_fee, txSize);

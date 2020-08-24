@@ -161,6 +161,7 @@ class ImportRescanTest(DefiTestFramework):
         self.start_nodes(extra_args=[[]] * self.num_nodes)
         for n in self.nodes:
             n.importprivkey(privkey=n.get_genesis_keys().operatorPrivKey, label='coinbase')
+            n.importprivkey(privkey=n.get_genesis_keys().ownerPrivKey, label='coinbase')
         self.stop_nodes()
 
         self.start_nodes()

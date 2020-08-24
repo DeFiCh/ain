@@ -116,7 +116,7 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
                 if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
                     node.selectParams(CBaseChainParams::MAIN);
                 } else {
-                    tempChainParams = CreateChainParams(CBaseChainParams::TESTNET);
+                    tempChainParams = CreateChainParams(CBaseChainParams::TESTNET); // not implemented for devnet
                     if (IsValidDestinationString(r.address.toStdString(), *tempChainParams)) {
                         node.selectParams(CBaseChainParams::TESTNET);
                     }
@@ -135,7 +135,7 @@ void PaymentServer::ipcParseCommandLine(interfaces::Node& node, int argc, char* 
                 {
                     node.selectParams(CBaseChainParams::MAIN);
                 }
-                else if (request.getDetails().network() == "test")
+                else if (request.getDetails().network() == "test") // not implemented for devnet
                 {
                     node.selectParams(CBaseChainParams::TESTNET);
                 }
@@ -609,7 +609,7 @@ bool PaymentServer::processPaymentRequest(const PaymentRequestPlus& request, Sen
 
         // Extract and check amounts
         CTxOut txOut(sendingTo.second, sendingTo.first);
-        if (IsDust(txOut, optionsModel->node().getDustRelayFee())) {
+        if (IsDust(txOut, 1, optionsModel->node().getDustRelayFee())) {  /// @todo tokens: unimplemented in qt, dummy "1"
             Q_EMIT message(tr("Payment request error"), tr("Requested payment amount of %1 is too small (considered dust).")
                 .arg(DefiUnits::formatWithUnit(optionsModel->getDisplayUnit(), sendingTo.second)),
                 CClientUIInterface::MSG_ERROR);
