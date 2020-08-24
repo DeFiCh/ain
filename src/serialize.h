@@ -449,7 +449,7 @@ public:
  * to implement serializers that are compatible with existing formats, and
  * its use is not recommended for new data structures.
  *
- * Only 16-bit types are supported for now.
+ * Only 16-bit and 32-bit types are supported for now.
  */
 template<typename I>
 class BigEndian
@@ -460,19 +460,27 @@ public:
     explicit BigEndian(I& val) : m_val(val)
     {
         static_assert(std::is_unsigned<I>::value, "BigEndian type must be unsigned integer");
-        static_assert(sizeof(I) == 2 && std::numeric_limits<I>::min() == 0 && std::numeric_limits<I>::max() == std::numeric_limits<uint16_t>::max(), "Unsupported BigEndian size");
+        static_assert(sizeof(I) >= 2 && sizeof(I) <= 4, "Unsupported BigEndian size");
     }
 
     template<typename Stream>
     void Serialize(Stream& s) const
     {
-        ser_writedata16be(s, m_val);
+        if (sizeof(I) == 2) {
+            ser_writedata16be(s, (uint16_t) m_val);
+        } else if (sizeof(I) == 4) {
+            ser_writedata32be(s, (uint32_t) m_val);
+        }
     }
 
     template<typename Stream>
     void Unserialize(Stream& s)
     {
-        m_val = ser_readdata16be(s);
+        if (sizeof(I) == 2) {
+            m_val = (uint16_t) ser_readdata16be(s);
+        } else if (sizeof(I) == 4) {
+            m_val = (uint32_t) ser_readdata32be(s);
+        }
     }
 };
 
@@ -952,6 +960,7 @@ public:
     }
 
     int GetVersion() const { return nVersion; }
+    int GetType() const { return 0; } // dummy
 };
 
 template<typename Stream>

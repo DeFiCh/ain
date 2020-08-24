@@ -30,7 +30,7 @@
 #include <boost/signals2/signal.hpp>
 
 class CBlockIndex;
-class CMasternodesView;
+class CCustomCSView;
 extern CCriticalSection cs_main;
 
 /** Fake height value used in Coin to signify they are only in the memory pool (since 0.8) */
@@ -561,7 +561,7 @@ public:
      * all inputs are in the mapNextTx array). If sanity-checking is turned off,
      * check does nothing.
      */
-    void xcheck(const CCoinsViewCache *pcoins, const CMasternodesView *mnview) const;
+    void xcheck(const CCoinsViewCache *pcoins, const CCustomCSView *mnview) const;
     void setSanityCheck(double dFrequency = 1.0) { LOCK(cs); nCheckFrequency = static_cast<uint32_t>(dFrequency * 4294967295.0); }
 
     // addUnchecked must updated state for all ancestors of a given transaction,

@@ -5,13 +5,34 @@
 #ifndef DEFI_RPC_RAWTRANSACTION_UTIL_H
 #define DEFI_RPC_RAWTRANSACTION_UTIL_H
 
+#include <script/standard.h> // CTxDestination
+
 #include <map>
+#include <masternodes/res.h>
+#include <rpc/request.h>
+#include <masternodes/balances.h>
 
 class FillableSigningProvider;
 class UniValue;
 struct CMutableTransaction;
 class Coin;
 class COutPoint;
+
+namespace interfaces {
+class Chain;
+}
+
+std::pair<std::string, std::string> SplitAmount(std::string const & output);
+
+ResVal<std::pair<CAmount, std::string>> ParseTokenAmount(std::string const & tokenAmount);
+ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain,std::string const & tokenAmount);
+
+CScript DecodeScript(std::string const& str);
+CTokenAmount DecodeAmount(interfaces::Chain const & chain, UniValue const& amountUni, std::string const& name);
+CBalances DecodeAmounts(interfaces::Chain const & chain, UniValue const& amountsUni, std::string const& name);
+std::map<CScript, CBalances> DecodeRecipients(interfaces::Chain const & chain, UniValue const& sendTo);
+
+std::function<void(std::string)> JSONRPCErrorThrower(int code, const std::string& prefix);
 
 /**
  * Sign a transaction with the given keystore and previous transactions
@@ -27,6 +48,6 @@ class COutPoint;
 UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxs, FillableSigningProvider* keystore, std::map<COutPoint, Coin>& coins, bool tempKeystore, const UniValue& hashType);
 
 /** Create a transaction from univalue parameters */
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf);
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, interfaces::Chain const & chain);
 
 #endif // DEFI_RPC_RAWTRANSACTION_UTIL_H

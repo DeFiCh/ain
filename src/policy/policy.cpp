@@ -11,7 +11,7 @@
 #include <coins.h>
 
 
-CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
+CAmount GetDustThreshold(const CTxOut& txout, int32_t txVersion, const CFeeRate& dustRelayFeeIn)
 {
     // "Dust" is defined in terms of dustRelayFee,
     // which has units satoshis-per-kilobyte.
@@ -30,7 +30,7 @@ CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
     if (txout.scriptPubKey.IsUnspendable())
         return 0;
 
-    size_t nSize = GetSerializeSize(txout);
+    size_t nSize = GetSerializeSize(txout, txVersion < CTransaction::TOKENS_MIN_VERSION ? SERIALIZE_TRANSACTION_NO_TOKENS : 0);
     int witnessversion = 0;
     std::vector<unsigned char> witnessprogram;
 
@@ -45,9 +45,9 @@ CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
     return dustRelayFeeIn.GetFee(nSize);
 }
 
-bool IsDust(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
+bool IsDust(const CTxOut& txout, int32_t txVersion, const CFeeRate& dustRelayFeeIn)
 {
-    return (txout.nValue < GetDustThreshold(txout, dustRelayFeeIn));
+    return (txout.nValue < GetDustThreshold(txout, txVersion, dustRelayFeeIn));
 }
 
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
@@ -117,12 +117,13 @@ bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeR
             return false;
         }
 
-        if (whichType == TX_NULL_DATA)
+        // @todo check that "txout.scriptPubKey.size() > 1" doesn't break anything
+        if (whichType == TX_NULL_DATA && txout.scriptPubKey.size() > 1)
             nDataOut++;
         else if ((whichType == TX_MULTISIG) && (!permit_bare_multisig)) {
             reason = "bare-multisig";
             return false;
-        } else if (IsDust(txout, dust_relay_fee)) {
+        } else if (IsDust(txout, tx.nVersion, dust_relay_fee)) {
             reason = "dust";
             return false;
         }

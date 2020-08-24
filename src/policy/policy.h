@@ -77,9 +77,9 @@ static constexpr unsigned int STANDARD_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_SCR
 static constexpr unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_VERIFY_SEQUENCE |
                                                                LOCKTIME_MEDIAN_TIME_PAST;
 
-CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFee);
+CAmount GetDustThreshold(const CTxOut& txout, int32_t txVersion, const CFeeRate& dustRelayFee);
 
-bool IsDust(const CTxOut& txout, const CFeeRate& dustRelayFee);
+bool IsDust(const CTxOut& txout, int32_t txVersion, const CFeeRate& dustRelayFee);
 
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
     /**

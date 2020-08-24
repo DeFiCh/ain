@@ -18,7 +18,7 @@ class CChainParams;
 
 class CCoinsViewCache;
 
-class CMasternodesView;
+class CCustomCSView;
 
 namespace pos {
 
@@ -28,10 +28,10 @@ namespace pos {
     bool CheckHeaderSignature(const CBlockHeader& block);
 
 /// Check kernel hash target and coinstake signature
-    bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView);
+    bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView);
 
 /// Check kernel hash target and coinstake signature. Check that block coinstakeTx matches header
-    bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CMasternodesView* mnView);
+    bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CCustomCSView* mnView);
 
     unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params::PoS& params);
 

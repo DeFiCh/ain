@@ -134,6 +134,7 @@ DEFI_CORE_H = \
   core_memusage.h \
   cuckoocache.h \
   flatfile.h \
+  flushablestorage.h \
   fs.h \
   httprpc.h \
   httpserver.h \
@@ -151,10 +152,16 @@ DEFI_CORE_H = \
   dbwrapper.h \
   limitedmap.h \
   logging.h \
+  masternodes/accounts.h \
   masternodes/anchors.h \
+  masternodes/balances.h \
+  masternodes/criminals.h \
   masternodes/masternodes.h \
   masternodes/mn_checks.h \
-  masternodes/mn_txdb.h \
+  masternodes/res.h \
+  masternodes/tokens.h \
+  masternodes/undo.h \
+  masternodes/undos.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -263,7 +270,7 @@ obj/build.h: FORCE
 	  "$(abs_top_srcdir)"
 libdefi_util_a-clientversion.$(OBJEXT): obj/build.h
 
-libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive -I./spv -I./spv/support -I./secp256k1 -I./secp256k1/src -Wno-format-extra-args -lm -lbsd 
+libdefi_spv_a_CPPFLAGS = $(AM_CPPFLAGS) -Wpointer-arith -fpermissive -I./spv -I./spv/support -I./secp256k1 -I./secp256k1/src -Wno-format-extra-args -lm -lbsd
 libdefi_spv_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdefi_spv_a_SOURCES = \
   spv/bcash/BRBCashAddr.cpp \
@@ -313,9 +320,9 @@ libdefi_spv_a_SOURCES = \
 #  spv/support/BRAssert.cpp
 #  spv/support/BRAssert.h
 #  spv/support/BRFileService.cpp
-#  spv/support/BRFileService.h 
+#  spv/support/BRFileService.h
 #  spv/bitcoin/BRWalletManager.cpp
-#  spv/bitcoin/BRWalletManager.h 
+#  spv/bitcoin/BRWalletManager.h
 
 # for gen /secp256k1/src/ecmult_static_context.h
 LIBSECP256K1_GEN = $(srcdir)/secp256k1/src/ecmult_static_context.h
@@ -347,11 +354,14 @@ libdefi_server_a_SOURCES = \
   interfaces/node.cpp \
   init.cpp \
   dbwrapper.cpp \
+  masternodes/accounts.cpp \
   masternodes/anchors.cpp \
+  masternodes/criminals.cpp \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
-  masternodes/mn_txdb.cpp \
   masternodes/mn_rpc.cpp \
+  masternodes/tokens.cpp \
+  masternodes/undos.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \
@@ -514,6 +524,7 @@ libdefi_consensus_a_SOURCES = \
   script/script_error.cpp \
   script/script_error.h \
   serialize.h \
+  serialize_optional.h \
   span.h \
   tinyformat.h \
   uint256.cpp \

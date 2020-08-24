@@ -2,6 +2,7 @@
 
 export LC_ALL=C
 KNOWN_VIOLATIONS=(
+    "src/amount.h:.*stoul"
     "src/defi-tx.cpp.*stoul"
     "src/defi-tx.cpp.*trim_right"
     "src/dbwrapper.cpp.*stoul"
@@ -10,6 +11,7 @@ KNOWN_VIOLATIONS=(
     "src/init.cpp:.*atoi"
     "src/qt/rpcconsole.cpp:.*atoi"
     "src/rest.cpp:.*strtol"
+    "src/rpc/rawtransaction_util.cpp:.*stoul"
     "src/test/dbwrapper_tests.cpp:.*snprintf"
     "src/torcontrol.cpp:.*atoi"
     "src/torcontrol.cpp:.*strtol"
