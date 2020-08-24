@@ -7,8 +7,13 @@
 #include <primitives/transaction.h>
 #include <consensus/validation.h>
 
+/// @todo refactor it to unify txs!!! (need to restart blockchain)
+const std::vector<unsigned char> DfCriminalTxMarker = {'D', 'f', 'C', 'r'};
+const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
+
 bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
 {
+    /// @note we don't check minted token's outputs nor auth here!
     // Basic checks that don't depend on any context
     if (tx.vin.empty())
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-vin-empty");
@@ -43,7 +48,8 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 
     if (tx.IsCoinBase())
     {
-        if (tx.IsAnchorReward() || tx.IsCriminalDetention())
+        std::vector<unsigned char> dummy;
+        if (IsAnchorRewardTx(tx, dummy) || IsCriminalProofTx(tx, dummy))
             return true;
         if (tx.vin[0].scriptSig.size() < 2 || (tx.vin[0].scriptSig.size() > 100))
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-length");
@@ -57,3 +63,50 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 
     return true;
 }
+
+bool IsCriminalProofTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
+{
+    if (!tx.IsCoinBase() || tx.vout.size() != 1 || tx.vout[0].nValue != 0) {
+        return false;
+    }
+    CScript const & memo = tx.vout[0].scriptPubKey;
+    CScript::const_iterator pc = memo.begin();
+    opcodetype opcode;
+    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return false;
+    }
+    if (!memo.GetOp(pc, opcode, metadata) ||
+        (opcode > OP_PUSHDATA1 &&
+         opcode != OP_PUSHDATA2 &&
+         opcode != OP_PUSHDATA4) ||
+        metadata.size() < DfCriminalTxMarker.size() + 1 ||
+        memcmp(&metadata[0], &DfCriminalTxMarker[0], DfCriminalTxMarker.size()) != 0) {
+        return false;
+    }
+    metadata.erase(metadata.begin(), metadata.begin() + DfCriminalTxMarker.size());
+    return true;
+}
+
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
+{
+    if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
+        return false;
+    }
+    CScript const & memo = tx.vout[0].scriptPubKey;
+    CScript::const_iterator pc = memo.begin();
+    opcodetype opcode;
+    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return false;
+    }
+    if (!memo.GetOp(pc, opcode, metadata) ||
+        (opcode > OP_PUSHDATA1 &&
+         opcode != OP_PUSHDATA2 &&
+         opcode != OP_PUSHDATA4) ||
+        metadata.size() < DfAnchorFinalizeTxMarker.size() + 1 ||
+        memcmp(&metadata[0], &DfAnchorFinalizeTxMarker[0], DfAnchorFinalizeTxMarker.size()) != 0) {
+        return false;
+    }
+    metadata.erase(metadata.begin(), metadata.begin() + DfAnchorFinalizeTxMarker.size());
+    return true;
+}
+

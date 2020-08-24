@@ -116,7 +116,7 @@ class ToolWalletTest(DefiTestFramework):
         Mutate the wallet with a transaction to verify that the info command
         output changes accordingly.
         """
-        self.start_node(0)
+        self.start_node(0, ['-regtest', '-txnotokens=0']) # looks like we ought to enforce back "normal" serialization here
         self.log.info('Generating transaction to mutate wallet')
         self.nodes[0].generate(1)
         self.stop_node(0)
@@ -172,7 +172,7 @@ class ToolWalletTest(DefiTestFramework):
 
     def test_getwalletinfo_on_different_wallet(self):
         self.log.info('Starting node with arg -wallet=foo')
-        self.start_node(0, ['-wallet=foo'])
+        self.start_node(0, ['-wallet=foo', '-regtest', '-txnotokens=0']) # looks like we ought to enforce back "normal" serialization here
 
         self.log.info('Calling getwalletinfo on a different wallet ("foo"), testing output')
         shasum_before = self.wallet_shasum()

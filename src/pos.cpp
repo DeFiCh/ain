@@ -46,7 +46,7 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
     return true;
 }
 
-bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CMasternodesView* mnView) {
+bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView) {
     /// @todo may be this is tooooo optimistic? need more validation?
     if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
         return true;
@@ -60,14 +60,14 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     {
         // check that block minter exists and active at the height of the block
         AssertLockHeld(cs_main);
-        auto it = mnView->ExistMasternode(CMasternodesView::AuthIndex::ByOperator, minter);
+        auto it = mnView->GetMasternodeIdByOperator(minter);
 
         /// @todo check height of history frame here (future and past)
-        if (!it || !mnView->ExistMasternode((*it)->second)->IsActive(blockHeader.height))
+        if (!it || !mnView->GetMasternode(*it)->IsActive(blockHeader.height))
         {
             return false;
         }
-        masternodeID = (*it)->second;
+        masternodeID = *it;
     }
     // checking PoS kernel is faster, so check it first
     if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, (int64_t) blockHeader.GetBlockTime(), params, masternodeID).hashOk) {
@@ -78,7 +78,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         AssertLockHeld(cs_main);
         uint32_t const mintedBlocksMaxDiff = static_cast<uint64_t>(mnView->GetLastHeight()) > blockHeader.height ? mnView->GetLastHeight() - blockHeader.height : blockHeader.height - mnView->GetLastHeight();
         // minter exists and active at the height of the block - it was checked before
-        uint32_t const mintedBlocks = mnView->ExistMasternode(masternodeID)->mintedBlocks;
+        uint32_t const mintedBlocks = mnView->GetMasternode(masternodeID)->mintedBlocks;
         uint32_t const mintedBlocksDiff = mintedBlocks > blockHeader.mintedBlocks ? mintedBlocks - blockHeader.mintedBlocks : blockHeader.mintedBlocks - mintedBlocks;
 
         /// @todo this is not so trivial as it seems! do we need an additional check?
@@ -91,7 +91,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     return CheckHeaderSignature(blockHeader);
 }
 
-bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CMasternodesView* mnView) {
+bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CCustomCSView* mnView) {
 
     // this is our own check of own minted block (just to remember)
     return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView);
@@ -187,7 +187,7 @@ boost::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pbl
     uint256 hashBlock = pblock->GetHash();
 
     // verify hash target and signature of coinstake tx
-    if (!CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pmasternodesview.get()))
+    if (!CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pcustomcsview.get()))
         return {std::string{} + "proof-of-stake checking failed"};
 
     LogPrint(BCLog::STAKING, "new proof-of-stake block found hash: %s\n", hashBlock.GetHex());

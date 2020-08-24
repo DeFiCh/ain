@@ -39,6 +39,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
             )
         except JSONRPCException as e:
             errorString = e.error['message']
+            print (errorString)
         assert("Insufficient funds" in errorString)
 
         # Create node0
@@ -57,13 +58,14 @@ class MasternodesRpcBasicTest (DefiTestFramework):
             self.nodes[0].sendrawtransaction(signedTx['hex'])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("mn-collateral-locked-in-mempool," in errorString)
+        assert("collateral-locked-in-mempool," in errorString)
 
         self.nodes[0].generate(1)
         # At this point, mn was created
-        assert_equal(self.nodes[0].listmasternodes([idnode0], False), { idnode0: "PRE_ENABLED"} )
+        assert_equal(self.nodes[0].listmasternodes({}, False)[idnode0], "PRE_ENABLED")
+        assert_equal(self.nodes[0].getmasternode(idnode0)[idnode0]["state"], "PRE_ENABLED")
         self.nodes[0].generate(10)
-        assert_equal(self.nodes[0].listmasternodes([idnode0], False), { idnode0: "ENABLED"} )
+        assert_equal(self.nodes[0].listmasternodes({}, False)[idnode0], "ENABLED")
 
         self.sync_blocks(self.nodes[0:2])
         # Stop node #1 for future revert
@@ -74,7 +76,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
             self.nodes[0].sendrawtransaction(signedTx['hex'])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("mn-collateral-locked," in errorString)
+        assert("collateral-locked," in errorString)
 
 
         # RESIGNING:

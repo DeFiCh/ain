@@ -51,8 +51,9 @@ struct Params {
     uint256 hashGenesisBlock;
     int nSubsidyHalvingInterval;
     CAmount baseBlockSubsidy;
-    CTxDestination foundationAddress;
+    CScript foundationShareScript;
     uint32_t foundationShare;
+    std::set<CScript> foundationMembers;
     /* Block hash that is excepted from BIP16 enforcement */
     uint256 BIP16Exception;
     /** Block height and hash at which BIP34 becomes active */
@@ -108,6 +109,12 @@ struct Params {
         int anchoringLag;       // older than Tip() by
     };
     MnParams mn;
+
+    struct TokenParams {
+        CAmount creationFee;
+        CAmount collateralAmount;
+    };
+    TokenParams token;
 
     struct SpvParams {
         CAmount creationFee;

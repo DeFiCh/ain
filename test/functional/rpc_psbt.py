@@ -28,9 +28,9 @@ class PSBTTest(DefiTestFramework):
         self.setup_clean_chain = False
         self.num_nodes = 3
         self.extra_args = [
-            ["-walletrbf=1"],
-            ["-walletrbf=0"],
-            []
+            ["-txnotokens=1", "-walletrbf=1"],
+            ["-txnotokens=1", "-walletrbf=0"],
+            ["-txnotokens=1"]
         ]
 
     def skip_test_if_missing_module(self):

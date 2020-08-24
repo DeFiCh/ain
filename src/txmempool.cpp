@@ -513,7 +513,7 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
         } else {
             for (const CTxIn& txin : tx.vin) {
 
-                if (txin.prevout.n == 1 && (!pmasternodesview->CanSpend(txin.prevout.hash, nMemPoolHeight) || IsMempooledMnCreate(*this, txin.prevout.hash)))
+                if (txin.prevout.n == 1 && (!pcustomcsview->CanSpend(txin.prevout.hash, nMemPoolHeight) || IsMempooledCustomTxCreate(*this, txin.prevout.hash)))
                 {
                     txToRemove.insert(it);
                     break;
@@ -600,7 +600,7 @@ void CTxMemPool::clear()
     _clear();
 }
 
-static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, const CMasternodesView * mnview, const int64_t spendheight)
+static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, const CCustomCSView * mnview, const int64_t spendheight)
 {
     CValidationState state;
     CAmount txfee = 0;
@@ -609,7 +609,7 @@ static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& m
     UpdateCoins(tx, mempoolDuplicate, std::numeric_limits<int>::max());
 }
 
-void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CMasternodesView * mnview) const
+void CTxMemPool::xcheck(const CCoinsViewCache *pcoins, const CCustomCSView * mnview) const
 {
     LOCK(cs);
     if (nCheckFrequency == 0)
