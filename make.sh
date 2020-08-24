@@ -82,7 +82,7 @@ build() {
     popd >/dev/null
     ./autogen.sh
     # XREF: #make-configure
-    ./configure --prefix="$(pwd)/depends/${target}" --without-gui ${extra_build_opts}
+    ./configure --prefix="$(pwd)/depends/${target}" ${extra_build_opts}
     make
 }
 

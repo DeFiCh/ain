@@ -45,7 +45,7 @@ COPY . .
 RUN ./autogen.sh
 
 # XREF: #make-configure
-RUN ./configure --prefix=`pwd`/depends/${TARGET} --without-gui
+RUN ./configure --prefix=`pwd`/depends/${TARGET}
 
 RUN make
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.

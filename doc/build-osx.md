@@ -56,7 +56,6 @@ from the root of the repository.
 
     Configure and build the headless Bitcoin Core binaries as well as the GUI (if Qt is found).
 
-    You can disable the GUI build by passing `--without-gui` to configure.
     ```shell
     ./autogen.sh
     ./configure
