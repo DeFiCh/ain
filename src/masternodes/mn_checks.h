@@ -41,6 +41,8 @@ enum class CustomTxType : unsigned char
 //    CreateOrder         = 'O',
 //    DestroyOrder        = 'E',
 //    MatchOrders         = 'A',
+    // liquidity
+    AddPoolLiquidity    = 'l',
     // accounts
     UtxosToAccount     = 'U',
     AccountToUtxos     = 'b',
@@ -48,7 +50,7 @@ enum class CustomTxType : unsigned char
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMDNUbB";
+    char const txtypes[] = "CRTMDNlUbB";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -86,6 +88,8 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 Res ApplyDestroyTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
+
+Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 
 Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, std::vector<unsigned char> const & metadata);
 Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
