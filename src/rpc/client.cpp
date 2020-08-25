@@ -214,8 +214,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "spv_listanchors", 2, "minConfs" },
     { "spv_listanchors", 3, "maxConfs" },
 
-    { "createpoolpair", 0, "inputs" },
-    { "createpoolpair", 1, "metadata" },
+    { "createpoolpair", 0, "metadata" },
+    { "createpoolpair", 1, "inputs" },
 };
 // clang-format on
 

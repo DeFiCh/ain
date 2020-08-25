@@ -482,6 +482,34 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     return Res::Ok(base);
 }
 
+Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata)
+{
+    const std::string base{"PoolPair creation"};
+
+    CPoolPair poolPair;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> static_cast<CPoolPair &>(poolPair);
+    if (!ss.empty()) {
+        return Res::Err("%s: deserialization failed: excess %d bytes", base,  ss.size());
+    }
+
+    poolPair.creationTx = tx.GetHash();
+    poolPair.creationHeight = height;
+
+    //check foundation auth
+    if(!HasFoundationAuth(tx, coins, Params().GetConsensus()))
+    {
+        return Res::Err("%s: %s", base, "Is not a foundation owner");
+    }
+
+//    auto res = mnview.CreatePoolPair(poolPair);
+//    if (!res.ok) {
+//        return Res::Err("%s %s: %s", base, poolPair.pairSymbol, res.msg);
+//    }
+
+    return Res::Ok(base);
+}
+
 bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
 {
     CTransactionRef ptx = pool.get(txid);
@@ -492,3 +520,5 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
     }
     return false;
 }
+
+

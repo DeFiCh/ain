@@ -1591,17 +1591,6 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
-                        {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
-                        },
-                       },
                        {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
                                 {"tokenA", RPCArg::Type::STR, RPCArg::Optional::NO,
@@ -1617,31 +1606,87 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                                  std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
                         },
                        },
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("createpoolpair", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
-                                                          "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
+                       HelpExampleCli("createpoolpair",   "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
                                                           "\\\"tokenB\\\":\\\"MyToken2\\\""
                                                           "\\\"comission\\\":\\\"0.001\\\""
                                                           "\\\"status\\\":\\\"True\\\""
-                                                          "}\"")
-                       + HelpExampleRpc("createpoolpair", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
-                                                            "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
+                                                          "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
+                       + HelpExampleRpc("createpoolpair", "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
                                                           "\\\"tokenB\\\":\\\"MyToken2\\\""
                                                           "\\\"comission\\\":\\\"0.001\\\""
                                                           "\\\"status\\\":\\\"True\\\""
-                                                            "}\"")
+                                                            "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
                },
     }.Check(request);
 
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+
+    std::string tokenA, tokenB, pairSymbol;
+    CAmount comission;
+    bool status = true; // default Active
+    UniValue paginationObj = request.params[0].get_obj();
+    if (!paginationObj["tokenA"].isNull()) {
+        tokenA = paginationObj["tokenA"].get_str();
+    }
+    if (!paginationObj["tokenB"].isNull()) {
+        tokenB = paginationObj["tokenB"].get_str();
+    }
+    if (!paginationObj["comission"].isNull()) {
+        comission = paginationObj["comission"].get_int64();
+    }
+    if (!paginationObj["status"].isNull()) {
+        status = paginationObj["status"].get_bool();
+    }
+    if (!paginationObj["pairSymbol"].isNull()) {
+        pairSymbol = paginationObj["pairSymbol"].get_str();
+    }
+
+    DCT_ID idtokenA, idtokenB;
+    {
+        LOCK(cs_main);
+
+        auto token = pcustomcsview->GetTokenGuessId(tokenA, idtokenA);
+        if (token) {
+        }
+        else
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenA was not found");
+
+        auto token2 = pcustomcsview->GetTokenGuessId(tokenB, idtokenB);
+        if (token2) {
+        }
+        else
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenB was not found");
+    }
+
     CPoolPair poolPair;
-    //fill here
+    poolPair.idTokenA = idtokenA;
+    poolPair.idTokenB = idtokenB;
+    poolPair.commissionPct = comission;
+    poolPair.status = status;
+    poolPair.pairSymbol = pairSymbol;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::CreateToken)
+    metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
              << poolPair;
 
     CScript scriptMeta;
@@ -1672,6 +1717,11 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        const auto res = ApplyCreatePoolPairTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
+                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolPair}));
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
     }
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
@@ -1695,7 +1745,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "utxostoaccount",     &utxostoaccount,     {"inputs", "amounts"}},
     {"accounts",    "accounttoaccount",   &accounttoaccount,   {"inputs", "from", "to"}},
     {"accounts",    "accounttoutxos",     &accounttoutxos,     {"inputs", "from", "to"}},
-    {"poolpair",    "createpoolpair",     &createpoolpair,     {"inputs", "metadata"}},
+    {"poolpair",    "createpoolpair",     &createpoolpair,     {"metadata", "inputs"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

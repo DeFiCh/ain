@@ -33,6 +33,10 @@ public:
     uint256 creationTx;
     int32_t creationHeight;
 
+    DCT_ID idTokenA, idTokenB;
+    bool status = true;
+    std::string pairSymbol;
+
     ResVal<CPoolPair> Create(CPoolPairMessage const & msg);     // or smth else
     ResVal<CTokenAmount> AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
     // or:
