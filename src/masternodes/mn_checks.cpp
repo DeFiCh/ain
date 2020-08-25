@@ -149,7 +149,7 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyMintTokenTx(mnview, coins, tx, metadata);
                 break;
             case CustomTxType::AddPoolLiquidity:
-                res = ApplyAddPoolLiquidityTx(mnview, coins, tx, height, metadata);
+                res = ApplyAddPoolLiquidityTx(mnview, coins, tx, metadata);
                 break;
             case CustomTxType::UtxosToAccount:
                 res = ApplyUtxosToAccountTx(mnview, tx, metadata);
@@ -394,8 +394,16 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
     return Res::Ok(base);
 }
 
-Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata)
 {
+    const std::string base{"Adding liquidity"};
+
+    // const auto res = mnview.AddLiquidity(); // TODO dummy res, not found AddLiquidity
+
+    // if (!res.ok) {
+    //     return Res::Err("%s: %s", base, res.msg);
+    //}
+
     return Res::Ok(base);
 }
 
