@@ -1367,8 +1367,8 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
         if (!ExtractDestination(kv.first, ownerDest)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
         }
-        rawIn = GetAuthInputs(pwallet, ownerDest, request.params[2].get_array());
-        rawTx.insert(rawTx.end(), rawIn.begin(), rawIn.end());
+        std::vector<CTxIn> rawIn = GetAuthInputs(pwallet, ownerDest, request.params[2].get_array());
+        rawTx.vin.insert(rawTx.vin.end(), rawIn.begin(), rawIn.end());
     }
 
     // fund
