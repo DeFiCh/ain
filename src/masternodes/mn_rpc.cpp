@@ -1330,10 +1330,10 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("addpoolliquidity",
-                                      "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' ",
+                                      "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
                                       "share_address []")
                        + HelpExampleRpc("addpoolliquidity",
-                                      "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' ",
+                                      "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
                                       "share_address []")
                },
     }.Check(request);

@@ -401,9 +401,19 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> msg;
     if (!ss.empty()) {
-        return Res::Err("AccountToAccount tx deserialization failed: excess %d bytes", ss.size());
+        return Res::Err("Adding liquidity tx deserialization failed: excess %d bytes", ss.size());
     }
     const auto base = strprintf("Adding liquidity %s", msg.ToString());
+
+    if (msg.from.size() != 2) {
+        return Res::Err("%s: %s", base, "tx must have 2 inputs");
+    }
+
+    for (const auto& kv : msg.from) {
+        if (!HasAuth(tx, coins, kv.first)) {
+            return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+        }
+    }
 
     // const auto res = mnview.AddLiquidity(); // TODO dummy res, not found AddLiquidity
 

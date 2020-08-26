@@ -13,7 +13,7 @@
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
-
+#include <masternodes/balances.h>
 struct CPoolPairMessage;
 
 
@@ -79,7 +79,7 @@ struct CLiquidityMessage {
             return "empty transfer";
         }
         std::string result;
-        for (const auto& kv : to) {
+        for (const auto& kv : from) {
             result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
         }
         result += " to " + shareAddress.GetHex();
