@@ -410,8 +410,8 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         return Res::Err("%s: the pool pair requires two tokens", base);
     }
 
-    DCT_ID tokenIdA = sumTx.balances.begin()->first;
-    DCT_ID tokenIdB = sumTx.balances.end()->first;
+    DCT_ID tokenIdA = sumTx.balances.at(0)->first;
+    DCT_ID tokenIdB = sumTx.balances.at(1)->first;
 
     auto pair = mnview.GetPoolPair(tokenIdA, tokenIdB);
 
@@ -432,8 +432,8 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         }
     }
 
-    CTokenAmount amountA = CTokenAmount{sumTx.balances.begin()->first,sumTx.balances.begin()->second};
-    CTokenAmount amountB = CTokenAmount{sumTx.balances.end()->first,sumTx.balances.end()->second};
+    CTokenAmount amountA = CTokenAmount{sumTx.balances.at(0)->first, sumTx.balances.at(0)->second};
+    CTokenAmount amountB = CTokenAmount{sumTx.balances.at(1)->first, sumTx.balances.at(1)->second};
 
     const auto res = mnview.AddLiquidity(amountA, amountB, msg.shareAddress);
 
