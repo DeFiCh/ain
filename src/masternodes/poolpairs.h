@@ -64,6 +64,8 @@ public:
     void ForEachShare(std::function<bool(DCT_ID const & id, CScript const & provider)> callback, DCT_ID const & start = DCT_ID{0});
 //    void ForEachShare(std::function<bool(DCT_ID const & id, CScript const & provider, CAmount amount)> callback, DCT_ID const & start = DCT_ID{0}); // optional, with lookup into accounts
 
+    Res AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
+
     // tags
     struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair
     struct ByPair { static const unsigned char prefix; }; // tokenA+tokenB -> lsTokenID

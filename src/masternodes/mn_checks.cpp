@@ -405,8 +405,18 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     }
     const auto base = strprintf("Adding liquidity %s", msg.ToString());
 
-    if (msg.from.size() != 2) {
-        return Res::Err("%s: %s", base, "tx must have 2 inputs");
+    CBalances sumTx = SumAllTransfers(msg.from);
+    if (sumTx.balances.size() != 2) {
+        return Res::Err("%s: the pool pair requires two tokens", base);
+    }
+
+    DCT_ID tokenIdA = sumTx.balances.begin()->first;
+    DCT_ID tokenIdB = sumTx.balances.end()->first;
+
+    auto pair = mnview.GetPoolPair(tokenIdA, tokenIdB);
+
+    if (!pair) {
+        return Res::Err("%s: there is no such pool pair", base);
     }
 
     for (const auto& kv : msg.from) {
@@ -415,11 +425,21 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         }
     }
 
-    // const auto res = mnview.AddLiquidity(); // TODO dummy res, not found AddLiquidity
+    for (const auto& kv : msg.from) {
+        const auto res = mnview.SubBalances(kv.first, kv.second);
+        if (!res.ok) {
+            return Res::Err("%s: %s", base, res.msg);
+        }
+    }
 
-    // if (!res.ok) {
-    //     return Res::Err("%s: %s", base, res.msg);
-    //}
+    CAmount amountA = sumTx.balances.begin()->second;
+    CAmount amountB = sumTx.balances.end()->second;
+
+    const auto res = mnview.AddLiquidity(amountA, amountB, msg.shareAddress);
+
+    if (!res.ok) {
+        return Res::Err("%s: %s", base, res.msg);
+    }
 
     return Res::Ok(base);
 }
