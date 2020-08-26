@@ -148,6 +148,9 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::MintToken:
                 res = ApplyMintTokenTx(mnview, coins, tx, metadata);
                 break;
+            case CustomTxType::AddPoolLiquidity:
+                res = ApplyAddPoolLiquidityTx(mnview, coins, tx, height, metadata);
+                break;
             case CustomTxType::UtxosToAccount:
                 res = ApplyUtxosToAccountTx(mnview, tx, metadata);
                 break;
@@ -386,6 +389,76 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
         if (!res.ok) {
             return Res::Err("%s: %s", base, res.msg);
         }
+    }
+
+    return Res::Ok(base);
+}
+
+Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+{
+    // deserialize
+    CLiquidityMessage msg;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("Adding liquidity tx deserialization failed: excess %d bytes", ss.size());
+    }
+    const auto base = strprintf("Adding liquidity %s", msg.ToString());
+
+    CBalances sumTx = SumAllTransfers(msg.from);
+    if (sumTx.balances.size() != 2) {
+        return Res::Err("%s: the pool pair requires two tokens", base);
+    }
+
+//    DCT_ID tokenIdA = sumTx.balances.begin()->first;
+//    DCT_ID tokenIdB = std::next(sumTx.balances.begin(), 1)->first;
+
+    std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
+    std::pair<DCT_ID, CAmount> amountB = *std::next(sumTx.balances.begin(), 1);
+
+    auto pair = mnview.GetPoolPair(amountA.first, amountB.first);
+
+    if (!pair) {
+        return Res::Err("%s: there is no such pool pair", base);
+    }
+
+    for (const auto& kv : msg.from) {
+        if (!HasAuth(tx, coins, kv.first)) {
+            return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+        }
+    }
+
+    for (const auto& kv : msg.from) {
+        const auto res = mnview.SubBalances(kv.first, kv.second);
+        if (!res.ok) {
+            return Res::Err("%s: %s", base, res.msg);
+        }
+    }
+
+//    CTokenAmount amountA = CTokenAmount{sumTx.balances.at(0)->first, sumTx.balances.at(0)->second};
+//    CTokenAmount amountB = CTokenAmount{sumTx.balances.at(1)->first, sumTx.balances.at(1)->second};
+
+//    const auto res = mnview.AddLiquidity(amountA, amountB, msg.shareAddress);
+
+    DCT_ID const & lpTokenID = pair->first;
+    CPoolPair & pool = pair->second;
+
+    // normalize A & B to correspond poolpair's tokens
+    if (amountA.first != pool.tokenA)
+        std::swap(amountA, amountB);
+
+    const auto res = pool.AddLiquidity(amountA.second, amountB.second, msg.shareAddress, [&] (CScript to, CAmount liqAmount) {
+         pool.totalLiquidity += liqAmount;
+         mnview.AddBalance(to, { lpTokenID, liqAmount });
+
+        /// @todo insert updating/ByShare index here
+//         mnview.WriteBy<ByShare>(lpTokenID, address);
+
+        return Res::Ok();
+    }, height);
+
+    if (!res.ok) {
+        return Res::Err("%s: %s", base, res.msg);
     }
 
     return Res::Ok(base);
