@@ -1363,10 +1363,13 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     CMutableTransaction rawTx;
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
     CTxDestination ownerDest;
-    if (!ExtractDestination(msg.shareAddress, ownerDest)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
+    for (const auto& kv : msg.from) {
+        if (!ExtractDestination(kv.first, ownerDest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
+        }
+        rawIn = GetAuthInputs(pwallet, ownerDest, request.params[2].get_array());
+        rawTx.insert(rawTx.end(), rawIn.begin(), rawIn.end());
     }
-    rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[2].get_array());
 
     // fund
     rawTx = fund(rawTx, request, pwallet);

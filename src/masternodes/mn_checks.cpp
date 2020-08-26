@@ -432,8 +432,8 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         }
     }
 
-    CAmount amountA = sumTx.balances.begin()->second;
-    CAmount amountB = sumTx.balances.end()->second;
+    CTokenAmount amountA = CTokenAmount{sumTx.balances.begin()->first,sumTx.balances.begin()->second};
+    CTokenAmount amountB = CTokenAmount{sumTx.balances.end()->first,sumTx.balances.end()->second};
 
     const auto res = mnview.AddLiquidity(amountA, amountB, msg.shareAddress);
 
