@@ -23,6 +23,7 @@ public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount PRECISION = COIN; // or just PRECISION_BITS for "<<" and ">>"
 
+    DCT_ID tokenA, tokenB;
     CAmount reserveA, reserveB, totalLiquidity;
 
     arith_uint256 priceACumulativeLast, priceBCumulativeLast; // not sure about 'arith', at least sqrt() undefined
@@ -37,7 +38,7 @@ public:
     uint32_t creationHeight;
 
     ResVal<CPoolPair> Create(CPoolPairMessage const & msg);     // or smth else
-    ResVal<CTokenAmount> AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
+//    ResVal<CTokenAmount> AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
     // or:
 //    ResVal<CTokenAmount> AddLiquidity(CLiquidityMessage const & msg);
 
@@ -47,7 +48,7 @@ public:
 
     // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
     // otherwise, 'AddLiquidity' should be () external to 'CPairPool' (i.e. CPoolPairView::AddLiquidity(TAmount a,b etc) with internal lookup of pool by TAmount a,b)
-    Res AddLiquidityMath(CAmount const & amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript to, CAmount liqAmount)> onMint, uint32_t height) {
+    Res AddLiquidity(CAmount const & amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript to, CAmount liqAmount)> onMint, uint32_t height) {
 
         mintFee(onMint); // if fact, this is delayed calc (will be 0 on the first pass) // deps: reserveA(R), reserveB(R), kLast, totalLiquidity(RW)
 
@@ -164,7 +165,10 @@ public:
 class CPoolPairView : public virtual CStorageView
 {
 public:
+    // deprecated
     Res CreatePoolPair(CPoolPair const & pool, DCT_ID & poolId);
+
+    Res SetPoolPair(DCT_ID & poolId, CPoolPair const & pool);
     Res DeletePoolPair(DCT_ID const & poolId);
 
     boost::optional<CPoolPair> GetPoolPair(DCT_ID const & poolId) const;
@@ -175,7 +179,7 @@ public:
     void ForEachShare(std::function<bool(DCT_ID const & id, CScript const & provider)> callback, DCT_ID const & start = DCT_ID{0});
 //    void ForEachShare(std::function<bool(DCT_ID const & id, CScript const & provider, CAmount amount)> callback, DCT_ID const & start = DCT_ID{0}); // optional, with lookup into accounts
 
-    Res AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
+//    Res AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
 
     // tags
     struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair

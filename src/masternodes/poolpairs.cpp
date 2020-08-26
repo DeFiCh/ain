@@ -7,7 +7,7 @@
 #include <primitives/transaction.h>
 
 
-Res CPoolPairView::AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress)
-{
-    return Res::Ok();
-}
+//Res CPoolPairView::AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress)
+//{
+//    return Res::Ok();
+//}

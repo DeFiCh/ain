@@ -149,7 +149,7 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyMintTokenTx(mnview, coins, tx, metadata);
                 break;
             case CustomTxType::AddPoolLiquidity:
-                res = ApplyAddPoolLiquidityTx(mnview, coins, tx, metadata);
+                res = ApplyAddPoolLiquidityTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::UtxosToAccount:
                 res = ApplyUtxosToAccountTx(mnview, tx, metadata);
@@ -394,7 +394,7 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
     return Res::Ok(base);
 }
 
-Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata)
+Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
 {
     // deserialize
     CLiquidityMessage msg;
@@ -410,10 +410,13 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         return Res::Err("%s: the pool pair requires two tokens", base);
     }
 
-    DCT_ID tokenIdA = sumTx.balances.at(0)->first;
-    DCT_ID tokenIdB = sumTx.balances.at(1)->first;
+//    DCT_ID tokenIdA = sumTx.balances.begin()->first;
+//    DCT_ID tokenIdB = std::next(sumTx.balances.begin(), 1)->first;
 
-    auto pair = mnview.GetPoolPair(tokenIdA, tokenIdB);
+    std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
+    std::pair<DCT_ID, CAmount> amountB = *std::next(sumTx.balances.begin(), 1);
+
+    auto pair = mnview.GetPoolPair(amountA.first, amountB.first);
 
     if (!pair) {
         return Res::Err("%s: there is no such pool pair", base);
@@ -432,10 +435,27 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         }
     }
 
-    CTokenAmount amountA = CTokenAmount{sumTx.balances.at(0)->first, sumTx.balances.at(0)->second};
-    CTokenAmount amountB = CTokenAmount{sumTx.balances.at(1)->first, sumTx.balances.at(1)->second};
+//    CTokenAmount amountA = CTokenAmount{sumTx.balances.at(0)->first, sumTx.balances.at(0)->second};
+//    CTokenAmount amountB = CTokenAmount{sumTx.balances.at(1)->first, sumTx.balances.at(1)->second};
 
-    const auto res = mnview.AddLiquidity(amountA, amountB, msg.shareAddress);
+//    const auto res = mnview.AddLiquidity(amountA, amountB, msg.shareAddress);
+
+    DCT_ID const & lpTokenID = pair->first;
+    CPoolPair & pool = pair->second;
+
+    // normalize A & B to correspond poolpair's tokens
+    if (amountA.first != pool.tokenA)
+        std::swap(amountA, amountB);
+
+    const auto res = pool.AddLiquidity(amountA.second, amountB.second, msg.shareAddress, [&] (CScript to, CAmount liqAmount) {
+         pool.totalLiquidity += liqAmount;
+         mnview.AddBalance(to, { lpTokenID, liqAmount });
+
+        /// @todo insert updating/ByShare index here
+//         mnview.WriteBy<ByShare>(lpTokenID, address);
+
+        return Res::Ok();
+    }, height);
 
     if (!res.ok) {
         return Res::Err("%s: %s", base, res.msg);

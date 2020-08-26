@@ -1378,7 +1378,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyAddPoolLiquidityTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
+        const auto res = ApplyAddPoolLiquidityTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Height() + 1, ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
 
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
