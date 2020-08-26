@@ -559,15 +559,12 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 {
     const std::string base{"PoolPair creation"};
 
-    CPoolPair poolPair;
+    CPoolPairMessage poolPairMsg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> static_cast<CPoolPair &>(poolPair);
+    ss >> poolPairMsg;
     if (!ss.empty()) {
         return Res::Err("%s: deserialization failed: excess %d bytes", base,  ss.size());
     }
-
-    poolPair.creationTx = tx.GetHash();
-    poolPair.creationHeight = height;
 
     //check foundation auth
     if(!HasFoundationAuth(tx, coins, Params().GetConsensus()))
@@ -575,10 +572,47 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         return Res::Err("%s: %s", base, "Is not a foundation owner");
     }
 
-//    auto res = mnview.CreatePoolPair(poolPair);
-//    if (!res.ok) {
-//        return Res::Err("%s %s: %s", base, poolPair.pairSymbol, res.msg);
-//    }
+    CPoolPair poolPair;
+    poolPair.poolPairMsg = poolPairMsg;
+    poolPair.creationTx = tx.GetHash();
+    poolPair.creationHeight = height;
+
+    CTokenImplementation token;
+
+    auto tokenA = mnview.GetToken(poolPairMsg.idTokenA);
+    if (!tokenA) {
+        throw Res::Err("%s: token %s does not exist!", poolPairMsg.idTokenA.ToString());
+    }
+
+    auto tokenB = mnview.GetToken(poolPairMsg.idTokenB);
+    if (!tokenB) {
+        throw Res::Err("%s: token %s does not exist!", poolPairMsg.idTokenB.ToString());
+    }
+
+    if(poolPair.poolPairMsg.pairSymbol.empty())
+        poolPair.poolPairMsg.pairSymbol = trim_ws(tokenA->symbol + tokenB->symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    else
+        poolPair.poolPairMsg.pairSymbol = trim_ws(poolPair.poolPairMsg.pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+
+    token.name = trim_ws(tokenA->name + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+    token.symbol = poolPair.poolPairMsg.pairSymbol;
+    token.creationTx = tx.GetHash();
+    token.creationHeight = height;
+
+    auto res = mnview.CreateToken(token);
+    if (!res.ok) {
+        return Res::Err("%s %s: %s", base, token.symbol, res.msg);
+    }
+
+    auto pairToken = mnview.GetToken(token.symbol);
+    if (!pairToken) {
+        throw Res::Err("%s: token %s does not exist!", token.symbol);
+    }
+
+    auto resPP = mnview.SetPoolPair(pairToken->first, poolPair);
+    if (!resPP.ok) {
+        return Res::Err("%s %s: %s", base, poolPair.poolPairMsg.pairSymbol, resPP.msg);
+    }
 
     return Res::Ok(base);
 }

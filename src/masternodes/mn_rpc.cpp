@@ -1731,7 +1731,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
     std::string tokenA, tokenB, pairSymbol;
-    CAmount comission;
+    CAmount commission;
     bool status = true; // default Active
     UniValue paginationObj = request.params[0].get_obj();
     if (!paginationObj["tokenA"].isNull()) {
@@ -1741,7 +1741,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
         tokenB = paginationObj["tokenB"].get_str();
     }
     if (!paginationObj["comission"].isNull()) {
-        comission = paginationObj["comission"].get_int64();
+        commission = paginationObj["comission"].get_int64();
     }
     if (!paginationObj["status"].isNull()) {
         status = paginationObj["status"].get_bool();
@@ -1767,16 +1767,16 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenB was not found");
     }
 
-    CPoolPair poolPair;
-    poolPair.idTokenA = idtokenA;
-    poolPair.idTokenB = idtokenB;
-    poolPair.commissionPct = comission;
-    poolPair.status = status;
-    poolPair.pairSymbol = pairSymbol;
+    CPoolPairMessage poolPairMsg;
+    poolPairMsg.idTokenA = idtokenA;
+    poolPairMsg.idTokenB = idtokenB;
+    poolPairMsg.commission = commission;
+    poolPairMsg.status = status;
+    poolPairMsg.pairSymbol = pairSymbol;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
-             << poolPair;
+             << poolPairMsg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -1807,7 +1807,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         const auto res = ApplyCreatePoolPairTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolPair}));
+                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolPairMsg}));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
