@@ -396,7 +396,14 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
 
 Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata)
 {
-    const std::string base{"Adding liquidity"};
+    // deserialize
+    CLiquidityMessage msg;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("AccountToAccount tx deserialization failed: excess %d bytes", ss.size());
+    }
+    const auto base = strprintf("Adding liquidity %s", msg.ToString());
 
     // const auto res = mnview.AddLiquidity(); // TODO dummy res, not found AddLiquidity
 

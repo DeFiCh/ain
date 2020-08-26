@@ -1306,20 +1306,13 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                       {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                                {"tokenA", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                "One of the keys may be specified (id/symbol)"},
-                                {"tokenB", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                "One of the keys may be specified (id/symbol)"},
-                                {"amountA", RPCArg::Type::NUM, RPCArg::Optional::NO,
-                                "Amount to add to the pull"},
-                                {"amountB", RPCArg::Type::NUM, RPCArg::Optional::NO,
-                                "Amount to add to the pull"},
-                                {"shareAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "The defi address for crediting tokens"},
+                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
+                                                                                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
                         },
                        },
+                       {"shareAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address for crediting tokens."},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
@@ -1336,8 +1329,12 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("addpoolliquidity", "'{\"tokenA\":\"MyToken1\", \"tokenB\":\"MyToken2\", \"amountA\":\"0.001\", \"amountB\":\"0.001\", shared_address}' []")
-                       + HelpExampleRpc("addpoolliquidity", "'{\"tokenA\":\"MyToken1\", \"tokenB\":\"MyToken2\", \"amountA\":\"0.001\", \"amountB\":\"0.001\", shared_address}' []")
+                       HelpExampleCli("addpoolliquidity",
+                                      "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' ",
+                                      "share_address []")
+                       + HelpExampleRpc("addpoolliquidity",
+                                      "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' ",
+                                      "share_address []")
                },
     }.Check(request);
 
@@ -1345,51 +1342,31 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
 
-    RPCTypeCheck(request.params, { UniValue::VOBJ, UniValue::VARR }, true);
-    if (request.params[0].isNull()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, at least argument 1 must be non-null");
+    RPCTypeCheck(request.params, { UniValue::VOBJ, UniValue::VSTR, UniValue::VARR }, true);
+
+    // decode
+    CLiquidityMessage msg{};
+    msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
+    msg.shareAddress = DecodeScript(request.params[1].get_str());
+
+    if (SumAllTransfers(msg.from).balances.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
 
-    UniValue metaObj = request.params[0].get_obj();
-
-    std::string shareAddress = metaObj["shareAddress"].getValStr();
-    CTxDestination collateralDest = DecodeDestination(shareAddress);
-    if (collateralDest.which() == 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "shareAddress (" + shareAddress + ") does not refer to any valid address");
-    }
-
-    CPoolPair poolPair;
-    // fill here
+    // encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AddPoolLiquidity)
+                   << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
     CMutableTransaction rawTx;
-
-    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::AddPoolLiquidity)
-             << poolPair;
-
-    CScript scriptMeta;
-    scriptMeta << OP_RETURN << ToByteVector(metadata);
-
-    // // TODO block
-    for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
-    {
-        if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
-        {
-            CTxDestination destination;
-            if (!ExtractDestination(*it, destination)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
-            }
-            try {
-                rawTx.vin = GetAuthInputs(pwallet, destination, request.params[0].get_array());
-            }
-            catch (const UniValue& objError) {}
-        }
-    }
-    if(rawTx.vin.size() == 0)
-        throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
-
-    // // TODO end block
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
+    CTxDestination ownerDest;
+    if (!ExtractDestination(msg.shareAddress, ownerDest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
+    }
+    rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[2].get_array());
 
     // fund
     rawTx = fund(rawTx, request, pwallet);
@@ -1398,11 +1375,11 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        // const auto res = ApplyAddPoolLiquidityTx(mnview_dummy, CTransaction(rawTx), ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolPair}));
+        const auto res = ApplyAddPoolLiquidityTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
 
-        // if (!res.ok) {
-        //     throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        //}
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
     }
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }

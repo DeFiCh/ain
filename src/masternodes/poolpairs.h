@@ -70,5 +70,30 @@ public:
     struct ByShare { static const unsigned char prefix; }; // lsTokenID+accountID -> {}
 };
 
+struct CLiquidityMessage {
+    std::map<CScript, CBalances> from; // from -> balances
+    CScript shareAddress;
+
+    std::string ToString() const {
+        if (from.empty()) {
+            return "empty transfer";
+        }
+        std::string result;
+        for (const auto& kv : to) {
+            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
+        }
+        result += " to " + shareAddress.GetHex();
+        return result;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(from);
+        READWRITE(shareAddress);
+    }
+};
+
 
 #endif // DEFI_MASTERNODES_POOLPAIRS_H
