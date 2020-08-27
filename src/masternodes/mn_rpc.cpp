@@ -1349,10 +1349,6 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
     msg.shareAddress = DecodeScript(request.params[1].get_str());
 
-    if (SumAllTransfers(msg.from).balances.empty()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
-    }
-
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::AddPoolLiquidity)
@@ -1362,13 +1358,18 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
 
     CMutableTransaction rawTx;
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
     CTxDestination ownerDest;
-    for (const auto& kv : msg.from) {
-        if (!ExtractDestination(kv.first, ownerDest)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
+    if (!request.params[2].get_array().empty()) {
+        rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[2].get_array());
+    } else {
+        for (const auto& kv : msg.from) {
+            if (!ExtractDestination(kv.first, ownerDest)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
+            }
+            std::vector<CTxIn> rawIn = GetAuthInputs(pwallet, ownerDest, UniValue(UniValue::VARR));
+            rawTx.vin.insert(rawTx.vin.end(), rawIn.begin(), rawIn.end());
         }
-        std::vector<CTxIn> rawIn = GetAuthInputs(pwallet, ownerDest, request.params[2].get_array());
-        rawTx.vin.insert(rawTx.vin.end(), rawIn.begin(), rawIn.end());
     }
 
     // fund
