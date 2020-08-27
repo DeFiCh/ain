@@ -10,8 +10,9 @@ const unsigned char CPoolPairView::ByID          ::prefix = 'i';
 const unsigned char CPoolPairView::ByPair        ::prefix = 'j';
 const unsigned char CPoolPairView::ByShare       ::prefix = 'k';
 
-Res CPoolPairView::SetPoolPair(DCT_ID & poolId, CPoolPair const & pool)
+Res CPoolPairView::SetPoolPair(DCT_ID const & poolId, CPoolPair const & pool)
 {
+    DCT_ID poolID = poolId;
     if(pool.idTokenA == pool.idTokenB)
         return Res::Err("Error: tokens IDs are the same.");
 
@@ -21,21 +22,22 @@ Res CPoolPairView::SetPoolPair(DCT_ID & poolId, CPoolPair const & pool)
     }
     else
     {//new poolPair
-        WriteBy<ByID>(WrapVarInt(poolId.v), pool);
+        WriteBy<ByID>(WrapVarInt(poolID.v), pool);
 
         if(pool.idTokenA < pool.idTokenB)
-            WriteBy<ByPair>(ByPairKey{pool.idTokenA, pool.idTokenB}, WrapVarInt(poolId.v));
+            WriteBy<ByPair>(ByPairKey{pool.idTokenA, pool.idTokenB}, WrapVarInt(poolID.v));
         else
-            WriteBy<ByPair>(ByPairKey{pool.idTokenB, pool.idTokenA}, WrapVarInt(poolId.v));
+            WriteBy<ByPair>(ByPairKey{pool.idTokenB, pool.idTokenA}, WrapVarInt(poolID.v));
 
         return Res::Ok();
     }
 
 }
 
-boost::optional<CPoolPair> CPoolPairView::GetPoolPair(DCT_ID &poolId) const
+boost::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) const
 {
-    return ReadBy<ByID, CPoolPair>(WrapVarInt(poolId.v));
+    DCT_ID poolID = poolId;
+    return ReadBy<ByID, CPoolPair>(WrapVarInt(poolID.v));
 }
 
 boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const DCT_ID &tokenA, const DCT_ID &tokenB) const
