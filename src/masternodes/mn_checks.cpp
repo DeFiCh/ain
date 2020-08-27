@@ -469,7 +469,51 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
 Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
 {
-    const std::string base{"Removing liquidity"};
+    // deserialize
+    CRemoveLiquidityMessage msg;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("Removing liquidity tx deserialization failed: excess %d bytes", ss.size());
+    }
+
+    const auto base = strprintf("Removing liquidity %s", msg.ToString());
+
+    CBalances sumTx = SumAllTransfers(msg.from);
+    if (sumTx.balances.size() != 1) {
+        return Res::Err("%s: only one pair can be removing", base);
+    }
+
+    std::pair<DCT_ID, CAmount> amount = *sumTx.balances.begin();
+
+    auto pair = mnview.GetPoolPair(amount.first);
+
+    if (!pair) {
+        return Res::Err("%s: there is no such pool pair", base);
+    }
+
+    for (const auto& kv : msg.from) {
+        if (!HasAuth(tx, coins, kv.first)) {
+            return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+        }
+    }
+
+    for (const auto& kv : msg.from) {
+        const auto res = mnview.SubBalances(kv.first, kv.second);
+        if (!res.ok) {
+            return Res::Err("%s: %s", base, res.msg);
+        }
+    }
+
+    CScript address = msg.from.begin()->first;
+    CPoolPair pool = pair.get();
+
+    const auto res = pool.RemoveLiquidity(pool.reserveA, pool.reserveB, address);
+
+    if (!res.ok) {
+        return Res::Err("%s: %s", base, res.msg);
+    }
+
     return Res::Ok(base);
 }
 

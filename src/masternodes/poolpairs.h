@@ -91,6 +91,10 @@ public:
         return Res::Ok();
     }
 
+    Res RemoveLiquidity(CAmount const & amountA, CAmount amountB, CScript const & address) {
+        return Res::Ok();
+    }
+
     // usage:
     //    Res onMint(CScript const address, CAmount amount) {
     //        totalLiquidity += amount;
