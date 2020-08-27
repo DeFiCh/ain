@@ -151,6 +151,9 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::AddPoolLiquidity:
                 res = ApplyAddPoolLiquidityTx(mnview, coins, tx, height, metadata);
                 break;
+            case CustomTxType::RemovePoolLiquidity:
+                res = ApplyRemovePoolLiquidityTx(mnview, coins, tx, height, metadata);
+                break;
             case CustomTxType::UtxosToAccount:
                 res = ApplyUtxosToAccountTx(mnview, tx, metadata);
                 break;
@@ -461,6 +464,12 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         return Res::Err("%s: %s", base, res.msg);
     }
 
+    return Res::Ok(base);
+}
+
+Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+{
+    const std::string base{"Removing liquidity"};
     return Res::Ok(base);
 }
 

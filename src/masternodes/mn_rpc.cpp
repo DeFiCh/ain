@@ -1302,7 +1302,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"addpoolliquidity",
-               "\nCreates (and submits to local node and network) a add pool liquidity transaction with given metadata.\n"
+               "\nCreates (and submits to local node and network) a add pool liquidity transaction.\n"
                "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -1380,6 +1380,90 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         const auto res = ApplyAddPoolLiquidityTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Height() + 1, ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
+
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+}
+
+UniValue removepoolliquidity(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"removepoolliquidity",
+               "\nCreates (and submits to local node and network) a remove pool liquidity transaction.\n"
+               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
+                                                                                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                        },
+                       },
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("removepoolliquidity", "'{\"address1\":\"1.0@DFI\"}' []")
+                       + HelpExampleRpc("removepoolliquidity", "'{\"address1\":\"1.0@DFI\"}' []")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+
+    RPCTypeCheck(request.params, { UniValue::VOBJ, UniValue::VARR }, true);
+
+    // decode
+    CRemoveLiquidityMessage msg{};
+    msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
+
+    // encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AddPoolLiquidity)
+                   << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    CMutableTransaction rawTx;
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    CTxDestination ownerDest;
+    if (!request.params[2].get_array().empty()) {
+        rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[2].get_array());
+    } else {
+        for (const auto& kv : msg.from) {
+            if (!ExtractDestination(kv.first, ownerDest)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
+            }
+            std::vector<CTxIn> rawIn = GetAuthInputs(pwallet, ownerDest, UniValue(UniValue::VARR));
+            rawTx.vin.insert(rawTx.vin.end(), rawIn.begin(), rawIn.end());
+        }
+    }
+
+    // fund
+    rawTx = fund(rawTx, request, pwallet);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        const auto res = ApplyRemovePoolLiquidityTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Height() + 1, ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
 
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);

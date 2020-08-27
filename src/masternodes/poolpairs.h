@@ -227,5 +227,27 @@ struct CLiquidityMessage {
     }
 };
 
+struct CRemoveLiquidityMessage {
+    std::map<CScript, CBalances> from; // from -> balances
+
+    std::string ToString() const {
+        if (from.empty()) {
+            return "empty transfer";
+        }
+        std::string result;
+        for (const auto& kv : from) {
+            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
+        }
+        return result;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(from);
+    }
+};
+
 
 #endif // DEFI_MASTERNODES_POOLPAIRS_H
