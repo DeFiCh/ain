@@ -207,10 +207,10 @@ struct PoolShareKey {
 class CPoolPairView : public virtual CStorageView
 {
 public:
-    Res SetPoolPair(DCT_ID &poolId, CPoolPair const & pool);
+    Res SetPoolPair(const DCT_ID &poolId, CPoolPair const & pool);
     Res DeletePoolPair(DCT_ID const & poolId);
 
-    boost::optional<CPoolPair> GetPoolPair(DCT_ID &poolId) const;
+    boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
 //    boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPairGuessId(const std::string & str) const; // optional
     boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 
