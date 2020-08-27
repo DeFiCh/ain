@@ -190,10 +190,24 @@ public:
     }
 };
 
+struct PoolShareKey {
+    DCT_ID poolID;
+    CScript owner;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(WrapBigEndian(poolID.v));
+        READWRITE(owner);
+    }
+};
+
+
 class CPoolPairView : public virtual CStorageView
 {
 public:
-    Res SetPoolPair(DCT_ID & poolId, CPoolPair const & pool);
+    Res SetPoolPair(DCT_ID &poolId, CPoolPair const & pool);
     Res DeletePoolPair(DCT_ID const & poolId);
 
     boost::optional<CPoolPair> GetPoolPair(DCT_ID &poolId) const;
@@ -201,6 +215,19 @@ public:
     boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 
     void ForEachPoolPair(std::function<bool(DCT_ID const & id, CPoolPair const & pool)> callback, DCT_ID const & start = DCT_ID{0});
+
+    Res SetShare(DCT_ID const & poolId, CScript const & provider) {
+        WriteBy<ByShare>(PoolShareKey{ poolId, provider}, '\0');
+        return Res::Ok();
+    }
+    Res DelShare(DCT_ID const & poolId, CScript const & provider) {
+        EraseBy<ByShare>(PoolShareKey{poolId, provider});
+        return Res::Ok();
+    }
+//    bool HasShare(DCT_ID const & poolId, CScript const & provider) {  // deprecated usecase, can be used "main" account view for that
+//        return ExistsBy<ByShare>(PoolShareKey{poolId, provider});
+//    }
+
     void ForEachShare(std::function<bool(DCT_ID const & id, CScript const & provider)> callback, DCT_ID const & start = DCT_ID{0});
 //    void ForEachShare(std::function<bool(DCT_ID const & id, CScript const & provider, CAmount amount)> callback, DCT_ID const & start = DCT_ID{0}); // optional, with lookup into accounts
 

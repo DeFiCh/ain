@@ -10,7 +10,7 @@ const unsigned char CPoolPairView::ByID          ::prefix = 'i';
 const unsigned char CPoolPairView::ByPair        ::prefix = 'j';
 const unsigned char CPoolPairView::ByShare       ::prefix = 'k';
 
-Res CPoolPairView::SetPoolPair(DCT_ID &poolId, const CPoolPair &pool)
+Res CPoolPairView::SetPoolPair(DCT_ID & poolId, CPoolPair const & pool)
 {
     if(pool.idTokenA == pool.idTokenB)
         return Res::Err("Error: tokens IDs are the same.");
