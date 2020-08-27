@@ -41,7 +41,8 @@ enum class CustomTxType : unsigned char
 //    CreateOrder         = 'O',
 //    DestroyOrder        = 'E',
 //    MatchOrders         = 'A',
-    // liquidity
+    //poolpair
+    CreatePoolPair      = 'p',
     AddPoolLiquidity    = 'l',
     // accounts
     UtxosToAccount     = 'U',
@@ -50,7 +51,7 @@ enum class CustomTxType : unsigned char
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMDNlUbB";
+    char const txtypes[] = "CRTMDNplUbB";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -94,6 +95,8 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, std::vector<unsigned char> const & metadata);
 Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
 Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
+
+Res ApplyCreatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256 & txid);
 

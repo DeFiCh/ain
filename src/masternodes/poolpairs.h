@@ -14,8 +14,24 @@
 #include <serialize.h>
 #include <uint256.h>
 #include <masternodes/balances.h>
-struct CPoolPairMessage;
 
+struct CPoolPairMessage {
+    DCT_ID idTokenA, idTokenB;
+    CAmount commission;
+    bool status = true;
+    std::string pairSymbol;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(VARINT(idTokenA.v));
+        READWRITE(VARINT(idTokenB.v));
+        READWRITE(commission);
+        READWRITE(status);
+        READWRITE(pairSymbol);
+    }
+};
 
 class CPoolPair
 {
@@ -36,6 +52,8 @@ public:
 
     uint256 creationTx;
     uint32_t creationHeight;
+
+    CPoolPairMessage poolPairMsg;
 
     ResVal<CPoolPair> Create(CPoolPairMessage const & msg);     // or smth else
 //    ResVal<CTokenAmount> AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
@@ -165,9 +183,6 @@ public:
 class CPoolPairView : public virtual CStorageView
 {
 public:
-    // deprecated
-    Res CreatePoolPair(CPoolPair const & pool, DCT_ID & poolId);
-
     Res SetPoolPair(DCT_ID & poolId, CPoolPair const & pool);
     Res DeletePoolPair(DCT_ID const & poolId);
 
