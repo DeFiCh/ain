@@ -16,12 +16,8 @@ Res CPoolPairView::SetPoolPair(DCT_ID const & poolId, CPoolPair const & pool)
     if(pool.idTokenA == pool.idTokenB)
         return Res::Err("Error: tokens IDs are the same.");
 
-    if(GetPoolPair(pool.idTokenA, pool.idTokenB))
-    {//both ByID and ByPair exist
-        return Res::Ok();
-    }
-    else
-    {//new poolPair
+    if(GetPoolPair(pool.idTokenA, pool.idTokenB) || !GetPoolPair(poolId))
+    {//if pool exists and data is correct || pool doesn't exist
         WriteBy<ByID>(WrapVarInt(poolID.v), pool);
 
         if(pool.idTokenA < pool.idTokenB)
@@ -31,7 +27,7 @@ Res CPoolPairView::SetPoolPair(DCT_ID const & poolId, CPoolPair const & pool)
 
         return Res::Ok();
     }
-
+    return Res::Err("Error: Couldn't create/change pool pair.");
 }
 
 boost::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) const

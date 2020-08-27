@@ -33,7 +33,6 @@ struct CPoolPairMessage {
     CAmount commission;   // comission %% for traders
     CScript ownerFeeAddress;
     bool status = true;
-    std::string pairSymbol;
 
     ADD_SERIALIZE_METHODS;
 
@@ -44,7 +43,6 @@ struct CPoolPairMessage {
         READWRITE(commission);
         READWRITE(ownerFeeAddress);
         READWRITE(status);
-        READWRITE(pairSymbol);
     }
 };
 
@@ -53,6 +51,15 @@ class CPoolPair : public CPoolPairMessage
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount PRECISION = COIN; // or just PRECISION_BITS for "<<" and ">>"
+
+    void fillMessageData(const CPoolPairMessage &msg)
+    {
+        idTokenA = msg.idTokenA;
+        idTokenB = msg.idTokenB;
+        commission = msg.commission;
+        ownerFeeAddress = msg.ownerFeeAddress;
+        status = msg.status;
+    }
 
     CAmount reserveA, reserveB, totalLiquidity;
 

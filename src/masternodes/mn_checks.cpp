@@ -567,8 +567,10 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     const std::string base{"PoolPair creation"};
 
     CPoolPairMessage poolPairMsg;
+    std::string pairSymbol;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> poolPairMsg;
+    ss >> pairSymbol;
     if (!ss.empty()) {
         return Res::Err("%s: deserialization failed: excess %d bytes", base,  ss.size());
     }
@@ -580,12 +582,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     }
 
     CPoolPair poolPair;
-    poolPair.idTokenA = poolPairMsg.idTokenA;
-    poolPair.idTokenB = poolPairMsg.idTokenB;
-    poolPair.commission = poolPairMsg.commission;
-    poolPair.ownerFeeAddress = poolPairMsg.ownerFeeAddress;
-    poolPair.status = poolPairMsg.status;
-    poolPair.pairSymbol = poolPairMsg.pairSymbol;
+    poolPair.fillMessageData(poolPairMsg);
     poolPair.creationTx = tx.GetHash();
     poolPair.creationHeight = height;
 
@@ -601,13 +598,13 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         throw Res::Err("%s: token %s does not exist!", poolPairMsg.idTokenB.ToString());
     }
 
-    if(poolPair.pairSymbol.empty())
-        poolPair.pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    if(pairSymbol.empty())
+        pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     else
-        poolPair.pairSymbol = trim_ws(poolPair.pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        pairSymbol = trim_ws(pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
-    token.name = trim_ws(tokenA->name + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-    token.symbol = poolPair.pairSymbol;
+    token.name = trim_ws(tokenA->name + "-" + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+    token.symbol = pairSymbol;
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
@@ -623,7 +620,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 
     auto resPP = mnview.SetPoolPair(pairToken->first, poolPair);
     if (!resPP.ok) {
-        return Res::Err("%s %s: %s", base, poolPair.pairSymbol, resPP.msg);
+        return Res::Err("%s %s: %s", base, pairSymbol, resPP.msg);
     }
 
     return Res::Ok(base);
