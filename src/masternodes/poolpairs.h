@@ -15,9 +15,23 @@
 #include <uint256.h>
 #include <masternodes/balances.h>
 
+struct ByPairKey {
+    DCT_ID idTokenA;
+    DCT_ID idTokenB;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(VARINT(idTokenA.v));
+        READWRITE(VARINT(idTokenB.v));
+    }
+};
+
 struct CPoolPairMessage {
     DCT_ID idTokenA, idTokenB;
-    CAmount commission;
+    CAmount commission;   // comission %% for traders
+    CScript ownerFeeAddress;
     bool status = true;
     std::string pairSymbol;
 
@@ -28,32 +42,28 @@ struct CPoolPairMessage {
         READWRITE(VARINT(idTokenA.v));
         READWRITE(VARINT(idTokenB.v));
         READWRITE(commission);
+        READWRITE(ownerFeeAddress);
         READWRITE(status);
         READWRITE(pairSymbol);
     }
 };
 
-class CPoolPair
+class CPoolPair : public CPoolPairMessage
 {
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount PRECISION = COIN; // or just PRECISION_BITS for "<<" and ">>"
 
-    DCT_ID tokenA, tokenB;
     CAmount reserveA, reserveB, totalLiquidity;
 
     arith_uint256 priceACumulativeLast, priceBCumulativeLast; // not sure about 'arith', at least sqrt() undefined
     arith_uint256 kLast;
     uint32_t lastPoolEventHeight;
 
-    CAmount commissionPct;   // comission %% for traders
     CAmount rewardPct;       // pool yield farming reward %%
-    CScript ownerFeeAddress;
 
     uint256 creationTx;
     uint32_t creationHeight;
-
-    CPoolPairMessage poolPairMsg;
 
     ResVal<CPoolPair> Create(CPoolPairMessage const & msg);     // or smth else
 //    ResVal<CTokenAmount> AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
@@ -186,7 +196,7 @@ public:
     Res SetPoolPair(DCT_ID & poolId, CPoolPair const & pool);
     Res DeletePoolPair(DCT_ID const & poolId);
 
-    boost::optional<CPoolPair> GetPoolPair(DCT_ID const & poolId) const;
+    boost::optional<CPoolPair> GetPoolPair(DCT_ID &poolId) const;
 //    boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPairGuessId(const std::string & str) const; // optional
     boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 

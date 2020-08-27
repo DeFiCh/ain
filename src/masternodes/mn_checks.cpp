@@ -160,6 +160,9 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::AccountToAccount:
                 res = ApplyAccountToAccountTx(mnview, coins, tx, metadata);
                 break;
+            case CustomTxType::CreatePoolPair:
+                res = ApplyCreatePoolPairTx(mnview, coins, tx, height, metadata);
+                break;
             default:
                 return Res::Ok(); // not "custom" tx
         }
@@ -444,7 +447,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     CPoolPair & pool = pair->second;
 
     // normalize A & B to correspond poolpair's tokens
-    if (amountA.first != pool.tokenA)
+    if (amountA.first != pool.idTokenA)
         std::swap(amountA, amountB);
 
     const auto res = pool.AddLiquidity(amountA.second, amountB.second, msg.shareAddress, [&] (CScript to, CAmount liqAmount) {
@@ -573,7 +576,12 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     }
 
     CPoolPair poolPair;
-    poolPair.poolPairMsg = poolPairMsg;
+    poolPair.idTokenA = poolPairMsg.idTokenA;
+    poolPair.idTokenB = poolPairMsg.idTokenB;
+    poolPair.commission = poolPairMsg.commission;
+    poolPair.ownerFeeAddress = poolPairMsg.ownerFeeAddress;
+    poolPair.status = poolPairMsg.status;
+    poolPair.pairSymbol = poolPairMsg.pairSymbol;
     poolPair.creationTx = tx.GetHash();
     poolPair.creationHeight = height;
 
@@ -589,13 +597,13 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         throw Res::Err("%s: token %s does not exist!", poolPairMsg.idTokenB.ToString());
     }
 
-    if(poolPair.poolPairMsg.pairSymbol.empty())
-        poolPair.poolPairMsg.pairSymbol = trim_ws(tokenA->symbol + tokenB->symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    if(poolPair.pairSymbol.empty())
+        poolPair.pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     else
-        poolPair.poolPairMsg.pairSymbol = trim_ws(poolPair.poolPairMsg.pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        poolPair.pairSymbol = trim_ws(poolPair.pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
     token.name = trim_ws(tokenA->name + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-    token.symbol = poolPair.poolPairMsg.pairSymbol;
+    token.symbol = poolPair.pairSymbol;
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
@@ -606,12 +614,12 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 
     auto pairToken = mnview.GetToken(token.symbol);
     if (!pairToken) {
-        throw Res::Err("%s: token %s does not exist!", token.symbol);
+        throw Res::Err("%s: token %s does not exist!", base, token.symbol);
     }
 
     auto resPP = mnview.SetPoolPair(pairToken->first, poolPair);
     if (!resPP.ok) {
-        return Res::Err("%s %s: %s", base, poolPair.poolPairMsg.pairSymbol, resPP.msg);
+        return Res::Err("%s %s: %s", base, poolPair.pairSymbol, resPP.msg);
     }
 
     return Res::Ok(base);
