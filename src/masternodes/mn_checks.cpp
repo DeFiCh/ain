@@ -414,7 +414,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 //    DCT_ID tokenIdB = std::next(sumTx.balances.begin(), 1)->first;
 
     std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
-    std::pair<DCT_ID, CAmount> amountB = *std::next(sumTx.balances.begin(), 1);
+    std::pair<DCT_ID, CAmount> amountB = *(sumTx.balances.begin()++);
 
     auto pair = mnview.GetPoolPair(amountA.first, amountB.first);
 
@@ -447,12 +447,15 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     if (amountA.first != pool.tokenA)
         std::swap(amountA, amountB);
 
-    const auto res = pool.AddLiquidity(amountA.second, amountB.second, msg.shareAddress, [&] (CScript to, CAmount liqAmount) {
+    const auto res = pool.AddLiquidity(amountA.second, amountB.second, msg.shareAddress, [&] /*onMint*/(CScript to, CAmount liqAmount) {
+         if (liqAmount <= 0)
+             throw runtime_error("Trying to mint " + std::to_string(liqAmount)+ " of poolpair token #" + lpTokenID.ToString() + " for account " + to.GetHex());
+
          pool.totalLiquidity += liqAmount;
          mnview.AddBalance(to, { lpTokenID, liqAmount });
 
-        /// @todo insert updating/ByShare index here
-//         mnview.WriteBy<ByShare>(lpTokenID, address);
+         //insert update ByShare index
+         mnview.SetShare(lpTokenID, to);
 
         return Res::Ok();
     }, height);
@@ -460,6 +463,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     if (!res.ok) {
         return Res::Err("%s: %s", base, res.msg);
     }
+    mnview.SetPoolPair(lpTokenID, pool); // res?
 
     return Res::Ok(base);
 }
