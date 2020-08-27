@@ -1778,11 +1778,10 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     poolPairMsg.commission = commission;
     poolPairMsg.status = status;
     poolPairMsg.ownerFeeAddress = ownerFeeAddress;
-    poolPairMsg.pairSymbol = pairSymbol;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
-             << poolPairMsg;
+             << poolPairMsg << pairSymbol;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -1813,7 +1812,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         const auto res = ApplyCreatePoolPairTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolPairMsg}));
+                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolPairMsg, pairSymbol}));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
