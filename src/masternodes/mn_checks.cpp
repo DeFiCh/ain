@@ -486,20 +486,18 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
 
     const auto base = strprintf("Removing liquidity %s", msg.ToString());
 
-    CBalances sumTx = SumAllTransfers(msg.from);
-    if (sumTx.balances.size() != 1) {
+    if (msg.from.size() != 1) {
         return Res::Err("%s: only one pair can be removing", base);
     }
 
-    std::pair<DCT_ID, CAmount> amount = *sumTx.balances.begin();
+    std::pair<CScript, CBalances> from = *msg.from.begin();
+    std::pair<DCT_ID, CAmount> amount = *from.second.balances.begin();
 
     auto pair = mnview.GetPoolPair(amount.first);
 
     if (!pair) {
         return Res::Err("%s: there is no such pool pair", base);
     }
-
-    std::pair<CScript, CBalances> from = *msg.from.begin();
 
     if (!HasAuth(tx, coins, from.first)) {
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
@@ -511,14 +509,16 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
     const auto res = pool.RemoveLiquidity(address, amount.second, [&] (CScript to, CAmount amountA, CAmount amountB) {
         pool.totalLiquidity -= amount.second;
 
-        if (pool.totalLiquidity <= 0) {
-            //delete ByShare index
-            mnview.DelShare(amount.first, to);
-        }
-
         auto sub = mnview.SubBalances(from.first, from.second);
         if (!sub.ok) {
             return Res::Err("%s: %s", base, sub.msg);
+        }
+
+        const auto balance = mnview.GetBalance(from.first, from.second);
+
+        if (balance.nValue == 0) {
+            //delete ByShare index
+            mnview.DelShare(amount.first, to);
         }
 
         mnview.AddBalance(to, { pool.idTokenA, amountA });
