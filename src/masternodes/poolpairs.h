@@ -122,7 +122,10 @@ public:
         resAmountA = liqAmount * reserveA / totalLiquidity;
         resAmountB = liqAmount * reserveB / totalLiquidity;
 
-        onMint(address, resAmountA, resAmountB);
+        auto res = onMint(address, resAmountA, resAmountB);
+        if (!res.ok) {
+            return Res::Err("Removing liquidity: %s", sub.msg);
+        }
 
         update(reserveA - resAmountA, reserveB - resAmountB, height); // deps: prices, reserves, kLast
 

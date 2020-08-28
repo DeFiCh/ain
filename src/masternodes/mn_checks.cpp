@@ -505,16 +505,22 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
     }
 
-    auto sub = mnview.SubBalances(from.first, from.second);
-    if (!sub.ok) {
-        return Res::Err("%s: %s", base, sub.msg);
-    }
-
     CScript address = from.first;
     CPoolPair pool = pair.get();
 
     const auto res = pool.RemoveLiquidity(address, amount.second, [&] (CScript to, CAmount amountA, CAmount amountB) {
         pool.totalLiquidity -= amount.second;
+
+        if (pool.totalLiquidity <= 0) {
+            //delete ByShare index
+            mnview.DelShare(amount.first, to);
+        }
+
+        auto sub = mnview.SubBalances(from.first, from.second);
+        if (!sub.ok) {
+            return Res::Err("%s: %s", base, sub.msg);
+        }
+
         mnview.AddBalance(to, { pool.tokenA, amountA });
         mnview.AddBalance(to, { pool.tokenB, amountB });
 
