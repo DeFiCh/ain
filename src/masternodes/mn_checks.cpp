@@ -521,8 +521,8 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
             return Res::Err("%s: %s", base, sub.msg);
         }
 
-        mnview.AddBalance(to, { pool.tokenA, amountA });
-        mnview.AddBalance(to, { pool.tokenB, amountB });
+        mnview.AddBalance(to, { pool.idTokenA, amountA });
+        mnview.AddBalance(to, { pool.idTokenB, amountB });
 
         return Res::Ok();
     }, height);

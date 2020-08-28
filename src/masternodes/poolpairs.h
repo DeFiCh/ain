@@ -124,7 +124,7 @@ public:
 
         auto res = onMint(address, resAmountA, resAmountB);
         if (!res.ok) {
-            return Res::Err("Removing liquidity: %s", sub.msg);
+            return Res::Err("Removing liquidity: %s", res.msg);
         }
 
         update(reserveA - resAmountA, reserveB - resAmountB, height); // deps: prices, reserves, kLast
