@@ -492,23 +492,27 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
         return Res::Err("%s: there is no such pool pair", base);
     }
 
-    for (const auto& kv : msg.from) {
-        if (!HasAuth(tx, coins, kv.first)) {
-            return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
-        }
+    std::pair<CScript, CBalances> from = *msg.from.begin();
+
+    if (!HasAuth(tx, coins, from.first)) {
+        return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
     }
 
-    for (const auto& kv : msg.from) {
-        const auto res = mnview.SubBalances(kv.first, kv.second);
-        if (!res.ok) {
-            return Res::Err("%s: %s", base, res.msg);
-        }
+    auto sub = mnview.SubBalances(from.first, from.second);
+    if (!sub.ok) {
+        return Res::Err("%s: %s", base, sub.msg);
     }
 
-    CScript address = msg.from.begin()->first;
+    CScript address = from.first;
     CPoolPair pool = pair.get();
 
-    const auto res = pool.RemoveLiquidity(pool.reserveA, pool.reserveB, address);
+    const auto res = pool.RemoveLiquidity(address, amount.second, [&] (CScript to, CAmount amountA, CAmount amountB) {
+        pool.totalLiquidity -= amount.second;
+        mnview.AddBalance(to, { pool.tokenA, amountA });
+        mnview.AddBalance(to, { pool.tokenB, amountB });
+
+        return Res::Ok();
+    }, height);
 
     if (!res.ok) {
         return Res::Err("%s: %s", base, res.msg);

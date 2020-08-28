@@ -91,16 +91,26 @@ public:
         return Res::Ok();
     }
 
-    Res RemoveLiquidity(CAmount const & amountA, CAmount amountB, CScript const & address) {
-        return Res::Ok();
-    }
-
     // usage:
     //    Res onMint(CScript const address, CAmount amount) {
     //        totalLiquidity += amount;
     //        Account(address)->Add(lpTokenID, amount);
     //        WriteBy<ByShare>(lpTokenID, address);
     //    }
+
+    Res RemoveLiquidity(CScript const & address, CAmount const & liqAmount, std::function<Res(CScript to, CAmount amountA, CAmount amountB)> onMint, uint32_t height) {
+
+        CAmount resAmountA, resAmountB;
+
+        resAmountA = liqAmount * reserveA / totalLiquidity;
+        resAmountB = liqAmount * reserveB / totalLiquidity;
+
+        onMint(address, resAmountA, resAmountB);
+
+        update(reserveA - resAmountA, reserveB - resAmountB, height); // deps: prices, reserves, kLast
+
+        return Res::Ok();
+    }
 
     Res Swap(CAmount amount0Out, CAmount amount1Out, CScript to) {
 //        require(amount0Out > 0 || amount1Out > 0, 'UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT');
