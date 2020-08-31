@@ -1741,22 +1741,22 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     bool status = true; // default Active
     UniValue metadataObj = request.params[0].get_obj();
     if (!metadataObj["tokenA"].isNull()) {
-        tokenA = metadataObj["tokenA"].get_str();
+        tokenA = metadataObj["tokenA"].getValStr();
     }
     if (!metadataObj["tokenB"].isNull()) {
-        tokenB = metadataObj["tokenB"].get_str();
+        tokenB = metadataObj["tokenB"].getValStr();
     }
     if (!metadataObj["comission"].isNull()) {
-        commission = metadataObj["comission"].get_int64();
+        commission = AmountFromValue(metadataObj["comission"]);
     }
     if (!metadataObj["status"].isNull()) {
-        status = metadataObj["status"].get_bool();
+        status = metadataObj["status"].getBool();
     }
     if (!metadataObj["ownerFeeAddress"].isNull()) {
-        ownerFeeAddress = DecodeScript(metadataObj["ownerFeeAddress"].get_str());
+        ownerFeeAddress = DecodeScript(metadataObj["ownerFeeAddress"].getValStr());
     }
     if (!metadataObj["pairSymbol"].isNull()) {
-        pairSymbol = metadataObj["pairSymbol"].get_str();
+        pairSymbol = metadataObj["pairSymbol"].getValStr();
     }
 
     DCT_ID idtokenA, idtokenB;

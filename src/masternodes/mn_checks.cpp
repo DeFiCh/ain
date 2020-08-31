@@ -581,8 +581,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         return Res::Err("%s: %s", base, "Is not a foundation owner");
     }
 
-    CPoolPair poolPair;
-    poolPair.fillMessageData(poolPairMsg);
+    CPoolPair poolPair(poolPairMsg);
     poolPair.creationTx = tx.GetHash();
     poolPair.creationHeight = height;
 
