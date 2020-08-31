@@ -109,6 +109,23 @@ public:
     //        WriteBy<ByShare>(lpTokenID, address);
     //    }
 
+    Res RemoveLiquidity(CScript const & address, CAmount const & liqAmount, std::function<Res(CScript to, CAmount amountA, CAmount amountB)> onBurn, uint32_t height) {
+
+        CAmount resAmountA, resAmountB;
+
+        resAmountA = liqAmount * reserveA / totalLiquidity;
+        resAmountB = liqAmount * reserveB / totalLiquidity;
+
+        auto res = onBurn(address, resAmountA, resAmountB);
+        if (!res.ok) {
+            return Res::Err("Removing liquidity: %s", res.msg);
+        }
+
+        update(reserveA - resAmountA, reserveB - resAmountB, height); // deps: prices, reserves, kLast
+
+        return Res::Ok();
+    }
+
     Res Swap(CAmount amount0Out, CAmount amount1Out, CScript to) {
 //        require(amount0Out > 0 || amount1Out > 0, 'UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT');
 //        (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
@@ -262,6 +279,24 @@ struct CLiquidityMessage {
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(from);
         READWRITE(shareAddress);
+    }
+};
+
+struct CRemoveLiquidityMessage {
+    CScript from;
+    CTokenAmount amount;
+
+    std::string ToString() const {
+        std::string result = "(" + from.GetHex() + "->" + amount.ToString() + ")";
+        return result;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(from);
+        READWRITE(amount);
     }
 };
 
