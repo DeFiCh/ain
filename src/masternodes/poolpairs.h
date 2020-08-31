@@ -115,14 +115,14 @@ public:
     //        WriteBy<ByShare>(lpTokenID, address);
     //    }
 
-    Res RemoveLiquidity(CScript const & address, CAmount const & liqAmount, std::function<Res(CScript to, CAmount amountA, CAmount amountB)> onMint, uint32_t height) {
+    Res RemoveLiquidity(CScript const & address, CAmount const & liqAmount, std::function<Res(CScript to, CAmount amountA, CAmount amountB)> onBurn, uint32_t height) {
 
         CAmount resAmountA, resAmountB;
 
         resAmountA = liqAmount * reserveA / totalLiquidity;
         resAmountB = liqAmount * reserveB / totalLiquidity;
 
-        auto res = onMint(address, resAmountA, resAmountB);
+        auto res = onBurn(address, resAmountA, resAmountB);
         if (!res.ok) {
             return Res::Err("Removing liquidity: %s", res.msg);
         }

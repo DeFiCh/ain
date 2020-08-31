@@ -409,6 +409,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     if (!ss.empty()) {
         return Res::Err("Adding liquidity tx deserialization failed: excess %d bytes", ss.size());
     }
+
     const auto base = strprintf("Adding liquidity %s", msg.ToString());
 
     CBalances sumTx = SumAllTransfers(msg.from);
@@ -421,6 +422,10 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
     std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
     std::pair<DCT_ID, CAmount> amountB = *(sumTx.balances.begin()++);
+
+    if (amountA.second <= 0 || amountB.second) {
+        return Res::Err("%s: amount cannot be less than or equal to zero", base);
+    }
 
     auto pair = mnview.GetPoolPair(amountA.first, amountB.first);
 
@@ -458,7 +463,10 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
              throw runtime_error("Trying to mint " + std::to_string(liqAmount)+ " of poolpair token #" + lpTokenID.ToString() + " for account " + to.GetHex());
 
          pool.totalLiquidity += liqAmount;
-         mnview.AddBalance(to, { lpTokenID, liqAmount });
+         auto add = mnview.AddBalance(to, { lpTokenID, liqAmount });
+         if (!add.ok) {
+            return Res::Err("%s: %s", base, add.msg);
+         }
 
          //insert update ByShare index
          mnview.SetShare(lpTokenID, to);
@@ -493,6 +501,10 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
     std::pair<CScript, CBalances> from = *msg.from.begin();
     std::pair<DCT_ID, CAmount> amount = *from.second.balances.begin();
 
+    if (amount.second <= 0) {
+        return Res::Err("%s: amount cannot be less than or equal to zero", base);
+    }
+
     auto pair = mnview.GetPoolPair(amount.first);
 
     if (!pair) {
@@ -514,15 +526,22 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
             return Res::Err("%s: %s", base, sub.msg);
         }
 
-        const auto balance = mnview.GetBalance(from.first, from.second);
+        const auto balance = mnview.GetBalance(from.first, amount.first);
 
         if (balance.nValue == 0) {
             //delete ByShare index
             mnview.DelShare(amount.first, to);
         }
 
-        mnview.AddBalance(to, { pool.idTokenA, amountA });
-        mnview.AddBalance(to, { pool.idTokenB, amountB });
+        auto addA = mnview.AddBalance(to, { pool.idTokenA, amountA });
+        if (!addA.ok) {
+            return Res::Err("%s: %s", base, addA.msg);
+        }
+
+        auto addB = mnview.AddBalance(to, { pool.idTokenB, amountB });
+        if (!addB.ok) {
+            return Res::Err("%s: %s", base, addB.msg);
+        }
 
         return Res::Ok();
     }, height);
