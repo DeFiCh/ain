@@ -1914,6 +1914,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose"}},
     {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination"}},
     {"poolpair",    "addpoolliquidity",   &addpoolliquidity,   {"metadata", "inputs"}},
+    {"poolpair",    "removepoolliquidity",&removepoolliquidity,{"from", "amount", "inputs"}},
     {"accounts",    "utxostoaccount",     &utxostoaccount,     {"inputs", "amounts"}},
     {"accounts",    "accounttoaccount",   &accounttoaccount,   {"inputs", "from", "to"}},
     {"accounts",    "accounttoutxos",     &accounttoutxos,     {"inputs", "from", "to"}},
