@@ -1681,34 +1681,33 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                                {"tokenA", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                "One of the keys may be specified (id/symbol)"},
-                                {"tokenB", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                "One of the keys may be specified (id/symbol)"},
-                                {"comission", RPCArg::Type::NUM, RPCArg::Optional::NO,
-                                "Pool comission, up to 10^-8"},
-                                {"status", RPCArg::Type::BOOL, RPCArg::Optional::NO,
-                                "Pool Status: True is Active, False is Restricted"},
-                                {"ownerFeeAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                "Address of the fee owner."},
-                                {"pairSymbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                 "Pair symbol (unique), no longer than " +
-                                 std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
-                        },
+                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                       {
+                            {"tokenA", RPCArg::Type::STR, RPCArg::Optional::NO,
+                            "One of the keys may be specified (id/symbol)"},
+                            {"tokenB", RPCArg::Type::STR, RPCArg::Optional::NO,
+                            "One of the keys may be specified (id/symbol)"},
+                            {"commission", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                            "Pool commission, up to 10^-8"},
+                            {"status", RPCArg::Type::BOOL, RPCArg::Optional::NO,
+                            "Pool Status: True is Active, False is Restricted"},
+                            {"ownerFeeAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
+                            "Address of the fee owner."},
+                            {"pairSymbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                             "Pair symbol (unique), no longer than " +
+                             std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
                        },
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
-                        {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
-                        },
+                   },
+                   {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                       {
+                           {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                               {
+                                   {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                   {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                               },
+                           },
                        },
+                   },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -1716,13 +1715,13 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                RPCExamples{
                        HelpExampleCli("createpoolpair",   "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
                                                           "\\\"tokenB\\\":\\\"MyToken2\\\","
-                                                          "\\\"comission\\\":\\\"0.001\\\","
+                                                          "\\\"commission\\\":\\\"0.001\\\","
                                                           "\\\"status\\\":\\\"True\\\","
                                                           "\\\"ownerFeeAddress\\\":\\\"Address\\\""
                                                           "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
                        + HelpExampleRpc("createpoolpair", "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
                                                           "\\\"tokenB\\\":\\\"MyToken2\\\","
-                                                          "\\\"comission\\\":\\\"0.001\\\","
+                                                          "\\\"commission\\\":\\\"0.001\\\","
                                                           "\\\"status\\\":\\\"True\\\","
                                                           "\\\"ownerFeeAddress\\\":\\\"Address\\\""
                                                             "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
@@ -1746,8 +1745,8 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     if (!metadataObj["tokenB"].isNull()) {
         tokenB = metadataObj["tokenB"].getValStr();
     }
-    if (!metadataObj["comission"].isNull()) {
-        commission = AmountFromValue(metadataObj["comission"]);
+    if (!metadataObj["commission"].isNull()) {
+        commission = AmountFromValue(metadataObj["commission"]);
     }
     if (!metadataObj["status"].isNull()) {
         status = metadataObj["status"].getBool();
@@ -1797,7 +1796,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
             }
             try {
-                rawTx.vin = GetAuthInputs(pwallet, destination, request.params[0].get_array());
+                rawTx.vin = GetAuthInputs(pwallet, destination, request.params[1].get_array());
             }
             catch (const UniValue& objError) {}
         }
