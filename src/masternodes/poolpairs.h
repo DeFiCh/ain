@@ -289,16 +289,11 @@ struct CLiquidityMessage {
 };
 
 struct CRemoveLiquidityMessage {
-    std::map<CScript, CBalances> from; // from -> balances
+    CScript from;
+    CTokenAmount amount;
 
     std::string ToString() const {
-        if (from.empty()) {
-            return "empty transfer";
-        }
-        std::string result;
-        for (const auto& kv : from) {
-            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
-        }
+        std::string result = "(" + from.GetHex() + "->" + amount.ToString() + ")";
         return result;
     }
 
@@ -307,6 +302,7 @@ struct CRemoveLiquidityMessage {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(from);
+        READWRITE(amount);
     }
 };
 

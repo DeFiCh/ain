@@ -1396,12 +1396,8 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
                "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                        {
-                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
-                                                                                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
-                        },
-                       },
+                       {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address which has tokens"},
+                       {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Token amount"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
@@ -1418,8 +1414,8 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("removepoolliquidity", "'{\"address1\":\"1.0@DFI\"}' []")
-                       + HelpExampleRpc("removepoolliquidity", "'{\"address1\":\"1.0@DFI\"}' []")
+                       HelpExampleCli("removepoolliquidity", "from_address amount []")
+                       + HelpExampleRpc("removepoolliquidity", "from_address amount []")
                },
     }.Check(request);
 
@@ -1427,11 +1423,15 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
 
-    RPCTypeCheck(request.params, { UniValue::VOBJ, UniValue::VARR }, true);
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
+
+    std::string from = request.params[0].get_str();
+    std::string amount = request.params[1].get_str();
 
     // decode
     CRemoveLiquidityMessage msg{};
-    msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
+    msg.from = DecodeScript(from);
+    msg.amount = DecodeAmount(pwallet->chain(), amount, from);
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -1444,17 +1444,10 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     CTxDestination ownerDest;
-    if (!request.params[2].get_array().empty()) {
-        rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[2].get_array());
-    } else {
-        for (const auto& kv : msg.from) {
-            if (!ExtractDestination(kv.first, ownerDest)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
-            }
-            std::vector<CTxIn> rawIn = GetAuthInputs(pwallet, ownerDest, UniValue(UniValue::VARR));
-            rawTx.vin.insert(rawTx.vin.end(), rawIn.begin(), rawIn.end());
-        }
+    if (!ExtractDestination(msg.from, ownerDest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
     }
+    rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[2].get_array());
 
     // fund
     rawTx = fund(rawTx, request, pwallet);

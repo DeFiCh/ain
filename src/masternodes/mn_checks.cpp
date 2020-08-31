@@ -494,43 +494,38 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
 
     const auto base = strprintf("Removing liquidity %s", msg.ToString());
 
-    if (msg.from.size() != 1) {
-        return Res::Err("%s: only one pair can be removing", base);
-    }
+    CScript from = msg.from;
+    CTokenAmount amount = msg.amount;
 
-    std::pair<CScript, CBalances> from = *msg.from.begin();
-    std::pair<DCT_ID, CAmount> amount = *from.second.balances.begin();
-
-    if (amount.second <= 0) {
+    if (amount.nValue <= 0) {
         return Res::Err("%s: amount cannot be less than or equal to zero", base);
     }
 
-    auto pair = mnview.GetPoolPair(amount.first);
+    auto pair = mnview.GetPoolPair(amount.nTokenId);
 
     if (!pair) {
         return Res::Err("%s: there is no such pool pair", base);
     }
 
-    if (!HasAuth(tx, coins, from.first)) {
+    if (!HasAuth(tx, coins, from)) {
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
     }
 
-    CScript address = from.first;
     CPoolPair pool = pair.get();
 
-    const auto res = pool.RemoveLiquidity(address, amount.second, [&] (CScript to, CAmount amountA, CAmount amountB) {
-        pool.totalLiquidity -= amount.second;
+    const auto res = pool.RemoveLiquidity(from, amount.nValue, [&] (CScript to, CAmount amountA, CAmount amountB) {
+        pool.totalLiquidity -= amount.nValue;
 
-        auto sub = mnview.SubBalances(from.first, from.second);
+        auto sub = mnview.SubBalance(from, amount);
         if (!sub.ok) {
             return Res::Err("%s: %s", base, sub.msg);
         }
 
-        const auto balance = mnview.GetBalance(from.first, amount.first);
+        const auto balance = mnview.GetBalance(from, amount.nTokenId);
 
         if (balance.nValue == 0) {
             //delete ByShare index
-            mnview.DelShare(amount.first, to);
+            mnview.DelShare(amount.nTokenId, to);
         }
 
         auto addA = mnview.AddBalance(to, { pool.idTokenA, amountA });
