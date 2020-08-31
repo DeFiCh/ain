@@ -423,7 +423,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
     std::pair<DCT_ID, CAmount> amountB = *(sumTx.balances.begin()++);
 
-    if (amountA.second <= 0 || amountB.second) {
+    if (amountA.second <= 0 || amountB.second <= 0) {
         return Res::Err("%s: amount cannot be less than or equal to zero", base);
     }
 
