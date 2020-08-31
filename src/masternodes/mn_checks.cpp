@@ -151,6 +151,9 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::AddPoolLiquidity:
                 res = ApplyAddPoolLiquidityTx(mnview, coins, tx, height, metadata);
                 break;
+            case CustomTxType::RemovePoolLiquidity:
+                res = ApplyRemovePoolLiquidityTx(mnview, coins, tx, height, metadata);
+                break;
             case CustomTxType::UtxosToAccount:
                 res = ApplyUtxosToAccountTx(mnview, tx, metadata);
                 break;
@@ -406,6 +409,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     if (!ss.empty()) {
         return Res::Err("Adding liquidity tx deserialization failed: excess %d bytes", ss.size());
     }
+
     const auto base = strprintf("Adding liquidity %s", msg.ToString());
 
     CBalances sumTx = SumAllTransfers(msg.from);
@@ -418,6 +422,10 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
     std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
     std::pair<DCT_ID, CAmount> amountB = *(sumTx.balances.begin()++);
+
+    if (amountA.second <= 0 || amountB.second <= 0) {
+        return Res::Err("%s: amount cannot be less than or equal to zero", base);
+    }
 
     auto pair = mnview.GetPoolPair(amountA.first, amountB.first);
 
@@ -455,7 +463,10 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
              throw runtime_error("Trying to mint " + std::to_string(liqAmount)+ " of poolpair token #" + lpTokenID.ToString() + " for account " + to.GetHex());
 
          pool.totalLiquidity += liqAmount;
-         mnview.AddBalance(to, { lpTokenID, liqAmount });
+         auto add = mnview.AddBalance(to, { lpTokenID, liqAmount });
+         if (!add.ok) {
+            return Res::Err("%s: %s", base, add.msg);
+         }
 
          //insert update ByShare index
          mnview.SetShare(lpTokenID, to);
@@ -467,6 +478,72 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         return Res::Err("%s: %s", base, res.msg);
     }
     mnview.SetPoolPair(lpTokenID, pool); // res?
+
+    return Res::Ok(base);
+}
+
+Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+{
+    // deserialize
+    CRemoveLiquidityMessage msg;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("Removing liquidity tx deserialization failed: excess %d bytes", ss.size());
+    }
+
+    const auto base = strprintf("Removing liquidity %s", msg.ToString());
+
+    CScript from = msg.from;
+    CTokenAmount amount = msg.amount;
+
+    if (amount.nValue <= 0) {
+        return Res::Err("%s: amount cannot be less than or equal to zero", base);
+    }
+
+    auto pair = mnview.GetPoolPair(amount.nTokenId);
+
+    if (!pair) {
+        return Res::Err("%s: there is no such pool pair", base);
+    }
+
+    if (!HasAuth(tx, coins, from)) {
+        return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+    }
+
+    CPoolPair pool = pair.get();
+
+    const auto res = pool.RemoveLiquidity(from, amount.nValue, [&] (CScript to, CAmount amountA, CAmount amountB) {
+        pool.totalLiquidity -= amount.nValue;
+
+        auto sub = mnview.SubBalance(from, amount);
+        if (!sub.ok) {
+            return Res::Err("%s: %s", base, sub.msg);
+        }
+
+        const auto balance = mnview.GetBalance(from, amount.nTokenId);
+
+        if (balance.nValue == 0) {
+            //delete ByShare index
+            mnview.DelShare(amount.nTokenId, to);
+        }
+
+        auto addA = mnview.AddBalance(to, { pool.idTokenA, amountA });
+        if (!addA.ok) {
+            return Res::Err("%s: %s", base, addA.msg);
+        }
+
+        auto addB = mnview.AddBalance(to, { pool.idTokenB, amountB });
+        if (!addB.ok) {
+            return Res::Err("%s: %s", base, addB.msg);
+        }
+
+        return Res::Ok();
+    }, height);
+
+    if (!res.ok) {
+        return Res::Err("%s: %s", base, res.msg);
+    }
 
     return Res::Ok(base);
 }
