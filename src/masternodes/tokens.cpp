@@ -107,7 +107,7 @@ Res CTokensView::CreateDFIToken()
     token.name = "Default Defi token";
     token.creationTx = uint256();
     token.creationHeight = 0;
-    token.flags |= (uint8_t)CToken::TokenFlags::isDAT;
+    token.flags |= (uint8_t)CToken::TokenFlags::DAT;
 
     DCT_ID id{0};
     WriteBy<ID>(WrapVarInt(id.v), token);
@@ -127,7 +127,7 @@ Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
     }
 
     DCT_ID id{0};
-    if(token.flags & (uint8_t)CToken::TokenFlags::isDAT) {
+    if(token.IsDAT()) {
         ForEachToken([&](DCT_ID const& currentId, CToken const& token) {
             if(currentId < DCT_ID_START)
                 id.v = currentId.v + 1;
@@ -175,7 +175,7 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx)
         return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
     }
     CTokenImpl & tokenImpl = pair->second;
-    tokenImpl.flags ^= (uint8_t)CToken::TokenFlags::isDAT;
+    tokenImpl.flags ^= (uint8_t)CToken::TokenFlags::DAT; // very strange logic. WHY only 'DAT' and WHY only triggering?
 
     WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
     return Res::Ok();

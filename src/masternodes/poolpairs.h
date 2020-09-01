@@ -56,8 +56,9 @@ public:
     virtual ~CPoolPair() = default;
 
     CAmount reserveA, reserveB, totalLiquidity;
+    CAmount blockCommissionA, blockCommissionB;
 
-    arith_uint256 priceACumulativeLast, priceBCumulativeLast; // not sure about 'arith', at least sqrt() undefined
+//    arith_uint256 priceACumulativeLast, priceBCumulativeLast; // not sure about 'arith', at least sqrt() undefined
     arith_uint256 kLast;
     uint32_t lastPoolEventHeight;
 
@@ -97,17 +98,12 @@ public:
 //        require(liquidity > 0, 'UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED');
         onMint(shareAddress, liquidity); // deps: totalLiquidity(RW)
 
-        update(reserveA+amountA /*balance0*/, reserveB+amountB /*balance1*//*, _reserve0, _reserve1*/, height); // deps: prices, reserves, kLast
-        if (!ownerFeeAddress.empty()) kLast = arith_uint256(reserveA) * arith_uint256(reserveB); // reserve0 and reserve1 are up-to-date
+        reserveA += amountA;
+        reserveB += amountB;
+//        update(reserveA+amountA /*balance0*/, reserveB+amountB /*balance1*//*, _reserve0, _reserve1*/, height); // deps: prices, reserves, kLast
+        if (!ownerFeeAddress.empty()) kLast = arith_uint256(reserveA) * arith_uint256(reserveB);
         return Res::Ok();
     }
-
-    // usage:
-    //    Res onMint(CScript const address, CAmount amount) {
-    //        totalLiquidity += amount;
-    //        Account(address)->Add(lpTokenID, amount);
-    //        WriteBy<ByShare>(lpTokenID, address);
-    //    }
 
     Res RemoveLiquidity(CScript const & address, CAmount const & liqAmount, std::function<Res(CScript to, CAmount amountA, CAmount amountB)> onBurn, uint32_t height) {
 
@@ -121,42 +117,36 @@ public:
             return Res::Err("Removing liquidity: %s", res.msg);
         }
 
-        update(reserveA - resAmountA, reserveB - resAmountB, height); // deps: prices, reserves, kLast
+        reserveA -= resAmountA;
+        reserveB -= resAmountB;
+//        update(reserveA - resAmountA, reserveB - resAmountB, height); // deps: prices, reserves, kLast
 
         return Res::Ok();
     }
 
-    Res Swap(CAmount amount0Out, CAmount amount1Out, CScript to) {
-//        require(amount0Out > 0 || amount1Out > 0, 'UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT');
-//        (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
-//        require(amount0Out < _reserve0 && amount1Out < _reserve1, 'UniswapV2: INSUFFICIENT_LIQUIDITY');
+    Res Swap(CTokenAmount in, std::function<Res(CTokenAmount const &)> onTransfer) {
+        if (in.nTokenId != idTokenA && in.nTokenId != idTokenB) {
+            throw std::runtime_error("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
+        }
+        if (in.nValue <= 0)
+            return Res::Err("Poolpair swap: input amount should be positive!");
 
-//        uint balance0;
-//        uint balance1;
-//        { // scope for _token{0,1}, avoids stack too deep errors
-//        address _token0 = token0;
-//        address _token1 = token1;
-//        require(to != _token0 && to != _token1, 'UniswapV2: INVALID_TO');
-//        if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
-//        if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
-//        if (data.length > 0) IUniswapV2Callee(to).uniswapV2Call(msg.sender, amount0Out, amount1Out, data);
-//        balance0 = IERC20(_token0).balanceOf(address(this));
-//        balance1 = IERC20(_token1).balanceOf(address(this));
-//        }
-//        uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
-//        uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
-//        require(amount0In > 0 || amount1In > 0, 'UniswapV2: INSUFFICIENT_INPUT_AMOUNT');
-//        { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
-//        uint balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
-//        uint balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
-//        require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(1000**2), 'UniswapV2: K');
-//        }
+        bool const forward = in.nTokenId == idTokenA;
 
-//        _update(balance0, balance1, _reserve0, _reserve1);
-//        emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
+        // claim trading fee
+        if (commission) {
+            CAmount const tradeFee = in.nValue * commission / PRECISION; /// @todo check overflow
+            in.nValue -= tradeFee;
+            if (forward) {
+                blockCommissionA += tradeFee;
+            }
+            else {
+                blockCommissionB += tradeFee;
+            }
+        }
+        CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB) : slopeSwap(in.nValue, reserveB, reserveA);
 
-
-        return Res::Ok();
+        return onTransfer({ forward ? idTokenB : idTokenA, result });
     }
 
 private:
@@ -179,24 +169,38 @@ private:
         }
     }
 
-
-    Res update(CAmount balanceA, CAmount balanceB, /*CAmount _reserveA, CAmount _reserveB, - prev values*/ uint32_t height) {
-//        require(balance0 <= uint112(-1) && balance1 <= uint112(-1), 'UniswapV2: OVERFLOW');
-
-//        uint32 blockTimestamp = uint32(block.timestamp % 2**32);
-        if (height > lastPoolEventHeight && reserveA != 0 && reserveB != 0) {
-            const uint32_t timeElapsed = height - lastPoolEventHeight;
-            // * never overflows, and + overflow is desired
-            priceACumulativeLast += arith_uint256(reserveB) * timeElapsed * PRECISION / (reserveA); // multiplied by COIN for precision (!!!)
-            priceBCumulativeLast += arith_uint256(reserveA) * timeElapsed * PRECISION / (reserveB);
-//            priceBCumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
+    CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo) {
+        assert (unswapped >= 0 && poolFrom > 0 && poolTo > 0);
+        CAmount swapped = 0;
+        while (unswapped > 0) {
+            CAmount stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
+            CAmount stepTo = poolTo * stepFrom / poolFrom;
+            poolFrom += stepFrom;
+            poolTo -= poolTo;
+            unswapped -= stepFrom;
+            swapped += stepTo;
         }
-        reserveA = balanceA;
-        reserveB = balanceB;
-        lastPoolEventHeight = height;
-//        emit Sync(reserve0, reserve1);
-        return Res::Ok();
+        return swapped;
     }
+
+/// @deprecated
+//    Res update(CAmount balanceA, CAmount balanceB, /*CAmount _reserveA, CAmount _reserveB, - prev values*/ uint32_t height) {
+////        require(balance0 <= uint112(-1) && balance1 <= uint112(-1), 'UniswapV2: OVERFLOW');
+
+////        uint32 blockTimestamp = uint32(block.timestamp % 2**32);
+//        if (height > lastPoolEventHeight && reserveA != 0 && reserveB != 0) {
+//            const uint32_t timeElapsed = height - lastPoolEventHeight;
+//            // * never overflows, and + overflow is desired
+//            priceACumulativeLast += arith_uint256(reserveB) * timeElapsed * PRECISION / (reserveA); // multiplied by COIN for precision (!!!)
+//            priceBCumulativeLast += arith_uint256(reserveA) * timeElapsed * PRECISION / (reserveB);
+////            priceBCumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
+//        }
+//        reserveA = balanceA;
+//        reserveB = balanceB;
+//        lastPoolEventHeight = height;
+////        emit Sync(reserve0, reserve1);
+//        return Res::Ok();
+//    }
 
 public:
 
