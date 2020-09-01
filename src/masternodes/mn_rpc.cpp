@@ -1306,10 +1306,13 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
     poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
 
     if (verbose) {
-        poolObj.pushKV("reserveA", pool.reserveA);
-        poolObj.pushKV("reserveB", pool.reserveB);
+        poolObj.pushKV("reserveA", ValueFromAmount(pool.reserveA));
+        poolObj.pushKV("reserveB", ValueFromAmount(pool.reserveB));
         poolObj.pushKV("commission", pool.commission);
-        poolObj.pushKV("totalLiquidity", pool.totalLiquidity);
+        poolObj.pushKV("totalLiquidity", ValueFromAmount(pool.totalLiquidity));
+
+        poolObj.pushKV("reserveA/reserveB", ValueFromAmount(pool.reserveA * COIN) / pool.reserveB);
+        poolObj.pushKV("reserveB/reserveA", ValueFromAmount(pool.reserveB * COIN) / pool.reserveA);
 
         poolObj.pushKV("ownerFeeAddress", pool.ownerFeeAddress.GetHex());
 
@@ -1335,7 +1338,7 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
                        {"key", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "One of the keys may be specified (id/symbol/creationTx)"},
                        {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Pool Status: True is Active, False is Restricted"},
+                        "Flag for verbose list (default = false), otherwise limited objects are listed"},
                },
                RPCResult{
                        "{id:{...}}     (array) Json object with pool information\n"
@@ -1348,7 +1351,7 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
 
     bool verbose = false;
     if (request.params.size() > 1) {
-        verbose = request.params[1].get_bool();
+        verbose = request.params[1].getBool();
     }
 
     LOCK(cs_main);
