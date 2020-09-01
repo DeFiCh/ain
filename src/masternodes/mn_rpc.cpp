@@ -1298,6 +1298,73 @@ UniValue getaccount(const JSONRPCRequest& request) {
     return ret;
 }
 
+UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token, bool verbose) {
+    UniValue poolObj(UniValue::VOBJ);
+    poolObj.pushKV("symbol", token.symbol);
+    poolObj.pushKV("name", token.name);
+    poolObj.pushKV("idTokenA", pool.idTokenA.ToString());
+    poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
+
+    if (verbose) {
+        poolObj.pushKV("reserveA", pool.reserveA);
+        poolObj.pushKV("reserveB", pool.reserveB);
+        poolObj.pushKV("commission", pool.commission);
+        poolObj.pushKV("totalLiquidity", pool.totalLiquidity);
+
+        poolObj.pushKV("ownerFeeAddress", pool.ownerFeeAddress.GetHex());
+
+        poolObj.pushKV("priceACumulativeLast", pool.priceACumulativeLast.GetLow64());
+        poolObj.pushKV("priceBCumulativeLast", pool.priceBCumulativeLast.GetLow64());
+        poolObj.pushKV("lastPoolEventHeight", (uint64_t) pool.lastPoolEventHeight);
+
+        poolObj.pushKV("rewardPct", pool.rewardPct);
+
+        poolObj.pushKV("creationTx", pool.creationTx.GetHex());
+        poolObj.pushKV("creationHeight", (uint64_t) pool.creationHeight);
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV(id.ToString(), poolObj);
+    return ret;
+}
+
+UniValue getpoolpair(const JSONRPCRequest& request) {
+    RPCHelpMan{"getpoolpair",
+               "\nReturns information about pool.\n",
+               {
+                       {"key", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "One of the keys may be specified (id/symbol/creationTx)"},
+                       {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                        "Pool Status: True is Active, False is Restricted"},
+               },
+               RPCResult{
+                       "{id:{...}}     (array) Json object with pool information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getpoolpair", "GOLD")
+                       + HelpExampleRpc("getpoolpair", "GOLD")
+               },
+    }.Check(request);
+
+    bool verbose = false;
+    if (request.params.size() > 1) {
+        verbose = request.params[1].get_bool();
+    }
+
+    LOCK(cs_main);
+
+    DCT_ID id;
+    auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
+    if (token) {
+        auto pool = pcustomcsview->GetPoolPair(id);
+        if (pool) {
+            return poolToJSON(id, *pool, *token, verbose);
+        }
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pool not found");
+    }
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pool not found");
+}
+
 UniValue addpoolliquidity(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -1913,6 +1980,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "minttokens",         &minttokens,         {"inputs", "amounts"}},
     {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose"}},
     {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination"}},
+    {"poolpair",    "getpoolpair",        &getpoolpair,        {"key" }},
     {"poolpair",    "addpoolliquidity",   &addpoolliquidity,   {"metadata", "inputs"}},
     {"poolpair",    "removepoolliquidity",&removepoolliquidity,{"from", "amount", "inputs"}},
     {"accounts",    "utxostoaccount",     &utxostoaccount,     {"inputs", "amounts"}},
