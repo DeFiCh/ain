@@ -27,7 +27,8 @@ public:
         None = 0,
         Mintable = 0x01,
         Tradeable = 0x02,
-        isDAT = 0x04,
+        DAT = 0x04,
+        LPS = 0x08, // Liquidity Pool Share
         Default = TokenFlags::Mintable | TokenFlags::Tradeable
     };
 
@@ -47,7 +48,7 @@ public:
     {}
     virtual ~CToken() = default;
 
-    bool IsMintable() const
+    inline bool IsMintable() const
     {
         return flags & (uint8_t)TokenFlags::Mintable;
     }
@@ -57,7 +58,11 @@ public:
     }
     bool IsDAT() const
     {
-        return flags & (uint8_t)TokenFlags::isDAT;
+        return flags & (uint8_t)TokenFlags::DAT;
+    }
+    bool IsPoolShare() const
+    {
+        return flags & (uint8_t)TokenFlags::LPS;
     }
 
     ADD_SERIALIZE_METHODS;

@@ -289,9 +289,12 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     token.creationHeight = height;
 
     //check foundation auth
-    if((token.flags & (uint8_t)CToken::TokenFlags::isDAT) && !HasFoundationAuth(tx, coins, Params().GetConsensus()))
+    if((token.IsDAT()) && !HasFoundationAuth(tx, coins, Params().GetConsensus()))
     {//no need to check Authority if we don't create isDAT
         return Res::Err("%s: %s", base, "Is not a foundation owner");
+    }
+    if(token.IsPoolShare()) {
+        return Res::Err("%s: %s", base, "Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
     }
 
     auto res = mnview.CreateToken(token);
@@ -317,6 +320,9 @@ Res ApplyDestroyTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, C
     CTokenImplementation const & token = pair->second;
     if (!HasCollateralAuth(tx, coins, token.creationTx)) {
         return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
+    }
+    if (token.IsDAT() || token.IsPoolShare()) {
+        return Res::Err("%s: %s", base, "can't manually destruct special (DAT or LPS) token");
     }
 
     auto res = mnview.DestroyToken(token.creationTx, tx.GetHash(), height);
@@ -350,7 +356,9 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Err("%s: %s", base, "Is not a foundation owner");
     }
 
-    if((token.flags & (uint8_t)CToken::TokenFlags::isDAT) != isDAT && pair->first.v >= 128)
+    /// @todo what about udating pool share tokens?
+
+    if(token.IsDAT() != isDAT && pair->first >= CTokensView::DCT_ID_START && !token.IsPoolShare())
     {
         auto res = mnview.UpdateToken(token.creationTx);
         if (!res.ok) {
@@ -679,6 +687,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     else
         pairSymbol = trim_ws(pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
+    token.flags |= (uint8_t)CToken::TokenFlags::LPS;
     token.name = trim_ws(tokenA->name + "-" + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
     token.symbol = pairSymbol;
     token.creationTx = tx.GetHash();
