@@ -1331,6 +1331,79 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
     return ret;
 }
 
+UniValue listpoolpairs(const JSONRPCRequest& request) {
+    RPCHelpMan{"listpoolpairs",
+               "\nReturns information about pools.\n",
+               {
+                        {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                            {
+                                 {"start", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Optional first key to iterate from, in lexicographical order."
+                                  "Typically it's set to last ID from previous request."},
+                                 {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                  "If true, then iterate including starting position. False by default"},
+                                 {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Maximum number of pools to return, 100 by default"},
+                            },
+                        },
+                        {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                    "Flag for verbose list (default = true), otherwise only ids, symbols and names are listed"},
+               },
+               RPCResult{
+                       "{id:{...},...}     (array) Json object with pools information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listpoolpairs", "{\"start\":128} False")
+                       + HelpExampleRpc("listpoolpairs", "{\"start\":128} False")
+               },
+    }.Check(request);
+
+    bool verbose = true;
+    if (request.params.size() > 1) {
+        verbose = request.params[1].get_bool();
+    }
+
+    // parse pagination
+    size_t limit = 100;
+    DCT_ID start{0};
+    {
+        if (request.params.size() > 0) {
+            bool including_start = false;
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                start.v = (uint32_t) paginationObj["start"].get_int();
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                ++start.v;
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
+
+    LOCK(cs_main);
+
+    UniValue ret(UniValue::VOBJ);
+    pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CPoolPair const & pool) {
+        const auto token = pcustomcsview->GetToken(id);
+        if (token) {
+            ret.pushKVs(poolToJSON(id, pool, *token, verbose));
+        }
+
+        limit--;
+        return limit != 0;
+    }, start);
+
+    return ret;
+}
+
 UniValue getpoolpair(const JSONRPCRequest& request) {
     RPCHelpMan{"getpoolpair",
                "\nReturns information about pool.\n",
