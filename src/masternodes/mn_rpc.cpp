@@ -1316,8 +1316,8 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
 
         poolObj.pushKV("ownerFeeAddress", pool.ownerFeeAddress.GetHex());
 
-        poolObj.pushKV("priceACumulativeLast", pool.priceACumulativeLast.GetLow64());
-        poolObj.pushKV("priceBCumulativeLast", pool.priceBCumulativeLast.GetLow64());
+        poolObj.pushKV("blockCommissionA", ValueFromAmount(pool.blockCommissionA));
+        poolObj.pushKV("blockCommissionB", ValueFromAmount(pool.blockCommissionB));
         poolObj.pushKV("lastPoolEventHeight", (uint64_t) pool.lastPoolEventHeight);
 
         poolObj.pushKV("rewardPct", ValueFromAmount(pool.rewardPct));
