@@ -1308,11 +1308,11 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
     if (verbose) {
         poolObj.pushKV("reserveA", ValueFromAmount(pool.reserveA));
         poolObj.pushKV("reserveB", ValueFromAmount(pool.reserveB));
-        poolObj.pushKV("commission", pool.commission);
+        poolObj.pushKV("commission", ValueFromAmount(pool.commission));
         poolObj.pushKV("totalLiquidity", ValueFromAmount(pool.totalLiquidity));
 
-        poolObj.pushKV("reserveA/reserveB", ValueFromAmount(pool.reserveA * COIN) / pool.reserveB);
-        poolObj.pushKV("reserveB/reserveA", ValueFromAmount(pool.reserveB * COIN) / pool.reserveA);
+        poolObj.pushKV("reserveA/reserveB", ValueFromAmount(pool.reserveA * COIN / pool.reserveB));
+        poolObj.pushKV("reserveB/reserveA", ValueFromAmount(pool.reserveB * COIN / pool.reserveA));
 
         poolObj.pushKV("ownerFeeAddress", pool.ownerFeeAddress.GetHex());
 
@@ -1320,7 +1320,7 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
         poolObj.pushKV("priceBCumulativeLast", pool.priceBCumulativeLast.GetLow64());
         poolObj.pushKV("lastPoolEventHeight", (uint64_t) pool.lastPoolEventHeight);
 
-        poolObj.pushKV("rewardPct", pool.rewardPct);
+        poolObj.pushKV("rewardPct", ValueFromAmount(pool.rewardPct));
 
         poolObj.pushKV("creationTx", pool.creationTx.GetHex());
         poolObj.pushKV("creationHeight", (uint64_t) pool.creationHeight);
