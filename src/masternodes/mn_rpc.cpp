@@ -609,7 +609,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     CToken token;
     token.symbol = trim_ws(metaObj["symbol"].getValStr()).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     token.name = trim_ws(metaObj["name"].getValStr()).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-    token.flags = metaObj["isDAT"].getBool() ? token.flags | (uint8_t)CToken::TokenFlags::isDAT : token.flags; // setting isDAT
+    token.flags = metaObj["isDAT"].getBool() ? token.flags | (uint8_t)CToken::TokenFlags::DAT : token.flags; // setting isDAT
 //    token.decimal = metaObj["name"].get_int(); // fixed for now, check range later
 //    token.limit = metaObj["limit"].get_int(); // fixed for now, check range later
 //    token.flags = metaObj["mintable"].get_bool() ? token.flags | CToken::TokenFlags::Mintable : token.flags; // fixed for now, check later
