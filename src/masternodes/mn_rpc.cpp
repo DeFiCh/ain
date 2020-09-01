@@ -2056,6 +2056,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "minttokens",         &minttokens,         {"inputs", "amounts"}},
     {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose"}},
     {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination"}},
+    {"poolpair",    "listpoolpairs",      &listpoolpairs,      {"pagination", "verbose"}},
     {"poolpair",    "getpoolpair",        &getpoolpair,        {"key" }},
     {"poolpair",    "addpoolliquidity",   &addpoolliquidity,   {"metadata", "inputs"}},
     {"poolpair",    "removepoolliquidity",&removepoolliquidity,{"from", "amount", "inputs"}},
