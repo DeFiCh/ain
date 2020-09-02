@@ -1863,6 +1863,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
     CMutableTransaction rawTx;
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
     {
@@ -1954,7 +1955,6 @@ UniValue poolswap(const JSONRPCRequest& request) {
     }
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
-
 
     CPoolSwapMessage poolSwapMsg;
     std::string tokenFrom, tokenTo;
