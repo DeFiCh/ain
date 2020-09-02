@@ -156,6 +156,7 @@ DEFI_CORE_H = \
   masternodes/anchors.h \
   masternodes/balances.h \
   masternodes/criminals.h \
+  masternodes/funding.h \
   masternodes/masternodes.h \
   masternodes/mn_checks.h \
   masternodes/res.h \
@@ -357,6 +358,7 @@ libdefi_server_a_SOURCES = \
   masternodes/accounts.cpp \
   masternodes/anchors.cpp \
   masternodes/criminals.cpp \
+  masternodes/funding.cpp \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
