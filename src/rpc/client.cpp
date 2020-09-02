@@ -226,6 +226,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "createpoolpair", 0, "metadata" },
     { "createpoolpair", 1, "inputs" },
+    { "poolswap", 0, "metadata" },
+    { "poolswap", 1, "inputs" },
 };
 // clang-format on
 
