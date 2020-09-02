@@ -2185,6 +2185,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "accounttoaccount",   &accounttoaccount,   {"inputs", "from", "to"}},
     {"accounts",    "accounttoutxos",     &accounttoutxos,     {"inputs", "from", "to"}},
     {"poolpair",    "createpoolpair",     &createpoolpair,     {"metadata", "inputs"}},
+    {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {
