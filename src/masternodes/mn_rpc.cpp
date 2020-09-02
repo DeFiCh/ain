@@ -1755,7 +1755,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
 
     RPCHelpMan{"createpoolpair",
                "\nCreates (and submits to local node and network) a poolpair transaction with given metadata.\n"
-               "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -1889,6 +1889,128 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         const auto res = ApplyCreatePoolPairTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
                                       ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolPairMsg, pairSymbol}));
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+}
+
+UniValue poolswap(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"poolswap",
+               "\nCreates (and submits to local node and network) a poolswap transaction with given metadata.\n"
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                       {
+                           {"from", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "Address of the owner of tokenA."},
+                           {"tokenFrom", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "One of the keys may be specified (id/symbol)"},
+                           {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                                       "tokenFrom coins amount"},
+                           {"to", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "Address of the owner of tokenB."},
+                           {"tokenTo", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "One of the keys may be specified (id/symbol)"},
+                       },
+                   },
+                   {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                       {
+                           {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                               {
+                                   {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                   {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                               },
+                           },
+                       },
+                   },
+               },
+                      RPCResult{
+                          "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                      },
+                             RPCExamples{
+                                 HelpExampleCli("poolswap",   "\"{\\\"from\\\":\\\"MyAddress\\\","
+                                                                    "\\\"tokenFrom\\\":\\\"MyToken1\\\","
+                                                                    "\\\"amountFrom\\\":\\\"0.001\\\","
+                                                                    "\\\"to\\\":\\\"Address\\\","
+                                                                    "\\\"tokenTo\\\":\\\"Token2\\\""
+                                                                    "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
+                                         + HelpExampleRpc("poolswap", "\"{\\\"from\\\":\\\"MyAddress\\\","
+                                                                            "\\\"tokenFrom\\\":\\\"MyToken1\\\","
+                                                                            "\\\"amountFrom\\\":\\\"0.001\\\","
+                                                                            "\\\"to\\\":\\\"Address\\\","
+                                                                            "\\\"tokenTo\\\":\\\"Token2\\\""
+                                                                            "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
+                             },
+              }.Check(request);
+
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+
+
+    CPoolSwapMessage poolSwapMsg;
+    std::string tokenFrom, tokenTo;
+    UniValue metadataObj = request.params[0].get_obj();
+    if (!metadataObj["from"].isNull()) {
+        poolSwapMsg.from = DecodeScript(metadataObj["from"].getValStr());
+    }
+    if (!metadataObj["tokenFrom"].isNull()) {
+        tokenFrom = metadataObj["tokenFrom"].getValStr();
+    }
+    if (!metadataObj["amountFrom"].isNull()) {
+        poolSwapMsg.amountFrom = AmountFromValue(metadataObj["amountFrom"]);
+    }
+    if (!metadataObj["to"].isNull()) {
+        poolSwapMsg.to = DecodeScript(metadataObj["to"].getValStr());
+    }
+    if (!metadataObj["tokenTo"].isNull()) {
+        tokenTo = metadataObj["tokenTo"].getValStr();
+    }
+
+    {
+        LOCK(cs_main);
+        auto token = pcustomcsview->GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
+        if (!token)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenFrom was not found");
+
+        auto token2 = pcustomcsview->GetTokenGuessId(tokenTo, poolSwapMsg.idTokenTo);
+        if (!token2)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenTo was not found");
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::PoolSwap)
+             << poolSwapMsg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    CMutableTransaction rawTx;
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    CTxDestination ownerDest;
+    if (!ExtractDestination(poolSwapMsg.from, ownerDest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
+    }
+    rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[1].get_array());
+
+    // fund
+    rawTx = fund(rawTx, request, pwallet);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        const auto res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
+                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolSwapMsg}));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
