@@ -208,16 +208,16 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-	READWRITE(reserveA);
-	READWRITE(reserveB);
-	READWRITE(totalLiquidity);
-	READWRITE(blockCommissionA);
-	READWRITE(blockCommissionB);
-	READWRITE(kLast.GetLow64());
-	READWRITE(lastPoolEventHeight);
-	READWRITE(rewardPct);
-	READWRITE(creationTx);
-	READWRITE(creationHeight);
+        READWRITE(reserveA);
+        READWRITE(reserveB);
+        READWRITE(totalLiquidity);
+        READWRITE(blockCommissionA);
+        READWRITE(blockCommissionB);
+        READWRITE(kLast.GetLow64());
+        READWRITE(lastPoolEventHeight);
+        READWRITE(rewardPct);
+        READWRITE(creationTx);
+        READWRITE(creationHeight);
     }
 };
 
