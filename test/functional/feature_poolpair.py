@@ -126,7 +126,31 @@ class PoolPairTest (DefiTestFramework):
         }, [])
 
         self.nodes[0].generate(1)
+        # Trying to create the same again and fail
+        try:
+            self.nodes[0].createpoolpair({
+            "tokenA": "PT",
+            "tokenB": "GOLD",
+            "comission": 0.001,
+            "status": True,
+            "ownerFeeAddress": collateral0,
+            "pairSymbol": "PTGD"
+        }, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Error, there is already a poolpairwith same tokens, but different poolId" in errorString)
 
+        # Creating another one
+        self.nodes[0].createpoolpair({
+            "tokenA": "DFI",
+            "tokenB": "GOLD",
+            "comission": 0.001,
+            "status": True,
+            "ownerFeeAddress": collateral0,
+            "pairSymbol": "DFGLD"
+        }, [])
+
+        self.nodes[0].generate(1)
         # 8 Creating PoolPair not from Foundation -> Error
         try:
             self.nodes[2].createpoolpair({
@@ -136,22 +160,22 @@ class PoolPairTest (DefiTestFramework):
             "status": True,
             "ownerFeeAddress": collateral0,
             "pairSymbol": "DFIGOLD"
-            }, [])
+        }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Incorrect Authorization" in errorString)
-        
+
         # 9 Checking pool existence
         p0 = self.nodes[0].getpoolpair("PTGOLD")
         assert_equal(p0['129']['symbol'], "PTGOLD")
-        
+
         #10 Checking nonexistent pool
         try:
             self.nodes[0].getpoolpair("DFIGOLD")
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Pool not found" in errorString)
-        
+
         try:
             self.nodes[2].getpoolpair("PTGOLD")
         except JSONRPCException as e:
@@ -160,19 +184,20 @@ class PoolPairTest (DefiTestFramework):
 
         #11 Checking listpoolpairs
         poolpairsn0 = self.nodes[0].listpoolpairs()
-        assert_equal(len(poolpairsn0), 1)
+        assert_equal(len(poolpairsn0), 2)
 
-        poolpairsn2 = self.nodes[2].listpoolpairs()
-        assert_equal(len(poolpairsn2), 0)
-        
         self.sync_blocks([self.nodes[0], self.nodes[2]])
         
+        poolpairsn2 = self.nodes[2].listpoolpairs()
+        #print (poolpairsn2)
+        assert_equal(len(poolpairsn2), 2)
+
         # 12 Checking pool existence after sync
         p1 = self.nodes[2].getpoolpair("PTGOLD")
         #print(p1)
         assert_equal(p1['129']['symbol'], "PTGOLD")
-        assert(p1['129']['idTokenA'] == 1)
-        assert(p1['129']['idTokenB'] == 128)
+        assert(p1['129']['idTokenA'] == '1')
+        assert(p1['129']['idTokenB'] == '128')
 
         # REVERTING:
         #========================
