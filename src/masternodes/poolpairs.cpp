@@ -57,12 +57,13 @@ boost::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) cons
 
 boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const DCT_ID &tokenA, const DCT_ID &tokenB) const
 {
+    DCT_ID poolId;
+    auto varint = WrapVarInt(poolId.v);
     ByPairKey key {tokenA, tokenB};
-    auto poolId = ReadBy<ByPair, DCT_ID>(key);
-    if(poolId) {
-        auto poolPair = ReadBy<ByID, CPoolPair>(WrapVarInt(poolId->v));
+    if(ReadBy<ByPair, ByPairKey>(key, varint)) {
+        auto poolPair = ReadBy<ByID, CPoolPair>(varint);
         if(poolPair)
-            return { std::make_pair(*poolId, *poolPair) };
+            return { std::make_pair(poolId, std::move(*poolPair)) };
     }
     return {};
 }
