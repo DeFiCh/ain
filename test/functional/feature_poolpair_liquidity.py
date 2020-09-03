@@ -67,6 +67,34 @@ class PoolLiquidityTest (DefiTestFramework):
         assert(pool[idGS]['idTokenA'] == idGold)
         assert(pool[idGS]['idTokenB'] == idSilver)
 
+        ################
+        # TEST TEST TEST
+        print ("-------------------------------------")
+        try:
+            self.nodes[0].createpoolpair({
+                "tokenA": "SILVER",
+                "tokenB": "GOLD",
+                "commission": 0.1,
+                "status": True,
+                "ownerFeeAddress": owner,
+                "pairSymbol": "GGSS",
+            }, [])
+            self.nodes[0].generate(1)
+
+            assert_equal(len(self.nodes[0].listtokens()), 5)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            print (errorString)
+
+        try:
+            list_pool = self.nodes[0].listpoolpairs({}, False)
+            print (list_pool)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            print (errorString)
+        print ("-------------------------------------")
+        ################
+
         # Add liquidity
         #========================
         # one token
@@ -90,14 +118,14 @@ class PoolLiquidityTest (DefiTestFramework):
         # transfer
         try:
             self.nodes[0].addpoolliquidity({
-                accountGold: ["100@SILVER", "100@GOLD"]
+                accountGold: ["100@GOLD", "100@SILVER"]
             }, accountGold, [])
             self.nodes[0].generate(1)
         except JSONRPCException as e:
             errorString = e.error['message']
         print (errorString)
 
-        print(self.nodes[0].getaccount(accountGold, {}, True))
+        #print(self.nodes[0].getaccount(accountGold, {}, True))
 
         # Remove liquidity
         #========================
@@ -113,7 +141,20 @@ class PoolLiquidityTest (DefiTestFramework):
             self.nodes[0].removepoolliquidity(accountGold, "0@GS", [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Amount out of range" in errorString)
+        
+        # missing (account exists, but does not belong)
+        try:
+            self.nodes[0].removepoolliquidity(owner, "100@GS", [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Are you an owner?" in errorString)
+
+        # missing from (account exist, but no tokens) ???
+        try:
+            self.nodes[0].removepoolliquidity(accountGold, "100@GS", [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Amount 0 is less than" in errorString)
 
         # REVERTING:
         #========================
