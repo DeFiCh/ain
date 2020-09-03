@@ -195,6 +195,7 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CPoolPairMessage, *this);
         READWRITE(reserveA);
         READWRITE(reserveB);
         READWRITE(totalLiquidity);
