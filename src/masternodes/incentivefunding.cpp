@@ -2,13 +2,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <masternodes/funding.h>
+#include <masternodes/incentivefunding.h>
 
 /// @attention make sure that it does not overlap with those in masternodes.cpp/tokens.cpp/undos.cpp/accounts.cpp !!!
-const unsigned char CFundingView::ById::prefix = 'F';
+const unsigned char CCommunityBalancesView::ById::prefix = 'F';
 
 
-CAmount CFundingView::GetCommunityBalance(CommunityAccountType account) const
+CAmount CCommunityBalancesView::GetCommunityBalance(CommunityAccountType account) const
 {
     CAmount val;
     bool ok = ReadBy<ById>(static_cast<unsigned char>(account), val);
@@ -18,7 +18,7 @@ CAmount CFundingView::GetCommunityBalance(CommunityAccountType account) const
     return 0;
 }
 
-Res CFundingView::SetCommunityBalance(CommunityAccountType account, CAmount amount)
+Res CCommunityBalancesView::SetCommunityBalance(CommunityAccountType account, CAmount amount)
 {
     // deny negative values on db level!
     if (amount < 0) {
@@ -28,7 +28,7 @@ Res CFundingView::SetCommunityBalance(CommunityAccountType account, CAmount amou
     return Res::Ok();
 }
 
-void CFundingView::ForEachCommunityBalance(std::function<bool (CommunityAccountType, CAmount)> callback) const
+void CCommunityBalancesView::ForEachCommunityBalance(std::function<bool (CommunityAccountType, CAmount)> callback) const
 {
     ForEach<ById, unsigned char, CAmount>([&callback] (unsigned char const & key, CAmount const & val) {
         return callback(CommunityAccountCodeToType(key), val);
@@ -36,7 +36,7 @@ void CFundingView::ForEachCommunityBalance(std::function<bool (CommunityAccountT
 
 }
 
-Res CFundingView::AddCommunityBalance(CommunityAccountType account, CAmount amount)
+Res CCommunityBalancesView::AddCommunityBalance(CommunityAccountType account, CAmount amount)
 {
     if (amount == 0) {
         return Res::Ok();
@@ -48,7 +48,7 @@ Res CFundingView::AddCommunityBalance(CommunityAccountType account, CAmount amou
     return SetCommunityBalance(account, *res.val);
 }
 
-Res CFundingView::SubCommunityBalance(CommunityAccountType account, CAmount amount)
+Res CCommunityBalancesView::SubCommunityBalance(CommunityAccountType account, CAmount amount)
 {
     if (amount == 0) {
         return Res::Ok();

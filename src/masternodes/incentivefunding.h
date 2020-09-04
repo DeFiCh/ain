@@ -2,21 +2,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_FUNDING_H
-#define DEFI_MASTERNODES_FUNDING_H
+#ifndef DEFI_MASTERNODES_INCENTIVEFUNDING_H
+#define DEFI_MASTERNODES_INCENTIVEFUNDING_H
 
 #include <flushablestorage.h>
+#include <masternodes/communityaccounttypes.h>
 #include <masternodes/res.h>
-//#include <masternodes/balances.h>
 #include <amount.h>
-//#include <script/script.h>
-
-enum class CommunityAccountType : unsigned char
-{
-    None = 0,
-    IncentiveFunding    = 'I', // or 'yield farming' - source of community rewards for LP (Liquidity Pools)
-    AnchorReward        = 'A',
-};
 
 inline CommunityAccountType CommunityAccountCodeToType (unsigned char ch) {
     char const types[] = "IA";
@@ -26,8 +18,7 @@ inline CommunityAccountType CommunityAccountCodeToType (unsigned char ch) {
         return CommunityAccountType::None;
 }
 
-
-class CFundingView : public virtual CStorageView
+class CCommunityBalancesView : public virtual CStorageView
 {
 public:
     CAmount GetCommunityBalance(CommunityAccountType account) const;
@@ -42,4 +33,4 @@ public:
     struct ById { static const unsigned char prefix; };
 };
 
-#endif //DEFI_MASTERNODES_FUNDING_H
+#endif //DEFI_MASTERNODES_INCENTIVEFUNDING_H
