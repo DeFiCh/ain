@@ -1311,8 +1311,17 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
         poolObj.pushKV("commission", ValueFromAmount(pool.commission));
         poolObj.pushKV("totalLiquidity", ValueFromAmount(pool.totalLiquidity));
 
-        poolObj.pushKV("reserveA/reserveB", ValueFromAmount(pool.reserveA * COIN / pool.reserveB));
-        poolObj.pushKV("reserveB/reserveA", ValueFromAmount(pool.reserveB * COIN / pool.reserveA));
+        if (pool.reserveB <= 0) {
+            poolObj.pushKV("reserveA/reserveB", "0");
+        } else {
+            poolObj.pushKV("reserveA/reserveB", ValueFromAmount(pool.reserveA * COIN / pool.reserveB));
+        }
+
+        if (pool.reserveA <= 0) {
+            poolObj.pushKV("reserveB/reserveA", "0");
+        } else {
+            poolObj.pushKV("reserveB/reserveA", ValueFromAmount(pool.reserveB * COIN / pool.reserveA));
+        }
 
         poolObj.pushKV("ownerFeeAddress", pool.ownerFeeAddress.GetHex());
 

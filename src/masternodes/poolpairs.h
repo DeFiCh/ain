@@ -73,8 +73,19 @@ class CPoolPair : public CPoolPairMessage
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount PRECISION = COIN; // or just PRECISION_BITS for "<<" and ">>"
-    CPoolPair() {}
-    CPoolPair(CPoolPairMessage const & msg) : CPoolPairMessage(msg) {}
+    CPoolPair(CPoolPairMessage const & msg = {})
+        : CPoolPairMessage(msg)
+        , reserveA(0)
+        , reserveB(0)
+        , totalLiquidity(0)
+        , blockCommissionA(0)
+        , blockCommissionB(0)
+        , kLast(0)
+        , lastPoolEventHeight(0)
+        , rewardPct(0)
+        , creationTx()
+        , creationHeight(-1)
+    {}
     virtual ~CPoolPair() = default;
 
     CAmount reserveA, reserveB, totalLiquidity;
