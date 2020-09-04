@@ -750,14 +750,19 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
         throw Res::Err("%s: didn't find the poolpair!", base);
     }
 
-    poolPair->second.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, [&] (const CTokenAmount &) {
+    CPoolPair pp = poolPair->second;
+    pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, [&] (const CTokenAmount &tokenAmount) {
+        auto resPP = mnview.SetPoolPair(poolPair->first, pp);
+        if (!resPP.ok) {
+            return Res::Err("%s: %s", base, resPP.msg);
+        }
 
         auto sub = mnview.SubBalance(poolSwapMsg.from, {poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom});
         if (!sub.ok) {
             return Res::Err("%s: %s", base, sub.msg);
         }
 
-        auto add = mnview.AddBalance(poolSwapMsg.to, {poolSwapMsg.idTokenTo, poolSwapMsg.amountFrom});
+        auto add = mnview.AddBalance(poolSwapMsg.to, tokenAmount);
         if (!add.ok) {
             return Res::Err("%s: %s", base, add.msg);
         }
