@@ -68,7 +68,7 @@ boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const 
     return {};
 }
 
-Res CPoolPair::Swap(CTokenAmount in, std::function<Res (const CTokenAmount &)> onTransfer) {
+Res CPoolPair::Swap(CTokenAmount in, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer) {
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB) {
         throw std::runtime_error("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
     }
