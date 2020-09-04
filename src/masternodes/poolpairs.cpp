@@ -100,7 +100,7 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
         CAmount stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
         CAmount stepTo = poolTo * stepFrom / poolFrom;
         poolFrom += stepFrom;
-        poolTo -= poolTo;
+        poolTo -= stepTo;
         unswapped -= stepFrom;
         swapped += stepTo;
     }
