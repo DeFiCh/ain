@@ -57,17 +57,61 @@ boost::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) cons
 
 boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const DCT_ID &tokenA, const DCT_ID &tokenB) const
 {
+    DCT_ID poolId;
+    auto varint = WrapVarInt(poolId.v);
     ByPairKey key {tokenA, tokenB};
-    auto poolId = ReadBy<ByPair, DCT_ID>(key);
-    if(poolId) {
-        auto poolPair = ReadBy<ByID, CPoolPair>(WrapVarInt(poolId->v));
+    if(ReadBy<ByPair, ByPairKey>(key, varint)) {
+        auto poolPair = ReadBy<ByID, CPoolPair>(varint);
         if(poolPair)
-            return { std::make_pair(*poolId, *poolPair) };
+            return { std::make_pair(poolId, std::move(*poolPair)) };
     }
     return {};
 }
 
-//Res CPoolPairView::AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress)
-//{
-//    return Res::Ok();
-//}
+Res CPoolPair::Swap(CTokenAmount in, std::function<Res (const CTokenAmount &)> onTransfer) {
+    if (in.nTokenId != idTokenA && in.nTokenId != idTokenB) {
+        throw std::runtime_error("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
+    }
+    if (in.nValue <= 0)
+        return Res::Err("Poolpair swap: input amount should be positive!");
+
+    bool const forward = in.nTokenId == idTokenA;
+
+    // claim trading fee
+    if (commission) {
+        CAmount const tradeFee = in.nValue * commission / PRECISION; /// @todo check overflow
+        in.nValue -= tradeFee;
+        if (forward) {
+            blockCommissionA += tradeFee;
+        }
+        else {
+            blockCommissionB += tradeFee;
+        }
+    }
+    CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB) : slopeSwap(in.nValue, reserveB, reserveA);
+
+    return onTransfer({ forward ? idTokenB : idTokenA, result });
+}
+
+CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo) {
+    assert (unswapped >= 0 && poolFrom > 0 && poolTo > 0);
+    CAmount swapped = 0;
+    while (unswapped > 0) {
+        CAmount stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
+        CAmount stepTo = poolTo * stepFrom / poolFrom;
+        poolFrom += stepFrom;
+        poolTo -= poolTo;
+        unswapped -= stepFrom;
+        swapped += stepTo;
+    }
+    return swapped;
+}
+
+void CPoolPairView::ForEachPoolPair(std::function<bool(const DCT_ID &, const CPoolPair &)> callback, DCT_ID const & start) {
+    DCT_ID poolId = start;
+    auto hint = WrapVarInt(poolId.v);
+
+    ForEach<ByID, CVarInt<VarIntMode::DEFAULT, uint32_t>, CPoolPair>([&poolId, &callback] (CVarInt<VarIntMode::DEFAULT, uint32_t> const &, CPoolPair & pool) {
+        return callback(poolId, pool);
+    }, hint);
+}

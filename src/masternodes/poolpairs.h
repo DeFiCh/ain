@@ -28,6 +28,28 @@ struct ByPairKey {
     }
 };
 
+struct CPoolSwapMessage {
+    CScript from, to;
+    DCT_ID idTokenFrom, idTokenTo;
+    CAmount amountFrom;
+
+    std::string ToString() const {
+        std::string result = "(" + from.GetHex() + " " + idTokenFrom.ToString() + " " + std::to_string(amountFrom) + "->" + from.GetHex() + " " + idTokenFrom.ToString() +")";
+        return result;
+    }
+
+    ADD_SERIALIZE_METHODS
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(from);
+        READWRITE(VARINT(idTokenFrom.v));
+        READWRITE(amountFrom);
+        READWRITE(to);
+        READWRITE(VARINT(idTokenTo.v));
+    }
+};
+
 struct CPoolPairMessage {
     DCT_ID idTokenA, idTokenB;
     CAmount commission;   // comission %% for traders
@@ -51,8 +73,19 @@ class CPoolPair : public CPoolPairMessage
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount PRECISION = COIN; // or just PRECISION_BITS for "<<" and ">>"
-    CPoolPair() {}
-    CPoolPair(CPoolPairMessage const & msg) : CPoolPairMessage(msg) {}
+    CPoolPair(CPoolPairMessage const & msg = {})
+        : CPoolPairMessage(msg)
+        , reserveA(0)
+        , reserveB(0)
+        , totalLiquidity(0)
+        , blockCommissionA(0)
+        , blockCommissionB(0)
+        , kLast(0)
+        , lastPoolEventHeight(0)
+        , rewardPct(0)
+        , creationTx()
+        , creationHeight(-1)
+    {}
     virtual ~CPoolPair() = default;
 
     CAmount reserveA, reserveB, totalLiquidity;
@@ -125,30 +158,7 @@ public:
         return Res::Ok();
     }
 
-    Res Swap(CTokenAmount in, std::function<Res(CTokenAmount const &)> onTransfer) {
-        if (in.nTokenId != idTokenA && in.nTokenId != idTokenB) {
-            throw std::runtime_error("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
-        }
-        if (in.nValue <= 0)
-            return Res::Err("Poolpair swap: input amount should be positive!");
-
-        bool const forward = in.nTokenId == idTokenA;
-
-        // claim trading fee
-        if (commission) {
-            CAmount const tradeFee = in.nValue * commission / PRECISION; /// @todo check overflow
-            in.nValue -= tradeFee;
-            if (forward) {
-                blockCommissionA += tradeFee;
-            }
-            else {
-                blockCommissionB += tradeFee;
-            }
-        }
-        CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB) : slopeSwap(in.nValue, reserveB, reserveA);
-
-        return onTransfer({ forward ? idTokenB : idTokenA, result });
-    }
+    Res Swap(CTokenAmount in, std::function<Res(CTokenAmount const &)> onTransfer);
 
 private:
     /// @todo review all 'Res' uses
@@ -170,19 +180,7 @@ private:
         }
     }
 
-    CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo) {
-        assert (unswapped >= 0 && poolFrom > 0 && poolTo > 0);
-        CAmount swapped = 0;
-        while (unswapped > 0) {
-            CAmount stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
-            CAmount stepTo = poolTo * stepFrom / poolFrom;
-            poolFrom += stepFrom;
-            poolTo -= poolTo;
-            unswapped -= stepFrom;
-            swapped += stepTo;
-        }
-        return swapped;
-    }
+    CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo);
 
 /// @deprecated
 //    Res update(CAmount balanceA, CAmount balanceB, /*CAmount _reserveA, CAmount _reserveB, - prev values*/ uint32_t height) {
@@ -209,7 +207,17 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-
+        READWRITEAS(CPoolPairMessage, *this);
+        READWRITE(reserveA);
+        READWRITE(reserveB);
+        READWRITE(totalLiquidity);
+        READWRITE(blockCommissionA);
+        READWRITE(blockCommissionB);
+        READWRITE(kLast.GetLow64());
+        READWRITE(lastPoolEventHeight);
+        READWRITE(rewardPct);
+        READWRITE(creationTx);
+        READWRITE(creationHeight);
     }
 };
 

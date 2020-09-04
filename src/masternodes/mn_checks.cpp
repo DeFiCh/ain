@@ -148,6 +148,12 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::MintToken:
                 res = ApplyMintTokenTx(mnview, coins, tx, metadata);
                 break;
+            case CustomTxType::CreatePoolPair:
+                res = ApplyCreatePoolPairTx(mnview, coins, tx, height, metadata);
+                break;
+            case CustomTxType::PoolSwap:
+                res = ApplyPoolSwapTx(mnview, coins, tx, height, metadata);
+                break;
             case CustomTxType::AddPoolLiquidity:
                 res = ApplyAddPoolLiquidityTx(mnview, coins, tx, height, metadata);
                 break;
@@ -162,9 +168,6 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 break;
             case CustomTxType::AccountToAccount:
                 res = ApplyAccountToAccountTx(mnview, coins, tx, metadata);
-                break;
-            case CustomTxType::CreatePoolPair:
-                res = ApplyCreatePoolPairTx(mnview, coins, tx, height, metadata);
                 break;
             default:
                 return Res::Ok(); // not "custom" tx
@@ -429,7 +432,11 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 //    DCT_ID tokenIdB = std::next(sumTx.balances.begin(), 1)->first;
 
     std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
-    std::pair<DCT_ID, CAmount> amountB = *(sumTx.balances.begin()++);
+    std::pair<DCT_ID, CAmount> amountB = *(std::next(sumTx.balances.begin(), 1));
+
+    if (amountA.first == amountB.first) {
+        return Res::Err("%s: tokens IDs are the same", base);
+    }
 
     if (amountA.second <= 0 || amountB.second <= 0) {
         return Res::Err("%s: amount cannot be less than or equal to zero", base);
@@ -711,6 +718,56 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     return Res::Ok(base);
 }
 
+Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata)
+{
+    CPoolSwapMessage poolSwapMsg;
+    std::string pairSymbol;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> poolSwapMsg;
+    if (!ss.empty()) {
+        return Res::Err("PoolSwap: deserialization failed: excess %d bytes",  ss.size());
+    }
+
+    const std::string base{"PoolSwap creation: " + poolSwapMsg.ToString()};
+
+    // check auth
+    if (!HasAuth(tx, coins, poolSwapMsg.from)) {
+        return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+    }
+
+    auto tokenFrom = mnview.GetToken(poolSwapMsg.idTokenFrom);
+    if (!tokenFrom) {
+        throw Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenFrom.ToString());
+    }
+
+    auto tokenTo = mnview.GetToken(poolSwapMsg.idTokenTo);
+    if (!tokenTo) {
+        throw Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenTo.ToString());
+    }
+
+    auto poolPair = mnview.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+    if (!poolPair) {
+        throw Res::Err("%s: didn't find the poolpair!", base);
+    }
+
+    poolPair->second.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, [&] (const CTokenAmount &) {
+
+        auto sub = mnview.SubBalance(poolSwapMsg.from, {poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom});
+        if (!sub.ok) {
+            return Res::Err("%s: %s", base, sub.msg);
+        }
+
+        auto add = mnview.AddBalance(poolSwapMsg.to, {poolSwapMsg.idTokenTo, poolSwapMsg.amountFrom});
+        if (!add.ok) {
+            return Res::Err("%s: %s", base, add.msg);
+        }
+
+        return Res::Ok();
+    });
+
+    return Res::Ok();
+}
+
 bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
 {
     CTransactionRef ptx = pool.get(txid);
@@ -721,5 +778,3 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
     }
     return false;
 }
-
-
