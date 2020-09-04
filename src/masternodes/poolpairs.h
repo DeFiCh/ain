@@ -263,7 +263,7 @@ public:
     void ForEachShare(std::function<bool(DCT_ID const & id, CScript const & provider, CAmount amount)> callback, DCT_ID const & start = DCT_ID{0}); // optional, with lookup into accounts
 
 //    Res AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
-
+/* /// WIP: commented out, even not builds yet
     Res DistributeRewards() {
 
         CAmount yieldFarming = GetCurrentBlockYieldFarming(); // should return actual "LP_DAILY_DFI_REWARD / 2880" or smth
@@ -313,10 +313,10 @@ public:
 
             SetPoolPair(poolId, pool);
         });
-
 /// @todo   return/set somehow  (yieldFarming - totalDistributed)
         return Res::Ok();
     }
+*/
 
     // tags
     struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair
