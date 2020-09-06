@@ -170,8 +170,9 @@ class WalletBackupTest(DefiTestFramework):
         # Start node2 with no chain
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
-        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'masternodes'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'enhancedcs'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'criminals'))
 
         # Restore wallets from backup
         shutil.copyfile(os.path.join(self.nodes[0].datadir, 'wallet.bak'), os.path.join(self.nodes[0].datadir, 'regtest', 'wallets', 'wallet.dat'))
@@ -193,8 +194,9 @@ class WalletBackupTest(DefiTestFramework):
         #start node2 with no chain
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'blocks'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'chainstate'))
-        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'masternodes'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'enhancedcs'))
         shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'anchors'))
+        shutil.rmtree(os.path.join(self.nodes[2].datadir, 'regtest', 'criminals'))
 
         self.start_three()
 

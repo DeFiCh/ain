@@ -71,7 +71,7 @@ bool PartiallySignedTransaction::GetInputUTXO(CTxOut& utxo, int input_index) con
     if (input.non_witness_utxo) {
         utxo = input.non_witness_utxo->vout[prevout_index];
     } else if (!input.witness_utxo.IsNull()) {
-        utxo = input.witness_utxo;
+        utxo = input.witness_utxo; /// @todo tokens: extend with correct txout version (and/or tokenid) when implemented
     } else {
         return false;
     }
@@ -142,7 +142,7 @@ void PSBTInput::Merge(const PSBTInput& input)
 {
     if (!non_witness_utxo && input.non_witness_utxo) non_witness_utxo = input.non_witness_utxo;
     if (witness_utxo.IsNull() && !input.witness_utxo.IsNull()) {
-        witness_utxo = input.witness_utxo;
+        witness_utxo = input.witness_utxo; /// @todo tokens: extend with correct txout version (and/or tokenid) when implemented
         non_witness_utxo = nullptr; // Clear out any non-witness utxo when we set a witness one.
     }
 
@@ -259,9 +259,9 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
         if (input.non_witness_utxo->GetHash() != prevout.hash) {
             return false;
         }
-        utxo = input.non_witness_utxo->vout[prevout.n];
+        utxo = input.non_witness_utxo->vout[prevout.n]; /// @todo tokens: extend with correct txout version (and/or tokenid) when implemented
     } else if (!input.witness_utxo.IsNull()) {
-        utxo = input.witness_utxo;
+        utxo = input.witness_utxo; /// @todo tokens: extend with correct txout version (and/or tokenid) when implemented
         // When we're taking our information from a witness UTXO, we can't verify it is actually data from
         // the output being spent. This is safe in case a witness signature is produced (which includes this
         // information directly in the hash), but not for non-witness signatures. Remember that we require
@@ -285,7 +285,7 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
 
     // If we have a witness signature, use the smaller witness UTXO.
     if (sigdata.witness) {
-        input.witness_utxo = utxo;
+        input.witness_utxo = utxo; /// @todo tokens: extend with correct txout version (and/or tokenid) when implemented
         input.non_witness_utxo = nullptr;
     }
 

@@ -441,6 +441,7 @@ public:
     // e.g. via prevector
     explicit CScript(const std::vector<unsigned char>& b) = delete;
 
+    std::string GetHex() const;
 
     CScript& operator<<(int64_t b) { return push_int64(b); }
 

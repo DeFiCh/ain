@@ -47,6 +47,8 @@ public:
     int m_max_depth = DEFAULT_MAX_DEPTH;
     //! Match coin with this destination
     CTxDestination matchDestination;
+    //! Token's filter. Match token's ids if set
+    std::set<DCT_ID> m_tokenFilter;
 
     CCoinControl()
     {

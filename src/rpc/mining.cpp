@@ -190,7 +190,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
-    auto myIDs = pmasternodesview->AmIOperator();
+    auto myIDs = pcustomcsview->AmIOperator();
     if (!myIDs) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
     }
@@ -205,7 +205,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
 
         bool found =false;
         for (auto&& wallet : wallets) {
-            if (wallet->GetKey(myIDs->operatorAuthAddress, minterKey)) {
+            if (wallet->GetKey(myIDs->first, minterKey)) {
                 found = true;
                 break;
             }
@@ -214,7 +214,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode operator private key not found");
 
     }
-    return generateBlocks(coinbase_script, minterKey, myIDs->id, nGenerate, nMaxTries);
+    return generateBlocks(coinbase_script, minterKey, myIDs->second, nGenerate, nMaxTries);
 }
 
 static UniValue getmintinginfo(const JSONRPCRequest& request)
@@ -249,13 +249,13 @@ static UniValue getmintinginfo(const JSONRPCRequest& request)
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
     obj.pushKV("difficulty",       (double)GetDifficulty(::ChainActive().Tip()));
 
-    auto mnIds = pmasternodesview->AmIOperator();
+    auto mnIds = pcustomcsview->AmIOperator();
     obj.pushKV("isoperator",       (bool) mnIds);
     if (mnIds) {
-        obj.pushKV("masternodeid", mnIds->id.GetHex());
-        obj.pushKV("masternodeoperator", mnIds->operatorAuthAddress.GetHex());
-        CMasternode const & node = *pmasternodesview->ExistMasternode(mnIds->id);
+        obj.pushKV("masternodeid", mnIds->second.GetHex());
+        CMasternode const & node = *pcustomcsview->GetMasternode(mnIds->second);
         auto state = node.GetState();
+        obj.pushKV("masternodeoperator", node.operatorAuthAddress.GetHex());
         obj.pushKV("masternodestate", CMasternode::GetHumanReadableState(state));
         obj.pushKV("generate", node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
         obj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);

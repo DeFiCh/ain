@@ -370,6 +370,8 @@ bool CCoinsViewDB::Upgrade() {
     if (!pcursor->Valid()) {
         return true;
     }
+    LogPrintf("Upgrading utxo-set database: There should be nothing to upgrade!\n");
+    assert(false);
 
     int64_t count = 0;
     LogPrintf("Upgrading utxo-set database...\n");

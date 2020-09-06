@@ -43,7 +43,7 @@ typedef uint32_t THeight; // cause not decided yet which type to use for heights
 class CAnchorAuthMessage
 {
     using Signature = std::vector<unsigned char>;
-    using CTeam = CMasternodesView::CTeam;
+    using CTeam = CCustomCSView::CTeam;
 public:
     uint256 previousAnchor;         ///< Previous tx-AnchorAnnouncement on BTC chain
     THeight height;                 ///< Height of the anchor block (DeFi)
@@ -84,7 +84,7 @@ private:
 class CAnchor
 {
     using Signature = std::vector<unsigned char>;
-    using CTeam = CMasternodesView::CTeam;
+    using CTeam = CCustomCSView::CTeam;
 
 public:
     uint256 previousAnchor;
@@ -120,7 +120,7 @@ using namespace boost::multi_index;
 
 class CAnchorAuthIndex
 {
-    using CTeam = CMasternodesView::CTeam;
+    using CTeam = CCustomCSView::CTeam;
 
 public:
     using Auth = CAnchorAuthMessage;
@@ -155,8 +155,8 @@ public:
         >
     > Auths;
 
-    Auth const * ExistAuth(uint256 const & msgHash) const;
-    Auth const * ExistVote(uint256 const & signHash, CKeyID const & signer) const;
+    Auth const * GetAuth(uint256 const & msgHash) const;
+    Auth const * GetVote(uint256 const & signHash, CKeyID const & signer) const;
     bool ValidateAuth(Auth const & auth) const;
     bool AddAuth(Auth const & auth);
 
@@ -175,7 +175,7 @@ private:
     boost::scoped_ptr<CDBBatch> batch;
 public:
     using Signature = std::vector<unsigned char>;
-    using CTeam = CMasternodesView::CTeam;
+    using CTeam = CCustomCSView::CTeam;
 
     struct AnchorRec {
         CAnchor anchor;
@@ -210,13 +210,13 @@ public:
     AnchorRec const * GetActiveAnchor() const;
     bool ActivateBestAnchor(bool forced = false); // rescan anchors
 
-    AnchorRec const * ExistAnchorByTx(uint256 const & hash) const;
+    AnchorRec const * GetAnchorByTx(uint256 const & hash) const;
 
     bool AddAnchor(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite = true);
     bool DeleteAnchorByBtcTx(uint256 const & btcTxHash);
 
-    CMasternodesView::CTeam GetNextTeam(uint256 const & btcPrevTx) const;
-    CMasternodesView::CTeam GetCurrentTeam(AnchorRec const * anchor) const;
+    CCustomCSView::CTeam GetNextTeam(uint256 const & btcPrevTx) const;
+    CCustomCSView::CTeam GetCurrentTeam(AnchorRec const * anchor) const;
 
     AnchorRec const * GetAnchorByBtcTx(uint256 const & txHash) const;
 
@@ -288,7 +288,7 @@ public:
     uint256 GetHash() const;
     uint256 GetSignHash() const;
     CKeyID GetSigner() const;
-    bool CheckConfirmSigs(std::vector<Signature> const & sigs, CMasternodesView::CTeam team);
+    bool CheckConfirmSigs(std::vector<Signature> const & sigs, CCustomCSView::CTeam team);
     bool isEqualDataWith(const CAnchorConfirmMessage &message) const;
 
     ADD_SERIALIZE_METHODS;
@@ -351,19 +351,19 @@ protected:
 
 public:
     bool EraseAnchor(AnchorTxHash const &txHash);
-    const CAnchorConfirmMessage *Exist(ConfirmMessageHash const &msgHash) const;
+    const CAnchorConfirmMessage *GetConfirm(ConfirmMessageHash const &msgHash) const;
     bool Add(CAnchorConfirmMessage const &newConfirmMessage);
     bool Validate(CAnchorConfirmMessage const &confirmMessage) const;
     void Clear();
     void ReVote();
-    std::vector<CAnchorConfirmMessage> GetQuorumFor(CMasternodesView::CTeam const & team) const;
+    std::vector<CAnchorConfirmMessage> GetQuorumFor(CCustomCSView::CTeam const & team) const;
 
     void ForEachConfirm(std::function<void(Confirm const &)> callback) const;
 };
 
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')
-/// even may be not here, but in CMasternodesView
-uint32_t GetMinAnchorQuorum(CMasternodesView::CTeam const & team);
+/// even may be not here, but in CCustomCSView
+uint32_t GetMinAnchorQuorum(CCustomCSView::CTeam const & team);
 
 // thowing exceptions (not a bool due to more verbose rpc errors. may be 'status' or smth? )
 /// Validates all except tx confirmations

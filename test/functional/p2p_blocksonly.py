@@ -27,12 +27,12 @@ class P2PBlocksOnly(DefiTestFramework):
                 'vout': 0
             }],
             outputs=[{
-                self.nodes[0].get_genesis_keys().operatorAuthAddress: 50 - 0.00125
+                self.nodes[0].get_genesis_keys().ownerAuthAddress: 50 - 0.00125
             }],
         )
         sigtx = self.nodes[0].signrawtransactionwithkey(
             hexstring=rawtx,
-            privkeys=[self.nodes[0].get_genesis_keys().operatorPrivKey],
+            privkeys=[self.nodes[0].get_genesis_keys().ownerPrivKey],
             prevtxs=[{
                 'txid': prevtx['txid'],
                 'vout': 0,
