@@ -1587,7 +1587,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::AddPoolLiquidity)
+    markedMetadata << static_cast<unsigned char>(CustomTxType::RemovePoolLiquidity)
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
