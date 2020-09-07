@@ -110,10 +110,12 @@ class PoolLiquidityTest (DefiTestFramework):
         amountGold = self.nodes[0].getaccount(accountGold, {}, True)[idGold]
         amountSilver = self.nodes[0].getaccount(accountGold, {}, True)[idSilver]
 
-        #assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGS], "99.99999000")
+        assert_equal(str(amountGS), "99.99999000")
+
         assert_equal(amountGold, initialGold - 100)
         assert_equal(amountSilver, initialSilver - 1100)
 
+        assert_equal(str(self.nodes[1].getaccount(accountGold, {}, True)[idGS]), "99.99999000")
         assert_equal(self.nodes[1].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
         assert_equal(self.nodes[1].getaccount(accountGold, {}, True)[idSilver], initialSilver - 1100)
 
