@@ -2170,6 +2170,100 @@ UniValue poolswap(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
+UniValue poolShareToJSON(PoolShareKey const& poolShareKey, CAmount const& amount, CPoolPair const& poolPair, bool verbose) {
+    UniValue poolObj(UniValue::VOBJ);
+    poolObj.pushKV("poolID", poolShareKey.poolID.ToString());
+    poolObj.pushKV("owner", ScriptToString(poolShareKey.owner));
+    poolObj.pushKV("%", uint64_t(amount*100/poolPair.totalLiquidity));
+
+    if (verbose) {
+        poolObj.pushKV("amount", ValueFromAmount(amount));
+        poolObj.pushKV("totalLiquidity", ValueFromAmount(poolPair.totalLiquidity));
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV(poolShareKey.poolID.ToString() + " " + ScriptToString(poolShareKey.owner), poolObj);
+    return ret;
+}
+
+UniValue listpoolshares(const JSONRPCRequest& request) {
+    RPCHelpMan{"listpoolshares",
+               "\nReturns information about pool shares.\n",
+               {
+                        {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                            {
+                                 {"start", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Optional first key to iterate from, in lexicographical order."},
+                                 {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                  "If true, then iterate including starting position. False by default"},
+                                 {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Maximum number of pools to return, 100 by default"},
+                            },
+                        },
+                        {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                    "Flag for verbose list (default = true), otherwise only % are shown."},
+               },
+               RPCResult{
+                       "{id:{...},...}     (array) Json object with pools information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listpoolshares", "{\"start\":128} False")
+                       + HelpExampleRpc("listpoolshares", "{\"start\":128} False")
+               },
+    }.Check(request);
+
+    bool verbose = true;
+    if (request.params.size() > 1) {
+        verbose = request.params[1].getBool();
+    }
+
+    // parse pagination
+    size_t limit = 100;
+    DCT_ID start{0};
+    {
+        if (request.params.size() > 0) {
+            bool including_start = false;
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                start.v = (uint32_t) paginationObj["start"].get_int();
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                ++start.v;
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
+
+    LOCK(cs_main);
+
+    PoolShareKey startKey{};
+    startKey.poolID = start;
+    startKey.owner = CScript(0);
+
+    UniValue ret(UniValue::VOBJ);
+    pcustomcsview->ForEachPoolShare([&](PoolShareKey const& poolShareKey, char const& value) {
+        const CTokenAmount tokenAmount = pcustomcsview->GetBalance(poolShareKey.owner, poolShareKey.poolID);
+        if(tokenAmount.nValue) {
+            const auto poolPair = pcustomcsview->GetPoolPair(poolShareKey.poolID);
+            if(poolPair) {
+                ret.pushKVs(poolShareToJSON(poolShareKey, tokenAmount.nValue, *poolPair, verbose));
+            }
+        }
+        limit--;
+        return limit != 0;
+    }, startKey);
+
+    return ret;
+}
+
 static const CRPCCommand commands[] =
 { //  category      name                  actor (function)     params
   //  ----------------- ------------------------    -----------------------     ----------
@@ -2195,6 +2289,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "accounttoutxos",     &accounttoutxos,     {"inputs", "from", "to"}},
     {"poolpair",    "createpoolpair",     &createpoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
+    {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {
