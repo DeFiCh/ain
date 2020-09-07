@@ -141,7 +141,7 @@ class PoolPairTest (DefiTestFramework):
         assert("Error, there is already a poolpairwith same tokens, but different poolId" in errorString)
 
         # Creating another one
-        self.nodes[0].createpoolpair({
+        trPP = self.nodes[0].createpoolpair({
             "tokenA": "DFI",
             "tokenB": "GOLD",
             "comission": 0.001,
@@ -149,6 +149,16 @@ class PoolPairTest (DefiTestFramework):
             "ownerFeeAddress": collateral0,
             "pairSymbol": "DFGLD"
         }, [])
+
+        # 7+ Checking if it's an automatically created token (collateral unlocked, user's token has collateral locked)
+        tx = self.nodes[0].getrawtransaction(trPP)
+        decodeTx = self.nodes[0].decoderawtransaction(tx)
+        assert_equal(len(decodeTx['vout']), 2)
+        #print(decodeTx['vout'][1]['scriptPubKey']['hex'])
+
+        spendTx = self.nodes[0].createrawtransaction([{'txid':decodeTx['txid'], 'vout':1}],[{collateral0:9.999}])
+        signedTx = self.nodes[0].signrawtransactionwithwallet(spendTx)
+        assert_equal(signedTx['complete'], True)
 
         self.nodes[0].generate(1)
         # 8 Creating PoolPair not from Foundation -> Error
