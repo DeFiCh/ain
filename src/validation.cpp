@@ -1636,9 +1636,13 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 mnview.SetTeam(currentTeam);
 
-                assert(mnview.GetFoundationsDebt() >= tx.GetValueOut());
-
-                mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
+                if (pindex->nHeight >= Params().GetConsensus().DIP1Height) {
+                    mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut()); // or just 'Set..'
+                }
+                else { // pre-DIP1 logic:
+                    assert(mnview.GetFoundationsDebt() >= tx.GetValueOut());
+                    mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
+                }
                 mnview.RemoveRewardForAnchor(btcTxHash);
 
                 auto message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash);
@@ -2229,12 +2233,29 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                          REJECT_INVALID, "bad-ar-sigs-quorum");
                 }
 
-                auto anchorReward = GetAnchorSubsidy(anchorHeight, prevAnchorHeight, chainparams.GetConsensus());
-                if (tx.GetValueOut() > anchorReward) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor pays too much (actual=%d vs limit=%d)",
-                                               tx.GetValueOut(), anchorReward),
-                                         REJECT_INVALID, "bad-ar-amount");
+                // check reward sum
+                if (pindex->nHeight >= chainparams.GetConsensus().DIP1Height) {
+                    auto const cbValues = tx.GetValuesOut();
+                    if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
+                        return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("ConnectBlock(): anchor reward should be payed only in Defi coins"),
+                                               REJECT_INVALID, "bad-ar-wrong-tokens");
+                    auto const anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
+                    if (cbValues.begin()->second != anchorReward) {
+                        return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                             error("ConnectBlock(): anchor pays wrong amount (actual=%d vs expected=%d)",
+                                                   cbValues.begin()->second, anchorReward),
+                                             REJECT_INVALID, "bad-ar-amount");
+                    }
+                }
+                else { // pre-DIP1 logic
+                    auto anchorReward = GetAnchorSubsidy(anchorHeight, prevAnchorHeight, chainparams.GetConsensus());
+                    if (tx.GetValueOut() > anchorReward) {
+                        return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                             error("ConnectBlock(): anchor pays too much (actual=%d vs limit=%d)",
+                                                   tx.GetValueOut(), anchorReward),
+                                             REJECT_INVALID, "bad-ar-amount");
+                    }
                 }
 
                 CTxDestination destination = rewardKeyType == 1 ? CTxDestination(PKHash(rewardKeyID)) : CTxDestination(WitnessV0KeyHash(rewardKeyID));
@@ -2258,7 +2279,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     }
                 }
                 mnview.SetTeam(nextTeam);
-                mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
+                if (pindex->nHeight >= chainparams.GetConsensus().DIP1Height) {
+                    mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
+                }
+                else {
+                    mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
+                }
                 mnview.AddRewardForAnchor(btcTxHash, tx.GetHash());
                 rewardedAnchors.push_back(btcTxHash);
 

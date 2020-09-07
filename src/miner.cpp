@@ -179,7 +179,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
         mTx.vout[0].nValue = 0;
         mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-        mTx.vout[1].nValue = GetAnchorSubsidy(confirm.anchorHeight, confirm.prevAnchorHeight, chainparams.GetConsensus());
+
+        if (nHeight >= chainparams.GetConsensus().DIP1Height) {
+            mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(CommunityAccountType::AnchorReward); // do not reset it, so it will occure on connectblock
+        }
+        else { // pre-DIP1 logic:
+            mTx.vout[1].nValue = GetAnchorSubsidy(confirm.anchorHeight, confirm.prevAnchorHeight, chainparams.GetConsensus());
+        }
 
         LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);
         pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
@@ -238,19 +244,35 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
-    // Pinch off foundation share
-    CAmount foundationsReward = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
-    if (!chainparams.GetConsensus().foundationShareScript.empty() && chainparams.GetConsensus().foundationShare != 0) {
-        if (pcustomcsview->GetFoundationsDebt() < foundationsReward) {
+    CAmount blockReward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    coinbaseTx.vout[0].nValue = nFees + blockReward;
+
+    if (nHeight >= chainparams.GetConsensus().DIP1Height) {
+        // assume community non-utxo funding:
+        for (auto kv : chainparams.GetConsensus().nonUtxoBlockSubsidies) {
+            coinbaseTx.vout[0].nValue -= blockReward * kv.second / COIN;
+        }
+        // Pinch off foundation share
+        if (!chainparams.GetConsensus().foundationShareScript.empty() && chainparams.GetConsensus().foundationShareDIP1 != 0) {
             coinbaseTx.vout.resize(2);
             coinbaseTx.vout[1].scriptPubKey = chainparams.GetConsensus().foundationShareScript;
-            coinbaseTx.vout[1].nValue = foundationsReward - pcustomcsview->GetFoundationsDebt();
+            coinbaseTx.vout[1].nValue = blockReward * chainparams.GetConsensus().foundationShareDIP1 / COIN; // the main difference is that new FS is a %% from "base" block reward and no fees involved
             coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
-        } else {
-            pcustomcsview->SetFoundationsDebt(pcustomcsview->GetFoundationsDebt() - foundationsReward);
         }
-
+    }
+    else { // pre-DIP1 logic:
+        // Pinch off foundation share
+        CAmount foundationsReward = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
+        if (!chainparams.GetConsensus().foundationShareScript.empty() && chainparams.GetConsensus().foundationShare != 0) {
+            if (pcustomcsview->GetFoundationsDebt() < foundationsReward) {
+                coinbaseTx.vout.resize(2);
+                coinbaseTx.vout[1].scriptPubKey = chainparams.GetConsensus().foundationShareScript;
+                coinbaseTx.vout[1].nValue = foundationsReward - pcustomcsview->GetFoundationsDebt();
+                coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
+            } else {
+                pcustomcsview->SetFoundationsDebt(pcustomcsview->GetFoundationsDebt() - foundationsReward);
+            }
+        }
     }
 
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
