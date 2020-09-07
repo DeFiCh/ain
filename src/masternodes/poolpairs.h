@@ -143,8 +143,8 @@ public:
 
         CAmount resAmountA, resAmountB;
 
-        resAmountA = (arith_uint256(liqAmount) * reserveA / totalLiquidity).GetLow64();
-        resAmountB = (arith_uint256(liqAmount) * reserveB / totalLiquidity).GetLow64();
+        resAmountA = (arith_uint256(liqAmount) * arith_uint256(reserveA) / totalLiquidity).GetLow64();
+        resAmountB = (arith_uint256(liqAmount) * arith_uint256(reserveB) / totalLiquidity).GetLow64();
 
         auto res = onBurn(address, resAmountA, resAmountB);
         if (!res.ok) {

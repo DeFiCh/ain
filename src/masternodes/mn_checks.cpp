@@ -492,9 +492,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     if (!res.ok) {
         return Res::Err("%s: %s", base, res.msg);
     }
-    mnview.SetPoolPair(lpTokenID, pool); // res?
-
-    return Res::Ok(base);
+    return mnview.SetPoolPair(lpTokenID, pool);
 }
 
 Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
@@ -560,7 +558,7 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
         return Res::Err("%s: %s", base, res.msg);
     }
 
-    return Res::Ok(base);
+    return mnview.SetPoolPair(amount.nTokenId, pool);
 }
 
 
