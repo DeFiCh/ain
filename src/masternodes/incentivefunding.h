@@ -18,6 +18,17 @@ inline CommunityAccountType CommunityAccountCodeToType (unsigned char ch) {
         return CommunityAccountType::None;
 }
 
+inline char* GetCommunityAccountName(CommunityAccountType t)
+{
+    switch (t)
+    {
+        case CommunityAccountType::IncentiveFunding: return "IncentiveFunding";
+        case CommunityAccountType::AnchorReward:     return "AnchorReward";
+        default:
+            return "Unknown";
+    }
+}
+
 class CCommunityBalancesView : public virtual CStorageView
 {
 public:
