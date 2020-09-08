@@ -48,8 +48,20 @@ class TokensBasicTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Insufficient funds" in errorString)
 
-        print ("Create token 'GOLD' (128)...")
         self.nodes[0].generate(1)
+
+        # Fail to create:
+        try:
+            self.nodes[0].createtoken([], {
+                "symbol": "GOLD#1",
+                "name": "shiny gold",
+                "collateralAddress": collateral0
+            })
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("token symbol must not contain '#'" in errorString)
+
+        print ("Create token 'GOLD' (128)...")
         createTokenTx = self.nodes[0].createtoken([], {
             "symbol": "GOLD",
             "name": "shiny gold",
