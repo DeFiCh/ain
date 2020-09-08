@@ -41,6 +41,16 @@ boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetTo
 {
     DCT_ID id;
     auto varint = WrapVarInt(id.v);
+
+    const unsigned char ID_SPLITTER = '#';
+    size_t pos = symbol.rfind(ID_SPLITTER);
+
+    if (pos != std::string::npos) {
+        std::string token_id = symbol.substr(pos+1);
+        std::string token_name = symbol.substr(0, pos);
+        id.v = (uint32_t) std::stoul(token_id);
+        return { std::make_pair(id, std::move(GetToken(id)))};
+    }
     if (ReadBy<Symbol, std::string>(symbol, varint)) {
 //        assert(id >= DCT_ID_START);// ? not needed anymore?
         return { std::make_pair(id, std::move(GetToken(id)))};
@@ -118,9 +128,6 @@ Res CTokensView::CreateDFIToken()
 
 Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
 {
-    if (GetToken(token.symbol)) {
-        return Res::Err("token '%s' already exists!", token.symbol);
-    }
     // this should not happen, but for sure
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
@@ -136,6 +143,9 @@ Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
         if(id == DCT_ID_START) {
             LogPrintf("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n");
             assert (false);
+        }
+        if (GetToken(token.symbol)) {
+            return Res::Err("token '%s' already exists!", token.symbol);
         }
     }
     else
@@ -175,6 +185,22 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx)
         return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
     }
     CTokenImpl & tokenImpl = pair->second;
+
+    if (!tokenImpl.IsDAT()) {
+        bool similarToken = false;
+        ForEachToken([&](DCT_ID const& id, CToken const& token) {
+                         if (token.symbol == tokenImpl.symbol && token.IsDAT()) {
+                             similarToken = true;
+                             return false;
+                         } else {
+                             return true;
+                         }
+                     }, DCT_ID{0});
+        if (similarToken) {
+            return Res::Err("Token already exists!");
+        }
+    }
+
     tokenImpl.flags ^= (uint8_t)CToken::TokenFlags::DAT; // very strange logic. WHY only 'DAT' and WHY only triggering?
 
     WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
