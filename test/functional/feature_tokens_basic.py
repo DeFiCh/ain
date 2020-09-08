@@ -50,7 +50,7 @@ class TokensBasicTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        # Fail to create:
+        # Fail to create: use # in symbol
         try:
             self.nodes[0].createtoken([], {
                 "symbol": "GOLD#1",
@@ -114,6 +114,18 @@ class TokensBasicTest (DefiTestFramework):
             errorString = e.error['message']
         assert("collateral-locked," in errorString)
 
+        # Create new GOLD token
+        newGoldTx = self.nodes[0].createtoken([], {
+            "symbol": "GOLD",
+            "name": "shiny gold",
+            "collateralAddress": collateral0
+        })
+        self.nodes[0].generate(1)
+
+        # Get token by SYMBOL#ID
+        t129 = self.nodes[0].gettoken("GOLD#129")
+        assert_equal(t129['129']['symbol'], "GOLD")
+        assert_equal(self.nodes[0].gettoken("GOLD"), t129)
 
         # RESIGNING:
         #========================
@@ -129,13 +141,13 @@ class TokensBasicTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         print ("Destroy token...")
-        destroyTx = self.nodes[0].destroytoken([], "GOLD")
+        destroyTx = self.nodes[0].destroytoken([], "GOLD#128")
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], destroyTx)
 
         # Try to mint destroyed token ('minting' is not the task of current test, but let's check it here)
         try:
-            self.nodes[0].minttokens([], "100@GOLD")
+            self.nodes[0].minttokens([], "100@GOLD#128")
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("already destroyed" in errorString)
@@ -161,7 +173,7 @@ class TokensBasicTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_blocks(self.nodes[0:2])
 
-        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([fundingTx, destroyTx]))
+        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([fundingTx, destroyTx, newGoldTx]))
         assert_equal(self.nodes[0].listtokens()['128']['destructionHeight'], -1)
         assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
 
@@ -172,7 +184,7 @@ class TokensBasicTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
         assert_equal(len(self.nodes[0].listtokens()), 1)
-        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([createTokenTx, fundingTx, destroyTx]))
+        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([createTokenTx, fundingTx, destroyTx, newGoldTx]))
 
 if __name__ == '__main__':
     TokensBasicTest ().main ()
