@@ -34,13 +34,11 @@ bool CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID
     return true;
 }
 
-CAnchorAuthMessage::CAnchorAuthMessage(uint256 const & previousAnchor, int height, uint256 const & hash, CTeam const & nextTeam)
-    : previousAnchor(previousAnchor)
-    , height(height)
-    , blockHash(hash)
-    , nextTeam(nextTeam)
+uint256 CAnchorData::GetSignHash() const
 {
-    signature.clear();
+    CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
+    ss << previousAnchor << height << blockHash << nextTeam; // << salt_;
+    return Hash(ss.begin(), ss.end());
 }
 
 CAnchorAuthMessage::Signature CAnchorAuthMessage::GetSignature() const
@@ -74,38 +72,27 @@ CKeyID CAnchorAuthMessage::GetSigner() const
     return (!signature.empty() && pubKey.RecoverCompact(GetSignHash(), signature)) ? pubKey.GetID() : CKeyID{};
 }
 
-uint256 CAnchorAuthMessage::GetSignHash() const
-{
-    CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
-    ss << previousAnchor << height << blockHash << nextTeam; // << salt_;
-    return Hash(ss.begin(), ss.end());
-}
-
 CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestination const & rewardDest)
 {
     // assumed here that all of the auths are uniform, were checked for sigs and consensus has been reached!
     assert(rewardDest.which() == 1 || rewardDest.which() == 4);
-    CAnchor anchor;
+
     if (auths.size() > 0) {
-        anchor.previousAnchor = auths[0].previousAnchor;
-        anchor.height = auths[0].height;
-        anchor.blockHash = auths[0].blockHash;
-        anchor.nextTeam = auths[0].nextTeam;
+        CAnchor anchor(static_cast<CAnchorData const &> (auths.at(0)));
 
         for (size_t i = 0; i < auths.size(); ++i) {
             anchor.sigs.push_back(auths[i].GetSignature());
         }
         anchor.rewardKeyID = rewardDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&rewardDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
         anchor.rewardKeyType = rewardDest.which();
+        return anchor;
     }
-    return anchor;
+    return {};
 }
 
 bool CAnchor::CheckAuthSigs(CTeam const & team) const
 {
-    // create tmp auth
-    CAnchorAuthMessage auth(previousAnchor, height, blockHash, nextTeam);
-    return CheckSigs(auth.GetSignHash(), sigs, team);
+    return CheckSigs(GetSignHash(), sigs, team);
 }
 
 const CAnchorAuthIndex::Auth * CAnchorAuthIndex::GetAuth(uint256 const & msgHash) const
@@ -609,47 +596,20 @@ bool ValidateAnchor(const CAnchor & anchor, bool noThrow)
     return true;
 }
 
-CAnchorConfirmMessage CAnchorConfirmMessage::Create(THeight anchorHeight, CKeyID const & rewardKeyID, char rewardKeyType, THeight prevAnchorHeight, uint256 btcTxHash)
-{
-    CAnchorConfirmMessage message;
-
-    message.btcTxHash = btcTxHash;
-    message.anchorHeight = anchorHeight;
-    message.prevAnchorHeight = prevAnchorHeight;
-    message.rewardKeyID = rewardKeyID;
-    message.rewardKeyType = rewardKeyType;
-
-    return message;
-}
-
-CAnchorConfirmMessage CAnchorConfirmMessage::Create(CAnchor const & anchor, THeight prevAnchorHeight, uint256 btcTxHash, CKey const & key)
-{
-    CAnchorConfirmMessage message = CAnchorConfirmMessage::Create(anchor.height, anchor.rewardKeyID, anchor.rewardKeyType, prevAnchorHeight, btcTxHash);
-    if (!key.SignCompact(message.GetSignHash(), message.signature)) {
-        message.signature.clear();
-    }
-    return message;
-}
-
-uint256 CAnchorConfirmMessage::GetSignHash() const
+uint256 CAnchorConfirmData::GetSignHash() const
 {
     CDataStream ss{SER_GETHASH, 0};
     ss << btcTxHash << anchorHeight << prevAnchorHeight << rewardKeyID << rewardKeyType;
     return Hash(ss.begin(), ss.end());
 }
 
-bool CAnchorConfirmMessage::CheckConfirmSigs(std::vector<Signature> const & sigs, CCustomCSView::CTeam team)
+CAnchorConfirmMessage CAnchorConfirmMessage::CreateSigned(CAnchor const & anchor, THeight prevAnchorHeight, uint256 btcTxHash, CKey const & key)
 {
-    return CheckSigs(GetSignHash(), sigs, team);
-}
-
-bool CAnchorConfirmMessage::isEqualDataWith(const CAnchorConfirmMessage &message) const
-{
-    return  btcTxHash == message.btcTxHash &&
-            anchorHeight == message.anchorHeight &&
-            prevAnchorHeight == message.prevAnchorHeight &&
-            rewardKeyID == message.rewardKeyID &&
-            rewardKeyType == message.rewardKeyType;
+    CAnchorConfirmMessage message(CAnchorConfirmData{btcTxHash, anchor.height, prevAnchorHeight, anchor.rewardKeyID, anchor.rewardKeyType});
+    if (!key.SignCompact(message.GetSignHash(), message.signature)) {
+        message.signature.clear();
+    }
+    return message;
 }
 
 uint256 CAnchorConfirmMessage::GetHash() const
@@ -663,6 +623,11 @@ CKeyID CAnchorConfirmMessage::GetSigner() const
 {
     CPubKey pubKey;
     return (!signature.empty() && pubKey.RecoverCompact(GetSignHash(), signature)) ? pubKey.GetID() : CKeyID{};
+}
+
+bool CAnchorFinalizationMessage::CheckConfirmSigs()
+{
+    return CheckSigs(GetSignHash(), sigs, currentTeam);
 }
 
 bool CAnchorAwaitingConfirms::EraseAnchor(AnchorTxHash const &txHash)

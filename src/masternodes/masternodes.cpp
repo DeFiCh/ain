@@ -488,7 +488,7 @@ void CCustomCSView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, c
     }
 
     auto prev = panchors->GetAnchorByTx(anchor.previousAnchor);
-    auto confirmMessage = CAnchorConfirmMessage::Create(anchor, prev? prev->anchor.height : 0, btcTxHash, masternodeKey);
+    auto confirmMessage = CAnchorConfirmMessage::CreateSigned(anchor, prev? prev->anchor.height : 0, btcTxHash, masternodeKey);
     if (panchorAwaitingConfirms->Add(confirmMessage)) {
         LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Create message %s\n", confirmMessage.GetHash().GetHex());
         RelayAnchorConfirm(confirmMessage.GetHash(), *g_connman);

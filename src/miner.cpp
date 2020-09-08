@@ -152,24 +152,17 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
     if (confirms.size() > 0) { // quorum or zero
 
-        std::vector<CAnchorConfirmMessage::Signature> sigs;
+        CAnchorFinalizationMessage finMsg{confirms[0]};
+        finMsg.nextTeam = pcustomcsview->CalcNextTeam(pindexPrev->stakeModifier);
+        finMsg.currentTeam = currentTeam;
         for (auto const & msg : confirms) {
-            sigs.push_back(msg.signature);
+            finMsg.sigs.push_back(msg.signature);
         }
-        CAnchorConfirmMessage const & confirm = confirms[0]; // they are equal except sigs
-        CTxDestination destination = confirm.rewardKeyType == 1 ? CTxDestination(PKHash(confirm.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(confirm.rewardKeyID));
 
         CDataStream metadata(DfAnchorFinalizeTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-        auto nextTeam = pcustomcsview->CalcNextTeam(pindexPrev->stakeModifier);
-        metadata
-            << confirm.btcTxHash
-            << confirm.anchorHeight
-            << confirm.prevAnchorHeight
-            << confirm.rewardKeyID
-            << confirm.rewardKeyType
-            << nextTeam
-            << currentTeam
-            << sigs;
+        metadata << finMsg;
+
+        CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
 
         CMutableTransaction mTx;
         mTx.vin.resize(1);
@@ -184,7 +177,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(CommunityAccountType::AnchorReward); // do not reset it, so it will occure on connectblock
         }
         else { // pre-DIP1 logic:
-            mTx.vout[1].nValue = GetAnchorSubsidy(confirm.anchorHeight, confirm.prevAnchorHeight, chainparams.GetConsensus());
+            mTx.vout[1].nValue = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, chainparams.GetConsensus());
         }
 
         LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);

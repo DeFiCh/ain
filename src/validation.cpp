@@ -1616,25 +1616,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             if (IsAnchorRewardTx(tx, metadata)) {
                 LogPrintf("AnchorConfirms::DisconnectBlock(): disconnecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                uint256 btcTxHash;
-                uint32_t anchorHeight;
-                uint32_t prevAnchorHeight;
-                CKeyID rewardKeyID;
-                char rewardKeyType;
-                CCustomCSView::CTeam currentTeam;
-                CCustomCSView::CTeam nextTeam;
-                std::vector<std::vector<unsigned char>> sigs;
+                CAnchorFinalizationMessage finMsg;
+                ss >> finMsg;
 
-                ss  >> btcTxHash
-                    >> anchorHeight
-                    >> prevAnchorHeight
-                    >> rewardKeyID
-                    >> rewardKeyType
-                    >> nextTeam
-                    >> currentTeam
-                    >> sigs;
-
-                mnview.SetTeam(currentTeam);
+                mnview.SetTeam(finMsg.currentTeam);
 
                 if (pindex->nHeight >= Params().GetConsensus().DIP1Height) {
                     mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut()); // or just 'Set..'
@@ -1643,10 +1628,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                     assert(mnview.GetFoundationsDebt() >= tx.GetValueOut());
                     mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
                 }
-                mnview.RemoveRewardForAnchor(btcTxHash);
+                mnview.RemoveRewardForAnchor(finMsg.btcTxHash);
 
-                auto message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash);
-                for (auto && sig : sigs) {
+                CAnchorConfirmMessage message(static_cast<CAnchorConfirmData &>(finMsg));
+                for (auto && sig : finMsg.sigs) {
                     message.signature = sig;
                     disconnectedAnchorConfirms.push_back(message);
                 }
@@ -2193,43 +2178,27 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             } else if (IsAnchorRewardTx(tx, metadata)) {
                 LogPrintf("AnchorConfirms::ConnectBlock(): connecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                uint256 btcTxHash;
-                uint32_t anchorHeight;
-                uint32_t prevAnchorHeight;
-                CKeyID rewardKeyID;
-                char rewardKeyType;
-                CCustomCSView::CTeam currentTeam;
-                CCustomCSView::CTeam nextTeam;
-                std::vector<std::vector<unsigned char>> sigs;
+                CAnchorFinalizationMessage finMsg;
+                ss >> finMsg;
 
-                ss  >> btcTxHash
-                    >> anchorHeight
-                    >> prevAnchorHeight
-                    >> rewardKeyID
-                    >> rewardKeyType
-                    >> nextTeam
-                    >> currentTeam
-                    >> sigs;
-
-                auto rewardTx = mnview.GetRewardForAnchor(btcTxHash);
+                auto rewardTx = mnview.GetRewardForAnchor(finMsg.btcTxHash);
                 if (rewardTx) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): reward for anchor %s already exists (tx: %s)",
-                                               btcTxHash.ToString(), (*rewardTx).ToString()),
+                                               finMsg.btcTxHash.ToString(), (*rewardTx).ToString()),
                                                REJECT_INVALID, "bad-ar-exists");
                 }
 
-                CAnchorConfirmMessage message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash);
-                if (!message.CheckConfirmSigs(sigs, currentTeam)) {
+                if (!finMsg.CheckConfirmSigs()) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): anchor signatures are incorrect"),
                                                REJECT_INVALID, "bad-ar-sigs");
                 }
 
-                if (sigs.size() < GetMinAnchorQuorum(currentTeam)) {
+                if (finMsg.sigs.size() < GetMinAnchorQuorum(finMsg.currentTeam)) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): anchor sigs (%d) < min quorum (%) ",
-                                                 sigs.size(), GetMinAnchorQuorum(currentTeam)),
+                                                 finMsg.sigs.size(), GetMinAnchorQuorum(finMsg.currentTeam)),
                                          REJECT_INVALID, "bad-ar-sigs-quorum");
                 }
 
@@ -2249,7 +2218,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     }
                 }
                 else { // pre-DIP1 logic
-                    auto anchorReward = GetAnchorSubsidy(anchorHeight, prevAnchorHeight, chainparams.GetConsensus());
+                    auto anchorReward = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, chainparams.GetConsensus());
                     if (tx.GetValueOut() > anchorReward) {
                         return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                              error("ConnectBlock(): anchor pays too much (actual=%d vs limit=%d)",
@@ -2258,35 +2227,35 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     }
                 }
 
-                CTxDestination destination = rewardKeyType == 1 ? CTxDestination(PKHash(rewardKeyID)) : CTxDestination(WitnessV0KeyHash(rewardKeyID));
+                CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
                 if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): anchor pay destination is incorrect"),
                                          REJECT_INVALID, "bad-ar-dest");
                 }
 
-                if (currentTeam != mnview.GetCurrentTeam()) {
+                if (finMsg.currentTeam != mnview.GetCurrentTeam()) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): anchor wrong current team"),
                                          REJECT_INVALID, "bad-ar-curteam");
                 }
 
                 if (pindex->pprev) {
-                    if (nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier)) {
+                    if (finMsg.nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier)) {
                         return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                              error("ConnectBlock(): anchor wrong next team"),
                                              REJECT_INVALID, "bad-ar-nextteam");
                     }
                 }
-                mnview.SetTeam(nextTeam);
+                mnview.SetTeam(finMsg.nextTeam);
                 if (pindex->nHeight >= chainparams.GetConsensus().DIP1Height) {
                     mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
                 }
                 else {
                     mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
                 }
-                mnview.AddRewardForAnchor(btcTxHash, tx.GetHash());
-                rewardedAnchors.push_back(btcTxHash);
+                mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
+                rewardedAnchors.push_back(finMsg.btcTxHash);
 
                 LogPrintf("AnchorConfirms::ConnectBlock(): connected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
             }
@@ -4200,7 +4169,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
         LogPrintf("Anchor auth prepare, block: %d\n", anchorHeight);
 
         // trying to create and sign new auth
-        CAnchorAuthMessage auth(topAnchor ? topAnchor->txHash : uint256(), anchorHeight, anchorBlock->GetBlockHash(), pcustomcsview->CalcNextTeam(anchorBlock->stakeModifier));
+        CAnchorAuthMessage auth({topAnchor ? topAnchor->txHash : uint256(), static_cast<THeight>(anchorHeight), anchorBlock->GetBlockHash(), pcustomcsview->CalcNextTeam(anchorBlock->stakeModifier)});
         if (!panchorauths->GetVote(auth.GetSignHash(), operatorAuthAddress))
         {
             auth.SignWithKey(masternodekey);

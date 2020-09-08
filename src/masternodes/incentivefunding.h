@@ -18,7 +18,7 @@ inline CommunityAccountType CommunityAccountCodeToType (unsigned char ch) {
         return CommunityAccountType::None;
 }
 
-inline char* GetCommunityAccountName(CommunityAccountType t)
+inline char const * GetCommunityAccountName(CommunityAccountType t)
 {
     switch (t)
     {
