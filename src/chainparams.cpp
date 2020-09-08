@@ -666,6 +666,17 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.SegwitHeight = static_cast<int>(height);
     }
 
+    if (gArgs.IsArgSet("-dip1height")) {
+        int64_t height = gArgs.GetArg("-dip1height", consensus.DIP1Height);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for DIP1 is out of valid range. Use -1 to disable segwit.", height));
+        } else if (height == -1) {
+            LogPrintf("DIP1 disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.DIP1Height = static_cast<int>(height);
+    }
+
     if (!args.IsArgSet("-vbparams")) return;
 
     for (const std::string& strDeployment : args.GetArgs("-vbparams")) {
