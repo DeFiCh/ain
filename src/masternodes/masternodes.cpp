@@ -437,6 +437,9 @@ void CAnchorRewardsView::ForEachAnchorReward(std::function<bool (const CAnchorRe
  */
 CTeamView::CTeam CCustomCSView::CalcNextTeam(const uint256 & stakeModifier)
 {
+    if (stakeModifier == uint256())
+        return Params().GetGenesisTeam();
+
     int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;

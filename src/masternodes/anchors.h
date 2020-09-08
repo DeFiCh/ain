@@ -39,6 +39,11 @@ namespace spv
     struct BtcAnchorTx;
 }
 
+namespace Consensus
+{
+    struct Params;
+}
+
 typedef uint32_t THeight; // cause not decided yet which type to use for heights
 
 struct CAnchorData
@@ -420,6 +425,7 @@ public:
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')
 /// even may be not here, but in CCustomCSView
 uint32_t GetMinAnchorQuorum(CCustomCSView::CTeam const & team);
+CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams);
 
 // thowing exceptions (not a bool due to more verbose rpc errors. may be 'status' or smth? )
 /// Validates all except tx confirmations

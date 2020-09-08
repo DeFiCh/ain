@@ -176,6 +176,16 @@ uint32_t GetMinAnchorQuorum(CCustomCSView::CTeam const & team)
     return  static_cast<uint32_t>(1 + (team.size() * 2) / 3); // 66% + 1
 }
 
+CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams)
+{
+    if (anchorHeight < prevAnchorHeight) {
+        return 0;
+    }
+
+    int period = anchorHeight - prevAnchorHeight;
+    return consensusParams.spv.anchorSubsidy + (period / consensusParams.spv.subsidyIncreasePeriod) * consensusParams.spv.subsidyIncreaseValue;
+}
+
 /*
  * Choose best (high) anchor auth group with
  */

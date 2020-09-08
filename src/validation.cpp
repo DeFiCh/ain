@@ -1119,16 +1119,6 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     return nSubsidy;
 }
 
-CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams)
-{
-    if (anchorHeight < prevAnchorHeight) {
-        return 0;
-    }
-
-    int period = anchorHeight - prevAnchorHeight;
-    return consensusParams.spv.anchorSubsidy + (period / consensusParams.spv.subsidyIncreasePeriod) * consensusParams.spv.subsidyIncreaseValue;
-}
-
 CoinsViews::CoinsViews(
     std::string ldb_name,
     size_t cache_size_bytes,
@@ -2177,85 +2167,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 }
             } else if (IsAnchorRewardTx(tx, metadata)) {
                 LogPrintf("AnchorConfirms::ConnectBlock(): connecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
-                CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                CAnchorFinalizationMessage finMsg;
-                ss >> finMsg;
 
-                auto rewardTx = mnview.GetRewardForAnchor(finMsg.btcTxHash);
-                if (rewardTx) {
+                ResVal<uint256> res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, pindex->pprev ? pindex->pprev->stakeModifier : uint256(), metadata);
+                if (!res.ok) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): reward for anchor %s already exists (tx: %s)",
-                                               finMsg.btcTxHash.ToString(), (*rewardTx).ToString()),
-                                               REJECT_INVALID, "bad-ar-exists");
+                                         error("ConnectBlock(): %s", res.msg),
+                                         REJECT_INVALID, res.dbgMsg);
                 }
-
-                if (!finMsg.CheckConfirmSigs()) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor signatures are incorrect"),
-                                               REJECT_INVALID, "bad-ar-sigs");
-                }
-
-                if (finMsg.sigs.size() < GetMinAnchorQuorum(finMsg.currentTeam)) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor sigs (%d) < min quorum (%) ",
-                                                 finMsg.sigs.size(), GetMinAnchorQuorum(finMsg.currentTeam)),
-                                         REJECT_INVALID, "bad-ar-sigs-quorum");
-                }
-
-                // check reward sum
-                if (pindex->nHeight >= chainparams.GetConsensus().DIP1Height) {
-                    auto const cbValues = tx.GetValuesOut();
-                    if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
-                        return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor reward should be payed only in Defi coins"),
-                                               REJECT_INVALID, "bad-ar-wrong-tokens");
-                    auto const anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
-                    if (cbValues.begin()->second != anchorReward) {
-                        return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                             error("ConnectBlock(): anchor pays wrong amount (actual=%d vs expected=%d)",
-                                                   cbValues.begin()->second, anchorReward),
-                                             REJECT_INVALID, "bad-ar-amount");
-                    }
-                }
-                else { // pre-DIP1 logic
-                    auto anchorReward = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, chainparams.GetConsensus());
-                    if (tx.GetValueOut() > anchorReward) {
-                        return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                             error("ConnectBlock(): anchor pays too much (actual=%d vs limit=%d)",
-                                                   tx.GetValueOut(), anchorReward),
-                                             REJECT_INVALID, "bad-ar-amount");
-                    }
-                }
-
-                CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
-                if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor pay destination is incorrect"),
-                                         REJECT_INVALID, "bad-ar-dest");
-                }
-
-                if (finMsg.currentTeam != mnview.GetCurrentTeam()) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor wrong current team"),
-                                         REJECT_INVALID, "bad-ar-curteam");
-                }
-
-                if (pindex->pprev) {
-                    if (finMsg.nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier)) {
-                        return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                             error("ConnectBlock(): anchor wrong next team"),
-                                             REJECT_INVALID, "bad-ar-nextteam");
-                    }
-                }
-                mnview.SetTeam(finMsg.nextTeam);
-                if (pindex->nHeight >= chainparams.GetConsensus().DIP1Height) {
-                    mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
-                }
-                else {
-                    mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
-                }
-                mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
-                rewardedAnchors.push_back(finMsg.btcTxHash);
+                rewardedAnchors.push_back(*res.val);
 
                 LogPrintf("AnchorConfirms::ConnectBlock(): connected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
             }
