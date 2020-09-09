@@ -40,6 +40,43 @@ jobs:
         dockerfile: ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile
         repository: defi/defichain
         tags: latest,${{ env.BUILD_VERSION }}
+        
+  ubuntu16:
+    runs-on: ubuntu-16.04
+    env:
+      BUILD_VERSION: latest # Computed
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build and package
+      run: TARGETS="x86_64-pc-ubuntu16.04-gnu" ./make.sh docker-release-git
+
+    - name: Publish artifacts
+      uses: actions/upload-artifact@v2-preview
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-ubuntu16.04-gnu
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-ubuntu16.04-gnu.tar.gz
+
+    # Linux build additionally pushes the docker images to docker hub on successful build
+    - name: Tag dockerhub build
+      if: ${{ github.repository == 'DeFiCh/ain' }}
+      run: >
+        docker tag defichain-x86_64-pc-ubuntu16.04-gnu:${{ env.BUILD_VERSION }}
+        defichain-x86_64-pc-ubuntu16.04-gnu:dockerhub-latest
+
+    - uses: docker/build-push-action@v1
+    # Make sure to only build on ain repo. Also add in additional restrictions here if needed to
+    # make sure we don't push unnecessary images to docker
+      if: ${{ github.repository == 'DeFiCh/ain' }}
+      with:
+        username: ${{ secrets.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+        path: ./contrib/dockerfiles/dockerhub
+        dockerfile: ./contrib/dockerfiles/dockerhub/x86_64-pc-ubuntu16.04-gnu.dockerfile
+        repository: defi/defichain
+        tags: latest,${{ env.BUILD_VERSION }}
 
   windows:
     runs-on: ubuntu-18.04
