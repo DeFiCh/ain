@@ -1825,6 +1825,49 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     return flags;
 }
 
+Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus)
+{
+    TAmounts const cbValues = tx.GetValuesOut();
+    CAmount blockReward = GetBlockSubsidy(height, consensus);
+    if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
+        return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
+
+    if (height >= consensus.DIP1Height) {
+        // check classic UTXO foundation share:
+        if (!consensus.foundationShareScript.empty() && consensus.foundationShareDIP1 != 0) {
+            CAmount foundationReward = blockReward * consensus.foundationShareDIP1 / COIN;
+            bool foundationsRewardfound = false;
+            for (auto txout : tx.vout) {
+                if (txout.scriptPubKey == consensus.foundationShareScript) {
+                    if (txout.nValue < foundationReward)
+                        return Res::ErrDbg("bad-cb-foundation-reward", "coinbase doesn't pay proper foundation reward! (actual=%d vs expected=%d", txout.nValue, foundationReward);
+
+                    foundationsRewardfound = true;
+                    break;
+                }
+            }
+            if (!foundationsRewardfound)
+                return Res::ErrDbg("bad-cb-amount", "coinbase doesn't pay foundation reward!");
+        }
+        // count and subtract for non-UTXO community rewards
+        CAmount nonUtxoTotal = 0;
+        for (auto kv : consensus.nonUtxoBlockSubsidies) {
+            CAmount subsidy = blockReward * kv.second / COIN;
+            Res res = mnview.AddCommunityBalance(kv.first, subsidy);
+            if (!res.ok) {
+                return Res::ErrDbg("bad-cb-amount", "can't take non-UTXO community share from coinbase");
+            }
+            nonUtxoTotal += subsidy;
+        }
+        blockReward -= nonUtxoTotal;
+    }
+
+    // pre-DIP1 logic, compatible after prev blockReward mod:
+    if (cbValues.at(DCT_ID{0}) > blockReward + nFees)
+        return Res::ErrDbg("bad-cb-amount", "coinbase pays too much (actual=%d vs limit=%d)", cbValues.at(DCT_ID{0}), blockReward + nFees);
+
+    return Res::Ok();
+}
 
 
 static int64_t nTimeCheck = 0;
@@ -2166,8 +2209,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     bannedCriminals.push_back(mnid);
                 }
             } else if (IsAnchorRewardTx(tx, metadata)) {
-                LogPrintf("AnchorConfirms::ConnectBlock(): connecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
-
+                if (!fJustCheck) {
+                    LogPrintf("ConnectBlock(): connecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
+                }
                 ResVal<uint256> res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, pindex->pprev ? pindex->pprev->stakeModifier : uint256(), metadata);
                 if (!res.ok) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
@@ -2175,8 +2219,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                          REJECT_INVALID, res.dbgMsg);
                 }
                 rewardedAnchors.push_back(*res.val);
-
-                LogPrintf("AnchorConfirms::ConnectBlock(): connected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
+                if (!fJustCheck) {
+                    LogPrintf("ConnectBlock(): connected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
+                }
             }
         }
 
@@ -2189,64 +2234,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
-    // currently deployed:
-//    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
-//    if (block.vtx[0]->GetValueOut() > blockReward)
-//        return state.Invalid(ValidationInvalidReason::CONSENSUS,
-//                         error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
-//                               block.vtx[0]->GetValueOut(), blockReward),
-//                               REJECT_INVALID, "bad-cb-amount");
-
-    TAmounts const cbValues = block.vtx[0]->GetValuesOut();
-    CAmount blockReward = GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
-    if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
+    // chek main coinbase
+    Res res = ApplyGeneralCoinbaseTx(mnview, *block.vtx[0], pindex->nHeight, nFees, chainparams.GetConsensus());
+    if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                         error("ConnectBlock(): coinbase should pay only Defi coins"),
-                               REJECT_INVALID, "bad-cb-wrong-tokens");
-
-    if (pindex->nHeight >= chainparams.GetConsensus().DIP1Height) {
-        // check classic UTXO foundation share:
-        if (!chainparams.GetConsensus().foundationShareScript.empty() && chainparams.GetConsensus().foundationShareDIP1 != 0) {
-            CAmount foundationReward = blockReward * chainparams.GetConsensus().foundationShareDIP1 / COIN;
-            bool foundationsRewardfound = false;
-            for (auto txout : block.vtx[0]->vout) {
-                if (txout.scriptPubKey == chainparams.GetConsensus().foundationShareScript) {
-                    if (txout.nValue < foundationReward)
-                        return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                             error("ConnectBlock(): coinbase doesn't pay proper foundation reward! (actual=%d vs expected=%d)",
-                                                   txout.nValue, foundationReward),
-                                                   REJECT_INVALID, "bad-cb-foundation-reward");
-
-                    foundationsRewardfound = true;
-                    break;
-                }
-            }
-            if (!foundationsRewardfound)
-                return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                 error("ConnectBlock(): coinbase doesn't pay foundation reward!"),
-                                       REJECT_INVALID, "bad-cb-amount");
-        }
-        // count and subtract for non-UTXO community rewards
-        CAmount nonUtxoTotal = 0;
-        for (auto kv : chainparams.GetConsensus().nonUtxoBlockSubsidies) {
-            CAmount subsidy = blockReward * kv.second / COIN;
-            Res res = mnview.AddCommunityBalance(kv.first, subsidy);
-            if (!res.ok) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                 error("ConnectBlock(): can't take non-UTXO community share from coinbase"),
-                                       REJECT_INVALID, "bad-cb-amount");
-            }
-            nonUtxoTotal += subsidy;
-        }
-        blockReward -= nonUtxoTotal;
+                             error("ConnectBlock(): %s", res.msg),
+                             REJECT_INVALID, res.dbgMsg);
     }
-
-    // pre-DIP1 logic, compatible after prev blockReward mod:
-    if (cbValues.at(DCT_ID{0}) > blockReward + nFees)
-        return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                         error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
-                               cbValues.at(DCT_ID{0}), blockReward + nFees),
-                               REJECT_INVALID, "bad-cb-amount");
 
     if (!control.Wait())
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: CheckQueue failed", __func__), REJECT_INVALID, "block-validation-failed");
