@@ -200,6 +200,14 @@ template<typename X> const X& ReadWriteAsHelper(const X& x) { return x; }
         SerializationOp(s, CSerActionUnserialize());                  \
     }
 
+#define ADD_OVERRIDE_SERIALIZE_METHODS(StreamType)                    \
+    void Serialize(StreamType& s) const override {                    \
+        NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize());  \
+    }                                                                 \
+    void Unserialize(StreamType& s) override {                        \
+        SerializationOp(s, CSerActionUnserialize());                  \
+    }
+
 #ifndef CHAR_EQUALS_INT8
 template<typename Stream> inline void Serialize(Stream& s, char a    ) { ser_writedata8(s, a); } // TODO Get rid of bare char
 #endif

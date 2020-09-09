@@ -14,6 +14,7 @@
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <masternodes/poolpairs.h>
+#include <masternodes/gv.h>
 #include <uint256.h>
 
 #include <functional>
@@ -185,6 +186,7 @@ class CCustomCSView
         , public CCommunityBalancesView
         , public CUndosView
         , public CPoolPairView
+        , public CGovView
 {
 public:
     CCustomCSView(CStorageKV & st)
