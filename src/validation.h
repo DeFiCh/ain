@@ -14,6 +14,7 @@
 #include <coins.h>
 #include <crypto/common.h> // for ReadLE64
 #include <fs.h>
+#include <masternodes/res.h>
 #include <policy/feerate.h>
 #include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <script/script_error.h>
@@ -798,5 +799,7 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 {
     return (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
 }
+
+Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus);
 
 #endif // DEFI_VALIDATION_H

@@ -1847,7 +1847,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 }
             }
             if (!foundationsRewardfound)
-                return Res::ErrDbg("bad-cb-amount", "coinbase doesn't pay foundation reward!");
+                return Res::ErrDbg("bad-cb-foundation-reward", "coinbase doesn't pay foundation reward!");
         }
         // count and subtract for non-UTXO community rewards
         CAmount nonUtxoTotal = 0;
@@ -1855,7 +1855,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
             CAmount subsidy = blockReward * kv.second / COIN;
             Res res = mnview.AddCommunityBalance(kv.first, subsidy);
             if (!res.ok) {
-                return Res::ErrDbg("bad-cb-amount", "can't take non-UTXO community share from coinbase");
+                return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
             }
             nonUtxoTotal += subsidy;
         }
