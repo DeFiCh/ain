@@ -70,6 +70,19 @@ struct Params {
      * BIP 16 exception blocks. */
     int SegwitHeight;
 
+    /** Block height at which DFIP1 becomes active */
+    int DFIP1Height;
+
+    /** The address for anchor reward */
+    CScript anchorRewardScript;
+
+    /** The community foundation reward percentage in DFIP1 */
+    float foundationSharePercentageDFIP1;
+
+    /** Percentage of shares go to anchor reward, the DFI is
+     *  baseBlockSubsidy * anchorRewardPertentage / 100 */
+    float anchorRewardPertentage;
+
     /** Proof of stake parameters */
     struct PoS {
         uint256 diffLimit;
