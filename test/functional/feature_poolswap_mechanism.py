@@ -71,7 +71,7 @@ class PoolSwapTest (DefiTestFramework):
         mint_amount = str(self.count_account * self.amount_token)
 
         for item in self.tokens:
-            self.nodes[0].sendmany("", { owner : 0.02, owner : 0.02 }) # TODO
+            self.nodes[0].sendmany("", { owner : 0.02 })
             self.nodes[0].generate(1)
             self.nodes[0].minttokens([], mint_amount + "@" + item)
             self.nodes[0].generate(1)
@@ -79,16 +79,38 @@ class PoolSwapTest (DefiTestFramework):
         return mint_amount
 
     def send_tokens(self, owner):
-        self.nodes[0].sendmany("", { owner : 0.02, owner : 0.02 }) # TODO
-        self.nodes[0].sendmany("", { owner : 0.02, owner : 0.02 }) # TODO
-        self.nodes[0].generate(1)
+        send_amount = str(self.amount_token)
+        for token in self.tokens:
 
-        self.nodes[0].accounttoaccount([], owner, {acc: amountA})
-        self.nodes[0].accounttoaccount([], owner, {acc: amountB})
-        self.nodes[0].generate(1)
+            start = 0
+            step = 12
+
+            while True:
+                outputs = {}
+
+                end = 0
+                if start + step > self.count_account:
+                    end = self.count_account
+                else:
+                    end = start + step
+                for idx in range(start, end):
+                    outputs[self.accounts[idx]] = send_amount + "@" + token
+
+                self.nodes[0].sendmany("", { owner : 0.02 })
+                self.nodes[0].generate(1)
+
+                self.nodes[0].accounttoaccount([], owner, outputs)
+                self.nodes[0].generate(1)
+
+                if start + step < self.count_account:
+                    start += step
+                    print("send " + str(start))
+                else:
+                    print("send " + str(end))
+                    break
 
     def add_liquidity(self, account, amountA, amountB):
-        self.nodes[0].sendmany("", { account : 0.02, account : 0.02 }) # TODO
+        self.nodes[0].sendmany("", { account : 0.02 })
         self.nodes[0].generate(1)
 
         self.nodes[0].addpoolliquidity({
@@ -97,7 +119,7 @@ class PoolSwapTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
     def add_pools_liquidity(self, owner):
-        for idp, item in enumerate(range(self.count_pools)):
+        for item in range(self.count_pools):
             tokenA = "GOLD" + str(item)
             tokenB = "SILVER" + str(item)
 
@@ -131,6 +153,9 @@ class PoolSwapTest (DefiTestFramework):
         mint_amount = self.mint_tokens(owner)
         assert_equal(len(self.nodes[0].getaccount(owner, {}, True)), self.count_pools * 2)
         print("Minted " + mint_amount + " of every coin")
+
+        print("Sending tokens...")
+        self.send_tokens(owner)
         # TODO
 
         # REVERTING:
