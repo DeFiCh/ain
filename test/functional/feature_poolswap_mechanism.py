@@ -29,12 +29,15 @@ class PoolSwapTest (DefiTestFramework):
         self.count_pools = 10
         self.count_account = 1000
         self.commission = 0.001
+        
+        self.amount_token = 1000
+        self.tokens = []
+        
+        self.accounts = []
 
     def generate_accounts(self):
-        acc = []
         for i in range(self.count_account):
-            acc.append(self.nodes[0].getnewaddress("", "legacy"))
-        return acc
+            self.accounts.append(self.nodes[0].getnewaddress("", "legacy"))
 
     def create_token(self, symbol, address):
         self.nodes[0].createtoken([], {
@@ -44,13 +47,7 @@ class PoolSwapTest (DefiTestFramework):
             "collateralAddress": address
         })
         self.nodes[0].generate(1)
-
-        self.nodes[0].sendmany("", { address : 1, address : 1 })
-        self.nodes[0].generate(1)
-
-        self.nodes[0].minttokens([], str(self.count_account * 1000) + "@" + symbol)
-        self.nodes[0].generate(1)
-
+        self.tokens.append(symbol)
 
     def create_pool(self, tokenA, tokenB, owner):
         self.nodes[0].createpoolpair({
@@ -70,30 +67,44 @@ class PoolSwapTest (DefiTestFramework):
             self.create_token(tokenB, owner)
             self.create_pool(tokenA, tokenB, owner)
 
+    def mint_tokens(self, owner):
+        mint_amount = str(self.count_account * self.amount_token)
+
+        for item in self.tokens:
+            self.nodes[0].sendmany("", { owner : 0.02, owner : 0.02 }) # TODO
+            self.nodes[0].generate(1)
+            self.nodes[0].minttokens([], mint_amount + "@" + item)
+            self.nodes[0].generate(1)
+
+        return mint_amount
+
+    def send_tokens(self, owner):
+        self.nodes[0].sendmany("", { owner : 0.02, owner : 0.02 }) # TODO
+        self.nodes[0].sendmany("", { owner : 0.02, owner : 0.02 }) # TODO
+        self.nodes[0].generate(1)
+
+        self.nodes[0].accounttoaccount([], owner, {acc: amountA})
+        self.nodes[0].accounttoaccount([], owner, {acc: amountB})
+        self.nodes[0].generate(1)
+
     def add_liquidity(self, account, amountA, amountB):
+        self.nodes[0].sendmany("", { account : 0.02, account : 0.02 }) # TODO
+        self.nodes[0].generate(1)
+
         self.nodes[0].addpoolliquidity({
             account: [amountA, amountB]
         }, account, [])
         self.nodes[0].generate(1)
 
-    def add_pools_liquidity(self, accounts):
-        for i in range(self.count_pools):
-            tokenA = "GOLD" + str(i)
-            tokenB = "SILVER" + str(i)
-            for acc in accounts:
-                amountA = str(random.randint(1, 500)) + "@" + tokenA
-                amountB = str(random.randint(1, 500)) + "@" + tokenB
-                self.add_liquidity(acc, amountA, amountB)
+    def add_pools_liquidity(self, owner):
+        for idp, item in enumerate(range(self.count_pools)):
+            tokenA = "GOLD" + str(item)
+            tokenB = "SILVER" + str(item)
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
         print("Generating initial chain...")
-        owner = self.nodes[0].getnewaddress("", "legacy")
-
-        self.nodes[0].generate(25)
-        self.nodes[1].generate(25)
-        self.sync_all()
 
         self.nodes[0].generate(100)
         self.sync_all()
@@ -101,23 +112,25 @@ class PoolSwapTest (DefiTestFramework):
         # Stop node #2 for future revert
         self.stop_node(2)
 
+        owner = self.nodes[0].getnewaddress("", "legacy")
+        self.nodes[0].generate(1)
+
         # TODO        
         print("Generating accounts...")
-        accounts = self.generate_accounts()
-        assert_equal(len(accounts), self.count_account)
+        self.generate_accounts()
+        assert_equal(len(self.accounts), self.count_account)
         print("Generate " + str(self.count_account) + " accounts")
 
         print("Generating pools...")
         self.create_pools(owner)
-        assert_equal(len(self.nodes[0].getaccount(owner, {}, True)), self.count_pools * 2)
         assert_equal(len(self.nodes[0].listtokens({}, False)), self.count_pools * 3)
         assert_equal(len(self.nodes[0].listpoolpairs({}, False)), self.count_pools)
         print("Generate " + str(self.count_pools) + " pools and " + str(self.count_pools * 2) + " tokens")
 
-        # TODO send tokens
-
-        #print("Generating liquidity...")
-        #self.add_pools_liquidity(accounts)
+        print("Minting tokens...")
+        mint_amount = self.mint_tokens(owner)
+        assert_equal(len(self.nodes[0].getaccount(owner, {}, True)), self.count_pools * 2)
+        print("Minted " + mint_amount + " of every coin")
         # TODO
 
         # REVERTING:
