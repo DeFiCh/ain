@@ -42,15 +42,6 @@ boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetTo
     DCT_ID id;
     auto varint = WrapVarInt(id.v);
 
-    const unsigned char ID_SPLITTER = '#';
-    size_t pos = symbol.rfind(ID_SPLITTER);
-
-    if (pos != std::string::npos) {
-        std::string token_id = symbol.substr(pos+1);
-        std::string token_name = symbol.substr(0, pos);
-        id.v = (uint32_t) std::stoul(token_id);
-        return { std::make_pair(id, std::move(GetToken(id)))};
-    }
     if (ReadBy<Symbol, std::string>(symbol, varint)) {
 //        assert(id >= DCT_ID_START);// ? not needed anymore?
         return { std::make_pair(id, std::move(GetToken(id)))};
@@ -151,8 +142,10 @@ Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
     else
         id = IncrementLastDctId();
 
+    std::string symbolKey = token.symbol + (token.IsDAT() ? "" : "#" + std::to_string(id.v));
+
     WriteBy<ID>(WrapVarInt(id.v), token);
-    WriteBy<Symbol>(token.symbol, WrapVarInt(id.v));
+    WriteBy<Symbol>(symbolKey, WrapVarInt(id.v));
     WriteBy<CreationTx>(token.creationTx, WrapVarInt(id.v));
     return Res::Ok();
 }
@@ -186,19 +179,16 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx)
     }
     CTokenImpl & tokenImpl = pair->second;
 
+    std::string symbolKey = tokenImpl.symbol + "#" + std::to_string(pair->first.v);
     if (!tokenImpl.IsDAT()) {
-        bool similarToken = false;
-        ForEachToken([&](DCT_ID const& id, CToken const& token) {
-                         if (token.symbol == tokenImpl.symbol && token.IsDAT()) {
-                             similarToken = true;
-                             return false;
-                         } else {
-                             return true;
-                         }
-                     }, DCT_ID{0});
-        if (similarToken) {
-            return Res::Err("Token already exists!");
+        if (GetToken(tokenImpl.symbol)) {
+            return Res::Err("token '%s' already exists!", tokenImpl.symbol);
         }
+        EraseBy<Symbol>(symbolKey);
+        WriteBy<Symbol>(tokenImpl.symbol, WrapVarInt(pair->first.v));
+    } else {
+        EraseBy<Symbol>(tokenImpl.symbol);
+        WriteBy<Symbol>(symbolKey, WrapVarInt(pair->first.v));
     }
 
     tokenImpl.flags ^= (uint8_t)CToken::TokenFlags::DAT; // very strange logic. WHY only 'DAT' and WHY only triggering?

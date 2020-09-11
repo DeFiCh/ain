@@ -94,19 +94,22 @@ class TokensBasicTest (DefiTestFramework):
 
         # 4 Trying to make it DAT not from Foundation
         try:
-            self.nodes[2].updatetoken([], {"token": "GOLD", "isDAT": True})
+            self.nodes[2].updatetoken([], {"token": "GOLD#128", "isDAT": True})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Incorrect Authorization" in errorString)
 
         # 5 Making token isDAT from Foundation
-        self.nodes[0].updatetoken([], {"token": "GOLD", "isDAT": True})
+        self.nodes[0].updatetoken([], {"token": "GOLD#128", "isDAT": True})
 
         self.nodes[0].generate(1)
         # Checks
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 3)
         assert_equal(tokens['128']["isDAT"], True)
+
+        # Get token
+        assert_equal(self.nodes[0].gettoken("GOLD")['128']["isDAT"], True)
 
         # 6 Checking after sync
         self.sync_blocks([self.nodes[0], self.nodes[2]])
@@ -123,6 +126,13 @@ class TokensBasicTest (DefiTestFramework):
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 3)
         assert_equal(tokens['128']["isDAT"], False)
+
+        # Fail get token
+        try:
+            self.nodes[0].gettoken("GOLD")
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Token not found" in errorString)
 
         self.nodes[0].generate(1)
 

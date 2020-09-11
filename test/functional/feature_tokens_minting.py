@@ -46,8 +46,15 @@ class TokensMintingTest (DefiTestFramework):
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 3)
 
-        idGold = int(list(self.nodes[0].gettoken("GOLD").keys())[0])
-        idSilver = int(list(self.nodes[0].gettoken("SILVER").keys())[0])
+        list_tokens = self.nodes[0].listtokens()
+        for idx, token in list_tokens.items():
+            if (token["symbol"] == "GOLD"):
+                idGold = idx
+            if (token["symbol"] == "SILVER"):
+                idSilver = idx
+
+        symbolGold = "GOLD#" + idGold
+        symbolSilver = "SILVER#" + idSilver
 
         self.sync_blocks()
 
@@ -63,13 +70,13 @@ class TokensMintingTest (DefiTestFramework):
         # print(self.nodes[0].listunspent())
 
         alienMintAddr = self.nodes[1].getnewaddress("", "legacy")
-        self.nodes[0].minttokens([], "300@GOLD")
-        self.nodes[0].minttokens([], "3000@SILVER")
+        self.nodes[0].minttokens([], "300@" + symbolGold)
+        self.nodes[0].minttokens([], "3000@" + symbolSilver)
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        self.nodes[0].accounttoutxos([], collateralGold, { self.nodes[0].getnewaddress("", "legacy"): "100@GOLD", alienMintAddr: "200@GOLD"})
-        self.nodes[0].accounttoutxos([], collateralSilver, { self.nodes[0].getnewaddress("", "legacy"): "1000@SILVER", alienMintAddr: "2000@SILVER"})
+        self.nodes[0].accounttoutxos([], collateralGold, { self.nodes[0].getnewaddress("", "legacy"): "100@" + symbolGold, alienMintAddr: "200@" + symbolGold})
+        self.nodes[0].accounttoutxos([], collateralSilver, { self.nodes[0].getnewaddress("", "legacy"): "1000@" + symbolSilver, alienMintAddr: "2000@" + symbolSilver})
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -78,10 +85,10 @@ class TokensMintingTest (DefiTestFramework):
         assert_equal(self.nodes[0].getbalances(True)['mine']['trusted'][str(idSilver)], 1000)
         assert_equal(self.nodes[1].getbalances(True)['mine']['trusted'][str(idSilver)], 2000)
 
-        print ("Check 'sendmany' for tokens:")
+        print ("Check 'sendmany' for tokens")
         alienSendAddr = self.nodes[1].getnewaddress("", "legacy")
         # check sending of different tokens on same address
-        self.nodes[0].sendmany("", { alienSendAddr : [ str(10) + "@GOLD", str(20) + "@SILVER"] })
+        self.nodes[0].sendmany("", { alienSendAddr : [ str(10) + "@" + symbolGold, str(20) + "@" + symbolSilver] })
         self.nodes[0].generate(1)
         self.sync_blocks()
 
