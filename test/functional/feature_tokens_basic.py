@@ -101,8 +101,15 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(self.nodes[0].gettoken("DFI"), t0)
         t128 = self.nodes[0].gettoken(128)
         assert_equal(t128['128']['symbol'], "GOLD")
-        assert_equal(self.nodes[0].gettoken("GOLD"), t128)
+        assert_equal(self.nodes[0].gettoken("GOLD#128"), t128)
         assert_equal(self.nodes[0].gettoken(createTokenTx), t128)
+
+        # Token not found, because not DAT
+        try:
+            self.nodes[0].gettoken("GOLD")
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Token not found" in errorString)
 
         # Stop node #1 for future revert
         self.stop_node(1)
@@ -125,13 +132,13 @@ class TokensBasicTest (DefiTestFramework):
         # Get token by SYMBOL#ID
         t129 = self.nodes[0].gettoken("GOLD#129")
         assert_equal(t129['129']['symbol'], "GOLD")
-        assert_equal(self.nodes[0].gettoken("GOLD"), t129)
+        assert_equal(self.nodes[0].gettoken("GOLD#129"), t129)
 
         # RESIGNING:
         #========================
         # Try to resign w/o auth (no money on auth/collateral address)
         try:
-            self.nodes[0].destroytoken([], "GOLD")
+            self.nodes[0].destroytoken([], "GOLD#128")
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Can't find any UTXO's" in errorString)
