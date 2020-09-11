@@ -26,14 +26,21 @@ class PoolSwapTest (DefiTestFramework):
         self.extra_args = [['-txnotokens=0'], ['-txnotokens=0'], ['-txnotokens=0']]
 
         # Set parameters for create tokens and pools
-        self.count_pools = 10
-        self.count_account = 1000
+        self.count_pools = 1     # 10
+        self.count_account = 10  # 1000
         self.commission = 0.001
         
         self.amount_token = 1000
         self.tokens = []
         
         self.accounts = []
+
+    # TODO TODO TODO
+    def get_id_token(self, symbol):
+        list_tokens = self.nodes[0].listtokens()
+        for idx, token in list_tokens.items():
+            if (token["symbol"] == symbol):
+                return str(idx)
 
     def generate_accounts(self):
         for i in range(self.count_account):
@@ -65,6 +72,12 @@ class PoolSwapTest (DefiTestFramework):
             tokenB = "SILVER" + str(i)
             self.create_token(tokenA, owner)
             self.create_token(tokenB, owner)
+
+            print("create")
+
+            tokenA = tokenA + "#" + self.get_id_token(tokenA)
+            tokenB = tokenB + "#" + self.get_id_token(tokenB)
+            print(tokenA)
             self.create_pool(tokenA, tokenB, owner)
 
     def mint_tokens(self, owner):
@@ -73,7 +86,7 @@ class PoolSwapTest (DefiTestFramework):
         for item in self.tokens:
             self.nodes[0].sendmany("", { owner : 0.02 })
             self.nodes[0].generate(1)
-            self.nodes[0].minttokens([], mint_amount + "@" + item)
+            self.nodes[0].minttokens([], mint_amount + "@" + self.get_id_token(item))
             self.nodes[0].generate(1)
 
         return mint_amount
@@ -94,7 +107,7 @@ class PoolSwapTest (DefiTestFramework):
                 else:
                     end = start + step
                 for idx in range(start, end):
-                    outputs[self.accounts[idx]] = send_amount + "@" + token
+                    outputs[self.accounts[idx]] = send_amount + "@" + self.get_id_token(token)
 
                 self.nodes[0].sendmany("", { owner : 0.02 })
                 self.nodes[0].generate(1)
@@ -123,6 +136,30 @@ class PoolSwapTest (DefiTestFramework):
             tokenA = "GOLD" + str(item)
             tokenB = "SILVER" + str(item)
 
+            for account in self.accounts:
+                amountA = str(random.randint(1, self.amount_token / 2)) + "@" + self.get_id_token(tokenA)
+                amountB = str(random.randint(1, self.amount_token / 2)) + "@" + self.get_id_token(tokenB)
+                self.add_liquidity(account, amountA, amountB)
+                print("add liquidity " + amountA + " | " + amountB)
+
+    def pollswap(self):
+        for item in range(self.count_pools):
+            tokenA = "GOLD" + str(item)
+            tokenB = "SILVER" + str(item)
+
+            for account in self.accounts:
+                self.nodes[0].sendmany("", { account : 0.02 })
+                self.nodes[0].generate(1)
+
+                self.nodes[0].poolswap({
+                    "from": account,
+                    "tokenFrom": self.get_id_token(tokenB),
+                    "amountFrom": 10,
+                    "to": account,
+                    "tokenTo": str(self.get_id_token(tokenA)),
+                }, [])
+                self.nodes[0].generate(1)
+
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
@@ -137,7 +174,8 @@ class PoolSwapTest (DefiTestFramework):
         owner = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].generate(1)
 
-        # TODO        
+        # START
+        #========================
         print("Generating accounts...")
         self.generate_accounts()
         assert_equal(len(self.accounts), self.count_account)
@@ -156,7 +194,18 @@ class PoolSwapTest (DefiTestFramework):
 
         print("Sending tokens...")
         self.send_tokens(owner)
-        # TODO
+        # TODO check
+        print("Tokens sent out")
+
+        print("Adding liquidity...")
+        self.add_pools_liquidity(owner)
+        # TODO check
+        print("Liquidity added")
+
+        print("Swapping tokens...")
+        self.pollswap()
+        # TODO check
+        print("Tokens exchanged")
 
         # REVERTING:
         #========================

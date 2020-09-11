@@ -707,7 +707,8 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }
 
-    auto pairToken = mnview.GetToken(token.symbol);
+    //auto pairToken = mnview.GetToken(token.symbol);
+    auto pairToken = mnview.GetTokenByCreationTx(token.creationTx);
     if (!pairToken) {
         throw Res::Err("%s: token %s does not exist!", base, token.symbol);
     }
