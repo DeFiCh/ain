@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <arith_uint256.h>
 #include <masternodes/poolpairs.h>
 #include <core_io.h>
 #include <primitives/transaction.h>
@@ -98,7 +99,8 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     CAmount swapped = 0;
     while (unswapped > 0) {
         CAmount stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
-        CAmount stepTo = poolTo * stepFrom / poolFrom;
+        //CAmount stepTo = poolTo * stepFrom / poolFrom;
+        CAmount stepTo = (arith_uint256(poolTo) * arith_uint256(stepFrom) / poolFrom).GetLow64();
         poolFrom += stepFrom;
         poolTo -= stepTo;
         unswapped -= stepFrom;

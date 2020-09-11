@@ -29,10 +29,10 @@ class PoolSwapTest (DefiTestFramework):
         self.count_pools = 1     # 10
         self.count_account = 10  # 1000
         self.commission = 0.001
-        
+
         self.amount_token = 1000
         self.tokens = []
-        
+
         self.accounts = []
 
     # TODO TODO TODO
