@@ -26,17 +26,31 @@ class PoolSwapTest (DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [['-txnotokens=0'], ['-txnotokens=0'], ['-txnotokens=0']]
 
-        # Set parameters for create tokens and pools
+        # SET parameters for create tokens and pools
+        #========================
         self.count_pools = 1     # 10
         self.count_account = 10  # 1000
-        # pool = 4 acc = 100  ~ 16 minute
-        # pool = 1 acc = 10   ~ 4 sec
+        # pool = 4 acc = 100  ~ 16 minute  ~ 8 minute
+        # pool = 1 acc = 10   ~ 4 sec      ~ 3,6 sec
         self.commission = 0.001
         self.amount_token = 1000
         
         self.tokens = []
         self.accounts = []
         self.pools = []
+
+        # Generate pool: 1 pool = 1 + 2 token = 3 tx
+        # Minted tokens: 1 pool = 2 token = 4 tx
+        # Sent token:    1 pool = 2 token = 4 tx
+        # Liquidity:     1 pool * 10 acc = 2 token * 10 acc = 20 tx
+        # PoolSwap:      1 pool * 10 acc = 2 token * 10 acc = 20 tx
+        count_create_pool_tx = self.count_pools * 3
+        count_pool_token = self.count_pools * 2
+        count_mint_and_sent = count_pool_token * 4
+        count_add_liquidity = count_pool_token * self.count_account
+        count_poolswap = count_pool_token * self.count_account
+
+        self.count_tx = count_create_pool_tx + count_mint_and_sent + count_add_liquidity + count_poolswap
 
     # TODO TODO TODO
     def get_id_token(self, symbol):
@@ -94,15 +108,12 @@ class PoolSwapTest (DefiTestFramework):
     def send_tokens(self, owner):
         send_amount = str(self.amount_token)
         for token in self.tokens:
-            start = 0
-            step = 10
-            while True:
+            for start in range(0, self.count_account, 10):
                 outputs = {}
-                #end = 0
-                if start + step > self.count_account:
+                if start + 10 > self.count_account:
                     end = self.count_account
                 else:
-                    end = start + step
+                    end = start + 10
 
                 for idx in range(start, end):
                     outputs[self.accounts[idx]] = send_amount + "@" + self.get_id_token(token)
@@ -113,24 +124,16 @@ class PoolSwapTest (DefiTestFramework):
                 self.nodes[0].accounttoaccount([], owner, outputs)
                 self.nodes[0].generate(1)
 
-                if start + step < self.count_account:
-                    start += step
-                else:
-                    break
-
     def add_pools_liquidity(self, owner):
         for item in range(self.count_pools):
             tokenA = "GOLD" + str(item)
             tokenB = "SILVER" + str(item)
 
-            start = 0
-            step = 10
-            while True:
-                #end = 0
-                if start + step > self.count_account:
+            for start in range(0, self.count_account, 10):
+                if start + 10 > self.count_account:
                     end = self.count_account
                 else:
-                    end = start + step
+                    end = start + 10
 
                 for idx in range(start, end):
                     self.nodes[0].sendmany("", { self.accounts[idx] : 0.02 })
@@ -147,24 +150,16 @@ class PoolSwapTest (DefiTestFramework):
                     print("add liquidity " + amountA + " | " + amountB)
                 self.nodes[0].generate(1)
 
-                if start + step < self.count_account:
-                    start += step
-                else:
-                    break
-
     def pollswap(self):
         for item in range(self.count_pools):
             tokenA = "GOLD" + str(item)
             tokenB = "SILVER" + str(item)
 
-            start = 0
-            step = 10
-            while True:
-                #end = 0
-                if start + step > self.count_account:
+            for start in range(0, self.count_account, 10):
+                if start + 10 > self.count_account:
                     end = self.count_account
                 else:
-                    end = start + step
+                    end = start + 10
 
                 for idx in range(start, end):
                     self.nodes[0].sendmany("", { self.accounts[idx] : 0.02 })
@@ -180,11 +175,6 @@ class PoolSwapTest (DefiTestFramework):
                     }, [])
                     print("swap " + hash)
                 self.nodes[0].generate(1)
-
-                if start + step < self.count_account:
-                    start += step
-                else:
-                    break
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -254,7 +244,7 @@ class PoolSwapTest (DefiTestFramework):
         #assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         #assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
-        #assert_equal(len(self.nodes[0].getrawmempool()), 51) # 51 txs
+        assert_equal(len(self.nodes[0].getrawmempool()), self.count_tx)
 
 
 if __name__ == '__main__':
