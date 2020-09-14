@@ -28,6 +28,7 @@
 #include <util/moneystr.h>
 #include <util/system.h>
 #include <util/validation.h>
+#include <wallet/wallet.h>
 
 #include <algorithm>
 #include <queue>
@@ -148,6 +149,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
 
+    const auto txVersion = GetTransactionVersion(nHeight);
+
     auto currentTeam = pcustomcsview->GetCurrentTeam();
     auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
     if (confirms.size() > 0) { // quorum or zero
@@ -164,7 +167,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
 
-        CMutableTransaction mTx;
+        CMutableTransaction mTx(txVersion);
         mTx.vin.resize(1);
         mTx.vin[0].prevout.SetNull();
         mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
@@ -205,7 +208,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
             metadata << proof.blockHeader << proof.conflictBlockHeader << itCriminalMN->first;
 
-            CMutableTransaction newCriminalTx;
+            CMutableTransaction newCriminalTx(txVersion);
             newCriminalTx.vin.resize(1);
             newCriminalTx.vin[0].prevout.SetNull();
             newCriminalTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
@@ -231,7 +234,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     m_last_block_weight = nBlockWeight;
 
     // Create coinbase transaction.
-    CMutableTransaction coinbaseTx;
+    CMutableTransaction coinbaseTx(txVersion);
     coinbaseTx.vin.resize(1);
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;

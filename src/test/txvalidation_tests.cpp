@@ -53,4 +53,30 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reject_coinbase, TestChain100Setup)
     BOOST_CHECK(state.GetReason() == ValidationInvalidReason::CONSENSUS);
 }
 
+BOOST_FIXTURE_TEST_CASE(tx_check_transaction_size, TestChain100Setup)
+{
+    CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+    CMutableTransaction tx;
+
+    tx.nVersion = 2;
+    tx.vin.resize(1);
+    tx.vout.resize(1);
+    tx.vin[0].scriptSig = CScript() << OP_11 << OP_EQUAL;
+    tx.vout[0].nValue = 1 * CENT;
+    tx.vout[0].scriptPubKey = scriptPubKey;
+
+    int size = ::GetSerializeSize(tx, PROTOCOL_VERSION | (tx.nVersion < CTransaction::TOKENS_MIN_VERSION ? SERIALIZE_TRANSACTION_NO_TOKENS : 0));
+    std::cout << "size = " << size << std::endl;
+    BOOST_CHECK(size == 97);
+
+    CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = false;
+    tx.nVersion = 3;
+    tx.vout[0].nTokenId.v = 1;
+    size = ::GetSerializeSize(tx, PROTOCOL_VERSION | (tx.nVersion < CTransaction::TOKENS_MIN_VERSION ? SERIALIZE_TRANSACTION_NO_TOKENS : 0));
+    std::cout << "size = " << size << std::endl;
+    BOOST_CHECK(size == 98);
+
+    CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = true;
+}
+
 BOOST_AUTO_TEST_SUITE_END()

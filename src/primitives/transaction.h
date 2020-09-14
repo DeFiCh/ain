@@ -210,6 +210,9 @@ inline void SerializeTransaction(const TxType& tx, Stream& s);
 class CTransaction
 {
 public:
+    // Previous version
+    static const int32_t PREVIOUS_VERSION=2;
+
     // Default transaction version.
     static const int32_t CURRENT_VERSION=3; // @todo why it was 2 before?
 
@@ -242,6 +245,8 @@ private:
 public:
     /** Construct a CTransaction that qualifies as IsNull() */
     CTransaction();
+
+    explicit CTransaction(int32_t version);
 
     /** Convert a CMutableTransaction into a CTransaction. */
     explicit CTransaction(const CMutableTransaction &tx);
@@ -325,6 +330,7 @@ struct CMutableTransaction
     uint32_t nLockTime;
 
     CMutableTransaction();
+    explicit CMutableTransaction(int32_t version);
     explicit CMutableTransaction(const CTransaction& tx);
 
     template <typename Stream>

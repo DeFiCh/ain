@@ -75,6 +75,9 @@ struct Params {
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
 
+    /** Block height at which tokenization becomes active */
+    int TokenHeight;
+
     /** Proof of stake parameters */
     struct PoS {
         uint256 diffLimit;

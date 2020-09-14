@@ -130,6 +130,7 @@ public:
 
         consensus.CSVHeight = 1; // 000000000000000004a1b34462cb8aeebd5799177f7a29cf28f2d1961716b5b5
         consensus.SegwitHeight = 0; // 0000000000000000001c8018d9cb3b742ef25114f27563e3fc4a1902167f9893
+        consensus.TokenHeight = 300000;
         consensus.nRuleChangeActivationThreshold = 9; //1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 10; //2016; // nTargetTimespan / nTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -281,6 +282,7 @@ public:
 
         consensus.CSVHeight = 1; // 00000000025e930139bac5c6c31a403776da130831ab85be56578f3fa75369bb
         consensus.SegwitHeight = 0; // 00000000002b980fcd729daaa248fd9316a5200e9b367f4ff2c42453e84201ca
+        consensus.TokenHeight = 300000;
         consensus.nRuleChangeActivationThreshold = 8; //1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 10; //2016; // nTargetTimespan / nTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -412,6 +414,7 @@ public:
 
         consensus.CSVHeight = 1;
         consensus.SegwitHeight = 0;
+        consensus.TokenHeight = 300000;
         consensus.nRuleChangeActivationThreshold = 8; //1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 10; //2016; // nTargetTimespan / nTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -435,8 +438,8 @@ public:
         consensus.mn.anchoringLag = 15;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
-        consensus.spv.wallet_xpub = ""; /// @note devnet matter
-        consensus.spv.anchors_address = ""; /// @note devnet matter
+        consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY"; /// @note devnet matter
+        consensus.spv.anchors_address = "mpAkq2LyaUvKrJm2agbswrkn3QG9febnqL"; /// @note devnet matter
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
@@ -542,6 +545,7 @@ public:
 
         consensus.CSVHeight = 432; // CSV activated on regtest (Used in rpc activation tests)
         consensus.SegwitHeight = 0; // SEGWIT is always activated on regtest unless overridden
+        consensus.TokenHeight = 300000;
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;

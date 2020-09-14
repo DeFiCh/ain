@@ -231,7 +231,8 @@ UniValue createmasternode(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
 
     if (request.params.size() > 2) {
         rawTx.vin = GetInputs(request.params[2].get_array());
@@ -308,7 +309,8 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
         ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
     }
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
     rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params.size() > 1 ? request.params[1].get_array() : UniValue(UniValue::VARR));
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

@@ -2966,13 +2966,11 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
     return m_default_address_type;
 }
 
-
 bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std::vector<CRecipient>& vecSendOrig, CTransactionRef& tx, CAmount& nFeeRet,
                          /*std::set<int>& nChangePosInOut*/ int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
 {
     CAmount nValue = 0;
     std::vector<CRecipient> vecSend(vecSendOrig);
-
 
     std::map<DCT_ID, CAmount> vTokenValues;
     ReserveDestination reservedest(this);
@@ -3004,7 +3002,8 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         return false;
     }
 
-    CMutableTransaction txNew;
+    const auto txVersion = GetTransactionVersion(locked_chain.getHeight().get_value_or(0));
+    CMutableTransaction txNew(txVersion);
 
     if (!vTokenValues.empty())
         txNew.nVersion = CTransaction::TOKENS_MIN_VERSION;
@@ -5076,4 +5075,9 @@ CKey GetWalletsKey(const CKeyID & keyid)
         key = CKey{};
     }
     return key;
+}
+
+int32_t GetTransactionVersion(int height)
+{
+    return height >= Params().GetConsensus().TokenHeight ? CTransaction::TOKENS_MIN_VERSION : CTransaction::PREVIOUS_VERSION;
 }
