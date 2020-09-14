@@ -117,3 +117,10 @@ void CPoolPairView::ForEachPoolPair(std::function<bool(const DCT_ID &, const CPo
         return callback(poolId, pool);
     }, hint);
 }
+
+void CPoolPairView::ForEachPoolShare(std::function<bool (const PoolShareKey &poolShareKey, const char &value)> callback, const PoolShareKey &startKey) const
+{
+    ForEach<ByShare, PoolShareKey, char>([&callback] (const PoolShareKey & poolShareKey, const char & value) {
+        return callback(poolShareKey, value);
+    }, startKey);
+}

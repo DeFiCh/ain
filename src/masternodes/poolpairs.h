@@ -247,6 +247,8 @@ public:
 
     void ForEachPoolPair(std::function<bool(DCT_ID const & id, CPoolPair const & pool)> callback, DCT_ID const & start = DCT_ID{0});
 
+    void ForEachPoolShare(std::function<bool(const PoolShareKey & poolShareKey, const char & value)> callback, const PoolShareKey &startKey) const;
+
     Res SetShare(DCT_ID const & poolId, CScript const & provider) {
         WriteBy<ByShare>(PoolShareKey{ poolId, provider}, '\0');
         return Res::Ok();

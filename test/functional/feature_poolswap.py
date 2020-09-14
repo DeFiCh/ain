@@ -51,6 +51,9 @@ class PoolPairTest (DefiTestFramework):
         # 2 Transferring SILVER from N1 Account to N0 Account
         self.nodes[1].accounttoaccount([], accountSN1, {accountGN0: "1000@SILVER"})
         self.nodes[1].generate(1)
+        # Transferring GOLD from N0 Account to N1 Account
+        self.nodes[0].accounttoaccount([], accountGN0, {accountSN1: "200@GOLD"})
+        self.nodes[0].generate(1)
 
         silverCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[idSilver]
         print("Checking Silver on AccN0:", silverCheckN0, ", id", idSilver)
@@ -81,10 +84,28 @@ class PoolPairTest (DefiTestFramework):
         #print (list_pool)
 
         # 4 Adding liquidity
+        list_poolshares = self.nodes[0].listpoolshares()
+        print (list_poolshares)
+
         self.nodes[0].addpoolliquidity({
             accountGN0: ["100@GOLD", "500@SILVER"]
         }, accountGN0, [])
         self.nodes[0].generate(1)
+
+        self.sync_blocks([self.nodes[0], self.nodes[1]])
+
+        list_poolshares = self.nodes[0].listpoolshares()
+        print (list_poolshares)
+
+        self.nodes[1].addpoolliquidity({
+            accountSN1: ["100@GOLD", "500@SILVER"]
+        }, accountSN1, [])
+        self.nodes[1].generate(1)
+
+        self.sync_blocks([self.nodes[0], self.nodes[1]])
+
+        list_poolshares = self.nodes[0].listpoolshares()
+        print (list_poolshares)
 
         goldCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[idGold]
         print("Checking Gold on AccN0:", goldCheckN0, ", id", idGold)
@@ -92,14 +113,14 @@ class PoolPairTest (DefiTestFramework):
         print("Checking Silver on AccN0:", silverCheckN0, ", id", idSilver)
 
         # 5 Checking that liquidity is correct
-        assert(goldCheckN0 == 900)
+        assert(goldCheckN0 == 700)
         assert(silverCheckN0 == 500)
 
         list_pool = self.nodes[0].listpoolpairs()
         #print (list_pool)
 
-        assert(list_pool['130']['reserveA'] == 100)
-        assert(list_pool['130']['reserveB'] == 500)
+        assert(list_pool['130']['reserveA'] == 200)
+        assert(list_pool['130']['reserveB'] == 1000)
 
         # 6 Trying to poolswap
         self.nodes[0].poolswap({
@@ -128,11 +149,14 @@ class PoolPairTest (DefiTestFramework):
         list_pool = self.nodes[2].listpoolpairs()
         #print (list_pool)
 
-        assert(goldCheckN0 == 900)
+        list_poolshares = self.nodes[0].listpoolshares()
+        print (list_poolshares)
+
+        assert(goldCheckN0 == 700)
         assert(silverCheckN0 == 490)
-        assert(list_pool['130']['reserveA'] + goldCheckN1 == 100)
-        assert(silverCheckN1 == 1000)
-        assert(list_pool['130']['reserveB'] == 509) #510 - 1 (commission)
+        assert(list_pool['130']['reserveA'] + goldCheckN1 == 300)
+        assert(silverCheckN1 == 500)
+        assert(list_pool['130']['reserveB'] == 1009) #1010 - 1 (commission)
 
         # REVERTING:
         #========================
