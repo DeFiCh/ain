@@ -13,6 +13,8 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, \
     connect_nodes_bi, disconnect_nodes, wait_until
 
+from decimal import Decimal
+
 class AnchorRewardsTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
@@ -222,6 +224,64 @@ class AnchorRewardsTest (DefiTestFramework):
         self.sync_all()
         wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 2, timeout=10)
         assert_equal(len(self.nodes[0].spv_listanchorrewards()), 1)
+
+
+        #
+        # ======================== DIP 1 : test anchor rewards after the fork ==========================
+        #
+        blocks = self.nodes[0].getblockcount()
+        self.stop_node(0)
+        self.start_node(0, [ "-dummypos=1", "-spv=1", "-fakespv=1", "-txindex=1", "-anchorquorum=2", '-dip1height='+str(blocks)]) # activate dip1 fork
+
+        # check for community AnchorReward balance
+        assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], 0)
+        self.nodes[0].generate(5) # mine something
+        assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('0.5')) # reward for 5 blocks after the fork
+
+        connect_nodes_bi(self.nodes, 0, 1)
+        wait_until(lambda: len(self.nodes[0].spv_listanchorrewardconfirms()) == 2 and self.nodes[0].spv_listanchorrewardconfirms()[0]['signers'] == 2 and self.nodes[0].spv_listanchorrewardconfirms()[1]['signers'] == 2, timeout=10)
+        forkConfirms = self.nodes[0].spv_listanchorrewardconfirms()
+
+
+        rewListOld = self.nodes[0].spv_listanchorrewards()
+        # assume that one unpayed reward would be mined
+        self.nodes[0].generate(1)
+        # check reward tx
+        rewListNew = self.nodes[0].spv_listanchorrewards()
+        rewListDiff = [i for i in rewListNew if i not in rewListOld]
+        assert_equal(len(rewListDiff), 1) # just for sure, only one tx for block for default particular miner
+        rewFork = rewListDiff[0]
+
+        rewForkTx = self.nodes[0].decoderawtransaction(self.nodes[0].getrawtransaction(rewFork['RewardTxHash']))
+
+        # search for payed confirmation
+        for i in forkConfirms:
+            if i['btcTxHash'] == rewFork['AnchorTxHash']:
+                confirm = i
+                approved = True
+        assert(approved)
+
+        assert_equal(rewForkTx['vout'][1]['scriptPubKey']['addresses'][0], confirm['rewardAddress'])
+        assert_equal(rewForkTx['vout'][1]['value'], Decimal('0.5'))
+
+        # check that counter was dropped
+        assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('0.1')) # not zero, but 0.1 for the current block
+
+        # confirmations decreased
+        forkConfirms = self.nodes[0].spv_listanchorrewardconfirms()
+        assert_equal(len(forkConfirms), 1)
+
+        # latest part: mine one more block, check the last reward
+        confirm = forkConfirms[0]
+        self.nodes[0].generate(1)
+        rewListNew2 = self.nodes[0].spv_listanchorrewards()
+        rewListDiff = [i for i in rewListNew2 if i not in rewListNew]
+        assert_equal(len(rewListDiff), 1)
+        rewFork = rewListDiff[0]
+        rewForkTx = self.nodes[0].decoderawtransaction(self.nodes[0].getrawtransaction(rewFork['RewardTxHash']))
+        assert_equal(rewForkTx['vout'][1]['scriptPubKey']['addresses'][0], confirm['rewardAddress'])
+        assert_equal(rewForkTx['vout'][1]['value'], Decimal('0.1')) # only one block reward accumulated till prev reward
+
 
 if __name__ == '__main__':
     print ("Disabled: feature_anchor_rewards test")
