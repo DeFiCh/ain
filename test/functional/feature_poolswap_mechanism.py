@@ -33,7 +33,7 @@ class PoolSwapTest (DefiTestFramework):
         # pool = 4 acc = 100  ~ 16 minute  ~ 8 minute
         # pool = 1 acc = 10   ~ 4 sec      ~ 3,6 sec
         self.commission = 0.001
-        self.amount_token = 1000
+        self.amount_token = 1000 # 1000
         
         self.tokens = []
         self.accounts = []
@@ -218,10 +218,8 @@ class PoolSwapTest (DefiTestFramework):
 
         print("Adding liquidity...")
         self.add_pools_liquidity(owner)
-        #for pool in self.pools:
-            # TODO crash
-            # problem math overflow
-            #print(self.nodes[0].getpoolpair(pool, True))
+        for pool in self.pools:
+            print(self.nodes[0].getpoolpair(pool, True))
         print("Liquidity added")
 
         print("Swapping tokens...")
