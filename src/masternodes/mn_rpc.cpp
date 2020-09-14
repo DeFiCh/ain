@@ -6,6 +6,7 @@
 #include <masternodes/criminals.h>
 #include <masternodes/mn_checks.h>
 
+#include <arith_uint256.h>
 #include <chainparams.h>
 #include <core_io.h>
 #include <consensus/validation.h>
@@ -1314,13 +1315,13 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
         if (pool.reserveB <= 0) {
             poolObj.pushKV("reserveA/reserveB", "0");
         } else {
-            poolObj.pushKV("reserveA/reserveB", ValueFromAmount(pool.reserveA * COIN / pool.reserveB));
+            poolObj.pushKV("reserveA/reserveB", ValueFromAmount((arith_uint256(pool.reserveA) * arith_uint256(COIN) / pool.reserveB).GetLow64()));
         }
 
         if (pool.reserveA <= 0) {
             poolObj.pushKV("reserveB/reserveA", "0");
         } else {
-            poolObj.pushKV("reserveB/reserveA", ValueFromAmount(pool.reserveB * COIN / pool.reserveA));
+            poolObj.pushKV("reserveB/reserveA", ValueFromAmount((arith_uint256(pool.reserveB) * arith_uint256(COIN) / pool.reserveA).GetLow64()));
         }
 
         poolObj.pushKV("ownerFeeAddress", pool.ownerFeeAddress.GetHex());
