@@ -2,9 +2,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <masternodes/anchors.h>
+#include <masternodes/balances.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/res.h>
-#include <masternodes/balances.h>
 
 #include <arith_uint256.h>
 #include <chainparams.h>
@@ -481,6 +482,72 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     }
     return Res::Ok(base);
 }
+
+ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata)
+{
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    CAnchorFinalizationMessage finMsg;
+    ss >> finMsg;
+
+    auto rewardTx = mnview.GetRewardForAnchor(finMsg.btcTxHash);
+    if (rewardTx) {
+        return Res::ErrDbg("bad-ar-exists", "reward for anchor %s already exists (tx: %s)",
+                           finMsg.btcTxHash.ToString(), (*rewardTx).ToString());
+    }
+
+    if (!finMsg.CheckConfirmSigs()) {
+        return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
+    }
+
+    if (finMsg.sigs.size() < GetMinAnchorQuorum(finMsg.currentTeam)) {
+        return Res::ErrDbg("bad-ar-sigs-quorum", "anchor sigs (%d) < min quorum (%) ",
+                           finMsg.sigs.size(), GetMinAnchorQuorum(finMsg.currentTeam));
+    }
+
+    // check reward sum
+    if (height >= Params().GetConsensus().DIP1Height) {
+        auto const cbValues = tx.GetValuesOut();
+        if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
+            return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be payed only in Defi coins");
+
+        auto const anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
+        if (cbValues.begin()->second != anchorReward) {
+            return Res::ErrDbg("bad-ar-amount", "anchor pays wrong amount (actual=%d vs expected=%d)",
+                               cbValues.begin()->second, anchorReward);
+        }
+    }
+    else { // pre-DIP1 logic
+        auto anchorReward = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, Params().GetConsensus());
+        if (tx.GetValueOut() > anchorReward) {
+            return Res::ErrDbg("bad-ar-amount", "anchor pays too much (actual=%d vs limit=%d)",
+                               tx.GetValueOut(), anchorReward);
+        }
+    }
+
+    CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
+    if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
+        return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
+    }
+
+    if (finMsg.currentTeam != mnview.GetCurrentTeam()) {
+        return Res::ErrDbg("bad-ar-curteam", "anchor wrong current team");
+    }
+
+    if (finMsg.nextTeam != mnview.CalcNextTeam(prevStakeModifier)) {
+        return Res::ErrDbg("bad-ar-nextteam", "anchor wrong next team");
+    }
+    mnview.SetTeam(finMsg.nextTeam);
+    if (height >= Params().GetConsensus().DIP1Height) {
+        mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
+    }
+    else {
+        mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
+    }
+    mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
+
+    return { finMsg.btcTxHash, Res::Ok() };
+}
+
 
 bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
 {
