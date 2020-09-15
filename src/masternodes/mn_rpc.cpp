@@ -1597,7 +1597,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    /// @todo is it important to restrict with `Params().GetConsensus().DIP1Height` ??
+    /// @todo is it important to restrict with `Params().GetConsensus().DFIP1Height` ??
 
     UniValue ret(UniValue::VOBJ);
 

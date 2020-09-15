@@ -1611,10 +1611,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 mnview.SetTeam(finMsg.currentTeam);
 
-                if (pindex->nHeight >= Params().GetConsensus().DIP1Height) {
+                if (pindex->nHeight >= Params().GetConsensus().DFIP1Height) {
                     mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut()); // or just 'Set..'
                 }
-                else { // pre-DIP1 logic:
+                else { // pre-DFIP1 logic:
                     assert(mnview.GetFoundationsDebt() >= tx.GetValueOut());
                     mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
                 }
@@ -1832,10 +1832,10 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
     if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
         return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
 
-    if (height >= consensus.DIP1Height) {
+    if (height >= consensus.DFIP1Height) {
         // check classic UTXO foundation share:
-        if (!consensus.foundationShareScript.empty() && consensus.foundationShareDIP1 != 0) {
-            CAmount foundationReward = blockReward * consensus.foundationShareDIP1 / COIN;
+        if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1 != 0) {
+            CAmount foundationReward = blockReward * consensus.foundationShareDFIP1 / COIN;
             bool foundationsRewardfound = false;
             for (auto txout : tx.vout) {
                 if (txout.scriptPubKey == consensus.foundationShareScript) {
@@ -1862,7 +1862,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         blockReward -= nonUtxoTotal;
     }
 
-    // pre-DIP1 logic, compatible after prev blockReward mod:
+    // pre-DFIP1 logic, compatible after prev blockReward mod:
     if (cbValues.at(DCT_ID{0}) > blockReward + nFees)
         return Res::ErrDbg("bad-cb-amount", "coinbase pays too much (actual=%d vs limit=%d)", cbValues.at(DCT_ID{0}), blockReward + nFees);
 

@@ -173,10 +173,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         mTx.vout[0].nValue = 0;
         mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
 
-        if (nHeight >= chainparams.GetConsensus().DIP1Height) {
+        if (nHeight >= chainparams.GetConsensus().DFIP1Height) {
             mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(CommunityAccountType::AnchorReward); // do not reset it, so it will occure on connectblock
         }
-        else { // pre-DIP1 logic:
+        else { // pre-DFIP1 logic:
             mTx.vout[1].nValue = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, chainparams.GetConsensus());
         }
 
@@ -240,20 +240,20 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     CAmount blockReward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
     coinbaseTx.vout[0].nValue = nFees + blockReward;
 
-    if (nHeight >= chainparams.GetConsensus().DIP1Height) {
+    if (nHeight >= chainparams.GetConsensus().DFIP1Height) {
         // assume community non-utxo funding:
         for (auto kv : chainparams.GetConsensus().nonUtxoBlockSubsidies) {
             coinbaseTx.vout[0].nValue -= blockReward * kv.second / COIN;
         }
         // Pinch off foundation share
-        if (!chainparams.GetConsensus().foundationShareScript.empty() && chainparams.GetConsensus().foundationShareDIP1 != 0) {
+        if (!chainparams.GetConsensus().foundationShareScript.empty() && chainparams.GetConsensus().foundationShareDFIP1 != 0) {
             coinbaseTx.vout.resize(2);
             coinbaseTx.vout[1].scriptPubKey = chainparams.GetConsensus().foundationShareScript;
-            coinbaseTx.vout[1].nValue = blockReward * chainparams.GetConsensus().foundationShareDIP1 / COIN; // the main difference is that new FS is a %% from "base" block reward and no fees involved
+            coinbaseTx.vout[1].nValue = blockReward * chainparams.GetConsensus().foundationShareDFIP1 / COIN; // the main difference is that new FS is a %% from "base" block reward and no fees involved
             coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
         }
     }
-    else { // pre-DIP1 logic:
+    else { // pre-DFIP1 logic:
         // Pinch off foundation share
         CAmount foundationsReward = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
         if (!chainparams.GetConsensus().foundationShareScript.empty() && chainparams.GetConsensus().foundationShare != 0) {

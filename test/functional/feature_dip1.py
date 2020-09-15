@@ -3,9 +3,9 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Test DIP1 activation
+"""Test DFIP1 activation
 
-- verify basic block rewards on DIP1 activation
+- verify basic block rewards on DFIP1 activation
 """
 
 from test_framework.test_framework import DefiTestFramework
@@ -40,7 +40,7 @@ class Dip1Test (DefiTestFramework):
         assert_equal(self.nodes[0].getblockchaininfo()['softforks']['dip1']['active'], True) # not active IRL, so getblockchaininfo works like "height+1"
 
 
-        # BLOCK#2 - DIP1 activated
+        # BLOCK#2 - DFIP1 activated
         self.nodes[0].generate(1)
         # print("")
         # print("blocks:    ", self.nodes[0].getblockcount())
