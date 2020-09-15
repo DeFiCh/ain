@@ -191,7 +191,7 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx)
         WriteBy<Symbol>(symbolKey, WrapVarInt(pair->first.v));
     }
 
-    tokenImpl.flags ^= (uint8_t)CToken::TokenFlags::DAT; // very strange logic. WHY only 'DAT' and WHY only triggering?
+    tokenImpl.flags ^= (uint8_t)CToken::TokenFlags::DAT;
 
     WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
     return Res::Ok();

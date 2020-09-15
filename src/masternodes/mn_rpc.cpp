@@ -2265,6 +2265,33 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
     return ret;
 }
 
+UniValue listcommunitybalances(const JSONRPCRequest& request) {
+    RPCHelpMan{"listcommunitybalances",
+               "\nReturns information about all community balances.\n",
+               {
+               },
+               RPCResult{
+                       "{balance_type:value,...}     (array) Json object with accounts information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listcommunitybalances", "")
+                       + HelpExampleRpc("listcommunitybalances", "")
+               },
+    }.Check(request);
+
+    /// @todo is it important to restrict with `Params().GetConsensus().DIP1Height` ??
+
+    UniValue ret(UniValue::VOBJ);
+
+    LOCK(cs_main);
+    for (auto kv : Params().GetConsensus().nonUtxoBlockSubsidies) {
+        ret.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(pcustomcsview->GetCommunityBalance(kv.first)));
+    }
+
+    return ret;
+}
+
+
 static const CRPCCommand commands[] =
 { //  category      name                  actor (function)     params
   //  ----------------- ------------------------    -----------------------     ----------
@@ -2291,6 +2318,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "createpoolpair",     &createpoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
+    {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {
