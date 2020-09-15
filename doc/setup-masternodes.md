@@ -81,7 +81,7 @@ In order to participate in the staking algorithm, you must broadcast to the netw
 ~/.defi/defi-cli createmasternode address
 ```
 
-where `address` for both operator and collateral address should be the new legacy address you created.
+where `address` for both operator and collateral address should be the new legacy address you created. Please note that it costs 10 DFI to run this command.
 
 ### Step 6 - Configure the masternode and restart
 
@@ -120,7 +120,7 @@ In order to participate in the staking algorithm, you must broadcast to the netw
 ~/.defi/defi-cli createmasternode OWNER_ADDRESS OPERATOR_ADDRESS
 ``` 
 
-where `OWNER_ADDRESS` is the address for the collateral/owner node and `OPERATOR_ADDRESS` is the address for the operator.
+where `OWNER_ADDRESS` is the address for the collateral/owner node and `OPERATOR_ADDRESS` is the address for the operator. Please note that it costs 10 DFI to run this command.
 
 ### Step 6 - Configure the masternode and restart
 
