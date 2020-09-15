@@ -39,25 +39,22 @@ namespace spv
     struct BtcAnchorTx;
 }
 
-typedef uint32_t THeight; // cause not decided yet which type to use for heights
-class CAnchorAuthMessage
+namespace Consensus
 {
-    using Signature = std::vector<unsigned char>;
+    struct Params;
+}
+
+typedef uint32_t THeight; // cause not decided yet which type to use for heights
+
+struct CAnchorData
+{
     using CTeam = CCustomCSView::CTeam;
-public:
+
     uint256 previousAnchor;         ///< Previous tx-AnchorAnnouncement on BTC chain
     THeight height;                 ///< Height of the anchor block (DeFi)
     uint256 blockHash;              ///< Hash of the anchor block (DeFi)
     CTeam nextTeam;                 ///< Calculated based on stake modifier at {blockHash}
 
-    CAnchorAuthMessage() {}
-    CAnchorAuthMessage(uint256 const & previousAnchor, int height, uint256 const & blockHash, CTeam const & nextTeam);
-
-    Signature GetSignature() const;
-    uint256 GetHash() const;
-    bool SignWithKey(const CKey& key);
-    bool GetPubKey(CPubKey& pubKey) const;
-    CKeyID GetSigner() const;
     uint256 GetSignHash() const;
 
     ADD_SERIALIZE_METHODS;
@@ -68,6 +65,30 @@ public:
          READWRITE(height);
          READWRITE(blockHash);
          READWRITE(nextTeam);
+    }
+};
+
+class CAnchorAuthMessage : public CAnchorData
+{
+    using Signature = std::vector<unsigned char>;
+public:
+
+    CAnchorAuthMessage(CAnchorData const & base = CAnchorData())
+        : CAnchorData(base)
+        , signature()
+    {}
+
+    Signature GetSignature() const;
+    uint256 GetHash() const;
+    bool SignWithKey(const CKey& key);
+    bool GetPubKey(CPubKey& pubKey) const;
+    CKeyID GetSigner() const;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+         READWRITEAS(CAnchorData, *this);
          READWRITE(signature);
     }
 
@@ -81,22 +102,22 @@ private:
     Signature signature;
 };
 
-class CAnchor
+class CAnchor : public CAnchorData
 {
     using Signature = std::vector<unsigned char>;
     using CTeam = CCustomCSView::CTeam;
 
 public:
-    uint256 previousAnchor;
-    THeight height;
-    uint256 blockHash;
-    CTeam nextTeam;
     std::vector<Signature> sigs;
     CKeyID rewardKeyID;
     char rewardKeyType;
 
-public:
-    CAnchor() : height(0) {}
+    CAnchor(CAnchorData const & base = CAnchorData())
+        : CAnchorData(base)
+        , sigs()
+        , rewardKeyID()
+        , rewardKeyType(0)
+    {}
 
     static CAnchor Create(std::vector<CAnchorAuthMessage> const & auths, CTxDestination const & rewardDest);
     bool CheckAuthSigs(CTeam const & team) const;
@@ -105,10 +126,7 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(previousAnchor);
-        READWRITE(height);
-        READWRITE(blockHash);
-        READWRITE(nextTeam);
+        READWRITEAS(CAnchorData, *this);
         READWRITE(sigs);
         READWRITE(rewardKeyID);
         READWRITE(rewardKeyType);
@@ -133,21 +151,21 @@ public:
             >,
             // index for locator/GETANCHORAUTHS
             ordered_non_unique<
-                tag<Auth::ByBlockHash>, member<Auth, uint256, &Auth::blockHash>
+                tag<Auth::ByBlockHash>, member<CAnchorData, uint256, &CAnchorData::blockHash>
             >,
             // index for quorum selection (CreateBestAnchor())
             // just to remember that there may be auths with equal blockHash, but with different prevs and teams!
             ordered_non_unique<
                 tag<Auth::ByKey>, composite_key<Auth,
-                    member<Auth, THeight, &Auth::height>,
-                    const_mem_fun<Auth, uint256, &Auth::GetSignHash>
+                    member<CAnchorData, THeight, &CAnchorData::height>,
+                    const_mem_fun<CAnchorData, uint256, &CAnchorData::GetSignHash>
                 >
             >,
             // restriction index that helps detect doublesigning
             // it may by quite expensive to index by GetSigner on the fly, but it should happen only on insertion
             ordered_unique<
                 tag<Auth::ByVote>, composite_key<Auth,
-                    const_mem_fun<Auth, uint256, &Auth::GetSignHash>,
+                    const_mem_fun<CAnchorData, uint256, &CAnchorData::GetSignHash>,
                     const_mem_fun<Auth, CKeyID, &Auth::GetSigner>
                 >
             >
@@ -269,27 +287,15 @@ private:
     bool DbErase(uint256 const & hash);
 };
 
-class CAnchorConfirmMessage
+struct CAnchorConfirmData
 {
-public:
-    using Signature = std::vector<unsigned char>;
-
     uint256 btcTxHash;
     THeight anchorHeight;
     THeight prevAnchorHeight;
     CKeyID rewardKeyID;
     char rewardKeyType;
-    Signature signature;
 
-    CAnchorConfirmMessage() {}
-
-    static CAnchorConfirmMessage Create(THeight anchorHeight, CKeyID const & rewardKeyID, char rewardKeyType, THeight prevAnchorHeight, uint256 btcTxHash);
-    static CAnchorConfirmMessage Create(CAnchor const & anchor, THeight prevAnchorHeight, uint256 btcTxHash, CKey const & key);
-    uint256 GetHash() const;
     uint256 GetSignHash() const;
-    CKeyID GetSigner() const;
-    bool CheckConfirmSigs(std::vector<Signature> const & sigs, CCustomCSView::CTeam team);
-    bool isEqualDataWith(const CAnchorConfirmMessage &message) const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -300,6 +306,32 @@ public:
         READWRITE(prevAnchorHeight);
         READWRITE(rewardKeyID);
         READWRITE(rewardKeyType);
+    }
+};
+
+// single confirmation message
+class CAnchorConfirmMessage : public CAnchorConfirmData
+{
+public:
+    using Signature = std::vector<unsigned char>;
+
+    // (base data + single sign)
+    Signature signature;
+
+    CAnchorConfirmMessage(CAnchorConfirmData const & base = CAnchorConfirmData())
+        : CAnchorConfirmData(base)
+        , signature()
+    {}
+
+    static CAnchorConfirmMessage CreateSigned(CAnchor const & anchor, THeight prevAnchorHeight, uint256 btcTxHash, CKey const & key);
+    uint256 GetHash() const;
+    CKeyID GetSigner() const;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CAnchorConfirmData, *this);
         READWRITE(signature);
     }
 
@@ -310,12 +342,41 @@ public:
     struct ByVote{};        // composite, by GetSignHash and signer, helps detect doublesigning
 };
 
+// derived from common struct at list to avoid serialization mistakes
+struct CAnchorFinalizationMessage : public CAnchorConfirmData
+{
+    // (base data + teams + all signs)
+    CTeamView::CTeam nextTeam;
+    CTeamView::CTeam currentTeam;
+    std::vector<CAnchorConfirmMessage::Signature> sigs;
+
+    CAnchorFinalizationMessage(CAnchorConfirmData const & base = CAnchorConfirmData())
+        : CAnchorConfirmData(base)
+        , nextTeam()
+        , currentTeam()
+        , sigs()
+    {}
+
+    bool CheckConfirmSigs();
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CAnchorConfirmData, *this);
+        READWRITE(nextTeam);
+        READWRITE(currentTeam);
+        READWRITE(sigs);
+    }
+};
+
 class CAnchorAwaitingConfirms
 {
     using ConfirmMessageHash = uint256;
     using AnchorTxHash = uint256;
 
 protected:
+    using ConfirmData = CAnchorConfirmData;
     using Confirm = CAnchorConfirmMessage;
 
     typedef boost::multi_index_container<Confirm,
@@ -326,21 +387,21 @@ protected:
             >,
             // index for group confirms deletion
             ordered_non_unique<
-                tag<Confirm::ByAnchor>, member<Confirm, uint256, &Confirm::btcTxHash>
+                tag<Confirm::ByAnchor>, member<ConfirmData, uint256, &ConfirmData::btcTxHash>
             >,
             // index for quorum selection (miner affected)
             // just to remember that there may be confirms with equal btcTxHash, but with different teams!
             ordered_non_unique<
                 tag<Confirm::ByKey>, composite_key<Confirm,
-                    member<Confirm, uint256, &Confirm::btcTxHash>,
-                    const_mem_fun<Confirm, uint256, &Confirm::GetSignHash>
+                    member<ConfirmData, uint256, &ConfirmData::btcTxHash>,
+                    const_mem_fun<ConfirmData, uint256, &ConfirmData::GetSignHash>
                 >
             >,
             // restriction index that helps detect doublesigning
             // it may by quite expensive to index by GetSigner on the fly, but it should happen only on insertion
             ordered_unique<
                 tag<Confirm::ByVote>, composite_key<Confirm,
-                    const_mem_fun<Confirm, uint256, &Confirm::GetSignHash>,
+                    const_mem_fun<ConfirmData, uint256, &ConfirmData::GetSignHash>,
                     const_mem_fun<Confirm, CKeyID, &Confirm::GetSigner>
                 >
             >
@@ -364,6 +425,7 @@ public:
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')
 /// even may be not here, but in CCustomCSView
 uint32_t GetMinAnchorQuorum(CCustomCSView::CTeam const & team);
+CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams);
 
 // thowing exceptions (not a bool due to more verbose rpc errors. may be 'status' or smth? )
 /// Validates all except tx confirmations

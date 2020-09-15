@@ -10,26 +10,33 @@ struct Res
     bool ok;
     std::string msg;
     uint32_t code;
+    std::string dbgMsg; // CValidationState support
 
     Res() = delete;
 
     template<typename... Args>
     static Res Err(std::string const & err, const Args&... args) {
-        return Res{false, tfm::format(err, args...), 0};
+        return Res{false, tfm::format(err, args...), 0, {} };
     }
 
     template<typename... Args>
     static Res ErrCode(uint32_t code, std::string const & err, const Args&... args) {
-        return Res{false, tfm::format(err, args...), code};
+        return Res{false, tfm::format(err, args...), code, {} };
+    }
+
+    // extended version just for CValidationState support
+    template<typename... Args>
+    static Res ErrDbg(std::string const & debugMsg, std::string const & err, const Args&... args) {
+        return {false, tfm::format(err, args...), 0, debugMsg };
     }
 
     template<typename... Args>
     static Res Ok(std::string const & msg, const Args&... args) {
-        return Res{true, tfm::format(msg, args...), 0};
+        return Res{true, tfm::format(msg, args...), 0, {} };
     }
 
     static Res Ok() {
-        return Res{true, {}, 0};
+        return Res{true, {}, 0, {} };
     }
 
 //    template<typename... Args>

@@ -14,6 +14,7 @@
 #include <coins.h>
 #include <crypto/common.h> // for ReadLE64
 #include <fs.h>
+#include <masternodes/res.h>
 #include <policy/feerate.h>
 #include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <script/script_error.h>
@@ -268,7 +269,6 @@ bool GetTransaction(const uint256& hash, CTransactionRef& tx, const Consensus::P
  */
 bool ActivateBestChain(CValidationState& state, const CChainParams& chainparams, std::shared_ptr<const CBlock> pblock = std::shared_ptr<const CBlock>());
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
-CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams);
 
 /** Guess verification progress (as a fraction between 0.0=genesis and 1.0=current tip). */
 double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex* pindex);
@@ -799,5 +799,7 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 {
     return (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
 }
+
+Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus);
 
 #endif // DEFI_VALIDATION_H
