@@ -44,6 +44,10 @@ BOOST_FIXTURE_TEST_SUITE(rpc_tests, TestingSetup)
 
 BOOST_AUTO_TEST_CASE(rpc_rawparams)
 {
+    InitInterfaces interfaces;
+    interfaces.chain = interfaces::MakeChain();
+    g_rpc_interfaces = &interfaces;
+
     // Test raw transaction API argument handling
     UniValue r;
 
@@ -125,6 +129,10 @@ BOOST_AUTO_TEST_CASE(rpc_rawsign)
 
 BOOST_AUTO_TEST_CASE(rpc_createraw_op_return)
 {
+    InitInterfaces interfaces;
+    interfaces.chain = interfaces::MakeChain();
+    g_rpc_interfaces = &interfaces;
+
     BOOST_CHECK_NO_THROW(CallRPC("createrawtransaction [{\"txid\":\"a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed\",\"vout\":0}] {\"data\":\"68656c6c6f776f726c64\"}"));
 
     // Key not "data" (bad address)

@@ -43,15 +43,25 @@ std::string CTxIn::ToString() const
     return str;
 }
 
+bool CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = false;
+
 CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn)
 {
     nValue = nValueIn;
-    scriptPubKey = scriptPubKeyIn;
+    scriptPubKey = std::move(scriptPubKeyIn);
+    nTokenId = DCT_ID{0};
+}
+
+CTxOut::CTxOut(const CAmount & nValueIn, CScript scriptPubKeyIn, DCT_ID nTokenIdIn)
+{
+    nValue = nValueIn;
+    scriptPubKey = std::move(scriptPubKeyIn);
+    nTokenId = nTokenIdIn;
 }
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
+    return strprintf("CTxOut(nValue=%d.%08d, nTokenId=%s, scriptPubKey=%s)", nValue / COIN, nValue % COIN, nTokenId.ToString(), HexStr(scriptPubKey).substr(0, 30));
 }
 
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
@@ -80,15 +90,30 @@ CTransaction::CTransaction() : vin(), vout(), nVersion(CTransaction::CURRENT_VER
 CTransaction::CTransaction(const CMutableTransaction& tx) : vin(tx.vin), vout(tx.vout), nVersion(tx.nVersion), nLockTime(tx.nLockTime), hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
 CTransaction::CTransaction(CMutableTransaction&& tx) : vin(std::move(tx.vin)), vout(std::move(tx.vout)), nVersion(tx.nVersion), nLockTime(tx.nLockTime), hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
 
-CAmount CTransaction::GetValueOut() const
+CAmount CTransaction::GetValueOut(uint32_t mintingOutputsStart, DCT_ID nTokenId) const
 {
     CAmount nValueOut = 0;
-    for (const auto& tx_out : vout) {
-        nValueOut += tx_out.nValue;
-        if (!MoneyRange(tx_out.nValue) || !MoneyRange(nValueOut))
-            throw std::runtime_error(std::string(__func__) + ": value out of range");
+    for (uint32_t i = 0; i < (uint32_t) vout.size() && i < mintingOutputsStart; i++) {
+        const auto& tx_out = vout[i];
+        if (tx_out.nTokenId == nTokenId) {
+            nValueOut += tx_out.nValue;
+            if (!MoneyRange(tx_out.nValue) || !MoneyRange(nValueOut))
+                throw std::runtime_error(std::string(__func__) + ": value out of range");
+        }
     }
     return nValueOut;
+}
+
+TAmounts CTransaction::GetValuesOut(uint32_t mintingOutputsStart) const
+{
+    TAmounts nValuesOut;
+    for (uint32_t i = 0; i < (uint32_t) vout.size() && i < mintingOutputsStart; i++) {
+        const auto& tx_out = vout[i];
+        nValuesOut[tx_out.nTokenId] += tx_out.nValue;
+        if (!MoneyRange(tx_out.nValue) || !MoneyRange(nValuesOut[tx_out.nTokenId]))
+            throw std::runtime_error(std::string(__func__) + ": value out of range");
+    }
+    return nValuesOut;
 }
 
 unsigned int CTransaction::GetTotalSize() const
@@ -112,50 +137,4 @@ std::string CTransaction::ToString() const
     for (const auto& tx_out : vout)
         str += "    " + tx_out.ToString() + "\n";
     return str;
-}
-
-bool CTransaction::IsAnchorReward() const
-{
-    if (IsCoinBase() && vout.size() == 2 && vout[0].nValue == 0) {
-        CScript const & memo = vout[0].scriptPubKey;
-        std::vector<unsigned char> metadata;
-        CScript::const_iterator pc = memo.begin();
-        opcodetype opcode;
-        if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
-            return false;
-        }
-        if (!memo.GetOp(pc, opcode, metadata) ||
-            (opcode > OP_PUSHDATA1 &&
-             opcode != OP_PUSHDATA2 &&
-             opcode != OP_PUSHDATA4) ||
-            metadata.size() < DfAnchorFinalizeTxMarker.size() + 1 ||
-            memcmp(&metadata[0], &DfAnchorFinalizeTxMarker[0], DfAnchorFinalizeTxMarker.size()) != 0) {
-            return false;
-        }
-        return true;
-    }
-    return false;
-}
-
-bool CTransaction::IsCriminalDetention() const
-{
-    if (IsCoinBase() && vout.size() == 1 && vout[0].nValue == 0) {
-        CScript const & memo = vout[0].scriptPubKey;
-        std::vector<unsigned char> metadata;
-        CScript::const_iterator pc = memo.begin();
-        opcodetype opcode;
-        if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
-            return false;
-        }
-        if (!memo.GetOp(pc, opcode, metadata) ||
-            (opcode > OP_PUSHDATA1 &&
-             opcode != OP_PUSHDATA2 &&
-             opcode != OP_PUSHDATA4) ||
-            metadata.size() < DfCriminalTxMarker.size() + 1 ||
-            memcmp(&metadata[0], &DfCriminalTxMarker[0], DfCriminalTxMarker.size()) != 0) {
-            return false;
-        }
-        return true;
-    }
-    return false;
 }

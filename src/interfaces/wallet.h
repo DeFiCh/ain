@@ -214,10 +214,10 @@ public:
     virtual isminetype txoutIsMine(const CTxOut& txout) = 0;
 
     //! Return debit amount if transaction input belongs to wallet.
-    virtual CAmount getDebit(const CTxIn& txin, isminefilter filter) = 0;
+    virtual CTokenAmount getDebit(const CTxIn& txin, isminefilter filter) = 0;
 
     //! Return credit amount if transaction input belongs to wallet.
-    virtual CAmount getCredit(const CTxOut& txout, isminefilter filter) = 0;
+    virtual CTokenAmount getCredit(const CTxOut& txout, isminefilter filter) = 0;
 
     //! Return AvailableCoins + LockedCoins grouped by wallet address.
     //! (put change in one group with wallet address)
@@ -310,12 +310,12 @@ struct WalletAddress
 //! Collection of wallet balances.
 struct WalletBalances
 {
-    CAmount balance = 0;
-    CAmount unconfirmed_balance = 0;
+    CAmount balance;
+    CAmount unconfirmed_balance;
     CAmount immature_balance = 0;
     bool have_watch_only = false;
-    CAmount watch_only_balance = 0;
-    CAmount unconfirmed_watch_only_balance = 0;
+    CAmount watch_only_balance;
+    CAmount unconfirmed_watch_only_balance;
     CAmount immature_watch_only_balance = 0;
 
     bool balanceChanged(const WalletBalances& prev) const
@@ -335,9 +335,9 @@ struct WalletTx
     std::vector<isminetype> txout_is_mine;
     std::vector<CTxDestination> txout_address;
     std::vector<isminetype> txout_address_is_mine;
-    CAmount credit;
-    CAmount debit;
-    CAmount change;
+    TAmounts credit;
+    TAmounts debit;
+    TAmounts change;
     int64_t time;
     std::map<std::string, std::string> value_map;
     bool is_coinbase;

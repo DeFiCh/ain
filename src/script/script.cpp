@@ -326,3 +326,8 @@ bool GetScriptOp(CScriptBase::const_iterator& pc, CScriptBase::const_iterator en
     opcodeRet = static_cast<opcodetype>(opcode);
     return true;
 }
+
+std::string CScript::GetHex() const
+{
+    return HexStr(static_cast<const uint8_t*>(data()), static_cast<const uint8_t*>(data() + size()));
+}

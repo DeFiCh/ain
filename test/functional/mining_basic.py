@@ -45,7 +45,7 @@ class MiningTest(DefiTestFramework):
 
     def mine_chain(self):
         self.log.info('Create some old blocks')
-        address = self.nodes[0].get_genesis_keys().operatorAuthAddress
+        address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         for t in range(TIME_GENESIS_BLOCK+1, TIME_GENESIS_BLOCK + 200 * 600 +1, 600):
             self.nodes[0].setmocktime(t)
             self.nodes[0].generatetoaddress(1, address)

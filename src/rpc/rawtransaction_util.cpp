@@ -7,7 +7,9 @@
 
 #include <coins.h>
 #include <core_io.h>
+#include <interfaces/chain.h>
 #include <key_io.h>
+#include <masternodes/tokens.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <rpc/request.h>
@@ -19,7 +21,127 @@
 #include <util/rbf.h>
 #include <util/strencodings.h>
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf)
+#include <string>
+
+std::function<void(int, std::string)> JSONRPCErrorThrower(const std::string& prefix) {
+    return [=](int code, const std::string& msg) {
+        throw JSONRPCError(code, prefix + ": " + msg);
+    };
+}
+
+
+std::pair<std::string, std::string> SplitAmount(std::string const & output)
+{
+    const unsigned char TOKEN_SPLITTER = '@';
+    size_t pos = output.rfind(TOKEN_SPLITTER);
+    std::string token_id = (pos != std::string::npos) ? output.substr(pos+1) : "";
+    std::string amount = (pos != std::string::npos) ? output.substr(0, pos) : output;
+    return { amount, token_id };
+}
+
+ResVal<std::pair<CAmount, std::string>> ParseTokenAmount(std::string const & tokenAmount)
+{
+    const auto strs = SplitAmount(tokenAmount);
+
+    CAmount amount{0};
+    if (!ParseFixedPoint(strs.first, 8, &amount))
+        return Res::ErrCode(RPC_TYPE_ERROR, "Invalid amount");
+    if (amount <= 0) {
+        return Res::ErrCode(RPC_TYPE_ERROR, "Amount out of range"); // keep it for tests compatibility
+    }
+    return {{amount, strs.second}, Res::Ok()};
+}
+
+ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain, std::string const & tokenAmount)
+{
+    const auto parsed = ParseTokenAmount(tokenAmount);
+    if (!parsed.ok) {
+        return {parsed.res()};
+    }
+    DCT_ID tokenId;
+    try {
+        // try to parse it as a number, in a case DCT_ID was written
+        tokenId.v = (uint32_t) std::stoul(parsed.val->second);
+        return {{tokenId, parsed.val->first}, Res::Ok()};
+    } catch (...) {
+        // assuming it's token symbol, read DCT_ID from DB
+        std::unique_ptr<CToken> token = chain.existTokenGuessId(parsed.val->second, tokenId);
+        if (!token) {
+            return Res::Err("Invalid Defi token: %s", parsed.val->second);
+        }
+        return {{tokenId, parsed.val->first}, Res::Ok()};
+    }
+}
+
+
+// decodes either base58/bech32 address, or a hex format
+CScript DecodeScript(std::string const& str)
+{
+    if (IsHex(str)) {
+        const auto raw = ParseHex(str);
+        CScript result{raw.begin(), raw.end()};
+        txnouttype dummy;
+        if (IsStandard(result, dummy)) {
+            return result;
+        }
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "recipient script (" + str + ") does not solvable/non-standard");;
+    }
+    const auto dest = DecodeDestination(str);
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "recipient (" + str + ") does not refer to any valid address");
+    }
+    return GetScriptForDestination(dest);
+}
+
+CTokenAmount DecodeAmount(interfaces::Chain const & chain, UniValue const& amountUni, std::string const& name)
+{
+    // decode amounts
+    std::string strAmount;
+    if (amountUni.isArray()) { // * amounts
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, name + ": expected single amount");
+    } else if (amountUni.isNum()) { // legacy format for '0' token
+        strAmount = amountUni.getValStr() + "@" + DCT_ID{0}.ToString();
+    } else { // only 1 amount
+        strAmount = amountUni.get_str();
+    }
+    return GuessTokenAmount(chain, strAmount).ValOrException(JSONRPCErrorThrower(name));
+}
+
+CBalances DecodeAmounts(interfaces::Chain const & chain, UniValue const& amountsUni, std::string const& name)
+{
+    // decode amounts
+    CBalances amounts;
+    if (amountsUni.isArray()) { // * amounts
+        for (const auto& amountUni : amountsUni.get_array().getValues()) {
+            amounts.Add(DecodeAmount(chain, amountUni, name));
+        }
+    } else {
+        amounts.Add(DecodeAmount(chain, amountsUni, name));
+    }
+    return amounts;
+}
+
+// decodes recipients from formats:
+// "addr": 123.0,
+// "addr": "123.0@0",
+// "addr": "123.0@DFI",
+// "addr": ["123.0@DFI", "123.0@0", ...]
+std::map<CScript, CBalances> DecodeRecipients(interfaces::Chain const & chain, UniValue const& sendTo)
+{
+    std::map<CScript, CBalances> recipients;
+    for (const std::string& addr : sendTo.getKeys()) {
+        // decode recipient
+        const auto recipient = DecodeScript(addr);
+        if (recipients.find(recipient) != recipients.end()) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, addr + ": duplicate recipient");
+        }
+        // decode amounts and substitute
+        recipients[recipient] = DecodeAmounts(chain, sendTo[addr], addr);
+    }
+    return recipients;
+}
+
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, interfaces::Chain const & chain)
 {
     if (inputs_in.isNull() || outputs_in.isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, arguments 1 and 2 must be non-null");
@@ -106,20 +228,20 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             CTxOut out(0, CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
         } else {
-            CTxDestination destination = DecodeDestination(name_);
+            CTxDestination destination = DecodeDestination(name_); // it will be more clear to decode it straight to the CScript, but lets keep destination for tests compatibility
             if (!IsValidDestination(destination)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Defi address: ") + name_);
             }
-
             if (!destinations.insert(destination).second) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
             }
-
             CScript scriptPubKey = GetScriptForDestination(destination);
-            CAmount nAmount = AmountFromValue(outputs[name_]);
 
-            CTxOut out(nAmount, scriptPubKey);
-            rawTx.vout.push_back(out);
+            auto amounts = DecodeAmounts(chain, outputs[name_], name_);
+            for (auto const & kv : amounts.balances) {
+                CTxOut out(kv.second, scriptPubKey, kv.first);
+                rawTx.vout.push_back(out);
+            }
         }
     }
 
@@ -282,3 +404,4 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
     return result;
 }
+

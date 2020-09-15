@@ -12,9 +12,19 @@
  * belongs in tx_verify.h/cpp instead.
  */
 
+#include <vector>
+
+/// moved here (!!) due to strange linker errors under mac/win builds
+extern const std::vector<unsigned char> DfCriminalTxMarker;
+extern const std::vector<unsigned char> DfAnchorFinalizeTxMarker;
+
 class CTransaction;
 class CValidationState;
 
 bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fCheckDuplicateInputs=true);
+
+/// moved here (!!) due to strange linker errors under mac/win builds
+bool IsCriminalProofTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
 #endif // DEFI_CONSENSUS_TX_CHECK_H

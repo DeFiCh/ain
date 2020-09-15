@@ -246,7 +246,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 //                LOCK(cs_main);
 //                tip = ::ChainActive().Tip();
 //
-//                auto nodePtr = pmasternodesview->ExistMasternode(masternodeID);
+//                auto nodePtr = penhancedview->GetMasternode(masternodeID);
 //                BOOST_CHECK(nodePtr && nodePtr->IsActive(tip->height));
 //
 //                mintedBlocks = nodePtr->mintedBlocks;
