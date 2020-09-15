@@ -91,6 +91,8 @@ Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, std::
 Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
 Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
 
+ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata);
+
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256 & txid);
 
 // @todo refactor header functions

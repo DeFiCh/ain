@@ -10,6 +10,7 @@
 #include <pubkey.h>
 #include <serialize.h>
 #include <masternodes/accounts.h>
+#include <masternodes/incentivefunding.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <uint256.h>
@@ -180,6 +181,7 @@ class CCustomCSView
         , public CAnchorRewardsView
         , public CTokensView
         , public CAccountsView
+        , public CCommunityBalancesView
         , public CUndosView
 {
 public:

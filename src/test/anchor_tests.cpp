@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     // Stage 1. Same btc height. The very first, no prevs (btc height = 1)
     // create first anchor
     {
-        CAnchorAuthMessage auth(uint256(), 15, uint256S("def15"), team0);
+        CAnchorAuthMessage auth({uint256(), 15, uint256S("def15"), team0});
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bc1"), 1, false) == true);
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bc1"), 1, false) == false); // duplicate
@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // add at the same btc height, with worse tx hash, but with higher defi height - should be choosen
     {
-        CAnchorAuthMessage auth(uint256(), 30, uint256S("def30a"), team0);
+        CAnchorAuthMessage auth({uint256(), 30, uint256S("def30a"), team0});
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bd1"), 1) == true);
     }
@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // add at the same btc height, with same defi height, but with lower txhash - should be choosen
     {
-        CAnchorAuthMessage auth(uint256(), 30, uint256S("def30b"), team0);
+        CAnchorAuthMessage auth({uint256(), 30, uint256S("def30b"), team0});
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bb1"), 1) == true);
     }
@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // add at the same btc height, with same defi height, but with higher (worse) txhash - should stay untouched
     {
-        CAnchorAuthMessage auth(uint256(), 30, uint256S("def30c"), team0);
+        CAnchorAuthMessage auth({uint256(), 30, uint256S("def30c"), team0});
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("be1"), 1) == true);
     }
@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     // creating anc with old (wrong, empty) prev
     fspv->lastBlockHeight = 2; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
     {
-        CAnchorAuthMessage auth(uint256(), 45, uint256S("def45a"), team0);
+        CAnchorAuthMessage auth({uint256(), 45, uint256S("def45a"), team0});
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bc2"), 2) == true);
     }
@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // create anc with correct prev
     {
-        CAnchorAuthMessage auth(top->txHash, 45, uint256S("def45b"), team0);
+        CAnchorAuthMessage auth({top->txHash, 45, uint256S("def45b"), team0});
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
         BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bd2"), 2) == true);
     }
