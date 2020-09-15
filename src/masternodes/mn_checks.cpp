@@ -275,6 +275,10 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     if (token.symbol.size() == 0 || IsDigit(token.symbol[0])) {
         return Res::Err("token symbol '%s' should be non-empty and starts with a letter", token.symbol);
     }
+    if (token.symbol.find('#') != std::string::npos) {
+        return Res::Err("%s: token symbol must not contain '#'", base);
+    }
+
     token.name = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
 
     token.creationTx = tx.GetHash();

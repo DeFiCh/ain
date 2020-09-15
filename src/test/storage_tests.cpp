@@ -189,7 +189,7 @@ BOOST_AUTO_TEST_CASE(tokens)
         BOOST_REQUIRE(token->symbol == "DCT1");
     }
     {   // search by symbol
-        auto pair = pcustomcsview->GetToken("DCT1");
+        auto pair = pcustomcsview->GetToken("DCT1#128");
         BOOST_REQUIRE(pair);
         BOOST_REQUIRE(pair->first == DCT_ID{128});
         BOOST_REQUIRE(pair->second);
@@ -215,7 +215,7 @@ BOOST_AUTO_TEST_CASE(tokens)
         BOOST_REQUIRE(token->symbol == "DCT2");
     }
     {   // search by symbol
-        auto pair = pcustomcsview->GetToken("DCT2");
+        auto pair = pcustomcsview->GetToken("DCT2#129");
         BOOST_REQUIRE(pair);
         BOOST_REQUIRE(pair->first == DCT_ID{129});
         BOOST_REQUIRE(pair->second);
