@@ -38,6 +38,7 @@ class PoolSwapTest (DefiTestFramework):
         self.tokens = []
         self.accounts = []
         self.pools = []
+        self.liquidity = {}
 
         # Generate pool: 1 pool = 1 + 2 token = 3 tx
         # Minted tokens: 1 pool = 2 token = 4 tx
@@ -129,6 +130,9 @@ class PoolSwapTest (DefiTestFramework):
             tokenA = "GOLD" + str(item)
             tokenB = "SILVER" + str(item)
 
+            self.liquidity[self.get_id_token(tokenA)] = 0
+            self.liquidity[self.get_id_token(tokenB)] = 0
+
             for start in range(0, self.count_account, 10):
                 if start + 10 > self.count_account:
                     end = self.count_account
@@ -140,9 +144,14 @@ class PoolSwapTest (DefiTestFramework):
                 self.nodes[0].generate(1)
 
                 for idx in range(start, end):
-                    amountA = str(random.randint(self.amount_token / 2, self.amount_token)) + "@" + self.get_id_token(tokenA)
-                    amountB = str(random.randint(self.amount_token / 2, self.amount_token)) + "@" + self.get_id_token(tokenB)
+                    amountA = random.randint(self.amount_token / 2, self.amount_token)
+                    amountB = random.randint(self.amount_token / 2, self.amount_token)
 
+                    self.liquidity[self.get_id_token(tokenA)] += amountA
+                    self.liquidity[self.get_id_token(tokenB)] += amountB
+
+                    amountA = str(amountA) + "@" + self.get_id_token(tokenA)
+                    amountB = str(amountB) + "@" + self.get_id_token(tokenB)
                     self.nodes[0].addpoolliquidity({
                         self.accounts[idx]: [amountA, amountB]
                     }, self.accounts[idx], [])
@@ -220,6 +229,21 @@ class PoolSwapTest (DefiTestFramework):
         self.add_pools_liquidity(owner)
         for pool in self.pools:
             print(self.nodes[0].getpoolpair(pool, True))
+            idPool = list(self.nodes[0].getpoolpair(pool, True).keys())[0]
+
+            idTokenA = self.nodes[0].getpoolpair(pool, True)[idPool]['idTokenA']
+            idTokenB = self.nodes[0].getpoolpair(pool, True)[idPool]['idTokenB']
+
+            reserveA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA']
+            reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
+            assert_equal(self.liquidity[idTokenA], reserveA)
+            assert_equal(self.liquidity[idTokenB], reserveB)
+
+            reserveAB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA/reserveB']
+            reserveBA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB/reserveA']
+            print(reserveAB)
+            assert_equal(reserveAB, round(reserveA/reserveB, 8))
+            assert_equal(reserveBA, round(reserveB/reserveA, 8))
         print("Liquidity added")
 
         print("Swapping tokens...")
