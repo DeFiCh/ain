@@ -39,6 +39,7 @@ class PoolSwapTest (DefiTestFramework):
         self.accounts = []
         self.pools = []
         self.liquidity = {}
+        self.pollswap_liquidity = {}
 
         # Generate pool: 1 pool = 1 + 2 token = 3 tx
         # Minted tokens: 1 pool = 2 token = 4 tx
@@ -164,6 +165,8 @@ class PoolSwapTest (DefiTestFramework):
             tokenA = "GOLD" + str(item)
             tokenB = "SILVER" + str(item)
 
+            self.pollswap_liquidity[self.get_id_token(tokenA)] = 0
+
             for start in range(0, self.count_account, 10):
                 if start + 10 > self.count_account:
                     end = self.count_account
@@ -174,11 +177,14 @@ class PoolSwapTest (DefiTestFramework):
                     self.nodes[0].sendmany("", { self.accounts[idx] : 0.02 })
                 self.nodes[0].generate(1)
 
+                amount = random.randint(1, self.amount_token / 2)
+                self.pollswap_liquidity[self.get_id_token(tokenA)] += amount
+
                 for idx in range(start, end):
                     hash = self.nodes[0].poolswap({
                         "from": self.accounts[idx],
                         "tokenFrom": self.get_id_token(tokenB),
-                        "amountFrom": random.randint(1, self.amount_token / 2),
+                        "amountFrom": amount,
                         "to": self.accounts[idx],
                         "tokenTo": str(self.get_id_token(tokenA)),
                     }, [])
@@ -241,9 +247,11 @@ class PoolSwapTest (DefiTestFramework):
 
             reserveAB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA/reserveB']
             reserveBA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB/reserveA']
-            print(reserveAB)
-            assert_equal(reserveAB, round(reserveA/reserveB, 8))
-            assert_equal(reserveBA, round(reserveB/reserveA, 8))
+            decimal = 100000000
+            resAB = int((self.liquidity[idTokenA] * decimal) / (self.liquidity[idTokenB] * decimal) * decimal)
+            resBA = int((self.liquidity[idTokenB] * decimal) / (self.liquidity[idTokenA] * decimal) * decimal)
+            assert_equal(reserveAB * decimal, resAB)
+            assert_equal(reserveBA * decimal, resBA)
         print("Liquidity added")
 
         print("Swapping tokens...")
