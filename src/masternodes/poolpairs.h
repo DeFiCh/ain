@@ -81,8 +81,8 @@ public:
         , blockCommissionA(0)
         , blockCommissionB(0)
         , kLast(0)
-        , lastPoolEventHeight(0)
         , rewardPct(0)
+        , swapEvent(false)
         , creationTx()
         , creationHeight(-1)
     {}
@@ -91,9 +91,7 @@ public:
     CAmount reserveA, reserveB, totalLiquidity;
     CAmount blockCommissionA, blockCommissionB;
 
-//    arith_uint256 priceACumulativeLast, priceBCumulativeLast; // not sure about 'arith', at least sqrt() undefined
     arith_uint256 kLast;
-    uint32_t lastPoolEventHeight;
 
     CAmount rewardPct;       // pool yield farming reward %%
     bool swapEvent = false;
@@ -214,8 +212,8 @@ public:
         READWRITE(blockCommissionA);
         READWRITE(blockCommissionB);
         READWRITE(kLast.GetLow64());
-        READWRITE(lastPoolEventHeight);
         READWRITE(rewardPct);
+        READWRITE(swapEvent);
         READWRITE(creationTx);
         READWRITE(creationHeight);
     }
@@ -247,7 +245,7 @@ public:
 
     void ForEachPoolPair(std::function<bool(DCT_ID const & id, CPoolPair const & pool)> callback, DCT_ID const & start = DCT_ID{0});
 
-    void ForEachPoolShare(std::function<bool(const PoolShareKey & poolShareKey, const char & value)> callback, const PoolShareKey &startKey) const;
+    void ForEachPoolShare(std::function<bool(DCT_ID const & id, CScript const & provider)> callback, PoolShareKey const &startKey = PoolShareKey{0,CScript{}}) const;
 
     Res SetShare(DCT_ID const & poolId, CScript const & provider) {
         WriteBy<ByShare>(PoolShareKey{ poolId, provider}, '\0');
@@ -261,21 +259,18 @@ public:
 //        return ExistsBy<ByShare>(PoolShareKey{poolId, provider});
 //    }
 
-    void ForEachShare(std::function<bool(DCT_ID const & id, CScript const & provider)> callback, DCT_ID const & start = DCT_ID{0});
-    void ForEachShare(std::function<bool(DCT_ID const & id, CScript const & provider, CAmount amount)> callback, DCT_ID const & start = DCT_ID{0}); // optional, with lookup into accounts
-
 //    Res AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
-/* /// WIP: commented out, even not builds yet
-    Res DistributeRewards() {
 
-        CAmount yieldFarming = GetCurrentBlockYieldFarming(); // should return actual "LP_DAILY_DFI_REWARD / 2880" or smth
+    /// @attention it throws (at least for debug), cause errors are critical!
+    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CTokenAmount amount)> onTransfer) {
+
+        uint32_t const PRECISION = 10000; // (== 100%) just searching the way to avoid arith256 inflating
         CAmount totalDistributed = 0;
-
 
         ForEachPoolPair([&] (DCT_ID const & poolId, CPoolPair const & pool) {
 
             // yield farming counters
-            CAmount poolReward = yieldFarming * pool.rewardPct / COIN; // 'rewardPct' should be defined by 'setgov "LP_SPLITS"', also, it is assumed that it was totally validated and normalized to 100%
+            CAmount const poolReward = yieldFarming * pool.rewardPct / COIN; // 'rewardPct' should be defined by 'setgov "LP_SPLITS"', also, it is assumed that it was totally validated and normalized to 100%
             CAmount distributedFeeA = 0;
             CAmount distributedFeeB = 0;
 
@@ -283,42 +278,51 @@ public:
                 return true; // no events, skip to the next pool
             }
 
-            ForEachShare([&] (DCT_ID const & currentId, CScript const & provider, CAmount liquidity) {
+            ForEachPoolShare([&] (DCT_ID const & currentId, CScript const & provider) {
                 if (currentId != poolId) {
                     return false; // stop
                 }
+                CAmount const liquidity = onGetBalance(provider, poolId).nValue;
+
+
+                uint32_t const liqWeight = liquidity * PRECISION / pool.totalLiquidity;
+                assert (liqWeight < PRECISION);
 
                 // distribute trading fees
                 if (pool.swapEvent) {
-                    CAmount feeA = pool.blockCommissionA * liquidity / pool.totalLiquidity;
+                    CAmount feeA = pool.blockCommissionA * liqWeight / PRECISION;       // liquidity / pool.totalLiquidity;
                     distributedFeeA += feeA;
-                    onTransfer(provider, {pool.idTokenA, feeA});
+                    onTransfer(provider, {pool.idTokenA, feeA}); //can throw
 
-                    CAmount feeB = pool.blockCommissionB * liquidity / pool.totalLiquidity;
+                    CAmount feeB = pool.blockCommissionB * liqWeight / PRECISION;       // liquidity / pool.totalLiquidity;
                     distributedFeeB += feeB;
-                    onTransfer(provider, {pool.idTokenB, feeB});
+                    onTransfer(provider, {pool.idTokenB, feeB}); //can throw
                 }
 
                 // distribute yield farming
                 if (poolReward) {
-                    CAmount providerReward = poolReward * liquidity / pool.totalLiquidity;
+                    CAmount providerReward = poolReward * liqWeight / PRECISION;        //liquidity / pool.totalLiquidity;
                     if (providerReward) {
-                        onTransfer(provider, {DCT_ID{0}, providerReward});
+                        onTransfer(provider, {DCT_ID{0}, providerReward}); //can throw
                         totalDistributed += providerReward;
                     }
                 }
-            }, poolId);
+                return true;
+            }, PoolShareKey{poolId, CScript{}});
 
-            pool.blockCommissionA -= distributedFeeA;
-            pool.blockCommissionB -= distributedFeeB;
-            pool.swapEvent = false;
+            // we have no "non-const foreaches", but it is safe here cause not broke indexes, so:
+            const_cast<CPoolPair &>(pool).blockCommissionA -= distributedFeeA;
+            const_cast<CPoolPair &>(pool).blockCommissionB -= distributedFeeB;
+            const_cast<CPoolPair &>(pool).swapEvent = false;
 
-            SetPoolPair(poolId, pool);
+            auto res = SetPoolPair(poolId, pool);
+            if (!res.ok)
+                throw std::runtime_error(strprintf("Pool rewards: can't update pool (id=%s) state: %s", poolId.ToString(), res.msg));
+            return true;
         });
-/// @todo   return/set somehow  (yieldFarming - totalDistributed)
-        return Res::Ok();
+        return totalDistributed;
     }
-*/
+
 
     // tags
     struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair

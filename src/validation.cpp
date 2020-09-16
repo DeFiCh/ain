@@ -2268,6 +2268,30 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
 //        cache.CallYourInterblockProcessingsHere();
 
+        // distribute pool incentive rewards and trading fees:
+        /// @attention it throws (at least for debug), cause errors are critical!
+        {
+            /// @todo implement GetCurrentBlockYieldFarming()
+            /// temporary set to 35
+            CAmount poolsBlockReward = 35 * COIN; //GetCurrentBlockYieldFarming(); // should return actual "LP_DAILY_DFI_REWARD / 2880" or smth
+
+            CAmount distributed = cache.DistributeRewards(poolsBlockReward,
+                [&cache] (CScript const & owner, DCT_ID tokenID) {
+                    return cache.GetBalance(owner, tokenID);
+                },
+                [&cache, &block] (CScript const & to, CTokenAmount amount) {
+                    auto res = cache.AddBalance(to, amount);
+                    if (!res.ok)
+                        throw std::runtime_error(strprintf("Pool rewards: can't update balance of %s: %s, Block %ld (%s)", to.GetHex(), res.msg, block.height, block.GetHash().ToString()));
+                    return res;
+                }
+            );
+
+            auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);
+            if (!res.ok)
+                throw std::runtime_error(strprintf("Pool rewards: can't update community balance: %s. Block %ld (%s)", res.msg, block.height, block.GetHash().ToString()));
+        }
+
         // construct undo
         auto& flushable = dynamic_cast<CFlushableStorageKV&>(cache.GetRaw());
         auto undo = CUndo::Construct(mnview.GetRaw(), flushable.GetRaw());
