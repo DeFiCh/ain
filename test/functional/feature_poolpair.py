@@ -94,13 +94,13 @@ class PoolPairTest (DefiTestFramework):
 
         # 4 Trying to make it DAT not from Foundation
         try:
-            self.nodes[2].updatetoken([], {"token": "GOLD", "isDAT": True})
+            self.nodes[2].updatetoken([], {"token": "GOLD#128", "isDAT": True})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Incorrect Authorization" in errorString)
 
         # 5 Making token isDAT from Foundation
-        self.nodes[0].updatetoken([], {"token": "GOLD", "isDAT": True})
+        self.nodes[0].updatetoken([], {"token": "GOLD#128", "isDAT": True})
 
         self.nodes[0].generate(1)
         # Checks
@@ -176,7 +176,7 @@ class PoolPairTest (DefiTestFramework):
         assert("Incorrect Authorization" in errorString)
 
         # 9 Checking pool existence
-        p0 = self.nodes[0].getpoolpair("PTGOLD")
+        p0 = self.nodes[0].getpoolpair("PTGOLD#129")
         assert_equal(p0['129']['symbol'], "PTGOLD")
 
         #10 Checking nonexistent pool
@@ -203,7 +203,7 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(len(poolpairsn2), 2)
 
         # 12 Checking pool existence after sync
-        p1 = self.nodes[2].getpoolpair("PTGOLD")
+        p1 = self.nodes[2].getpoolpair("PTGOLD#129")
         #print(p1)
         assert_equal(p1['129']['symbol'], "PTGOLD")
         assert(p1['129']['idTokenA'] == '1')

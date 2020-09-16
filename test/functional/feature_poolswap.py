@@ -37,8 +37,10 @@ class PoolPairTest (DefiTestFramework):
         # CREATION:
         #========================
         # 1 Getting new addresses and checking coins
-        idGold = list(self.nodes[0].gettoken("GOLD").keys())[0]
-        idSilver = list(self.nodes[0].gettoken("SILVER").keys())[0]
+        symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
+        symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
+        idGold = list(self.nodes[0].gettoken(symbolGOLD).keys())[0]
+        idSilver = list(self.nodes[0].gettoken(symbolSILVER).keys())[0]
         accountGN0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
         accountSN1 = self.nodes[1].get_genesis_keys().ownerAuthAddress
         initialGold = self.nodes[0].getaccount(accountGN0, {}, True)[idGold]
@@ -49,10 +51,10 @@ class PoolPairTest (DefiTestFramework):
         owner = self.nodes[0].getnewaddress("", "legacy")
 
         # 2 Transferring SILVER from N1 Account to N0 Account
-        self.nodes[1].accounttoaccount([], accountSN1, {accountGN0: "1000@SILVER"})
+        self.nodes[1].accounttoaccount([], accountSN1, {accountGN0: "1000@" + symbolSILVER})
         self.nodes[1].generate(1)
         # Transferring GOLD from N0 Account to N1 Account
-        self.nodes[0].accounttoaccount([], accountGN0, {accountSN1: "200@GOLD"})
+        self.nodes[0].accounttoaccount([], accountGN0, {accountSN1: "200@" + symbolGOLD})
         self.nodes[0].generate(1)
 
         silverCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[idSilver]
@@ -62,8 +64,8 @@ class PoolPairTest (DefiTestFramework):
 
         # 3 Creating poolpair 
         self.nodes[0].createpoolpair({
-            "tokenA": "GOLD",
-            "tokenB": "SILVER",
+            "tokenA": symbolGOLD,
+            "tokenB": symbolSILVER,
             "commission": 0.1,
             "status": True,
             "ownerFeeAddress": owner,
@@ -75,8 +77,8 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(len(self.nodes[0].listtokens()), 4)
 
         # check tokens id
-        pool = self.nodes[0].getpoolpair("GS")
-        idGS = list(self.nodes[0].gettoken("GS").keys())[0]
+        pool = self.nodes[0].getpoolpair("GS#130")
+        idGS = list(self.nodes[0].gettoken("GS#130").keys())[0]
         assert(pool[idGS]['idTokenA'] == idGold)
         assert(pool[idGS]['idTokenB'] == idSilver)
 
@@ -88,7 +90,7 @@ class PoolPairTest (DefiTestFramework):
         print (list_poolshares)
 
         self.nodes[0].addpoolliquidity({
-            accountGN0: ["100@GOLD", "500@SILVER"]
+            accountGN0: ["100@" + symbolGOLD, "500@" + symbolSILVER]
         }, accountGN0, [])
         self.nodes[0].generate(1)
 
@@ -98,7 +100,7 @@ class PoolPairTest (DefiTestFramework):
         print (list_poolshares)
 
         self.nodes[1].addpoolliquidity({
-            accountSN1: ["100@GOLD", "500@SILVER"]
+            accountSN1: ["100@" + symbolGOLD, "500@" + symbolSILVER]
         }, accountSN1, [])
         self.nodes[1].generate(1)
 
@@ -125,10 +127,10 @@ class PoolPairTest (DefiTestFramework):
         # 6 Trying to poolswap
         self.nodes[0].poolswap({
             "from": accountGN0,
-            "tokenFrom": "SILVER",
+            "tokenFrom": symbolSILVER,
             "amountFrom": 10,
             "to": accountSN1,
-            "tokenTo": "GOLD",
+            "tokenTo": symbolGOLD,
         }, [])
         self.nodes[0].generate(1)
 
