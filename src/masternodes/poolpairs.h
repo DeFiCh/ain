@@ -125,8 +125,8 @@ public:
             totalLiquidity = MINIMUM_LIQUIDITY;
         } else {
 //            liquidity = Math.min(amount0.mul(_totalLiquidity) / _reserve0, amount1.mul(_totalLiquidity) / _reserve1);
-            CAmount liqA = (arith_uint256(amountA) * totalLiquidity / reserveA).GetLow64();
-            CAmount liqB = (arith_uint256(amountB) * totalLiquidity / reserveB).GetLow64();
+            CAmount liqA = (arith_uint256(amountA) * arith_uint256(totalLiquidity) / reserveA).GetLow64();
+            CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
             liquidity = std::min(liqA, liqB);
         }
 //        require(liquidity > 0, 'UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED');

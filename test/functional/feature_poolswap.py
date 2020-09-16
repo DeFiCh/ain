@@ -86,8 +86,8 @@ class PoolPairTest (DefiTestFramework):
         #print (list_pool)
 
         # 4 Adding liquidity
-        list_poolshares = self.nodes[0].listpoolshares()
-        print (list_poolshares)
+        #list_poolshares = self.nodes[0].listpoolshares()
+        #print (list_poolshares)
 
         self.nodes[0].addpoolliquidity({
             accountGN0: ["100@" + symbolGOLD, "500@" + symbolSILVER]
@@ -96,8 +96,8 @@ class PoolPairTest (DefiTestFramework):
 
         self.sync_blocks([self.nodes[0], self.nodes[1]])
 
-        list_poolshares = self.nodes[0].listpoolshares()
-        print (list_poolshares)
+        #list_poolshares = self.nodes[0].listpoolshares()
+        #print (list_poolshares)
 
         self.nodes[1].addpoolliquidity({
             accountSN1: ["100@" + symbolGOLD, "500@" + symbolSILVER]
@@ -106,8 +106,8 @@ class PoolPairTest (DefiTestFramework):
 
         self.sync_blocks([self.nodes[0], self.nodes[1]])
 
-        list_poolshares = self.nodes[0].listpoolshares()
-        print (list_poolshares)
+        #list_poolshares = self.nodes[0].listpoolshares()
+        #print (list_poolshares)
 
         goldCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[idGold]
         print("Checking Gold on AccN0:", goldCheckN0, ", id", idGold)
@@ -152,7 +152,7 @@ class PoolPairTest (DefiTestFramework):
         #print (list_pool)
 
         list_poolshares = self.nodes[0].listpoolshares()
-        print (list_poolshares)
+        #print (list_poolshares)
 
         assert(goldCheckN0 == 700)
         assert(silverCheckN0 == 490)
