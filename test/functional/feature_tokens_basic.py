@@ -21,7 +21,10 @@ class TokensBasicTest (DefiTestFramework):
         # node1: revert of destroy
         # node2: revert create (all)
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0'], ['-txnotokens=0'], ['-txnotokens=0']]
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=50'],
+            ['-txnotokens=0', '-amkheight=50'],
+            ['-txnotokens=0', '-amkheight=50']]
 
 
     def run_test(self):
