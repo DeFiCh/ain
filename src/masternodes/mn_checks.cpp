@@ -509,7 +509,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     }
 
     // check reward sum
-    if (height >= Params().GetConsensus().DFIP1Height) {
+    if (height >= Params().GetConsensus().AMKHeight) {
         auto const cbValues = tx.GetValuesOut();
         if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
             return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be payed only in Defi coins");
@@ -520,7 +520,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
                                cbValues.begin()->second, anchorReward);
         }
     }
-    else { // pre-DFIP1 logic
+    else { // pre-AMK logic
         auto anchorReward = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, Params().GetConsensus());
         if (tx.GetValueOut() > anchorReward) {
             return Res::ErrDbg("bad-ar-amount", "anchor pays too much (actual=%d vs limit=%d)",
@@ -541,7 +541,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
         return Res::ErrDbg("bad-ar-nextteam", "anchor wrong next team");
     }
     mnview.SetTeam(finMsg.nextTeam);
-    if (height >= Params().GetConsensus().DFIP1Height) {
+    if (height >= Params().GetConsensus().AMKHeight) {
         mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     }
     else {

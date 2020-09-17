@@ -114,7 +114,7 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
-        consensus.DFIP1Height = 351000;
+        consensus.AMKHeight = 351000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -265,7 +265,7 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
         consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
-        consensus.DFIP1Height = 308000;
+        consensus.AMKHeight = 308000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -398,7 +398,7 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0;
         consensus.BIP66Height = 0;
-        consensus.DFIP1Height = 20;
+        consensus.AMKHeight = 20;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -528,7 +528,7 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in functional tests)
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
-        consensus.DFIP1Height = 10000000;
+        consensus.AMKHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -678,15 +678,15 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.SegwitHeight = static_cast<int>(height);
     }
 
-    if (gArgs.IsArgSet("-dip1height")) {
-        int64_t height = gArgs.GetArg("-dip1height", consensus.DFIP1Height);
+    if (gArgs.IsArgSet("-amkheight")) {
+        int64_t height = gArgs.GetArg("-amkheight", consensus.AMKHeight);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for DFIP1 is out of valid range. Use -1 to disable segwit.", height));
+            throw std::runtime_error(strprintf("Activation height %ld for AMK is out of valid range. Use -1 to disable segwit.", height));
         } else if (height == -1) {
-            LogPrintf("DFIP1 disabled for testing\n");
+            LogPrintf("AMK disabled for testing\n");
             height = std::numeric_limits<int>::max();
         }
-        consensus.DFIP1Height = static_cast<int>(height);
+        consensus.AMKHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;

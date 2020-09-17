@@ -3,9 +3,9 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Test DFIP1 activation
+"""Test AMK activation
 
-- verify basic block rewards on DFIP1 activation
+- verify basic block rewards on AMK activation
 """
 
 from test_framework.test_framework import DefiTestFramework
@@ -22,10 +22,10 @@ class Dip1Test (DefiTestFramework):
         # node0: main
         # node1: secondary tester
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-dip1height=2'], ['-txnotokens=0']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=2'], ['-txnotokens=0']]
 
     def run_test(self):
-        assert_equal(self.nodes[0].getblockchaininfo()['softforks']['dip1']['active'], False)
+        assert_equal(self.nodes[0].getblockchaininfo()['softforks']['amk']['active'], False)
 
         # BLOCK#1 - old values
         self.nodes[0].generate(1)
@@ -40,7 +40,7 @@ class Dip1Test (DefiTestFramework):
         assert_equal(self.nodes[0].getblockchaininfo()['softforks']['dip1']['active'], True) # not active IRL, so getblockchaininfo works like "height+1"
 
 
-        # BLOCK#2 - DFIP1 activated
+        # BLOCK#2 - AMK activated
         self.nodes[0].generate(1)
         # print("")
         # print("blocks:    ", self.nodes[0].getblockcount())
@@ -71,7 +71,7 @@ class Dip1Test (DefiTestFramework):
 
         # restart node1 with activated fork
         self.stop_node(1)
-        self.start_node(1, ['-txnotokens=0', '-dip1height=2'])
+        self.start_node(1, ['-txnotokens=0', '-amkheight=2'])
         connect_nodes_bi(self.nodes, 0, 1)
         self.nodes[0].generate(2)
         self.sync_blocks()
@@ -83,7 +83,7 @@ class Dip1Test (DefiTestFramework):
 
         # restart node1 with activated fork and reindex
         self.stop_node(1)
-        self.start_node(1, ['-txnotokens=0', '-dip1height=2', '-reindex-chainstate'])
+        self.start_node(1, ['-txnotokens=0', '-amkheight=2', '-reindex-chainstate'])
         assert_equal(self.nodes[1].getblockcount(), 4)
         assert_equal(self.nodes[1].listcommunitybalances()['AnchorReward'], Decimal('0.3'))
         assert_equal(self.nodes[1].listcommunitybalances()['IncentiveFunding'], 30)

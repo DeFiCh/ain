@@ -227,11 +227,11 @@ class AnchorRewardsTest (DefiTestFramework):
 
 
         #
-        # ======================== DIP 1 : test anchor rewards after the fork ==========================
+        # ======================== AMK 1 : test anchor rewards after the fork ==========================
         #
         blocks = self.nodes[0].getblockcount()
         self.stop_node(0)
-        self.start_node(0, [ "-dummypos=1", "-spv=1", "-fakespv=1", "-txindex=1", "-anchorquorum=2", '-dip1height='+str(blocks)]) # activate dip1 fork
+        self.start_node(0, [ "-dummypos=1", "-spv=1", "-fakespv=1", "-txindex=1", "-anchorquorum=2", '-amkheight='+str(blocks)]) # activate amk fork
 
         # check for community AnchorReward balance
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], 0)

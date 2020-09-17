@@ -26,7 +26,7 @@ BOOST_AUTO_TEST_CASE(blockreward)
 {
     const CScript SCRIPT_PUB{CScript(OP_TRUE)};
     const Consensus::Params & consensus = Params().GetConsensus();
-    auto height = consensus.DFIP1Height;
+    auto height = consensus.AMKHeight;
 
     CMutableTransaction coinbaseTx{};
 
@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(blockreward)
     coinbaseTx.vout[0].nValue = GetBlockSubsidy(height, consensus);
     coinbaseTx.vin[0].scriptSig = CScript() << height << OP_0;
 
-    {   // check on pre-DFIP1 height:
+    {   // check on pre-AMK height:
         CCustomCSView mnview(*pcustomcsview.get());
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(coinbaseTx), height-1, 0, consensus);
         BOOST_CHECK(res.ok);
