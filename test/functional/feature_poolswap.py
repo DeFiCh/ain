@@ -170,9 +170,10 @@ class PoolPairTest (DefiTestFramework):
         #print (list_poolshares)
 
         assert(goldCheckN0 == 700)
-        assert(str(silverCheckN0) == "490.49990000")                                      # TODO: calculate "true" values with trading fee!
+        print(silverCheckN1)
+        assert(str(silverCheckN0) == "490.00000000") # TODO: calculate "true" values with trading fee!
         assert(list_pool['130']['reserveA'] + goldCheckN1 == 300)
-        assert(str(silverCheckN1) == "500.50000000")
+        assert(str(silverCheckN1) == "500.00000000")
         assert(list_pool['130']['reserveB'] == 1009) #1010 - 1 (commission)
 
         # 9 Fail swap: price higher than indicated
