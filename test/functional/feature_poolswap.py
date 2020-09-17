@@ -14,6 +14,8 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
+from decimal import Decimal
+
 class PoolPairTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
@@ -81,6 +83,19 @@ class PoolPairTest (DefiTestFramework):
         idGS = list(self.nodes[0].gettoken("GS#130").keys())[0]
         assert(pool[idGS]['idTokenA'] == idGold)
         assert(pool[idGS]['idTokenB'] == idSilver)
+
+        # Fail swap: lack of liquidity
+        try:
+            self.nodes[0].poolswap({
+                "from": accountGN0,
+                "tokenFrom": symbolSILVER,
+                "amountFrom": 10,
+                "to": accountSN1,
+                "tokenTo": symbolGOLD,
+            }, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Lack of liquidity" in errorString)
 
         #list_pool = self.nodes[0].listpoolpairs()
         #print (list_pool)
@@ -159,6 +174,21 @@ class PoolPairTest (DefiTestFramework):
         assert(list_pool['130']['reserveA'] + goldCheckN1 == 300)
         assert(silverCheckN1 == 500)
         assert(list_pool['130']['reserveB'] == 1009) #1010 - 1 (commission)
+
+        # 9 Fail swap: price higher than indicated
+        price = list_pool['130']['reserveA/reserveB']
+        try:
+            self.nodes[0].poolswap({
+                "from": accountGN0,
+                "tokenFrom": symbolSILVER,
+                "amountFrom": 10,
+                "to": accountSN1,
+                "tokenTo": symbolGOLD,
+                "maxPrice": price - Decimal('0.1'),
+            }, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Price higher than indicated." in errorString)
 
         # REVERTING:
         #========================

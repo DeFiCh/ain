@@ -756,7 +756,7 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
     }
 
     CPoolPair pp = poolPair->second;
-    pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, [&] (const CTokenAmount &tokenAmount) {
+    const auto res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
         auto resPP = mnview.SetPoolPair(poolPair->first, pp);
         if (!resPP.ok) {
             return Res::Err("%s: %s", base, resPP.msg);
@@ -774,6 +774,10 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
 
         return Res::Ok();
     });
+
+    if (!res.ok) {
+        return Res::Err("%s: %s", base, res.msg);
+    }
 
     return Res::Ok();
 }
