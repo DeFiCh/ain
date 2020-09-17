@@ -698,7 +698,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     else
         pairSymbol = trim_ws(pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
-    token.flags |= (uint8_t)CToken::TokenFlags::LPS;
+    token.flags |= (uint8_t)CToken::TokenFlags::DAT | (uint8_t)CToken::TokenFlags::LPS;
     token.name = trim_ws(tokenA->name + "-" + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
     token.symbol = pairSymbol;
     token.creationTx = tx.GetHash();

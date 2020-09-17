@@ -176,8 +176,8 @@ class PoolPairTest (DefiTestFramework):
         assert("Incorrect Authorization" in errorString)
 
         # 9 Checking pool existence
-        p0 = self.nodes[0].getpoolpair("PTGOLD#129")
-        assert_equal(p0['129']['symbol'], "PTGOLD")
+        p0 = self.nodes[0].getpoolpair("PTGOLD")
+        assert_equal(p0['2']['symbol'], "PTGOLD")
 
         #10 Checking nonexistent pool
         try:
@@ -203,11 +203,11 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(len(poolpairsn2), 2)
 
         # 12 Checking pool existence after sync
-        p1 = self.nodes[2].getpoolpair("PTGOLD#129")
+        p1 = self.nodes[2].getpoolpair("PTGOLD")
         #print(p1)
-        assert_equal(p1['129']['symbol'], "PTGOLD")
-        assert(p1['129']['idTokenA'] == '1')
-        assert(p1['129']['idTokenB'] == '128')
+        assert_equal(p1['2']['symbol'], "PTGOLD")
+        assert(p1['2']['idTokenA'] == '1')
+        assert(p1['2']['idTokenB'] == '128')
 
         # REVERTING:
         #========================

@@ -79,8 +79,8 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(len(self.nodes[0].listtokens()), 4)
 
         # check tokens id
-        pool = self.nodes[0].getpoolpair("GS#130")
-        idGS = list(self.nodes[0].gettoken("GS#130").keys())[0]
+        pool = self.nodes[0].getpoolpair("GS")
+        idGS = list(self.nodes[0].gettoken("GS").keys())[0]
         assert(pool[idGS]['idTokenA'] == idGold)
         assert(pool[idGS]['idTokenB'] == idSilver)
 
@@ -136,8 +136,8 @@ class PoolPairTest (DefiTestFramework):
         list_pool = self.nodes[0].listpoolpairs()
         #print (list_pool)
 
-        assert(list_pool['130']['reserveA'] == 200)
-        assert(list_pool['130']['reserveB'] == 1000)
+        assert(list_pool['1']['reserveA'] == 200)
+        assert(list_pool['1']['reserveB'] == 1000)
 
         # 6 Trying to poolswap
         self.nodes[0].poolswap({
@@ -170,14 +170,13 @@ class PoolPairTest (DefiTestFramework):
         #print (list_poolshares)
 
         assert(goldCheckN0 == 700)
-        print(silverCheckN1)
-        assert(str(silverCheckN0) == "490.00000000") # TODO: calculate "true" values with trading fee!
-        assert(list_pool['130']['reserveA'] + goldCheckN1 == 300)
-        assert(str(silverCheckN1) == "500.00000000")
-        assert(list_pool['130']['reserveB'] == 1009) #1010 - 1 (commission)
+        assert(str(silverCheckN0) == "490.49990000") # TODO: calculate "true" values with trading fee!
+        assert(list_pool['1']['reserveA'] + goldCheckN1 == 300)
+        assert(str(silverCheckN1) == "500.50000000")
+        assert(list_pool['1']['reserveB'] == 1009) #1010 - 1 (commission)
 
         # 9 Fail swap: price higher than indicated
-        price = list_pool['130']['reserveA/reserveB']
+        price = list_pool['1']['reserveA/reserveB']
         try:
             self.nodes[0].poolswap({
                 "from": accountGN0,
