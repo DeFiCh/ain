@@ -30,7 +30,7 @@ CAmount GetDustThreshold(const CTxOut& txout, int32_t txVersion, const CFeeRate&
     if (txout.scriptPubKey.IsUnspendable())
         return 0;
 
-    size_t nSize = GetSerializeSize(txout, txVersion < CTransaction::TOKENS_MIN_VERSION ? SERIALIZE_TRANSACTION_NO_TOKENS : 0);
+    size_t nSize = GetSerializeSize(txout, 0);
     int witnessversion = 0;
     std::vector<unsigned char> witnessprogram;
 

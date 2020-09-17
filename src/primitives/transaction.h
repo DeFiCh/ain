@@ -14,7 +14,6 @@
 #include <uint256.h>
 
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
-static const int SERIALIZE_TRANSACTION_NO_TOKENS = 0x20000000;
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint
@@ -155,7 +154,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(nValue);
         READWRITE(scriptPubKey);
-        if ((s.GetVersion() & SERIALIZE_TRANSACTION_NO_TOKENS) || (s.GetType() == SER_GETHASH && nTokenId == DCT_ID{0}) || SERIALIZE_FORCED_TO_OLD_IN_TESTS) {
+        if ((nTokenId == DCT_ID{0}) || SERIALIZE_FORCED_TO_OLD_IN_TESTS) {
             return;
         }
 
@@ -211,15 +210,13 @@ class CTransaction
 {
 public:
     // Default transaction version.
-    static const int32_t CURRENT_VERSION=3; // @todo why it was 2 before?
+    static const int32_t CURRENT_VERSION=2; // @todo why it was 2 before?
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_VERSION, and then later date
     // bumping the default CURRENT_VERSION at which point both CURRENT_VERSION and
     // MAX_STANDARD_VERSION will be equal.
-    static const int32_t MAX_STANDARD_VERSION=3;
-
-    static const int32_t TOKENS_MIN_VERSION=3;
+    static const int32_t MAX_STANDARD_VERSION=2;
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
@@ -375,15 +372,13 @@ struct CMutableTransaction
 
 template <typename Stream, typename TxType>
 inline void UnserializeTxVouts(TxType& tx, Stream& s) {
-    OverrideStream<Stream> os(&s, s.GetType(), tx.nVersion < CTransaction::TOKENS_MIN_VERSION  ?
-                                  s.GetVersion() | SERIALIZE_TRANSACTION_NO_TOKENS : s.GetVersion());
+    OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
     os >> tx.vout;
 }
 
 template <typename Stream, typename TxType>
 inline void SerializeTxVouts(const TxType& tx, Stream& s) {
-    OverrideStream<Stream> os(&s, s.GetType(), tx.nVersion < CTransaction::TOKENS_MIN_VERSION ?
-                                  s.GetVersion() | SERIALIZE_TRANSACTION_NO_TOKENS : s.GetVersion());
+    OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
     os << tx.vout;
 }
 

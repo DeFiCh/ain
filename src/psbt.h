@@ -68,12 +68,12 @@ struct PSBTInput
         if (non_witness_utxo) {
             SerializeToVector(s, PSBT_IN_NON_WITNESS_UTXO);
             /// @todo tokens: check if tx version was properly assumed!
-            OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS | (non_witness_utxo->nVersion < CTransaction::TOKENS_MIN_VERSION ? SERIALIZE_TRANSACTION_NO_TOKENS : 0));
+            OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
             SerializeToVector(os, non_witness_utxo);
         } else if (!witness_utxo.IsNull()) {
             SerializeToVector(s, PSBT_IN_WITNESS_UTXO);
             /// @todo tokens: override with correct version when witness_utxo (and wallet's Coin's tokens) versioning implemented!
-            OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_TOKENS);
+            OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
             SerializeToVector(os, witness_utxo);
         }
 
@@ -168,7 +168,7 @@ struct PSBTInput
                     }
                     /// @todo tokens: override with correct version when witness_utxo (and wallet's Coin's tokens) versioning implemented!
                     {
-                        OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_TOKENS);
+                        OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
                         UnserializeFromVector(os, witness_utxo);
                     }
                     break;

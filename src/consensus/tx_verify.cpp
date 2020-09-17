@@ -210,10 +210,10 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     }
     txfee = txfee_aux;
 
-    // after fee calc it is guaranteed that both values[0] exists (even if zero)
-    if (tx.nVersion < CTransaction::TOKENS_MIN_VERSION && (nValuesIn.size() > 1 || non_minted_values_out.size() > 1)) {
-        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-tokens-in-old-version-tx");
-    }
+    // // after fee calc it is guaranteed that both values[0] exists (even if zero)
+    // if (tx.nVersion < CTransaction::TOKENS_MIN_VERSION && (nValuesIn.size() > 1 || non_minted_values_out.size() > 1)) {
+    //     return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-tokens-in-old-version-tx");
+    // }
 
     // check for tokens values
     std::vector<unsigned char> dummy;
