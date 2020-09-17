@@ -1328,7 +1328,6 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
 
         poolObj.pushKV("blockCommissionA", ValueFromAmount(pool.blockCommissionA));
         poolObj.pushKV("blockCommissionB", ValueFromAmount(pool.blockCommissionB));
-        poolObj.pushKV("lastPoolEventHeight", (uint64_t) pool.lastPoolEventHeight);
 
         poolObj.pushKV("rewardPct", ValueFromAmount(pool.rewardPct));
 
@@ -2178,10 +2177,10 @@ UniValue poolswap(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
-UniValue poolShareToJSON(PoolShareKey const& poolShareKey, CAmount const& amount, CPoolPair const& poolPair, bool verbose) {
+UniValue poolShareToJSON(DCT_ID const & poolId, CScript const & provider, CAmount const& amount, CPoolPair const& poolPair, bool verbose) {
     UniValue poolObj(UniValue::VOBJ);
-    poolObj.pushKV("poolID", poolShareKey.poolID.ToString());
-    poolObj.pushKV("owner", ScriptToString(poolShareKey.owner));
+    poolObj.pushKV("poolID", poolId.ToString());
+    poolObj.pushKV("owner", ScriptToString(provider));
     poolObj.pushKV("%", uint64_t(amount*100/poolPair.totalLiquidity));
 
     if (verbose) {
@@ -2190,7 +2189,7 @@ UniValue poolShareToJSON(PoolShareKey const& poolShareKey, CAmount const& amount
     }
 
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV(poolShareKey.poolID.ToString() + " " + ScriptToString(poolShareKey.owner), poolObj);
+    ret.pushKV(poolId.ToString() + "@" + ScriptToString(provider), poolObj);
     return ret;
 }
 
@@ -2252,17 +2251,17 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    PoolShareKey startKey{};
-    startKey.poolID = start;
-    startKey.owner = CScript(0);
+    PoolShareKey startKey{ start, CScript{} };
+//    startKey.poolID = start;
+//    startKey.owner = CScript(0);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachPoolShare([&](PoolShareKey const& poolShareKey, char const& value) {
-        const CTokenAmount tokenAmount = pcustomcsview->GetBalance(poolShareKey.owner, poolShareKey.poolID);
+    pcustomcsview->ForEachPoolShare([&](DCT_ID const & poolId, CScript const & provider) {
+        const CTokenAmount tokenAmount = pcustomcsview->GetBalance(provider, poolId);
         if(tokenAmount.nValue) {
-            const auto poolPair = pcustomcsview->GetPoolPair(poolShareKey.poolID);
+            const auto poolPair = pcustomcsview->GetPoolPair(poolId);
             if(poolPair) {
-                ret.pushKVs(poolShareToJSON(poolShareKey, tokenAmount.nValue, *poolPair, verbose));
+                ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
             }
         }
         limit--;
