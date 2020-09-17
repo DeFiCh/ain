@@ -37,7 +37,7 @@ class Dip1Test (DefiTestFramework):
         assert_equal(self.nodes[0].getbalances()['mine']['immature'], 50)
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], 0)
         assert_equal(self.nodes[0].listcommunitybalances()['IncentiveFunding'], 0)
-        assert_equal(self.nodes[0].getblockchaininfo()['softforks']['dip1']['active'], True) # not active IRL, so getblockchaininfo works like "height+1"
+        assert_equal(self.nodes[0].getblockchaininfo()['softforks']['dfip1']['active'], True) # not active IRL, so getblockchaininfo works like "height+1"
 
 
         # BLOCK#2 - AMK activated

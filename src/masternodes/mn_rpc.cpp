@@ -624,7 +624,8 @@ UniValue createtoken(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
 
     if(metaObj["isDAT"].getBool())
     {
@@ -727,7 +728,8 @@ UniValue destroytoken(const JSONRPCRequest& request) {
         creationTx = tokenImpl.creationTx;
     }
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
 
     rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[0].get_array());
 
@@ -823,7 +825,8 @@ UniValue updatetoken(const JSONRPCRequest& request) {
         creationTx = tokenImpl.creationTx;
     }
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
 
     for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
     {
@@ -1030,7 +1033,8 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
     const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[1], "");
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
 
     // auth
     {
@@ -1361,7 +1365,10 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     if (toBurn.balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
-    CMutableTransaction rawTx;
+
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
+
     for (const auto& kv : toBurn.balances) {
         if (rawTx.vout.empty()) { // first output is metadata
             rawTx.vout.push_back(CTxOut(kv.second, scriptMeta, kv.first));
@@ -1444,7 +1451,9 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
+
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
     CTxDestination ownerDest;
     if (!ExtractDestination(msg.from, ownerDest)) {
@@ -1534,7 +1543,9 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     }
 
     // auth
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
+    
     CTxDestination ownerDest;
     if (!ExtractDestination(msg.from, ownerDest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");

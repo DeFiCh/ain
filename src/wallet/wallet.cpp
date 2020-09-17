@@ -5079,5 +5079,5 @@ CKey GetWalletsKey(const CKeyID & keyid)
 
 int32_t GetTransactionVersion(int height)
 {
-    return height >= Params().GetConsensus().TokenHeight ? CTransaction::TOKENS_MIN_VERSION : CTransaction::PREVIOUS_VERSION;
+    return height >= Params().GetConsensus().TokenHeight ? CTransaction::TOKENS_MIN_VERSION : CTransaction::TX_VERSION_2;
 }

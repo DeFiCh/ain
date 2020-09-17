@@ -211,7 +211,7 @@ class CTransaction
 {
 public:
     // Previous version
-    static const int32_t PREVIOUS_VERSION=2;
+    static const int32_t TX_VERSION_2=2;
 
     // Default transaction version.
     static const int32_t CURRENT_VERSION=3; // @todo why it was 2 before?

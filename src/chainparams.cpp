@@ -687,6 +687,17 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.AMKHeight = static_cast<int>(height);
     }
 
+    if (gArgs.IsArgSet("-tokenheight")) {
+        int64_t height = gArgs.GetArg("-tokenheight", consensus.TokenHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for enable Token is out of valid range. Use -1 to disable token.", height));
+        } else if (height == -1) {
+            LogPrintf("Token disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.TokenHeight = static_cast<int>(height);
+    }
+
     if (!args.IsArgSet("-vbparams")) return;
 
     for (const std::string& strDeployment : args.GetArgs("-vbparams")) {
