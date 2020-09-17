@@ -167,10 +167,10 @@ public:
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
          */
-        pchMessageStart[0] = 0xf9;
-        pchMessageStart[1] = 0xbe;
-        pchMessageStart[2] = 0xb4;
-        pchMessageStart[3] = 0xd9;
+        pchMessageStart[0] = 0xe2;
+        pchMessageStart[1] = 0xaa;
+        pchMessageStart[2] = 0xc1;
+        pchMessageStart[3] = 0xe1;
         nDefaultPort = 8555;
         nPruneAfterHeight = 100000;
         m_assumed_blockchain_size = 240;
@@ -307,10 +307,10 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
-        pchMessageStart[0] = 0x0b;
+        pchMessageStart[0] = 0x0a;
         pchMessageStart[1] = 0x11;
         pchMessageStart[2] = 0x09;
-        pchMessageStart[3] = 0x07;
+        pchMessageStart[3] = 0x0c;
         nDefaultPort = 18555;
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
@@ -429,10 +429,10 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
-        pchMessageStart[0] = 0x0b;
+        pchMessageStart[0] = 0x0a;
         pchMessageStart[1] = 0x11;
         pchMessageStart[2] = 0x09;
-        pchMessageStart[3] = 0x07;
+        pchMessageStart[3] = 0x0c;
         nDefaultPort = 20555; /// @note devnet matter
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
