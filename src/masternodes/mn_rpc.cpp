@@ -588,6 +588,10 @@ UniValue createtoken(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
+    }
+
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, true);
     if (request.params[0].isNull() || request.params[1].isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -699,9 +703,13 @@ UniValue destroytoken(const JSONRPCRequest& request) {
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot resign Masternode while still in Initial Block Download");
+                           "Cannot destroy token while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
+
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
+    }
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR}, true);
 
@@ -799,9 +807,13 @@ UniValue updatetoken(const JSONRPCRequest& request) {
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot resign Masternode while still in Initial Block Download");
+                           "Cannot update token while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
+
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
+    }
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, true);
 
@@ -922,6 +934,16 @@ UniValue listtokens(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    CWallet* const pwallet = GetWallet(request);
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot list tokens while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
+    }
+
     bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
@@ -981,6 +1003,16 @@ UniValue gettoken(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    CWallet* const pwallet = GetWallet(request);
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot get token while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
+    }
+
     LOCK(cs_main);
 
     DCT_ID id;
@@ -1027,9 +1059,13 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot resign Masternode while still in Initial Block Download");
+                           "Cannot mint tokens while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
+
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
+    }
 
     const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[1], "");
 
@@ -1175,6 +1211,17 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    CWallet* const pwallet = GetWallet(request);
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot list accounts while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
+    }
+
     // parse pagination
     size_t limit = 100;
     BalanceKey start = {};
@@ -1249,6 +1296,17 @@ UniValue getaccount(const JSONRPCRequest& request) {
                        HelpExampleCli("getaccount", "owner_address")
                },
     }.Check(request);
+
+    CWallet* const pwallet = GetWallet(request);
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot get account while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
+    }
 
     // decode owner
     const auto reqOwner = DecodeScript(request.params[0].get_str());
@@ -1344,6 +1402,11 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
+    }
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, false);
 
@@ -1432,6 +1495,11 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
     }
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR, UniValue::VOBJ}, false);
@@ -1522,6 +1590,11 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
     }
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR, UniValue::VOBJ}, false);

@@ -130,7 +130,6 @@ public:
 
         consensus.CSVHeight = 1; // 000000000000000004a1b34462cb8aeebd5799177f7a29cf28f2d1961716b5b5
         consensus.SegwitHeight = 0; // 0000000000000000001c8018d9cb3b742ef25114f27563e3fc4a1902167f9893
-        consensus.TokenHeight = 300000;
         consensus.nRuleChangeActivationThreshold = 9; //1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 10; //2016; // nTargetTimespan / nTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -282,7 +281,6 @@ public:
 
         consensus.CSVHeight = 1; // 00000000025e930139bac5c6c31a403776da130831ab85be56578f3fa75369bb
         consensus.SegwitHeight = 0; // 00000000002b980fcd729daaa248fd9316a5200e9b367f4ff2c42453e84201ca
-        consensus.TokenHeight = 300000;
         consensus.nRuleChangeActivationThreshold = 8; //1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 10; //2016; // nTargetTimespan / nTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -414,7 +412,6 @@ public:
 
         consensus.CSVHeight = 1;
         consensus.SegwitHeight = 0;
-        consensus.TokenHeight = 300000;
         consensus.nRuleChangeActivationThreshold = 8; //1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 10; //2016; // nTargetTimespan / nTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -545,7 +542,6 @@ public:
 
         consensus.CSVHeight = 432; // CSV activated on regtest (Used in rpc activation tests)
         consensus.SegwitHeight = 0; // SEGWIT is always activated on regtest unless overridden
-        consensus.TokenHeight = 300000;
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -679,23 +675,12 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
     if (gArgs.IsArgSet("-amkheight")) {
         int64_t height = gArgs.GetArg("-amkheight", consensus.AMKHeight);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for AMK is out of valid range. Use -1 to disable segwit.", height));
+            throw std::runtime_error(strprintf("Activation height %ld for AMK is out of valid range. Use -1 to disable amk features.", height));
         } else if (height == -1) {
             LogPrintf("AMK disabled for testing\n");
             height = std::numeric_limits<int>::max();
         }
         consensus.AMKHeight = static_cast<int>(height);
-    }
-
-    if (gArgs.IsArgSet("-tokenheight")) {
-        int64_t height = gArgs.GetArg("-tokenheight", consensus.TokenHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for enable Token is out of valid range. Use -1 to disable token.", height));
-        } else if (height == -1) {
-            LogPrintf("Token disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.TokenHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;
