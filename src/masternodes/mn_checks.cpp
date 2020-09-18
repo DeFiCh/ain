@@ -544,7 +544,7 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
 
         if (balance.nValue == 0) {
             //delete ByShare index
-            mnview.DelShare(amount.nTokenId, to);
+            mnview.DelShare(amount.nTokenId, from);
         }
 
         auto addA = mnview.AddBalance(to, { pool.idTokenA, amountA });
