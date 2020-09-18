@@ -2328,28 +2328,17 @@ UniValue setgov(const JSONRPCRequest& request) {
                        HelpExampleCli("setgov", "{\"govKey\":\"govData\"}")
                        + HelpExampleRpc("setgov", "{\"govKey\":\"govData\"}")
                },
-    };//.Check(request);
+    }.Check(request);
 
-    RPCTypeCheck(request.params, {/*UniValue::VSTR,*/ UniValue::VOBJ, UniValue::VARR}, true);
-//    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
-
-    // parse parameters
-
-    //GovernanceMsg params{};
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
     CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
     if (request.params.size() > 0 && request.params[0].isObject()) {
-//        if (!request.params[0].isNull()) {//{"LP_SPLITS":...
-//            params.govKey = request.params[0].getValStr();
-//        }
-        //params.govData = request.params[1].getValStr();
         for (const std::string& name : request.params[0].getKeys()) {
             auto gv = GovVariable::Create(name);
             if(!gv)
                 throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
             gv->Import(request.params[0][name]);
-//            if(!gv.val.get()->Import(request.params[1][key]).ok)
-//                throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect governance data" + gv.msg);
             varStream << name << *gv;
         }
     }
@@ -2402,8 +2391,6 @@ UniValue getgov(const JSONRPCRequest& request) {
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Variable name"},
-//                       {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-//                        "Flag for verbose list (default = false), otherwise limited objects are listed"},
                },
                RPCResult{
                        "{id:{...}}     (array) Json object with variable information\n"
@@ -2412,12 +2399,7 @@ UniValue getgov(const JSONRPCRequest& request) {
                        HelpExampleCli("getgov", "LP_SPLITS")
                        + HelpExampleRpc("getgov", "LP_SPLITS")
                },
-    }; //.Check(request);
-
-//    bool verbose = false;
-//    if (request.params.size() > 1) {
-//        verbose = request.params[1].getBool();
-//    }
+    }.Check(request);
 
     LOCK(cs_main);
 
@@ -2428,7 +2410,7 @@ UniValue getgov(const JSONRPCRequest& request) {
         ret.pushKV(var->GetName(),var->Export());
         return ret;
     }
-    throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
+    throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
 static const CRPCCommand commands[] =

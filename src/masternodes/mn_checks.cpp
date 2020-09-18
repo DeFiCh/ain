@@ -795,7 +795,6 @@ Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, co
         return Res::Err("%s: %s", base, "tx not from foundation member");
     }
 
-    //GovernanceMsg params;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     while(!ss.empty())
     {
