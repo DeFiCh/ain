@@ -6,52 +6,11 @@
 #define DEFI_MASTERNODES_GV_H
 
 #include <flushablestorage.h>
+#include <masternodes/factory.h>
 #include <masternodes/res.h>
 #include <univalue/include/univalue.h>
 
-class GovVariable;
-class CGovView;
 class CCustomCSView;
-
-template <typename TBaseType>
-class Factory
-{
-public:
-    typedef TBaseType * TResult;
-    typedef TResult (* Creator)(); // creator function
-
-    Factory() = delete;
-    ~Factory() = delete;
-
-    template <typename TType>
-    static bool Registrate() {
-        auto res = creators().insert(std::pair<std::string, Creator>(TType::TypeName(), &TType::Create));
-//        std::cerr << "\nRegistered " << name << " " << std::to_string(creators().size()) << "\n" << std::ends;
-//        auto it = creators().find(name);
-//        std::cerr << "\n--->>> " << name << " " <<  (it != creators().end()) << "\n" << std::ends;
-        return res.second;
-    }
-
-    static TResult Create(std::string const & name) {
-        typename TCreators::const_iterator creator(creators().find(name));
-        if (creator == creators().end()) {
-            return {};
-        }
-        return creator->second();
-    }
-
-public:
-    typedef std::map<std::string, Creator> TCreators;
-    static TCreators & creators() {
-        static bool initialized = false;
-        if (!initialized) {
-            m_creators.reset(new TCreators);
-            initialized = true;
-        }
-        return *m_creators;
-    }
-    static std::shared_ptr<TCreators> m_creators;
-};
 
 class GovVariable
 {
@@ -87,7 +46,7 @@ public:
 // please, use this as template for new variables:
 //
 /*
-class GV_EXAMPLE : public GovVariable
+class GV_EXAMPLE : public GovVariable, public AutoRegistrator<GovVariable, GV_EXAMPLE>
 {
 public:
     virtual ~GV_EXAMPLE() override {}

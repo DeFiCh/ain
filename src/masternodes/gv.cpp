@@ -8,10 +8,6 @@
 
 const unsigned char CGovView::ByName::prefix = 'g';
 
-template <typename T>
-std::shared_ptr<typename Factory<T>::TCreators> Factory<T>::m_creators = {};
-
-
 Res CGovView::SetVariable(GovVariable const & var)
 {
     return WriteBy<ByName>(var.GetName(), var) ? Res::Ok() : Res::Err("can't write to DB");
@@ -27,21 +23,5 @@ std::shared_ptr<GovVariable> CGovView::GetVariable(std::string const & name) con
     }
     return {};
 }
-
-/// @todo Registration works only from this compilation unit (gv.cpp). Research!
-namespace
-{
-
-class Registrator
-{
-public:
-    Registrator() {
-        Factory<GovVariable>::Registrate<LP_SPLITS>();
-        Factory<GovVariable>::Registrate<LP_DAILY_DFI_REWARD>();
-    }
-} registrator;
-
-}
-
 
 

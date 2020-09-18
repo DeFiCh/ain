@@ -8,7 +8,7 @@
 #include <masternodes/gv.h>
 #include <amount.h>
 
-class LP_SPLITS : public GovVariable
+class LP_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LP_SPLITS>
 {
 public:
     virtual ~LP_SPLITS() override {}

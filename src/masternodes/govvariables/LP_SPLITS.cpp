@@ -58,18 +58,3 @@ Res LP_SPLITS::Apply(CCustomCSView & mnview) {
     return Res::Ok();
 }
 
-
-/// @todo dont work from "here". research
-//namespace
-//{
-
-//class Registrator
-//{
-//public:
-//    Registrator() {
-//        Factory<GovVariable>::Registrate<LP_SPLITS>();
-//    }
-//} registrator;
-
-//}
-

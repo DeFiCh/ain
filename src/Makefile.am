@@ -157,6 +157,7 @@ DEFI_CORE_H = \
   masternodes/balances.h \
   masternodes/communityaccounttypes.h \
   masternodes/criminals.h \
+  masternodes/factory.h \
   masternodes/govvariables/LP_DAILY_DFI_REWARD.h \
   masternodes/govvariables/LP_SPLITS.h \
   masternodes/gv.h \

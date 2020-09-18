@@ -8,7 +8,7 @@
 #include <masternodes/gv.h>
 #include <amount.h>
 
-class LP_DAILY_DFI_REWARD : public GovVariable
+class LP_DAILY_DFI_REWARD : public GovVariable, public AutoRegistrator<GovVariable, LP_DAILY_DFI_REWARD>
 {
 public:
     virtual ~LP_DAILY_DFI_REWARD() override {}

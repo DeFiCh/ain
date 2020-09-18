@@ -28,18 +28,3 @@ Res LP_DAILY_DFI_REWARD::Apply(CCustomCSView &)
     // nothing to do
     return Res::Ok();
 }
-
-//namespace
-//{
-
-//class Registrator
-//{
-//public:
-//    Registrator() {
-//        Factory<GovVariable>::Registrate<LP_DAILY_DFI_REWARD>();
-//    }
-//} registrator;
-
-//}
-
-
