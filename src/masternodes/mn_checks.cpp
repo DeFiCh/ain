@@ -594,6 +594,18 @@ Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, std::
         if (!res.ok) {
             return Res::Err("%s: %s", base, res.msg);
         }
+        for (const auto& balance : kv.second.balances) {
+            auto token = mnview.GetToken(balance.first);
+            if (token->IsPoolShare()) {
+                const auto bal = mnview.GetBalance(kv.first, balance.first);
+                if (bal.nValue == balance.second) {
+                    const auto setShare = mnview.SetShare(balance.first, kv.first);
+                    if (!setShare.ok) {
+                        return Res::Err("%s: %s", base, setShare.msg);
+                    }
+                }
+            }
+        }
     }
     return Res::Ok(base);
 }
@@ -626,6 +638,19 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     if (!res.ok) {
         return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", base, res.msg);
     }
+
+    for (const auto& kv : msg.balances.balances) {
+        auto token = mnview.GetToken(kv.first);
+        if (token->IsPoolShare()) {
+            const auto balance = mnview.GetBalance(msg.from, kv.first);
+            if (balance.nValue == 0) {
+                const auto delShare = mnview.DelShare(kv.first, msg.from);
+                if (!delShare.ok) {
+                    return Res::Err("%s: %s", base, delShare.msg);
+                }
+            }
+        }
+    }
     return Res::Ok(base);
 }
 
@@ -649,10 +674,36 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     if (!res.ok) {
         return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", base, res.msg);
     }
+
+    for (const auto& kv : SumAllTransfers(msg.to).balances) {
+        auto token = mnview.GetToken(kv.first);
+        if (token->IsPoolShare()) {
+            const auto balance = mnview.GetBalance(msg.from, kv.first);
+            if (balance.nValue == 0) {
+                const auto delShare = mnview.DelShare(kv.first, msg.from);
+                if (!delShare.ok) {
+                    return Res::Err("%s: %s", base, delShare.msg);
+                }
+            }
+        }
+    }
+
     for (const auto& kv : msg.to) {
         const auto res = mnview.AddBalances(kv.first, kv.second);
         if (!res.ok) {
             return Res::Err("%s: %s", base, res.msg);
+        }
+        for (const auto& balance : kv.second.balances) {
+            auto token = mnview.GetToken(balance.first);
+            if (token->IsPoolShare()) {
+                const auto bal = mnview.GetBalance(kv.first, balance.first);
+                if (bal.nValue == balance.second) {
+                    const auto setShare = mnview.SetShare(balance.first, kv.first);
+                    if (!setShare.ok) {
+                        return Res::Err("%s: %s", base, setShare.msg);
+                    }
+                }
+            }
         }
     }
     return Res::Ok(base);

@@ -169,6 +169,35 @@ class PoolLiquidityTest (DefiTestFramework):
         assert_equal(pool['1']['reserveB'], 75)
         assert_equal(pool['1']['totalLiquidity'], 75)
 
+        # Sending pool token
+        #========================
+        list_poolshares = self.nodes[0].listpoolshares()
+        assert_equal(len(list_poolshares), 1)
+
+        self.nodes[0].accounttoaccount([], accountGold, {accountSilver: "50@GS"})
+        self.nodes[0].generate(1)
+
+        list_poolshares = self.nodes[0].listpoolshares()
+        assert_equal(len(list_poolshares), 2)
+
+        self.nodes[1].accounttoaccount([], accountSilver, {accountGold: "50@GS"})
+        self.nodes[1].generate(1)
+
+        list_poolshares = self.nodes[0].listpoolshares()
+        assert_equal(len(list_poolshares), 1)
+
+        self.nodes[0].accounttoutxos([], accountGold, {accountGold: "74.99999000@GS"})
+        self.nodes[0].generate(1)
+
+        list_poolshares = self.nodes[0].listpoolshares()
+        assert_equal(len(list_poolshares), 0)
+
+        self.nodes[0].utxostoaccount([], {accountGold: "10@GS"})
+        self.nodes[0].generate(1)
+
+        list_poolshares = self.nodes[0].listpoolshares()
+        assert_equal(len(list_poolshares), 1)
+
         # REVERTING:
         #========================
         print ("Reverting...")
@@ -181,7 +210,7 @@ class PoolLiquidityTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
-        assert_equal(len(self.nodes[0].getrawmempool()), 4) # 4 txs
+        assert_equal(len(self.nodes[0].getrawmempool()), 6) # 6 txs
 
 
 if __name__ == '__main__':
