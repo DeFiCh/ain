@@ -31,9 +31,11 @@ Res LP_SPLITS::Validate(const CCustomCSView & mnview) const {
     for (auto const & kv : splits) {
         auto pool = mnview.GetPoolPair(kv.first);
 
-        /// @todo uncomment
         if (!pool)
             return Res::Err("pool with id=%s not found", kv.first.ToString());
+
+        if (kv.second < 0 || kv.second > COIN)
+            return Res::Err("wrong percentage for pool with id=%s, value = %s", kv.first.ToString(), std::to_string(kv.second));
 
         total += kv.second;
     }
@@ -44,17 +46,17 @@ Res LP_SPLITS::Validate(const CCustomCSView & mnview) const {
 }
 
 Res LP_SPLITS::Apply(CCustomCSView & mnview) {
-    for (auto const & kv : splits) {
-        auto pool = mnview.GetPoolPair(kv.first);
+    mnview.ForEachPoolPair([&] (const DCT_ID poolId, const CPoolPair & pool) {
+        // we ought to reset previous value:
+        const_cast<CPoolPair &>(pool).rewardPct = 0;
+        auto it = splits.find(poolId);
+        if (it != splits.end()) {
+            const_cast<CPoolPair &>(pool).rewardPct = it->second;
+        }
 
-        /// @todo uncomment
-        if (!pool)
-            return Res::Err("pool with id=%s not found", kv.first.ToString());
-
-        pool->rewardPct = kv.second;
-        mnview.SetPoolPair(kv.first, *pool);
-
-    }
+        mnview.SetPoolPair(poolId, pool);
+        return true;
+    });
     return Res::Ok();
 }
 
