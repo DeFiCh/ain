@@ -31,7 +31,7 @@ struct ByPairKey {
 struct CPoolSwapMessage {
     CScript from, to;
     DCT_ID idTokenFrom, idTokenTo;
-    CAmount amountFrom;
+    CAmount amountFrom, maxPrice;
 
     std::string ToString() const {
         std::string result = "(" + from.GetHex() + " " + idTokenFrom.ToString() + " " + std::to_string(amountFrom) + "->" + from.GetHex() + " " + idTokenFrom.ToString() +")";
@@ -45,6 +45,7 @@ struct CPoolSwapMessage {
         READWRITE(from);
         READWRITE(VARINT(idTokenFrom.v));
         READWRITE(amountFrom);
+        READWRITE(maxPrice);
         READWRITE(to);
         READWRITE(VARINT(idTokenTo.v));
     }
@@ -156,7 +157,7 @@ public:
         return Res::Ok();
     }
 
-    Res Swap(CTokenAmount in, std::function<Res(CTokenAmount const &)> onTransfer);
+    Res Swap(CTokenAmount in, CAmount maxPrice, std::function<Res(CTokenAmount const &)> onTransfer);
 
 private:
     /// @todo review all 'Res' uses

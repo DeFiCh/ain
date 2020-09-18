@@ -2069,6 +2069,8 @@ UniValue poolswap(const JSONRPCRequest& request) {
                                        "Address of the owner of tokenB."},
                            {"tokenTo", RPCArg::Type::STR, RPCArg::Optional::NO,
                                        "One of the keys may be specified (id/symbol)"},
+                           {"maxPrice", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                       "Maximum acceptable price"},
                        },
                    },
                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
@@ -2090,13 +2092,15 @@ UniValue poolswap(const JSONRPCRequest& request) {
                                                                     "\\\"tokenFrom\\\":\\\"MyToken1\\\","
                                                                     "\\\"amountFrom\\\":\\\"0.001\\\","
                                                                     "\\\"to\\\":\\\"Address\\\","
-                                                                    "\\\"tokenTo\\\":\\\"Token2\\\""
+                                                                    "\\\"tokenTo\\\":\\\"Token2\\\","
+                                                                    "\\\"maxPrice\\\":\\\"0.01\\\""
                                                                     "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
                                          + HelpExampleRpc("poolswap", "\"{\\\"from\\\":\\\"MyAddress\\\","
                                                                             "\\\"tokenFrom\\\":\\\"MyToken1\\\","
                                                                             "\\\"amountFrom\\\":\\\"0.001\\\","
                                                                             "\\\"to\\\":\\\"Address\\\","
-                                                                            "\\\"tokenTo\\\":\\\"Token2\\\""
+                                                                            "\\\"tokenTo\\\":\\\"Token2\\\","
+                                                                            "\\\"maxPrice\\\":\\\"0.01\\\""
                                                                             "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
                              },
               }.Check(request);
@@ -2125,6 +2129,9 @@ UniValue poolswap(const JSONRPCRequest& request) {
     }
     if (!metadataObj["tokenTo"].isNull()) {
         tokenTo = metadataObj["tokenTo"].getValStr();
+    }
+    if (!metadataObj["maxPrice"].isNull()) {
+        poolSwapMsg.maxPrice = AmountFromValue(metadataObj["maxPrice"]);
     }
 
     {

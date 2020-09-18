@@ -69,14 +69,25 @@ boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const 
     return {};
 }
 
-Res CPoolPair::Swap(CTokenAmount in, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer) {
+Res CPoolPair::Swap(CTokenAmount in, CAmount maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer) {
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB) {
         throw std::runtime_error("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
     }
     if (in.nValue <= 0)
-        return Res::Err("Poolpair swap: input amount should be positive!");
+        return Res::Err("Input amount should be positive!");
 
     bool const forward = in.nTokenId == idTokenA;
+
+    if (reserveA <= 0 || reserveB <= 0)
+        return Res::Err("Lack of liquidity.");
+
+    if (maxPrice > 0) {
+        CAmount priceAB = (((double) reserveA / PRECISION) / ((double) reserveB / PRECISION)) * PRECISION;
+        CAmount priceBA = (((double) reserveB / PRECISION) / ((double) reserveA / PRECISION)) * PRECISION;
+        CAmount price = forward ? priceBA : priceAB;
+        if (price > maxPrice)
+            return Res::Err("Price higher than indicated.");
+    }
 
     // claim trading fee
     if (commission) {
