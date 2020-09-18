@@ -6,7 +6,7 @@
 
 https://defichain.io
 
-**NOTE**: _master_ branch is a development branch and is thus _unstable_. Do not run from it. Run or compile from [tagged releases](https://github.com/DeFiCh/ain/releases) for instead unless you know what you are doing.
+**NOTE**: _master_ branch is a development branch and is thus _unstable_. Do not run from it. Run or compile from [tagged releases](https://github.com/DeFiCh/ain/releases) instead, unless you know what you are doing.
 
 ## What is DeFi Blockchain?
 
