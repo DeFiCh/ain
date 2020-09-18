@@ -166,11 +166,15 @@ public:
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
-         */
-        pchMessageStart[0] = 0xe2;
-        pchMessageStart[1] = 0xaa;
-        pchMessageStart[2] = 0xc1;
-        pchMessageStart[3] = 0xe1;
+         */        
+        pchMessageStart[0] = 0xf9;
+        pchMessageStart[1] = 0xbe;	        
+        pchMessageStart[2] = 0xb4;	        
+        pchMessageStart[3] = 0xd9;
+        pchMessageStartPostAMK[0] = 0xe2;
+        pchMessageStartPostAMK[1] = 0xaa;
+        pchMessageStartPostAMK[2] = 0xc1;
+        pchMessageStartPostAMK[3] = 0xe1;
         nDefaultPort = 8555;
         nPruneAfterHeight = 100000;
         m_assumed_blockchain_size = 240;
