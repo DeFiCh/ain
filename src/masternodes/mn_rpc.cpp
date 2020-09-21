@@ -2324,6 +2324,121 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
     return ret;
 }
 
+UniValue setgov(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"setgov",
+               "\nSet special parameters.\n",
+               {
+                    //{"govKey", RPCArg::Type::STR, RPCArg::Optional::NO,"First parameter - governance key."},
+                    {"parameters", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                             {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
+                              "Second parameter - governance data."},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+               },
+               RPCResult{
+                       "{id:{...},...}     (array) Json object with information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("setgov", "{\"govKey\":\"govData\"}")
+                       + HelpExampleRpc("setgov", "{\"govKey\":\"govData\"}")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+
+    CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
+    if (request.params.size() > 0 && request.params[0].isObject()) {
+        for (const std::string& name : request.params[0].getKeys()) {
+            auto gv = GovVariable::Create(name);
+            if(!gv)
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
+            gv->Import(request.params[0][name]);
+            varStream << name << *gv;
+        }
+    }
+    
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::SetGovVariable)
+             << varStream;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    CMutableTransaction rawTx;
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
+    {
+        if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
+        {
+            CTxDestination destination;
+            if (!ExtractDestination(*it, destination)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
+            }
+            try {
+                rawTx.vin = GetAuthInputs(pwallet, destination, request.params.size() > 1 ? request.params[2].get_array() : UniValue());
+            }
+            catch (const UniValue& objError) {}
+        }
+    }
+    if(rawTx.vin.size() == 0)
+        throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
+
+    rawTx = fund(rawTx, request, pwallet);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        const auto res = ApplySetGovernanceTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
+                                      ToByteVector(varStream));
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+}
+
+UniValue getgov(const JSONRPCRequest& request) {
+    RPCHelpMan{"getgov",
+               "\nReturns information about governance variable.\n",
+               {
+                       {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Variable name"},
+               },
+               RPCResult{
+                       "{id:{...}}     (array) Json object with variable information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getgov", "LP_SPLITS")
+                       + HelpExampleRpc("getgov", "LP_SPLITS")
+               },
+    }.Check(request);
+
+    LOCK(cs_main);
+
+    auto name = request.params[0].getValStr();
+    auto var = pcustomcsview->GetVariable(name);
+    if (var) {
+        UniValue ret(UniValue::VOBJ);
+        ret.pushKV(var->GetName(),var->Export());
+        return ret;
+    }
+    throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
+}
 
 static const CRPCCommand commands[] =
 { //  category      name                  actor (function)     params
@@ -2351,7 +2466,9 @@ static const CRPCCommand commands[] =
     {"poolpair",    "createpoolpair",     &createpoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
-    {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
+    {"mining",      "listcommunitybalances", &listcommunitybalances, {}},
+    {"blockchain",  "setgov",             &setgov,             {"parameters", "inputs"}},
+    {"blockchain",  "getgov",             &getgov,             {"name"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

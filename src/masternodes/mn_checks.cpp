@@ -171,6 +171,9 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::AccountToAccount:
                 res = ApplyAccountToAccountTx(mnview, coins, tx, metadata);
                 break;
+            case CustomTxType::SetGovVariable:
+                res = ApplySetGovernanceTx(mnview, coins, tx, height, metadata);
+                break;
             default:
                 return Res::Ok(); // not "custom" tx
         }
@@ -300,7 +303,7 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     //check foundation auth
     if((token.IsDAT()) && !HasFoundationAuth(tx, coins, Params().GetConsensus()))
     {//no need to check Authority if we don't create isDAT
-        return Res::Err("%s: %s", base, "Is not a foundation owner");
+        return Res::Err("%s: %s", base, "tx not from foundation member");
     }
     if(token.IsPoolShare()) {
         return Res::Err("%s: %s", base, "Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
@@ -362,7 +365,7 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 
     //check foundation auth
     if (!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
-        return Res::Err("%s: %s", base, "Is not a foundation owner");
+        return Res::Err("%s: %s", base, "tx not from foundation member");
     }
 
     /// @todo what about udating pool share tokens?
@@ -731,7 +734,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     //check foundation auth
     if(!HasFoundationAuth(tx, coins, Params().GetConsensus()))
     {
-        return Res::Err("%s: %s", base, "Is not a foundation owner");
+        return Res::Err("%s: %s", base, "tx not from foundation member");
     }
 
     CPoolPair poolPair(poolPairMsg);
@@ -838,6 +841,47 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
 
     return Res::Ok();
 }
+
+Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata)
+{
+    const std::string base{"Set governance variable"};
+
+    //check foundation auth
+    if(!HasFoundationAuth(tx, coins, Params().GetConsensus()))
+    {
+        return Res::Err("%s: %s", base, "tx not from foundation member");
+    }
+
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    while(!ss.empty())
+    {
+        std::string name;
+        ss >> name;
+        auto var = GovVariable::Create(name);
+        if (!var)
+            return Res::Err("%s '%s': variable does not registered", base, name);
+        ss >> *var;
+
+        Res result = var->Validate(mnview);
+        if(!result.ok)
+            return Res::Err("%s '%s': %s", base, name, result.msg);
+
+        Res res = var->Apply(mnview);
+        if(!res.ok)
+            return Res::Err("%s '%s': %s", base, name, res.msg);
+
+        auto add = mnview.SetVariable(*var);
+        if (!add.ok)
+            return Res::Err("%s '%s': %s", base, name, add.msg);
+    }
+    //in this case it will throw (and cathced by outer method)
+//    if (!ss.empty()) {
+//        return Res::Err("%s: deserialization failed: excess %d bytes", base,  ss.size());
+//    }
+
+    return Res::Ok(base);
+}
+
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata)
 {

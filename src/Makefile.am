@@ -157,6 +157,10 @@ DEFI_CORE_H = \
   masternodes/balances.h \
   masternodes/communityaccounttypes.h \
   masternodes/criminals.h \
+  masternodes/factory.h \
+  masternodes/govvariables/LP_DAILY_DFI_REWARD.h \
+  masternodes/govvariables/LP_SPLITS.h \
+  masternodes/gv.h \
   masternodes/incentivefunding.h \
   masternodes/masternodes.h \
   masternodes/mn_checks.h \
@@ -360,6 +364,9 @@ libdefi_server_a_SOURCES = \
   masternodes/accounts.cpp \
   masternodes/anchors.cpp \
   masternodes/criminals.cpp \
+  masternodes/govvariables/LP_DAILY_DFI_REWARD.cpp \
+  masternodes/govvariables/LP_SPLITS.cpp \
+  masternodes/gv.cpp \
   masternodes/incentivefunding.cpp \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \

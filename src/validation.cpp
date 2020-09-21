@@ -20,6 +20,7 @@
 #include <index/txindex.h>
 #include <masternodes/anchors.h>
 #include <masternodes/criminals.h>
+#include <masternodes/govvariables/LP_DAILY_DFI_REWARD.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <policy/fees.h>
@@ -2273,7 +2274,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             /// @todo implement GetCurrentBlockYieldFarming()
             /// temporary set to 35
-            CAmount poolsBlockReward = 35 * COIN; //GetCurrentBlockYieldFarming(); // should return actual "LP_DAILY_DFI_REWARD / 2880" or smth
+            std::shared_ptr<LP_DAILY_DFI_REWARD> var = std::dynamic_pointer_cast<LP_DAILY_DFI_REWARD>(cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName()));
+            CAmount poolsBlockReward = std::min(
+                                           cache.GetCommunityBalance(CommunityAccountType::IncentiveFunding),
+                                           var->dailyReward / (60*60*24/chainparams.GetConsensus().pos.nTargetSpacing) // 2880
+                                                );
 
             CAmount distributed = cache.DistributeRewards(poolsBlockReward,
                 [&cache] (CScript const & owner, DCT_ID tokenID) {
