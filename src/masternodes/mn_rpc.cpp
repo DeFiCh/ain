@@ -865,9 +865,15 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
-UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool verbose) {
+UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool real_symbols, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
-    tokenObj.pushKV("symbol", token.symbol);
+    if (real_symbols && token.IsDAT()) {
+        tokenObj.pushKV("symbol", token.symbol);
+    } else if (real_symbols && !token.IsDAT()) {
+        tokenObj.pushKV("symbol", token.symbol + "#" + id.ToString());
+    } else {
+        tokenObj.pushKV("symbol", token.symbol);
+    }
     tokenObj.pushKV("name", token.name);
     if (verbose) {
         tokenObj.pushKV("decimal", token.decimal);
@@ -908,6 +914,8 @@ UniValue listtokens(const JSONRPCRequest& request) {
                         },
                         {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                     "Flag for verbose list (default = true), otherwise only ids, symbols and names are listed"},
+                        {"real_symbols", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                    "Format of symbols output (default = false): (true: \"SYMBOL\", false: \"SYMBOL#128\""},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with tokens information\n"
@@ -948,11 +956,16 @@ UniValue listtokens(const JSONRPCRequest& request) {
         }
     }
 
+    bool real_symbols = false;
+    if (request.params.size() > 2) {
+        real_symbols = request.params[2].get_bool();
+    }
+
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
     pcustomcsview->ForEachToken([&](DCT_ID const& id, CToken const& token) {
-        ret.pushKVs(tokenToJSON(id, token, verbose));
+        ret.pushKVs(tokenToJSON(id, token, real_symbols, verbose));
 
         limit--;
         return limit != 0;
@@ -967,6 +980,8 @@ UniValue gettoken(const JSONRPCRequest& request) {
                {
                        {"key", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "One of the keys may be specified (id/symbol/creationTx)"},
+                       {"real_symbols", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                        "Format of symbols output (default = false): (true: \"SYMBOL\", false: \"SYMBOL#128\""},
                },
                RPCResult{
                        "{id:{...}}     (array) Json object with token information\n"
@@ -981,8 +996,14 @@ UniValue gettoken(const JSONRPCRequest& request) {
 
     DCT_ID id;
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
+
+    bool real_symbols = false;
+    if (request.params.size() > 1) {
+        real_symbols = request.params[1].get_bool();
+    }
+
     if (token) {
-        return tokenToJSON(id, *token, true);
+        return tokenToJSON(id, *token, real_symbols, true);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }
@@ -1109,6 +1130,12 @@ BalanceKey decodeBalanceKey(std::string const& str) {
     return {hexToScript(pair.first), tokenID};
 }
 
+std::string tokenAmountString(CTokenAmount const& amount) {
+    auto token = pcustomcsview->GetToken(amount.nTokenId);
+    std::string valueString = std::to_string(amount.nValue / COIN) + "." + std::to_string(amount.nValue % COIN);
+    return valueString + "@" + token->symbol + (token->IsDAT() ? "" : "#" + amount.nTokenId.ToString());
+}
+
 UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexed_amounts) {
     // encode CScript into JSON
     UniValue ownerObj(UniValue::VOBJ);
@@ -1132,7 +1159,7 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
         obj.pushKV("amount", amountObj);
     }
     else {
-        obj.pushKV("amount", amount.ToString());
+        obj.pushKV("amount", tokenAmountString(amount));
     }
 
     return obj;
@@ -1291,7 +1318,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
         if (indexed_amounts)
             ret.pushKV(balance.nTokenId.ToString(), ValueFromAmount(balance.nValue));
         else
-            ret.push_back(balance.ToString());
+            ret.push_back(tokenAmountString(balance));
 
         limit--;
         return limit != 0;
@@ -1420,7 +1447,7 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
                        {"key", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "One of the keys may be specified (id/symbol/creationTx)"},
                        {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Flag for verbose list (default = false), otherwise limited objects are listed"},
+                        "Flag for verbose list (default = true), otherwise limited objects are listed"},
                },
                RPCResult{
                        "{id:{...}}     (array) Json object with pool information\n"
@@ -1431,7 +1458,7 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    bool verbose = false;
+    bool verbose = true;
     if (request.params.size() > 1) {
         verbose = request.params[1].getBool();
     }
