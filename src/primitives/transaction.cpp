@@ -70,12 +70,16 @@ CMutableTransaction::CMutableTransaction(const CTransaction& tx) : vin(tx.vin), 
 
 uint256 CMutableTransaction::GetHash() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
+    return SerializeHash(*this, SER_GETHASH,
+        nVersion < CTransaction::TOKENS_MIN_VERSION ?
+        SERIALIZE_TRANSACTION_NO_WITNESS | SERIALIZE_TRANSACTION_NO_TOKENS : SERIALIZE_TRANSACTION_NO_WITNESS);
 }
 
 uint256 CTransaction::ComputeHash() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
+    return SerializeHash(*this, SER_GETHASH,
+        nVersion < CTransaction::TOKENS_MIN_VERSION ?
+        SERIALIZE_TRANSACTION_NO_WITNESS | SERIALIZE_TRANSACTION_NO_TOKENS : SERIALIZE_TRANSACTION_NO_WITNESS);
 }
 
 uint256 CTransaction::ComputeWitnessHash() const
