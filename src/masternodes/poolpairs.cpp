@@ -81,13 +81,10 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount maxPrice, std::function<Res (const 
     if (reserveA <= 0 || reserveB <= 0)
         return Res::Err("Lack of liquidity.");
 
-    if (maxPrice > 0) {
-        CAmount priceAB = (((double) reserveA / PRECISION) / ((double) reserveB / PRECISION)) * PRECISION;
-        CAmount priceBA = (((double) reserveB / PRECISION) / ((double) reserveA / PRECISION)) * PRECISION;
-        CAmount price = forward ? priceBA : priceAB;
-        if (price > maxPrice)
-            return Res::Err("Price higher than indicated.");
-    }
+    CAmount priceAB = (((double) reserveA / PRECISION) / ((double) reserveB / PRECISION)) * PRECISION;
+    CAmount priceBA = (((double) reserveB / PRECISION) / ((double) reserveA / PRECISION)) * PRECISION;
+    CAmount price = forward ? priceBA : priceAB;
+    maxPrice = maxPrice > 0 ? maxPrice : price * 1.03;
 
     // claim trading fee
     if (commission) {
@@ -101,25 +98,33 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount maxPrice, std::function<Res (const 
         }
     }
     CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB) : slopeSwap(in.nValue, reserveB, reserveA);
+    CAmount realPrice = (((double) result / PRECISION) / ((double) in.nValue / PRECISION)) * PRECISION;
+    if (realPrice > maxPrice)
+        return Res::Err("Price higher than indicated.");
 
     swapEvent = true; // (!!!)
 
     return onTransfer({ forward ? idTokenB : idTokenA, result });
 }
 
-CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo) {
+CAmount CPoolPair::slopeSwap(arith_uint256 unswapped, CAmount &poolFrom, CAmount &poolTo) {
     assert (unswapped >= 0 && poolFrom > 0 && poolTo > 0);
-    CAmount swapped = 0;
+    arith_uint256 poolF = arith_uint256(poolFrom);
+    arith_uint256 poolT = arith_uint256(poolTo);
+    arith_uint256 swapped = 0;
     while (unswapped > 0) {
-        CAmount stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
+        //arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
+        arith_uint256 stepFrom = poolF/1000 > unswapped ? unswapped : poolF/1000;
         //CAmount stepTo = poolTo * stepFrom / poolFrom;
-        CAmount stepTo = (arith_uint256(poolTo) * arith_uint256(stepFrom) / poolFrom).GetLow64();
-        poolFrom += stepFrom;
-        poolTo -= stepTo;
+        arith_uint256 stepTo = poolT * stepFrom / poolF;
+        poolF += stepFrom;
+        poolT -= stepTo;
+        poolFrom = poolF.GetLow64();
+        poolTo = poolT.GetLow64();
         unswapped -= stepFrom;
         swapped += stepTo;
     }
-    return swapped;
+    return swapped.GetLow64();
 }
 
 void CPoolPairView::ForEachPoolPair(std::function<bool(const DCT_ID &, const CPoolPair &)> callback, DCT_ID const & start) {

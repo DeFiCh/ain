@@ -234,7 +234,7 @@ class PoolSwapTest (DefiTestFramework):
         print("Adding liquidity...")
         self.add_pools_liquidity(owner)
         for pool in self.pools:
-            print(self.nodes[0].getpoolpair(pool, True))
+            #print(self.nodes[0].getpoolpair(pool, True))
             idPool = list(self.nodes[0].getpoolpair(pool, True).keys())[0]
 
             idTokenA = self.nodes[0].getpoolpair(pool, True)[idPool]['idTokenA']

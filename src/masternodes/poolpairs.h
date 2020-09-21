@@ -131,8 +131,12 @@ public:
 //        require(liquidity > 0, 'UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED');
         onMint(shareAddress, liquidity); // deps: totalLiquidity(RW)
 
-        reserveA += amountA;
-        reserveB += amountB;
+        if (reserveA + amountA < MAX_MONEY && reserveB + amountB < MAX_MONEY) {
+            reserveA += amountA;
+            reserveB += amountB;
+        } else {
+            return Res::Err("Overflow when adding to reserves");
+        }
 //        update(reserveA+amountA /*balance0*/, reserveB+amountB /*balance1*//*, _reserve0, _reserve1*/, height); // deps: prices, reserves, kLast
         if (!ownerFeeAddress.empty()) kLast = arith_uint256(reserveA) * arith_uint256(reserveB);
         return Res::Ok();
@@ -179,7 +183,7 @@ private:
         }
     }
 
-    CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo);
+    CAmount slopeSwap(arith_uint256 unswapped, CAmount & poolFrom, CAmount & poolTo);
 
 /// @deprecated
 //    Res update(CAmount balanceA, CAmount balanceB, /*CAmount _reserveA, CAmount _reserveB, - prev values*/ uint32_t height) {

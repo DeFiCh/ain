@@ -136,8 +136,8 @@ class PoolPairTest (DefiTestFramework):
         list_pool = self.nodes[0].listpoolpairs()
         #print (list_pool)
 
-        assert(list_pool['1']['reserveA'] == 200)
-        assert(list_pool['1']['reserveB'] == 1000)
+        assert(list_pool['1']['reserveA'] == 200)  # GOLD
+        assert(list_pool['1']['reserveB'] == 1000) # SILVER
 
         # 6 Trying to poolswap
         self.nodes[0].poolswap({

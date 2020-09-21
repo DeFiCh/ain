@@ -490,7 +490,10 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
          }
 
          //insert update ByShare index
-         mnview.SetShare(lpTokenID, to);
+         const auto setShare = mnview.SetShare(lpTokenID, to);
+         if (!setShare.ok) {
+             return Res::Err("%s: %s", base, setShare.msg);
+         }
 
         return Res::Ok();
     }, height);
@@ -544,7 +547,10 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
 
         if (balance.nValue == 0) {
             //delete ByShare index
-            mnview.DelShare(amount.nTokenId, from);
+            const auto delShare = mnview.DelShare(amount.nTokenId, from);
+            if (!delShare.ok) {
+                return Res::Err("%s: %s", base, delShare.msg);
+            }
         }
 
         auto addA = mnview.AddBalance(to, { pool.idTokenA, amountA });
