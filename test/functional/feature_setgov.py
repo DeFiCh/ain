@@ -98,7 +98,7 @@ class GovsetTest (DefiTestFramework):
         # set LP_SPLITS with total >100%
         try:
             self.nodes[0].setgov({
-            "LP_SPLITS": { "131": 0.5, "132": 0.4, "133": 0.2 }
+            "LP_SPLITS": { "1": 0.5, "2": 0.4, "3": 0.2 }
                 })
         except JSONRPCException as e:
             errorString = e.error['message']
@@ -106,7 +106,7 @@ class GovsetTest (DefiTestFramework):
 
 
         self.nodes[0].setgov({
-            "LP_SPLITS": { "131": 0.5, "132": 0.4, "133": 0.1 }
+            "LP_SPLITS": { "1": 0.5, "2": 0.4, "3": 0.1 }
         })
 
         self.nodes[0].setgov({ "LP_DAILY_DFI_REWARD": 35.5})
@@ -114,36 +114,36 @@ class GovsetTest (DefiTestFramework):
 
         g1 = self.nodes[0].getgov("LP_SPLITS")
         # print(g1)
-        assert (g1 == {'LP_SPLITS': {'131': Decimal('0.50000000'), '132': Decimal('0.40000000'), '133': Decimal('0.10000000')}} )
+        assert (g1 == {'LP_SPLITS': {'1': Decimal('0.50000000'), '2': Decimal('0.40000000'), '3': Decimal('0.10000000')}} )
 
         g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")
         # print(g2)
         assert(g2 == {'LP_DAILY_DFI_REWARD': Decimal('35.50000000')} )
 
-        pool131 = self.nodes[0].getpoolpair("131", True)['131']
-        pool132 = self.nodes[0].getpoolpair("132", True)['132']
-        pool133 = self.nodes[0].getpoolpair("133", True)['133']
-        assert (pool131['rewardPct'] == Decimal('0.50000000')
-            and pool132['rewardPct'] == Decimal('0.40000000')
-            and pool133['rewardPct'] == Decimal('0.10000000'))
+        pool1 = self.nodes[0].getpoolpair("1", True)['1']
+        pool2 = self.nodes[0].getpoolpair("2", True)['2']
+        pool3 = self.nodes[0].getpoolpair("3", True)['3']
+        assert (pool1['rewardPct'] == Decimal('0.50000000')
+            and pool2['rewardPct'] == Decimal('0.40000000')
+            and pool3['rewardPct'] == Decimal('0.10000000'))
 
         # test set multuple:
         self.nodes[0].setgov({
-            "LP_SPLITS": { "131": 1 },
+            "LP_SPLITS": { "1": 1 },
             "LP_DAILY_DFI_REWARD": 45
         })
         self.nodes[0].generate(1)
 
         g1 = self.nodes[0].getgov("LP_SPLITS")
-        assert (g1 == {'LP_SPLITS': {'131': 1}} )
+        assert (g1 == {'LP_SPLITS': {'1': 1}} )
 
         # test that all previous pool's values was reset
-        pool131 = self.nodes[0].getpoolpair("131", True)['131']
-        pool132 = self.nodes[0].getpoolpair("132", True)['132']
-        pool133 = self.nodes[0].getpoolpair("133", True)['133']
-        assert (pool131['rewardPct'] == 1)
-        assert (pool132['rewardPct'] == 0)
-        assert (pool133['rewardPct'] == 0)
+        pool1 = self.nodes[0].getpoolpair("1", True)['1']
+        pool2 = self.nodes[0].getpoolpair("2", True)['2']
+        pool3 = self.nodes[0].getpoolpair("3", True)['3']
+        assert (pool1['rewardPct'] == 1)
+        assert (pool2['rewardPct'] == 0)
+        assert (pool3['rewardPct'] == 0)
 
         g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")
         assert(g2 == {'LP_DAILY_DFI_REWARD': 45} )
