@@ -311,10 +311,10 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
-        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0a;
+        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
         pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x09;
-        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x0c;
+        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x07;
         
         nDefaultPort = 18555;
         nPruneAfterHeight = 1000;
@@ -434,10 +434,10 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
-        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0a;
+        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
         pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x09;
-        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x0c;
+        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x07;
         nDefaultPort = 20555; /// @note devnet matter
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
