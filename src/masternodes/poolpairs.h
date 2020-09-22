@@ -54,7 +54,7 @@ struct CPoolSwapMessage {
 struct CPoolPairMessage {
     DCT_ID idTokenA, idTokenB;
     CAmount commission;   // comission %% for traders
-    CScript ownerFeeAddress;
+    CScript ownerAddress;
     bool status = true;
 
     ADD_SERIALIZE_METHODS;
@@ -64,7 +64,7 @@ struct CPoolPairMessage {
         READWRITE(VARINT(idTokenA.v));
         READWRITE(VARINT(idTokenB.v));
         READWRITE(commission);
-        READWRITE(ownerFeeAddress);
+        READWRITE(ownerAddress);
         READWRITE(status);
     }
 };
@@ -81,7 +81,6 @@ public:
         , totalLiquidity(0)
         , blockCommissionA(0)
         , blockCommissionB(0)
-        , kLast(0)
         , rewardPct(0)
         , swapEvent(false)
         , creationTx()
@@ -91,8 +90,6 @@ public:
 
     CAmount reserveA, reserveB, totalLiquidity;
     CAmount blockCommissionA, blockCommissionB;
-
-    arith_uint256 kLast;
 
     CAmount rewardPct;       // pool yield farming reward %%
     bool swapEvent = false;
@@ -105,13 +102,16 @@ public:
     // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
     // otherwise, 'AddLiquidity' should be () external to 'CPairPool' (i.e. CPoolPairView::AddLiquidity(TAmount a,b etc) with internal lookup of pool by TAmount a,b)
     Res AddLiquidity(CAmount const & amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript to, CAmount liqAmount)> onMint, uint32_t height) {
-
-        mintFee(onMint); // if fact, this is delayed calc (will be 0 on the first pass) // deps: reserveA(R), reserveB(R), kLast, totalLiquidity(RW)
+        assert(amountA > 0);
+        assert(amountB > 0);
 
         CAmount liquidity;
 
         if (totalLiquidity == 0) {
-            liquidity = ((arith_uint256(amountA) * arith_uint256(amountB)).sqrt() - MINIMUM_LIQUIDITY).GetLow64();
+            liquidity = (CAmount) (arith_uint256(amountA) * arith_uint256(amountB)).sqrt().GetLow64(); // sure this is below std::numeric_limits<CAmount>::max() due to sqrt natue
+            if (liquidity < MINIMUM_LIQUIDITY)
+                return Res::Err("liquidity too low");
+            liquidity -= MINIMUM_LIQUIDITY;
             // MINIMUM_LIQUIDITY is a hack for non-zero division
             totalLiquidity = MINIMUM_LIQUIDITY;
         } else {
@@ -130,9 +130,6 @@ public:
             } else {
                 return Res::Err("Overflow when adding to reserves");
             }
-        }
-        if (!ownerFeeAddress.empty()) {
-            kLast = arith_uint256(reserveA) * arith_uint256(reserveB);
         }
         return Res::Ok();
     }
@@ -159,24 +156,6 @@ public:
     Res Swap(CTokenAmount in, CAmount maxPrice, std::function<Res(CTokenAmount const &)> onTransfer);
 
 private:
-    /// @todo review all 'Res' uses
-    void mintFee(std::function<Res(CScript to, CAmount liqAmount)> onMint) {
-        if (!ownerFeeAddress.empty()) {
-            if (kLast != 0) {
-                auto rootK = (arith_uint256(reserveA) * arith_uint256(reserveB)).sqrt();
-                auto rootKLast = kLast.sqrt();
-                if (rootK > rootKLast) {
-                    auto numerator = arith_uint256(totalLiquidity) * (rootK - rootKLast);
-                    auto denominator = rootK * 5 + rootKLast;
-                    auto liquidity = (numerator / denominator).GetLow64(); // fee ~= 1/6 of delta K (square median) - all math got from uniswap smart contract
-                    if (liquidity > 0) onMint(ownerFeeAddress, liquidity);
-                }
-            }
-        } else {
-            kLast = 0;
-        }
-    }
-
     CAmount slopeSwap(arith_uint256 unswapped, CAmount & poolFrom, CAmount & poolTo);
 
 public:
@@ -191,15 +170,6 @@ public:
         READWRITE(totalLiquidity);
         READWRITE(blockCommissionA);
         READWRITE(blockCommissionB);
-        if (ser_action.ForRead()) {
-            uint256 k;
-            READWRITE(k);
-            kLast = UintToArith256(k);
-        }
-        else {
-            uint256 k = ArithToUint256(kLast);
-            READWRITE(k);
-        }
         READWRITE(rewardPct);
         READWRITE(swapEvent);
         READWRITE(creationTx);

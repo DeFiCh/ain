@@ -81,14 +81,18 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount maxPrice, std::function<Res (const 
     if (reserveA <= 0 || reserveB <= 0)
         return Res::Err("Lack of liquidity.");
 
-    CAmount priceAB = (((double) reserveA / PRECISION) / ((double) reserveB / PRECISION)) * PRECISION;
-    CAmount priceBA = (((double) reserveB / PRECISION) / ((double) reserveA / PRECISION)) * PRECISION;
+    auto aReserveA = arith_uint256(reserveA);
+    auto aReserveB = arith_uint256(reserveB);
+    static const auto aPRECISION = arith_uint256(PRECISION);
+
+    CAmount priceAB = (aReserveA * aPRECISION / aReserveB).GetLow64(); /// @todo check overflow
+    CAmount priceBA = (aReserveB * aPRECISION / aReserveA).GetLow64();
     CAmount price = forward ? priceBA : priceAB;
-    maxPrice = maxPrice > 0 ? maxPrice : price * 1.03;
+    maxPrice = maxPrice > 0 ? maxPrice : price + (price * 3 / 100); // current +3%
 
     // claim trading fee
     if (commission) {
-        CAmount const tradeFee = in.nValue * commission / PRECISION; /// @todo check overflow
+        CAmount const tradeFee = (arith_uint256(in.nValue) * arith_uint256(commission) / arith_uint256(COIN)).GetLow64(); /// @todo check overflow (COIN vs PRECISION cause commission was normalized to COIN)
         in.nValue -= tradeFee;
         if (forward) {
             blockCommissionA += tradeFee;
@@ -98,7 +102,7 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount maxPrice, std::function<Res (const 
         }
     }
     CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB) : slopeSwap(in.nValue, reserveB, reserveA);
-    CAmount realPrice = (((double) result / PRECISION) / ((double) in.nValue / PRECISION)) * PRECISION;
+    CAmount realPrice = (arith_uint256(result) * aPRECISION / arith_uint256(in.nValue)).GetLow64(); /// @todo check overflow
     if (realPrice > maxPrice)
         return Res::Err("Price higher than indicated.");
 
@@ -119,11 +123,11 @@ CAmount CPoolPair::slopeSwap(arith_uint256 unswapped, CAmount &poolFrom, CAmount
         arith_uint256 stepTo = poolT * stepFrom / poolF;
         poolF += stepFrom;
         poolT -= stepTo;
-        poolFrom = poolF.GetLow64();
-        poolTo = poolT.GetLow64();
         unswapped -= stepFrom;
         swapped += stepTo;
     }
+    poolFrom = poolF.GetLow64();
+    poolTo = poolT.GetLow64();
     return swapped.GetLow64();
 }
 

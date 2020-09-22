@@ -2272,8 +2272,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // distribute pool incentive rewards and trading fees:
         /// @attention it throws (at least for debug), cause errors are critical!
         {
-            /// @todo implement GetCurrentBlockYieldFarming()
-            /// temporary set to 35
             std::shared_ptr<LP_DAILY_DFI_REWARD> var = std::dynamic_pointer_cast<LP_DAILY_DFI_REWARD>(cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName()));
             CAmount poolsBlockReward = std::min(
                                            cache.GetCommunityBalance(CommunityAccountType::IncentiveFunding),

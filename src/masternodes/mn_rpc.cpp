@@ -1351,7 +1351,7 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
             poolObj.pushKV("reserveB/reserveA", ValueFromAmount((arith_uint256(pool.reserveB) * arith_uint256(COIN) / pool.reserveA).GetLow64()));
         }
 
-        poolObj.pushKV("ownerFeeAddress", pool.ownerFeeAddress.GetHex());
+        poolObj.pushKV("ownerAddress", pool.ownerAddress.GetHex()); /// @todo replace with ScriptPubKeyToUniv()
 
         poolObj.pushKV("blockCommissionA", ValueFromAmount(pool.blockCommissionA));
         poolObj.pushKV("blockCommissionB", ValueFromAmount(pool.blockCommissionB));
@@ -1947,8 +1947,8 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                             "Pool commission, up to 10^-8"},
                             {"status", RPCArg::Type::BOOL, RPCArg::Optional::NO,
                             "Pool Status: True is Active, False is Restricted"},
-                            {"ownerFeeAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
-                            "Address of the fee owner."},
+                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
+                            "Address of the pool owner."},
                             {"pairSymbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                              "Pair symbol (unique), no longer than " +
                              std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
@@ -1973,13 +1973,13 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                                                           "\\\"tokenB\\\":\\\"MyToken2\\\","
                                                           "\\\"commission\\\":\\\"0.001\\\","
                                                           "\\\"status\\\":\\\"True\\\","
-                                                          "\\\"ownerFeeAddress\\\":\\\"Address\\\""
+                                                          "\\\"ownerAddress\\\":\\\"Address\\\""
                                                           "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
                        + HelpExampleRpc("createpoolpair", "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
                                                           "\\\"tokenB\\\":\\\"MyToken2\\\","
                                                           "\\\"commission\\\":\\\"0.001\\\","
                                                           "\\\"status\\\":\\\"True\\\","
-                                                          "\\\"ownerFeeAddress\\\":\\\"Address\\\""
+                                                          "\\\"ownerAddress\\\":\\\"Address\\\""
                                                             "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
                },
     }.Check(request);
@@ -1991,8 +1991,8 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
     std::string tokenA, tokenB, pairSymbol;
-    CAmount commission;
-    CScript ownerFeeAddress;
+    CAmount commission = 0; // !!!
+    CScript ownerAddress;
     bool status = true; // default Active
     UniValue metadataObj = request.params[0].get_obj();
     if (!metadataObj["tokenA"].isNull()) {
@@ -2007,8 +2007,8 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     if (!metadataObj["status"].isNull()) {
         status = metadataObj["status"].getBool();
     }
-    if (!metadataObj["ownerFeeAddress"].isNull()) {
-        ownerFeeAddress = DecodeScript(metadataObj["ownerFeeAddress"].getValStr());
+    if (!metadataObj["ownerAddress"].isNull()) {
+        ownerAddress = DecodeScript(metadataObj["ownerAddress"].getValStr());
     }
     if (!metadataObj["pairSymbol"].isNull()) {
         pairSymbol = metadataObj["pairSymbol"].getValStr();
@@ -2032,7 +2032,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     poolPairMsg.idTokenB = idtokenB;
     poolPairMsg.commission = commission;
     poolPairMsg.status = status;
-    poolPairMsg.ownerFeeAddress = ownerFeeAddress;
+    poolPairMsg.ownerAddress = ownerAddress;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
@@ -2139,7 +2139,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
-    CPoolSwapMessage poolSwapMsg;
+    CPoolSwapMessage poolSwapMsg = {};
     std::string tokenFrom, tokenTo;
     UniValue metadataObj = request.params[0].get_obj();
     if (!metadataObj["from"].isNull()) {

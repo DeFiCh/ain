@@ -735,6 +735,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         return Res::Err("%s: %s", base, "tx not from foundation member");
     }
 
+    /// @todo ownerAddress validity checked only in rpc. is it enough?
     CPoolPair poolPair(poolPairMsg);
     poolPair.creationTx = tx.GetHash();
     poolPair.creationHeight = height;
