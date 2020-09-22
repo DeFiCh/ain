@@ -449,7 +449,7 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     // block for non-DFI transactions
     for (auto const & kv : minted.balances) {
         DCT_ID tokenId = kv.first;
-        if(tokenId == DCT_ID{0}) {
+        if(tokenId != DCT_ID{0}) {
             return Res::Err("AccountToUtxos only available for DFI transactions");
         }
     }
