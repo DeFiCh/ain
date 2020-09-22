@@ -445,6 +445,15 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     if (msg.balances != *minted.val) {
         return Res::Err("%s: amount of minted tokens in UTXOs and metadata do not match: (%s) != (%s)", base, minted.val->ToString(), msg.balances.ToString());
     }
+
+    // block for non-DFI transactions
+    for (auto const & kv : minted.balances) {
+        DCT_ID tokenId = kv.first;
+        if(tokenId == DCT_ID{0}) {
+            return Res::Err("AccountToUtxos only available for DFI transactions");
+        }
+    }
+
     // transfer
     const auto res = mnview.SubBalances(msg.from, msg.balances);
     if (!res.ok) {
