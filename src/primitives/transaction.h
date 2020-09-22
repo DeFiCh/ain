@@ -154,11 +154,13 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(nValue);
         READWRITE(scriptPubKey);
-        if ((nTokenId == DCT_ID{0}) || SERIALIZE_FORCED_TO_OLD_IN_TESTS) {
+        if (!ser_action.ForRead() && (nTokenId == DCT_ID{0} || SERIALIZE_FORCED_TO_OLD_IN_TESTS)) {
             return;
         }
 
-        READWRITE(VARINT(nTokenId.v));
+        try {
+            READWRITE(VARINT(nTokenId.v));
+        } catch(...) {}
     }
 
     void SetNull()

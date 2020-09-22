@@ -138,31 +138,31 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyResignMasternodeTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::CreateToken:
-                if(height < consensusParams.AMKHeight) { Res::Err("Token tx before AMK height"); }
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyCreateTokenTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::DestroyToken:
-                if(height < consensusParams.AMKHeight) { Res::Err("Token tx before AMK height"); }
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyDestroyTokenTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::UpdateToken:
-                if(height < consensusParams.AMKHeight) { Res::Err("Token tx before AMK height"); }
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyUpdateTokenTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::MintToken:
-                if(height < consensusParams.AMKHeight) { Res::Err("Token tx before AMK height"); }
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyMintTokenTx(mnview, coins, tx, metadata);
                 break;
             case CustomTxType::UtxosToAccount:
-                if(height < consensusParams.AMKHeight) { Res::Err("Token tx before AMK height"); }
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyUtxosToAccountTx(mnview, tx, metadata);
                 break;
             case CustomTxType::AccountToUtxos:
-                if(height < consensusParams.AMKHeight) { Res::Err("Token tx before AMK height"); }
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyAccountToUtxosTx(mnview, coins, tx, metadata);
                 break;
             case CustomTxType::AccountToAccount:
-                if(height < consensusParams.AMKHeight) { Res::Err("Token tx before AMK height"); }
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyAccountToAccountTx(mnview, coins, tx, metadata);
                 break;
             default:
