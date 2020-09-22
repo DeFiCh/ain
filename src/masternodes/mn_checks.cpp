@@ -470,12 +470,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         }
     }
 
-//    CTokenAmount amountA = CTokenAmount{sumTx.balances.at(0)->first, sumTx.balances.at(0)->second};
-//    CTokenAmount amountB = CTokenAmount{sumTx.balances.at(1)->first, sumTx.balances.at(1)->second};
-
-//    const auto res = mnview.AddLiquidity(amountA, amountB, msg.shareAddress);
-
-    DCT_ID & lpTokenID = pair->first;
+    DCT_ID const & lpTokenID = pair->first;
     CPoolPair & pool = pair->second;
 
     // normalize A & B to correspond poolpair's tokens
@@ -483,20 +478,24 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         std::swap(amountA, amountB);
 
     const auto res = pool.AddLiquidity(amountA.second, amountB.second, msg.shareAddress, [&] /*onMint*/(CScript to, CAmount liqAmount) {
-         if (liqAmount <= 0)
-             throw runtime_error("Trying to mint " + std::to_string(liqAmount)+ " of poolpair token #" + lpTokenID.ToString() + " for account " + to.GetHex());
+        if (liqAmount <= 0)
+            throw runtime_error("Trying to mint " + std::to_string(liqAmount)+ " of poolpair token #" + lpTokenID.ToString() + " for account " + to.GetHex());
 
-         pool.totalLiquidity += liqAmount;
-         auto add = mnview.AddBalance(to, { lpTokenID, liqAmount });
-         if (!add.ok) {
+        auto resTotal = SafeAdd(pool.totalLiquidity, liqAmount);
+        if (resTotal.ok) {
+            pool.totalLiquidity = *resTotal.val;
+        }
+
+        auto add = mnview.AddBalance(to, { lpTokenID, liqAmount });
+        if (!add.ok) {
             return Res::Err("%s: %s", base, add.msg);
-         }
+        }
 
-         //insert update ByShare index
-         const auto setShare = mnview.SetShare(lpTokenID, to);
-         if (!setShare.ok) {
-             return Res::Err("%s: %s", base, setShare.msg);
-         }
+        //insert update ByShare index
+        const auto setShare = mnview.SetShare(lpTokenID, to);
+        if (!setShare.ok) {
+            return Res::Err("%s: %s", base, setShare.msg);
+        }
 
         return Res::Ok();
     }, height);
@@ -536,25 +535,24 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
     }
 
-    CPoolPair pool = pair.get();
+    CPoolPair & pool = pair.get();
 
-    const auto res = pool.RemoveLiquidity(from, amount.nValue, [&] (CScript to, CAmount amountA, CAmount amountB) {
-        pool.totalLiquidity -= amount.nValue;
-
+    // subtract liq.balance BEFORE RemoveLiquidity call to check balance correctness
+    {
         auto sub = mnview.SubBalance(from, amount);
         if (!sub.ok) {
             return Res::Err("%s: %s", base, sub.msg);
         }
-
-        const auto balance = mnview.GetBalance(from, amount.nTokenId);
-
-        if (balance.nValue == 0) {
+        if (mnview.GetBalance(from, amount.nTokenId).nValue == 0) {
             //delete ByShare index
             const auto delShare = mnview.DelShare(amount.nTokenId, from);
             if (!delShare.ok) {
                 return Res::Err("%s: %s", base, delShare.msg);
             }
         }
+    }
+
+    const auto res = pool.RemoveLiquidity(from, amount.nValue, [&] (CScript to, CAmount amountA, CAmount amountB) {
 
         auto addA = mnview.AddBalance(to, { pool.idTokenA, amountA });
         if (!addA.ok) {

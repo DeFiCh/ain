@@ -101,13 +101,6 @@ public:
     uint32_t creationHeight;
 
     ResVal<CPoolPair> Create(CPoolPairMessage const & msg);     // or smth else
-//    ResVal<CTokenAmount> AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
-    // or:
-//    ResVal<CTokenAmount> AddLiquidity(CLiquidityMessage const & msg);
-
-    // ????
-//    ResVal<???> RemoveLiquidity(???);
-//    ResVal<???> Swap(???);
 
     // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
     // otherwise, 'AddLiquidity' should be () external to 'CPairPool' (i.e. CPoolPairView::AddLiquidity(TAmount a,b etc) with internal lookup of pool by TAmount a,b)
@@ -117,28 +110,30 @@ public:
 
         CAmount liquidity;
 
-//        CAmount _totalLiquidity = totalLiquidity;
         if (totalLiquidity == 0) {
             liquidity = ((arith_uint256(amountA) * arith_uint256(amountB)).sqrt() - MINIMUM_LIQUIDITY).GetLow64();
-//           _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
+            // MINIMUM_LIQUIDITY is a hack for non-zero division
             totalLiquidity = MINIMUM_LIQUIDITY;
         } else {
-//            liquidity = Math.min(amount0.mul(_totalLiquidity) / _reserve0, amount1.mul(_totalLiquidity) / _reserve1);
             CAmount liqA = (arith_uint256(amountA) * arith_uint256(totalLiquidity) / reserveA).GetLow64();
             CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
             liquidity = std::min(liqA, liqB);
         }
-//        require(liquidity > 0, 'UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED');
         onMint(shareAddress, liquidity); // deps: totalLiquidity(RW)
 
-        if (reserveA + amountA < MAX_MONEY && reserveB + amountB < MAX_MONEY) {
-            reserveA += amountA;
-            reserveB += amountB;
-        } else {
-            return Res::Err("Overflow when adding to reserves");
+        {
+            auto resA = SafeAdd(reserveA, amountA);
+            auto resB = SafeAdd(reserveB, amountB);
+            if (resA.ok && resB.ok) {
+                reserveA = *resA.val;
+                reserveB = *resB.val;
+            } else {
+                return Res::Err("Overflow when adding to reserves");
+            }
         }
-//        update(reserveA+amountA /*balance0*/, reserveB+amountB /*balance1*//*, _reserve0, _reserve1*/, height); // deps: prices, reserves, kLast
-        if (!ownerFeeAddress.empty()) kLast = arith_uint256(reserveA) * arith_uint256(reserveB);
+        if (!ownerFeeAddress.empty()) {
+            kLast = arith_uint256(reserveA) * arith_uint256(reserveB);
+        }
         return Res::Ok();
     }
 
@@ -156,7 +151,7 @@ public:
 
         reserveA -= resAmountA;
         reserveB -= resAmountB;
-//        update(reserveA - resAmountA, reserveB - resAmountB, height); // deps: prices, reserves, kLast
+        totalLiquidity -= liqAmount;
 
         return Res::Ok();
     }
@@ -166,7 +161,6 @@ public:
 private:
     /// @todo review all 'Res' uses
     void mintFee(std::function<Res(CScript to, CAmount liqAmount)> onMint) {
-//        auto _kLast = kLast;
         if (!ownerFeeAddress.empty()) {
             if (kLast != 0) {
                 auto rootK = (arith_uint256(reserveA) * arith_uint256(reserveB)).sqrt();
@@ -178,31 +172,12 @@ private:
                     if (liquidity > 0) onMint(ownerFeeAddress, liquidity);
                 }
             }
-        } else /*if (_kLast != 0) */{
+        } else {
             kLast = 0;
         }
     }
 
     CAmount slopeSwap(arith_uint256 unswapped, CAmount & poolFrom, CAmount & poolTo);
-
-/// @deprecated
-//    Res update(CAmount balanceA, CAmount balanceB, /*CAmount _reserveA, CAmount _reserveB, - prev values*/ uint32_t height) {
-////        require(balance0 <= uint112(-1) && balance1 <= uint112(-1), 'UniswapV2: OVERFLOW');
-
-////        uint32 blockTimestamp = uint32(block.timestamp % 2**32);
-//        if (height > lastPoolEventHeight && reserveA != 0 && reserveB != 0) {
-//            const uint32_t timeElapsed = height - lastPoolEventHeight;
-//            // * never overflows, and + overflow is desired
-//            priceACumulativeLast += arith_uint256(reserveB) * timeElapsed * PRECISION / (reserveA); // multiplied by COIN for precision (!!!)
-//            priceBCumulativeLast += arith_uint256(reserveA) * timeElapsed * PRECISION / (reserveB);
-////            priceBCumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
-//        }
-//        reserveA = balanceA;
-//        reserveB = balanceB;
-//        lastPoolEventHeight = height;
-////        emit Sync(reserve0, reserve1);
-//        return Res::Ok();
-//    }
 
 public:
 
@@ -216,7 +191,15 @@ public:
         READWRITE(totalLiquidity);
         READWRITE(blockCommissionA);
         READWRITE(blockCommissionB);
-        READWRITE(kLast.GetLow64());
+        if (ser_action.ForRead()) {
+            uint256 k;
+            READWRITE(k);
+            kLast = UintToArith256(k);
+        }
+        else {
+            uint256 k = ArithToUint256(kLast);
+            READWRITE(k);
+        }
         READWRITE(rewardPct);
         READWRITE(swapEvent);
         READWRITE(creationTx);
@@ -245,11 +228,9 @@ public:
     Res DeletePoolPair(DCT_ID const & poolId);
 
     boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
-//    boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPairGuessId(const std::string & str) const; // optional
     boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 
     void ForEachPoolPair(std::function<bool(DCT_ID const & id, CPoolPair const & pool)> callback, DCT_ID const & start = DCT_ID{0});
-
     void ForEachPoolShare(std::function<bool(DCT_ID const & id, CScript const & provider)> callback, PoolShareKey const &startKey = PoolShareKey{0,CScript{}}) const;
 
     Res SetShare(DCT_ID const & poolId, CScript const & provider) {
@@ -260,11 +241,6 @@ public:
         EraseBy<ByShare>(PoolShareKey{poolId, provider});
         return Res::Ok();
     }
-//    bool HasShare(DCT_ID const & poolId, CScript const & provider) {  // deprecated usecase, can be used "main" account view for that
-//        return ExistsBy<ByShare>(PoolShareKey{poolId, provider});
-//    }
-
-//    Res AddLiquidity(CTokenAmount const & amountA, CTokenAmount amountB, CScript const & shareAddress);
 
     /// @attention it throws (at least for debug), cause errors are critical!
     CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CTokenAmount amount)> onTransfer) {
