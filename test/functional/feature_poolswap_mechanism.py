@@ -16,6 +16,7 @@ from test_framework.util import assert_equal, \
 
 import random
 import time
+from decimal import Decimal
 
 class PoolSwapTest (DefiTestFramework):
     def set_test_params(self):
@@ -24,16 +25,15 @@ class PoolSwapTest (DefiTestFramework):
         # node1: secondary tester
         # node2: revert create (all)
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0'], ['-txnotokens=0'], ['-txnotokens=0']]
+        self.extra_args = [['-txnotokens=0', '-dip1height=0'], ['-txnotokens=0', '-dip1height=0'], ['-txnotokens=0', '-dip1height=0']]
 
         # SET parameters for create tokens and pools
         #========================
         self.count_pools = 1     # 10
         self.count_account = 10  # 1000
-        # pool = 4 acc = 100  ~ 16 minute  ~ 8 minute
-        # pool = 1 acc = 10   ~ 4 sec      ~ 3,6 sec
         self.commission = 0.001
         self.amount_token = 1000 # 1000
+        self.decimal = 100000000
         
         self.tokens = []
         self.accounts = []
@@ -41,18 +41,21 @@ class PoolSwapTest (DefiTestFramework):
         self.liquidity = {}
         self.pollswap_liquidity = {}
 
+        self.totalDistributed = 0
+
         # Generate pool: 1 pool = 1 + 2 token = 3 tx
         # Minted tokens: 1 pool = 2 token = 4 tx
         # Sent token:    1 pool = 2 token = 4 tx
         # Liquidity:     1 pool * 10 acc = 2 token * 10 acc = 20 tx
+        # Set gov:       2 tx
         # PoolSwap:      1 pool * 10 acc = 2 token * 10 acc = 20 tx
         count_create_pool_tx = self.count_pools * 3
         count_pool_token = self.count_pools * 2
         count_mint_and_sent = count_pool_token * 4
         count_add_liquidity = count_pool_token * self.count_account
-        count_poolswap = count_pool_token * self.count_account
+        self.count_poolswap = count_pool_token * self.count_account
 
-        self.count_tx = count_create_pool_tx + count_mint_and_sent + count_add_liquidity + count_poolswap
+        self.count_tx = count_create_pool_tx + count_mint_and_sent + count_add_liquidity + 2 + self.count_poolswap
 
     # TODO TODO TODO
     def get_id_token(self, symbol):
@@ -145,8 +148,8 @@ class PoolSwapTest (DefiTestFramework):
                 self.nodes[0].generate(1)
 
                 for idx in range(start, end):
-                    amountA = random.randint(self.amount_token / 2, self.amount_token)
-                    amountB = random.randint(self.amount_token / 2, self.amount_token)
+                    amountA = random.randint(1, self.amount_token // 2)
+                    amountB = random.randint(1, self.amount_token // 2)
 
                     self.liquidity[self.get_id_token(tokenA)] += amountA
                     self.liquidity[self.get_id_token(tokenB)] += amountB
@@ -166,6 +169,8 @@ class PoolSwapTest (DefiTestFramework):
             tokenB = "SILVER" + str(item)
 
             self.pollswap_liquidity[self.get_id_token(tokenA)] = 0
+            pool = self.pools[item]
+            idPool = list(self.nodes[0].getpoolpair(pool, True).keys())[0]
 
             for start in range(0, self.count_account, 10):
                 if start + 10 > self.count_account:
@@ -177,10 +182,16 @@ class PoolSwapTest (DefiTestFramework):
                     self.nodes[0].sendmany("", { self.accounts[idx] : 0.02 })
                 self.nodes[0].generate(1)
 
-                amount = random.randint(1, self.amount_token / 2)
+                amount = random.randint(1, self.amount_token // 2)
                 self.pollswap_liquidity[self.get_id_token(tokenA)] += amount
 
+                amountsA = {}
+                amountsB = {}
+
+                input("TEXT TEST")
                 for idx in range(start, end):
+                    amountsA[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenA)]
+                    amountsB[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)]
                     hash = self.nodes[0].poolswap({
                         "from": self.accounts[idx],
                         "tokenFrom": self.get_id_token(tokenB),
@@ -188,8 +199,28 @@ class PoolSwapTest (DefiTestFramework):
                         "to": self.accounts[idx],
                         "tokenTo": str(self.get_id_token(tokenA)),
                     }, [])
-                    print("swap " + hash)
+                    print("swap " + hash + "|" + str(amount))
                 self.nodes[0].generate(1)
+
+                for idx in range(start, end):
+                    #print("-----------------------------------------")
+                    liquidity = self.nodes[0].getaccount(self.accounts[idx], {}, True)[idPool]
+                    totalLiquidity = self.nodes[0].getpoolpair(pool, True)[idPool]['totalLiquidity']
+                    liqWeight = liquidity * 10000 // totalLiquidity
+                    assert(liqWeight < 10000)
+
+                    blockCommissionA = self.nodes[0].getpoolpair(pool, True)[idPool]['blockCommissionA']
+                    blockCommissionB = self.nodes[0].getpoolpair(pool, True)[idPool]['blockCommissionB']
+                    feeA = (blockCommissionA * liqWeight) / Decimal(self.count_account / 2) # Divide by the number of accounts
+                    feeB = (blockCommissionB * liqWeight) / Decimal(self.count_account / 2) # Divide by the number of accounts
+
+                    #print("FEE A: " + str(feeA))
+                    #print("FEE B: " + str(feeB))
+
+                    #print(self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenA)])
+                    #print(amountsA[idx])
+                    #print(self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
+                    assert_equal(amountsB[idx] - amount + feeB, self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -207,8 +238,6 @@ class PoolSwapTest (DefiTestFramework):
 
         # START
         #========================
-        start_time = time.time()
-        
         print("Generating accounts...")
         self.generate_accounts()
         assert_equal(len(self.accounts), self.count_account)
@@ -247,20 +276,41 @@ class PoolSwapTest (DefiTestFramework):
 
             reserveAB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA/reserveB']
             reserveBA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB/reserveA']
-            decimal = 100000000
-            resAB = int((self.liquidity[idTokenA] * decimal) / (self.liquidity[idTokenB] * decimal) * decimal)
-            resBA = int((self.liquidity[idTokenB] * decimal) / (self.liquidity[idTokenA] * decimal) * decimal)
-            assert_equal(reserveAB * decimal, resAB)
-            assert_equal(reserveBA * decimal, resBA)
+            resAB = int((self.liquidity[idTokenA] * self.decimal) / (self.liquidity[idTokenB] * self.decimal) * self.decimal)
+            resBA = int((self.liquidity[idTokenB] * self.decimal) / (self.liquidity[idTokenA] * self.decimal) * self.decimal)
+            assert_equal(reserveAB * self.decimal, resAB)
+            assert_equal(reserveBA * self.decimal, resBA)
         print("Liquidity added")
 
-        print("Swapping tokens...")
-        self.pollswap()
-        # TODO check
-        print("Tokens exchanged")
+        print("Setting governance variables...")
+        obj = {}
+        for i in range(self.count_pools):
+            obj[str(i + 1)] = 1 / self.count_pools
 
+        self.nodes[0].setgov({ "LP_SPLITS": obj })
+        self.nodes[0].setgov({ "LP_DAILY_DFI_REWARD": 35.5 })
+        self.nodes[0].generate(1)
+
+        g1 = self.nodes[0].getgov("LP_SPLITS")
+        for i in range(self.count_pools):
+            assert_equal(g1['LP_SPLITS'][str(i + 1)], 1 / self.count_pools)
+
+        g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")
+        assert(g2 == {'LP_DAILY_DFI_REWARD': Decimal('35.50000000')} )
+        print("Set governance variables")
+
+        print("Swapping tokens...")
+        start_time = time.time()
+        self.pollswap()
         end_time = time.time() - start_time
-        print("Time: {} s".format(end_time))
+        print("Tokens exchanged")
+        print("Elapsed time: {} s".format(end_time))
+
+        print("Generating block...")
+        start_time = time.time()
+        self.nodes[0].generate(self.count_poolswap)
+        end_time = time.time() - start_time
+        print("Elapsed time: {} s".format(end_time))
 
         # REVERTING:
         #========================
@@ -274,7 +324,7 @@ class PoolSwapTest (DefiTestFramework):
         #assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         #assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
-        assert_equal(len(self.nodes[0].getrawmempool()), self.count_tx)
+        #assert_equal(len(self.nodes[0].getrawmempool()), self.count_tx)
 
 
 if __name__ == '__main__':
