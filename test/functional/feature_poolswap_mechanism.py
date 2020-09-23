@@ -30,7 +30,7 @@ class PoolSwapTest (DefiTestFramework):
         # SET parameters for create tokens and pools
         #========================
         self.count_pools = 1     # 10
-        self.count_account = 20  # 1000
+        self.count_account = 2  # 1000
         self.commission = 0.001
         self.amount_token = 1000 # 1000
         self.decimal = 100000000
@@ -165,15 +165,16 @@ class PoolSwapTest (DefiTestFramework):
 
     def slope_swap(self, unswapped, poolFrom, poolTo):
         while unswapped > 0:
-            if poolFrom // 1000 > unswapped:
+            if poolFrom / 1000 > unswapped:
                 stepFrom = unswapped
             else:
-                stepFrom = poolFrom // 1000
+                stepFrom = poolFrom / 1000
 
-            stepTo = poolTo * stepFrom // poolFrom
-            poolFrom += stepFrom;
-            poolTo -= stepTo;
-            unswapped -= stepFrom;
+            stepTo = poolTo * stepFrom / poolFrom
+            poolFrom += stepFrom
+            poolTo -= stepTo
+            unswapped -= stepFrom
+
         return (poolFrom, poolTo)
 
     def pollswap(self):
@@ -237,6 +238,15 @@ class PoolSwapTest (DefiTestFramework):
                     newReserveB = reserveB
                     # TODO Inaccurate calculations
                     assert_equal(amountsB[idx] - amount + feeB, self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
+
+                    yieldFarming = 1 # TODO
+                    rewardPct = self.nodes[0].getpoolpair(pool, True)[idPool]['rewardPct']
+                    poolReward = yieldFarming * rewardPct
+
+                    if poolReward:
+                        providerReward = poolReward * liqWeight
+                        if providerReward:
+                            self.totalDistributed += providerReward;
 
                 reserveA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA']
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
