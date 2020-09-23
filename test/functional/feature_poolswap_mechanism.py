@@ -30,7 +30,7 @@ class PoolSwapTest (DefiTestFramework):
         # SET parameters for create tokens and pools
         #========================
         self.count_pools = 1     # 10
-        self.count_account = 10  # 1000
+        self.count_account = 20  # 1000
         self.commission = 0.001
         self.amount_token = 1000 # 1000
         self.decimal = 100000000
@@ -163,6 +163,19 @@ class PoolSwapTest (DefiTestFramework):
                     print("add liquidity " + amountA + " | " + amountB)
                 self.nodes[0].generate(1)
 
+    def slope_swap(self, unswapped, poolFrom, poolTo):
+        while unswapped > 0:
+            if poolFrom // 1000 > unswapped:
+                stepFrom = unswapped
+            else:
+                stepFrom = poolFrom // 1000
+
+            stepTo = poolTo * stepFrom // poolFrom
+            poolFrom += stepFrom;
+            poolTo -= stepTo;
+            unswapped -= stepFrom;
+        return (poolFrom, poolTo)
+
     def pollswap(self):
         for item in range(self.count_pools):
             tokenA = "GOLD" + str(item)
@@ -187,8 +200,11 @@ class PoolSwapTest (DefiTestFramework):
 
                 amountsA = {}
                 amountsB = {}
+                reserveA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA']
+                reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
+                newReserveA = 0
+                newReserveB = 0
 
-                input("TEXT TEST")
                 for idx in range(start, end):
                     amountsA[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenA)]
                     amountsB[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)]
@@ -203,7 +219,6 @@ class PoolSwapTest (DefiTestFramework):
                 self.nodes[0].generate(1)
 
                 for idx in range(start, end):
-                    #print("-----------------------------------------")
                     liquidity = self.nodes[0].getaccount(self.accounts[idx], {}, True)[idPool]
                     totalLiquidity = self.nodes[0].getpoolpair(pool, True)[idPool]['totalLiquidity']
                     liqWeight = liquidity * 10000 // totalLiquidity
@@ -217,10 +232,16 @@ class PoolSwapTest (DefiTestFramework):
                     #print("FEE A: " + str(feeA))
                     #print("FEE B: " + str(feeB))
 
-                    #print(self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenA)])
-                    #print(amountsA[idx])
-                    #print(self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
+                    (reserveB, reserveA) = self.slope_swap(Decimal(amount - (amount * self.commission)), reserveB, reserveA)
+                    newReserveA = reserveA
+                    newReserveB = reserveB
+                    # TODO Inaccurate calculations
                     assert_equal(amountsB[idx] - amount + feeB, self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
+
+                reserveA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA']
+                reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
+                #assert_equal(reserveA, format(newReserveA, '.8f'))
+                assert_equal(str(reserveB), format(newReserveB, '.8f'))
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
