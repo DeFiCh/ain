@@ -58,7 +58,7 @@ BOOST_FIXTURE_TEST_CASE(tx_check_transaction_size, TestChain100Setup)
     CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
     CMutableTransaction tx;
 
-    tx.nVersion = 2;
+    tx.nVersion = CTransaction::TX_VERSION_2;
     tx.vin.resize(1);
     tx.vout.resize(1);
     tx.vin[0].scriptSig = CScript() << OP_11 << OP_EQUAL;
@@ -69,7 +69,7 @@ BOOST_FIXTURE_TEST_CASE(tx_check_transaction_size, TestChain100Setup)
     BOOST_CHECK(size == 97);
 
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = false;
-    tx.nVersion = 3;
+    tx.nVersion = CTransaction::TOKENS_MIN_VERSION;
     tx.vout[0].nTokenId.v = 1;
     size = ::GetSerializeSize(tx, PROTOCOL_VERSION | (tx.nVersion < CTransaction::TOKENS_MIN_VERSION ? SERIALIZE_TRANSACTION_NO_TOKENS : 0));
     BOOST_CHECK(size == 98);

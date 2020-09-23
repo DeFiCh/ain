@@ -214,15 +214,15 @@ public:
     static const int32_t TX_VERSION_2=2;
 
     // Default transaction version.
-    static const int32_t CURRENT_VERSION=3; // @todo why it was 2 before?
+    static const int32_t CURRENT_VERSION=4; // @todo why it was 2 before?
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_VERSION, and then later date
     // bumping the default CURRENT_VERSION at which point both CURRENT_VERSION and
     // MAX_STANDARD_VERSION will be equal.
-    static const int32_t MAX_STANDARD_VERSION=3;
+    static const int32_t MAX_STANDARD_VERSION=4;
 
-    static const int32_t TOKENS_MIN_VERSION=3;
+    static const int32_t TOKENS_MIN_VERSION=4;
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
