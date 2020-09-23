@@ -34,7 +34,7 @@ struct CPoolSwapMessage {
     CAmount amountFrom, maxPrice;
 
     std::string ToString() const {
-        std::string result = "(" + from.GetHex() + " " + idTokenFrom.ToString() + " " + std::to_string(amountFrom) + "->" + from.GetHex() + " " + idTokenFrom.ToString() +")";
+        std::string result = "(" + from.GetHex() + " " + idTokenFrom.ToString() + " " + std::to_string(amountFrom) + "->" + to.GetHex() + " " + idTokenTo.ToString() +")";
         return result;
     }
 
