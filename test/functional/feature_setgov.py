@@ -12,7 +12,7 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
-    connect_nodes_bi
+    connect_nodes, disconnect_nodes
 from decimal import Decimal
 
 
@@ -31,6 +31,9 @@ class GovsetTest (DefiTestFramework):
 
         print("Generating initial chain...")
         self.setup_tokens()
+
+        # Stop node #1 for future revert
+        self.stop_node(1)
 
         # set|get not existent variable:
         try:
@@ -127,6 +130,30 @@ class GovsetTest (DefiTestFramework):
             and pool2['rewardPct'] == Decimal('0.40000000')
             and pool3['rewardPct'] == Decimal('0.10000000'))
 
+        # start node 1 and sync for reverting to this chain point
+        self.start_node(1)
+        connect_nodes(self.nodes[0], 1)
+        self.sync_blocks()
+
+        # check sync between nodes 0 and 1
+        g1 = self.nodes[1].getgov("LP_SPLITS")
+        # print(g1)
+        assert (g1 == {'LP_SPLITS': {'1': Decimal('0.50000000'), '2': Decimal('0.40000000'), '3': Decimal('0.10000000')}} )
+
+        g2 = self.nodes[1].getgov("LP_DAILY_DFI_REWARD")
+        # print(g2)
+        assert(g2 == {'LP_DAILY_DFI_REWARD': Decimal('35.50000000')} )
+
+        pool1 = self.nodes[1].getpoolpair("1", True)['1']
+        pool2 = self.nodes[1].getpoolpair("2", True)['2']
+        pool3 = self.nodes[1].getpoolpair("3", True)['3']
+        assert (pool1['rewardPct'] == Decimal('0.50000000')
+            and pool2['rewardPct'] == Decimal('0.40000000')
+            and pool3['rewardPct'] == Decimal('0.10000000'))
+
+        # disconnect node #1
+        disconnect_nodes(self.nodes[0], 1)
+
         # test set multuple:
         self.nodes[0].setgov({
             "LP_SPLITS": { "1": 1 },
@@ -147,6 +174,29 @@ class GovsetTest (DefiTestFramework):
 
         g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")
         assert(g2 == {'LP_DAILY_DFI_REWARD': 45} )
+
+        # REVERTING
+        # mine blocks at node 1
+        self.nodes[1].generate(20)
+
+        connect_nodes(self.nodes[0], 1)
+        self.sync_blocks()
+
+        # check that node 0 was synced to neccesary chain point
+        g1 = self.nodes[0].getgov("LP_SPLITS")
+        # print(g1)
+        assert (g1 == {'LP_SPLITS': {'1': Decimal('0.50000000'), '2': Decimal('0.40000000'), '3': Decimal('0.10000000')}} )
+
+        g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")
+        # print(g2)
+        assert(g2 == {'LP_DAILY_DFI_REWARD': Decimal('35.50000000')} )
+
+        pool1 = self.nodes[0].getpoolpair("1", True)['1']
+        pool2 = self.nodes[0].getpoolpair("2", True)['2']
+        pool3 = self.nodes[0].getpoolpair("3", True)['3']
+        assert (pool1['rewardPct'] == Decimal('0.50000000')
+            and pool2['rewardPct'] == Decimal('0.40000000')
+            and pool3['rewardPct'] == Decimal('0.10000000'))
 
 
 if __name__ == '__main__':
