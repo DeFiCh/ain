@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <masternodes/govvariables/LP_SPLITS.h>
+#include <masternodes/govvariables/lp_splits.h>
 
 #include <core_io.h> /// ValueFromAmount
 #include <masternodes/masternodes.h> /// CCustomCSView
@@ -13,7 +13,11 @@ Res LP_SPLITS::Import(const UniValue & val) {
     if (!val.isObject())
         return Res::Err("object of {poolId: rate,... } expected"); /// throw here? cause "AmountFromValue" can throw!
     for (const std::string& key : val.getKeys()) {
-        splits.emplace(DCT_ID{(uint32_t)std::stoul(key)}, AmountFromValue(val[key]));//todo: AmountFromValue
+        auto id = DCT_ID::FromString(key);
+        if (!id.ok) {
+            return Res::Err(id.msg);
+        }
+        splits.emplace(*id.val, AmountFromValue(val[key]));//todo: AmountFromValue
     }
     return Res::Ok();
 }

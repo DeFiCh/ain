@@ -11,7 +11,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, \
+from test_framework.util import \
     connect_nodes, disconnect_nodes
 from decimal import Decimal
 
@@ -55,7 +55,7 @@ class GovsetTest (DefiTestFramework):
 
         owner = self.nodes[0].getnewaddress("", "legacy")
 
-        createTokenTx = self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken([], {
             "symbol": "BRONZE",
             "name": "just bronze",
             "collateralAddress": owner # doesn't matter

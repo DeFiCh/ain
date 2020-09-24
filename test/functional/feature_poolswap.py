@@ -166,7 +166,7 @@ class PoolPairTest (DefiTestFramework):
         list_pool = self.nodes[2].listpoolpairs()
         #print (list_pool)
 
-        list_poolshares = self.nodes[0].listpoolshares()
+        self.nodes[0].listpoolshares()
         #print (list_poolshares)
 
         assert(goldCheckN0 == 700)

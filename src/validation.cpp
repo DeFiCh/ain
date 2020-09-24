@@ -20,7 +20,7 @@
 #include <index/txindex.h>
 #include <masternodes/anchors.h>
 #include <masternodes/criminals.h>
-#include <masternodes/govvariables/LP_DAILY_DFI_REWARD.h>
+#include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <policy/fees.h>

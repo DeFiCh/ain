@@ -143,7 +143,7 @@ class PoolLiquidityTest (DefiTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Amount out of range" in errorString)
-        
+
         # missing (account exists, but does not belong)
         try:
             self.nodes[0].removepoolliquidity(owner, "200@GS", [])

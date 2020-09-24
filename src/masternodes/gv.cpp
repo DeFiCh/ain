@@ -3,8 +3,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/gv.h>
-#include <masternodes/govvariables/LP_DAILY_DFI_REWARD.h>
-#include <masternodes/govvariables/LP_SPLITS.h>
+#include <masternodes/govvariables/lp_daily_dfi_reward.h>
+#include <masternodes/govvariables/lp_splits.h>
 
 const unsigned char CGovView::ByName::prefix = 'g';
 

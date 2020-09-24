@@ -197,7 +197,7 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(len(poolpairsn0), 2)
 
         self.sync_blocks([self.nodes[0], self.nodes[2]])
-        
+
         poolpairsn2 = self.nodes[2].listpoolpairs()
         #print (poolpairsn2)
         assert_equal(len(poolpairsn2), 2)
