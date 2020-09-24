@@ -6,6 +6,8 @@
 
 https://defichain.io
 
+**NOTE**: _master_ branch is a development branch and is thus _unstable_. Do not run from it. Run or compile from [tagged releases](https://github.com/DeFiCh/ain/releases) instead, unless you know what you are doing.
+
 ## What is DeFi Blockchain?
 
 DeFi Blockchain’s primary vision is to enable decentralized finance with Bitcoin-grade security, strength and immutability. It's a blockchain dedicated to fast, intelligent and transparent financial services, accessible by everyone.
