@@ -44,12 +44,12 @@ class TokensBasicTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # 1 Creating DAT token
-        self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken({
             "symbol": "PT",
             "name": "Platinum",
             "isDAT": True,
             "collateralAddress": collateral0
-        })
+        }, [])
 
         self.nodes[0].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[2]])
@@ -66,7 +66,7 @@ class TokensBasicTest (DefiTestFramework):
 
         # 2 Trying to make it regular
         try:
-            self.nodes[0].updatetoken([], {"token": "PT", "isDAT": False})
+            self.nodes[0].updatetoken({"token": "PT", "isDAT": False}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Token PT is a 'stable coin'" in errorString)
@@ -81,12 +81,12 @@ class TokensBasicTest (DefiTestFramework):
 
         # 3 Trying to make regular token
         self.nodes[0].generate(1)
-        createTokenTx = self.nodes[0].createtoken([], {
+        createTokenTx = self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
             "isDAT": False,
             "collateralAddress": collateral0
-        })
+        }, [])
         self.nodes[0].generate(1)
         # Checks
         tokens = self.nodes[0].listtokens()
@@ -98,13 +98,13 @@ class TokensBasicTest (DefiTestFramework):
 
         # 4 Trying to make it DAT not from Foundation
         try:
-            self.nodes[2].updatetoken([], {"token": "GOLD#128", "isDAT": True})
+            self.nodes[2].updatetoken({"token": "GOLD#128", "isDAT": True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Incorrect Authorization" in errorString)
 
         # 5 Making token isDAT from Foundation
-        self.nodes[0].updatetoken([], {"token": "GOLD#128", "isDAT": True})
+        self.nodes[0].updatetoken({"token": "GOLD#128", "isDAT": True}, [])
 
         self.nodes[0].generate(1)
         # Checks
@@ -123,7 +123,7 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(tokens['128']["isDAT"], True)
 
         # 7 Removing DAT
-        self.nodes[0].updatetoken([], {"token": "GOLD", "isDAT": False})
+        self.nodes[0].updatetoken({"token": "GOLD", "isDAT": False}, [])
 
         self.nodes[0].generate(1)
 
@@ -141,12 +141,12 @@ class TokensBasicTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # 8 Creating DAT token
-        self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken({
             "symbol": "TEST",
             "name": "TEST token",
             "isDAT": True,
             "collateralAddress": collateral0
-        })
+        }, [])
 
         self.nodes[0].generate(1)
 

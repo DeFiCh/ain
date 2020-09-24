@@ -42,11 +42,11 @@ class TokensBasicTest (DefiTestFramework):
 
         # Fail to create: Insufficient funds (not matured coins)
         try:
-            createTokenTx = self.nodes[0].createtoken([], {
+            createTokenTx = self.nodes[0].createtoken({
                 "symbol": "GOLD",
                 "name": "shiny gold",
                 "collateralAddress": collateral0
-            })
+            }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Insufficient funds" in errorString)
@@ -55,21 +55,22 @@ class TokensBasicTest (DefiTestFramework):
 
         # Fail to create: use # in symbol
         try:
-            self.nodes[0].createtoken([], {
+            self.nodes[0].createtoken( {
                 "symbol": "GOLD#1",
                 "name": "shiny gold",
                 "collateralAddress": collateral0
-            })
+            }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("token symbol must not contain '#'" in errorString)
 
         print ("Create token 'GOLD' (128)...")
-        createTokenTx = self.nodes[0].createtoken([], {
+
+        createTokenTx = self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
             "collateralAddress": collateral0
-        })
+        }, [])
 
         # Create and sign (only) collateral spending tx
         spendTx = self.nodes[0].createrawtransaction([{'txid':createTokenTx, 'vout':1}],[{collateral0:9.999}])
@@ -141,7 +142,7 @@ class TokensBasicTest (DefiTestFramework):
         #========================
         # Try to resign w/o auth (no money on auth/collateral address)
         try:
-            self.nodes[0].destroytoken([], "GOLD#128")
+            self.nodes[0].destroytoken("GOLD#128", [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Can't find any UTXO's" in errorString)
@@ -151,13 +152,13 @@ class TokensBasicTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         print ("Destroy token...")
-        destroyTx = self.nodes[0].destroytoken([], "GOLD#128")
+        destroyTx = self.nodes[0].destroytoken("GOLD#128", [])
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], destroyTx)
 
         # Try to mint destroyed token ('minting' is not the task of current test, but let's check it here)
         try:
-            self.nodes[0].minttokens([], "100@GOLD#128")
+            self.nodes[0].minttokens("100@GOLD#128", [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("already destroyed" in errorString)

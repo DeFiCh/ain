@@ -30,16 +30,16 @@ class TokensMintingTest (DefiTestFramework):
         #========================
         collateralGold = self.nodes[0].getnewaddress("", "legacy")
         collateralSilver = self.nodes[0].getnewaddress("", "legacy")
-        self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
             "collateralAddress": collateralGold
-        })
-        self.nodes[0].createtoken([], {
+        }, [])
+        self.nodes[0].createtoken({
             "symbol": "SILVER",
             "name": "just silver",
             "collateralAddress": collateralSilver
-        })
+        }, [])
 
         self.nodes[0].generate(1)
         # At this point, tokens was created
@@ -70,13 +70,14 @@ class TokensMintingTest (DefiTestFramework):
         # print(self.nodes[0].listunspent())
 
         alienMintAddr = self.nodes[1].getnewaddress("", "legacy")
-        self.nodes[0].minttokens([], "300@" + symbolGold)
-        self.nodes[0].minttokens([], "3000@" + symbolSilver)
+        
+        self.nodes[0].minttokens("300@" + symbolGold, [])
+        self.nodes[0].minttokens("3000@" + symbolSilver, [])
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        self.nodes[0].accounttoutxos([], collateralGold, { self.nodes[0].getnewaddress("", "legacy"): "100@" + symbolGold, alienMintAddr: "200@" + symbolGold})
-        self.nodes[0].accounttoutxos([], collateralSilver, { self.nodes[0].getnewaddress("", "legacy"): "1000@" + symbolSilver, alienMintAddr: "2000@" + symbolSilver})
+        self.nodes[0].accounttoutxos(collateralGold, { self.nodes[0].getnewaddress("", "legacy"): "100@" + symbolGold, alienMintAddr: "200@" + symbolGold}, [])
+        self.nodes[0].accounttoutxos(collateralSilver, { self.nodes[0].getnewaddress("", "legacy"): "1000@" + symbolSilver, alienMintAddr: "2000@" + symbolSilver}, [])
         self.nodes[0].generate(1)
         self.sync_blocks()
 

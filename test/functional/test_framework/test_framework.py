@@ -331,16 +331,16 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         self.nodes[0].generate(100)
         self.sync_all()
 
-        self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
             "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress # collateralGold
-        })
-        self.nodes[1].createtoken([], {
+        }, [])
+        self.nodes[1].createtoken({
             "symbol": "SILVER",
             "name": "just silver",
             "collateralAddress": self.nodes[1].get_genesis_keys().ownerAuthAddress # collateralSilver
-        })
+        }, [])
         self.sync_mempools()
         self.nodes[0].generate(1)
         # At this point, tokens was created
@@ -349,9 +349,10 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
         symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
         symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
+    
+        self.nodes[0].minttokens("1000@" + symbolGOLD, [])
+        self.nodes[1].minttokens("2000@" + symbolSILVER, [])
 
-        self.nodes[0].minttokens([], "1000@" + symbolGOLD)
-        self.nodes[1].minttokens([], "2000@" + symbolSILVER)
         self.sync_mempools()
         self.nodes[0].generate(1)
 
