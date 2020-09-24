@@ -166,11 +166,15 @@ public:
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
-         */
-        pchMessageStart[0] = 0xe2;
-        pchMessageStart[1] = 0xaa;
-        pchMessageStart[2] = 0xc1;
-        pchMessageStart[3] = 0xe1;
+         */        
+        pchMessageStart[0] = 0xf9;
+        pchMessageStart[1] = 0xbe;	        
+        pchMessageStart[2] = 0xb4;	        
+        pchMessageStart[3] = 0xd9;
+        pchMessageStartPostAMK[0] = 0xe2;
+        pchMessageStartPostAMK[1] = 0xaa;
+        pchMessageStartPostAMK[2] = 0xc1;
+        pchMessageStartPostAMK[3] = 0xe1;
         nDefaultPort = 8555;
         nPruneAfterHeight = 100000;
         m_assumed_blockchain_size = 240;
@@ -307,10 +311,11 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
-        pchMessageStart[0] = 0x0b;
-        pchMessageStart[1] = 0x11;
-        pchMessageStart[2] = 0x09;
-        pchMessageStart[3] = 0x07;
+        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
+        pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
+        pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x09;
+        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x07;
+        
         nDefaultPort = 18555;
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
@@ -429,10 +434,10 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
-        pchMessageStart[0] = 0x0b;
-        pchMessageStart[1] = 0x11;
-        pchMessageStart[2] = 0x09;
-        pchMessageStart[3] = 0x07;
+        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
+        pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
+        pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x09;
+        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x07;
         nDefaultPort = 20555; /// @note devnet matter
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
@@ -556,10 +561,10 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
-        pchMessageStart[0] = 0xfa;
-        pchMessageStart[1] = 0xbf;
-        pchMessageStart[2] = 0xb5;
-        pchMessageStart[3] = 0xda;
+        pchMessageStartPostAMK[0] = pchMessageStart[0] = 0xfa;
+        pchMessageStartPostAMK[1] = pchMessageStart[1] = 0xbf;
+        pchMessageStartPostAMK[2] = pchMessageStart[2] = 0xb5;
+        pchMessageStartPostAMK[3] = pchMessageStart[3] = 0xda;
         nDefaultPort = 19555;
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 0;
