@@ -28,14 +28,26 @@ struct ByPairKey {
     }
 };
 
+struct PoolPrice {
+    int64_t integer;
+    int64_t fraction;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(integer);
+        READWRITE(fraction);
+    }
+};
+
 struct CPoolSwapMessage {
     CScript from, to;
     DCT_ID idTokenFrom, idTokenTo;
-    CAmount amountFrom, maxPrice;
+    CAmount amountFrom;
+    PoolPrice maxPrice;
 
     std::string ToString() const {
-        std::string result = "(" + from.GetHex() + " " + idTokenFrom.ToString() + " " + std::to_string(amountFrom) + "->" + from.GetHex() + " " + idTokenFrom.ToString() +")";
-        return result;
+        return "(" + from.GetHex() + ":" + std::to_string(amountFrom) +"@"+ idTokenFrom.ToString() + "->" + to.GetHex() + ":?@" + idTokenTo.ToString() +")";
     }
 
     ADD_SERIALIZE_METHODS
@@ -45,9 +57,9 @@ struct CPoolSwapMessage {
         READWRITE(from);
         READWRITE(VARINT(idTokenFrom.v));
         READWRITE(amountFrom);
-        READWRITE(maxPrice);
         READWRITE(to);
         READWRITE(VARINT(idTokenTo.v));
+        READWRITE(maxPrice);
     }
 };
 
@@ -73,7 +85,7 @@ class CPoolPair : public CPoolPairMessage
 {
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
-    static const CAmount PRECISION = COIN; // or just PRECISION_BITS for "<<" and ">>"
+    static const uint32_t PRECISION = (uint32_t) COIN; // or just PRECISION_BITS for "<<" and ">>"
     CPoolPair(CPoolPairMessage const & msg = {})
         : CPoolPairMessage(msg)
         , reserveA(0)
@@ -97,19 +109,18 @@ public:
     uint256 creationTx;
     uint32_t creationHeight;
 
-    ResVal<CPoolPair> Create(CPoolPairMessage const & msg);     // or smth else
-
     // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
     // otherwise, 'AddLiquidity' should be () external to 'CPairPool' (i.e. CPoolPairView::AddLiquidity(TAmount a,b etc) with internal lookup of pool by TAmount a,b)
-    Res AddLiquidity(CAmount const & amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript to, CAmount liqAmount)> onMint, uint32_t height) {
-        assert(amountA > 0);
-        assert(amountB > 0);
+    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint) {
+        // instead of assertion due to tests
+        if (amountA <= 0 || amountB <= 0) {
+            return Res::Err("amounts should be positive");
+        }
 
-        CAmount liquidity;
-
+        CAmount liquidity{0};
         if (totalLiquidity == 0) {
             liquidity = (CAmount) (arith_uint256(amountA) * arith_uint256(amountB)).sqrt().GetLow64(); // sure this is below std::numeric_limits<CAmount>::max() due to sqrt natue
-            if (liquidity < MINIMUM_LIQUIDITY)
+            if (liquidity <= MINIMUM_LIQUIDITY) // ensure that it'll be non-zero
                 return Res::Err("liquidity too low");
             liquidity -= MINIMUM_LIQUIDITY;
             // MINIMUM_LIQUIDITY is a hack for non-zero division
@@ -118,45 +129,62 @@ public:
             CAmount liqA = (arith_uint256(amountA) * arith_uint256(totalLiquidity) / reserveA).GetLow64();
             CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
             liquidity = std::min(liqA, liqB);
+            if (liquidity == 0)
+                return Res::Err("amounts too low, zero liquidity");
         }
-        onMint(shareAddress, liquidity); // deps: totalLiquidity(RW)
 
-        {
-            auto resA = SafeAdd(reserveA, amountA);
-            auto resB = SafeAdd(reserveB, amountB);
-            if (resA.ok && resB.ok) {
-                reserveA = *resA.val;
-                reserveB = *resB.val;
-            } else {
-                return Res::Err("Overflow when adding to reserves");
-            }
+        // increasing totalLiquidity
+        auto resTotal = SafeAdd(totalLiquidity, liquidity);
+        if (!resTotal.ok) {
+            return Res::Err("can't add %d to totalLiquidity: %s", liquidity, resTotal.msg);
         }
-        return Res::Ok();
+        totalLiquidity = *resTotal.val;
+
+        // increasing reserves
+        auto resA = SafeAdd(reserveA, amountA);
+        auto resB = SafeAdd(reserveB, amountB);
+        if (resA.ok && resB.ok) {
+            reserveA = *resA.val;
+            reserveB = *resB.val;
+        } else {
+            return Res::Err("overflow when adding to reserves");
+        }
+
+        return onMint(shareAddress, liquidity);
     }
 
-    Res RemoveLiquidity(CScript const & address, CAmount const & liqAmount, std::function<Res(CScript to, CAmount amountA, CAmount amountB)> onBurn, uint32_t height) {
+    Res RemoveLiquidity(CScript const & address, CAmount const & liqAmount, std::function<Res(CScript to, CAmount amountA, CAmount amountB)> onReclaim) {
+        // instead of assertion due to tests
+        // IRL it can't be more than "total-1000", and was checked indirectly by balances before. but for tests and incapsulation:
+        if (liqAmount <= 0 || liqAmount >= totalLiquidity) {
+            return Res::Err("incorrect liquidity");
+        }
 
         CAmount resAmountA, resAmountB;
-
         resAmountA = (arith_uint256(liqAmount) * arith_uint256(reserveA) / totalLiquidity).GetLow64();
         resAmountB = (arith_uint256(liqAmount) * arith_uint256(reserveB) / totalLiquidity).GetLow64();
 
-        auto res = onBurn(address, resAmountA, resAmountB);
-        if (!res.ok) {
-            return Res::Err("Removing liquidity: %s", res.msg);
-        }
-
-        reserveA -= resAmountA;
+        reserveA -= resAmountA; // safe due to previous math
         reserveB -= resAmountB;
         totalLiquidity -= liqAmount;
 
-        return Res::Ok();
+        return onReclaim(address, resAmountA, resAmountB);
     }
 
-    Res Swap(CTokenAmount in, CAmount maxPrice, std::function<Res(CTokenAmount const &)> onTransfer);
+    Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer);
 
 private:
-    CAmount slopeSwap(arith_uint256 unswapped, CAmount & poolFrom, CAmount & poolTo);
+    CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo);
+
+    inline void ioProofer() const { // may be it's more reasonable to use unsigned everywhere, but for basic CAmount compatibility
+        if (reserveA < 0 || reserveB < 0 ||
+            totalLiquidity < 0 ||
+            blockCommissionA < 0 || blockCommissionB < 0 ||
+            rewardPct < 0 || commission < 0
+            ) {
+            throw std::ios_base::failure("negative pool's 'CAmounts'");
+        }
+    }
 
 public:
 
@@ -164,6 +192,8 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (!ser_action.ForRead()) ioProofer();
+
         READWRITEAS(CPoolPairMessage, *this);
         READWRITE(reserveA);
         READWRITE(reserveB);
@@ -174,6 +204,8 @@ public:
         READWRITE(swapEvent);
         READWRITE(creationTx);
         READWRITE(creationHeight);
+
+        if (ser_action.ForRead()) ioProofer();
     }
 };
 
@@ -323,6 +355,5 @@ struct CRemoveLiquidityMessage {
         READWRITE(amount);
     }
 };
-
 
 #endif // DEFI_MASTERNODES_POOLPAIRS_H

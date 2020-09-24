@@ -69,7 +69,7 @@ boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const 
     return {};
 }
 
-Res CPoolPair::Swap(CTokenAmount in, CAmount maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer) {
+Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer) {
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB) {
         throw std::runtime_error("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
     }
@@ -83,12 +83,13 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount maxPrice, std::function<Res (const 
 
     auto aReserveA = arith_uint256(reserveA);
     auto aReserveB = arith_uint256(reserveB);
-    static const auto aPRECISION = arith_uint256(PRECISION);
 
-    CAmount priceAB = (aReserveA * aPRECISION / aReserveB).GetLow64(); /// @todo check overflow
-    CAmount priceBA = (aReserveB * aPRECISION / aReserveA).GetLow64();
-    CAmount price = forward ? priceBA : priceAB;
-    maxPrice = maxPrice > 0 ? maxPrice : price + (price * 3 / 100); // current +3%
+    arith_uint256 maxPrice256 = arith_uint256(maxPrice.integer) * PRECISION + maxPrice.fraction;
+    arith_uint256 priceAB = (aReserveA * PRECISION / aReserveB);
+    arith_uint256 priceBA = (aReserveB * PRECISION / aReserveA);
+    arith_uint256 curPrice = forward ? priceBA : priceAB;
+    if (curPrice > maxPrice256)
+        return Res::Err("Price is higher than indicated.");
 
     // claim trading fee
     if (commission) {
@@ -102,26 +103,28 @@ Res CPoolPair::Swap(CTokenAmount in, CAmount maxPrice, std::function<Res (const 
         }
     }
     CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB) : slopeSwap(in.nValue, reserveB, reserveA);
-    CAmount realPrice = (arith_uint256(result) * aPRECISION / arith_uint256(in.nValue)).GetLow64(); /// @todo check overflow
-    if (realPrice > maxPrice)
-        return Res::Err("Price higher than indicated.");
+//    CAmount realPrice = (arith_uint256(result) * aPRECISION / arith_uint256(in.nValue)).GetLow64(); /// @todo check overflow
+//    if (realPrice > maxPrice)
+//        return Res::Err("Price higher than indicated.");
 
     swapEvent = true; // (!!!)
 
     return onTransfer({ forward ? idTokenB : idTokenA, result });
 }
 
-CAmount CPoolPair::slopeSwap(arith_uint256 unswapped, CAmount &poolFrom, CAmount &poolTo) {
+CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo) {
     assert (unswapped >= 0 && poolFrom > 0 && poolTo > 0);
     arith_uint256 poolF = arith_uint256(poolFrom);
     arith_uint256 poolT = arith_uint256(poolTo);
     arith_uint256 swapped = 0;
+    CAmount chunk = poolFrom/1000 < unswapped && poolFrom/1000 != 0 ? poolFrom/1000 : unswapped;
     while (unswapped > 0) {
         //arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
-        arith_uint256 stepFrom = poolF/1000 > unswapped ? unswapped : poolF/1000;
+        CAmount stepFrom = std::min(chunk, unswapped); // poolF/1000 > unswapped ? unswapped : poolF/1000;
+        arith_uint256 stepFrom256(stepFrom);
         //CAmount stepTo = poolTo * stepFrom / poolFrom;
-        arith_uint256 stepTo = poolT * stepFrom / poolF;
-        poolF += stepFrom;
+        arith_uint256 stepTo = poolT * stepFrom256 / poolF;
+        poolF += stepFrom256;
         poolT -= stepTo;
         unswapped -= stepFrom;
         swapped += stepTo;

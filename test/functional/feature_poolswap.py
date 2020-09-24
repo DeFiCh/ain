@@ -95,7 +95,7 @@ class PoolPairTest (DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Lack of liquidity" in errorString)
+        assert("Pool is empty!" in errorString)
 
         #list_pool = self.nodes[0].listpoolpairs()
         #print (list_pool)
@@ -188,7 +188,7 @@ class PoolPairTest (DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Price higher than indicated." in errorString)
+        assert("Price is higher than indicated." in errorString)
 
         # REVERTING:
         #========================

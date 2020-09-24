@@ -117,7 +117,7 @@ Res CTokensView::CreateDFIToken()
     return Res::Ok();
 }
 
-Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
+ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
 {
     // this should not happen, but for sure
     if (GetTokenByCreationTx(token.creationTx)) {
@@ -147,7 +147,7 @@ Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
     WriteBy<ID>(WrapVarInt(id.v), token);
     WriteBy<Symbol>(symbolKey, WrapVarInt(id.v));
     WriteBy<CreationTx>(token.creationTx, WrapVarInt(id.v));
-    return Res::Ok();
+    return {id, Res::Ok()};
 }
 
 bool CTokensView::RevertCreateToken(const uint256 & txid)
