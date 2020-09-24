@@ -36,7 +36,7 @@ class PoolSwapTest (DefiTestFramework):
         self.DECIMAL = 100000000
         self.TOTALDISTRIBUTED = 0
         self.LP_DAILY_DFI_REWARD = 35.5
-        
+
         self.tokens = []
         self.accounts = []
         self.pools = []
@@ -158,8 +158,8 @@ class PoolSwapTest (DefiTestFramework):
                     self.nodes[0].addpoolliquidity({
                         self.accounts[idx]: [amountA, amountB]
                     }, self.accounts[idx], [])
-                    
-                    print("add liquidity " + amountA + " | " + amountB)
+
+                    #print("add liquidity " + amountA + " | " + amountB)
                 self.nodes[0].generate(1)
 
     def slope_swap(self, unswapped, poolFrom, poolTo):
@@ -206,7 +206,6 @@ class PoolSwapTest (DefiTestFramework):
                 newReserveB = 0
 
                 #print(self.nodes[0].getbalances())
-                #print(self.nodes[0].getbalances()['mine']['trusted'])
                 for idx in range(start, end):
                     amountsA[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenA)]
                     amountsB[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)]
@@ -217,7 +216,7 @@ class PoolSwapTest (DefiTestFramework):
                         "to": self.accounts[idx],
                         "tokenTo": str(self.get_id_token(tokenA)),
                     }, [])
-                    print("swap " + hash + "|" + str(amount))
+                    #print("swap " + hash + "|" + str(amount))
                 self.nodes[0].generate(1)
 
                 for idx in range(start, end):
@@ -238,14 +237,15 @@ class PoolSwapTest (DefiTestFramework):
                     newReserveB = reserveB
                     assert_equal(amountsB[idx] - amount + (feeB / self.DECIMAL), self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
 
-                    yieldFarming = int(self.LP_DAILY_DFI_REWARD * self.DECIMAL) / 2880
+                    yieldFarming = int(self.LP_DAILY_DFI_REWARD * self.DECIMAL) / (60 * 60 * 24 / 600) # TODO 600
                     rewardPct = self.nodes[0].getpoolpair(pool, True)[idPool]['rewardPct']
+                    assert(rewardPct > 0)
                     poolReward = yieldFarming * int(rewardPct * self.DECIMAL)
 
                     if poolReward:
-                        providerReward = poolReward * liqWeight
+                        providerReward = poolReward * liqWeight / 10000
                         if providerReward:
-                            self.TOTALDISTRIBUTED += (providerReward / self.DECIMAL);
+                            self.TOTALDISTRIBUTED += (int(providerReward / self.DECIMAL) / self.DECIMAL);
 
                 reserveA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA']
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
@@ -254,7 +254,7 @@ class PoolSwapTest (DefiTestFramework):
 
                 #print(self.TOTALDISTRIBUTED)
                 #print(self.nodes[0].getbalances())
-                #print(self.nodes[0].getbalances()['mine']['trusted'])
+                #print(self.nodes[0].listcommunitybalances())
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -297,7 +297,6 @@ class PoolSwapTest (DefiTestFramework):
         print("Adding liquidity...")
         self.add_pools_liquidity(owner)
         for pool in self.pools:
-            #print(self.nodes[0].getpoolpair(pool, True))
             idPool = list(self.nodes[0].getpoolpair(pool, True).keys())[0]
 
             idTokenA = self.nodes[0].getpoolpair(pool, True)[idPool]['idTokenA']
