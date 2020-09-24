@@ -205,6 +205,7 @@ class PoolSwapTest (DefiTestFramework):
                 newReserveA = 0
                 newReserveB = 0
 
+                input("TEXT TEST")
                 #print(self.nodes[0].getbalances())
                 for idx in range(start, end):
                     amountsA[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenA)]
@@ -220,6 +221,7 @@ class PoolSwapTest (DefiTestFramework):
                 self.nodes[0].generate(1)
 
                 for idx in range(start, end):
+                    print(self.nodes[0].getaccount(self.accounts[idx], {}, True))
                     liquidity = self.nodes[0].getaccount(self.accounts[idx], {}, True)[idPool]
                     totalLiquidity = self.nodes[0].getpoolpair(pool, True)[idPool]['totalLiquidity']
                     liqWeight = int(liquidity * self.DECIMAL) * 10000 // int(totalLiquidity * self.DECIMAL)
@@ -240,12 +242,12 @@ class PoolSwapTest (DefiTestFramework):
                     yieldFarming = int(self.LP_DAILY_DFI_REWARD * self.DECIMAL) / (60 * 60 * 24 / 600) # TODO 600
                     rewardPct = self.nodes[0].getpoolpair(pool, True)[idPool]['rewardPct']
                     assert(rewardPct > 0)
-                    poolReward = yieldFarming * int(rewardPct * self.DECIMAL)
+                    poolReward = yieldFarming * int(rewardPct * self.DECIMAL) / self.DECIMAL
 
                     if poolReward:
                         providerReward = poolReward * liqWeight / 10000
                         if providerReward:
-                            self.TOTALDISTRIBUTED += (int(providerReward / self.DECIMAL) / self.DECIMAL);
+                            self.TOTALDISTRIBUTED += providerReward / self.DECIMAL;
 
                 reserveA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA']
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
@@ -255,6 +257,7 @@ class PoolSwapTest (DefiTestFramework):
                 #print(self.TOTALDISTRIBUTED)
                 #print(self.nodes[0].getbalances())
                 #print(self.nodes[0].listcommunitybalances())
+                #print(self.nodes[0].getblockchaininfo())
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
