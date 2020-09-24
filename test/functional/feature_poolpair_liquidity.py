@@ -16,7 +16,7 @@ from test_framework.util import assert_equal, \
 
 from decimal import Decimal, ROUND_DOWN
 
-from pprint import pprint;
+from pprint import pprint
 
 def make_rounded_decimal(value) :
     return Decimal(value).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
