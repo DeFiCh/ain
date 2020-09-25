@@ -6,7 +6,6 @@
 #include <masternodes/balances.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/res.h>
-#include <masternodes/balances.h>
 
 #include <arith_uint256.h>
 #include <chainparams.h>
@@ -399,12 +398,12 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
 
         auto token = mnview.GetToken(kv.first);
         if (!token) {
-            throw Res::Err("%s: token %s does not exist!", tokenId.ToString());
+            return Res::Err("%s: token %s does not exist!", tokenId.ToString());
         }
 
         auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
         if (tokenImpl.destructionTx != uint256{}) {
-            throw Res::Err("%s: token %s already destroyed at height %i by tx %s", base, tokenImpl.symbol,
+            return Res::Err("%s: token %s already destroyed at height %i by tx %s", base, tokenImpl.symbol,
                                          tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex());
         }
         const Coin& auth = coins.AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
@@ -420,7 +419,7 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
     return Res::Ok(base);
 }
 
-Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t /*height*/, std::vector<unsigned char> const & metadata)
 {
     // deserialize
     CLiquidityMessage msg;
@@ -437,16 +436,15 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         return Res::Err("%s: the pool pair requires two tokens", base);
     }
 
-//    DCT_ID tokenIdA = sumTx.balances.begin()->first;
-//    DCT_ID tokenIdB = std::next(sumTx.balances.begin(), 1)->first;
-
     std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
     std::pair<DCT_ID, CAmount> amountB = *(std::next(sumTx.balances.begin(), 1));
 
-    if (amountA.first == amountB.first) {
-        return Res::Err("%s: tokens IDs are the same", base);
-    }
+    // guaranteed by sumTx.balances.size() == 2
+//    if (amountA.first == amountB.first) {
+//        return Res::Err("%s: tokens IDs are the same", base);
+//    }
 
+    // checked internally too. remove here?
     if (amountA.second <= 0 || amountB.second <= 0) {
         return Res::Err("%s: amount cannot be less than or equal to zero", base);
     }
@@ -478,13 +476,6 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         std::swap(amountA, amountB);
 
     const auto res = pool.AddLiquidity(amountA.second, amountB.second, msg.shareAddress, [&] /*onMint*/(CScript to, CAmount liqAmount) {
-        if (liqAmount <= 0)
-            throw runtime_error("Trying to mint " + std::to_string(liqAmount)+ " of poolpair token #" + lpTokenID.ToString() + " for account " + to.GetHex());
-
-        auto resTotal = SafeAdd(pool.totalLiquidity, liqAmount);
-        if (resTotal.ok) {
-            pool.totalLiquidity = *resTotal.val;
-        }
 
         auto add = mnview.AddBalance(to, { lpTokenID, liqAmount });
         if (!add.ok) {
@@ -498,7 +489,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         }
 
         return Res::Ok();
-    }, height);
+    });
 
     if (!res.ok) {
         return Res::Err("%s: %s", base, res.msg);
@@ -521,6 +512,7 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
     CScript from = msg.from;
     CTokenAmount amount = msg.amount;
 
+    // checked internally too. remove here?
     if (amount.nValue <= 0) {
         return Res::Err("%s: amount cannot be less than or equal to zero", base);
     }
@@ -565,7 +557,7 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
         }
 
         return Res::Ok();
-    }, height);
+    });
 
     if (!res.ok) {
         return Res::Err("%s: %s", base, res.msg);
@@ -744,12 +736,12 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 
     auto tokenA = mnview.GetToken(poolPairMsg.idTokenA);
     if (!tokenA) {
-        throw Res::Err("%s: token %s does not exist!", poolPairMsg.idTokenA.ToString());
+        return Res::Err("%s: token %s does not exist!", poolPairMsg.idTokenA.ToString());
     }
 
     auto tokenB = mnview.GetToken(poolPairMsg.idTokenB);
     if (!tokenB) {
-        throw Res::Err("%s: token %s does not exist!", poolPairMsg.idTokenB.ToString());
+        return Res::Err("%s: token %s does not exist!", poolPairMsg.idTokenB.ToString());
     }
 
     if(pairSymbol.empty())
@@ -771,7 +763,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     //auto pairToken = mnview.GetToken(token.symbol);
     auto pairToken = mnview.GetTokenByCreationTx(token.creationTx);
     if (!pairToken) {
-        throw Res::Err("%s: token %s does not exist!", base, token.symbol);
+        return Res::Err("%s: token %s does not exist!", base, token.symbol);
     }
 
     auto resPP = mnview.SetPoolPair(pairToken->first, poolPair);
@@ -785,7 +777,6 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata)
 {
     CPoolSwapMessage poolSwapMsg;
-    std::string pairSymbol;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> poolSwapMsg;
     if (!ss.empty()) {
@@ -799,19 +790,19 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
     }
 
-    auto tokenFrom = mnview.GetToken(poolSwapMsg.idTokenFrom);
-    if (!tokenFrom) {
-        throw Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenFrom.ToString());
-    }
+//    auto tokenFrom = mnview.GetToken(poolSwapMsg.idTokenFrom);
+//    if (!tokenFrom) {
+//        return Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenFrom.ToString());
+//    }
 
-    auto tokenTo = mnview.GetToken(poolSwapMsg.idTokenTo);
-    if (!tokenTo) {
-        throw Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenTo.ToString());
-    }
+//    auto tokenTo = mnview.GetToken(poolSwapMsg.idTokenTo);
+//    if (!tokenTo) {
+//        return Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenTo.ToString());
+//    }
 
     auto poolPair = mnview.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
     if (!poolPair) {
-        throw Res::Err("%s: didn't find the poolpair!", base);
+        return Res::Err("%s: can't find the poolpair!", base);
     }
 
     CPoolPair pp = poolPair->second;

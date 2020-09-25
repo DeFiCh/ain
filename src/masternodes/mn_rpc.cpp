@@ -2139,7 +2139,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
-    CPoolSwapMessage poolSwapMsg = {};
+    CPoolSwapMessage poolSwapMsg{};
     std::string tokenFrom, tokenTo;
     UniValue metadataObj = request.params[0].get_obj();
     if (!metadataObj["from"].isNull()) {
@@ -2157,19 +2157,52 @@ UniValue poolswap(const JSONRPCRequest& request) {
     if (!metadataObj["tokenTo"].isNull()) {
         tokenTo = metadataObj["tokenTo"].getValStr();
     }
-    if (!metadataObj["maxPrice"].isNull()) {
-        poolSwapMsg.maxPrice = AmountFromValue(metadataObj["maxPrice"]);
-    }
-
     {
         LOCK(cs_main);
         auto token = pcustomcsview->GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
         if (!token)
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenFrom was not found");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenFrom was not found");
 
         auto token2 = pcustomcsview->GetTokenGuessId(tokenTo, poolSwapMsg.idTokenTo);
         if (!token2)
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenTo was not found");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenTo was not found");
+
+        if (!metadataObj["maxPrice"].isNull()) {
+            CAmount maxPrice = AmountFromValue(metadataObj["maxPrice"]);
+            poolSwapMsg.maxPrice.integer = maxPrice / COIN;
+            poolSwapMsg.maxPrice.fraction = maxPrice % COIN;
+        }
+        else {
+            // This is only for maxPrice calculation
+
+            auto poolPair = pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+            if (!poolPair) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Can't find the poolpair " + tokenFrom + "-" + tokenTo);
+            }
+            CPoolPair const & pool = poolPair->second;
+            if (pool.totalLiquidity <= CPoolPair::MINIMUM_LIQUIDITY) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Pool is empty!");
+            }
+
+            auto resA = pool.reserveA;
+            auto resB = pool.reserveB;
+            if (poolSwapMsg.idTokenFrom != pool.idTokenA) {
+                std::swap(resA, resB);
+            }
+            arith_uint256 price256 = arith_uint256(resB) * CPoolPair::PRECISION / arith_uint256(resA);
+            price256 += price256 * 3 / 100; // +3%
+            // this should not happen IRL, but for sure:
+            if (price256 / CPoolPair::PRECISION > std::numeric_limits<int64_t>::max()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Current price +3% overflow!");
+            }
+            auto priceInt = price256 / CPoolPair::PRECISION;
+            poolSwapMsg.maxPrice.integer = priceInt.GetLow64();
+            poolSwapMsg.maxPrice.fraction = (price256 - priceInt * CPoolPair::PRECISION).GetLow64(); // cause there is no operator "%"
+
+            // price w/o +3% - cant overflow
+    //        price.integer = pool.reserveB / pool.reserveA;
+    //        price.fraction = (arith_uint256(pool.reserveB % pool.reserveA) * CPoolPair::PRECISION / arith_uint256(pool.reserveA)).GetLow64(); // sure < PRECISION
+        }
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

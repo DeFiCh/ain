@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <masternodes/govvariables/LP_DAILY_DFI_REWARD.h>
+#include <masternodes/govvariables/lp_daily_dfi_reward.h>
 
 #include <core_io.h> /// ValueFromAmount
 #include <rpc/util.h> /// AmountFromValue

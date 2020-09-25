@@ -10,7 +10,6 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
@@ -200,13 +199,14 @@ class PoolSwapTest (DefiTestFramework):
                 amountsB = {}
                 reserveA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA']
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
-                newReserveA = 0
+                # newReserveA = 0
                 newReserveB = 0
 
                 for idx in range(start, end):
                     amountsA[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenA)]
                     amountsB[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)]
-                    hash = self.nodes[0].poolswap({
+                    # hash =
+                    self.nodes[0].poolswap({
                         "from": self.accounts[idx],
                         "tokenFrom": self.get_id_token(tokenB),
                         "amountFrom": amount,
@@ -229,7 +229,7 @@ class PoolSwapTest (DefiTestFramework):
                     feeB /= Decimal(self.COUNT_ACCOUNT / 2) # Divide by the number of accounts
 
                     (reserveB, reserveA) = self.slope_swap(Decimal(amount - (amount * self.COMMISSION)), reserveB, reserveA)
-                    newReserveA = reserveA
+                    # newReserveA = reserveA
                     newReserveB = reserveB
                     assert_equal(amountsB[idx] - amount + (feeB / self.DECIMAL), self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
 
@@ -241,7 +241,7 @@ class PoolSwapTest (DefiTestFramework):
                     if poolReward:
                         providerReward = poolReward * liqWeight / 10000
                         if providerReward:
-                            self.TOTALDISTRIBUTED += providerReward / self.DECIMAL;
+                            self.TOTALDISTRIBUTED += providerReward / self.DECIMAL
 
                 reserveA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA']
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']

@@ -123,7 +123,7 @@ public:
     void ForEachToken(std::function<bool(DCT_ID const & id, CToken const & token)> callback, DCT_ID const & start = DCT_ID{0});
 
     Res CreateDFIToken();
-    Res CreateToken(CTokenImpl const & token);
+    ResVal<DCT_ID> CreateToken(CTokenImpl const & token);
     bool RevertCreateToken(uint256 const & txid);
     Res UpdateToken(uint256 const & tokenTx);
     Res DestroyToken(uint256 const & tokenTx, uint256 const & txid, int height);
