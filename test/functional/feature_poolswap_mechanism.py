@@ -271,7 +271,7 @@ class PoolSwapTest (DefiTestFramework):
 
         print("Generating pools...")
         self.create_pools(owner)
-        assert_equal(len(self.nodes[0].listtokens({}, False)), self.COUNT_POOLS * 3)
+        assert_equal(len(self.nodes[0].listtokens({}, False)), self.COUNT_POOLS * 4)
         assert_equal(len(self.nodes[0].listpoolpairs({}, False)), self.COUNT_POOLS)
         print("Generate " + str(self.COUNT_POOLS) + " pools and " + str(self.COUNT_POOLS * 2) + " tokens")
 
