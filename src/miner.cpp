@@ -273,8 +273,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 pcustomcsview->SetFoundationsDebt(pcustomcsview->GetFoundationsDebt() - foundationsReward);
             }
         }
-
-        LogPrintf("CreateNewBlock(): pre AMK logic, foundation share %d\n", coinbaseTx.vout[1].nValue);
     }
 
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
