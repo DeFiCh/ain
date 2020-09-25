@@ -26,7 +26,6 @@ class TokensBasicTest (DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50'],
             ['-txnotokens=0', '-amkheight=50']]
 
-
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
@@ -55,7 +54,7 @@ class TokensBasicTest (DefiTestFramework):
 
         # Fail to create: use # in symbol
         try:
-            self.nodes[0].createtoken( {
+            self.nodes[0].createtoken({
                 "symbol": "GOLD#1",
                 "name": "shiny gold",
                 "collateralAddress": collateral0
@@ -126,11 +125,11 @@ class TokensBasicTest (DefiTestFramework):
         assert("collateral-locked," in errorString)
 
         # Create new GOLD token
-        newGoldTx = self.nodes[0].createtoken([], {
+        newGoldTx = self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
             "collateralAddress": collateral0
-        })
+        }, [])
         self.nodes[0].generate(1)
 
         # Get token by SYMBOL#ID

@@ -157,23 +157,23 @@ class TokensBasicTest (DefiTestFramework):
 
         # 9 Fail to create: there can be only one DAT token
         try:
-            self.nodes[0].createtoken([], {
+            self.nodes[0].createtoken({
                 "symbol": "TEST",
                 "name": "TEST token",
                 "isDAT": True,
                 "collateralAddress": collateral0
-            })
+            }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("already exists" in errorString)
 
         # 10 Fail to update
-        self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken({
             "symbol": "TEST",
             "name": "TEST token copy",
             "isDAT": False,
             "collateralAddress": collateral0
-        })
+        }, [])
 
         self.nodes[0].generate(1)
 
@@ -184,7 +184,7 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(tokens['129']["isDAT"], False)
 
         try:
-            self.nodes[0].updatetoken([], {"token": "TEST#129", "isDAT": True})
+            self.nodes[0].updatetoken({"token": "TEST#129", "isDAT": True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("already exists" in errorString)

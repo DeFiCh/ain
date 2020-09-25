@@ -95,7 +95,7 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], self.nodes[1].getaccount(toGold, {}, True)[idGold])
 
         # transfer between nodes
-        self.nodes[1].accounttoaccount(accountSilver, {toSilver: "100@" + symbolSILVER, [])
+        self.nodes[1].accounttoaccount(accountSilver, {toSilver: "100@" + symbolSILVER}, [])
         self.nodes[1].generate(1)
 
         assert_equal(self.nodes[1].getaccount(accountSilver, {}, True)[idSilver], initialSilver - 100)
@@ -177,10 +177,14 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert("Can't find any UTXO" in errorString)
 
         # transfer
-        self.nodes[0].accounttoutxos(accountGold, {accountGold: "100@" + symbolGOLD}, [])
-        self.nodes[0].generate(1)
+        try:
+            self.nodes[0].accounttoutxos(accountGold, {accountGold: "100@" + symbolGOLD}, [])
+            self.nodes[0].generate(1)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("AccountToUtxos only available for DFI transactions" in errorString)
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 200)
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], self.nodes[1].getaccount(accountGold, {}, True)[idGold])
 
         # REVERTING:
@@ -195,7 +199,7 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
-        assert_equal(len(self.nodes[0].getrawmempool()), 5) # 5 txs
+        assert_equal(len(self.nodes[0].getrawmempool()), 4) # 5 txs
 
 
 if __name__ == '__main__':

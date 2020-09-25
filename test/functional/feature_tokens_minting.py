@@ -10,6 +10,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 
+from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal
 
 class TokensMintingTest (DefiTestFramework):
@@ -76,28 +77,14 @@ class TokensMintingTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        self.nodes[0].accounttoutxos(collateralGold, { self.nodes[0].getnewaddress("", "legacy"): "100@" + symbolGold, alienMintAddr: "200@" + symbolGold}, [])
-        self.nodes[0].accounttoutxos(collateralSilver, { self.nodes[0].getnewaddress("", "legacy"): "1000@" + symbolSilver, alienMintAddr: "2000@" + symbolSilver}, [])
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        assert_equal(self.nodes[0].getbalances(True)['mine']['trusted'][str(idGold)], 100)
-        assert_equal(self.nodes[1].getbalances(True)['mine']['trusted'][str(idGold)], 200)
-        assert_equal(self.nodes[0].getbalances(True)['mine']['trusted'][str(idSilver)], 1000)
-        assert_equal(self.nodes[1].getbalances(True)['mine']['trusted'][str(idSilver)], 2000)
-
-        print ("Check 'sendmany' for tokens")
-        alienSendAddr = self.nodes[1].getnewaddress("", "legacy")
-        # check sending of different tokens on same address
-        self.nodes[0].sendmany("", { alienSendAddr : [ str(10) + "@" + symbolGold, str(20) + "@" + symbolSilver] })
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        assert_equal(self.nodes[0].getbalances(True)['mine']['trusted'][str(idGold)], 90)
-        assert_equal(self.nodes[0].getbalances(True)['mine']['trusted'][str(idSilver)], 980)
-        assert_equal(self.nodes[1].getbalances(True)['mine']['trusted'][str(idGold)], 210)
-        assert_equal(self.nodes[1].getbalances(True)['mine']['trusted'][str(idSilver)], 2020)
-
+        try:
+            self.nodes[0].accounttoutxos(collateralGold, { self.nodes[0].getnewaddress("", "legacy"): "100@" + symbolGold, alienMintAddr: "200@" + symbolGold}, [])
+            self.nodes[0].accounttoutxos(collateralSilver, { self.nodes[0].getnewaddress("", "legacy"): "1000@" + symbolSilver, alienMintAddr: "2000@" + symbolSilver}, [])
+            self.nodes[0].generate(1)
+            self.sync_blocks()
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("AccountToUtxos only available for DFI transactions" in errorString)
 
 if __name__ == '__main__':
     TokensMintingTest ().main ()

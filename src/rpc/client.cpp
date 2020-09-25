@@ -184,7 +184,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "destroytoken", 1, "inputs" },
     { "listtokens", 0, "pagination" },
     { "listtokens", 1, "verbose" },
-    { "gettoken", 0, "key" },
     { "minttokens", 1, "inputs"},
     { "utxostoaccount", 0, "amounts" },
     { "utxostoaccount", 1, "inputs" },
