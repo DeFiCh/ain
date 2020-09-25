@@ -349,7 +349,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
         symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
         symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
-    
+
         self.nodes[0].minttokens("1000@" + symbolGOLD, [])
         self.nodes[1].minttokens("2000@" + symbolSILVER, [])
 

@@ -111,7 +111,6 @@ class TokensForkTest (DefiTestFramework):
 
         # print(self.nodes[0].listunspent())
 
-        alienMintAddr = self.nodes[1].getnewaddress("", "legacy")
         self.nodes[0].minttokens("300@" + symbolGold, [])
         self.nodes[0].minttokens("3000@" + symbolSilver, [])
         self.nodes[0].generate(1)
