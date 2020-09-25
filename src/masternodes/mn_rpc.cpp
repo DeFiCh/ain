@@ -400,14 +400,15 @@ UniValue listmasternodes(const JSONRPCRequest& request) {
     // parse pagination
     size_t limit = 100;
     uint256 start = {};
+    bool including_start = true;
     {
         if (request.params.size() > 0) {
-            bool including_start = false;
             UniValue paginationObj = request.params[0].get_obj();
             if (!paginationObj["limit"].isNull()) {
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
+                including_start = false;
                 start = ParseHashV(paginationObj["start"], "start");
             }
             if (!paginationObj["including_start"].isNull()) {
@@ -487,14 +488,15 @@ UniValue listcriminalproofs(const JSONRPCRequest& request) {
     // parse pagination
     size_t limit = 100;
     uint256 start = {};
+    bool including_start = true;
     {
         if (request.params.size() > 0) {
-            bool including_start = false;
             UniValue paginationObj = request.params[0].get_obj();
             if (!paginationObj["limit"].isNull()) {
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
+                including_start = false;
                 start = ParseHashV(paginationObj["start"], "start");
             }
             if (!paginationObj["including_start"].isNull()) {
@@ -934,14 +936,15 @@ UniValue listtokens(const JSONRPCRequest& request) {
     // parse pagination
     size_t limit = 100;
     DCT_ID start{0};
+    bool including_start = true;
     {
         if (request.params.size() > 0) {
-            bool including_start = false;
             UniValue paginationObj = request.params[0].get_obj();
             if (!paginationObj["limit"].isNull()) {
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
+                including_start = false;
                 start.v = (uint32_t) paginationObj["start"].get_int();
             }
             if (!paginationObj["including_start"].isNull()) {
@@ -1200,14 +1203,15 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     // parse pagination
     size_t limit = 100;
     BalanceKey start = {};
+    bool including_start = true;
     {
         if (request.params.size() > 0) {
-            bool including_start = false;
             UniValue paginationObj = request.params[0].get_obj();
             if (!paginationObj["limit"].isNull()) {
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
+                including_start = false;
                 start = decodeBalanceKey(paginationObj["start"].get_str());
             }
             if (!paginationObj["including_start"].isNull()) {
@@ -1278,14 +1282,15 @@ UniValue getaccount(const JSONRPCRequest& request) {
     // parse pagination
     size_t limit = 100;
     DCT_ID start = {};
+    bool including_start = true;
     {
         if (request.params.size() > 1) {
-            bool including_start = false;
             UniValue paginationObj = request.params[1].get_obj();
             if (!paginationObj["limit"].isNull()) {
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
+                including_start = false;
                 start.v = (uint32_t) paginationObj["start"].get_int64();
             }
             if (!paginationObj["including_start"].isNull()) {
@@ -1402,14 +1407,15 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
     // parse pagination
     size_t limit = 100;
     DCT_ID start{0};
+    bool including_start = true;
     {
         if (request.params.size() > 0) {
-            bool including_start = false;
             UniValue paginationObj = request.params[0].get_obj();
             if (!paginationObj["limit"].isNull()) {
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
+                including_start = false;
                 start.v = (uint32_t) paginationObj["start"].get_int();
             }
             if (!paginationObj["including_start"].isNull()) {
@@ -2287,14 +2293,15 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
     // parse pagination
     size_t limit = 100;
     DCT_ID start{0};
+    bool including_start = true;
     {
         if (request.params.size() > 0) {
-            bool including_start = false;
             UniValue paginationObj = request.params[0].get_obj();
             if (!paginationObj["limit"].isNull()) {
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
+                including_start = false;
                 start.v = (uint32_t) paginationObj["start"].get_int();
             }
             if (!paginationObj["including_start"].isNull()) {
