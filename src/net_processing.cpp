@@ -3169,10 +3169,6 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             return true;
         }
 
-        if (::ChainActive().Height() < Params().GetConsensus().AMKHeight) {
-            vRecv.SetVersion(vRecv.GetVersion() | SERIALIZE_TRANSACTION_NO_TOKENS);
-        }
-
         std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
         vRecv >> *pblock;
 
