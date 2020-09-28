@@ -85,6 +85,7 @@ class CPoolPair : public CPoolPairMessage
 {
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
+    static const CAmount SLOPE_SWAP_RATE = 1000;
     static const uint32_t PRECISION = (uint32_t) COIN; // or just PRECISION_BITS for "<<" and ">>"
     CPoolPair(CPoolPairMessage const & msg = {})
         : CPoolPairMessage(msg)
@@ -257,7 +258,7 @@ public:
             CAmount distributedFeeA = 0;
             CAmount distributedFeeB = 0;
 
-            if (!pool.swapEvent && poolReward == 0) {
+            if (!pool.swapEvent && (poolReward == 0 || pool.totalLiquidity == 0)) {
                 return true; // no events, skip to the next pool
             }
 
