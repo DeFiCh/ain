@@ -15,6 +15,7 @@ from test_framework.util import assert_equal, \
 
 import random
 import time
+import math
 from decimal import Decimal
 
 class PoolSwapTest (DefiTestFramework):
@@ -29,7 +30,7 @@ class PoolSwapTest (DefiTestFramework):
         # SET parameters for create tokens and pools
         #========================
         self.COUNT_POOLS = 1     # 10
-        self.COUNT_ACCOUNT = 2   # 1000
+        self.COUNT_ACCOUNT = 10  # 1000
         self.COMMISSION = 0.001
         self.AMOUNT_TOKEN = 1000
         self.DECIMAL = 100000000
@@ -176,12 +177,15 @@ class PoolSwapTest (DefiTestFramework):
                 amountsB = {}
                 reserveA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA']
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
+                commission = self.nodes[0].getpoolpair(pool, True)[idPool]['commission']
                 newReserveB = 0
                 poolRewards = {}
+                blockCommissionB = 0
 
                 for idx in range(start, end):
                     poolRewards[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)['0']
                     amountsB[idx] = self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)]
+                    blockCommissionB += (amount * self.DECIMAL) * (commission * self.DECIMAL) / self.DECIMAL / self.DECIMAL
                     self.nodes[0].poolswap({
                         "from": self.accounts[idx],
                         "tokenFrom": self.get_id_token(tokenB),
@@ -196,14 +200,9 @@ class PoolSwapTest (DefiTestFramework):
                     totalLiquidity = self.nodes[0].getpoolpair(pool, True)[idPool]['totalLiquidity']
                     liqWeight = int(liquidity * self.DECIMAL) * 10000 // int(totalLiquidity * self.DECIMAL)
                     assert(liqWeight < 10000)
-
-                    blockCommissionB = self.nodes[0].getpoolpair(pool, True)[idPool]['blockCommissionB']
-                    feeB = (int(blockCommissionB * self.DECIMAL) * liqWeight)
-                    feeB /= Decimal(self.COUNT_ACCOUNT / 2) # Divide by the number of accounts
-
+                    feeB = (int(blockCommissionB * self.DECIMAL) * liqWeight) / Decimal(10000)
                     (reserveB, reserveA) = self.slope_swap(Decimal(amount - (amount * self.COMMISSION)), reserveB, reserveA)
                     newReserveB = reserveB
-                    # TODO inaccuracy of calculations
                     assert_equal(amountsB[idx] - amount + (feeB / self.DECIMAL), self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
 
                     realPoolReward = self.nodes[0].getaccount(self.accounts[idx], {}, True)['0'] - poolRewards[idx]
@@ -216,8 +215,10 @@ class PoolSwapTest (DefiTestFramework):
                     if poolReward:
                         providerReward = poolReward * liqWeight / 10000
                         if providerReward:
-                            # TODO inaccuracy of calculations
-                            assert_equal(str(realPoolReward), str(int(providerReward) / self.DECIMAL))
+                            (d, n) = math.modf(providerReward)
+                            if math.ceil(d) < 1:
+                                providerReward -= 1
+                            assert_equal(str(int(realPoolReward * self.DECIMAL)), str(int(providerReward)))
 
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
                 assert_equal(str(reserveB), format(newReserveB, '.8f'))
