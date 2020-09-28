@@ -78,7 +78,8 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
 
     bool const forward = in.nTokenId == idTokenA;
 
-    if (reserveA <= 0 || reserveB <= 0)
+    // it is important that reserves are at least SLOPE_SWAP_RATE (1000) to be able to slide, otherwise it can lead to underflow
+    if (reserveA < SLOPE_SWAP_RATE || reserveB < SLOPE_SWAP_RATE)
         return Res::Err("Lack of liquidity.");
 
     auto aReserveA = arith_uint256(reserveA);
@@ -102,6 +103,11 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
             blockCommissionB += tradeFee;
         }
     }
+    auto checkRes = forward ? SafeAdd(reserveA, in.nValue) : SafeAdd(reserveB, in.nValue);
+    if (!checkRes.ok) {
+        return Res::Err("Swapping will lead to pool's reserve overflow");
+    }
+
     CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB) : slopeSwap(in.nValue, reserveB, reserveA);
 //    CAmount realPrice = (arith_uint256(result) * aPRECISION / arith_uint256(in.nValue)).GetLow64(); /// @todo check overflow
 //    if (realPrice > maxPrice)
@@ -113,16 +119,17 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
 }
 
 CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo) {
-    assert (unswapped >= 0 && poolFrom > 0 && poolTo > 0);
+    assert (unswapped >= 0 && poolFrom >= SLOPE_SWAP_RATE && poolTo >= SLOPE_SWAP_RATE);
+    assert (SafeAdd(unswapped, poolFrom).ok);
+
     arith_uint256 poolF = arith_uint256(poolFrom);
     arith_uint256 poolT = arith_uint256(poolTo);
     arith_uint256 swapped = 0;
-    CAmount chunk = poolFrom/1000 < unswapped && poolFrom/1000 != 0 ? poolFrom/1000 : unswapped;
+    CAmount chunk = poolFrom/SLOPE_SWAP_RATE < unswapped ? poolFrom/SLOPE_SWAP_RATE : unswapped;
     while (unswapped > 0) {
         //arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
-        CAmount stepFrom = std::min(chunk, unswapped); // poolF/1000 > unswapped ? unswapped : poolF/1000;
+        CAmount stepFrom = std::min(chunk, unswapped);
         arith_uint256 stepFrom256(stepFrom);
-        //CAmount stepTo = poolTo * stepFrom / poolFrom;
         arith_uint256 stepTo = poolT * stepFrom256 / poolF;
         poolF += stepFrom256;
         poolT -= stepTo;

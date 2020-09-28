@@ -1344,17 +1344,18 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
         poolObj.pushKV("commission", ValueFromAmount(pool.commission));
         poolObj.pushKV("totalLiquidity", ValueFromAmount(pool.totalLiquidity));
 
-        if (pool.reserveB <= 0) {
+        if (pool.reserveB == 0) {
             poolObj.pushKV("reserveA/reserveB", "0");
         } else {
             poolObj.pushKV("reserveA/reserveB", ValueFromAmount((arith_uint256(pool.reserveA) * arith_uint256(COIN) / pool.reserveB).GetLow64()));
         }
 
-        if (pool.reserveA <= 0) {
+        if (pool.reserveA == 0) {
             poolObj.pushKV("reserveB/reserveA", "0");
         } else {
             poolObj.pushKV("reserveB/reserveA", ValueFromAmount((arith_uint256(pool.reserveB) * arith_uint256(COIN) / pool.reserveA).GetLow64()));
         }
+        poolObj.pushKV("tradeEbabled", pool.reserveA >= CPoolPair::SLOPE_SWAP_RATE && pool.reserveB >= CPoolPair::SLOPE_SWAP_RATE);
 
         poolObj.pushKV("ownerAddress", pool.ownerAddress.GetHex()); /// @todo replace with ScriptPubKeyToUniv()
 
