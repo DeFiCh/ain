@@ -671,106 +671,6 @@ UniValue createtoken(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
-UniValue destroytoken(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
-
-    RPCHelpMan{"destroytoken",
-               "\nCreates (and submits to local node and network) a transaction destroying your token. Collateral will be unlocked.\n"
-               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                    {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol, id or creation tx"},
-                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects. Provide it if you want to spent specific UTXOs",
-                        {
-                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                {
-                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                },
-                            },
-                        },
-                    },
-               },
-               RPCResult{
-                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("destroytoken", "\"symbol\"")
-                       + HelpExampleCli("destroytoken", "\"symbol\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                       + HelpExampleRpc("destroytoken", "\"symbol\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-               },
-    }.Check(request);
-
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot destroy token while still in Initial Block Download");
-    }
-    pwallet->BlockUntilSyncedToCurrentChain();
-
-    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
-        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
-    }
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR}, true);
-
-    std::string const tokenStr = trim_ws(request.params[0].getValStr());
-    UniValue txInputs = request.params[1];
-    if (txInputs.isNull())
-    {
-        txInputs.setArray();
-    }
-    CTxDestination ownerDest;
-    uint256 creationTx{};
-    {
-        LOCK(cs_main);
-        DCT_ID id;
-        auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
-        if (!token) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
-        }
-        if (id < CTokensView::DCT_ID_START) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is a 'stable coin'", tokenStr));
-        }
-        LOCK(pwallet->cs_wallet);
-        auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
-        auto wtx = pwallet->GetWalletTx(tokenImpl.creationTx);
-        if (!wtx || !ExtractDestination(wtx->tx->vout[1].scriptPubKey, ownerDest)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER,
-                               strprintf("Can't extract destination for token's %s collateral", tokenStr));
-        }
-        creationTx = tokenImpl.creationTx;
-    }
-
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
-    CMutableTransaction rawTx(txVersion);
-
-    rawTx.vin = GetAuthInputs(pwallet, ownerDest, txInputs.get_array());
-
-    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::DestroyToken)
-             << creationTx;
-
-    CScript scriptMeta;
-    scriptMeta << OP_RETURN << ToByteVector(metadata);
-
-    rawTx.vout.push_back(CTxOut(0, scriptMeta));
-
-    rawTx = fund(rawTx, request, pwallet);
-
-    // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyDestroyTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, creationTx}));
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
-    }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
-}
-
 UniValue updatetoken(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -1694,7 +1594,6 @@ static const CRPCCommand commands[] =
     {"masternodes", "getmasternode",      &getmasternode,      {"mn_id"}},
     {"masternodes", "listcriminalproofs", &listcriminalproofs, {}},
     {"tokens",      "createtoken",        &createtoken,        {"metadata", "inputs"}},
-    {"tokens",      "destroytoken",       &destroytoken,       {"token", "inputs"}},
     {"tokens",      "updatetoken",        &updatetoken,        {"metadata", "inputs"}},
     {"tokens",      "listtokens",         &listtokens,         {"pagination", "verbose"}},
     {"tokens",      "gettoken",           &gettoken,           {"key" }},

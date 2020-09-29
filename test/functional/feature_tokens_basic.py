@@ -124,44 +124,6 @@ class TokensBasicTest (DefiTestFramework):
             errorString = e.error['message']
         assert("collateral-locked," in errorString)
 
-        # Create new GOLD token
-        newGoldTx = self.nodes[0].createtoken({
-            "symbol": "GOLD",
-            "name": "shiny gold",
-            "collateralAddress": collateral0
-        }, [])
-        self.nodes[0].generate(1)
-
-        # Get token by SYMBOL#ID
-        t129 = self.nodes[0].gettoken("GOLD#129")
-        assert_equal(t129['129']['symbol'], "GOLD")
-        assert_equal(self.nodes[0].gettoken("GOLD#129"), t129)
-
-        # RESIGNING:
-        #========================
-        # Try to resign w/o auth (no money on auth/collateral address)
-        try:
-            self.nodes[0].destroytoken("GOLD#128", [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Can't find any UTXO's" in errorString)
-
-        # Funding auth address for resigning
-        fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
-        self.nodes[0].generate(1)
-
-        print ("Destroy token...")
-        destroyTx = self.nodes[0].destroytoken("GOLD#128", [])
-        self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], destroyTx)
-
-        # Try to mint destroyed token ('minting' is not the task of current test, but let's check it here)
-        try:
-            self.nodes[0].minttokens("100@GOLD#128", [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("already destroyed" in errorString)
-
         # Spend unlocked collateral
         # This checks two cases at once:
         # 1) Finally, we should not fail on accept to mempool

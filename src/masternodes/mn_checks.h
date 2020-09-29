@@ -35,7 +35,6 @@ enum class CustomTxType : unsigned char
     // custom tokens:
     CreateToken         = 'T',
     MintToken           = 'M',
-    DestroyToken        = 'D',
     UpdateToken         = 'N',
     // dex orders - just not to overlap in future
 //    CreateOrder         = 'O',
@@ -83,7 +82,6 @@ Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uin
 Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 
 Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
-Res ApplyDestroyTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
 

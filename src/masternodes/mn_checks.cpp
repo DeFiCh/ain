@@ -141,10 +141,6 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyCreateTokenTx(mnview, coins, tx, height, metadata);
                 break;
-            case CustomTxType::DestroyToken:
-                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
-                res = ApplyDestroyTokenTx(mnview, coins, tx, height, metadata);
-                break;
             case CustomTxType::UpdateToken:
                 if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyUpdateTokenTx(mnview, coins, tx, height, metadata);
@@ -302,30 +298,6 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }
 
-    return Res::Ok(base);
-}
-
-Res ApplyDestroyTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
-{
-    const std::string base{"Token destruction"};
-
-    if (metadata.size() != sizeof(uint256)) {
-        return Res::Err("%s: metadata must contain 32 bytes", base);
-    }
-    uint256 tokenTx(metadata);
-    auto pair = mnview.GetTokenByCreationTx(tokenTx);
-    if (!pair) {
-        return Res::Err("%s: token with creationTx %s does not exist", base, tokenTx.ToString());
-    }
-    CTokenImplementation const & token = pair->second;
-    if (!HasCollateralAuth(tx, coins, token.creationTx)) {
-        return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
-    }
-
-    auto res = mnview.DestroyToken(token.creationTx, tx.GetHash(), height);
-    if (!res.ok) {
-        return Res::Err("%s %s: %s", base, token.symbol, res.msg);
-    }
     return Res::Ok(base);
 }
 
