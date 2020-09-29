@@ -126,17 +126,17 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
 
     DCT_ID id{0};
     if(token.IsDAT()) {
+        if (GetToken(token.symbol)) {
+            return Res::Err("token '%s' already exists!", token.symbol);
+        }
         ForEachToken([&](DCT_ID const& currentId, CToken const& token) {
             if(currentId < DCT_ID_START)
                 id.v = currentId.v + 1;
             return currentId < DCT_ID_START;
         }, id);
-        if(id == DCT_ID_START) {
-            LogPrintf("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n");
-            assert (false);
-        }
-        if (GetToken(token.symbol)) {
-            return Res::Err("token '%s' already exists!", token.symbol);
+        if (id == DCT_ID_START) {
+            id = IncrementLastDctId();
+            LogPrintf("Warning! Range <DCT_ID_START already filled. Using \"common\" id=%s for new token\n", id.ToString().c_str());
         }
     }
     else
@@ -150,6 +150,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
     return {id, Res::Ok()};
 }
 
+/// @deprecated used only by tests. rewrite tests
 bool CTokensView::RevertCreateToken(const uint256 & txid)
 {
     auto pair = GetTokenByCreationTx(txid);
@@ -171,6 +172,7 @@ bool CTokensView::RevertCreateToken(const uint256 & txid)
     return true;
 }
 
+/// @attention this method only triggers "DAT" flag. Enhance/rename/refactor (create new one?) for common token's updating
 Res CTokensView::UpdateToken(const uint256 &tokenTx)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
@@ -178,6 +180,11 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx)
         return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
     }
     CTokenImpl & tokenImpl = pair->second;
+
+    // additional check (one more in Apply*) - refactor?
+    if (tokenImpl.IsPoolShare()) {
+        return Res::Err("can't change DAT flag for LPS tokens", tokenTx.ToString()); // is it correct?
+    }
 
     std::string symbolKey = tokenImpl.symbol + "#" + std::to_string(pair->first.v);
     if (!tokenImpl.IsDAT()) {
@@ -216,6 +223,7 @@ Res CTokensView::DestroyToken(uint256 const & tokenTx, const uint256 & txid, int
     return Res::Ok();
 }
 
+/// @deprecated used only by tests. rewrite tests
 bool CTokensView::RevertDestroyToken(uint256 const & tokenTx, const uint256 & txid)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
@@ -246,6 +254,7 @@ DCT_ID CTokensView::IncrementLastDctId()
     return result;
 }
 
+/// @deprecated used only by "revert*". rewrite tests
 DCT_ID CTokensView::DecrementLastDctId()
 {
     auto lastDctId = ReadLastDctId();

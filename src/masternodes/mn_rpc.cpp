@@ -883,7 +883,9 @@ UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool real_symbols, b
         tokenObj.pushKV("mintable", token.IsMintable());
         tokenObj.pushKV("tradeable", token.IsTradeable());
         tokenObj.pushKV("isDAT", token.IsDAT());
-        if (id >= CTokensView::DCT_ID_START) {
+        tokenObj.pushKV("isLPS", token.IsPoolShare());
+        // now all tokens are created by txs (except DFI)
+//        if (id >= CTokensView::DCT_ID_START) {
             CTokenImplementation const& tokenImpl = static_cast<CTokenImplementation const&>(token);
             tokenObj.pushKV("creationTx", tokenImpl.creationTx.ToString());
             tokenObj.pushKV("creationHeight", tokenImpl.creationHeight);
@@ -891,7 +893,7 @@ UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool real_symbols, b
             tokenObj.pushKV("destructionHeight", tokenImpl.destructionHeight);
             /// @todo tokens: collateral address/script
 //            tokenObj.pushKV("collateralAddress", tokenImpl.destructionHeight);
-        }
+//        }
     }
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(id.ToString(), tokenObj);
@@ -1057,33 +1059,68 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
     // auth
     {
-        for (auto const & kv : minted.balances) {
-            if (kv.first < CTokensView::DCT_ID_START) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is a 'stable coin', can't mint stable coin", kv.first.ToString()));
-            }
-            CTxDestination ownerDest;
-            {
-                LOCK(cs_main);
-                auto token = pcustomcsview->GetToken(kv.first);
-                if (!token) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
+        if (!request.params[0].empty()) {
+            rawTx.vin = GetInputs(request.params[0].get_array());
+        }
+        else {
+            bool gotFoundersAuth = false;
+            for (auto const & kv : minted.balances) {
+                // DFI will be checked on "Apply*"
+    //            if (kv.first < CTokensView::DCT_ID_START) {
+    //                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is a 'stable coin', can't mint stable coin", kv.first.ToString()));
+    //            }
+
+                CTokenImplementation tokenImpl;
+                CTxDestination ownerDest;
+                {
+                    LOCK(cs_main);
+                    auto token = pcustomcsview->GetToken(kv.first);
+                    if (!token) {
+                        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
+                    }
+
+                    tokenImpl = static_cast<CTokenImplementation const& >(*token);
+                    // this (and the flags) will be checked on "Apply*"
+    //                if (tokenImpl.destructionTx != uint256{}) {
+    //                    throw JSONRPCError(RPC_INVALID_PARAMETER,
+    //                                       strprintf("Token %s already destroyed at height %i by tx %s", tokenImpl.symbol,
+    //                                                 tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex()));
+    //                }
+                    LOCK(pwallet->cs_wallet);
+                    auto wtx = pwallet->GetWalletTx(tokenImpl.creationTx);
+                    if (!wtx || !ExtractDestination(wtx->tx->vout[1].scriptPubKey, ownerDest)) {
+                        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                           strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
+                    }
                 }
 
-                auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
-                if (tokenImpl.destructionTx != uint256{}) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                       strprintf("Token %s already destroyed at height %i by tx %s", tokenImpl.symbol,
-                                                 tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex()));
+                // use different auth for DAT|nonDAT tokens:
+                // first, try to auth by exect owner
+                auto auths = GetAuthInputs(pwallet, ownerDest, UniValue());
+
+                if(tokenImpl.IsDAT() && auths.size() == 0 && !gotFoundersAuth) // try "founders auth" only if "common" fails:
+                {
+                    for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && auths.size() == 0; it++)
+                    {
+                        if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
+                        {
+                            CTxDestination destination;
+                            if (!ExtractDestination(*it, destination)) {
+                                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
+                            }
+                            try {
+                                auths = GetAuthInputs(pwallet, destination, request.params[0].get_array());
+                            }
+                            catch (const UniValue& objError) {}
+                        }
+                    }
+                    if(auths.size() == 0)
+                        throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
+                    gotFoundersAuth = true; // we need only one any utxo from founder
                 }
-                LOCK(pwallet->cs_wallet);
-                auto wtx = pwallet->GetWalletTx(tokenImpl.creationTx);
-                if (!wtx || !ExtractDestination(wtx->tx->vout[1].scriptPubKey, ownerDest)) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                       strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
-                }
+                rawTx.vin.insert(rawTx.vin.end(), auths.begin(), auths.end());
             }
-            rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[0].get_array());
-        }
+        } // else
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

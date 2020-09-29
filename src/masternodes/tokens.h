@@ -124,10 +124,10 @@ public:
 
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(CTokenImpl const & token);
-    bool RevertCreateToken(uint256 const & txid);
+    bool RevertCreateToken(uint256 const & txid);   /// @deprecated used only by tests. rewrite tests
     Res UpdateToken(uint256 const & tokenTx);
     Res DestroyToken(uint256 const & tokenTx, uint256 const & txid, int height);
-    bool RevertDestroyToken(uint256 const & tokenTx, uint256 const & txid);
+    bool RevertDestroyToken(uint256 const & tokenTx, uint256 const & txid); /// @deprecated used only by tests. rewrite tests
 
     // tags
     struct ID { static const unsigned char prefix; };
@@ -138,7 +138,7 @@ public:
 private:
     // have to incapsulate "last token id" related methods here
     DCT_ID IncrementLastDctId();
-    DCT_ID DecrementLastDctId();
+    DCT_ID DecrementLastDctId(); /// @deprecated used only by "revert*". rewrite tests
     boost::optional<DCT_ID> ReadLastDctId() const;
 };
 

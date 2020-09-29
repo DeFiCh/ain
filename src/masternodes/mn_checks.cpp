@@ -343,6 +343,7 @@ Res ApplyDestroyTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, C
     return Res::Ok(base);
 }
 
+/// @attention this method only triggers "DAT" flag. Enhance/refactor for common token's updating
 Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
 {
     const std::string base{"Token update"};
@@ -369,7 +370,8 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 
     /// @todo what about udating pool share tokens?
 
-    if(token.IsDAT() != isDAT && pair->first >= CTokensView::DCT_ID_START && !token.IsPoolShare())
+    /// @todo refactor/change logic!
+    if(token.IsDAT() != isDAT && !token.IsPoolShare())
     {
         auto res = mnview.UpdateToken(token.creationTx);
         if (!res.ok) {
@@ -393,8 +395,11 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
     // check auth and increase balance of token's owner
     for (auto const & kv : minted.balances) {
         DCT_ID tokenId = kv.first;
-        if (tokenId < CTokensView::DCT_ID_START)
-            return Res::Err("%s: token %s is a 'stable coin', can't mint stable coin!", base, tokenId.ToString());
+        // changed for minting DAT tokens to be able
+//        if (tokenId < CTokensView::DCT_ID_START)
+//            return Res::Err("%s: token %s is a 'stable coin', can't mint stable coin!", base, tokenId.ToString());
+        if (tokenId == DCT_ID{0})
+            return Res::Err("can't mint default DFI coin!", base, tokenId.ToString());
 
         auto token = mnview.GetToken(kv.first);
         if (!token) {
@@ -402,13 +407,27 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
         }
 
         auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
+        if (tokenImpl.IsPoolShare()) {
+            return Res::Err("can't mint LPS tokens!", base, tokenId.ToString());
+        }
+        // may be different logic with LPS, so, dedicated check:
+        if (!tokenImpl.IsMintable()) {
+            return Res::Err("%s: token not mintable!", tokenId.ToString());
+        }
         if (tokenImpl.destructionTx != uint256{}) {
             return Res::Err("%s: token %s already destroyed at height %i by tx %s", base, tokenImpl.symbol,
                                          tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex());
         }
+
         const Coin& auth = coins.AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
-        if (!HasAuth(tx, coins, auth.out.scriptPubKey)) {
-            return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
+        if (!HasAuth(tx, coins, auth.out.scriptPubKey)) { // in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
+            if (!tokenImpl.IsDAT())
+                return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
+
+            // additional way for IsDAT and founders:
+            if (!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
+                return Res::Err("%s: %s", base, "token is DAT and tx not from foundation member");
+            }
         }
         const auto res = mnview.AddBalance(auth.out.scriptPubKey, CTokenAmount{kv.first,kv.second});
         if (!res.ok) {
