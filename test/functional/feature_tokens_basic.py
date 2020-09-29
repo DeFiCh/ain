@@ -124,6 +124,32 @@ class TokensBasicTest (DefiTestFramework):
             errorString = e.error['message']
         assert("collateral-locked," in errorString)
 
+        # Create new GOLD token
+        newGoldTx = self.nodes[0].createtoken({
+            "symbol": "GOLD",
+            "name": "shiny gold",
+            "collateralAddress": collateral0
+        }, [])
+        self.nodes[0].generate(1)
+
+        # Get token by SYMBOL#ID
+        t129 = self.nodes[0].gettoken("GOLD#129")
+        assert_equal(t129['129']['symbol'], "GOLD")
+        assert_equal(self.nodes[0].gettoken("GOLD#129"), t129)
+
+        # RESIGNING:
+        #========================
+        # Try to resign w/o auth (no money on auth/collateral address)
+        try:
+            self.nodes[0].destroytoken("GOLD#128", [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Can't find any UTXO's" in errorString)
+
+        # Funding auth address for resigning
+        fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
+        self.nodes[0].generate(1)
+
         # Spend unlocked collateral
         # This checks two cases at once:
         # 1) Finally, we should not fail on accept to mempool
@@ -132,20 +158,10 @@ class TokensBasicTest (DefiTestFramework):
         # Don't mine here, check mempool after reorg!
         # self.nodes[0].generate(1)
 
-
-        # REVERTING:
-        #========================
-        print ("Reverting...")
-        # Revert token destruction!
-        self.start_node(1)
-        self.nodes[1].generate(5)
-        # Check that collateral spending tx is still in the mempool
-        assert_equal(sendedTxHash, self.nodes[0].getrawmempool()[0])
-
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_blocks(self.nodes[0:2])
 
-        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([fundingTx, destroyTx, newGoldTx]))
+        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([fundingTx, newGoldTx]))
         assert_equal(self.nodes[0].listtokens()['128']['destructionHeight'], -1)
         assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
 
@@ -156,7 +172,7 @@ class TokensBasicTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
         assert_equal(len(self.nodes[0].listtokens()), 1)
-        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([createTokenTx, fundingTx, destroyTx, newGoldTx]))
+        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([createTokenTx, fundingTx, newGoldTx]))
 
 if __name__ == '__main__':
     TokensBasicTest ().main ()
