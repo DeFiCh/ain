@@ -151,8 +151,8 @@ public:
         consensus.mn.anchoringFrequency = 15;
         consensus.mn.anchoringLag = 15;
 
-        consensus.token.creationFee = 1 * COIN;
-        consensus.token.collateralAmount = 1000 * COIN;
+        consensus.token.creationFee = 100 * COIN;
+        consensus.token.collateralAmount = 1 * COIN;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.anchorSubsidy = 0 * COIN;
@@ -166,10 +166,10 @@ public:
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
-         */        
+         */
         pchMessageStart[0] = 0xf9;
-        pchMessageStart[1] = 0xbe;	        
-        pchMessageStart[2] = 0xb4;	        
+        pchMessageStart[1] = 0xbe;
+        pchMessageStart[2] = 0xb4;
         pchMessageStart[3] = 0xd9;
         pchMessageStartPostAMK[0] = 0xe2;
         pchMessageStartPostAMK[1] = 0xaa;
@@ -300,6 +300,7 @@ public:
         consensus.mn.anchoringFrequency = 15;
         consensus.mn.anchoringLag = 15;
 
+        // TODO: update these to be the same as mainnet, i.e. 100 & 1
         consensus.token.creationFee = 1 * COIN;
         consensus.token.collateralAmount = 100 * COIN;
 
@@ -315,7 +316,7 @@ public:
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
         pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x09;
         pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x07;
-        
+
         nDefaultPort = 18555;
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
@@ -550,8 +551,8 @@ public:
         consensus.mn.anchoringFrequency = 15;
         consensus.mn.anchoringLag = 15;
 
-        consensus.token.creationFee = 1 * COIN;
-        consensus.token.collateralAmount = 10 * COIN;
+        consensus.token.creationFee = 100 * COIN;
+        consensus.token.collateralAmount = 1 * COIN;
 
         consensus.spv.creationFee = 1000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";
