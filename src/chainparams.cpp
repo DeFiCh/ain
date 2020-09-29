@@ -152,8 +152,8 @@ public:
         consensus.mn.anchoringFrequency = 15;
         consensus.mn.anchoringLag = 15;
 
-        consensus.token.creationFee = 1 * COIN;
-        consensus.token.collateralAmount = 1000 * COIN;
+        consensus.token.creationFee = 100 * COIN;
+        consensus.token.collateralAmount = 1 * COIN;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.anchorSubsidy = 0 * COIN;
@@ -307,8 +307,8 @@ public:
         consensus.mn.anchoringFrequency = 15;
         consensus.mn.anchoringLag = 15;
 
-        consensus.token.creationFee = 1 * COIN;
-        consensus.token.collateralAmount = 100 * COIN;
+        consensus.token.creationFee = 100 * COIN;
+        consensus.token.collateralAmount = 1 * COIN;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY";

@@ -121,8 +121,6 @@ public:
     Res CreateToken(CTokenImpl const & token);
     bool RevertCreateToken(uint256 const & txid);
     Res UpdateToken(uint256 const & tokenTx);
-    Res DestroyToken(uint256 const & tokenTx, uint256 const & txid, int height);
-    bool RevertDestroyToken(uint256 const & tokenTx, uint256 const & txid);
 
     // tags
     struct ID { static const unsigned char prefix; };
