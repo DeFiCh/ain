@@ -51,14 +51,6 @@ class TokensForkTest (DefiTestFramework):
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 1)
 
-        # Try to destroy token before AMK fork height but will fail:
-        #========================
-        try:
-            self.nodes[0].destroytoken("GOLD", [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("No tokenization transaction before block height" in errorString)
-
         # Try to mint token before AMK fork height but will fail:
         #========================
         try:
