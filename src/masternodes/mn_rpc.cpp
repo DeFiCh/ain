@@ -1079,7 +1079,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
     // auth
     {
-        if (!request.params[0].empty()) {
+        if (!txInputs.empty()) {
             rawTx.vin = GetInputs(txInputs);
         }
         else {
@@ -1116,7 +1116,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
                 // use different auth for DAT|nonDAT tokens:
                 // first, try to auth by exect owner
-                auto auths = GetAuthInputs(pwallet, ownerDest, UniValue());
+                auto auths = GetAuthInputs(pwallet, ownerDest, UniValue(UniValue::VARR));
 
                 if(tokenImpl.IsDAT() && auths.size() == 0 && !gotFoundersAuth) // try "founders auth" only if "common" fails:
                 {
@@ -1129,7 +1129,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
                                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
                             }
                             try {
-                                auths = GetAuthInputs(pwallet, destination, request.params[0].get_array());
+                                auths = GetAuthInputs(pwallet, destination, UniValue(UniValue::VARR));
                             }
                             catch (const UniValue& objError) {}
                         }
