@@ -78,6 +78,23 @@ static const CAmount COIN = 100000000;
 
 typedef std::map<DCT_ID, CAmount> TAmounts;
 
+inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
+    // check limits
+    if (_a < 0 || _b < 0) {
+        return Res::Err("negative amount");
+    }
+    // convert to unsigned, because signed overflow is UB
+    const uint64_t a = (uint64_t) _a;
+    const uint64_t b = (uint64_t) _b;
+
+    const uint64_t sum = a + b;
+    // check overflow
+    if ((sum - a) != b || ((uint64_t)std::numeric_limits<CAmount>::max()) < sum) {
+        return Res::Err("overflow");
+    }
+    return {(CAmount) sum, Res::Ok()};
+}
+
 struct CTokenAmount { // simple std::pair is less informative
     DCT_ID nTokenId;
     CAmount nValue;
@@ -118,24 +135,6 @@ struct CTokenAmount { // simple std::pair is less informative
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(VARINT(nTokenId.v));
         READWRITE(nValue);
-    }
-
-private:
-    static ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
-        // check limits
-        if (_a < 0 || _b < 0) {
-            return Res::Err("negative amount");
-        }
-        // convert to unsigned, because signed overflow is UB
-        const uint64_t a = (uint64_t) _a;
-        const uint64_t b = (uint64_t) _b;
-
-        const uint64_t sum = a + b;
-        // check overflow
-        if ((sum - a) != b || ((uint64_t)std::numeric_limits<CAmount>::max()) < sum) {
-            return Res::Err("overflow");
-        }
-        return {(CAmount) sum, Res::Ok()};
     }
 };
 

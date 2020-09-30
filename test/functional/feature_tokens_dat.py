@@ -21,7 +21,11 @@ class TokensBasicTest (DefiTestFramework):
         # node3: revert create (all)
         # node2: Non Foundation
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0'], ['-txnotokens=0'], ['-txnotokens=0'], ['-txnotokens=0']]
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=50'],
+            ['-txnotokens=0', '-amkheight=50'],
+            ['-txnotokens=0', '-amkheight=50'],
+            ['-txnotokens=0', '-amkheight=50']]
 
 
     def run_test(self):
@@ -94,19 +98,22 @@ class TokensBasicTest (DefiTestFramework):
 
         # 4 Trying to make it DAT not from Foundation
         try:
-            self.nodes[2].updatetoken({"token": "GOLD", "isDAT": True}, [])
+            self.nodes[2].updatetoken({"token": "GOLD#128", "isDAT": True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Incorrect Authorization" in errorString)
 
         # 5 Making token isDAT from Foundation
-        self.nodes[0].updatetoken({"token": "GOLD", "isDAT": True}, [])
+        self.nodes[0].updatetoken({"token": "GOLD#128", "isDAT": True}, [])
 
         self.nodes[0].generate(1)
         # Checks
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 3)
         assert_equal(tokens['128']["isDAT"], True)
+
+        # Get token
+        assert_equal(self.nodes[0].gettoken("GOLD")['128']["isDAT"], True)
 
         # 6 Checking after sync
         self.sync_blocks([self.nodes[0], self.nodes[2]])
@@ -124,6 +131,13 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(len(tokens), 3)
         assert_equal(tokens['128']["isDAT"], False)
 
+        # Fail get token
+        try:
+            self.nodes[0].gettoken("GOLD")
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Token not found" in errorString)
+
         self.nodes[0].generate(1)
 
         # 8 Creating DAT token
@@ -140,6 +154,41 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(len(tokens), 4)
         assert_equal(tokens['2']["isDAT"], True)
         assert_equal(tokens['2']["symbol"], "TEST")
+
+        # 9 Fail to create: there can be only one DAT token
+        try:
+            self.nodes[0].createtoken({
+                "symbol": "TEST",
+                "name": "TEST token",
+                "isDAT": True,
+                "collateralAddress": collateral0
+            }, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("already exists" in errorString)
+
+        # 10 Fail to update
+        self.nodes[0].createtoken({
+            "symbol": "TEST",
+            "name": "TEST token copy",
+            "isDAT": False,
+            "collateralAddress": collateral0
+        }, [])
+
+        self.nodes[0].generate(1)
+
+        tokens = self.nodes[0].listtokens()
+        assert_equal(len(tokens), 5)
+        assert_equal(tokens['129']["symbol"], "TEST")
+        assert_equal(tokens['129']["name"], "TEST token copy")
+        assert_equal(tokens['129']["isDAT"], False)
+
+        try:
+            self.nodes[0].updatetoken({"token": "TEST#129", "isDAT": True}, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("already exists" in errorString)
+
 
         # REVERTING:
         #========================

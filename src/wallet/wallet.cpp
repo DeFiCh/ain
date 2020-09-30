@@ -2438,8 +2438,8 @@ CWallet::Balance CWallet::GetBalance(const int min_depth, bool avoid_reuse) cons
             const CWalletTx& wtx = entry.second;
             const bool is_trusted{wtx.IsTrusted(*locked_chain)};
             const int tx_depth{wtx.GetDepthInMainChain(*locked_chain)};
-            const TAmounts tx_credit_mine{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ false, ISMINE_SPENDABLE | reuse_filter) }; /// @todo tokens: extend!
-            const TAmounts tx_credit_watchonly{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ false, ISMINE_WATCH_ONLY | reuse_filter) }; /// @todo tokens: extend!
+            const TAmounts tx_credit_mine{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ true, ISMINE_SPENDABLE | reuse_filter) }; /// @todo tokens: extend!
+            const TAmounts tx_credit_watchonly{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ true, ISMINE_WATCH_ONLY | reuse_filter) }; /// @todo tokens: extend!
             if (is_trusted && tx_depth >= min_depth) {
                 Increment(ret.m_mine_trusted, tx_credit_mine);
                 Increment(ret.m_watchonly_trusted, tx_credit_watchonly);
@@ -2966,13 +2966,11 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
     return m_default_address_type;
 }
 
-
 bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std::vector<CRecipient>& vecSendOrig, CTransactionRef& tx, CAmount& nFeeRet,
                          /*std::set<int>& nChangePosInOut*/ int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
 {
     CAmount nValue = 0;
     std::vector<CRecipient> vecSend(vecSendOrig);
-
 
     std::map<DCT_ID, CAmount> vTokenValues;
     ReserveDestination reservedest(this);
@@ -3004,7 +3002,8 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         return false;
     }
 
-    CMutableTransaction txNew;
+    const auto txVersion = GetTransactionVersion(locked_chain.getHeight().get_value_or(0));
+    CMutableTransaction txNew(txVersion);
 
     if (!vTokenValues.empty())
         txNew.nVersion = CTransaction::TOKENS_MIN_VERSION;
@@ -5076,4 +5075,9 @@ CKey GetWalletsKey(const CKeyID & keyid)
         key = CKey{};
     }
     return key;
+}
+
+int32_t GetTransactionVersion(int height)
+{
+    return height >= Params().GetConsensus().AMKHeight ? CTransaction::TOKENS_MIN_VERSION : CTransaction::TX_VERSION_2;
 }

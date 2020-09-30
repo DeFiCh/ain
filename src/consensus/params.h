@@ -7,6 +7,7 @@
 #define DEFI_CONSENSUS_PARAMS_H
 
 #include <amount.h>
+#include <masternodes/communityaccounttypes.h>
 #include <script/standard.h>
 #include <uint256.h>
 #include <limits>
@@ -69,6 +70,10 @@ struct Params {
      * Note that segwit v0 script rules are enforced on all blocks except the
      * BIP 16 exception blocks. */
     int SegwitHeight;
+    /** Block height at which tokens, liquidity pools and new block rewards becomes active */
+    int AMKHeight;
+    /** Foundation share after AMK, normalized to COIN = 100% */
+    CAmount foundationShareDFIP1;
 
     /** Proof of stake parameters */
     struct PoS {
@@ -127,6 +132,7 @@ struct Params {
     };
     SpvParams spv;
 
+    std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
 };
 } // namespace Consensus
 

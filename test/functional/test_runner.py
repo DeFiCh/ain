@@ -115,6 +115,7 @@ BASE_SCRIPTS = [
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
     'feature_fee_estimation.py',
+    'feature_dip1.py',
     'feature_anchors.py',
     'feature_anchor_rewards.py',
     'feature_anchorauths_pruning.py',
@@ -134,6 +135,7 @@ BASE_SCRIPTS = [
     'feature_tokens_minting.py',
     'feature_tokens_dat.py',
     'feature_accounts_n_utxos.py',
+    'feature_token_fork.py',
     'interface_rest.py',
     'mempool_spend_coinbase.py',
     'wallet_avoidreuse.py',

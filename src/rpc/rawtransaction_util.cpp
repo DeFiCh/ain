@@ -20,6 +20,8 @@
 #include <univalue.h>
 #include <util/rbf.h>
 #include <util/strencodings.h>
+#include <validation.h>
+#include <wallet/wallet.h>
 
 #include <string>
 
@@ -141,7 +143,7 @@ std::map<CScript, CBalances> DecodeRecipients(interfaces::Chain const & chain, U
     return recipients;
 }
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, interfaces::Chain const & chain)
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, interfaces::Chain & chain)
 {
     if (inputs_in.isNull() || outputs_in.isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, arguments 1 and 2 must be non-null");
@@ -150,7 +152,9 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
     const bool outputs_is_obj = outputs_in.isObject();
     UniValue outputs = outputs_is_obj ? outputs_in.get_obj() : outputs_in.get_array();
 
-    CMutableTransaction rawTx;
+    auto locked_chain = chain.lock();
+    const auto txVersion = GetTransactionVersion(locked_chain->getHeight().get_value_or(-1));
+    CMutableTransaction rawTx(txVersion);
 
     if (!locktime.isNull()) {
         int64_t nLockTime = locktime.get_int64();

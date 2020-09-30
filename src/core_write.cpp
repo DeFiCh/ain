@@ -223,6 +223,10 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToUniv(txout.scriptPubKey, o, true);
         out.pushKV("scriptPubKey", o);
+        // Start to print tokenId start from version TOKENS_MIN_VERSION
+        if (tx.nVersion >= CTransaction::TOKENS_MIN_VERSION) {
+            out.pushKV("tokenId", (uint64_t)txout.nTokenId.v);
+        }
         vout.push_back(out);
     }
     entry.pushKV("vout", vout);

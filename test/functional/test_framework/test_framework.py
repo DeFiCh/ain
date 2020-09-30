@@ -314,6 +314,12 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                 assert_equal(chain_info["blocks"], 200)
                 assert_equal(chain_info["initialblockdownload"], False)
 
+    def get_id_token(self, symbol):
+        list_tokens = self.nodes[0].listtokens()
+        for idx, token in list_tokens.items():
+            if (token["symbol"] == symbol):
+                return str(idx)
+
     def setup_tokens(self):
         # creates two tokens: GOLD for node#0 and SILVER for node1. Mint by 1000 for them
         assert(self.setup_clean_chain == True)
@@ -341,8 +347,12 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 3)
 
-        self.nodes[0].minttokens("1000@GOLD", [])
-        self.nodes[1].minttokens("2000@SILVER", [])
+        symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
+        symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
+
+        self.nodes[0].minttokens("1000@" + symbolGOLD, [])
+        self.nodes[1].minttokens("2000@" + symbolSILVER, [])
+
         self.sync_mempools()
         self.nodes[0].generate(1)
 

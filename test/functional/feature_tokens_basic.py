@@ -11,8 +11,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, \
-    connect_nodes_bi
+from test_framework.util import assert_equal
 
 class TokensBasicTest (DefiTestFramework):
     def set_test_params(self):
@@ -21,8 +20,10 @@ class TokensBasicTest (DefiTestFramework):
         # node1: revert of destroy
         # node2: revert create (all)
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0'], ['-txnotokens=0'], ['-txnotokens=0']]
-
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=50'],
+            ['-txnotokens=0', '-amkheight=50'],
+            ['-txnotokens=0', '-amkheight=50']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -48,8 +49,21 @@ class TokensBasicTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Insufficient funds" in errorString)
 
-        print ("Create token 'GOLD' (128)...")
         self.nodes[0].generate(1)
+
+        # Fail to create: use # in symbol
+        try:
+            self.nodes[0].createtoken({
+                "symbol": "GOLD#1",
+                "name": "shiny gold",
+                "collateralAddress": collateral0
+            }, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("token symbol must not contain '#'" in errorString)
+
+        print ("Create token 'GOLD' (128)...")
+
         createTokenTx = self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
@@ -89,8 +103,15 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(self.nodes[0].gettoken("DFI"), t0)
         t128 = self.nodes[0].gettoken(128)
         assert_equal(t128['128']['symbol'], "GOLD")
-        assert_equal(self.nodes[0].gettoken("GOLD"), t128)
+        assert_equal(self.nodes[0].gettoken("GOLD#128"), t128)
         assert_equal(self.nodes[0].gettoken(createTokenTx), t128)
+
+        # Token not found, because not DAT
+        try:
+            self.nodes[0].gettoken("GOLD")
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Token not found" in errorString)
 
         # Stop node #1 for future revert
         self.stop_node(1)
@@ -102,65 +123,26 @@ class TokensBasicTest (DefiTestFramework):
             errorString = e.error['message']
         assert("collateral-locked," in errorString)
 
+        # Create new GOLD token
+        self.nodes[0].createtoken({
+            "symbol": "GOLD",
+            "name": "shiny gold",
+            "collateralAddress": collateral0
+        }, [])
+        self.nodes[0].generate(1)
 
-        # RESIGNING:
-        #========================
-        # Try to resign w/o auth (no money on auth/collateral address)
-        try:
-            self.nodes[0].destroytoken("GOLD", [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Can't find any UTXO's" in errorString)
+        # Get token by SYMBOL#ID
+        t129 = self.nodes[0].gettoken("GOLD#129")
+        assert_equal(t129['129']['symbol'], "GOLD")
+        assert_equal(self.nodes[0].gettoken("GOLD#129"), t129)
 
         # Funding auth address for resigning
-        fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
+        self.nodes[0].sendtoaddress(collateral0, 1)
         self.nodes[0].generate(1)
 
-        print ("Destroy token...")
-        destroyTx = self.nodes[0].destroytoken("GOLD", [])
-        self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], destroyTx)
-
-        # Try to mint destroyed token ('minting' is not the task of current test, but let's check it here)
-        try:
-            self.nodes[0].minttokens("100@GOLD", [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("already destroyed" in errorString)
-
-        # Spend unlocked collateral
-        # This checks two cases at once:
-        # 1) Finally, we should not fail on accept to mempool
-        # 2) But we don't mine blocks after it, so, after chain reorg (on 'REVERTING'), we should not fail: tx should be removed from mempool!
-        sendedTxHash = self.nodes[0].sendrawtransaction(signedTx['hex'])
-        # Don't mine here, check mempool after reorg!
-        # self.nodes[0].generate(1)
-
-
-        # REVERTING:
-        #========================
-        print ("Reverting...")
-        # Revert token destruction!
-        self.start_node(1)
-        self.nodes[1].generate(5)
-        # Check that collateral spending tx is still in the mempool
-        assert_equal(sendedTxHash, self.nodes[0].getrawmempool()[0])
-
-        connect_nodes_bi(self.nodes, 0, 1)
-        self.sync_blocks(self.nodes[0:2])
-
-        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([fundingTx, destroyTx]))
+        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([]))
         assert_equal(self.nodes[0].listtokens()['128']['destructionHeight'], -1)
         assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
-
-        # Revert creation!
-        self.start_node(2)
-
-        self.nodes[2].generate(8)
-        connect_nodes_bi(self.nodes, 0, 2)
-        self.sync_blocks(self.nodes[0:3])
-        assert_equal(len(self.nodes[0].listtokens()), 1)
-        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([createTokenTx, fundingTx, destroyTx]))
 
 if __name__ == '__main__':
     TokensBasicTest ().main ()

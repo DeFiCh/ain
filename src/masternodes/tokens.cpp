@@ -41,6 +41,7 @@ boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetTo
 {
     DCT_ID id;
     auto varint = WrapVarInt(id.v);
+
     if (ReadBy<Symbol, std::string>(symbol, varint)) {
 //        assert(id >= DCT_ID_START);// ? not needed anymore?
         return { std::make_pair(id, std::move(GetToken(id)))};
@@ -118,9 +119,6 @@ Res CTokensView::CreateDFIToken()
 
 Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
 {
-    if (GetToken(token.symbol)) {
-        return Res::Err("token '%s' already exists!", token.symbol);
-    }
     // this should not happen, but for sure
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
@@ -137,12 +135,17 @@ Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
             LogPrintf("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n");
             assert (false);
         }
+        if (GetToken(token.symbol)) {
+            return Res::Err("token '%s' already exists!", token.symbol);
+        }
     }
     else
         id = IncrementLastDctId();
 
+    std::string symbolKey = token.symbol + (token.IsDAT() ? "" : "#" + std::to_string(id.v));
+
     WriteBy<ID>(WrapVarInt(id.v), token);
-    WriteBy<Symbol>(token.symbol, WrapVarInt(id.v));
+    WriteBy<Symbol>(symbolKey, WrapVarInt(id.v));
     WriteBy<CreationTx>(token.creationTx, WrapVarInt(id.v));
     return Res::Ok();
 }
@@ -175,48 +178,23 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx)
         return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
     }
     CTokenImpl & tokenImpl = pair->second;
+
+    std::string symbolKey = tokenImpl.symbol + "#" + std::to_string(pair->first.v);
+    if (!tokenImpl.IsDAT()) {
+        if (GetToken(tokenImpl.symbol)) {
+            return Res::Err("token '%s' already exists!", tokenImpl.symbol);
+        }
+        EraseBy<Symbol>(symbolKey);
+        WriteBy<Symbol>(tokenImpl.symbol, WrapVarInt(pair->first.v));
+    } else {
+        EraseBy<Symbol>(tokenImpl.symbol);
+        WriteBy<Symbol>(symbolKey, WrapVarInt(pair->first.v));
+    }
+
     tokenImpl.flags ^= (uint8_t)CToken::TokenFlags::isDAT;
 
     WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
     return Res::Ok();
-}
-
-Res CTokensView::DestroyToken(uint256 const & tokenTx, const uint256 & txid, int height)
-{
-    auto pair = GetTokenByCreationTx(tokenTx);
-    if (!pair) {
-        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
-    }
-    /// @todo token: check for token supply / utxos
-
-    CTokenImpl & tokenImpl = pair->second;
-    if (tokenImpl.destructionTx != uint256{}) {
-        return Res::Err("token with creationTx %s was already destroyed by tx %s!", tokenTx.ToString(), tokenImpl.destructionTx.ToString());
-    }
-
-    tokenImpl.destructionTx = txid;
-    tokenImpl.destructionHeight = height;
-    WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
-    return Res::Ok();
-}
-
-bool CTokensView::RevertDestroyToken(uint256 const & tokenTx, const uint256 & txid)
-{
-    auto pair = GetTokenByCreationTx(tokenTx);
-    if (!pair) {
-        LogPrintf("Token destruction revert error: token with creationTx %s does not exist!\n", tokenTx.ToString());
-        return false;
-    }
-    CTokenImpl & tokenImpl = pair->second;
-    if (tokenImpl.destructionTx != txid) {
-        LogPrintf("Token destruction revert error: token with creationTx %s was not destroyed by tx %s!\n", tokenTx.ToString(), txid.ToString());
-        return false;
-    }
-
-    tokenImpl.destructionTx = uint256{};
-    tokenImpl.destructionHeight = -1;
-    WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
-    return true;
 }
 
 DCT_ID CTokensView::IncrementLastDctId()

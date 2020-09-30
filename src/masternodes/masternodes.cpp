@@ -71,7 +71,6 @@ CAmount GetTokenCreationFee(int)
     return Params().GetConsensus().token.creationFee;
 }
 
-
 CMasternode::CMasternode()
     : mintedBlocks(0)
     , ownerAuthAddress()
@@ -437,6 +436,9 @@ void CAnchorRewardsView::ForEachAnchorReward(std::function<bool (const CAnchorRe
  */
 CTeamView::CTeam CCustomCSView::CalcNextTeam(const uint256 & stakeModifier)
 {
+    if (stakeModifier == uint256())
+        return Params().GetGenesisTeam();
+
     int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
@@ -488,7 +490,7 @@ void CCustomCSView::CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, c
     }
 
     auto prev = panchors->GetAnchorByTx(anchor.previousAnchor);
-    auto confirmMessage = CAnchorConfirmMessage::Create(anchor, prev? prev->anchor.height : 0, btcTxHash, masternodeKey);
+    auto confirmMessage = CAnchorConfirmMessage::CreateSigned(anchor, prev? prev->anchor.height : 0, btcTxHash, masternodeKey);
     if (panchorAwaitingConfirms->Add(confirmMessage)) {
         LogPrintf("AnchorConfirms::CreateAndRelayConfirmMessageIfNeed: Create message %s\n", confirmMessage.GetHash().GetHex());
         RelayAnchorConfirm(confirmMessage.GetHash(), *g_connman);

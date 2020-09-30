@@ -1119,16 +1119,6 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     return nSubsidy;
 }
 
-CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams)
-{
-    if (anchorHeight < prevAnchorHeight) {
-        return 0;
-    }
-
-    int period = anchorHeight - prevAnchorHeight;
-    return consensusParams.spv.anchorSubsidy + (period / consensusParams.spv.subsidyIncreasePeriod) * consensusParams.spv.subsidyIncreaseValue;
-}
-
 CoinsViews::CoinsViews(
     std::string ldb_name,
     size_t cache_size_bytes,
@@ -1616,33 +1606,23 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             if (IsAnchorRewardTx(tx, metadata)) {
                 LogPrintf("AnchorConfirms::DisconnectBlock(): disconnecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
                 CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                uint256 btcTxHash;
-                uint32_t anchorHeight;
-                uint32_t prevAnchorHeight;
-                CKeyID rewardKeyID;
-                char rewardKeyType;
-                CCustomCSView::CTeam currentTeam;
-                CCustomCSView::CTeam nextTeam;
-                std::vector<std::vector<unsigned char>> sigs;
+                CAnchorFinalizationMessage finMsg;
+                ss >> finMsg;
 
-                ss  >> btcTxHash
-                    >> anchorHeight
-                    >> prevAnchorHeight
-                    >> rewardKeyID
-                    >> rewardKeyType
-                    >> nextTeam
-                    >> currentTeam
-                    >> sigs;
+                mnview.SetTeam(finMsg.currentTeam);
 
-                mnview.SetTeam(currentTeam);
+                if (pindex->nHeight >= Params().GetConsensus().AMKHeight) {
+                    mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut()); // or just 'Set..'
+                    LogPrintf("CChainState::DisconnectBlock: post AMK logic, add community balance %d\n", tx.GetValueOut());
+                }
+                else { // pre-AMK logic:
+                    assert(mnview.GetFoundationsDebt() >= tx.GetValueOut());
+                    mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
+                }
+                mnview.RemoveRewardForAnchor(finMsg.btcTxHash);
 
-                assert(mnview.GetFoundationsDebt() >= tx.GetValueOut());
-
-                mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
-                mnview.RemoveRewardForAnchor(btcTxHash);
-
-                auto message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash);
-                for (auto && sig : sigs) {
+                CAnchorConfirmMessage message(static_cast<CAnchorConfirmData &>(finMsg));
+                for (auto && sig : finMsg.sigs) {
                     message.signature = sig;
                     disconnectedAnchorConfirms.push_back(message);
                 }
@@ -1846,6 +1826,50 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     return flags;
 }
 
+Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus)
+{
+    TAmounts const cbValues = tx.GetValuesOut();
+    CAmount blockReward = GetBlockSubsidy(height, consensus);
+    if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
+        return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
+
+    if (height >= consensus.AMKHeight) {
+        LogPrintf("ApplyGeneralCoinbaseTx() post AMK logic\n");
+        // check classic UTXO foundation share:
+        if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1 != 0) {
+            CAmount foundationReward = blockReward * consensus.foundationShareDFIP1 / COIN;
+            bool foundationsRewardfound = false;
+            for (auto txout : tx.vout) {
+                if (txout.scriptPubKey == consensus.foundationShareScript) {
+                    if (txout.nValue < foundationReward)
+                        return Res::ErrDbg("bad-cb-foundation-reward", "coinbase doesn't pay proper foundation reward! (actual=%d vs expected=%d", txout.nValue, foundationReward);
+
+                    foundationsRewardfound = true;
+                    break;
+                }
+            }
+            if (!foundationsRewardfound)
+                return Res::ErrDbg("bad-cb-foundation-reward", "coinbase doesn't pay foundation reward!");
+        }
+        // count and subtract for non-UTXO community rewards
+        CAmount nonUtxoTotal = 0;
+        for (auto kv : consensus.nonUtxoBlockSubsidies) {
+            CAmount subsidy = blockReward * kv.second / COIN;
+            Res res = mnview.AddCommunityBalance(kv.first, subsidy);
+            if (!res.ok) {
+                return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
+            }
+            nonUtxoTotal += subsidy;
+        }
+        blockReward -= nonUtxoTotal;
+    }
+
+    // pre-AMK logic, compatible after prev blockReward mod:
+    if (cbValues.at(DCT_ID{0}) > blockReward + nFees)
+        return Res::ErrDbg("bad-cb-amount", "coinbase pays too much (actual=%d vs limit=%d)", cbValues.at(DCT_ID{0}), blockReward + nFees);
+
+    return Res::Ok();
+}
 
 
 static int64_t nTimeCheck = 0;
@@ -2187,82 +2211,19 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     bannedCriminals.push_back(mnid);
                 }
             } else if (IsAnchorRewardTx(tx, metadata)) {
-                LogPrintf("AnchorConfirms::ConnectBlock(): connecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
-                CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-                uint256 btcTxHash;
-                uint32_t anchorHeight;
-                uint32_t prevAnchorHeight;
-                CKeyID rewardKeyID;
-                char rewardKeyType;
-                CCustomCSView::CTeam currentTeam;
-                CCustomCSView::CTeam nextTeam;
-                std::vector<std::vector<unsigned char>> sigs;
-
-                ss  >> btcTxHash
-                    >> anchorHeight
-                    >> prevAnchorHeight
-                    >> rewardKeyID
-                    >> rewardKeyType
-                    >> nextTeam
-                    >> currentTeam
-                    >> sigs;
-
-                auto rewardTx = mnview.GetRewardForAnchor(btcTxHash);
-                if (rewardTx) {
+                if (!fJustCheck) {
+                    LogPrintf("ConnectBlock(): connecting finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
+                }
+                ResVal<uint256> res = ApplyAnchorRewardTx(mnview, tx, pindex->nHeight, pindex->pprev ? pindex->pprev->stakeModifier : uint256(), metadata);
+                if (!res.ok) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): reward for anchor %s already exists (tx: %s)",
-                                               btcTxHash.ToString(), (*rewardTx).ToString()),
-                                               REJECT_INVALID, "bad-ar-exists");
+                                         error("ConnectBlock(): %s", res.msg),
+                                         REJECT_INVALID, res.dbgMsg);
                 }
-
-                CAnchorConfirmMessage message = CAnchorConfirmMessage::Create(anchorHeight, rewardKeyID, rewardKeyType, prevAnchorHeight, btcTxHash);
-                if (!message.CheckConfirmSigs(sigs, currentTeam)) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor signatures are incorrect"),
-                                               REJECT_INVALID, "bad-ar-sigs");
+                rewardedAnchors.push_back(*res.val);
+                if (!fJustCheck) {
+                    LogPrintf("ConnectBlock(): connected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
                 }
-
-                if (sigs.size() < GetMinAnchorQuorum(currentTeam)) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor sigs (%d) < min quorum (%) ",
-                                                 sigs.size(), GetMinAnchorQuorum(currentTeam)),
-                                         REJECT_INVALID, "bad-ar-sigs-quorum");
-                }
-
-                auto anchorReward = GetAnchorSubsidy(anchorHeight, prevAnchorHeight, chainparams.GetConsensus());
-                if (tx.GetValueOut() > anchorReward) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor pays too much (actual=%d vs limit=%d)",
-                                               tx.GetValueOut(), anchorReward),
-                                         REJECT_INVALID, "bad-ar-amount");
-                }
-
-                CTxDestination destination = rewardKeyType == 1 ? CTxDestination(PKHash(rewardKeyID)) : CTxDestination(WitnessV0KeyHash(rewardKeyID));
-                if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor pay destination is incorrect"),
-                                         REJECT_INVALID, "bad-ar-dest");
-                }
-
-                if (currentTeam != mnview.GetCurrentTeam()) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): anchor wrong current team"),
-                                         REJECT_INVALID, "bad-ar-curteam");
-                }
-
-                if (pindex->pprev) {
-                    if (nextTeam != mnview.CalcNextTeam(pindex->pprev->stakeModifier)) {
-                        return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                             error("ConnectBlock(): anchor wrong next team"),
-                                             REJECT_INVALID, "bad-ar-nextteam");
-                    }
-                }
-                mnview.SetTeam(nextTeam);
-                mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
-                mnview.AddRewardForAnchor(btcTxHash, tx.GetHash());
-                rewardedAnchors.push_back(btcTxHash);
-
-                LogPrintf("AnchorConfirms::ConnectBlock(): connected finalization tx: %s block: %d\n", tx.GetHash().GetHex(), block.height);
             }
         }
 
@@ -2275,17 +2236,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
-    TAmounts const cbValues = GetNonMintedValuesOut(*block.vtx[0]);
-    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
-    if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
+    // chek main coinbase
+    Res res = ApplyGeneralCoinbaseTx(mnview, *block.vtx[0], pindex->nHeight, nFees, chainparams.GetConsensus());
+    if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                         error("ConnectBlock(): coinbase should pay only Defi coins"),
-                               REJECT_INVALID, "bad-cb-wrong-tokens");
-    if (cbValues.at(DCT_ID{0}) > blockReward)
-        return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                         error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
-                               cbValues.at(DCT_ID{0}), blockReward),
-                               REJECT_INVALID, "bad-cb-amount");
+                             error("ConnectBlock(): %s", res.msg),
+                             REJECT_INVALID, res.dbgMsg);
+    }
 
     if (!control.Wait())
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: CheckQueue failed", __func__), REJECT_INVALID, "block-validation-failed");
@@ -4127,7 +4084,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
         LogPrintf("Anchor auth prepare, block: %d\n", anchorHeight);
 
         // trying to create and sign new auth
-        CAnchorAuthMessage auth(topAnchor ? topAnchor->txHash : uint256(), anchorHeight, anchorBlock->GetBlockHash(), pcustomcsview->CalcNextTeam(anchorBlock->stakeModifier));
+        CAnchorAuthMessage auth({topAnchor ? topAnchor->txHash : uint256(), static_cast<THeight>(anchorHeight), anchorBlock->GetBlockHash(), pcustomcsview->CalcNextTeam(anchorBlock->stakeModifier)});
         if (!panchorauths->GetVote(auth.GetSignHash(), operatorAuthAddress))
         {
             auth.SignWithKey(masternodekey);
