@@ -343,16 +343,15 @@ Res ApplyDestroyTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, C
     return Res::Ok(base);
 }
 
-/// @attention this method only triggers "DAT" flag. Enhance/refactor for common token's updating
 Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
 {
     const std::string base{"Token update"};
 
     uint256 tokenTx;
-    bool isDAT;
+    CToken newToken;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> tokenTx;
-    ss >> isDAT;
+    ss >> newToken;
     if (!ss.empty()) {
         return Res::Err("Token Update: deserialization failed: excess %d bytes", ss.size());
     }
@@ -361,22 +360,30 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     if (!pair) {
         return Res::Err("%s: token with creationTx %s does not exist", base, tokenTx.ToString());
     }
-    CTokenImplementation const & token = pair->second;
-
-    //check foundation auth
-    if (!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
-        return Res::Err("%s: %s", base, "tx not from foundation member");
+    if (pair->first == DCT_ID{0}) {
+        return Res::Err("Can't alter DFI token!");
     }
 
-    /// @todo what about udating pool share tokens?
+    CTokenImplementation const & token = pair->second;
 
-    /// @todo refactor/change logic!
-    if(token.IsDAT() != isDAT && !token.IsPoolShare())
-    {
-        auto res = mnview.UpdateToken(token.creationTx);
-        if (!res.ok) {
-            return Res::Err("%s %s: %s", base, token.symbol, res.msg);
-        }
+    // need to check it exectly here cause lps has no collateral auth (that checked next)
+    if (token.IsPoolShare())
+        return Res::Err("%s: token %s is the LPS token! Can't alter pool share's tokens!", base, tokenTx.ToString());
+
+    // check auth, depends from token's "origins"
+    const Coin& auth = coins.AccessCoin(COutPoint(token.creationTx, 1)); // always n=1 output
+    bool isFoundersToken = Params().GetConsensus().foundationMembers.find(auth.out.scriptPubKey) != Params().GetConsensus().foundationMembers.end();
+
+    if (isFoundersToken && !HasFoundationAuth(tx, coins, Params().GetConsensus())) {
+        return Res::Err("%s: %s", base, "tx not from foundation member");
+    }
+    else if (!HasCollateralAuth(tx, coins, token.creationTx)) {
+        return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
+    }
+
+    auto res = mnview.UpdateToken(token.creationTx, newToken);
+    if (!res.ok) {
+        return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }
     return Res::Ok(base);
 }

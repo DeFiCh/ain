@@ -125,7 +125,7 @@ public:
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(CTokenImpl const & token);
     bool RevertCreateToken(uint256 const & txid);   /// @deprecated used only by tests. rewrite tests
-    Res UpdateToken(uint256 const & tokenTx);
+    Res UpdateToken(uint256 const & tokenTx, CToken & newToken);
     Res DestroyToken(uint256 const & tokenTx, uint256 const & txid, int height);
     bool RevertDestroyToken(uint256 const & tokenTx, uint256 const & txid); /// @deprecated used only by tests. rewrite tests
 

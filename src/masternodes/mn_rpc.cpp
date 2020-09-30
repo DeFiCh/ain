@@ -723,13 +723,9 @@ UniValue destroytoken(const JSONRPCRequest& request) {
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
         }
-        if (id < CTokensView::DCT_ID_START) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is a 'stable coin'", tokenStr));
-        }
-        LOCK(pwallet->cs_wallet);
         auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
-        auto wtx = pwallet->GetWalletTx(tokenImpl.creationTx);
-        if (!wtx || !ExtractDestination(wtx->tx->vout[1].scriptPubKey, ownerDest)) {
+        const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
+        if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,
                                strprintf("Can't extract destination for token's %s collateral", tokenStr));
         }
@@ -772,10 +768,29 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol, id or creation tx"},
                     {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
-                           {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol, id or creation tx"},
-                           {"isDAT", RPCArg::Type::BOOL, RPCArg::Optional::NO, "Token's 'isDAT' new property (bool)"},
+                           {"symbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                            "New token's symbol, no longer than " +
+                            std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
+                           {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                            "New token's name (optional), no longer than " +
+                            std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
+                           {"isDAT", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                            "Token's 'isDAT' property (bool, optional), default is 'False'"},
+                           {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                            "Token's 'Mintable' property (bool, optional)"},
+                           {"tradeable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                            "Token's 'Tradeable' property (bool, optional)"},
+                           // it is possible to transfer token's owner. but later
+//                           {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
+//                            "Any valid destination for keeping collateral amount - used as token's owner auth"},
+                           // omitted for now, need to research/discuss
+//                           {"decimal", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+//                            "Token's decimal places (optional, fixed to 8 for now, unchecked)"},
+//                           {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+//                            "Token's total supply limit (optional, zero for now, unchecked)"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -794,9 +809,9 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("updatetoken", "\"{\\\"token\\\":\\\"DFI\\\", \\\"isDAT\\\":true}\" "
+                       HelpExampleCli("updatetoken", "\"token {\\\"isDAT\\\":true}\" "
                                                      "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                       + HelpExampleRpc("updatetoken", "\"{\\\"token\\\":\\\"DFI\\\", \\\"isDAT\\\":true}\" "
+                       + HelpExampleRpc("updatetoken", "\"token {\\\"isDAT\\\":true}\" "
                                                        "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
                },
     }.Check(request);
@@ -807,60 +822,97 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
-    if (request.params[0].isNull()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameters, arguments 1 must be non-null and expected as object like "
-                           "{\"token\":\"Symbol\", \"isDAT\":true}");
-    }
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, true);
 
-    UniValue metaObj = request.params[0].get_obj();
-    UniValue txInputs = request.params[1];
+    std::string const tokenStr = trim_ws(request.params[0].getValStr());
+    UniValue metaObj = request.params[1].get_obj();
+    UniValue txInputs = request.params[2];
     if (txInputs.isNull())
     {
         txInputs.setArray();
     }
 
-    std::string const tokenStr = trim_ws(metaObj["token"].getValStr());
+    CTokenImplementation tokenImpl;
     CTxDestination ownerDest;
-    uint256 creationTx{};
+    CScript owner;
     {
         LOCK(cs_main);
         DCT_ID id;
         auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+        if (id == DCT_ID{0}) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
+        }
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
         }
-        if (id < CTokensView::DCT_ID_START) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is a 'stable coin'", tokenStr));
+        tokenImpl = static_cast<CTokenImplementation const& >(*token);
+        if (tokenImpl.IsPoolShare()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is the LPS token! Can't alter pool share's tokens!", tokenStr));
         }
-        LOCK(pwallet->cs_wallet);
-        auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
-        creationTx = tokenImpl.creationTx;
+
+        const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
+        if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                               strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
+        }
+        owner = authCoin.out.scriptPubKey;
+    }
+
+    bool isFoundersToken = Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
+
+    if (!metaObj["symbol"].isNull()) {
+        tokenImpl.symbol = trim_ws(metaObj["symbol"].getValStr()).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    }
+    if (!metaObj["name"].isNull()) {
+        tokenImpl.name = trim_ws(metaObj["name"].getValStr()).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+    }
+    if (!metaObj["isDAT"].isNull()) {
+        tokenImpl.flags = metaObj["isDAT"].getBool() ?
+                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::DAT :
+                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::DAT;
+    }
+    if (!metaObj["tradeable"].isNull()) {
+        tokenImpl.flags = metaObj["tradeable"].getBool() ?
+                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Tradeable :
+                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Tradeable;
+    }
+    if (!metaObj["mintable"].isNull()) {
+        tokenImpl.flags = metaObj["mintable"].getBool() ?
+                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Mintable :
+                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Mintable;
     }
 
     CMutableTransaction rawTx;
-
-    for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
-    {
-        if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
-        {
-            CTxDestination destination;
-            if (!ExtractDestination(*it, destination)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
-            }
-            try {
-                rawTx.vin = GetAuthInputs(pwallet, destination, txInputs.get_array());
-            }
-            catch (const UniValue& objError) {}
+    { // auth
+        if (!txInputs.empty()) {
+            rawTx.vin = GetInputs(txInputs);
         }
+        else if (isFoundersToken) { // need any founder's auth
+            for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
+            {
+                if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
+                {
+                    CTxDestination destination;
+                    if (!ExtractDestination(*it, destination)) {
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
+                    }
+                    try {
+                        rawTx.vin = GetAuthInputs(pwallet, destination, txInputs.get_array());
+                    }
+                    catch (const UniValue& objError) {}
+                }
+            }
+            if(rawTx.vin.size() == 0)
+                throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
+        }
+        else // "common" auth
+            rawTx.vin = GetAuthInputs(pwallet, ownerDest, UniValue(UniValue::VARR));
+
     }
-    if(rawTx.vin.size() == 0)
-        throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdateToken)
-             << creationTx << metaObj["isDAT"].getBool();
+             << tokenImpl.creationTx << static_cast<CToken>(tokenImpl); // casting to base token's data
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -874,7 +926,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         const auto res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, creationTx, metaObj["isDAT"].getBool()}));
+                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, static_cast<CToken>(tokenImpl)}));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
@@ -1106,9 +1158,8 @@ UniValue minttokens(const JSONRPCRequest& request) {
     //                                       strprintf("Token %s already destroyed at height %i by tx %s", tokenImpl.symbol,
     //                                                 tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex()));
     //                }
-                    LOCK(pwallet->cs_wallet);
-                    auto wtx = pwallet->GetWalletTx(tokenImpl.creationTx);
-                    if (!wtx || !ExtractDestination(wtx->tx->vout[1].scriptPubKey, ownerDest)) {
+                    const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
+                    if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
                         throw JSONRPCError(RPC_INVALID_PARAMETER,
                                            strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
                     }
@@ -2561,7 +2612,7 @@ static const CRPCCommand commands[] =
     {"masternodes", "listcriminalproofs", &listcriminalproofs, {}},
     {"tokens",      "createtoken",        &createtoken,        {"metadata", "inputs"}},
     {"tokens",      "destroytoken",       &destroytoken,       {"token", "inputs"}},
-    {"tokens",      "updatetoken",        &updatetoken,        {"metadata", "inputs"}},
+    {"tokens",      "updatetoken",        &updatetoken,        {"token", "metadata", "inputs"}},
     {"tokens",      "listtokens",         &listtokens,         {"pagination", "verbose"}},
     {"tokens",      "gettoken",           &gettoken,           {"key" }},
     {"tokens",      "minttokens",         &minttokens,         {"amounts", "inputs"}},

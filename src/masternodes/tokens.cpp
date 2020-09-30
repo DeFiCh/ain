@@ -173,7 +173,7 @@ bool CTokensView::RevertCreateToken(const uint256 & txid)
 }
 
 /// @attention this method only triggers "DAT" flag. Enhance/rename/refactor (create new one?) for common token's updating
-Res CTokensView::UpdateToken(const uint256 &tokenTx)
+Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
@@ -181,24 +181,41 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx)
     }
     CTokenImpl & tokenImpl = pair->second;
 
-    // additional check (one more in Apply*) - refactor?
-    if (tokenImpl.IsPoolShare()) {
-        return Res::Err("can't change DAT flag for LPS tokens", tokenTx.ToString()); // is it correct?
+    if (tokenImpl.symbol != newToken.symbol) {
+        return Res::Err("token's symbol update doesn't implemented yet");
     }
 
-    std::string symbolKey = tokenImpl.symbol + "#" + std::to_string(pair->first.v);
-    if (!tokenImpl.IsDAT()) {
-        if (GetToken(tokenImpl.symbol)) {
-            return Res::Err("token '%s' already exists!", tokenImpl.symbol);
+    if (tokenImpl.name != newToken.name) {
+        tokenImpl.name = trim_ws(newToken.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+    }
+
+    // flags:
+    if (tokenImpl.IsMintable() != newToken.IsMintable()) {
+        tokenImpl.flags = tokenImpl.IsMintable() ?
+                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Mintable :
+                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Mintable;
+    }
+    if (tokenImpl.IsTradeable() != newToken.IsTradeable()) {
+        tokenImpl.flags = tokenImpl.IsTradeable() ?
+                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Tradeable :
+                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Tradeable;
+    }
+
+    if (tokenImpl.IsDAT() != newToken.IsDAT()) {
+        std::string symbolKey = tokenImpl.symbol + "#" + std::to_string(pair->first.v);
+        if (!tokenImpl.IsDAT()) {
+            if (GetToken(tokenImpl.symbol)) {
+                return Res::Err("token '%s' already exists!", tokenImpl.symbol);
+            }
+            tokenImpl.flags |= (uint8_t)CToken::TokenFlags::DAT;
+            EraseBy<Symbol>(symbolKey);
+            WriteBy<Symbol>(tokenImpl.symbol, WrapVarInt(pair->first.v));
+        } else {
+            tokenImpl.flags &= ~(uint8_t)CToken::TokenFlags::DAT;
+            EraseBy<Symbol>(tokenImpl.symbol);
+            WriteBy<Symbol>(symbolKey, WrapVarInt(pair->first.v));
         }
-        EraseBy<Symbol>(symbolKey);
-        WriteBy<Symbol>(tokenImpl.symbol, WrapVarInt(pair->first.v));
-    } else {
-        EraseBy<Symbol>(tokenImpl.symbol);
-        WriteBy<Symbol>(symbolKey, WrapVarInt(pair->first.v));
     }
-
-    tokenImpl.flags ^= (uint8_t)CToken::TokenFlags::DAT;
 
     WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
     return Res::Ok();
