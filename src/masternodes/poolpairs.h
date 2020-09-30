@@ -228,6 +228,7 @@ class CPoolPairView : public virtual CStorageView
 {
 public:
     Res SetPoolPair(const DCT_ID &poolId, CPoolPair const & pool);
+    Res UpdatePoolPair(DCT_ID const & poolId, bool & status, CAmount const & commission, CScript const & ownerAddress);
     Res DeletePoolPair(DCT_ID const & poolId);
 
     boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;

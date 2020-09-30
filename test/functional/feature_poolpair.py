@@ -81,7 +81,7 @@ class PoolPairTest (DefiTestFramework):
             "tokenB": "GOLD#128",
             "comission": 0.001,
             "status": True,
-            "ownerFeeAddress": collateral0,
+            "ownerAddress": collateral0,
             "pairSymbol": "PTGOLD"
         }, [])
 
@@ -93,7 +93,7 @@ class PoolPairTest (DefiTestFramework):
             "tokenB": "GOLD#128",
             "comission": 0.001,
             "status": True,
-            "ownerFeeAddress": collateral0,
+            "ownerAddress": collateral0,
             "pairSymbol": "PTGD"
         }, [])
         except JSONRPCException as e:
@@ -106,7 +106,7 @@ class PoolPairTest (DefiTestFramework):
             "tokenB": "GOLD#128",
             "comission": 0.001,
             "status": True,
-            "ownerFeeAddress": collateral0,
+            "ownerAddress": collateral0,
             "pairSymbol": "DFGLD"
         }, [])
 
@@ -128,7 +128,7 @@ class PoolPairTest (DefiTestFramework):
             "tokenB": "GOLD#128",
             "comission": 0.001,
             "status": True,
-            "ownerFeeAddress": collateral0,
+            "ownerAddress": collateral0,
             "pairSymbol": "DFIGOLD"
         }, [])
         except JSONRPCException as e:
@@ -168,6 +168,43 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(p1['2']['symbol'], "PTGOLD")
         assert(p1['2']['idTokenA'] == '1')
         assert(p1['2']['idTokenB'] == '128')
+
+        # 13 Change pool status
+        assert_equal(self.nodes[0].getpoolpair("PTGOLD")['2']['status'], True)
+        self.nodes[0].updatepoolpair({
+            "pool": "PTGOLD",
+            "status": False,
+            "commission": 0.01
+        }, [])
+        self.nodes[0].generate(1)
+
+        assert_equal(self.nodes[0].getpoolpair("PTGOLD")['2']['status'], False)
+        assert_equal(str(self.nodes[0].getpoolpair("PTGOLD")['2']['commission']), "0.01000000")
+        self.sync_blocks([self.nodes[0], self.nodes[2]])
+        assert_equal(self.nodes[2].getpoolpair("PTGOLD")['2']['status'], False)
+        assert_equal(str(self.nodes[2].getpoolpair("PTGOLD")['2']['commission']), "0.01000000")
+
+        self.nodes[0].updatepoolpair({"pool": "PTGOLD", "commission": 0.1}, [])
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getpoolpair("PTGOLD")['2']['status'], False)
+        assert_equal(str(self.nodes[0].getpoolpair("PTGOLD")['2']['commission']), "0.10000000")
+
+        self.nodes[0].updatepoolpair({"pool": "PTGOLD", "status": True}, [])
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getpoolpair("PTGOLD")['2']['status'], True)
+        assert_equal(str(self.nodes[0].getpoolpair("PTGOLD")['2']['commission']), "0.10000000")
+
+        ownerAddress = self.nodes[0].getpoolpair("PTGOLD")['2']['ownerAddress']
+        collateral1 = self.nodes[1].getnewaddress("", "legacy")
+        self.nodes[0].updatepoolpair({"pool": "PTGOLD", "ownerAddress": collateral1}, [])
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getpoolpair("PTGOLD")['2']['status'], True)
+        assert_equal(str(self.nodes[0].getpoolpair("PTGOLD")['2']['commission']), "0.10000000")
+        assert(self.nodes[0].getpoolpair("PTGOLD")['2']['ownerAddress'] != ownerAddress)
+
+        self.nodes[0].updatepoolpair({"pool": "PTGOLD", "ownerAddress": collateral0}, [])
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getpoolpair("PTGOLD")['2']['ownerAddress'], ownerAddress)
 
         # REVERTING:
         #========================

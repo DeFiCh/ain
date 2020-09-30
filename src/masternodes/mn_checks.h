@@ -43,6 +43,7 @@ enum class CustomTxType : unsigned char
 //    MatchOrders         = 'A',
     //poolpair
     CreatePoolPair      = 'p',
+    UpdatePoolPair      = 'u',
     PoolSwap            = 's',
     AddPoolLiquidity    = 'l',
     RemovePoolLiquidity = 'r',
@@ -55,7 +56,7 @@ enum class CustomTxType : unsigned char
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMDNpslrUbBG";
+    char const txtypes[] = "CRTMDNpuslrUbBG";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -95,6 +96,7 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata);
 
 Res ApplyCreatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
+Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 Res ApplyPoolSwapTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);

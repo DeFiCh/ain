@@ -50,6 +50,32 @@ Res CPoolPairView::SetPoolPair(DCT_ID const & poolId, CPoolPair const & pool)
     return Res::Err("Error: Couldn't create/update pool pair.");
 }
 
+Res CPoolPairView::UpdatePoolPair(DCT_ID const & poolId, bool & status, CAmount const & commission, CScript const & ownerAddress)
+{
+    auto poolPair = GetPoolPair(poolId);
+    if (!poolPair) {
+        return Res::Err("Pool with poolId %s does not exist", poolId.ToString());
+    }
+
+    CPoolPair & pool = poolPair.get();
+
+    if (pool.status != status) {
+        pool.status = status;
+    }
+    if (commission >= 0) {
+        pool.commission = commission;
+    }
+    if (!ownerAddress.empty()) {
+        pool.ownerAddress = ownerAddress;
+    }
+
+    auto res = SetPoolPair(poolId, pool);
+    if (!res.ok) {
+        return Res::Err("Update poolpair: %s" , res.msg);
+    }
+    return Res::Ok();
+}
+
 boost::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) const
 {
     DCT_ID poolID = poolId;
