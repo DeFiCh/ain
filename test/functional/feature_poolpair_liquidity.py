@@ -64,7 +64,7 @@ class PoolLiquidityTest (DefiTestFramework):
             "tokenB": symbolSILVER,
             "commission": 1,
             "status": True,
-            "ownerFeeAddress": owner,
+            "ownerAddress": owner,
             "pairSymbol": "GS",
         }, [])
         self.nodes[0].generate(1)

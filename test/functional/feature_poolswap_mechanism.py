@@ -66,12 +66,12 @@ class PoolSwapTest (DefiTestFramework):
             self.accounts.append(self.nodes[0].getnewaddress("", "legacy"))
 
     def create_token(self, symbol, address):
-        self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken({
             "symbol": symbol,
             "name": "Token " + symbol,
             "isDAT": False,
             "collateralAddress": address
-        })
+        }, [])
         self.nodes[0].generate(1)
         self.tokens.append(symbol)
 
@@ -81,7 +81,7 @@ class PoolSwapTest (DefiTestFramework):
             "tokenB": tokenB,
             "commission": self.COMMISSION,
             "status": True,
-            "ownerFeeAddress": owner
+            "ownerAddress": owner
         }, []))
         self.nodes[0].generate(1)
 
@@ -100,7 +100,7 @@ class PoolSwapTest (DefiTestFramework):
         for item in self.tokens:
             self.nodes[0].sendmany("", { owner : 0.02 })
             self.nodes[0].generate(1)
-            self.nodes[0].minttokens([], mint_amount + "@" + self.get_id_token(item))
+            self.nodes[0].minttokens(mint_amount + "@" + self.get_id_token(item), [])
             self.nodes[0].generate(1)
         return mint_amount
 
@@ -117,7 +117,7 @@ class PoolSwapTest (DefiTestFramework):
                     outputs[self.accounts[idx]] = send_amount + "@" + self.get_id_token(token)
                 self.nodes[0].sendmany("", { owner : 0.02 })
                 self.nodes[0].generate(1)
-                self.nodes[0].accounttoaccount([], owner, outputs)
+                self.nodes[0].accounttoaccount(owner, outputs, [])
                 self.nodes[0].generate(1)
 
     def add_pools_liquidity(self, owner):

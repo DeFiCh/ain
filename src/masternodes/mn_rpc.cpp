@@ -1443,6 +1443,7 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
     UniValue poolObj(UniValue::VOBJ);
     poolObj.pushKV("symbol", token.symbol);
     poolObj.pushKV("name", token.name);
+    poolObj.pushKV("status", pool.status);
     poolObj.pushKV("idTokenA", pool.idTokenA.ToString());
     poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
 
@@ -2204,6 +2205,131 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
+UniValue updatepoolpair(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"updatepoolpair",
+               "\nCreates (and submits to local node and network) a pool status update transaction.\n"
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the pool's owner (collateral) address" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                       {
+                           {"pool", RPCArg::Type::STR, RPCArg::Optional::NO, "The pool's symbol, id or creation tx"},
+                           {"status", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Pool Status new property (bool)"},
+                           {"commission", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Pool commission, up to 10^-8"},
+                           {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address of the pool owner."},
+
+                       },
+                   },
+                   {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                   },
+
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("updatetoken", "\"{\"pool\":\"POOL\",\"status\":true,"
+                                                     "\"commission\":0.01,\"ownerAddress\":\"Address\"}\" "
+                                                     "\"[{\"txid\":\"id\",\"vout\":0}]\"")
+                       + HelpExampleRpc("updatetoken", "\"{\"pool\":\"POOL\",\"status\":true,"
+                                                       "\"commission\":0.01,\"ownerAddress\":\"Address\"}\" "
+                                                       "\"[{\"txid\":\"id\",\"vout\":0}]\"")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+
+    bool status = true;
+    CAmount commission = -1;
+    CScript ownerAddress;
+    UniValue metaObj = request.params[0].get_obj();
+
+    std::string const poolStr = trim_ws(metaObj["pool"].getValStr());
+    CTxDestination ownerDest;
+    DCT_ID poolId;
+    {
+        LOCK(cs_main);
+        auto token = pcustomcsview->GetTokenGuessId(poolStr, poolId);
+        if (!token) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
+        }
+
+        auto pool = pcustomcsview->GetPoolPair(poolId);
+        if (!pool) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
+        }
+        status = pool->status;
+    }
+
+    if (!metaObj["status"].isNull()) {
+        status = metaObj["status"].getBool();
+    }
+    if (!metaObj["commission"].isNull()) {
+        commission = AmountFromValue(metaObj["commission"]);
+    }
+    if (!metaObj["ownerAddress"].isNull()) {
+        ownerAddress = DecodeScript(metaObj["ownerAddress"].getValStr());
+    }
+
+    CMutableTransaction rawTx;
+
+    for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
+    {
+        if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
+        {
+            CTxDestination destination;
+            if (!ExtractDestination(*it, destination)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
+            }
+            try {
+                rawTx.vin = GetAuthInputs(pwallet, destination, request.params[1].get_array());
+            }
+            catch (const UniValue& objError) {}
+        }
+    }
+    if(rawTx.vin.size() == 0)
+        throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
+             << poolId << status << commission << ownerAddress;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    rawTx = fund(rawTx, request, pwallet);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        const auto res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
+                                               ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolId, status, commission, ownerAddress}));
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+}
+
 UniValue poolswap(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -2626,6 +2752,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "accounttoaccount",   &accounttoaccount,   {"from", "to", "inputs"}},
     {"accounts",    "accounttoutxos",     &accounttoutxos,     {"from", "to", "inputs"}},
     {"poolpair",    "createpoolpair",     &createpoolpair,     {"metadata", "inputs"}},
+    {"poolpair",    "updatepoolpair",     &updatepoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
     {"mining",      "listcommunitybalances", &listcommunitybalances, {}},

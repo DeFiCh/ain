@@ -67,7 +67,7 @@ class GovsetTest (DefiTestFramework):
             "tokenB": symbolSILVER,
             "commission": 0.1,
             "status": True,
-            "ownerFeeAddress": owner,
+            "ownerAddress": owner,
             "pairSymbol": "GS",
         }, [])
         self.nodes[0].createpoolpair({
@@ -75,7 +75,7 @@ class GovsetTest (DefiTestFramework):
             "tokenB": "BRONZE#130",
             "commission": 0.1,
             "status": True,
-            "ownerFeeAddress": owner,
+            "ownerAddress": owner,
             "pairSymbol": "GB",
         }, [])
         self.nodes[0].createpoolpair({
@@ -83,7 +83,7 @@ class GovsetTest (DefiTestFramework):
             "tokenB": "BRONZE#130",
             "commission": 0.1,
             "status": True,
-            "ownerFeeAddress": owner,
+            "ownerAddress": owner,
             "pairSymbol": "SB",
         }, [])
         self.nodes[0].generate(1)

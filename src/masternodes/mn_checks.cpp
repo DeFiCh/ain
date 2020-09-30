@@ -152,6 +152,9 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::CreatePoolPair:
                 res = ApplyCreatePoolPairTx(mnview, coins, tx, height, metadata);
                 break;
+            case CustomTxType::UpdatePoolPair:
+                res = ApplyUpdatePoolPairTx(mnview, coins, tx, height, metadata);
+                break;
             case CustomTxType::PoolSwap:
                 res = ApplyPoolSwapTx(mnview, coins, tx, height, metadata);
                 break;
@@ -806,6 +809,40 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         return Res::Err("%s %s: %s", base, pairSymbol, resPP.msg);
     }
 
+    return Res::Ok(base);
+}
+
+Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+{
+    const std::string base{"Pool update"};
+
+    DCT_ID poolId;
+    bool status;
+    CAmount commission;
+    CScript ownerAddress;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> poolId;
+    ss >> status;
+    ss >> commission;
+    ss >> ownerAddress;
+    if (!ss.empty()) {
+        return Res::Err("Pool Update: deserialization failed: excess %d bytes", ss.size());
+    }
+
+    auto pool = mnview.GetPoolPair(poolId);
+    if (!pool) {
+        return Res::Err("%s: pool with poolId %s does not exist", base, poolId.ToString());
+    }
+
+    //check foundation auth
+    if (!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
+        return Res::Err("%s: %s", base, "tx not from foundation member");
+    }
+
+    auto res = mnview.UpdatePoolPair(poolId, status, commission, ownerAddress);
+    if (!res.ok) {
+        return Res::Err("%s %s: %s", base, poolId.ToString(), res.msg);
+    }
     return Res::Ok(base);
 }
 
