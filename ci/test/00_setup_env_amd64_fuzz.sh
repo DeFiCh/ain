@@ -13,4 +13,4 @@ export RUN_UNIT_TESTS=false
 export RUN_FUNCTIONAL_TESTS=false
 export RUN_FUZZ_TESTS=true
 export GOAL="install"
-export DEFI_CONFIG="--enable-fuzz --without-gui --with-sanitizers=fuzzer,address CC=clang CXX=clang++"
+export DEFI_CONFIG="--enable-fuzz --with-sanitizers=fuzzer,address CC=clang CXX=clang++"

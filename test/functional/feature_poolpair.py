@@ -40,7 +40,7 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # 1 Creating DAT token
-        self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken({
             "symbol": "PT",
             "name": "Platinum",
             "isDAT": True,
@@ -60,24 +60,9 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(len(tokens), 2)
         assert_equal(tokens['1']["symbol"], "PT")
 
-        # 2 Trying to make it regular
-        try:
-            self.nodes[0].updatetoken([], {"token": "PT", "isDAT": False})
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Token PT is a 'stable coin'" in errorString)
-
-        # Check 'gettoken' output
-        t0 = self.nodes[0].gettoken(0)
-        assert_equal(t0['0']['symbol'], "DFI")
-        assert_equal(self.nodes[0].gettoken("DFI"), t0)
-        t1 = self.nodes[0].gettoken(1)
-        assert_equal(t1['1']['symbol'], "PT")
-        assert_equal(self.nodes[0].gettoken("PT"), t1)
-
         # 3 Trying to make regular token
         self.nodes[0].generate(1)
-        createTokenTx = self.nodes[0].createtoken([], {
+        createTokenTx = self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
             "isDAT": False,
@@ -90,35 +75,10 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(tokens['128']["symbol"], "GOLD")
         assert_equal(tokens['128']["creationTx"], createTokenTx)
 
-        self.sync_blocks([self.nodes[0], self.nodes[2]])
-
-        # 4 Trying to make it DAT not from Foundation
-        try:
-            self.nodes[2].updatetoken([], {"token": "GOLD#128", "isDAT": True})
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Incorrect Authorization" in errorString)
-
-        # 5 Making token isDAT from Foundation
-        self.nodes[0].updatetoken([], {"token": "GOLD#128", "isDAT": True})
-
-        self.nodes[0].generate(1)
-        # Checks
-        tokens = self.nodes[0].listtokens()
-        assert_equal(len(tokens), 3)
-        assert_equal(tokens['128']["isDAT"], True)
-
-        # 6 Checking after sync
-        self.sync_blocks([self.nodes[0], self.nodes[2]])
-
-        tokens = self.nodes[2].listtokens()
-        assert_equal(len(tokens), 3)
-        assert_equal(tokens['128']["isDAT"], True)
-
         # 7 Creating PoolPair from Foundation -> OK
         self.nodes[0].createpoolpair({
             "tokenA": "PT",
-            "tokenB": "GOLD",
+            "tokenB": "GOLD#128",
             "comission": 0.001,
             "status": True,
             "ownerFeeAddress": collateral0,
@@ -130,7 +90,7 @@ class PoolPairTest (DefiTestFramework):
         try:
             self.nodes[0].createpoolpair({
             "tokenA": "PT",
-            "tokenB": "GOLD",
+            "tokenB": "GOLD#128",
             "comission": 0.001,
             "status": True,
             "ownerFeeAddress": collateral0,
@@ -143,7 +103,7 @@ class PoolPairTest (DefiTestFramework):
         # Creating another one
         trPP = self.nodes[0].createpoolpair({
             "tokenA": "DFI",
-            "tokenB": "GOLD",
+            "tokenB": "GOLD#128",
             "comission": 0.001,
             "status": True,
             "ownerFeeAddress": collateral0,
@@ -165,7 +125,7 @@ class PoolPairTest (DefiTestFramework):
         try:
             self.nodes[2].createpoolpair({
             "tokenA": "DFI",
-            "tokenB": "GOLD",
+            "tokenB": "GOLD#128",
             "comission": 0.001,
             "status": True,
             "ownerFeeAddress": collateral0,

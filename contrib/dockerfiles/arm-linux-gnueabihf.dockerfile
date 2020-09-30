@@ -49,7 +49,6 @@ RUN ./autogen.sh
 RUN ./configure --prefix=`pwd`/depends/${TARGET} \
     --enable-glibc-back-compat \
     --enable-reduce-exports \
-    --without-gui \
     LDFLAGS="-static-libstdc++"
 
 RUN make

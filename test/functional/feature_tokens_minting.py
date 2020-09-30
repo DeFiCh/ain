@@ -30,12 +30,12 @@ class TokensMintingTest (DefiTestFramework):
         #========================
         collateralGold = self.nodes[0].getnewaddress("", "legacy")
         collateralSilver = self.nodes[0].getnewaddress("", "legacy")
-        self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
             "collateralAddress": collateralGold
         })
-        self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken({
             "symbol": "SILVER",
             "name": "just silver",
             "collateralAddress": collateralSilver
@@ -69,34 +69,13 @@ class TokensMintingTest (DefiTestFramework):
 
         # print(self.nodes[0].listunspent())
 
-        alienMintAddr = self.nodes[1].getnewaddress("", "legacy")
-        self.nodes[0].minttokens([], "300@" + symbolGold)
-        self.nodes[0].minttokens([], "3000@" + symbolSilver)
+        self.nodes[0].minttokens("300@" + symbolGold)
+        self.nodes[0].minttokens("3000@" + symbolSilver)
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        self.nodes[0].accounttoutxos([], collateralGold, { self.nodes[0].getnewaddress("", "legacy"): "100@" + symbolGold, alienMintAddr: "200@" + symbolGold})
-        self.nodes[0].accounttoutxos([], collateralSilver, { self.nodes[0].getnewaddress("", "legacy"): "1000@" + symbolSilver, alienMintAddr: "2000@" + symbolSilver})
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        assert_equal(self.nodes[0].getbalances(True)['mine']['trusted'][str(idGold)], 100)
-        assert_equal(self.nodes[1].getbalances(True)['mine']['trusted'][str(idGold)], 200)
-        assert_equal(self.nodes[0].getbalances(True)['mine']['trusted'][str(idSilver)], 1000)
-        assert_equal(self.nodes[1].getbalances(True)['mine']['trusted'][str(idSilver)], 2000)
-
-        print ("Check 'sendmany' for tokens")
-        alienSendAddr = self.nodes[1].getnewaddress("", "legacy")
-        # check sending of different tokens on same address
-        self.nodes[0].sendmany("", { alienSendAddr : [ str(10) + "@" + symbolGold, str(20) + "@" + symbolSilver] })
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        assert_equal(self.nodes[0].getbalances(True)['mine']['trusted'][str(idGold)], 90)
-        assert_equal(self.nodes[0].getbalances(True)['mine']['trusted'][str(idSilver)], 980)
-        assert_equal(self.nodes[1].getbalances(True)['mine']['trusted'][str(idGold)], 210)
-        assert_equal(self.nodes[1].getbalances(True)['mine']['trusted'][str(idSilver)], 2020)
-
+        assert_equal(self.nodes[0].getaccount(collateralGold, {}, True)[idGold], 300)
+        assert_equal(self.nodes[0].getaccount(collateralSilver, {}, True)[idSilver], 3000)
 
 if __name__ == '__main__':
     TokensMintingTest ().main ()

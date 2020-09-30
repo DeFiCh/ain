@@ -55,7 +55,7 @@ class GovsetTest (DefiTestFramework):
 
         owner = self.nodes[0].getnewaddress("", "legacy")
 
-        self.nodes[0].createtoken([], {
+        self.nodes[0].createtoken({
             "symbol": "BRONZE",
             "name": "just bronze",
             "collateralAddress": owner # doesn't matter

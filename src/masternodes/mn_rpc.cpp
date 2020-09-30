@@ -90,10 +90,6 @@ signsend(const CMutableTransaction& _mtx, JSONRPCRequest const& request, CWallet
     }
 }
 
-static UniValue fundsignsend(CMutableTransaction mtx, JSONRPCRequest const& request, CWallet* const pwallet) {
-    return signsend(fund(std::move(mtx), request, pwallet), request, pwallet)->GetHash().GetHex();
-}
-
 // returns either base58/bech32 address, or hex if format is unknown
 std::string ScriptToString(CScript const& script) {
     CTxDestination dest;
@@ -532,55 +528,55 @@ UniValue createtoken(const JSONRPCRequest& request) {
 
     RPCHelpMan{"createtoken",
                "\nCreates (and submits to local node and network) a token creation transaction with given metadata.\n"
-               "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"symbol", RPCArg::Type::STR, RPCArg::Optional::NO,
+                             "Token's symbol (unique), no longer than " +
+                             std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
+                            {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                             "Token's name (optional), no longer than " +
+                             std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
+                            {"isDAT", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                             "Token's 'isDAT' property (bool, optional), default is 'False'"},
+                            {"decimal", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                             "Token's decimal places (optional, fixed to 8 for now, unchecked)"},
+                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                             "Token's total supply limit (optional, zero for now, unchecked)"},
+                            {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                             "Token's 'Mintable' property (bool, optional), fixed to 'True' for now"},
+                            {"tradeable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                             "Token's 'Tradeable' property (bool, optional), fixed to 'True' for now"},
+                            {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
+                             "Any valid destination for keeping collateral amount - used as token's owner auth"},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                                 },
+                            },
                         },
-                       },
-                       {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                                {"symbol", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "Token's symbol (unique), no longer than " +
-                                 std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
-                                {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                 "Token's name (optional), no longer than " +
-                                 std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
-                                {"isDAT", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                 "Token's 'isDAT' property (bool, optional), default is 'False'"},
-                                {"decimal", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                 "Token's decimal places (optional, fixed to 8 for now, unchecked)"},
-                                {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                 "Token's total supply limit (optional, zero for now, unchecked)"},
-                                {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                 "Token's 'Mintable' property (bool, optional), fixed to 'True' for now"},
-                                {"tradeable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                 "Token's 'Tradeable' property (bool, optional), fixed to 'True' for now"},
-                                {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "Any valid destination for keeping collateral amount - used as token's owner auth"},
-                        },
-                       },
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("createtoken", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
-                                                          "\"{\\\"symbol\\\":\\\"MyToken\\\","
-                                                          "\\\"collateralAddress\\\":\\\"address\\\""
-                                                          "}\"")
-                       + HelpExampleRpc("createtoken", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" "
-                                                            "\"{\\\"symbol\\\":\\\"MyToken\\\","
-                                                            "\\\"collateralAddress\\\":\\\"address\\\""
-                                                            "}\"")
+                       HelpExampleCli("createtoken", "\"{\\\"symbol\\\":\\\"MyToken\\\","
+                                                     "\\\"collateralAddress\\\":\\\"address\\\"}\"")
+                       + HelpExampleCli("createtoken", "\"{\\\"symbol\\\":\\\"MyToken\\\","
+                                                     "\\\"collateralAddress\\\":\\\"address\\\"}\" "
+                                                     "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                       + HelpExampleRpc("createtoken", "\"{\\\"symbol\\\":\\\"MyToken\\\","
+                                                       "\\\"collateralAddress\\\":\\\"address\\\"}\" "
+                                                       "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
                },
     }.Check(request);
 
@@ -589,13 +585,19 @@ UniValue createtoken(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, true);
-    if (request.params[0].isNull() || request.params[1].isNull()) {
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+    if (request.params[0].isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           "Invalid parameters, arguments 1 and 2 must be non-null, and argument 2 expected as object at least with "
-                           "{\"symbol\",\"collateralDest\"}");
+                           "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
+                           "{\"symbol\",\"collateralAddress\"}");
     }
-    UniValue metaObj = request.params[1].get_obj();
+
+    const UniValue metaObj = request.params[0].get_obj();
+    UniValue txInputs = request.params[1];
+    if (txInputs.isNull())
+    {
+        txInputs.setArray();
+    }
 
     std::string collateralAddress = metaObj["collateralAddress"].getValStr();
     CTxDestination collateralDest = DecodeDestination(collateralAddress);
@@ -638,7 +640,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
                     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
                 }
                 try {
-                    rawTx.vin = GetAuthInputs(pwallet, destination, request.params[0].get_array());
+                    rawTx.vin = GetAuthInputs(pwallet, destination, txInputs.get_array());
                 }
                 catch (const UniValue& objError) {}
             }
@@ -647,7 +649,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
     }
     else
-        rawTx.vin = GetInputs(request.params[0].get_array());
+        rawTx.vin = GetInputs(txInputs.get_array());
 
     rawTx.vout.push_back(CTxOut(GetTokenCreationFee(height), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetTokenCollateralAmount(), GetScriptForDestination(collateralDest)));
@@ -672,40 +674,46 @@ UniValue destroytoken(const JSONRPCRequest& request) {
 
     RPCHelpMan{"destroytoken",
                "\nCreates (and submits to local node and network) a transaction destroying your token. Collateral will be unlocked.\n"
-               "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol, id or creation tx"},
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects. Provide it if you want to spent specific UTXOs",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                                 },
+                            },
                         },
-                       },
-                       {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol, id or creation tx"},
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("destroytoken", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"symbol\"")
-                       + HelpExampleRpc("destroytoken", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"symbol\"")
+                       HelpExampleCli("destroytoken", "\"symbol\"")
+                       + HelpExampleCli("destroytoken", "\"symbol\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                       + HelpExampleRpc("destroytoken", "\"symbol\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
                },
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot resign Masternode while still in Initial Block Download");
+                           "Cannot destroy token while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR}, true);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR}, true);
 
-    std::string const tokenStr = trim_ws(request.params[1].getValStr());
+    std::string const tokenStr = trim_ws(request.params[0].getValStr());
+    UniValue txInputs = request.params[1];
+    if (txInputs.isNull())
+    {
+        txInputs.setArray();
+    }
     CTxDestination ownerDest;
     uint256 creationTx{};
     {
@@ -730,7 +738,7 @@ UniValue destroytoken(const JSONRPCRequest& request) {
 
     CMutableTransaction rawTx;
 
-    rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[0].get_array());
+    rawTx.vin = GetAuthInputs(pwallet, ownerDest, txInputs.get_array());
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::DestroyToken)
@@ -761,50 +769,57 @@ UniValue updatetoken(const JSONRPCRequest& request) {
 
     RPCHelpMan{"updatetoken",
                "\nCreates (and submits to local node and network) a transaction of token promotion to isDAT or demotion from isDAT. Collateral will be unlocked.\n"
-               "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects. Provide it if you want to spent specific UTXOs",
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
-                        },
-                       },
-                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                    {
                            {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol, id or creation tx"},
                            {"isDAT", RPCArg::Type::BOOL, RPCArg::Optional::NO, "Token's 'isDAT' new property (bool)"},
+                        },
                     },
-                   },
-
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects. Provide it if you want to spent specific UTXOs",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("updatetoken", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" '{\"token\":\"DFI\","
-                                                     "\"isDAT\":true,"
-                                                     "}'")
-                       + HelpExampleRpc("updatetoken", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" '{\"token\":\"DFI\","
-                                                       "\"isDAT\":true,"
-                                                       "}'")
+                       HelpExampleCli("updatetoken", "\"{\\\"token\\\":\\\"DFI\\\", \\\"isDAT\\\":true}\" "
+                                                     "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                       + HelpExampleRpc("updatetoken", "\"{\\\"token\\\":\\\"DFI\\\", \\\"isDAT\\\":true}\" "
+                                                       "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
                },
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot resign Masternode while still in Initial Block Download");
+                           "Cannot update token while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, true);
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+    if (request.params[0].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameters, arguments 1 must be non-null and expected as object like "
+                           "{\"token\":\"Symbol\", \"isDAT\":true}");
+    }
 
-    UniValue metaObj = request.params[1].get_obj();
+    UniValue metaObj = request.params[0].get_obj();
+    UniValue txInputs = request.params[1];
+    if (txInputs.isNull())
+    {
+        txInputs.setArray();
+    }
 
     std::string const tokenStr = trim_ws(metaObj["token"].getValStr());
     CTxDestination ownerDest;
@@ -835,7 +850,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
             }
             try {
-                rawTx.vin = GetAuthInputs(pwallet, destination, request.params[0].get_array());
+                rawTx.vin = GetAuthInputs(pwallet, destination, txInputs.get_array());
             }
             catch (const UniValue& objError) {}
         }
@@ -1018,49 +1033,54 @@ UniValue minttokens(const JSONRPCRequest& request) {
 
     RPCHelpMan{"minttokens",
                "\nCreates (and submits to local node and network) a transaction minting your token (for accounts and/or UTXOs). \n"
-               "The first optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the token's owner (collateral) address" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                    {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "Amount in amount@token format."
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects. Provide it if you want to spent specific UTXOs",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                                 },
+                            },
                         },
-                       },
-                       {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO,
-                        "Amount in amount@token format. "
-                        "If multiple tokens are to be minted, specify an array [\"amount1@t1\", \"amount2@t2\"]"
-                       },
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("minttokens",
-                                      "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"symbol\"")  /// @todo tokens: modify
-                       + HelpExampleRpc("minttokens", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" \"symbol\"")
+                       HelpExampleCli("minttokens", "\"10@symbol\"")
+                       + HelpExampleCli("minttokens",
+                                      "\"10@symbol\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")  /// @todo tokens: modify
+                       + HelpExampleRpc("minttokens", "\"10@symbol\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
                },
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot resign Masternode while still in Initial Block Download");
+                           "Cannot mint tokens while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[1], "");
+    const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
+    UniValue txInputs = request.params[1];
+    if (txInputs.isNull())
+    {
+        txInputs.setArray();
+    }
 
     CMutableTransaction rawTx;
 
     // auth
     {
         if (!request.params[0].empty()) {
-            rawTx.vin = GetInputs(request.params[0].get_array());
+            rawTx.vin = GetInputs(txInputs);
         }
         else {
             bool gotFoundersAuth = false;
@@ -1693,35 +1713,34 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
 
     RPCHelpMan{"utxostoaccount",
                "\nCreates (and submits to local node and network) a transfer transaction from the wallet UTXOs to specfied account.\n"
-               "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                    {"amounts", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
+                                                                                 "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                                 },
+                            },
                         },
-                       },
-                       {"amounts", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                        {
-                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
-                                                                                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
-                        },
-                       },
+                    },    
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("utxostoaccount", "[] "
-                                                     "'{\"address1\":\"1.0@DFI\","
-                                                     "\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]"
-                                                     "}'")
+                       HelpExampleCli("utxostoaccount", "\"{\\\"address1\\\":\\\"1.0@DFI\\\","
+                                                     "\\\"address2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]"
+                                                     "}\" \"[]\"")
                },
     }.Check(request);
 
@@ -1729,11 +1748,11 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
 
-    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, false);
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, false);
 
     // decode recipients
     CUtxosToAccountMessage msg{};
-    msg.to = DecodeRecipients(pwallet->chain(), request.params[1].get_obj());
+    msg.to = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -1783,31 +1802,32 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
                "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "A json array of json objects",
+                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
+                    {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
-                                },
-                        },
-                       },
-                       {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
-                       {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                        {
-                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
                                                                                      "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
                         },
-                       },
-               },
-               RPCResult{
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("accounttoaccount", "[] sender_address "
-                                                     "'{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}'")
+                },
+                RPCExamples{
+                       HelpExampleCli("accounttoaccount", "sender_address "
+                                                     "\"{\\\"address1\\\":\\\"1.0@DFI\\\",\\\"address2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]}\" "
+                                                     "[]")
                },
     }.Check(request);
 
@@ -1815,12 +1835,12 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
 
-    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR, UniValue::VOBJ}, false);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, false);
 
     // decode sender and recipients
     CAccountToAccountMessage msg{};
-    msg.from = DecodeScript(request.params[1].get_str());
-    msg.to = DecodeRecipients(pwallet->chain(), request.params[2].get_obj());
+    msg.from = DecodeScript(request.params[0].get_str());
+    msg.to = DecodeRecipients(pwallet->chain(), request.params[1].get_obj());
     if (SumAllTransfers(msg.to).balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
@@ -1838,7 +1858,13 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     if (!ExtractDestination(msg.from, ownerDest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
     }
-    rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[0].get_array());
+
+    UniValue txInputs = request.params[2];
+    if (txInputs.isNull())
+    {
+        txInputs.setArray();
+    }
+    rawTx.vin = GetAuthInputs(pwallet, ownerDest, txInputs.get_array());
 
     // fund
     rawTx = fund(rawTx, request, pwallet);
@@ -1867,35 +1893,36 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
 
     RPCHelpMan{"accounttoutxos",
                "\nCreates (and submits to local node and network) a transfer transaction from the specified account to UTXOs.\n"
-               "The first optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               "The third optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
+                    {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                 "The defi address is the key, the value is amount in amount@token format. "
+                                 "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"
+                            },
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                         {
-                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                 {
-                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                 },
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
                                 },
+                            },
                         },
-                       },
-                       {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address of sender"},
-                       {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-                        {
-                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO,
-                                 "The defi address is the key, the value is amount in amount@token format. "
-                                 "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
-                        },
-                       }
-               },
-               RPCResult{
+                    },   
+                },
+                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-               },
+                },
                RPCExamples{
-                       HelpExampleCli("accounttoutxos", "[] sender_address '{\"address1\":\"100@DFI\"}'")
-                       + HelpExampleCli("accounttoutxos", "[] sender_address '{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}'")
+                       HelpExampleCli("accounttoutxos", "sender_address \\\"{\\\"address1\\\":\\\"100@DFI\"}\\\" [] ")
+                       + HelpExampleCli("accounttoutxos", "sender_address \"{\\\"address1\\\":\\\"1.0@DFI\\\",\\\"address2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]}\" []")
                },
     }.Check(request);
 
@@ -1903,12 +1930,12 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
 
-    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VSTR, UniValue::VOBJ}, false);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, false);
 
     // decode sender and recipients
     CAccountToUtxosMessage msg{};
-    msg.from = DecodeScript(request.params[1].get_str());
-    const auto to = DecodeRecipients(pwallet->chain(), request.params[2]);
+    msg.from = DecodeScript(request.params[0].get_str());
+    const auto to = DecodeRecipients(pwallet->chain(), request.params[1]);
     msg.balances = SumAllTransfers(to);
     if (msg.balances.balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
@@ -1927,7 +1954,13 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     if (!ExtractDestination(msg.from, ownerDest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
     }
-    rawTx.vin = GetAuthInputs(pwallet, ownerDest, request.params[0].get_array());
+
+    UniValue txInputs = request.params[2];
+    if (txInputs.isNull())
+    {
+        txInputs.setArray();
+    }
+    rawTx.vin = GetAuthInputs(pwallet, ownerDest, txInputs.get_array());
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -2526,21 +2559,21 @@ static const CRPCCommand commands[] =
     {"masternodes", "listmasternodes",    &listmasternodes,    {"pagination", "verbose"}},
     {"masternodes", "getmasternode",      &getmasternode,      {"mn_id"}},
     {"masternodes", "listcriminalproofs", &listcriminalproofs, {}},
-    {"tokens",      "createtoken",        &createtoken,        {"inputs", "metadata"}},
-    {"tokens",      "destroytoken",       &destroytoken,       {"inputs", "token"}},
-    {"tokens",      "updatetoken",        &updatetoken,        {"inputs", "metadata"}},
+    {"tokens",      "createtoken",        &createtoken,        {"metadata", "inputs"}},
+    {"tokens",      "destroytoken",       &destroytoken,       {"token", "inputs"}},
+    {"tokens",      "updatetoken",        &updatetoken,        {"metadata", "inputs"}},
     {"tokens",      "listtokens",         &listtokens,         {"pagination", "verbose"}},
     {"tokens",      "gettoken",           &gettoken,           {"key" }},
-    {"tokens",      "minttokens",         &minttokens,         {"inputs", "amounts"}},
+    {"tokens",      "minttokens",         &minttokens,         {"amounts", "inputs"}},
     {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose"}},
     {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination"}},
     {"poolpair",    "listpoolpairs",      &listpoolpairs,      {"pagination", "verbose"}},
     {"poolpair",    "getpoolpair",        &getpoolpair,        {"key" }},
     {"poolpair",    "addpoolliquidity",   &addpoolliquidity,   {"metadata", "inputs"}},
     {"poolpair",    "removepoolliquidity",&removepoolliquidity,{"from", "amount", "inputs"}},
-    {"accounts",    "utxostoaccount",     &utxostoaccount,     {"inputs", "amounts"}},
-    {"accounts",    "accounttoaccount",   &accounttoaccount,   {"inputs", "from", "to"}},
-    {"accounts",    "accounttoutxos",     &accounttoutxos,     {"inputs", "from", "to"}},
+    {"accounts",    "utxostoaccount",     &utxostoaccount,     {"amounts", "inputs"}},
+    {"accounts",    "accounttoaccount",   &accounttoaccount,   {"from", "to", "inputs"}},
+    {"accounts",    "accounttoutxos",     &accounttoutxos,     {"from", "to", "inputs"}},
     {"poolpair",    "createpoolpair",     &createpoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
