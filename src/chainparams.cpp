@@ -114,7 +114,7 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
-        consensus.DIP1Height = 10000000;
+        consensus.AMKHeight = 356500;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -152,8 +152,8 @@ public:
         consensus.mn.anchoringFrequency = 15;
         consensus.mn.anchoringLag = 15;
 
-        consensus.token.creationFee = 1 * COIN;
-        consensus.token.collateralAmount = 1000 * COIN;
+        consensus.token.creationFee = 100 * COIN;
+        consensus.token.collateralAmount = 1 * COIN;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.anchorSubsidy = 0 * COIN;
@@ -164,16 +164,16 @@ public:
         consensus.spv.minConfirmations = 6;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
-        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI of 200 per block
+        consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
-         */
+         */        
         pchMessageStart[0] = 0xf9;
-        pchMessageStart[1] = 0xbe;
-        pchMessageStart[2] = 0xb4;
+        pchMessageStart[1] = 0xbe;	        
+        pchMessageStart[2] = 0xb4;	        
         pchMessageStart[3] = 0xd9;
         pchMessageStartPostAMK[0] = 0xe2;
         pchMessageStartPostAMK[1] = 0xaa;
@@ -195,7 +195,7 @@ public:
         // (!) after prefixes set
         consensus.foundationShareScript = GetScriptForDestination(DecodeDestination("dZcHjYhKtEM88TtZLjp314H2xZjkztXtRc", *this));
         consensus.foundationShare = 10; // old style - just percents
-        consensus.foundationShareDIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
+        consensus.foundationShareDFIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
         /// @todo fill in foundationMembers before deployment
         consensus.foundationMembers.clear();
 
@@ -269,7 +269,7 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
         consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
-        consensus.DIP1Height = 10000000;
+        consensus.AMKHeight = 324500;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -307,8 +307,8 @@ public:
         consensus.mn.anchoringFrequency = 15;
         consensus.mn.anchoringLag = 15;
 
-        consensus.token.creationFee = 1 * COIN;
-        consensus.token.collateralAmount = 100 * COIN;
+        consensus.token.creationFee = 100 * COIN;
+        consensus.token.collateralAmount = 1 * COIN;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY";
@@ -342,7 +342,7 @@ public:
         // (!) after prefixes set
         consensus.foundationShareScript = GetScriptForDestination(DecodeDestination("7Q2nZCcKnxiRiHSNQtLB27RA5efxm2cE7w", *this));
         consensus.foundationShare = 10; // old style - just percents
-        consensus.foundationShareDIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
+        consensus.foundationShareDFIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
         /// @todo fill in foundationMembers before deployment
         consensus.foundationMembers.clear();
 
@@ -403,7 +403,7 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0;
         consensus.BIP66Height = 0;
-        consensus.DIP1Height = 10000000;
+        consensus.AMKHeight = 20;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -440,8 +440,8 @@ public:
         consensus.mn.anchoringLag = 15;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
-        consensus.spv.wallet_xpub = ""; /// @note devnet matter
-        consensus.spv.anchors_address = ""; /// @note devnet matter
+        consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY"; /// @note devnet matter
+        consensus.spv.anchors_address = "mpAkq2LyaUvKrJm2agbswrkn3QG9febnqL"; /// @note devnet matter
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
@@ -470,7 +470,7 @@ public:
         // (!) after prefixes set
         consensus.foundationShareScript = GetScriptForDestination(DecodeDestination("7Q2nZCcKnxiRiHSNQtLB27RA5efxm2cE7w", *this));
         consensus.foundationShare = 10; // old style - just percents
-        consensus.foundationShareDIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
+        consensus.foundationShareDFIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
 
         // now it is for devnet and regtest only, 2 first of genesis MNs acts as foundation members
         consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("7M3g9CSERjLdXisE5pv2qryDbURUj9Vpi1", *this)));
@@ -533,7 +533,7 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in functional tests)
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
-        consensus.DIP1Height = 10000000;
+        consensus.AMKHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -605,7 +605,7 @@ public:
         // (!) after prefixes set
         consensus.foundationShareScript = GetScriptForDestination(DecodeDestination("2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS", *this)); // cMv1JaaZ9Mbb3M3oNmcFvko8p7EcHJ8XD7RCQjzNaMs7BWRVZTyR
         consensus.foundationShare = 0; // old style - just percents // stil zero here to not broke old tests
-        consensus.foundationShareDIP1 = 19 * COIN / 10 / 50; // 1.9 DFI @ 50 per block (rate normalized to (COIN == 100%)
+        consensus.foundationShareDFIP1 = 19 * COIN / 10 / 50; // 1.9 DFI @ 50 per block (rate normalized to (COIN == 100%)
 
         // now it is for devnet and regtest only, 2 first and 2 last of genesis MNs acts as foundation members
         consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", *this)));
@@ -677,15 +677,15 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.SegwitHeight = static_cast<int>(height);
     }
 
-    if (gArgs.IsArgSet("-dip1height")) {
-        int64_t height = gArgs.GetArg("-dip1height", consensus.DIP1Height);
+    if (gArgs.IsArgSet("-amkheight")) {
+        int64_t height = gArgs.GetArg("-amkheight", consensus.AMKHeight);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for DIP1 is out of valid range. Use -1 to disable segwit.", height));
+            throw std::runtime_error(strprintf("Activation height %ld for AMK is out of valid range. Use -1 to disable amk features.", height));
         } else if (height == -1) {
-            LogPrintf("DIP1 disabled for testing\n");
+            LogPrintf("AMK disabled for testing\n");
             height = std::numeric_limits<int>::max();
         }
-        consensus.DIP1Height = static_cast<int>(height);
+        consensus.AMKHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;

@@ -155,7 +155,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(nValue);
         READWRITE(scriptPubKey);
-        if ((s.GetVersion() & SERIALIZE_TRANSACTION_NO_TOKENS) || (s.GetType() == SER_GETHASH && nTokenId == DCT_ID{0}) || SERIALIZE_FORCED_TO_OLD_IN_TESTS) {
+        if ((s.GetVersion() & SERIALIZE_TRANSACTION_NO_TOKENS) || SERIALIZE_FORCED_TO_OLD_IN_TESTS) {
             return;
         }
 
@@ -210,16 +210,19 @@ inline void SerializeTransaction(const TxType& tx, Stream& s);
 class CTransaction
 {
 public:
+    // Previous version
+    static const int32_t TX_VERSION_2=2;
+
     // Default transaction version.
-    static const int32_t CURRENT_VERSION=3; // @todo why it was 2 before?
+    static const int32_t CURRENT_VERSION=4; // @todo why it was 2 before?
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_VERSION, and then later date
     // bumping the default CURRENT_VERSION at which point both CURRENT_VERSION and
     // MAX_STANDARD_VERSION will be equal.
-    static const int32_t MAX_STANDARD_VERSION=3;
+    static const int32_t MAX_STANDARD_VERSION=4;
 
-    static const int32_t TOKENS_MIN_VERSION=3;
+    static const int32_t TOKENS_MIN_VERSION=4;
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
@@ -242,6 +245,8 @@ private:
 public:
     /** Construct a CTransaction that qualifies as IsNull() */
     CTransaction();
+
+    explicit CTransaction(int32_t version);
 
     /** Convert a CMutableTransaction into a CTransaction. */
     explicit CTransaction(const CMutableTransaction &tx);
@@ -325,6 +330,7 @@ struct CMutableTransaction
     uint32_t nLockTime;
 
     CMutableTransaction();
+    explicit CMutableTransaction(int32_t version);
     explicit CMutableTransaction(const CTransaction& tx);
 
     template <typename Stream>

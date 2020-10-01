@@ -250,25 +250,6 @@ BOOST_AUTO_TEST_CASE(tokens)
         BOOST_REQUIRE(token->symbol == "DCT3");
     }
 
-    // destroy token
-//    BOOST_REQUIRE(pcustomcsview->DestroyToken(0, uint256S("0x2222"), 999) == false); // stable coin!
-    BOOST_REQUIRE(pcustomcsview->DestroyToken(uint256S("0x3333"), uint256S("0xaaaa"), 999).ok == false); // nonexist
-    BOOST_REQUIRE(pcustomcsview->DestroyToken(uint256S("0x2222"), uint256S("0xaaaa"), 999).ok); // ok
-    BOOST_REQUIRE(pcustomcsview->DestroyToken(uint256S("0x2222"), uint256S("0xbbbb"), 999).ok == false); // already destroyed
-    {   // search by id
-        auto token = pcustomcsview->GetToken(DCT_ID{129});
-        BOOST_REQUIRE(token);
-        auto tokenImpl = static_cast<CTokenImplementation &>(*token);
-        BOOST_REQUIRE(tokenImpl.destructionHeight == 999);
-        BOOST_REQUIRE(tokenImpl.destructionTx == uint256S("0xaaaa"));
-    }
-
-    // revert destroy token
-//    BOOST_REQUIRE(pcustomcsview->RevertDestroyToken(0, uint256S("0x2222")) == false); // stable coin!
-    BOOST_REQUIRE(pcustomcsview->RevertDestroyToken(uint256S("0x3333"), uint256S("0xaaaa")) == false); // nonexist
-    BOOST_REQUIRE(pcustomcsview->RevertDestroyToken(uint256S("0x1111"), uint256S("0xaaaa")) == false); // not destroyed, active
-    BOOST_REQUIRE(pcustomcsview->RevertDestroyToken(uint256S("0x2222"), uint256S("0xbbbb")) == false); // destroyed, but wrong tx for revert
-    BOOST_REQUIRE(pcustomcsview->RevertDestroyToken(uint256S("0x2222"), uint256S("0xaaaa"))); // ok!
     {   // search by id
         auto token = pcustomcsview->GetToken(DCT_ID{129});
         BOOST_REQUIRE(token);

@@ -64,17 +64,22 @@ std::string CTxOut::ToString() const
     return strprintf("CTxOut(nValue=%d.%08d, nTokenId=%s, scriptPubKey=%s)", nValue / COIN, nValue % COIN, nTokenId.ToString(), HexStr(scriptPubKey).substr(0, 30));
 }
 
-CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
+CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::TX_VERSION_2), nLockTime(0) {}
+CMutableTransaction::CMutableTransaction(int32_t version) : nVersion(version), nLockTime(0) {}
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) : vin(tx.vin), vout(tx.vout), nVersion(tx.nVersion), nLockTime(tx.nLockTime) {}
 
 uint256 CMutableTransaction::GetHash() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
+    return SerializeHash(*this, SER_GETHASH,
+        nVersion < CTransaction::TOKENS_MIN_VERSION ?
+        SERIALIZE_TRANSACTION_NO_WITNESS | SERIALIZE_TRANSACTION_NO_TOKENS : SERIALIZE_TRANSACTION_NO_WITNESS);
 }
 
 uint256 CTransaction::ComputeHash() const
 {
-    return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
+    return SerializeHash(*this, SER_GETHASH,
+        nVersion < CTransaction::TOKENS_MIN_VERSION ?
+        SERIALIZE_TRANSACTION_NO_WITNESS | SERIALIZE_TRANSACTION_NO_TOKENS : SERIALIZE_TRANSACTION_NO_WITNESS);
 }
 
 uint256 CTransaction::ComputeWitnessHash() const
@@ -86,7 +91,8 @@ uint256 CTransaction::ComputeWitnessHash() const
 }
 
 /* For backward compatibility, the hash is initialized to 0. TODO: remove the need for this default constructor entirely. */
-CTransaction::CTransaction() : vin(), vout(), nVersion(CTransaction::CURRENT_VERSION), nLockTime(0), hash{}, m_witness_hash{} {}
+CTransaction::CTransaction() : vin(), vout(), nVersion(CTransaction::TX_VERSION_2), nLockTime(0), hash{}, m_witness_hash{} {}
+CTransaction::CTransaction(int32_t version) : vin(), vout(), nVersion(version), nLockTime(0), hash{}, m_witness_hash{} {}
 CTransaction::CTransaction(const CMutableTransaction& tx) : vin(tx.vin), vout(tx.vout), nVersion(tx.nVersion), nLockTime(tx.nLockTime), hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
 CTransaction::CTransaction(CMutableTransaction&& tx) : vin(std::move(tx.vin)), vout(std::move(tx.vout)), nVersion(tx.nVersion), nLockTime(tx.nLockTime), hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
 

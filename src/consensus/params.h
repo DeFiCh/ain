@@ -71,9 +71,9 @@ struct Params {
      * BIP 16 exception blocks. */
     int SegwitHeight;
     /** Block height at which tokens, liquidity pools and new block rewards becomes active */
-    int DIP1Height;
-    /** Foundation share after DIP1, normalized to COIN = 100% */
-    CAmount foundationShareDIP1;
+    int AMKHeight;
+    /** Foundation share after AMK, normalized to COIN = 100% */
+    CAmount foundationShareDFIP1;
 
     /** Proof of stake parameters */
     struct PoS {

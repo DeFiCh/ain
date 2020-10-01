@@ -172,7 +172,6 @@ bool CTokensView::RevertCreateToken(const uint256 & txid)
     return true;
 }
 
-/// @attention this method only triggers "DAT" flag. Enhance/rename/refactor (create new one?) for common token's updating
 Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
@@ -219,45 +218,6 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken)
 
     WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
     return Res::Ok();
-}
-
-Res CTokensView::DestroyToken(uint256 const & tokenTx, const uint256 & txid, int height)
-{
-    auto pair = GetTokenByCreationTx(tokenTx);
-    if (!pair) {
-        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
-    }
-    /// @todo token: check for token supply / utxos
-
-    CTokenImpl & tokenImpl = pair->second;
-    if (tokenImpl.destructionTx != uint256{}) {
-        return Res::Err("token with creationTx %s was already destroyed by tx %s!", tokenTx.ToString(), tokenImpl.destructionTx.ToString());
-    }
-
-    tokenImpl.destructionTx = txid;
-    tokenImpl.destructionHeight = height;
-    WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
-    return Res::Ok();
-}
-
-/// @deprecated used only by tests. rewrite tests
-bool CTokensView::RevertDestroyToken(uint256 const & tokenTx, const uint256 & txid)
-{
-    auto pair = GetTokenByCreationTx(tokenTx);
-    if (!pair) {
-        LogPrintf("Token destruction revert error: token with creationTx %s does not exist!\n", tokenTx.ToString());
-        return false;
-    }
-    CTokenImpl & tokenImpl = pair->second;
-    if (tokenImpl.destructionTx != txid) {
-        LogPrintf("Token destruction revert error: token with creationTx %s was not destroyed by tx %s!\n", tokenTx.ToString(), txid.ToString());
-        return false;
-    }
-
-    tokenImpl.destructionTx = uint256{};
-    tokenImpl.destructionHeight = -1;
-    WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
-    return true;
 }
 
 DCT_ID CTokensView::IncrementLastDctId()

@@ -52,6 +52,8 @@ std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const WalletLocati
 
 CKey GetWalletsKey(CKeyID const & keyid);
 
+int32_t GetTransactionVersion(int height);
+
 enum class WalletCreationStatus {
     SUCCESS,
     CREATION_FAILED,

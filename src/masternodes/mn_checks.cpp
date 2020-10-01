@@ -138,15 +138,15 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyResignMasternodeTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::CreateToken:
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyCreateTokenTx(mnview, coins, tx, height, metadata);
                 break;
-            case CustomTxType::DestroyToken:
-                res = ApplyDestroyTokenTx(mnview, coins, tx, height, metadata);
-                break;
             case CustomTxType::UpdateToken:
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyUpdateTokenTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::MintToken:
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyMintTokenTx(mnview, coins, tx, metadata);
                 break;
             case CustomTxType::CreatePoolPair:
@@ -165,12 +165,15 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyRemovePoolLiquidityTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::UtxosToAccount:
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyUtxosToAccountTx(mnview, tx, metadata);
                 break;
             case CustomTxType::AccountToUtxos:
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyAccountToUtxosTx(mnview, coins, tx, metadata);
                 break;
             case CustomTxType::AccountToAccount:
+                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyAccountToAccountTx(mnview, coins, tx, metadata);
                 break;
             case CustomTxType::SetGovVariable:
@@ -316,33 +319,6 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }
 
-    return Res::Ok(base);
-}
-
-Res ApplyDestroyTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
-{
-    const std::string base{"Token destruction"};
-
-    if (metadata.size() != sizeof(uint256)) {
-        return Res::Err("%s: metadata must contain 32 bytes", base);
-    }
-    uint256 tokenTx(metadata);
-    auto pair = mnview.GetTokenByCreationTx(tokenTx);
-    if (!pair) {
-        return Res::Err("%s: token with creationTx %s does not exist", base, tokenTx.ToString());
-    }
-    CTokenImplementation const & token = pair->second;
-    if (!HasCollateralAuth(tx, coins, token.creationTx)) {
-        return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
-    }
-    if (token.IsDAT() || token.IsPoolShare()) {
-        return Res::Err("%s: %s", base, "can't manually destruct special (DAT or LPS) token");
-    }
-
-    auto res = mnview.DestroyToken(token.creationTx, tx.GetHash(), height);
-    if (!res.ok) {
-        return Res::Err("%s %s: %s", base, token.symbol, res.msg);
-    }
     return Res::Ok(base);
 }
 
@@ -967,7 +943,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     }
 
     // check reward sum
-    if (height >= Params().GetConsensus().DIP1Height) {
+    if (height >= Params().GetConsensus().AMKHeight) {
         auto const cbValues = tx.GetValuesOut();
         if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
             return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be payed only in Defi coins");
@@ -978,7 +954,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
                                cbValues.begin()->second, anchorReward);
         }
     }
-    else { // pre-DIP1 logic
+    else { // pre-AMK logic
         auto anchorReward = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, Params().GetConsensus());
         if (tx.GetValueOut() > anchorReward) {
             return Res::ErrDbg("bad-ar-amount", "anchor pays too much (actual=%d vs limit=%d)",
@@ -999,7 +975,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
         return Res::ErrDbg("bad-ar-nextteam", "anchor wrong next team");
     }
     mnview.SetTeam(finMsg.nextTeam);
-    if (height >= Params().GetConsensus().DIP1Height) {
+    if (height >= Params().GetConsensus().AMKHeight) {
         mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     }
     else {
@@ -1009,6 +985,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
 
     return { finMsg.btcTxHash, Res::Ok() };
 }
+
 
 bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
 {

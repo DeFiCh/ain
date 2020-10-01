@@ -21,7 +21,7 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         # node1: secondary tester
         # node2: revert create (all)
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0'], ['-txnotokens=0'], ['-txnotokens=0']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=50'], ['-txnotokens=0', '-amkheight=50'], ['-txnotokens=0', '-amkheight=50']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -177,8 +177,12 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert("Can't find any UTXO" in errorString)
 
         # transfer
-        # self.nodes[0].accounttoutxos(accountGold, {accountGold: "100@" + symbolGOLD}, [])
-        # self.nodes[0].generate(1)
+        try:
+            self.nodes[0].accounttoutxos(accountGold, {accountGold: "100@" + symbolGOLD}, [])
+            self.nodes[0].generate(1)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("AccountToUtxos only available for DFI transactions" in errorString)
 
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], self.nodes[1].getaccount(accountGold, {}, True)[idGold])
