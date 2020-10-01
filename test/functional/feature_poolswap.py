@@ -144,6 +144,24 @@ class PoolPairTest (DefiTestFramework):
         assert(list_pool['1']['reserveB'] == 1000) # SILVER
 
         # 6 Trying to poolswap
+
+        self.nodes[0].updatepoolpair({"pool": "GS", "status": False})
+        self.nodes[0].generate(1)
+        try:
+            self.nodes[0].poolswap({
+                "from": accountGN0,
+                "tokenFrom": symbolSILVER,
+                "amountFrom": 10,
+                "to": accountSN1,
+                "tokenTo": symbolGOLD,
+            }, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("turned off" in errorString)
+        self.nodes[0].updatepoolpair({"pool": "GS", "status": True})
+        self.nodes[0].generate(1)
+
+
         self.nodes[0].poolswap({
             "from": accountGN0,
             "tokenFrom": symbolSILVER,

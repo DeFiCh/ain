@@ -736,9 +736,11 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     }
 
     //check foundation auth
-    if(!HasFoundationAuth(tx, coins, Params().GetConsensus()))
-    {
+    if(!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
         return Res::Err("%s: %s", base, "tx not from foundation member");
+    }
+    if(poolPairMsg.commission < 0 || poolPairMsg.commission > COIN) {
+        return Res::Err("%s: %s", base, "wrong commission");
     }
 
     /// @todo ownerAddress validity checked only in rpc. is it enough?

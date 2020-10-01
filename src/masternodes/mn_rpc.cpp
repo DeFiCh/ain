@@ -2245,7 +2245,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
             }
             try {
-                rawTx.vin = GetAuthInputs(pwallet, destination, request.params[1].get_array());
+                rawTx.vin = GetAuthInputs(pwallet, destination, request.params.size() > 1 ? request.params[1].get_array() : UniValue());
             }
             catch (const UniValue& objError) {}
         }

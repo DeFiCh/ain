@@ -193,6 +193,12 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(self.nodes[0].getpoolpair("PTGOLD")['2']['status'], False)
         assert_equal(str(self.nodes[0].getpoolpair("PTGOLD")['2']['commission']), "0.10000000")
 
+        try:
+            self.nodes[0].updatepoolpair({"pool": "PTGOLD", "commission": 2})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("commission > 100%" in errorString)
+
         self.nodes[0].updatepoolpair({"pool": "PTGOLD", "status": True}, [])
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].getpoolpair("PTGOLD")['2']['status'], True)

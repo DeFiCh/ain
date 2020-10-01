@@ -62,7 +62,10 @@ Res CPoolPairView::UpdatePoolPair(DCT_ID const & poolId, bool & status, CAmount 
     if (pool.status != status) {
         pool.status = status;
     }
-    if (commission >= 0) {
+    if (commission >= 0) { // default/not set is -1
+        if (commission > COIN) {
+            return Res::Err("commission > 100%%");
+        }
         pool.commission = commission;
     }
     if (!ownerAddress.empty()) {
@@ -101,6 +104,9 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
     }
     if (in.nValue <= 0)
         return Res::Err("Input amount should be positive!");
+
+    if (!status)
+        return Res::Err("Pool trading is turned off!");
 
     bool const forward = in.nTokenId == idTokenA;
 
