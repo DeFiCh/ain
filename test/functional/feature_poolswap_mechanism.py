@@ -47,13 +47,14 @@ class PoolSwapTest (DefiTestFramework):
         # Liquidity:     1 pool * 10 acc = 2 token * 10 acc = 20 tx
         # Set gov:       2 tx
         # PoolSwap:      1 pool * 10 acc = 2 token * 10 acc = 20 tx
-        count_create_pool_tx = self.COUNT_POOLS * 3
+
+        # count_create_pool_tx = self.COUNT_POOLS * 3
         count_pool_token = self.COUNT_POOLS * 2
-        count_mint_and_sent = count_pool_token * 4
-        count_add_liquidity = count_pool_token * self.COUNT_ACCOUNT
+        # count_mint_and_sent = count_pool_token * 4
+        # count_add_liquidity = count_pool_token * self.COUNT_ACCOUNT
         self.COUNT_POOLSWAP = count_pool_token * self.COUNT_ACCOUNT
 
-        self.COUNT_TX = count_create_pool_tx + count_mint_and_sent + count_add_liquidity + 2 + self.COUNT_POOLSWAP
+        # self.COUNT_TX = count_create_pool_tx + count_mint_and_sent + count_add_liquidity + 2 + self.COUNT_POOLSWAP
 
     def get_id_token(self, symbol):
         list_tokens = self.nodes[0].listtokens()
