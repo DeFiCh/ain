@@ -46,7 +46,7 @@ std::tuple<DCT_ID, DCT_ID, DCT_ID> CreatePoolNTokens(CCustomCSView &mnview, std:
         pool.status = true;
         BOOST_REQUIRE(mnview.SetPoolPair(idPool, pool).ok);
     }
-    return { idA, idB, idPool};
+    return std::tuple<DCT_ID, DCT_ID, DCT_ID>(idA, idB, idPool); // ! simple initialization list (as "{a,b,c}")  doesn't work here under ubuntu 16.04 - due to older gcc?
 }
 
 Res AddPoolLiquidity(CCustomCSView &mnview, DCT_ID idPool, CAmount amountA, CAmount amountB, CScript const & shareAddress)
