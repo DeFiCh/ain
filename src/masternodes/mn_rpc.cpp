@@ -1528,8 +1528,9 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                {
                        {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
-                                                                                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                                {"address", RPCArg::Type::OBJ, RPCArg::Optional::NO, "The defi address(es) is the key(s), the value(s) is amount in amount@token format. "
+                                                                                     "You should provide exectly two types of tokens for pool's 'token A' and 'token B' in any combinations."
+                                                                                     "If multiple tokens from one address are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
                         },
                        },
                        {"shareAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address for crediting tokens."},
@@ -1576,7 +1577,8 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     CTxDestination ownerDest;
@@ -1660,7 +1662,8 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     CTxDestination ownerDest;
@@ -2117,7 +2120,8 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
@@ -2185,10 +2189,10 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("updatetoken", "\"{\"pool\":\"POOL\",\"status\":true,"
+                       HelpExampleCli("updatepoolpair", "\"{\"pool\":\"POOL\",\"status\":true,"
                                                      "\"commission\":0.01,\"ownerAddress\":\"Address\"}\" "
                                                      "\"[{\"txid\":\"id\",\"vout\":0}]\"")
-                       + HelpExampleRpc("updatetoken", "\"{\"pool\":\"POOL\",\"status\":true,"
+                       + HelpExampleRpc("updatepoolpair", "\"{\"pool\":\"POOL\",\"status\":true,"
                                                        "\"commission\":0.01,\"ownerAddress\":\"Address\"}\" "
                                                        "\"[{\"txid\":\"id\",\"vout\":0}]\"")
                },
@@ -2234,7 +2238,8 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
         ownerAddress = DecodeScript(metaObj["ownerAddress"].getValStr());
     }
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
 
     for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
     {
@@ -2399,10 +2404,6 @@ UniValue poolswap(const JSONRPCRequest& request) {
             auto priceInt = price256 / CPoolPair::PRECISION;
             poolSwapMsg.maxPrice.integer = priceInt.GetLow64();
             poolSwapMsg.maxPrice.fraction = (price256 - priceInt * CPoolPair::PRECISION).GetLow64(); // cause there is no operator "%"
-
-            // price w/o +3% - cant overflow
-    //        price.integer = pool.reserveB / pool.reserveA;
-    //        price.fraction = (arith_uint256(pool.reserveB % pool.reserveA) * CPoolPair::PRECISION / arith_uint256(pool.reserveA)).GetLow64(); // sure < PRECISION
         }
     }
 
@@ -2413,7 +2414,8 @@ UniValue poolswap(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     CTxDestination ownerDest;
@@ -2563,13 +2565,11 @@ UniValue setgov(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"setgov",
-               "\nSet special parameters.\n",
+               "\nSet special 'governance' variables. Two types of them implemented for now: LP_SPLITS and LP_DAILY_DFI_REWARD\n",
                {
-                    //{"govKey", RPCArg::Type::STR, RPCArg::Optional::NO,"First parameter - governance key."},
-                    {"parameters", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                    {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variables",
                         {
-                             {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
-                              "Second parameter - governance data."},
+                            {"name", RPCArg::Type::STR, RPCArg::Optional::NO, "Variable's name is the key, value is the data. Exact data type depends on variable's name."},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
@@ -2584,11 +2584,11 @@ UniValue setgov(const JSONRPCRequest& request) {
                     },
                },
                RPCResult{
-                       "{id:{...},...}     (array) Json object with information\n"
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("setgov", "{\"govKey\":\"govData\"}")
-                       + HelpExampleRpc("setgov", "{\"govKey\":\"govData\"}")
+                       HelpExampleCli("setgov", "{\"LP_SPLITS\": {\"2\":0.2,\"3\":0.8}")
+                       + HelpExampleRpc("setgov", "{\"LP_DAILY_DFI_REWARD\":109440}")
                },
     }.Check(request);
 
@@ -2612,7 +2612,8 @@ UniValue setgov(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    CMutableTransaction rawTx;
+    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
@@ -2649,7 +2650,7 @@ UniValue setgov(const JSONRPCRequest& request) {
 
 UniValue getgov(const JSONRPCRequest& request) {
     RPCHelpMan{"getgov",
-               "\nReturns information about governance variable.\n",
+               "\nReturns information about governance variable. Two types of them implemented for now: LP_SPLITS and LP_DAILY_DFI_REWARD\n",
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Variable name"},
@@ -2659,7 +2660,7 @@ UniValue getgov(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("getgov", "LP_SPLITS")
-                       + HelpExampleRpc("getgov", "LP_SPLITS")
+                       + HelpExampleRpc("getgov", "LP_DAILY_DFI_REWARD")
                },
     }.Check(request);
 
@@ -2702,7 +2703,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
-    {"blockchain",  "setgov",             &setgov,             {"parameters", "inputs"}},
+    {"blockchain",  "setgov",             &setgov,             {"variables", "inputs"}},
     {"blockchain",  "getgov",             &getgov,             {"name"}},
 };
 

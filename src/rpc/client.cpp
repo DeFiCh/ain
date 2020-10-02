@@ -232,7 +232,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listpoolshares", 0, "pagination" },
     { "listpoolshares", 1, "verbose" },
 
-    { "setgov", 0, "parameters" },
+    { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
     { "getgov", 0, "name" },
 };

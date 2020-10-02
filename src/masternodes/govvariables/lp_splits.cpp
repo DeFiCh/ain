@@ -13,7 +13,7 @@ Res LP_SPLITS::Import(const UniValue & val) {
     if (!val.isObject())
         return Res::Err("object of {poolId: rate,... } expected"); /// throw here? cause "AmountFromValue" can throw!
     for (const std::string& key : val.getKeys()) {
-        auto id = DCT_ID::FromString(key);
+        const auto id = DCT_ID::FromString(key);
         if (!id.ok) {
             return Res::Err(id.msg);
         }

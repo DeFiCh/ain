@@ -269,7 +269,6 @@ public:
                 }
                 CAmount const liquidity = onGetBalance(provider, poolId).nValue;
 
-
                 uint32_t const liqWeight = liquidity * PRECISION / pool.totalLiquidity;
                 assert (liqWeight < PRECISION);
 

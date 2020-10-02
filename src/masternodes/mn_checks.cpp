@@ -689,7 +689,7 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     }
 
     for (const auto& kv : SumAllTransfers(msg.to).balances) {
-        auto token = mnview.GetToken(kv.first);
+        const auto token = mnview.GetToken(kv.first);
         if (token->IsPoolShare()) {
             const auto balance = mnview.GetBalance(msg.from, kv.first);
             if (balance.nValue == 0) {

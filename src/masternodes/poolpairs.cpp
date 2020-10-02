@@ -114,8 +114,8 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
     if (reserveA < SLOPE_SWAP_RATE || reserveB < SLOPE_SWAP_RATE)
         return Res::Err("Lack of liquidity.");
 
-    auto aReserveA = arith_uint256(reserveA);
-    auto aReserveB = arith_uint256(reserveB);
+    auto const aReserveA = arith_uint256(reserveA);
+    auto const aReserveB = arith_uint256(reserveB);
 
     arith_uint256 maxPrice256 = arith_uint256(maxPrice.integer) * PRECISION + maxPrice.fraction;
     arith_uint256 priceAB = (aReserveA * PRECISION / aReserveB);
