@@ -1599,7 +1599,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "gettoken",           &gettoken,           {"key" }},
     {"tokens",      "minttokens",         &minttokens,         {"amounts", "inputs"}},
     {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose"}},
-    {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination"}},
+    {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination", "indexed_amounts"}},
     {"accounts",    "utxostoaccount",     &utxostoaccount,     {"amounts", "inputs"}},
     {"accounts",    "accounttoaccount",   &accounttoaccount,   {"from", "to", "inputs"}},
     {"accounts",    "accounttoutxos",     &accounttoutxos,     {"from", "to", "inputs"}},
