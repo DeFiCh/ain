@@ -1528,7 +1528,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                {
                        {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                                {"address", RPCArg::Type::OBJ, RPCArg::Optional::NO, "The defi address(es) is the key(s), the value(s) is amount in amount@token format. "
+                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address(es) is the key(s), the value(s) is amount in amount@token format. "
                                                                                      "You should provide exectly two types of tokens for pool's 'token A' and 'token B' in any combinations."
                                                                                      "If multiple tokens from one address are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
                         },
