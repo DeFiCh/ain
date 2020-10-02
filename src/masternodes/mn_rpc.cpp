@@ -697,6 +697,8 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                             "Token's 'Mintable' property (bool, optional)"},
                            {"tradeable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                             "Token's 'Tradeable' property (bool, optional)"},
+                           {"finalize", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                            "Lock token properties forever (bool, optional)"},
                            // it is possible to transfer token's owner. but later
 //                           {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
 //                            "Any valid destination for keeping collateral amount - used as token's owner auth"},
@@ -799,6 +801,11 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                               tokenImpl.flags | (uint8_t)CToken::TokenFlags::Mintable :
                               tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Mintable;
     }
+    if (!metaObj["finalize"].isNull()) {
+        tokenImpl.flags = metaObj["finalize"].getBool() ?
+                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Finalized :
+                              tokenImpl.flags;
+    }
 
     const auto txVersion = GetTransactionVersion(::ChainActive().Height());
     CMutableTransaction rawTx(txVersion);
@@ -854,15 +861,11 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
-UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool real_symbols, bool verbose) {
+UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
-    if (real_symbols && token.IsDAT()) {
-        tokenObj.pushKV("symbol", token.symbol);
-    } else if (real_symbols && !token.IsDAT()) {
-        tokenObj.pushKV("symbol", token.symbol + "#" + id.ToString());
-    } else {
-        tokenObj.pushKV("symbol", token.symbol);
-    }
+    tokenObj.pushKV("symbol", token.symbol);
+    tokenObj.pushKV("symbolKey", token.CreateSymbolKey(id));
+
     tokenObj.pushKV("name", token.name);
     if (verbose) {
         tokenObj.pushKV("decimal", token.decimal);
@@ -871,16 +874,15 @@ UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool real_symbols, b
         tokenObj.pushKV("tradeable", token.IsTradeable());
         tokenObj.pushKV("isDAT", token.IsDAT());
         tokenObj.pushKV("isLPS", token.IsPoolShare());
-        // now all tokens are created by txs (except DFI)
-//        if (id >= CTokensView::DCT_ID_START) {
-            CTokenImplementation const& tokenImpl = static_cast<CTokenImplementation const&>(token);
-            tokenObj.pushKV("creationTx", tokenImpl.creationTx.ToString());
-            tokenObj.pushKV("creationHeight", tokenImpl.creationHeight);
-            tokenObj.pushKV("destructionTx", tokenImpl.destructionTx.ToString());
-            tokenObj.pushKV("destructionHeight", tokenImpl.destructionHeight);
-            /// @todo tokens: collateral address/script
-//            tokenObj.pushKV("collateralAddress", tokenImpl.destructionHeight);
-//        }
+        tokenObj.pushKV("finalized", token.IsFinalized());
+
+        CTokenImplementation const& tokenImpl = static_cast<CTokenImplementation const&>(token);
+        tokenObj.pushKV("creationTx", tokenImpl.creationTx.ToString());
+        tokenObj.pushKV("creationHeight", tokenImpl.creationHeight);
+        tokenObj.pushKV("destructionTx", tokenImpl.destructionTx.ToString());
+        tokenObj.pushKV("destructionHeight", tokenImpl.destructionHeight);
+        /// @todo tokens: collateral address/script
+//      tokenObj.pushKV("collateralAddress", tokenImpl.destructionHeight);
     }
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(id.ToString(), tokenObj);
@@ -905,8 +907,6 @@ UniValue listtokens(const JSONRPCRequest& request) {
                         },
                         {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                     "Flag for verbose list (default = true), otherwise only ids, symbols and names are listed"},
-                        {"real_symbols", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                    "Format of symbols output (default = false): (true: \"SYMBOL\", false: \"SYMBOL#128\""},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with tokens information\n"
@@ -948,16 +948,11 @@ UniValue listtokens(const JSONRPCRequest& request) {
         }
     }
 
-    bool real_symbols = false;
-    if (request.params.size() > 2) {
-        real_symbols = request.params[2].get_bool();
-    }
-
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
     pcustomcsview->ForEachToken([&](DCT_ID const& id, CToken const& token) {
-        ret.pushKVs(tokenToJSON(id, token, real_symbols, verbose));
+        ret.pushKVs(tokenToJSON(id, token, verbose));
 
         limit--;
         return limit != 0;
@@ -972,8 +967,6 @@ UniValue gettoken(const JSONRPCRequest& request) {
                {
                        {"key", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "One of the keys may be specified (id/symbol/creationTx)"},
-                       {"real_symbols", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                        "Format of symbols output (default = false): (true: \"SYMBOL\", false: \"SYMBOL#128\""},
                },
                RPCResult{
                        "{id:{...}}     (array) Json object with token information\n"
@@ -989,13 +982,8 @@ UniValue gettoken(const JSONRPCRequest& request) {
     DCT_ID id;
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
 
-    bool real_symbols = false;
-    if (request.params.size() > 1) {
-        real_symbols = request.params[1].get_bool();
-    }
-
     if (token) {
-        return tokenToJSON(id, *token, real_symbols, true);
+        return tokenToJSON(id, *token, true);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }

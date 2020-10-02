@@ -37,12 +37,12 @@ std::unique_ptr<CToken> CTokensView::GetToken(DCT_ID id) const
     return {};
 }
 
-boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetToken(const std::string & symbol) const
+boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetToken(const std::string & symbolKey) const
 {
     DCT_ID id;
     auto varint = WrapVarInt(id.v);
 
-    if (ReadBy<Symbol, std::string>(symbol, varint)) {
+    if (ReadBy<Symbol, std::string>(symbolKey, varint)) {
 //        assert(id >= DCT_ID_START);// ? not needed anymore?
         return { std::make_pair(id, std::move(GetToken(id)))};
     }
@@ -108,7 +108,10 @@ Res CTokensView::CreateDFIToken()
     token.name = "Default Defi token";
     token.creationTx = uint256();
     token.creationHeight = 0;
+    token.flags = '\0';
     token.flags |= (uint8_t)CToken::TokenFlags::DAT;
+    token.flags |= (uint8_t)CToken::TokenFlags::Tradeable;
+    token.flags |= (uint8_t)CToken::TokenFlags::Finalized;
 
     DCT_ID id{0};
     WriteBy<ID>(WrapVarInt(id.v), token);
@@ -122,6 +125,11 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
     // this should not happen, but for sure
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
+    }
+
+    auto checkSymbolRes = token.IsValidSymbol();
+    if (!checkSymbolRes.ok) {
+        return checkSymbolRes;
     }
 
     DCT_ID id{0};
@@ -142,7 +150,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
     else
         id = IncrementLastDctId();
 
-    std::string symbolKey = token.symbol + (token.IsDAT() ? "" : "#" + std::to_string(id.v));
+    std::string symbolKey = token.CreateSymbolKey(id);
 
     WriteBy<ID>(WrapVarInt(id.v), token);
     WriteBy<Symbol>(symbolKey, WrapVarInt(id.v));
@@ -178,45 +186,52 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken)
     if (!pair) {
         return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
     }
-    CTokenImpl & tokenImpl = pair->second;
+    DCT_ID id = pair->first;
+    CTokenImpl & oldToken = pair->second;
 
-    if (tokenImpl.symbol != newToken.symbol) {
-        return Res::Err("token's symbol update doesn't implemented yet");
+    if (oldToken.IsFinalized()) {
+        return Res::Err("can't alter 'Finalized' tokens");
     }
 
-    if (tokenImpl.name != newToken.name) {
-        tokenImpl.name = trim_ws(newToken.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+    // 'name' and 'symbol' were trimmed in 'Apply'
+    oldToken.name = newToken.name;
+
+    // check new symbol correctness
+    auto checkSymbolRes = newToken.IsValidSymbol();
+    if (!checkSymbolRes.ok) {
+        return checkSymbolRes;
     }
 
-    // flags:
-    if (tokenImpl.IsMintable() != newToken.IsMintable()) {
-        tokenImpl.flags = tokenImpl.IsMintable() ?
-                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Mintable :
-                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Mintable;
-    }
-    if (tokenImpl.IsTradeable() != newToken.IsTradeable()) {
-        tokenImpl.flags = tokenImpl.IsTradeable() ?
-                              tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Tradeable :
-                              tokenImpl.flags | (uint8_t)CToken::TokenFlags::Tradeable;
-    }
-
-    if (tokenImpl.IsDAT() != newToken.IsDAT()) {
-        std::string symbolKey = tokenImpl.symbol + "#" + std::to_string(pair->first.v);
-        if (!tokenImpl.IsDAT()) {
-            if (GetToken(tokenImpl.symbol)) {
-                return Res::Err("token '%s' already exists!", tokenImpl.symbol);
-            }
-            tokenImpl.flags |= (uint8_t)CToken::TokenFlags::DAT;
-            EraseBy<Symbol>(symbolKey);
-            WriteBy<Symbol>(tokenImpl.symbol, WrapVarInt(pair->first.v));
-        } else {
-            tokenImpl.flags &= ~(uint8_t)CToken::TokenFlags::DAT;
-            EraseBy<Symbol>(tokenImpl.symbol);
-            WriteBy<Symbol>(symbolKey, WrapVarInt(pair->first.v));
+    // deal with DB symbol indexes before touching symbols/DATs:
+    if (oldToken.symbol != newToken.symbol || oldToken.IsDAT() != newToken.IsDAT()) { // in both cases it leads to index changes
+        // create keys with regard of new flag
+        std::string oldSymbolKey = oldToken.CreateSymbolKey(id);
+        std::string newSymbolKey = newToken.CreateSymbolKey(id);
+        if (GetToken(newSymbolKey)) {
+            return Res::Err("token with key '%s' already exists!", newSymbolKey);
         }
+        EraseBy<Symbol>(oldSymbolKey);
+        WriteBy<Symbol>(newSymbolKey, WrapVarInt(id.v));
     }
 
-    WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
+    // apply DAT flag and symbol only AFTER dealing with symbol indexes:
+    oldToken.symbol = newToken.symbol;
+    oldToken.flags = newToken.IsDAT() ?
+                     oldToken.flags | (uint8_t)CToken::TokenFlags::DAT :
+                     oldToken.flags & ~(uint8_t)CToken::TokenFlags::DAT;
+
+    // regular flags:
+    oldToken.flags = newToken.IsMintable() ?
+                         oldToken.flags | (uint8_t)CToken::TokenFlags::Mintable :
+                         oldToken.flags & ~(uint8_t)CToken::TokenFlags::Mintable;
+    oldToken.flags = newToken.IsTradeable() ?
+                         oldToken.flags | (uint8_t)CToken::TokenFlags::Tradeable :
+                         oldToken.flags & ~(uint8_t)CToken::TokenFlags::Tradeable;
+    oldToken.flags = newToken.IsFinalized() ?
+                         oldToken.flags | (uint8_t)CToken::TokenFlags::Finalized :
+                         oldToken.flags;
+
+    WriteBy<ID>(WrapVarInt(id.v), oldToken);
     return Res::Ok();
 }
 

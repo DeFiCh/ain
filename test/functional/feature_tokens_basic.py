@@ -60,7 +60,7 @@ class TokensBasicTest (DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("token symbol must not contain '#'" in errorString)
+        assert("token symbol should not contain '#'" in errorString)
 
         print ("Create token 'GOLD' (128)...")
         createTokenTx = self.nodes[0].createtoken({

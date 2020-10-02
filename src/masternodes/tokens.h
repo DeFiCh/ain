@@ -29,6 +29,7 @@ public:
         Tradeable = 0x02,
         DAT = 0x04,
         LPS = 0x08, // Liquidity Pool Share
+        Finalized = 0x10, // locked forever
         Default = TokenFlags::Mintable | TokenFlags::Tradeable
     };
 
@@ -48,21 +49,38 @@ public:
     {}
     virtual ~CToken() = default;
 
-    bool IsMintable() const
+    inline bool IsMintable() const
     {
         return flags & (uint8_t)TokenFlags::Mintable;
     }
-    bool IsTradeable() const
+    inline bool IsTradeable() const
     {
         return flags & (uint8_t)TokenFlags::Tradeable;
     }
-    bool IsDAT() const
+    inline bool IsDAT() const
     {
         return flags & (uint8_t)TokenFlags::DAT;
     }
-    bool IsPoolShare() const
+    inline bool IsPoolShare() const
     {
         return flags & (uint8_t)TokenFlags::LPS;
+    }
+    inline bool IsFinalized() const
+    {
+        return flags & (uint8_t)TokenFlags::Finalized;
+    }
+    inline Res IsValidSymbol() const
+    {
+        if (symbol.size() == 0 || IsDigit(symbol[0])) {
+            return Res::Err("token symbol should be non-empty and starts with a letter");
+        }
+        if (symbol.find('#') != std::string::npos) {
+            return Res::Err("token symbol should not contain '#'");
+        }
+        return Res::Ok();
+    }
+    inline std::string CreateSymbolKey(DCT_ID const & id) const {
+        return symbol + (IsDAT() ? "" : "#" + std::to_string(id.v));
     }
 
     ADD_SERIALIZE_METHODS;

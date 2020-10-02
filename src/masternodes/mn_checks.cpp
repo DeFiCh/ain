@@ -293,13 +293,6 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Err("%s: deserialization failed: excess %d bytes", base,  ss.size());
     }
     token.symbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-    if (token.symbol.size() == 0 || IsDigit(token.symbol[0])) {
-        return Res::Err("token symbol '%s' should be non-empty and starts with a letter", token.symbol);
-    }
-    if (token.symbol.find('#') != std::string::npos) {
-        return Res::Err("%s: token symbol must not contain '#'", base);
-    }
-
     token.name = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
 
     token.creationTx = tx.GetHash();
@@ -340,7 +333,7 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Err("%s: token with creationTx %s does not exist", base, tokenTx.ToString());
     }
     if (pair->first == DCT_ID{0}) {
-        return Res::Err("Can't alter DFI token!");
+        return Res::Err("Can't alter DFI token!"); // may be redundant cause DFI is 'finalized'
     }
 
     CTokenImplementation const & token = pair->second;
@@ -748,7 +741,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     poolPair.creationTx = tx.GetHash();
     poolPair.creationHeight = height;
 
-    CTokenImplementation token;
+    CTokenImplementation token{};
 
     auto tokenA = mnview.GetToken(poolPairMsg.idTokenA);
     if (!tokenA) {
@@ -765,7 +758,10 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     else
         pairSymbol = trim_ws(pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
-    token.flags |= (uint8_t)CToken::TokenFlags::DAT | (uint8_t)CToken::TokenFlags::LPS;
+    token.flags = (uint8_t)CToken::TokenFlags::DAT |
+                  (uint8_t)CToken::TokenFlags::LPS |
+                  (uint8_t)CToken::TokenFlags::Tradeable |
+                  (uint8_t)CToken::TokenFlags::Finalized;
     token.name = trim_ws(tokenA->name + "-" + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
     token.symbol = pairSymbol;
     token.creationTx = tx.GetHash();

@@ -131,6 +131,40 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(len(tokens), 3)
         assert_equal(tokens['128']["isDAT"], False)
 
+        # changing token's symbol:
+        self.nodes[0].updatetoken("GOLD#128", {"symbol":"gold"})
+        self.nodes[0].generate(1)
+        token = self.nodes[0].gettoken('128')
+        assert_equal(token['128']["symbol"], "gold")
+        assert_equal(token['128']["symbolKey"], "gold#128")
+        assert_equal(token['128']["isDAT"], False)
+        assert_equal(self.nodes[0].gettoken('gold#128'), token)
+
+        # changing token's symbol AND DAT at once:
+        self.nodes[0].updatetoken("128", {"symbol":"goldy", "isDAT":True})
+        self.nodes[0].generate(1)
+        token = self.nodes[0].gettoken('128')
+        assert_equal(token['128']["symbol"], "goldy")
+        assert_equal(token['128']["symbolKey"], "goldy")
+        assert_equal(token['128']["isDAT"], True)
+        assert_equal(self.nodes[0].gettoken('goldy'), token) # can do it w/o '#'' cause it should be DAT
+
+        # changing other properties:
+        self.nodes[0].updatetoken("128", {"name":"new name", "tradeable": False, "mintable": False, "finalize": True})
+        self.nodes[0].generate(1)
+        token = self.nodes[0].gettoken('128')
+        assert_equal(token['128']["name"], "new name")
+        assert_equal(token['128']["mintable"], False)
+        assert_equal(token['128']["tradeable"], False)
+        assert_equal(token['128']["finalized"], True)
+
+        # try to change finalized token:
+        try:
+            self.nodes[0].updatetoken("128", {"tradable": True})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("can't alter 'Finalized' tokens" in errorString)
+
         # Fail get token
         try:
             self.nodes[0].gettoken("GOLD")
