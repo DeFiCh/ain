@@ -366,7 +366,7 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
         if (!HasAuth(tx, coins, auth.out.scriptPubKey)) {
             return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
         }
-        auto mint = mnview.MintToken(tokenImpl.creationTx, kv.second);
+        auto mint = mnview.AddMintedTokens(tokenImpl.creationTx, kv.second);
         if (!mint.ok) {
             return Res::Err("%s %s: %s", base, tokenImpl.symbol, mint.msg);
         }

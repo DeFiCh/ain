@@ -36,7 +36,6 @@ public:
     std::string name;
     uint8_t decimal;    // now fixed to 8
     CAmount limit;      // now isn't tracked
-    CAmount minted;
     uint8_t flags;      // minting support, tradeability
 
     CToken()
@@ -44,7 +43,6 @@ public:
         , name("")
         , decimal(8)
         , limit(0)
-        , minted(0)
         , flags(uint8_t(TokenFlags::Default))
     {}
     virtual ~CToken() = default;
@@ -70,7 +68,6 @@ public:
         READWRITE(name);
         READWRITE(decimal);
         READWRITE(limit);
-        READWRITE(minted);
         READWRITE(flags);
     }
 };
@@ -79,6 +76,7 @@ class CTokenImplementation : public CToken
 {
 public:
     //! tx related properties
+    CAmount minted;
     uint256 creationTx;
     uint256 destructionTx;
     int32_t creationHeight; // @todo use unsigned integers, because serialization of signed integers isn't fulled defined
@@ -86,6 +84,7 @@ public:
 
     CTokenImplementation()
         : CToken()
+        , minted(0)
         , creationTx()
         , destructionTx()
         , creationHeight(-1)
@@ -98,6 +97,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CToken, *this);
+        READWRITE(minted);
         READWRITE(creationTx);
         READWRITE(destructionTx);
         READWRITE(creationHeight);
@@ -124,7 +124,7 @@ public:
     Res CreateToken(CTokenImpl const & token);
     bool RevertCreateToken(uint256 const & txid);
     Res UpdateToken(uint256 const & tokenTx);
-    Res MintToken(uint256 const & tokenTx, CAmount const & amount);
+    Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
 
     // tags
     struct ID { static const unsigned char prefix; };

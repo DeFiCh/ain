@@ -801,12 +801,12 @@ UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool verbose) {
     if (verbose) {
         tokenObj.pushKV("decimal", token.decimal);
         tokenObj.pushKV("limit", token.limit);
-        tokenObj.pushKV("minted", ValueFromAmount(token.minted));
         tokenObj.pushKV("mintable", token.IsMintable());
         tokenObj.pushKV("tradeable", token.IsTradeable());
         tokenObj.pushKV("isDAT", token.IsDAT());
         if (id >= CTokensView::DCT_ID_START) {
             CTokenImplementation const& tokenImpl = static_cast<CTokenImplementation const&>(token);
+            tokenObj.pushKV("minted", ValueFromAmount(tokenImpl.minted));
             tokenObj.pushKV("creationTx", tokenImpl.creationTx.ToString());
             tokenObj.pushKV("creationHeight", tokenImpl.creationHeight);
             tokenObj.pushKV("destructionTx", tokenImpl.destructionTx.ToString());

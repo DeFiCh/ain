@@ -197,7 +197,7 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx)
     return Res::Ok();
 }
 
-Res CTokensView::MintToken(const uint256 &tokenTx, CAmount const & amount)
+Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
