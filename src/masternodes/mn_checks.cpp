@@ -417,8 +417,12 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
     return Res::Ok(base);
 }
 
-Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t /*height*/, std::vector<unsigned char> const & metadata)
+Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
 {
+    if ((int)height < Params().GetConsensus().BishanHeight) {
+        return Res::Err("LP tx before Bishan height");
+    }
+
     // deserialize
     CLiquidityMessage msg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -497,6 +501,10 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
 Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
 {
+    if ((int)height < Params().GetConsensus().BishanHeight) {
+        return Res::Err("LP tx before Bishan height");
+    }
+
     // deserialize
     CRemoveLiquidityMessage msg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -717,6 +725,10 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
 Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata)
 {
+    if ((int)height < Params().GetConsensus().BishanHeight) {
+        return Res::Err("LP tx before Bishan height");
+    }
+
     const std::string base{"PoolPair creation"};
 
     CPoolPairMessage poolPairMsg;
@@ -788,6 +800,10 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 
 Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
 {
+    if((int)height < Params().GetConsensus().BishanHeight) {
+        return Res::Err("LP tx before Bishan height");
+    }
+
     const std::string base{"Pool update"};
 
     DCT_ID poolId;
@@ -822,6 +838,10 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
 
 Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata)
 {
+    if ((int)height < Params().GetConsensus().BishanHeight) {
+        return Res::Err("LP tx before Bishan height");
+    }
+
     CPoolSwapMessage poolSwapMsg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> poolSwapMsg;
@@ -880,6 +900,10 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
 
 Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata)
 {
+    if ((int)height < Params().GetConsensus().BishanHeight) {
+        return Res::Err("Governance tx before Bishan height");
+    }
+
     const std::string base{"Set governance variable"};
 
     //check foundation auth

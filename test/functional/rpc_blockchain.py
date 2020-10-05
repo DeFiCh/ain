@@ -130,6 +130,7 @@ class BlockchainTest(DefiTestFramework):
             'csv': {'type': 'buried', 'active': False, 'height': 432},
             'segwit': {'type': 'buried', 'active': True, 'height': 0},
             'amk': {'type': 'buried', 'active': False, 'height': 10000000},
+            'bishan': {'type': 'buried', 'active': False, 'height': 10000000},
             'testdummy': {
                 'type': 'bip9',
                 'bip9': {
