@@ -801,6 +801,7 @@ UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool verbose) {
     if (verbose) {
         tokenObj.pushKV("decimal", token.decimal);
         tokenObj.pushKV("limit", token.limit);
+        tokenObj.pushKV("minted", ValueFromAmount(token.minted));
         tokenObj.pushKV("mintable", token.IsMintable());
         tokenObj.pushKV("tradeable", token.IsTradeable());
         tokenObj.pushKV("isDAT", token.IsDAT());

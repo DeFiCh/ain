@@ -197,6 +197,20 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx)
     return Res::Ok();
 }
 
+Res CTokensView::MintToken(const uint256 &tokenTx, CAmount const & amount)
+{
+    auto pair = GetTokenByCreationTx(tokenTx);
+    if (!pair) {
+        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
+    }
+    CTokenImpl & tokenImpl = pair->second;
+
+    tokenImpl.minted += amount;
+
+    WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
+    return Res::Ok();
+}
+
 DCT_ID CTokensView::IncrementLastDctId()
 {
     DCT_ID result{DCT_ID_START};

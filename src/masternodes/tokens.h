@@ -36,6 +36,7 @@ public:
     std::string name;
     uint8_t decimal;    // now fixed to 8
     CAmount limit;      // now isn't tracked
+    CAmount minted;
     uint8_t flags;      // minting support, tradeability
 
     CToken()
@@ -43,6 +44,7 @@ public:
         , name("")
         , decimal(8)
         , limit(0)
+        , minted(0)
         , flags(uint8_t(TokenFlags::Default))
     {}
     virtual ~CToken() = default;
@@ -68,6 +70,7 @@ public:
         READWRITE(name);
         READWRITE(decimal);
         READWRITE(limit);
+        READWRITE(minted);
         READWRITE(flags);
     }
 };
@@ -121,6 +124,7 @@ public:
     Res CreateToken(CTokenImpl const & token);
     bool RevertCreateToken(uint256 const & txid);
     Res UpdateToken(uint256 const & tokenTx);
+    Res MintToken(uint256 const & tokenTx, CAmount const & amount);
 
     // tags
     struct ID { static const unsigned char prefix; };
