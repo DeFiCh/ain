@@ -205,7 +205,11 @@ Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount)
     }
     CTokenImpl & tokenImpl = pair->second;
 
-    tokenImpl.minted += amount;
+    auto resMinted = SafeAdd(tokenImpl.minted, amount);
+    if (!resMinted.ok) {
+        return Res::Err("overflow when adding to minted");
+    }
+    tokenImpl.minted = *resMinted.val;
 
     WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
     return Res::Ok();
