@@ -145,9 +145,12 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
                 res = ApplyUpdateTokenTx(mnview, coins, tx, height, metadata);
                 break;
+            case CustomTxType::UpdateTokenAny:
+                res = ApplyUpdateTokenAnyTx(mnview, coins, tx, height, metadata);
+                break;
             case CustomTxType::MintToken:
                 if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
-                res = ApplyMintTokenTx(mnview, coins, tx, metadata);
+                res = ApplyMintTokenTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::CreatePoolPair:
                 res = ApplyCreatePoolPairTx(mnview, coins, tx, height, metadata);
@@ -303,11 +306,14 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     {//no need to check Authority if we don't create isDAT
         return Res::Err("%s: %s", base, "tx not from foundation member");
     }
-    if(token.IsPoolShare()) {
-        return Res::Err("%s: %s", base, "Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
+
+    if ((int)height >= Params().GetConsensus().BishanHeight) { // formal compatibility if someone cheat and create LPS token on the pre-bishan node
+        if(token.IsPoolShare()) {
+            return Res::Err("%s: %s", base, "Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
+        }
     }
 
-    auto res = mnview.CreateToken(token);
+    auto res = mnview.CreateToken(token, (int)height < Params().GetConsensus().BishanHeight);
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }
@@ -315,8 +321,55 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     return Res::Ok(base);
 }
 
+/// @deprecated version of updatetoken tx, prefer using UpdateTokenAny after "bishan" fork
 Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
 {
+    if ((int)height >= Params().GetConsensus().BishanHeight) {
+        return Res::Err("Old-style updatetoken tx forbidden after Bishan height");
+    }
+
+    const std::string base{"Token DAT update"};
+
+    uint256 tokenTx;
+    bool isDAT;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> tokenTx;
+    ss >> isDAT;
+    if (!ss.empty()) {
+        return Res::Err("%s: deserialization failed: excess %d bytes", base, ss.size());
+    }
+
+    auto pair = mnview.GetTokenByCreationTx(tokenTx);
+    if (!pair) {
+        return Res::Err("%s: token with creationTx %s does not exist", base, tokenTx.ToString());
+    }
+    CTokenImplementation const & token = pair->second;
+
+    //check foundation auth
+    if (!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
+        return Res::Err("%s: %s", base, "Is not a foundation owner");
+    }
+
+    if(token.IsDAT() != isDAT && pair->first >= CTokensView::DCT_ID_START)
+    {
+        CToken newToken = static_cast<CToken>(token); // keeps old and triggers only DAT!
+        newToken.flags ^= (uint8_t)CToken::TokenFlags::DAT;
+
+        auto res = mnview.UpdateToken(token.creationTx, newToken, true);
+        if (!res.ok) {
+            return Res::Err("%s %s: %s", base, token.symbol, res.msg);
+        }
+    }
+    return Res::Ok(base);
+}
+
+
+Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+{
+    if ((int)height < Params().GetConsensus().BishanHeight) {
+        return Res::Err("Improved updatetoken tx before Bishan height");
+    }
+
     const std::string base{"Token update"};
 
     uint256 tokenTx;
@@ -325,7 +378,7 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     ss >> tokenTx;
     ss >> newToken;
     if (!ss.empty()) {
-        return Res::Err("Token Update: deserialization failed: excess %d bytes", ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", base, ss.size());
     }
 
     auto pair = mnview.GetTokenByCreationTx(tokenTx);
@@ -353,14 +406,14 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
     }
 
-    auto res = mnview.UpdateToken(token.creationTx, newToken);
+    auto res = mnview.UpdateToken(token.creationTx, newToken, false);
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }
     return Res::Ok(base);
 }
 
-Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata)
+Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
 {
     const std::string base{"Token minting"};
 
@@ -374,46 +427,56 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
     // check auth and increase balance of token's owner
     for (auto const & kv : minted.balances) {
         DCT_ID tokenId = kv.first;
-        // changed for minting DAT tokens to be able
-//        if (tokenId < CTokensView::DCT_ID_START)
-//            return Res::Err("%s: token %s is a 'stable coin', can't mint stable coin!", base, tokenId.ToString());
-        if (tokenId == DCT_ID{0})
-            return Res::Err("can't mint default DFI coin!", base, tokenId.ToString());
 
         auto token = mnview.GetToken(kv.first);
         if (!token) {
-            return Res::Err("%s: token %s does not exist!", tokenId.ToString());
+            return Res::Err("%s: token %s does not exist!", tokenId.ToString()); //  pre-bishan throws but it affects only the message
         }
-
         auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
-        if (tokenImpl.IsPoolShare()) {
-            return Res::Err("can't mint LPS tokens!", base, tokenId.ToString());
-        }
-        // may be different logic with LPS, so, dedicated check:
-        if (!tokenImpl.IsMintable()) {
-            return Res::Err("%s: token not mintable!", tokenId.ToString());
-        }
+
         if (tokenImpl.destructionTx != uint256{}) {
-            return Res::Err("%s: token %s already destroyed at height %i by tx %s", base, tokenImpl.symbol,
+            return Res::Err("%s: token %s already destroyed at height %i by tx %s", base, tokenImpl.symbol, //  pre-bishan throws but it affects only the message
                                          tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex());
         }
-
         const Coin& auth = coins.AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
-        if (!HasAuth(tx, coins, auth.out.scriptPubKey)) { // in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
-            if (!tokenImpl.IsDAT())
-                return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
 
-            // additional way for IsDAT and founders:
-            if (!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
-                return Res::Err("%s: %s", base, "token is DAT and tx not from foundation member");
+        // pre-bishan logic:
+        if ((int)height < Params().GetConsensus().BishanHeight) {
+            if (tokenId < CTokensView::DCT_ID_START)
+                return Res::Err("%s: token %s is a 'stable coin', can't mint stable coin!", base, tokenId.ToString());
+
+            if (!HasAuth(tx, coins, auth.out.scriptPubKey)) {
+                return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
             }
         }
+        else { // post-bishan logic (changed for minting DAT tokens to be able)
+            if (tokenId == DCT_ID{0})
+                return Res::Err("can't mint default DFI coin!", base, tokenId.ToString());
+
+            if (tokenImpl.IsPoolShare()) {
+                return Res::Err("can't mint LPS tokens!", base, tokenId.ToString());
+            }
+            // may be different logic with LPS, so, dedicated check:
+            if (!tokenImpl.IsMintable()) {
+                return Res::Err("%s: token not mintable!", tokenId.ToString());
+            }
+
+            if (!HasAuth(tx, coins, auth.out.scriptPubKey)) { // in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
+                if (!tokenImpl.IsDAT())
+                    return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
+
+                // additional way for IsDAT and founders:
+                if (!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
+                    return Res::Err("%s: %s", base, "token is DAT and tx not from foundation member");
+                }
+            }
+        }
+
         const auto res = mnview.AddBalance(auth.out.scriptPubKey, CTokenAmount{kv.first,kv.second});
         if (!res.ok) {
             return Res::Err("%s: %s", base, res.msg);
         }
     }
-
     return Res::Ok(base);
 }
 
@@ -779,7 +842,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
-    auto res = mnview.CreateToken(token);
+    auto res = mnview.CreateToken(token, false);
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }

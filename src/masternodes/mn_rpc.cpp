@@ -744,6 +744,8 @@ UniValue updatetoken(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, true);
 
+    /// @todo RPCTypeCheckObj or smth to help with option's names and old/new tx type
+
     std::string const tokenStr = trim_ws(request.params[0].getValStr());
     UniValue metaObj = request.params[1].get_obj();
     UniValue txInputs = request.params[2];
@@ -755,6 +757,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     CTokenImplementation tokenImpl;
     CTxDestination ownerDest;
     CScript owner;
+    int targetHeight;
     {
         LOCK(cs_main);
         DCT_ID id;
@@ -776,9 +779,8 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                                strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
         }
         owner = authCoin.out.scriptPubKey;
+        targetHeight = ::ChainActive().Height() + 1;
     }
-
-    bool isFoundersToken = Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
 
     if (!metaObj["symbol"].isNull()) {
         tokenImpl.symbol = trim_ws(metaObj["symbol"].getValStr()).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
@@ -807,10 +809,36 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                               tokenImpl.flags;
     }
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    /// @todo replace all heights with (+1)
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
-    { // auth
+    if (targetHeight < Params().GetConsensus().BishanHeight) {
+        if (metaObj.size() > 1 || !metaObj.exists("isDAT")) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Only 'isDAT' flag modification allowed before Bishan fork (<" + std::to_string(Params().GetConsensus().BishanHeight) + ")");
+        }
+
+        // before BishanHeight it needs only founders auth
+        for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
+        {
+            if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
+            {
+                CTxDestination destination;
+                if (!ExtractDestination(*it, destination)) {
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
+                }
+                try {
+                    rawTx.vin = GetAuthInputs(pwallet, destination, txInputs.get_array());
+                }
+                catch (const UniValue& objError) {}
+            }
+        }
+        if(rawTx.vin.size() == 0)
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
+    }
+    else
+    { // post-bishan auth
+        bool isFoundersToken = Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
         if (!txInputs.empty()) {
             rawTx.vin = GetInputs(txInputs);
         }
@@ -834,12 +862,19 @@ UniValue updatetoken(const JSONRPCRequest& request) {
         }
         else // "common" auth
             rawTx.vin = GetAuthInputs(pwallet, ownerDest, UniValue(UniValue::VARR));
-
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::UpdateToken)
-             << tokenImpl.creationTx << static_cast<CToken>(tokenImpl); // casting to base token's data
+
+    // tx type and serialized data differ:
+    if (targetHeight < Params().GetConsensus().BishanHeight) {
+        metadata << static_cast<unsigned char>(CustomTxType::UpdateToken)
+                 << tokenImpl.creationTx <<  metaObj["isDAT"].getBool();
+    }
+    else {
+        metadata << static_cast<unsigned char>(CustomTxType::UpdateTokenAny)
+                 << tokenImpl.creationTx << static_cast<CToken>(tokenImpl); // casting to base token's data
+    }
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -852,8 +887,15 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, static_cast<CToken>(tokenImpl)}));
+        Res res{};
+        if (targetHeight < Params().GetConsensus().BishanHeight) {
+            res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), targetHeight,
+                                          ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, metaObj["isDAT"].getBool()}));
+        }
+        else {
+            res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), targetHeight,
+                                          ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, static_cast<CToken>(tokenImpl)}));
+        }
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
@@ -861,7 +903,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
-UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool verbose) {
+UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
     tokenObj.pushKV("symbol", token.symbol);
     tokenObj.pushKV("symbolKey", token.CreateSymbolKey(id));
@@ -876,13 +918,12 @@ UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool verbose) {
         tokenObj.pushKV("isLPS", token.IsPoolShare());
         tokenObj.pushKV("finalized", token.IsFinalized());
 
-        CTokenImplementation const& tokenImpl = static_cast<CTokenImplementation const&>(token);
-        tokenObj.pushKV("creationTx", tokenImpl.creationTx.ToString());
-        tokenObj.pushKV("creationHeight", tokenImpl.creationHeight);
-        tokenObj.pushKV("destructionTx", tokenImpl.destructionTx.ToString());
-        tokenObj.pushKV("destructionHeight", tokenImpl.destructionHeight);
+        tokenObj.pushKV("creationTx", token.creationTx.ToString());
+        tokenObj.pushKV("creationHeight", token.creationHeight);
+        tokenObj.pushKV("destructionTx", token.destructionTx.ToString());
+        tokenObj.pushKV("destructionHeight", token.destructionHeight);
         /// @todo tokens: collateral address/script
-//      tokenObj.pushKV("collateralAddress", tokenImpl.destructionHeight);
+//      tokenObj.pushKV("collateralAddress", token.destructionHeight);
     }
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(id.ToString(), tokenObj);
@@ -951,7 +992,7 @@ UniValue listtokens(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachToken([&](DCT_ID const& id, CToken const& token) {
+    pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation const& token) {
         ret.pushKVs(tokenToJSON(id, token, verbose));
 
         limit--;
@@ -983,7 +1024,7 @@ UniValue gettoken(const JSONRPCRequest& request) {
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
 
     if (token) {
-        return tokenToJSON(id, *token, true);
+        return tokenToJSON(id, *static_cast<CTokenImplementation*>(token.get()), true);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
 }
@@ -1050,10 +1091,6 @@ UniValue minttokens(const JSONRPCRequest& request) {
         else {
             bool gotFoundersAuth = false;
             for (auto const & kv : minted.balances) {
-                // DFI will be checked on "Apply*"
-    //            if (kv.first < CTokensView::DCT_ID_START) {
-    //                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is a 'stable coin', can't mint stable coin", kv.first.ToString()));
-    //            }
 
                 CTokenImplementation tokenImpl;
                 CTxDestination ownerDest;
@@ -1065,18 +1102,14 @@ UniValue minttokens(const JSONRPCRequest& request) {
                     }
 
                     tokenImpl = static_cast<CTokenImplementation const& >(*token);
-                    // this (and the flags) will be checked on "Apply*"
-    //                if (tokenImpl.destructionTx != uint256{}) {
-    //                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-    //                                       strprintf("Token %s already destroyed at height %i by tx %s", tokenImpl.symbol,
-    //                                                 tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex()));
-    //                }
                     const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
                     if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
                         throw JSONRPCError(RPC_INVALID_PARAMETER,
                                            strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
                     }
                 }
+
+                /// @note that there is no need to handle BishanHeight here cause (in the worst case) it'll be declined at Apply*; the rest parts are compatible
 
                 // use different auth for DAT|nonDAT tokens:
                 // first, try to auth by exect owner
@@ -1123,7 +1156,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyMintTokenTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx),
+        const auto res = ApplyMintTokenTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Height() + 1,
                                                  ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted }));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
@@ -1565,7 +1598,13 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -1589,7 +1628,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyAddPoolLiquidityTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Height() + 1, ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
+        const auto res = ApplyAddPoolLiquidityTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight, ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
 
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
@@ -1650,7 +1689,13 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -1667,7 +1712,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyRemovePoolLiquidityTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Height() + 1, ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
+        const auto res = ApplyRemovePoolLiquidityTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight, ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
 
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
@@ -2081,6 +2126,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
         pairSymbol = metadataObj["pairSymbol"].getValStr();
     }
 
+    int targetHeight;
     DCT_ID idtokenA, idtokenB;
     {
         LOCK(cs_main);
@@ -2092,6 +2138,8 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
         auto token2 = pcustomcsview->GetTokenGuessId(tokenB, idtokenB);
         if (!token2)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenB was not found");
+
+        targetHeight = ::ChainActive().Height() + 1;
     }
 
     CPoolPairMessage poolPairMsg;
@@ -2108,7 +2156,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -2135,7 +2183,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyCreatePoolPairTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
+        const auto res = ApplyCreatePoolPairTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight,
                                       ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolPairMsg, pairSymbol}));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
@@ -2202,6 +2250,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     std::string const poolStr = trim_ws(metaObj["pool"].getValStr());
     CTxDestination ownerDest;
     DCT_ID poolId;
+    int targetHeight;
     {
         LOCK(cs_main);
         auto token = pcustomcsview->GetTokenGuessId(poolStr, poolId);
@@ -2214,6 +2263,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
         }
         status = pool->status;
+        targetHeight = ::ChainActive().Height() + 1;
     }
 
     if (!metaObj["status"].isNull()) {
@@ -2226,7 +2276,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
         ownerAddress = DecodeScript(metaObj["ownerAddress"].getValStr());
     }
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
@@ -2261,7 +2311,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
+        const auto res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), targetHeight,
                                                ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolId, status, commission, ownerAddress}));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
@@ -2351,6 +2401,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
     if (!metadataObj["tokenTo"].isNull()) {
         tokenTo = metadataObj["tokenTo"].getValStr();
     }
+    int targetHeight;
     {
         LOCK(cs_main);
         auto token = pcustomcsview->GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
@@ -2393,6 +2444,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
             poolSwapMsg.maxPrice.integer = priceInt.GetLow64();
             poolSwapMsg.maxPrice.fraction = (price256 - priceInt * CPoolPair::PRECISION).GetLow64(); // cause there is no operator "%"
         }
+        targetHeight = ::ChainActive().Height() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -2402,7 +2454,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -2419,7 +2471,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
+        const auto res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), targetHeight,
                                       ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolSwapMsg}));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
@@ -2600,7 +2652,13 @@ UniValue setgov(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -2627,7 +2685,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplySetGovernanceTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Tip()->height + 1,
+        const auto res = ApplySetGovernanceTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight,
                                       ToByteVector(varStream));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);

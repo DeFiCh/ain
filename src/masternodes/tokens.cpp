@@ -90,12 +90,12 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
     return {};
 }
 
-void CTokensView::ForEachToken(std::function<bool (const DCT_ID &, const CToken &)> callback, DCT_ID const & start)
+void CTokensView::ForEachToken(std::function<bool (const DCT_ID &, const CTokenImpl &)> callback, DCT_ID const & start)
 {
     DCT_ID tokenId = start;
     auto hint = WrapVarInt(tokenId.v);
 
-    ForEach<ID, CVarInt<VarIntMode::DEFAULT, uint32_t>, CTokenImpl>([&tokenId, &callback] (CVarInt<VarIntMode::DEFAULT, uint32_t> const &, CTokenImpl tokenImpl) {
+    ForEach<ID, CVarInt<VarIntMode::DEFAULT, uint32_t>, CTokenImpl>([&tokenId, &callback] (CVarInt<VarIntMode::DEFAULT, uint32_t> const &, CTokenImpl & tokenImpl) {
         return callback(tokenId, tokenImpl);
     }, hint);
 
@@ -120,7 +120,7 @@ Res CTokensView::CreateDFIToken()
     return Res::Ok();
 }
 
-ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
+ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, bool isPreBishan)
 {
     // this should not happen, but for sure
     if (GetTokenByCreationTx(token.creationTx)) {
@@ -137,12 +137,14 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
         if (GetToken(token.symbol)) {
             return Res::Err("token '%s' already exists!", token.symbol);
         }
-        ForEachToken([&](DCT_ID const& currentId, CToken const& token) {
+        ForEachToken([&](DCT_ID const& currentId, CTokenImplementation const& ) {
             if(currentId < DCT_ID_START)
                 id.v = currentId.v + 1;
             return currentId < DCT_ID_START;
         }, id);
         if (id == DCT_ID_START) {
+            if (isPreBishan)
+                return Res::Err("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n"); // asserted before BishanHeight, keep it for strict sameness
             id = IncrementLastDctId();
             LogPrintf("Warning! Range <DCT_ID_START already filled. Using \"common\" id=%s for new token\n", id.ToString().c_str());
         }
@@ -180,7 +182,7 @@ bool CTokensView::RevertCreateToken(const uint256 & txid)
     return true;
 }
 
-Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken)
+Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isPreBishan)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
@@ -189,7 +191,7 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken)
     DCT_ID id = pair->first;
     CTokenImpl & oldToken = pair->second;
 
-    if (oldToken.IsFinalized()) {
+    if (!isPreBishan && oldToken.IsFinalized()) { // for compatibility, in potential case when someone cheat and create finalized token with old node (and then alter dat for ex.)
         return Res::Err("can't alter 'Finalized' tokens");
     }
 
@@ -216,22 +218,47 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken)
 
     // apply DAT flag and symbol only AFTER dealing with symbol indexes:
     oldToken.symbol = newToken.symbol;
-    oldToken.flags = newToken.IsDAT() ?
-                     oldToken.flags | (uint8_t)CToken::TokenFlags::DAT :
-                     oldToken.flags & ~(uint8_t)CToken::TokenFlags::DAT;
+    if (oldToken.IsDAT() != newToken.IsDAT())
+        oldToken.flags ^= (uint8_t)CToken::TokenFlags::DAT;
 
     // regular flags:
-    oldToken.flags = newToken.IsMintable() ?
-                         oldToken.flags | (uint8_t)CToken::TokenFlags::Mintable :
-                         oldToken.flags & ~(uint8_t)CToken::TokenFlags::Mintable;
-    oldToken.flags = newToken.IsTradeable() ?
-                         oldToken.flags | (uint8_t)CToken::TokenFlags::Tradeable :
-                         oldToken.flags & ~(uint8_t)CToken::TokenFlags::Tradeable;
-    oldToken.flags = newToken.IsFinalized() ?
-                         oldToken.flags | (uint8_t)CToken::TokenFlags::Finalized :
-                         oldToken.flags;
+    if (oldToken.IsMintable() != newToken.IsMintable())
+        oldToken.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
+
+    if (oldToken.IsTradeable() != newToken.IsTradeable())
+        oldToken.flags ^= (uint8_t)CToken::TokenFlags::Tradeable;
+
+    if (!oldToken.IsFinalized() && newToken.IsFinalized()) // IsFinalized() itself was checked upthere (with Err)
+        oldToken.flags |= (uint8_t)CToken::TokenFlags::Finalized;
 
     WriteBy<ID>(WrapVarInt(id.v), oldToken);
+    return Res::Ok();
+}
+
+/*
+ * Removes `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bishan fork
+ * Call this EXECTLY at the 'bishanHeight-1' block
+ */
+Res CTokensView::BishanFlagsCleanup()
+{
+    ForEachToken([&] (DCT_ID const & id, CTokenImpl const & token){
+        bool changed{false};
+        if (token.IsFinalized()) {
+            const_cast<CTokenImpl &>(token).flags ^= (uint8_t)CToken::TokenFlags::Finalized;
+            LogPrintf("Warning! Got `Finalized` token, id=%s\n", id.ToString().c_str());
+            changed = true;
+        }
+        if (token.IsPoolShare()) {
+            const_cast<CTokenImpl &>(token).flags ^= (uint8_t)CToken::TokenFlags::LPS;
+            LogPrintf("Warning! Got `LPS` token, id=%s\n", id.ToString().c_str());
+            changed = true;
+        }
+        if (changed) {
+            DCT_ID dummy = id;
+            WriteBy<ID>(WrapVarInt(dummy.v), token);
+        }
+        return true;
+    }, DCT_ID{1}); // start from non-DFI
     return Res::Ok();
 }
 

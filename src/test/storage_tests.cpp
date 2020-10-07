@@ -49,7 +49,7 @@ UniValue CallRPC(std::string args)
 int GetTokensCount()
 {
     int counter{0};
-    pcustomcsview->ForEachToken([&counter] (DCT_ID const & id, CToken const & token) {
+    pcustomcsview->ForEachToken([&counter] (DCT_ID const & id, CTokenImplementation const & token) {
 //        printf("DCT_ID: %d, Token: %s: %s\n", id, token.symbol.c_str(), token.name.c_str()); // dump for debug
         ++counter;
         return true;
@@ -181,7 +181,7 @@ BOOST_AUTO_TEST_CASE(tokens)
     CTokenImplementation token1;
     token1.symbol = "DCT1";
     token1.creationTx = uint256S("0x1111");
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1).ok);
+    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok);
     BOOST_REQUIRE(GetTokensCount() == 2);
     {   // search by id
         auto token = pcustomcsview->GetToken(DCT_ID{128});
@@ -203,11 +203,11 @@ BOOST_AUTO_TEST_CASE(tokens)
     }
 
     // another token creation
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1).ok == false); /// duplicate symbol & tx
+    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok == false); /// duplicate symbol & tx
     token1.symbol = "DCT2";
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1).ok == false); /// duplicate tx
+    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok == false); /// duplicate tx
     token1.creationTx = uint256S("0x2222");
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1).ok);
+    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok);
     BOOST_REQUIRE(GetTokensCount() == 3);
     {   // search by id
         auto token = pcustomcsview->GetToken(DCT_ID{129});
@@ -242,7 +242,7 @@ BOOST_AUTO_TEST_CASE(tokens)
     // create again, with same tx and dctid
     token1.symbol = "DCT3";
     token1.creationTx = uint256S("0x2222"); // SAME!
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1).ok);
+    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok);
     BOOST_REQUIRE(GetTokensCount() == 3);
     {   // search by id
         auto token = pcustomcsview->GetToken(DCT_ID{129});

@@ -22,10 +22,10 @@ class TokensBasicTest (DefiTestFramework):
         # node2: Non Foundation
         self.setup_clean_chain = True
         self.extra_args = [
+            ['-txnotokens=0', '-amkheight=50', '-bishanheight=50'],
             ['-txnotokens=0', '-amkheight=50'],
             ['-txnotokens=0', '-amkheight=50'],
-            ['-txnotokens=0', '-amkheight=50'],
-            ['-txnotokens=0', '-amkheight=50']]
+            ['-txnotokens=0', '-amkheight=50', '-bishanheight=50']]
 
 
     def run_test(self):
@@ -94,7 +94,10 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(tokens['128']["symbol"], "GOLD")
         assert_equal(tokens['128']["creationTx"], createTokenTx)
 
-        self.sync_blocks([self.nodes[0], self.nodes[2]])
+        self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
+
+        self.stop_node(1) # for future test
+        connect_nodes_bi(self.nodes, 0, 2)
 
         # 4 Trying to make it DAT not from Foundation
         try:
@@ -103,9 +106,15 @@ class TokensBasicTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Incorrect Authorization" in errorString)
 
+        # 4.1 Trying to set smth else
+        try:
+            self.nodes[2].updatetoken("GOLD#128", {"symbol": "G"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("before Bishan fork" in errorString)
+
         # 5 Making token isDAT from Foundation
         self.nodes[0].updatetoken("GOLD#128", {"isDAT": True}, [])
-
         self.nodes[0].generate(1)
         # Checks
         tokens = self.nodes[0].listtokens()
@@ -115,23 +124,46 @@ class TokensBasicTest (DefiTestFramework):
         # Get token
         assert_equal(self.nodes[0].gettoken("GOLD")['128']["isDAT"], True)
 
-        # 6 Checking after sync
+        # 6 Checking that it will not sync
         self.sync_blocks([self.nodes[0], self.nodes[2]])
-
         tokens = self.nodes[2].listtokens()
         assert_equal(len(tokens), 3)
-        assert_equal(tokens['128']["isDAT"], True)
+        assert_equal(tokens['128']["isDAT"], False) # not synced cause new tx type (from node 0)
+
+        # 6.1 Restart with proper height and retry
+        self.stop_node(2)
+        self.start_node(2, ['-txnotokens=0', '-amkheight=50', '-bishanheight=50', '-reindex-chainstate']) # warning! simple '-reindex' not works!
+        tokens = self.nodes[2].listtokens()
+        assert_equal(len(tokens), 3)
+        assert_equal(tokens['128']["isDAT"], True) # synced now
+
+        connect_nodes_bi(self.nodes, 0, 2) # for final sync at "REVERT"
 
         # 7 Removing DAT
         self.nodes[0].updatetoken("GOLD", {"isDAT": False}, [])
-
         self.nodes[0].generate(1)
-
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 3)
         assert_equal(tokens['128']["isDAT"], False)
 
-        # changing token's symbol:
+        # 6.2 Once again as 6.1, but opposite: make DAT on "old" node with "old" tx
+        # reset nodes state first
+        self.start_node(1, ['-txnotokens=0', '-amkheight=50'])
+        self.nodes[1].generate(3)
+        connect_nodes_bi(self.nodes, 0, 1)
+        self.sync_blocks([self.nodes[0], self.nodes[1]])
+        assert_equal(self.nodes[0].gettoken('128')['128']["isDAT"], False)
+        assert_equal(self.nodes[1].gettoken('128')['128']["isDAT"], False)
+
+        self.nodes[1].importprivkey(self.nodes[0].get_genesis_keys().ownerPrivKey) # there is no need to import the key, cause node#1 is founder itself... but it has no utxos for auth
+        self.nodes[1].updatetoken('128', {"isDAT": True})
+        self.nodes[1].generate(1)
+        self.sync_blocks([self.nodes[0], self.nodes[1]])
+        assert_equal(self.nodes[0].gettoken('128')['128']["isDAT"], False) # tx not applyed cause "old"
+        assert_equal(self.nodes[1].gettoken('128')['128']["isDAT"], True)
+
+
+        # 8. changing token's symbol:
         self.nodes[0].updatetoken("GOLD#128", {"symbol":"gold"})
         self.nodes[0].generate(1)
         token = self.nodes[0].gettoken('128')

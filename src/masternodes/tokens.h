@@ -138,12 +138,14 @@ public:
     boost::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
     std::unique_ptr<CToken> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
 
-    void ForEachToken(std::function<bool(DCT_ID const & id, CToken const & token)> callback, DCT_ID const & start = DCT_ID{0});
+    void ForEachToken(std::function<bool(DCT_ID const & id, CTokenImpl const & token)> callback, DCT_ID const & start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(CTokenImpl const & token);
+    ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBishan);
     bool RevertCreateToken(uint256 const & txid);   /// @deprecated used only by tests. rewrite tests
-    Res UpdateToken(uint256 const & tokenTx, CToken & newToken);
+    Res UpdateToken(uint256 const & tokenTx, CToken & newToken, bool isPreBishan);
+
+    Res BishanFlagsCleanup();
 
     // tags
     struct ID { static const unsigned char prefix; };

@@ -2296,6 +2296,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             if (!res.ok)
                 throw std::runtime_error(strprintf("Pool rewards: can't update community balance: %s. Block %ld (%s)", res.msg, block.height, block.GetHash().ToString()));
         }
+        // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bishan fork
+        if (pindex->nHeight == chainparams.GetConsensus().BishanHeight - 1) { // call at block _before_ fork
+            cache.BishanFlagsCleanup();
+        }
 
         // construct undo
         auto& flushable = dynamic_cast<CFlushableStorageKV&>(cache.GetRaw());
