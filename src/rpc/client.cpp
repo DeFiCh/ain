@@ -189,6 +189,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listaccounts", 0, "pagination" },
     { "listaccounts", 1, "verbose" },
     { "getaccount", 1, "pagination" },
+    { "getaccount", 2, "indexed_amounts" },
     { "accounttoaccount", 1, "to" },
     { "accounttoaccount", 2, "inputs" },
     { "accounttoutxos", 1, "to" },
