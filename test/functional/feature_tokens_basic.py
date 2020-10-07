@@ -154,7 +154,8 @@ class TokensBasicTest (DefiTestFramework):
         # This checks two cases at once:
         # 1) Finally, we should not fail on accept to mempool
         # 2) But we don't mine blocks after it, so, after chain reorg (on 'REVERTING'), we should not fail: tx should be removed from mempool!
-        sendedTxHash = self.nodes[0].sendrawtransaction(signedTx['hex'])
+        #sendedTxHash =
+        self.nodes[0].sendrawtransaction(signedTx['hex'])
         # Don't mine here, check mempool after reorg!
         # self.nodes[0].generate(1)
 
