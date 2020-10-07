@@ -133,6 +133,8 @@ class TokensBasicTest (DefiTestFramework):
         # 6.1 Restart with proper height and retry
         self.stop_node(2)
         self.start_node(2, ['-txnotokens=0', '-amkheight=50', '-bishanheight=50', '-reindex-chainstate']) # warning! simple '-reindex' not works!
+        # it looks like node can serve rpc in async while reindexing... wait:
+        self.sync_blocks([self.nodes[0], self.nodes[2]])
         tokens = self.nodes[2].listtokens()
         assert_equal(len(tokens), 3)
         assert_equal(tokens['128']["isDAT"], True) # synced now
