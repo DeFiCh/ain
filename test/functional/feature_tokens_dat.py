@@ -147,9 +147,7 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(tokens['128']["isDAT"], False)
 
         # 6.2 Once again as 6.1, but opposite: make DAT on "old" node with "old" tx
-        # reset nodes state first
         self.start_node(1, ['-txnotokens=0', '-amkheight=50'])
-        self.nodes[1].generate(3)
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_blocks([self.nodes[0], self.nodes[1]])
         assert_equal(self.nodes[0].gettoken('128')['128']["isDAT"], False)

@@ -1022,7 +1022,6 @@ UniValue gettoken(const JSONRPCRequest& request) {
 
     DCT_ID id;
     auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
-
     if (token) {
         return tokenToJSON(id, *static_cast<CTokenImplementation*>(token.get()), true);
     }
@@ -1318,16 +1317,16 @@ UniValue getaccount(const JSONRPCRequest& request) {
                             {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                  "Maximum number of orders to return, 100 by default"},
                         },
-                       },
-                       {"indexed_amounts", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                    },
+                    {"indexed_amounts", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                         "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = [\"amount@tokenid\"...])"},
-         },
-               RPCResult{
+                },
+                RPCResult{
                        "{...}     (array) Json object with order information\n"
-               },
-               RPCExamples{
+                },
+                RPCExamples{
                        HelpExampleCli("getaccount", "owner_address")
-               },
+                },
     }.Check(request);
 
     // decode owner
@@ -2736,7 +2735,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "gettoken",           &gettoken,           {"key" }},
     {"tokens",      "minttokens",         &minttokens,         {"amounts", "inputs"}},
     {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose"}},
-    {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination"}},
+    {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination", "indexed_amounts"}},
     {"poolpair",    "listpoolpairs",      &listpoolpairs,      {"pagination", "verbose"}},
     {"poolpair",    "getpoolpair",        &getpoolpair,        {"key", "verbose" }},
     {"poolpair",    "addpoolliquidity",   &addpoolliquidity,   {"from", "shareAddress", "inputs"}},
