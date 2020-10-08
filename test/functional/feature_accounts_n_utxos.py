@@ -187,6 +187,17 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], self.nodes[1].getaccount(accountGold, {}, True)[idGold])
 
+        # gettokenbalances
+        #========================
+        # check balances about all accounts belonging to the wallet
+        assert_equal(self.nodes[0].gettokenbalances({}, True)[idGold], initialGold - 100)
+        assert_equal(self.nodes[0].gettokenbalances({}, True)[idSilver], 100)
+
+        # chech work is_mine_only field
+        list_all_acc = len(self.nodes[0].listaccounts({}, False, True, False))
+        list_mine_acc = len(self.nodes[0].listaccounts({}, False, True, True))
+        assert(list_all_acc != list_mine_acc)
+
         # REVERTING:
         #========================
         print ("Reverting...")
