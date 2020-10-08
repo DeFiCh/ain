@@ -138,19 +138,16 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyResignMasternodeTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::CreateToken:
-                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
-                res = ApplyCreateTokenTx(mnview, coins, tx, height, metadata);
+                res = ApplyCreateTokenTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::UpdateToken:
-                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
-                res = ApplyUpdateTokenTx(mnview, coins, tx, height, metadata);
+                res = ApplyUpdateTokenTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::UpdateTokenAny:
                 res = ApplyUpdateTokenAnyTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::MintToken:
-                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
-                res = ApplyMintTokenTx(mnview, coins, tx, height, metadata);
+                res = ApplyMintTokenTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::CreatePoolPair:
                 res = ApplyCreatePoolPairTx(mnview, coins, tx, height, metadata);
@@ -168,16 +165,13 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyRemovePoolLiquidityTx(mnview, coins, tx, height, metadata);
                 break;
             case CustomTxType::UtxosToAccount:
-                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
-                res = ApplyUtxosToAccountTx(mnview, tx, metadata);
+                res = ApplyUtxosToAccountTx(mnview, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::AccountToUtxos:
-                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
-                res = ApplyAccountToUtxosTx(mnview, coins, tx, metadata);
+                res = ApplyAccountToUtxosTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::AccountToAccount:
-                if(height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height"); }
-                res = ApplyAccountToAccountTx(mnview, coins, tx, metadata);
+                res = ApplyAccountToAccountTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::SetGovVariable:
                 res = ApplySetGovernanceTx(mnview, coins, tx, height, metadata);
@@ -278,8 +272,10 @@ Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     return Res::Ok(base);
 }
 
-Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
+    if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
+
     const std::string base{"Token creation"};
     // Check quick conditions first
     if (tx.vout.size() < 2 ||
@@ -322,8 +318,10 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 }
 
 /// @deprecated version of updatetoken tx, prefer using UpdateTokenAny after "bishan" fork
-Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
+    if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
+
     if ((int)height >= Params().GetConsensus().BishanHeight) {
         return Res::Err("Old-style updatetoken tx forbidden after Bishan height");
     }
@@ -413,8 +411,10 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     return Res::Ok(base);
 }
 
-Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
+    if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
+
     const std::string base{"Token minting"};
 
     CBalances minted;
@@ -639,8 +639,10 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
 }
 
 
-Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, std::vector<unsigned char> const & metadata)
+Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
+    if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
+
     // deserialize
     CUtxosToAccountMessage msg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -681,8 +683,10 @@ Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, std::
     return Res::Ok(base);
 }
 
-Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata)
+Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
+    if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
+
     // deserialize
     CAccountToUtxosMessage msg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -734,8 +738,10 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     return Res::Ok(base);
 }
 
-Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, std::vector<unsigned char> const & metadata)
+Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
+    if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
+
     // deserialize
     CAccountToAccountMessage msg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -1009,7 +1015,7 @@ Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, co
 }
 
 
-ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata)
+ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CAnchorFinalizationMessage finMsg;
@@ -1031,7 +1037,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     }
 
     // check reward sum
-    if (height >= Params().GetConsensus().AMKHeight) {
+    if (height >= consensusParams.AMKHeight) {
         auto const cbValues = tx.GetValuesOut();
         if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
             return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be payed only in Defi coins");
@@ -1043,7 +1049,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
         }
     }
     else { // pre-AMK logic
-        auto anchorReward = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, Params().GetConsensus());
+        auto anchorReward = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, consensusParams);
         if (tx.GetValueOut() > anchorReward) {
             return Res::ErrDbg("bad-ar-amount", "anchor pays too much (actual=%d vs limit=%d)",
                                tx.GetValueOut(), anchorReward);
@@ -1063,7 +1069,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
         return Res::ErrDbg("bad-ar-nextteam", "anchor wrong next team");
     }
     mnview.SetTeam(finMsg.nextTeam);
-    if (height >= Params().GetConsensus().AMKHeight) {
+    if (height >= consensusParams.AMKHeight) {
         mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     }
     else {

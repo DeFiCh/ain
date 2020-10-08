@@ -585,10 +585,6 @@ UniValue createtoken(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
-        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
-    }
-
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
     if (request.params[0].isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -609,10 +605,10 @@ UniValue createtoken(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "collateralAddress (" + collateralAddress + ") does not refer to any valid address");
     }
 
-    int height{0};
+    int targetHeight;
     {
         LOCK(cs_main);
-        height = ::ChainActive().Tip()->height + 1;
+        targetHeight = ::ChainActive().Height() + 1;
     }
 
     CToken token;
@@ -631,7 +627,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     if(metaObj["isDAT"].getBool())
@@ -656,7 +652,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     else
         rawTx.vin = GetInputs(txInputs.get_array());
 
-    rawTx.vout.push_back(CTxOut(GetTokenCreationFee(height), scriptMeta));
+    rawTx.vout.push_back(CTxOut(GetTokenCreationFee(targetHeight), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetTokenCollateralAmount(), GetScriptForDestination(collateralDest)));
 
     rawTx = fund(rawTx, request, pwallet);
@@ -665,8 +661,8 @@ UniValue createtoken(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyCreateTokenTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), height,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, token}));
+        const auto res = ApplyCreateTokenTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight,
+                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, token}), Params().GetConsensus());
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
@@ -737,10 +733,6 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                            "Cannot update token while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-
-    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
-        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
-    }
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, true);
 
@@ -890,7 +882,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
         Res res{};
         if (targetHeight < Params().GetConsensus().BishanHeight) {
             res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), targetHeight,
-                                          ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, metaObj["isDAT"].getBool()}));
+                                          ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, metaObj["isDAT"].getBool()}), Params().GetConsensus());
         }
         else {
             res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), targetHeight,
@@ -1069,10 +1061,6 @@ UniValue minttokens(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
-        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
-    }
-
     const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
     UniValue txInputs = request.params[1];
     if (txInputs.isNull())
@@ -1080,7 +1068,13 @@ UniValue minttokens(const JSONRPCRequest& request) {
         txInputs.setArray();
     }
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     // auth
@@ -1156,8 +1150,8 @@ UniValue minttokens(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyMintTokenTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), ::ChainActive().Height() + 1,
-                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted }));
+        const auto res = ApplyMintTokenTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight,
+                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted }), Params().GetConsensus());
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
@@ -1762,10 +1756,6 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
-        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
-    }
-
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, false);
 
     // decode recipients
@@ -1787,7 +1777,13 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     for (const auto& kv : toBurn.balances) {
@@ -1805,8 +1801,8 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyUtxosToAccountTx(mnview_dummy, CTransaction(rawTx),
-                                               ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
+        const auto res = ApplyUtxosToAccountTx(mnview_dummy, CTransaction(rawTx), targetHeight,
+                                               ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
@@ -1857,10 +1853,6 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
-        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
-    }
-
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, false);
 
     // decode sender and recipients
@@ -1878,7 +1870,13 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
@@ -1901,8 +1899,8 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyAccountToAccountTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx),
-                                               ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
+        const auto res = ApplyAccountToAccountTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight,
+                                               ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
         if (!res.ok) {
             if (res.code == CustomTxErrCodes::NotEnoughBalance) {
                 throw JSONRPCError(RPC_INVALID_REQUEST,
@@ -1959,10 +1957,6 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    if (::ChainActive().Tip()->height < Params().GetConsensus().AMKHeight) {
-        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "No tokenization transaction before block height " + std::to_string(Params().GetConsensus().AMKHeight));
-    }
-
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, false);
 
     // decode sender and recipients
@@ -1981,8 +1975,14 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         scriptMeta << OP_RETURN << dummyMetadata;
     }
 
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
     // auth
-    const auto txVersion = GetTransactionVersion(::ChainActive().Height());
+    const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     
     CTxDestination ownerDest;
@@ -2026,8 +2026,8 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyAccountToUtxosTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx),
-                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}));
+        const auto res = ApplyAccountToUtxosTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight,
+                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
         if (!res.ok) {
             if (res.code == CustomTxErrCodes::NotEnoughBalance) {
                 throw JSONRPCError(RPC_INVALID_REQUEST,
