@@ -44,7 +44,7 @@ class TokensForkTest (DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("No tokenization transaction before block height" in errorString)
+        assert("Token tx before AMK" in errorString)
 
         self.nodes[0].generate(1)
         # Before fork, create should fail, so now only have default token
@@ -53,11 +53,14 @@ class TokensForkTest (DefiTestFramework):
 
         # Try to mint token before AMK fork height but will fail:
         #========================
-        try:
-            self.nodes[0].minttokens("300@GOLD", [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("No tokenization transaction before block height" in errorString)
+        # Minting can't be checked here on rpc level cause token doesn't exist and it's impossible to create it
+        # we'll check it at the end with a trick
+
+        # try:
+        #     self.nodes[0].minttokens("300@GOLD", [])
+        # except JSONRPCException as e:
+        #     errorString = e.error['message']
+        # assert("Token tx before AMK" in errorString)
 
         self.nodes[0].generate(17)
         self.sync_blocks()
@@ -107,6 +110,17 @@ class TokensForkTest (DefiTestFramework):
         self.nodes[0].minttokens("3000@" + symbolSilver, [])
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        # synthetically check for minting. restart w/o reindex and amk (so, token exists, but minting should fail)
+        self.stop_node(0)
+        self.start_node(0, ['-txnotokens=0'])
+        try:
+            self.nodes[0].minttokens("300@128", [])
+            assert(False)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Token tx before AMK" in errorString)
+
 
 
 if __name__ == '__main__':
