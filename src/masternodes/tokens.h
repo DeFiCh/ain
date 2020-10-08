@@ -76,6 +76,7 @@ class CTokenImplementation : public CToken
 {
 public:
     //! tx related properties
+    CAmount minted;
     uint256 creationTx;
     uint256 destructionTx;
     int32_t creationHeight; // @todo use unsigned integers, because serialization of signed integers isn't fulled defined
@@ -83,6 +84,7 @@ public:
 
     CTokenImplementation()
         : CToken()
+        , minted(0)
         , creationTx()
         , destructionTx()
         , creationHeight(-1)
@@ -95,6 +97,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CToken, *this);
+        READWRITE(minted);
         READWRITE(creationTx);
         READWRITE(destructionTx);
         READWRITE(creationHeight);
@@ -121,6 +124,7 @@ public:
     Res CreateToken(CTokenImpl const & token);
     bool RevertCreateToken(uint256 const & txid);
     Res UpdateToken(uint256 const & tokenTx);
+    Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
 
     // tags
     struct ID { static const unsigned char prefix; };
