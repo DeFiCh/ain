@@ -918,12 +918,18 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
         tokenObj.pushKV("isLPS", token.IsPoolShare());
         tokenObj.pushKV("finalized", token.IsFinalized());
 
-        tokenObj.pushKV("creationTx", token.creationTx.ToString());
-        tokenObj.pushKV("creationHeight", token.creationHeight);
-        tokenObj.pushKV("destructionTx", token.destructionTx.ToString());
-        tokenObj.pushKV("destructionHeight", token.destructionHeight);
         /// @todo tokens: collateral address/script
 //      tokenObj.pushKV("collateralAddress", token.destructionHeight);
+        if (id >= CTokensView::DCT_ID_START) {
+            CTokenImplementation const& tokenImpl = static_cast<CTokenImplementation const&>(token);
+            tokenObj.pushKV("minted", ValueFromAmount(tokenImpl.minted));
+            tokenObj.pushKV("creationTx", tokenImpl.creationTx.ToString());
+            tokenObj.pushKV("creationHeight", tokenImpl.creationHeight);
+            tokenObj.pushKV("destructionTx", tokenImpl.destructionTx.ToString());
+            tokenObj.pushKV("destructionHeight", tokenImpl.destructionHeight);
+            /// @todo tokens: collateral address/script
+//            tokenObj.pushKV("collateralAddress", tokenImpl.destructionHeight);
+        }
     }
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(id.ToString(), tokenObj);

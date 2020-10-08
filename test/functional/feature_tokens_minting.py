@@ -79,6 +79,11 @@ class TokensMintingTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(collateralSilver, {}, True)[idSilver], 3000)
 
         alienMintAddr = self.nodes[1].getnewaddress("", "legacy")
+
+        # Checking the number of minted coins
+        assert_equal(self.nodes[0].gettoken(symbolGold)[idGold]['minted'], 300)
+        assert_equal(self.nodes[0].gettoken(symbolSilver)[idSilver]['minted'], 3000)
+
         try:
             self.nodes[0].accounttoutxos(collateralGold, { self.nodes[0].getnewaddress("", "legacy"): "100@" + symbolGold, alienMintAddr: "200@" + symbolGold}, [])
             self.nodes[0].accounttoutxos(collateralSilver, { self.nodes[0].getnewaddress("", "legacy"): "1000@" + symbolSilver, alienMintAddr: "2000@" + symbolSilver}, [])

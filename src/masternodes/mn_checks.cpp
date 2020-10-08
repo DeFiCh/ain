@@ -471,7 +471,10 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
                 }
             }
         }
-
+        auto mint = mnview.AddMintedTokens(tokenImpl.creationTx, kv.second);
+        if (!mint.ok) {
+            return Res::Err("%s %s: %s", base, tokenImpl.symbol, mint.msg);
+        }
         const auto res = mnview.AddBalance(auth.out.scriptPubKey, CTokenAmount{kv.first,kv.second});
         if (!res.ok) {
             return Res::Err("%s: %s", base, res.msg);
