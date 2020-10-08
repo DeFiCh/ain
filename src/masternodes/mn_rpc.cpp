@@ -800,6 +800,7 @@ UniValue tokenToJSON(DCT_ID const& id, CToken const& token, bool verbose) {
         tokenObj.pushKV("isDAT", token.IsDAT());
         if (id >= CTokensView::DCT_ID_START) {
             CTokenImplementation const& tokenImpl = static_cast<CTokenImplementation const&>(token);
+            tokenObj.pushKV("minted", ValueFromAmount(tokenImpl.minted));
             tokenObj.pushKV("creationTx", tokenImpl.creationTx.ToString());
             tokenObj.pushKV("creationHeight", tokenImpl.creationHeight);
             tokenObj.pushKV("destructionTx", tokenImpl.destructionTx.ToString());
