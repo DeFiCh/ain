@@ -23,6 +23,7 @@
 
 //#ifdef ENABLE_WALLET
 #include <wallet/coincontrol.h>
+#include <wallet/ismine.h>
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 //#endif
@@ -1075,6 +1076,8 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
 }
 
 UniValue listaccounts(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
     RPCHelpMan{"listaccounts",
                "\nReturns information about all accounts on chain.\n",
                {
@@ -1093,6 +1096,8 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                                    "Flag for verbose list (default = true), otherwise limited objects are listed"},
                        {"indexed_amounts", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                         "Format of amounts output (default = false): (true: {tokenid:amount}, false: \"amount@tokenid\")"},
+                       {"is_mine_only", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                        "Get balances about all accounts belonging to the wallet"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with accounts information\n"
@@ -1138,13 +1143,22 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     if (request.params.size() > 2) {
         indexed_amounts = request.params[2].get_bool();
     }
+    bool isMineOnly = false;
+    if (request.params.size() > 3) {
+        isMineOnly = request.params[3].get_bool();
+    }
 
 
     UniValue ret(UniValue::VARR);
 
     LOCK(cs_main);
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
-        ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+        if (isMineOnly) {
+            if (IsMine(*pwallet, owner) == ISMINE_SPENDABLE)
+                ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+        } else {
+            ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+        }
 
         limit--;
         return limit != 0;
@@ -1232,6 +1246,92 @@ UniValue getaccount(const JSONRPCRequest& request) {
         limit--;
         return limit != 0;
     }, BalanceKey{reqOwner, start});
+    return ret;
+}
+
+UniValue gettokenbalances(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"gettokenbalances",
+               "\nReturns the balances of all accounts that belong to the wallet.\n",
+               {
+                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"start", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                 "Optional first key to iterate from, in lexicographical order."
+                                 "Typically it's set to last tokenID from previous request."},
+                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                 "If true, then iterate including starting position. False by default"},
+                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                 "Maximum number of tokens to return, 100 by default"},
+                        },
+                    },
+                    {"indexed_amounts", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                        "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = [\"amount@tokenid\"...])"},
+                },
+                RPCResult{
+                       "{...}     (array) Json object with balances information\n"
+                },
+                RPCExamples{
+                       HelpExampleCli("gettokenbalances", "")
+                },
+    }.Check(request);
+
+    // parse pagination
+    size_t limit = 100;
+    DCT_ID start = {};
+    bool including_start = true;
+    {
+        if (request.params.size() > 0) {
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                including_start = false;
+                start.v = (uint32_t) paginationObj["start"].get_int64();
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                start.v++;
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
+    bool indexed_amounts = false;
+    if (request.params.size() > 1) {
+        indexed_amounts = request.params[1].get_bool();
+    }
+
+    UniValue ret(UniValue::VARR);
+    if (indexed_amounts) {
+        ret.setObject();
+    }
+
+    LOCK(cs_main);
+    CBalances totalBalances;
+    CScript oldOwner;
+    pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
+        if (oldOwner == owner) {
+            totalBalances.Add(balance);
+        } else if (IsMine(*pwallet, owner) == ISMINE_SPENDABLE) {
+            oldOwner = owner;
+            totalBalances.Add(balance);
+        }
+        return true;
+    }, BalanceKey{});
+    auto it = totalBalances.balances.find(start);
+    for (int i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
+        CTokenAmount bal = CTokenAmount{(*it).first, (*it).second};
+        if (indexed_amounts)
+                ret.pushKV(bal.nTokenId.ToString(), ValueFromAmount(bal.nValue));
+            else
+                ret.push_back(bal.ToString());
+    }
     return ret;
 }
 
@@ -1601,8 +1701,9 @@ static const CRPCCommand commands[] =
     {"tokens",      "listtokens",         &listtokens,         {"pagination", "verbose"}},
     {"tokens",      "gettoken",           &gettoken,           {"key" }},
     {"tokens",      "minttokens",         &minttokens,         {"amounts", "inputs"}},
-    {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose"}},
+    {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
     {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination", "indexed_amounts"}},
+    {"accounts",    "gettokenbalances",   &gettokenbalances,   {"pagination", "indexed_amounts"}},
     {"accounts",    "utxostoaccount",     &utxostoaccount,     {"amounts", "inputs"}},
     {"accounts",    "accounttoaccount",   &accounttoaccount,   {"from", "to", "inputs"}},
     {"accounts",    "accounttoutxos",     &accounttoutxos,     {"from", "to", "inputs"}},
