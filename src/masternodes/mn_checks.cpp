@@ -144,25 +144,25 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyUpdateTokenTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::UpdateTokenAny:
-                res = ApplyUpdateTokenAnyTx(mnview, coins, tx, height, metadata);
+                res = ApplyUpdateTokenAnyTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::MintToken:
                 res = ApplyMintTokenTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::CreatePoolPair:
-                res = ApplyCreatePoolPairTx(mnview, coins, tx, height, metadata);
+                res = ApplyCreatePoolPairTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::UpdatePoolPair:
-                res = ApplyUpdatePoolPairTx(mnview, coins, tx, height, metadata);
+                res = ApplyUpdatePoolPairTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::PoolSwap:
-                res = ApplyPoolSwapTx(mnview, coins, tx, height, metadata);
+                res = ApplyPoolSwapTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::AddPoolLiquidity:
-                res = ApplyAddPoolLiquidityTx(mnview, coins, tx, height, metadata);
+                res = ApplyAddPoolLiquidityTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::RemovePoolLiquidity:
-                res = ApplyRemovePoolLiquidityTx(mnview, coins, tx, height, metadata);
+                res = ApplyRemovePoolLiquidityTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::UtxosToAccount:
                 res = ApplyUtxosToAccountTx(mnview, tx, height, metadata, consensusParams);
@@ -174,7 +174,7 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyAccountToAccountTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::SetGovVariable:
-                res = ApplySetGovernanceTx(mnview, coins, tx, height, metadata);
+                res = ApplySetGovernanceTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             default:
                 return Res::Ok(); // not "custom" tx
@@ -298,18 +298,18 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     token.creationHeight = height;
 
     //check foundation auth
-    if((token.IsDAT()) && !HasFoundationAuth(tx, coins, Params().GetConsensus()))
+    if((token.IsDAT()) && !HasFoundationAuth(tx, coins, consensusParams))
     {//no need to check Authority if we don't create isDAT
         return Res::Err("%s: %s", base, "tx not from foundation member");
     }
 
-    if ((int)height >= Params().GetConsensus().BishanHeight) { // formal compatibility if someone cheat and create LPS token on the pre-bishan node
+    if ((int)height >= consensusParams.BishanHeight) { // formal compatibility if someone cheat and create LPS token on the pre-bishan node
         if(token.IsPoolShare()) {
             return Res::Err("%s: %s", base, "Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
         }
     }
 
-    auto res = mnview.CreateToken(token, (int)height < Params().GetConsensus().BishanHeight);
+    auto res = mnview.CreateToken(token, (int)height < consensusParams.BishanHeight);
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }
@@ -322,7 +322,7 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
-    if ((int)height >= Params().GetConsensus().BishanHeight) {
+    if ((int)height >= consensusParams.BishanHeight) {
         return Res::Err("Old-style updatetoken tx forbidden after Bishan height");
     }
 
@@ -344,7 +344,7 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     CTokenImplementation const & token = pair->second;
 
     //check foundation auth
-    if (!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
+    if (!HasFoundationAuth(tx, coins, consensusParams)) {
         return Res::Err("%s: %s", base, "Is not a foundation owner");
     }
 
@@ -362,9 +362,9 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 }
 
 
-Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < Params().GetConsensus().BishanHeight) {
+    if ((int)height < consensusParams.BishanHeight) {
         return Res::Err("Improved updatetoken tx before Bishan height");
     }
 
@@ -395,9 +395,9 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
 
     // check auth, depends from token's "origins"
     const Coin& auth = coins.AccessCoin(COutPoint(token.creationTx, 1)); // always n=1 output
-    bool isFoundersToken = Params().GetConsensus().foundationMembers.find(auth.out.scriptPubKey) != Params().GetConsensus().foundationMembers.end();
+    bool isFoundersToken = consensusParams.foundationMembers.find(auth.out.scriptPubKey) != consensusParams.foundationMembers.end();
 
-    if (isFoundersToken && !HasFoundationAuth(tx, coins, Params().GetConsensus())) {
+    if (isFoundersToken && !HasFoundationAuth(tx, coins, consensusParams)) {
         return Res::Err("%s: %s", base, "tx not from foundation member");
     }
     else if (!HasCollateralAuth(tx, coins, token.creationTx)) {
@@ -441,7 +441,7 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
         const Coin& auth = coins.AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
 
         // pre-bishan logic:
-        if ((int)height < Params().GetConsensus().BishanHeight) {
+        if ((int)height < consensusParams.BishanHeight) {
             if (tokenId < CTokensView::DCT_ID_START)
                 return Res::Err("%s: token %s is a 'stable coin', can't mint stable coin!", base, tokenId.ToString());
 
@@ -466,7 +466,7 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
                     return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
 
                 // additional way for IsDAT and founders:
-                if (!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
+                if (!HasFoundationAuth(tx, coins, consensusParams)) {
                     return Res::Err("%s: %s", base, "token is DAT and tx not from foundation member");
                 }
             }
@@ -483,10 +483,10 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
     return Res::Ok(base);
 }
 
-Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < Params().GetConsensus().BishanHeight) {
-        return Res::Err("LP tx before Bishan height");
+    if ((int)height < consensusParams.BishanHeight) {
+        return Res::Err("LP tx before Bishan height (block %d)", consensusParams.BishanHeight);
     }
 
     // deserialize
@@ -565,10 +565,10 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     return mnview.SetPoolPair(lpTokenID, pool);
 }
 
-Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < Params().GetConsensus().BishanHeight) {
-        return Res::Err("LP tx before Bishan height");
+    if ((int)height < consensusParams.BishanHeight) {
+        return Res::Err("LP tx before Bishan height (block %d)", consensusParams.BishanHeight);
     }
 
     // deserialize
@@ -795,10 +795,10 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     return Res::Ok(base);
 }
 
-Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata)
+Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < Params().GetConsensus().BishanHeight) {
-        return Res::Err("LP tx before Bishan height");
+    if ((int)height < consensusParams.BishanHeight) {
+        return Res::Err("LP tx before Bishan height (block %d)", consensusParams.BishanHeight);
     }
 
     const std::string base{"PoolPair creation"};
@@ -813,7 +813,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     }
 
     //check foundation auth
-    if(!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
+    if(!HasFoundationAuth(tx, coins, consensusParams)) {
         return Res::Err("%s: %s", base, "tx not from foundation member");
     }
     if(poolPairMsg.commission < 0 || poolPairMsg.commission > COIN) {
@@ -870,10 +870,10 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     return Res::Ok(base);
 }
 
-Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
-    if((int)height < Params().GetConsensus().BishanHeight) {
-        return Res::Err("LP tx before Bishan height");
+    if((int)height < consensusParams.BishanHeight) {
+        return Res::Err("LP tx before Bishan height (block %d)", consensusParams.BishanHeight);
     }
 
     const std::string base{"Pool update"};
@@ -897,7 +897,7 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     }
 
     //check foundation auth
-    if (!HasFoundationAuth(tx, coins, Params().GetConsensus())) {
+    if (!HasFoundationAuth(tx, coins, consensusParams)) {
         return Res::Err("%s: %s", base, "tx not from foundation member");
     }
 
@@ -908,10 +908,10 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     return Res::Ok(base);
 }
 
-Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata)
+Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < Params().GetConsensus().BishanHeight) {
-        return Res::Err("LP tx before Bishan height");
+    if ((int)height < consensusParams.BishanHeight) {
+        return Res::Err("LP tx before Bishan height (block %d)", consensusParams.BishanHeight);
     }
 
     CPoolSwapMessage poolSwapMsg;
@@ -970,16 +970,16 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
     return Res::Ok();
 }
 
-Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata)
+Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < Params().GetConsensus().BishanHeight) {
-        return Res::Err("Governance tx before Bishan height");
+    if ((int)height < consensusParams.BishanHeight) {
+        return Res::Err("Governance tx before Bishan height (block %d)", consensusParams.BishanHeight);
     }
 
     const std::string base{"Set governance variable"};
 
     //check foundation auth
-    if(!HasFoundationAuth(tx, coins, Params().GetConsensus()))
+    if(!HasFoundationAuth(tx, coins, consensusParams))
     {
         return Res::Err("%s: %s", base, "tx not from foundation member");
     }
