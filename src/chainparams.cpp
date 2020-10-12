@@ -196,8 +196,9 @@ public:
         consensus.foundationShareScript = GetScriptForDestination(DecodeDestination("dZcHjYhKtEM88TtZLjp314H2xZjkztXtRc", *this));
         consensus.foundationShare = 10; // old style - just percents
         consensus.foundationShareDFIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
-        /// @todo fill in foundationMembers before deployment
+
         consensus.foundationMembers.clear();
+        consensus.foundationMembers.insert(consensus.foundationShareScript);
 
         // owner base58, operator base58
         vMasternodes.push_back({"8PuErAcazqccCVzRcc8vJ3wFaZGm4vFbLe", "8J846CKFF83Jcj5m4EReJmxiaJ6Jy1Y6Ea"});
@@ -343,8 +344,9 @@ public:
         consensus.foundationShareScript = GetScriptForDestination(DecodeDestination("7Q2nZCcKnxiRiHSNQtLB27RA5efxm2cE7w", *this));
         consensus.foundationShare = 10; // old style - just percents
         consensus.foundationShareDFIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
-        /// @todo fill in foundationMembers before deployment
+
         consensus.foundationMembers.clear();
+        consensus.foundationMembers.insert(consensus.foundationShareScript);
 
         // owner base58, operator base58
         vMasternodes.push_back({"7LMorkhKTDjbES6DfRxX2RiNMbeemUkxmp", "7KEu9JMKCx6aJ9wyg138W3p42rjg19DR5D"});
