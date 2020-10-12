@@ -219,7 +219,7 @@ namespace pos {
             int64_t nMaxTries = -1;
             CScript coinbaseScript = CScript();
             CKey minterKey = CKey();
-            uint256 masternodeID = uint256();
+            CKeyID operatorID = {};
         };
 
         /// always forward by value to avoid dangling pointers
