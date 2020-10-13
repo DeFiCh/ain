@@ -7,12 +7,14 @@ on:
       - staging
       - develop
       - ci/*
+      - v*
   pull_request:
     branches:
       - master
       - develop
       - staging
       - ci/*
+      - v*
 jobs:
   
   linux:
