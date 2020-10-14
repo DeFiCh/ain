@@ -1898,8 +1898,13 @@ bool AppInitMain(InitInterfaces& interfaces)
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
         LOCK(cs_main);
 
-        auto myIDs = pcustomcsview->AmIOperator();
-        if (myIDs)
+        CTxDestination destination = DecodeDestination(gArgs.GetArg("-masternode_operator", ""));
+        CKeyID const operatorId = destination.which() == 1 ? CKeyID(*boost::get<PKHash>(&destination)) :
+                                  (destination.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID());
+        if (operatorId.IsNull()) {
+            LogPrintf("Error: wrong (or empty) masternode_operator address (%s)\n", gArgs.GetArg("-masternode_operator", "").c_str());
+            return false;
+        }
         {
             pos::ThreadStaker::Args stakerParams{};
             {
@@ -1913,7 +1918,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 CKey minterKey;
                 bool found =false;
                 for (auto&& wallet : wallets) {
-                    if (wallet->GetKey(myIDs->first, minterKey)) {
+                    if (wallet->GetKey(operatorId, minterKey)) {
                         found = true;
                         break;
                     }
@@ -1923,9 +1928,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                     return false;
                 }
 
-                CMasternode const node = *pcustomcsview->GetMasternode(myIDs->second);
-                CTxDestination destination = node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress));
-
                 CTxDestination const mintToAddress = DecodeDestination(gArgs.GetArg("-rewardaddress", ""), Params());
                 if (IsValidDestination(mintToAddress))
                     destination = mintToAddress;
@@ -1934,7 +1936,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 stakerParams.coinbaseScript = coinbaseScript;
                 stakerParams.minterKey = minterKey;
-                stakerParams.masternodeID = myIDs->second;
+                stakerParams.operatorID = operatorId;
             }
 
             // Mint proof-of-stake blocks in background
