@@ -813,12 +813,12 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
-    if (targetHeight < Params().GetConsensus().BishanHeight) {
+    if (targetHeight < Params().GetConsensus().BayfrontHeight) {
         if (metaObj.size() > 1 || !metaObj.exists("isDAT")) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Only 'isDAT' flag modification allowed before Bishan fork (<" + std::to_string(Params().GetConsensus().BishanHeight) + ")");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Only 'isDAT' flag modification allowed before Bayfront fork (<" + std::to_string(Params().GetConsensus().BayfrontHeight) + ")");
         }
 
-        // before BishanHeight it needs only founders auth
+        // before BayfrontHeight it needs only founders auth
         for(std::set<CScript>::iterator it = Params().GetConsensus().foundationMembers.begin(); it != Params().GetConsensus().foundationMembers.end() && rawTx.vin.size() == 0; it++)
         {
             if(IsMine(*pwallet, *it) == ISMINE_SPENDABLE)
@@ -837,7 +837,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
     }
     else
-    { // post-bishan auth
+    { // post-bayfront auth
         bool isFoundersToken = Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
         if (!txInputs.empty()) {
             rawTx.vin = GetInputs(txInputs);
@@ -867,7 +867,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
 
     // tx type and serialized data differ:
-    if (targetHeight < Params().GetConsensus().BishanHeight) {
+    if (targetHeight < Params().GetConsensus().BayfrontHeight) {
         metadata << static_cast<unsigned char>(CustomTxType::UpdateToken)
                  << tokenImpl.creationTx <<  metaObj["isDAT"].getBool();
     }
@@ -888,7 +888,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         Res res{};
-        if (targetHeight < Params().GetConsensus().BishanHeight) {
+        if (targetHeight < Params().GetConsensus().BayfrontHeight) {
             res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), targetHeight,
                                           ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, metaObj["isDAT"].getBool()}), Params().GetConsensus());
         }
@@ -1111,7 +1111,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
                     }
                 }
 
-                /// @note that there is no need to handle BishanHeight here cause (in the worst case) it'll be declined at Apply*; the rest parts are compatible
+                /// @note that there is no need to handle BayfrontHeight here cause (in the worst case) it'll be declined at Apply*; the rest parts are compatible
 
                 // use different auth for DAT|nonDAT tokens:
                 // first, try to auth by exect owner

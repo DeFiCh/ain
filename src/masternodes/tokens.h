@@ -144,11 +144,11 @@ public:
     void ForEachToken(std::function<bool(DCT_ID const & id, CTokenImpl const & token)> callback, DCT_ID const & start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBishan);
+    ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront);
     bool RevertCreateToken(uint256 const & txid);   /// @deprecated used only by tests. rewrite tests
-    Res UpdateToken(uint256 const & tokenTx, CToken & newToken, bool isPreBishan);
+    Res UpdateToken(uint256 const & tokenTx, CToken & newToken, bool isPreBayfront);
 
-    Res BishanFlagsCleanup();
+    Res BayfrontFlagsCleanup();
     Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
 
     // tags

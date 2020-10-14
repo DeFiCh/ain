@@ -1282,7 +1282,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "csv", consensusParams.CSVHeight);
     BuriedForkDescPushBack(softforks, "segwit", consensusParams.SegwitHeight);
     BuriedForkDescPushBack(softforks, "amk", consensusParams.AMKHeight);
-    BuriedForkDescPushBack(softforks, "bishan", consensusParams.BishanHeight);
+    BuriedForkDescPushBack(softforks, "bayfront", consensusParams.BayfrontHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 

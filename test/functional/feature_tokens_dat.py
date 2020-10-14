@@ -22,10 +22,10 @@ class TokensBasicTest (DefiTestFramework):
         # node2: Non Foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bishanheight=50'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
             ['-txnotokens=0', '-amkheight=50'],
             ['-txnotokens=0', '-amkheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bishanheight=50']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
 
 
     def run_test(self):
@@ -111,7 +111,7 @@ class TokensBasicTest (DefiTestFramework):
             self.nodes[2].updatetoken("GOLD#128", {"symbol": "G"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("before Bishan fork" in errorString)
+        assert("before Bayfront fork" in errorString)
 
         # 5 Making token isDAT from Foundation
         self.nodes[0].updatetoken("GOLD#128", {"isDAT": True}, [])
@@ -132,7 +132,7 @@ class TokensBasicTest (DefiTestFramework):
 
         # 6.1 Restart with proper height and retry
         self.stop_node(2)
-        self.start_node(2, ['-txnotokens=0', '-amkheight=50', '-bishanheight=50', '-reindex-chainstate']) # warning! simple '-reindex' not works!
+        self.start_node(2, ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-reindex-chainstate']) # warning! simple '-reindex' not works!
         # it looks like node can serve rpc in async while reindexing... wait:
         self.sync_blocks([self.nodes[0], self.nodes[2]])
         tokens = self.nodes[2].listtokens()

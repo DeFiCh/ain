@@ -73,7 +73,7 @@ struct Params {
     /** Block height at which tokens, liquidity pools and new block rewards becomes active */
     int AMKHeight;
     /** What exactly? Changes to mint DAT, new updatetokens? */
-    int BishanHeight;
+    int BayfrontHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
 
