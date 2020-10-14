@@ -103,7 +103,7 @@ static UniValue getnetworkhashps(const JSONRPCRequest& request)
     return GetNetworkHashPS(!request.params[0].isNull() ? request.params[0].get_int() : 120, !request.params[1].isNull() ? request.params[1].get_int() : -1);
 }
 
-static UniValue generateBlocks(const CScript& coinbase_script, const CKey minterKey, uint256 masternodeID, int nGenerate, int64_t nMaxTries)
+static UniValue generateBlocks(const CScript& coinbase_script, const CKey & minterKey, const CKeyID & operatorID, int nGenerate, int64_t nMaxTries)
 {
     using namespace pos;
     UniValue nMintedBlocksCount(UniValue::VNUM);
@@ -113,7 +113,7 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey minter
     stakerParams.nMaxTries = nMaxTries;
     stakerParams.coinbaseScript = coinbase_script;
     stakerParams.minterKey = minterKey;
-    stakerParams.masternodeID = masternodeID;
+    stakerParams.operatorID = operatorID;
 
     pos::Staker staker{};
     int32_t nMinted = 0;
@@ -214,7 +214,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode operator private key not found");
 
     }
-    return generateBlocks(coinbase_script, minterKey, myIDs->second, nGenerate, nMaxTries);
+    return generateBlocks(coinbase_script, minterKey, myIDs->first, nGenerate, nMaxTries);
 }
 
 static UniValue getmintinginfo(const JSONRPCRequest& request)
