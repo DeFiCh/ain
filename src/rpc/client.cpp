@@ -195,7 +195,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "listpoolpairs", 0, "pagination" },
     { "listpoolpairs", 1, "verbose" },
-    { "getpoolpair", 0, "key" },
     { "getpoolpair", 1, "verbose" },
 
     { "listaccounts", 0, "pagination" },
