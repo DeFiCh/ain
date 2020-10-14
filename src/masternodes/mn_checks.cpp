@@ -303,13 +303,13 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Err("%s: %s", base, "tx not from foundation member");
     }
 
-    if ((int)height >= consensusParams.BishanHeight) { // formal compatibility if someone cheat and create LPS token on the pre-bishan node
+    if ((int)height >= consensusParams.BayfrontHeight) { // formal compatibility if someone cheat and create LPS token on the pre-bayfront node
         if(token.IsPoolShare()) {
             return Res::Err("%s: %s", base, "Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
         }
     }
 
-    auto res = mnview.CreateToken(token, (int)height < consensusParams.BishanHeight);
+    auto res = mnview.CreateToken(token, (int)height < consensusParams.BayfrontHeight);
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }
@@ -317,13 +317,13 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     return Res::Ok(base);
 }
 
-/// @deprecated version of updatetoken tx, prefer using UpdateTokenAny after "bishan" fork
+/// @deprecated version of updatetoken tx, prefer using UpdateTokenAny after "bayfront" fork
 Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
-    if ((int)height >= consensusParams.BishanHeight) {
-        return Res::Err("Old-style updatetoken tx forbidden after Bishan height");
+    if ((int)height >= consensusParams.BayfrontHeight) {
+        return Res::Err("Old-style updatetoken tx forbidden after Bayfront height");
     }
 
     const std::string base{"Token DAT update"};
@@ -364,8 +364,8 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 
 Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < consensusParams.BishanHeight) {
-        return Res::Err("Improved updatetoken tx before Bishan height");
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("Improved updatetoken tx before Bayfront height");
     }
 
     const std::string base{"Token update"};
@@ -430,18 +430,18 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
 
         auto token = mnview.GetToken(kv.first);
         if (!token) {
-            return Res::Err("%s: token %s does not exist!", tokenId.ToString()); //  pre-bishan throws but it affects only the message
+            return Res::Err("%s: token %s does not exist!", tokenId.ToString()); //  pre-bayfront throws but it affects only the message
         }
         auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
 
         if (tokenImpl.destructionTx != uint256{}) {
-            return Res::Err("%s: token %s already destroyed at height %i by tx %s", base, tokenImpl.symbol, //  pre-bishan throws but it affects only the message
+            return Res::Err("%s: token %s already destroyed at height %i by tx %s", base, tokenImpl.symbol, //  pre-bayfront throws but it affects only the message
                                          tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex());
         }
         const Coin& auth = coins.AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
 
-        // pre-bishan logic:
-        if ((int)height < consensusParams.BishanHeight) {
+        // pre-bayfront logic:
+        if ((int)height < consensusParams.BayfrontHeight) {
             if (tokenId < CTokensView::DCT_ID_START)
                 return Res::Err("%s: token %s is a 'stable coin', can't mint stable coin!", base, tokenId.ToString());
 
@@ -449,7 +449,7 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
                 return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
             }
         }
-        else { // post-bishan logic (changed for minting DAT tokens to be able)
+        else { // post-bayfront logic (changed for minting DAT tokens to be able)
             if (tokenId == DCT_ID{0})
                 return Res::Err("can't mint default DFI coin!", base, tokenId.ToString());
 
@@ -485,8 +485,8 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
 
 Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < consensusParams.BishanHeight) {
-        return Res::Err("LP tx before Bishan height (block %d)", consensusParams.BishanHeight);
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
     // deserialize
@@ -567,8 +567,8 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
 Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < consensusParams.BishanHeight) {
-        return Res::Err("LP tx before Bishan height (block %d)", consensusParams.BishanHeight);
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
     // deserialize
@@ -797,8 +797,8 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
 Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < consensusParams.BishanHeight) {
-        return Res::Err("LP tx before Bishan height (block %d)", consensusParams.BishanHeight);
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
     const std::string base{"PoolPair creation"};
@@ -872,8 +872,8 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 
 Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
-    if((int)height < consensusParams.BishanHeight) {
-        return Res::Err("LP tx before Bishan height (block %d)", consensusParams.BishanHeight);
+    if((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
     const std::string base{"Pool update"};
@@ -910,8 +910,8 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
 
 Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < consensusParams.BishanHeight) {
-        return Res::Err("LP tx before Bishan height (block %d)", consensusParams.BishanHeight);
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
     CPoolSwapMessage poolSwapMsg;
@@ -972,8 +972,8 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
 
 Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams)
 {
-    if ((int)height < consensusParams.BishanHeight) {
-        return Res::Err("Governance tx before Bishan height (block %d)", consensusParams.BishanHeight);
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("Governance tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
     const std::string base{"Set governance variable"};

@@ -120,7 +120,7 @@ Res CTokensView::CreateDFIToken()
     return Res::Ok();
 }
 
-ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, bool isPreBishan)
+ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, bool isPreBayfront)
 {
     // this should not happen, but for sure
     if (GetTokenByCreationTx(token.creationTx)) {
@@ -143,8 +143,8 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, b
             return currentId < DCT_ID_START;
         }, id);
         if (id == DCT_ID_START) {
-            if (isPreBishan)
-                return Res::Err("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n"); // asserted before BishanHeight, keep it for strict sameness
+            if (isPreBayfront)
+                return Res::Err("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n"); // asserted before BayfrontHeight, keep it for strict sameness
             id = IncrementLastDctId();
             LogPrintf("Warning! Range <DCT_ID_START already filled. Using \"common\" id=%s for new token\n", id.ToString().c_str());
         }
@@ -182,7 +182,7 @@ bool CTokensView::RevertCreateToken(const uint256 & txid)
     return true;
 }
 
-Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isPreBishan)
+Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isPreBayfront)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
@@ -191,7 +191,7 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isP
     DCT_ID id = pair->first;
     CTokenImpl & oldToken = pair->second;
 
-    if (!isPreBishan && oldToken.IsFinalized()) { // for compatibility, in potential case when someone cheat and create finalized token with old node (and then alter dat for ex.)
+    if (!isPreBayfront && oldToken.IsFinalized()) { // for compatibility, in potential case when someone cheat and create finalized token with old node (and then alter dat for ex.)
         return Res::Err("can't alter 'Finalized' tokens");
     }
 
@@ -236,10 +236,10 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isP
 }
 
 /*
- * Removes `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bishan fork
- * Call this EXECTLY at the 'bishanHeight-1' block
+ * Removes `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
+ * Call this EXECTLY at the 'bayfrontHeight-1' block
  */
-Res CTokensView::BishanFlagsCleanup()
+Res CTokensView::BayfrontFlagsCleanup()
 {
     ForEachToken([&] (DCT_ID const & id, CTokenImpl const & token){
         bool changed{false};

@@ -115,7 +115,7 @@ public:
         consensus.BIP65Height = 0; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
         consensus.AMKHeight = 356500;
-        consensus.BishanHeight = 1000000;
+        consensus.BayfrontHeight = 1000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -272,7 +272,7 @@ public:
         consensus.BIP65Height = 0; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
         consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
         consensus.AMKHeight = 324500;
-        consensus.BishanHeight = 1000000;
+        consensus.BayfrontHeight = 1000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -408,7 +408,7 @@ public:
         consensus.BIP65Height = 0;
         consensus.BIP66Height = 0;
         consensus.AMKHeight = 20;
-        consensus.BishanHeight = 1000000;
+        consensus.BayfrontHeight = 1000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -539,7 +539,7 @@ public:
         consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in functional tests)
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
         consensus.AMKHeight = 10000000;
-        consensus.BishanHeight = 10000000;
+        consensus.BayfrontHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -694,15 +694,15 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.AMKHeight = static_cast<int>(height);
     }
 
-    if (gArgs.IsArgSet("-bishanheight")) {
-        int64_t height = gArgs.GetArg("-bishanheight", consensus.BishanHeight);
+    if (gArgs.IsArgSet("-bayfrontheight")) {
+        int64_t height = gArgs.GetArg("-bayfrontheight", consensus.BayfrontHeight);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for Bishan is out of valid range. Use -1 to disable bishan features.", height));
+            throw std::runtime_error(strprintf("Activation height %ld for Bayfront is out of valid range. Use -1 to disable bayfront features.", height));
         } else if (height == -1) {
-            LogPrintf("Bishan disabled for testing\n");
+            LogPrintf("Bayfront disabled for testing\n");
             height = std::numeric_limits<int>::max();
         }
-        consensus.BishanHeight = static_cast<int>(height);
+        consensus.BayfrontHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;

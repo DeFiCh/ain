@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bishanheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bishanheight=50']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
 
 
     def run_test(self):

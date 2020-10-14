@@ -25,7 +25,7 @@ class PoolSwapTest (DefiTestFramework):
         # node1: secondary tester
         # node2: revert create (all)
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=0', '-bishanheight=0'], ['-txnotokens=0', '-amkheight=0', '-bishanheight=0'], ['-txnotokens=0', '-amkheight=0', '-bishanheight=0']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0'], ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0'], ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0']]
 
         # SET parameters for create tokens and pools
         #========================
