@@ -2685,6 +2685,54 @@ static UniValue setwalletflag(const JSONRPCRequest& request)
     return res;
 }
 
+bool IsStrongPassword(SecureString const & passphrase) {
+    int n = passphrase.length();
+
+    bool hasLower = false;
+    bool hasUpper = false;
+    bool hasDigit = false;
+    bool specialChar = false;
+    SecureString const normalChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890 ";
+    SecureString const lower = "`1234567890-=qwertyuiop[]\asdfghjkl;'zxcvbnm,./";
+    SecureString const upper = "~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJKL:\"ZXCVBNM<>?";
+    size_t seq = 1;
+
+    for (int i = 0; i < n; ++i) {
+        if (islower(passphrase[i]))
+            hasLower = true;
+        if (isupper(passphrase[i]))
+            hasUpper = true;
+        if (isdigit(passphrase[i]))
+            hasDigit = true;
+
+        size_t special = passphrase.find_first_not_of(normalChars);
+        if (special != std::string::npos)
+            specialChar = true;
+
+        if (i > 0) {
+            // check lower sequence, only 3 chars in sequence allowed
+            auto pos = lower.find(passphrase[i]);
+            if (pos != std::string::npos && pos > 0 && passphrase[i-1] == lower[pos-1]) {
+                if (seq == 3)
+                    return false;
+                seq++;
+                continue;
+            }
+            // check upper sequence, only 3 chars in sequence allowed
+            pos = upper.find(passphrase[i]);
+            if (pos != std::string::npos && pos > 0 && passphrase[i-1] == upper[pos-1]) {
+                if (seq == 3)
+                    return false;
+                seq++;
+                continue;
+            }
+            seq = 1;
+        }
+    }
+
+    return hasLower && hasUpper && hasDigit && specialChar && (n >= 8);
+}
+
 static UniValue createwallet(const JSONRPCRequest& request)
 {
     RPCHelpMan{
@@ -2725,6 +2773,9 @@ static UniValue createwallet(const JSONRPCRequest& request)
         if (passphrase.empty()) {
             // Empty string means unencrypted
             warning = "Empty string given as passphrase, wallet will not be encrypted.";
+        }
+        else if (!IsStrongPassword(passphrase)) {
+            throw JSONRPCError(RPC_WALLET_PASSPHRASE_INCORRECT, "Your passphrase is weak!");
         }
     }
 
