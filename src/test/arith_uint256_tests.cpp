@@ -556,4 +556,18 @@ BOOST_AUTO_TEST_CASE( getmaxcoverage ) // some more tests just to get 100% cover
     CHECKBITWISEOPERATOR(R1,~R2,&)
 }
 
+BOOST_AUTO_TEST_CASE( sqrt )
+{
+    BOOST_CHECK(arith_uint256(0).sqrt() == arith_uint256(0));
+    BOOST_CHECK(arith_uint256(1).sqrt() == arith_uint256(1));
+    BOOST_CHECK(arith_uint256(2).sqrt() == arith_uint256(1));
+    BOOST_CHECK(arith_uint256(3).sqrt() == arith_uint256(1));
+    BOOST_CHECK(arith_uint256(4).sqrt() == arith_uint256(2));
+    BOOST_CHECK(arith_uint256(5).sqrt() == arith_uint256(2));
+    BOOST_CHECK(arith_uint256(42).sqrt() == arith_uint256(6));
+
+    BOOST_CHECK(arith_uint256(std::numeric_limits<uint64_t>::max()).sqrt()  == arith_uint256(4294967295));
+    BOOST_CHECK((arith_uint256(std::numeric_limits<uint64_t>::max()) +1).sqrt()  == arith_uint256(4294967296));
+}
+
 BOOST_AUTO_TEST_SUITE_END()

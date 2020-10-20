@@ -13,6 +13,7 @@ KNOWN_VIOLATIONS=(
     "src/rest.cpp:.*strtol"
     "src/rpc/rawtransaction_util.cpp:.*stoul"
     "src/test/dbwrapper_tests.cpp:.*snprintf"
+    "src/test/liquidity_tests.cpp:.*printf"
     "src/torcontrol.cpp:.*atoi"
     "src/torcontrol.cpp:.*strtol"
     "src/util/strencodings.cpp:.*atoi"

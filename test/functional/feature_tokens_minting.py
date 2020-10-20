@@ -35,12 +35,12 @@ class TokensMintingTest (DefiTestFramework):
             "symbol": "GOLD",
             "name": "shiny gold",
             "collateralAddress": collateralGold
-        }, [])
+        })
         self.nodes[0].createtoken({
             "symbol": "SILVER",
             "name": "just silver",
             "collateralAddress": collateralSilver
-        }, [])
+        })
 
         self.nodes[0].generate(1)
         # At this point, tokens was created
@@ -70,12 +70,15 @@ class TokensMintingTest (DefiTestFramework):
 
         # print(self.nodes[0].listunspent())
 
-        alienMintAddr = self.nodes[1].getnewaddress("", "legacy")
-
-        self.nodes[0].minttokens("300@" + symbolGold, [])
-        self.nodes[0].minttokens("3000@" + symbolSilver, [])
+        self.nodes[0].minttokens("300@" + symbolGold)
+        self.nodes[0].minttokens("3000@" + symbolSilver)
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        assert_equal(self.nodes[0].getaccount(collateralGold, {}, True)[idGold], 300)
+        assert_equal(self.nodes[0].getaccount(collateralSilver, {}, True)[idSilver], 3000)
+
+        alienMintAddr = self.nodes[1].getnewaddress("", "legacy")
 
         # Checking the number of minted coins
         assert_equal(self.nodes[0].gettoken(symbolGold)[idGold]['minted'], 300)

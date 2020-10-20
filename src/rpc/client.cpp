@@ -179,13 +179,24 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listmasternodes", 1, "verbose" },
     { "createtoken", 0, "metadata" },
     { "createtoken", 1, "inputs"},
-    { "updatetoken", 0, "metadata"},
-    { "updatetoken", 1, "inputs"},
+    { "updatetoken", 0, "token"},
+    { "updatetoken", 1, "metadata"},
+    { "updatetoken", 2, "inputs"},
     { "listtokens", 0, "pagination" },
     { "listtokens", 1, "verbose" },
+    { "gettoken", 0, "key" },
+    { "minttokens", 0, "amounts" },
     { "minttokens", 1, "inputs"},
     { "utxostoaccount", 0, "amounts" },
     { "utxostoaccount", 1, "inputs" },
+    { "addpoolliquidity", 0, "from" },
+    { "addpoolliquidity", 2, "inputs" },
+    { "removepoolliquidity", 2, "inputs" },
+
+    { "listpoolpairs", 0, "pagination" },
+    { "listpoolpairs", 1, "verbose" },
+    { "getpoolpair", 1, "verbose" },
+
     { "listaccounts", 0, "pagination" },
     { "listaccounts", 1, "verbose" },
     { "listaccounts", 2, "indexed_amounts" },
@@ -215,6 +226,19 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "spv_listanchors", 1, "maxBtcHeight" },
     { "spv_listanchors", 2, "minConfs" },
     { "spv_listanchors", 3, "maxConfs" },
+
+    { "createpoolpair", 0, "metadata" },
+    { "createpoolpair", 1, "inputs" },
+    { "updatepoolpair", 0, "metadata" },
+    { "updatepoolpair", 1, "inputs" },
+    { "poolswap", 0, "metadata" },
+    { "poolswap", 1, "inputs" },
+    { "listpoolshares", 0, "pagination" },
+    { "listpoolshares", 1, "verbose" },
+
+    { "setgov", 0, "variables" },
+    { "setgov", 1, "inputs" },
+    { "getgov", 0, "name" },
 };
 // clang-format on
 

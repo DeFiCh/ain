@@ -2438,8 +2438,8 @@ CWallet::Balance CWallet::GetBalance(const int min_depth, bool avoid_reuse) cons
             const CWalletTx& wtx = entry.second;
             const bool is_trusted{wtx.IsTrusted(*locked_chain)};
             const int tx_depth{wtx.GetDepthInMainChain(*locked_chain)};
-            const TAmounts tx_credit_mine{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ true, ISMINE_SPENDABLE | reuse_filter) }; /// @todo tokens: extend!
-            const TAmounts tx_credit_watchonly{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ true, ISMINE_WATCH_ONLY | reuse_filter) }; /// @todo tokens: extend!
+            const TAmounts tx_credit_mine{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ false, ISMINE_SPENDABLE | reuse_filter) }; /// @todo tokens: extend!
+            const TAmounts tx_credit_watchonly{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ false, ISMINE_WATCH_ONLY | reuse_filter) }; /// @todo tokens: extend!
             if (is_trusted && tx_depth >= min_depth) {
                 Increment(ret.m_mine_trusted, tx_credit_mine);
                 Increment(ret.m_watchonly_trusted, tx_credit_watchonly);

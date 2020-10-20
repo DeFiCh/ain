@@ -20,6 +20,7 @@
 #include <index/txindex.h>
 #include <masternodes/anchors.h>
 #include <masternodes/criminals.h>
+#include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <policy/fees.h>
@@ -2269,6 +2270,36 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         CCustomCSView cache(mnview);
 
 //        cache.CallYourInterblockProcessingsHere();
+
+        // distribute pool incentive rewards and trading fees:
+        /// @attention it throws (at least for debug), cause errors are critical!
+        {
+            std::shared_ptr<LP_DAILY_DFI_REWARD> var = std::dynamic_pointer_cast<LP_DAILY_DFI_REWARD>(cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName()));
+            CAmount poolsBlockReward = std::min(
+                                           cache.GetCommunityBalance(CommunityAccountType::IncentiveFunding),
+                                           var->dailyReward / (60*60*24/chainparams.GetConsensus().pos.nTargetSpacing) // 2880
+                                                );
+
+            CAmount distributed = cache.DistributeRewards(poolsBlockReward,
+                [&cache] (CScript const & owner, DCT_ID tokenID) {
+                    return cache.GetBalance(owner, tokenID);
+                },
+                [&cache, &block] (CScript const & to, CTokenAmount amount) {
+                    auto res = cache.AddBalance(to, amount);
+                    if (!res.ok)
+                        throw std::runtime_error(strprintf("Pool rewards: can't update balance of %s: %s, Block %ld (%s)", to.GetHex(), res.msg, block.height, block.GetHash().ToString()));
+                    return res;
+                }
+            );
+
+            auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);
+            if (!res.ok)
+                throw std::runtime_error(strprintf("Pool rewards: can't update community balance: %s. Block %ld (%s)", res.msg, block.height, block.GetHash().ToString()));
+        }
+        // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
+        if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
+            cache.BayfrontFlagsCleanup();
+        }
 
         // construct undo
         auto& flushable = dynamic_cast<CFlushableStorageKV&>(cache.GetRaw());

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DeFi Foundation
+// Copyright (c) 2020 The DeFi Foundation
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -27,7 +27,9 @@ public:
         None = 0,
         Mintable = 0x01,
         Tradeable = 0x02,
-        isDAT = 0x04,
+        DAT = 0x04,
+        LPS = 0x08, // Liquidity Pool Share
+        Finalized = 0x10, // locked forever
         Default = TokenFlags::Mintable | TokenFlags::Tradeable
     };
 
@@ -47,17 +49,38 @@ public:
     {}
     virtual ~CToken() = default;
 
-    bool IsMintable() const
+    inline bool IsMintable() const
     {
         return flags & (uint8_t)TokenFlags::Mintable;
     }
-    bool IsTradeable() const
+    inline bool IsTradeable() const
     {
         return flags & (uint8_t)TokenFlags::Tradeable;
     }
-    bool IsDAT() const
+    inline bool IsDAT() const
     {
-        return flags & (uint8_t)TokenFlags::isDAT;
+        return flags & (uint8_t)TokenFlags::DAT;
+    }
+    inline bool IsPoolShare() const
+    {
+        return flags & (uint8_t)TokenFlags::LPS;
+    }
+    inline bool IsFinalized() const
+    {
+        return flags & (uint8_t)TokenFlags::Finalized;
+    }
+    inline Res IsValidSymbol() const
+    {
+        if (symbol.size() == 0 || IsDigit(symbol[0])) {
+            return Res::Err("token symbol should be non-empty and starts with a letter");
+        }
+        if (symbol.find('#') != std::string::npos) {
+            return Res::Err("token symbol should not contain '#'");
+        }
+        return Res::Ok();
+    }
+    inline std::string CreateSymbolKey(DCT_ID const & id) const {
+        return symbol + (IsDAT() ? "" : "#" + std::to_string(id.v));
     }
 
     ADD_SERIALIZE_METHODS;
@@ -118,12 +141,14 @@ public:
     boost::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
     std::unique_ptr<CToken> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
 
-    void ForEachToken(std::function<bool(DCT_ID const & id, CToken const & token)> callback, DCT_ID const & start = DCT_ID{0});
+    void ForEachToken(std::function<bool(DCT_ID const & id, CTokenImpl const & token)> callback, DCT_ID const & start = DCT_ID{0});
 
     Res CreateDFIToken();
-    Res CreateToken(CTokenImpl const & token);
-    bool RevertCreateToken(uint256 const & txid);
-    Res UpdateToken(uint256 const & tokenTx);
+    ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront);
+    bool RevertCreateToken(uint256 const & txid);   /// @deprecated used only by tests. rewrite tests
+    Res UpdateToken(uint256 const & tokenTx, CToken & newToken, bool isPreBayfront);
+
+    Res BayfrontFlagsCleanup();
     Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
 
     // tags
@@ -135,7 +160,7 @@ public:
 private:
     // have to incapsulate "last token id" related methods here
     DCT_ID IncrementLastDctId();
-    DCT_ID DecrementLastDctId();
+    DCT_ID DecrementLastDctId(); /// @deprecated used only by "revert*". rewrite tests
     boost::optional<DCT_ID> ReadLastDctId() const;
 };
 

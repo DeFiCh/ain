@@ -115,6 +115,7 @@ public:
         consensus.BIP65Height = 0; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
         consensus.AMKHeight = 356500;
+        consensus.BayfrontHeight = 405000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -196,8 +197,11 @@ public:
         consensus.foundationShareScript = GetScriptForDestination(DecodeDestination("dZcHjYhKtEM88TtZLjp314H2xZjkztXtRc", *this));
         consensus.foundationShare = 10; // old style - just percents
         consensus.foundationShareDFIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
-        /// @todo fill in foundationMembers before deployment
+
         consensus.foundationMembers.clear();
+        consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination("dJEbxbfufyPF14SC93yxiquECEfq4YSd9L", *this)));
+        consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination("8bL7jZe2Nk5EhqFA6yuf8HPre3M6eewkqj", *this)));
+        consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination("8UhqhhiwtUuEqCD7HsekUsgYRuz115eLiQ", *this)));
 
         // owner base58, operator base58
         vMasternodes.push_back({"8PuErAcazqccCVzRcc8vJ3wFaZGm4vFbLe", "8J846CKFF83Jcj5m4EReJmxiaJ6Jy1Y6Ea"});
@@ -270,6 +274,7 @@ public:
         consensus.BIP65Height = 0; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
         consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
         consensus.AMKHeight = 324500;
+        consensus.BayfrontHeight = 388500;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -343,8 +348,9 @@ public:
         consensus.foundationShareScript = GetScriptForDestination(DecodeDestination("7Q2nZCcKnxiRiHSNQtLB27RA5efxm2cE7w", *this));
         consensus.foundationShare = 10; // old style - just percents
         consensus.foundationShareDFIP1 = 199 * COIN / 10 / 200; // 19.9 DFI @ 200 per block (rate normalized to (COIN == 100%)
-        /// @todo fill in foundationMembers before deployment
+
         consensus.foundationMembers.clear();
+        consensus.foundationMembers.insert(consensus.foundationShareScript);
 
         // owner base58, operator base58
         vMasternodes.push_back({"7LMorkhKTDjbES6DfRxX2RiNMbeemUkxmp", "7KEu9JMKCx6aJ9wyg138W3p42rjg19DR5D"});
@@ -403,7 +409,8 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0;
         consensus.BIP66Height = 0;
-        consensus.AMKHeight = 20;
+        consensus.AMKHeight = 150;
+        consensus.BayfrontHeight = 250;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -534,6 +541,7 @@ public:
         consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in functional tests)
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
         consensus.AMKHeight = 10000000;
+        consensus.BayfrontHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -686,6 +694,17 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.AMKHeight = static_cast<int>(height);
+    }
+
+    if (gArgs.IsArgSet("-bayfrontheight")) {
+        int64_t height = gArgs.GetArg("-bayfrontheight", consensus.BayfrontHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for Bayfront is out of valid range. Use -1 to disable bayfront features.", height));
+        } else if (height == -1) {
+            LogPrintf("Bayfront disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.BayfrontHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;
