@@ -97,19 +97,31 @@ class CreateWalletTest(DefiTestFramework):
         assert_raises_rpc_error(-4, "Error: This wallet has no available keys", w5.getrawchangeaddress)
 
         self.log.info('New blank and encrypted wallets can be created')
-        self.nodes[0].createwallet(wallet_name='wblank', disable_private_keys=False, blank=True, passphrase='thisisapassphrase')
+        self.nodes[0].createwallet(wallet_name='wblank', disable_private_keys=False, blank=True, passphrase='THi_123_ls_SIS_apassphrase')
         wblank = node.get_wallet_rpc('wblank')
         assert_raises_rpc_error(-13, "Error: Please enter the wallet passphrase with walletpassphrase first.", wblank.signmessage, "needanargument", "test")
-        wblank.walletpassphrase('thisisapassphrase', 10)
+        wblank.walletpassphrase('THi_123_ls_SIS_apassphrase', 10)
         assert_raises_rpc_error(-4, "Error: This wallet has no available keys", wblank.getnewaddress)
         assert_raises_rpc_error(-4, "Error: This wallet has no available keys", wblank.getrawchangeaddress)
 
+        self.log.info('Test creating with a weak passphrase.')
+        assert_raises_rpc_error(-14, "Your passphrase is weak!", self.nodes[0].createwallet, 'weak', False, False, '123')
+        assert_raises_rpc_error(-14, "Your passphrase is weak!", self.nodes[0].createwallet, 'weak', False, False, 'qQ1!') # good, but too short
+        assert_raises_rpc_error(-14, "Your passphrase is weak!", self.nodes[0].createwallet, 'weak', False, False, 'qweQWE123') # no special
+        assert_raises_rpc_error(-14, "Your passphrase is weak!", self.nodes[0].createwallet, 'weak', False, False, 'qweqwe123!') # no upper
+        assert_raises_rpc_error(-14, "Your passphrase is weak!", self.nodes[0].createwallet, 'weak', False, False, 'QWEQWE123!') # no lower
+        assert_raises_rpc_error(-14, "Your passphrase is weak!", self.nodes[0].createwallet, 'weak', False, False, 'qweQWEqwe!') # no digits
+        assert_raises_rpc_error(-14, "Your passphrase is weak!", self.nodes[0].createwallet, 'weak', False, False, 'qwerQWE123!') # more than 3 in a row
+        assert_raises_rpc_error(-14, "Your passphrase is weak!", self.nodes[0].createwallet, 'weak', False, False, 'qweQWER123!')
+        assert_raises_rpc_error(-14, "Your passphrase is weak!", self.nodes[0].createwallet, 'weak', False, False, 'qweQWE1234!')
+
+
         self.log.info('Test creating a new encrypted wallet.')
         # Born encrypted wallet is created (has keys)
-        self.nodes[0].createwallet(wallet_name='w6', disable_private_keys=False, blank=False, passphrase='thisisapassphrase')
+        self.nodes[0].createwallet(wallet_name='w6', disable_private_keys=False, blank=False, passphrase='THi_123_ls_SIS_apassphrase')
         w6 = node.get_wallet_rpc('w6')
         assert_raises_rpc_error(-13, "Error: Please enter the wallet passphrase with walletpassphrase first.", w6.signmessage, "needanargument", "test")
-        w6.walletpassphrase('thisisapassphrase', 10)
+        w6.walletpassphrase('THi_123_ls_SIS_apassphrase', 10)
         w6.signmessage(w6.getnewaddress('', 'legacy'), "test")
         w6.keypoolrefill(1)
         # There should only be 1 key
@@ -129,7 +141,7 @@ class CreateWalletTest(DefiTestFramework):
         assert_equal(w8.getwalletinfo()["avoid_reuse"], True)
 
         self.log.info('Using a passphrase with private keys disabled returns error')
-        assert_raises_rpc_error(-4, 'Passphrase provided but private keys are disabled. A passphrase is only used to encrypt private keys, so cannot be used for wallets with private keys disabled.', self.nodes[0].createwallet, wallet_name='w9', disable_private_keys=True, passphrase='thisisapassphrase')
+        assert_raises_rpc_error(-4, 'Passphrase provided but private keys are disabled. A passphrase is only used to encrypt private keys, so cannot be used for wallets with private keys disabled.', self.nodes[0].createwallet, wallet_name='w9', disable_private_keys=True, passphrase='THi_123_ls_SIS_apassphrase')
 
 if __name__ == '__main__':
     CreateWalletTest().main()
