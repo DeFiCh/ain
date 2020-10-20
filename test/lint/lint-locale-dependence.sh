@@ -21,6 +21,9 @@ KNOWN_VIOLATIONS=(
     "src/util/strencodings.cpp:.*strtoul"
     "src/util/strencodings.h:.*atoi"
     "src/util/system.cpp:.*atoi"
+    "src/wallet/rpcwallet.cpp:.*isdigit"
+    "src/wallet/rpcwallet.cpp:.*islower"
+    "src/wallet/rpcwallet.cpp:.*isupper"
 )
 
 REGEXP_IGNORE_EXTERNAL_DEPENDENCIES="^src/(crypto/ctaes/|leveldb/|secp256k1/|tinyformat.h|univalue|spv/)"
