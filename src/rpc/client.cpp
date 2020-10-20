@@ -238,7 +238,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
-    { "getgov", 0, "name" },
 };
 // clang-format on
 
