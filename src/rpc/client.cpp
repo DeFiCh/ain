@@ -205,6 +205,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "getaccount", 2, "indexed_amounts" },
     { "gettokenbalances", 0, "pagination" },
     { "gettokenbalances", 1, "indexed_amounts" },
+    { "gettokenbalances", 2, "symbol_lookup" },
     { "accounttoaccount", 1, "to" },
     { "accounttoaccount", 2, "inputs" },
     { "accounttoutxos", 1, "to" },

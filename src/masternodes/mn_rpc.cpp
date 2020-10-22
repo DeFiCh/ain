@@ -1419,6 +1419,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
                     },
                     {"indexed_amounts", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                         "Format of amounts output (default = false): (true: obj = {tokenid:amount,...}, false: array = [\"amount@tokenid\"...])"},
+                    {"symbol_lookup", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                        "Use token symbols in output (default = false)"},
                 },
                 RPCResult{
                        "{...}     (array) Json object with balances information\n"
@@ -1455,7 +1457,11 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     }
     bool indexed_amounts = false;
     if (request.params.size() > 1) {
-        indexed_amounts = request.params[1].get_bool();
+        indexed_amounts = request.params[1].getBool();
+    }
+    bool symbol_lookup = false;
+    if (request.params.size() > 2) {
+        symbol_lookup = request.params[2].getBool();
     }
 
     UniValue ret(UniValue::VARR);
@@ -1475,13 +1481,18 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         }
         return true;
     }, BalanceKey{});
-    auto it = totalBalances.balances.find(start);
+    auto it = totalBalances.balances.lower_bound(start);
     for (int i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
         CTokenAmount bal = CTokenAmount{(*it).first, (*it).second};
+        std::string tokenIdStr = bal.nTokenId.ToString();
+        if (symbol_lookup) {
+            auto token = pcustomcsview->GetToken(bal.nTokenId);
+            tokenIdStr = token->CreateSymbolKey(bal.nTokenId);
+        }
         if (indexed_amounts)
-                ret.pushKV(bal.nTokenId.ToString(), ValueFromAmount(bal.nValue));
+                ret.pushKV(tokenIdStr, ValueFromAmount(bal.nValue));
             else
-                ret.push_back(bal.ToString());
+                ret.push_back(ValueFromAmount(bal.nValue).getValStr() + "@" + tokenIdStr);
     }
     return ret;
 }
@@ -2869,7 +2880,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "getpoolpair",        &getpoolpair,        {"key", "verbose" }},
     {"poolpair",    "addpoolliquidity",   &addpoolliquidity,   {"from", "shareAddress", "inputs"}},
     {"poolpair",    "removepoolliquidity",&removepoolliquidity,{"from", "amount", "inputs"}},
-    {"accounts",    "gettokenbalances",   &gettokenbalances,   {"pagination", "indexed_amounts"}},
+    {"accounts",    "gettokenbalances",   &gettokenbalances,   {"pagination", "indexed_amounts", "symbol_lookup"}},
     {"accounts",    "utxostoaccount",     &utxostoaccount,     {"amounts", "inputs"}},
     {"accounts",    "accounttoaccount",   &accounttoaccount,   {"from", "to", "inputs"}},
     {"accounts",    "accounttoutxos",     &accounttoutxos,     {"from", "to", "inputs"}},
