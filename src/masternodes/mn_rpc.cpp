@@ -1475,7 +1475,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
         }
         return true;
     }, BalanceKey{});
-    auto it = totalBalances.balances.find(start);
+    auto it = totalBalances.balances.lower_bound(start);
     for (int i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
         CTokenAmount bal = CTokenAmount{(*it).first, (*it).second};
         if (indexed_amounts)
