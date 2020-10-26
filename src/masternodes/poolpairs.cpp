@@ -111,8 +111,11 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
     bool const forward = in.nTokenId == idTokenA;
 
     // it is important that reserves are at least SLOPE_SWAP_RATE (1000) to be able to slide, otherwise it can lead to underflow
-    if (reserveA < SLOPE_SWAP_RATE || reserveB < SLOPE_SWAP_RATE)
+    if (reserveA < SLOPE_SWAP_RATE * COIN || reserveB < SLOPE_SWAP_RATE * COIN)
         return Res::Err("Lack of liquidity.");
+
+    if (reserveA <= in.nValue)
+        return Res::Err("Swap amount exceeds reserve amount.");
 
     auto const aReserveA = arith_uint256(reserveA);
     auto const aReserveB = arith_uint256(reserveB);
@@ -157,7 +160,7 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     arith_uint256 poolF = arith_uint256(poolFrom);
     arith_uint256 poolT = arith_uint256(poolTo);
     arith_uint256 swapped = 0;
-    CAmount chunk = poolFrom/SLOPE_SWAP_RATE < unswapped ? poolFrom/SLOPE_SWAP_RATE : unswapped;
+    CAmount chunk = poolFrom / SLOPE_SWAP_RATE < unswapped ? poolFrom / SLOPE_SWAP_RATE : unswapped;
     while (unswapped > 0) {
         //arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
         CAmount stepFrom = std::min(chunk, unswapped);
