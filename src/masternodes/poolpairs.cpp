@@ -154,7 +154,7 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
 }
 
 CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo) {
-    assert (unswapped >= 0 && poolFrom >= SLOPE_SWAP_RATE && poolTo >= SLOPE_SWAP_RATE);
+    assert (unswapped >= 0 && poolFrom >= SLOPE_SWAP_RATE * COIN && poolTo >= SLOPE_SWAP_RATE * COIN);
     assert (SafeAdd(unswapped, poolFrom).ok);
 
     arith_uint256 poolF = arith_uint256(poolFrom);
