@@ -943,7 +943,13 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
         return Res::Err("%s: can't find the poolpair!", base);
     }
 
+    /// @attention Consensus breaking, if liquidity trade was deployed!!!
     CPoolPair pp = poolPair->second;
+    const auto srcReserve = pp.idTokenA == poolSwapMsg.idTokenFrom ? pp.reserveA : pp.reserveB;
+    if (poolSwapMsg.amountFrom > srcReserve) {
+        return Res::Err("%s: %s", base, "Tradeble amount > than reserved in the pool");
+    }
+
     const auto res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
         auto resPP = mnview.SetPoolPair(poolPair->first, pp);
         if (!resPP.ok) {

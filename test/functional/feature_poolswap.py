@@ -161,6 +161,19 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].updatepoolpair({"pool": "GS", "status": True})
         self.nodes[0].generate(1)
 
+        # 6.1 Try to swap more than reserved
+        print (self.nodes[0].listpoolpairs())
+        try:
+            self.nodes[0].poolswap({
+                "from": accountGN0,
+                "tokenFrom": symbolSILVER,
+                "amountFrom": 1001, # 1000 reservedB!
+                "to": accountSN1,
+                "tokenTo": symbolGOLD,
+            }, [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("than reserved in the pool" in errorString)
 
         self.nodes[0].poolswap({
             "from": accountGN0,
