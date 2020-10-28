@@ -24,8 +24,8 @@ class PoolPairTest (DefiTestFramework):
         # node2: Non Foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-acindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-acindex=1'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
 
@@ -211,6 +211,15 @@ class PoolPairTest (DefiTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Price is higher than indicated." in errorString)
+
+        # Visual test for listaccounthistory
+        print("mine@0:", self.nodes[0].listaccounthistory())
+        print("mine@1:", self.nodes[1].listaccounthistory())
+        print("all@0", self.nodes[0].listaccounthistory("all"))
+        print("accountGN0@0", self.nodes[0].listaccounthistory(accountGN0))
+        print("mine@0, depth=3:", self.nodes[0].listaccounthistory("mine", {"depth":3}))
+        print("mine@0, height=158 depth=2:", self.nodes[0].listaccounthistory("mine", {"maxBlockHeight":158, "depth":2}))
+        print("all@0, height=158 depth=2:", self.nodes[0].listaccounthistory("all", {"maxBlockHeight":158, "depth":2}))
 
         # REVERTING:
         #========================

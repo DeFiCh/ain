@@ -260,5 +260,76 @@ BOOST_AUTO_TEST_CASE(tokens)
     BOOST_REQUIRE(GetTokensCount() == 3);
 }
 
+struct TestForward {
+    uint32_t n;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(WrapBigEndian(n));
+    }
+    static const unsigned char prefix;
+};
+const unsigned char TestForward::prefix = 'F';
+
+struct TestBackward {
+    uint32_t n;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(n));
+            n = ~n;
+        }
+        else {
+            uint32_t neg = ~n;
+            READWRITE(WrapBigEndian(neg));
+        }
+    }
+    static const unsigned char prefix;
+};
+const unsigned char TestBackward::prefix = 'B';
+
+
+BOOST_AUTO_TEST_CASE(for_each_order)
+{
+    {
+        pcustomcsview->WriteBy<TestForward>(TestForward{0}, 1);
+        pcustomcsview->WriteBy<TestForward>(TestForward{1}, 2);
+        pcustomcsview->WriteBy<TestForward>(TestForward{255}, 3);
+        pcustomcsview->WriteBy<TestForward>(TestForward{256}, 4);
+        pcustomcsview->WriteBy<TestForward>(TestForward{((uint16_t)-1) -1}, 5);
+        pcustomcsview->WriteBy<TestForward>(TestForward{(uint16_t)-1}, 6);
+        pcustomcsview->WriteBy<TestForward>(TestForward{((uint32_t)-1) -1}, 7);
+        pcustomcsview->WriteBy<TestForward>(TestForward{((uint32_t)-1)}, 8);
+
+        int test = 1;
+        pcustomcsview->ForEach<TestForward, TestForward, int>([&] (TestForward const & key, int & value) {
+//            printf("%ld : %d\n", key.n, value);
+            BOOST_CHECK(value == test);
+            ++test;
+            return true;
+        });
+    }
+    {
+        pcustomcsview->WriteBy<TestBackward>(TestBackward{0}, 1);
+        pcustomcsview->WriteBy<TestBackward>(TestBackward{1}, 2);
+        pcustomcsview->WriteBy<TestBackward>(TestBackward{255}, 3);
+        pcustomcsview->WriteBy<TestBackward>(TestBackward{256}, 4);
+        pcustomcsview->WriteBy<TestBackward>(TestBackward{((uint16_t)-1) -1}, 5);
+        pcustomcsview->WriteBy<TestBackward>(TestBackward{(uint16_t)-1}, 6);
+
+        int test = 6;
+        pcustomcsview->ForEach<TestBackward, TestBackward, int>([&] (TestBackward const & key, int & value) {
+//            printf("%ld : %d\n", key.n, value);
+            BOOST_CHECK(value == test);
+            --test;
+            return true;
+        }, TestBackward{ (uint32_t) -1 });
+    }
+}
 
 BOOST_AUTO_TEST_SUITE_END()
