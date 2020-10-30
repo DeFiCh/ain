@@ -923,8 +923,12 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
         tokenObj.pushKV("creationHeight", token.creationHeight);
         tokenObj.pushKV("destructionTx", token.destructionTx.ToString());
         tokenObj.pushKV("destructionHeight", token.destructionHeight);
-        /// @todo tokens: collateral address/script
-//      tokenObj.pushKV("collateralAddress", token.destructionHeight);
+        if (!token.IsPoolShare()) {
+            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token.creationTx, 1)); // always n=1 output
+            tokenObj.pushKV("collateralAddress", ScriptToString(authCoin.out.scriptPubKey));
+        } else {
+            tokenObj.pushKV("collateralAddress", "undefined");
+        }
     }
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(id.ToString(), tokenObj);
