@@ -167,12 +167,16 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, 1000000}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
             BOOST_CHECK(ta.nValue == 1);
+            BOOST_CHECK_EQUAL(ta.nValue, 1);
             return Res::Ok();
         });
         BOOST_CHECK(res.ok);
         BOOST_CHECK(pool.blockCommissionA == 10000);
         BOOST_CHECK(pool.reserveA == 991001);
         BOOST_CHECK(pool.reserveB == 1000);
+        BOOST_CHECK_EQUAL(pool.blockCommissionA, 10000);
+        BOOST_CHECK_EQUAL(pool.reserveA, 991001);
+        BOOST_CHECK_EQUAL(pool.reserveB, 1000);
     }
 
     // trying to swap moooore than reserved (sliding), but on "resonable" reserves
@@ -183,12 +187,14 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
             BOOST_CHECK(ta.nValue == 66464593);
+            BOOST_CHECK_EQUAL(ta.nValue, 66464593);
             return Res::Ok();
         });
         BOOST_CHECK(res.ok);
         BOOST_CHECK(pool.blockCommissionA == 2000000);
         BOOST_CHECK(pool.reserveA == 298000000);
         BOOST_CHECK(pool.reserveB == 33535407);
+        BOOST_CHECK_EQUAL(pool.reserveB, 33535407);
 
     }
 
@@ -200,12 +206,14 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
             BOOST_CHECK(ta.nValue == 66465256146);
+            BOOST_CHECK_EQUAL(ta.nValue, 66465256146);
             return Res::Ok();
         });
         BOOST_CHECK(res.ok);
         BOOST_CHECK(pool.blockCommissionA == 2000000);
         BOOST_CHECK(pool.reserveA == 298000000);
         BOOST_CHECK(pool.reserveB == 33534743854);
+        BOOST_CHECK_EQUAL(pool.reserveB, 33534743854);
     }
     {
 //        printf("1 COIN (1:1000)\n");
@@ -215,12 +223,14 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
             BOOST_CHECK(ta.nValue == 49773755285);
+            BOOST_CHECK_EQUAL(ta.nValue, 49773755285);
             return Res::Ok();
         });
         BOOST_CHECK(res.ok);
         BOOST_CHECK(pool.blockCommissionA == 1000000);
         BOOST_CHECK(pool.reserveA == 199000000);
         BOOST_CHECK(pool.reserveB == 50226244715);
+        BOOST_CHECK_EQUAL(pool.reserveB, 50226244715);
     }
     {
 //        printf("COIN/1000 (1:1000) (no slope due to commission)\n");
@@ -230,17 +240,18 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, COIN/1000}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
             BOOST_CHECK(ta.nValue == 99000000);
-//              printf("ta = %ld\n", ta.nValue);
+            BOOST_CHECK_EQUAL(ta.nValue, 99000000);
             return Res::Ok();
         });
         BOOST_CHECK(res.ok);
         BOOST_CHECK(pool.blockCommissionA == 1000);
         BOOST_CHECK(pool.reserveA == 100099000);
         BOOST_CHECK(pool.reserveB == 99901000000);
+        BOOST_CHECK_EQUAL(pool.reserveB, 99901000000);
 
-//        printf("comissionA = %ld\n", pool.blockCommissionA);
-//        printf("reserveA = %ld\n", pool.reserveA);
-//        printf("reserveB = %ld\n", pool.reserveB);
+       printf("comissionA = %ld\n", pool.blockCommissionA);
+       printf("reserveA = %ld\n", pool.reserveA);
+       printf("reserveB = %ld\n", pool.reserveB);
     }
 }
 
