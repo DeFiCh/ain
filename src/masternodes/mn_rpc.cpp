@@ -2916,7 +2916,7 @@ UniValue setgov(const JSONRPCRequest& request) {
             varStream << name << *gv;
         }
     }
-    
+
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::SetGovVariable)
              << varStream;
@@ -2994,6 +2994,42 @@ UniValue getgov(const JSONRPCRequest& request) {
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
+UniValue isappliedcustomtx(const JSONRPCRequest& request) {
+    RPCHelpMan{"isappliedcustomtx",
+               "\nChecks that custom transaction was affected on chain\n",
+               {
+                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A transaction hash"},
+                    {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The height of block which contain tx"}
+               },
+               RPCResult{
+                       "(bool) The boolean indicate that custom transaction was affected on chain\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("isappliedcustomtx", "\"b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235\" 1005")
+                       + HelpExampleRpc("isappliedcustomtx", "\"b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235\" 1005")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM}, false);
+
+    LOCK(cs_main);
+
+    UniValue result(UniValue::VBOOL);
+
+    uint256 txHash = ParseHashV(request.params[0], "txid");
+    int blockHeight = request.params[1].get_int();
+
+    const auto undo = pcustomcsview->GetUndo(UndoKey{blockHeight, txHash});
+
+    if (!undo) { // no changes done
+        result.setBool(false);
+    } else {
+        result.setBool(true);
+    }
+
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { //  category      name                  actor (function)     params
   //  ----------------- ------------------------    -----------------------     ----------
@@ -3025,6 +3061,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
     {"blockchain",  "setgov",             &setgov,             {"variables", "inputs"}},
     {"blockchain",  "getgov",             &getgov,             {"name"}},
+    {"blockchain",  "isappliedcustomtx",  &isappliedcustomtx,  {"txid", "blockHeight"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

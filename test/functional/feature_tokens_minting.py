@@ -32,30 +32,40 @@ class TokensMintingTest (DefiTestFramework):
         collateralGold = self.nodes[0].getnewaddress("", "legacy")
         collateralSilver = self.nodes[0].getnewaddress("", "legacy")
         collateralCupper = self.nodes[0].getnewaddress("", "legacy")
-        self.nodes[0].createtoken({
+
+        txid1 = self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
             "collateralAddress": collateralGold
         })
         self.nodes[0].generate(1)
+        txid1_blockHeight = self.nodes[0].getblockcount()
 
-        self.nodes[0].createtoken({
+        txid2 = self.nodes[0].createtoken({
             "symbol": "SILVER",
             "name": "just silver",
             "collateralAddress": collateralSilver
         })
         self.nodes[0].generate(1)
+        txid2_blockHeight = self.nodes[0].getblockcount()
 
-        self.nodes[0].createtoken({
+        txid3 = self.nodes[0].createtoken({
             "symbol": "CUPPER",
             "name": "just cupper",
             "collateralAddress": collateralCupper
         })
         self.nodes[0].generate(1)
+        txid3_blockHeight = self.nodes[0].getblockcount()
 
         # At this point, tokens was created
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 4)
+
+        assert_equal(self.nodes[0].isappliedcustomtx(txid1, txid1_blockHeight), True)
+        assert_equal(self.nodes[0].isappliedcustomtx(txid2, txid2_blockHeight), True)
+        assert_equal(self.nodes[0].isappliedcustomtx(txid3, txid3_blockHeight), True)
+        # Not apllied tx
+        assert_equal(self.nodes[0].isappliedcustomtx("b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235", txid2_blockHeight), False)
 
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
