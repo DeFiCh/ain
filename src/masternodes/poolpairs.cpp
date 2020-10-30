@@ -151,19 +151,16 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
 }
 
 CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo) {
-    assert (unswapped >= 0 && poolFrom >= SLOPE_SWAP_RATE && poolTo >= SLOPE_SWAP_RATE);
+    assert (unswapped >= 0);
     assert (SafeAdd(unswapped, poolFrom).ok);
 
     arith_uint256 poolF = arith_uint256(poolFrom);
     arith_uint256 poolT = arith_uint256(poolTo);
     arith_uint256 unswappedA = arith_uint256(unswapped);
-    arith_uint256 swapped = 0;
 
-    swapped = poolT * (1 - (poolF / (poolF + unswappedA)));
+    arith_uint256 swapped = poolT * (1 - (poolF / (poolF + unswappedA)));
     poolF += unswappedA;
     poolT -= swapped;
-
-    assert(poolF > 0 && poolT > 0 && swapped > 0);
 
     poolFrom = poolF.GetLow64();
     poolTo = poolT.GetLow64();
