@@ -158,7 +158,7 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     arith_uint256 poolT = arith_uint256(poolTo);
     arith_uint256 unswappedA = arith_uint256(unswapped);
 
-    arith_uint256 swapped = poolT * (1 - (poolF / (poolF + unswappedA)));
+    arith_uint256 swapped = poolT - (poolT * poolF / (poolF + unswappedA));
     poolF += unswappedA;
     poolT -= swapped;
 
