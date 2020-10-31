@@ -220,5 +220,4 @@ struct BalanceKey {
         READWRITE(WrapBigEndian(tokenID.v));
     }
 };
-
 #endif //DEFI_MASTERNODES_BALANCES_H

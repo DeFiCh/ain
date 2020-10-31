@@ -153,6 +153,7 @@ DEFI_CORE_H = \
   limitedmap.h \
   logging.h \
   masternodes/accounts.h \
+  masternodes/accountshistory.h \
   masternodes/anchors.h \
   masternodes/balances.h \
   masternodes/communityaccounttypes.h \
@@ -362,6 +363,7 @@ libdefi_server_a_SOURCES = \
   init.cpp \
   dbwrapper.cpp \
   masternodes/accounts.cpp \
+  masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
   masternodes/criminals.cpp \
   masternodes/govvariables/lp_daily_dfi_reward.cpp \

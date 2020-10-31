@@ -2720,6 +2720,135 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
     return ret;
 }
 
+UniValue accounthistoryToJSON(CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
+    UniValue obj(UniValue::VOBJ);
+
+    obj.pushKV("owner", ScriptToString(owner));
+    obj.pushKV("blockHeight", (uint64_t) height);
+    obj.pushKV("type", ToString(CustomTxCodeToType(category)));
+    if (!txid.IsNull()) {
+        obj.pushKV("txn", (uint64_t) txn);
+        obj.pushKV("txid", txid.ToString());
+    }
+
+    UniValue diffsObj(UniValue::VARR);
+    for (auto const & diff : diffs) {
+        auto token = pcustomcsview->GetToken(diff.first);
+        std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
+
+        diffsObj.push_back(ValueFromAmount(diff.second).getValStr() + "@" + tokenIdStr);
+    }
+    obj.pushKV("amounts", diffsObj);
+    return obj;
+}
+
+UniValue listaccounthistory(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+    RPCHelpMan{"listaccounthistory",
+               "\nReturns information about account history.\n",
+               {
+                        {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                    "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
+                        {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                            {
+                                 {"maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Optional height to iterate from (downto genesis block), (default = chaintip)."},
+                                 {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Maximum depth, 100 blocks by default for every account"},
+                            },
+                        },
+               },
+               RPCResult{
+                       "[{},{}...]     (array) Objects with account history information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listaccounthistory", "\"all\" {\"maxBlockHeight\":160,\"depth\":10}")
+                       + HelpExampleRpc("listaccounthistory", "\"address\" False")
+               },
+    }.Check(request);
+
+    std::string accounts = "mine";
+    if (request.params.size() > 0) {
+        accounts = request.params[0].getValStr();
+    }
+
+    uint32_t startBlock = std::numeric_limits<uint32_t>::max();
+    uint32_t depth = 100;
+
+    if (request.params.size() > 1) {
+        UniValue optionsObj = request.params[1].get_obj();
+        RPCTypeCheckObj(optionsObj,
+            {
+                {"maxBlockHeight", UniValueType(UniValue::VNUM)},
+                {"depth", UniValueType(UniValue::VNUM)},
+            }, true, true);
+
+        if (!optionsObj["maxBlockHeight"].isNull()) {
+            startBlock = (uint32_t) optionsObj["maxBlockHeight"].get_int64();
+        }
+        if (!optionsObj["depth"].isNull()) {
+            depth = (uint32_t) optionsObj["depth"].get_int64();
+        }
+    }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    if (startBlock > ::ChainActive().Height()) {
+        startBlock = ::ChainActive().Height();
+    }
+
+    UniValue ret(UniValue::VARR);
+
+    if (accounts == "mine") {
+        // traversing through owned scripts
+        CScript prevOwner{};
+        bool isMine = false;
+        AccountHistoryKey startKey{ prevOwner, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
+        pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
+            if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth)))
+                return true; // continue
+
+            if (prevOwner != owner) {
+                prevOwner = owner;
+                isMine = IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
+            }
+            if (isMine)
+                ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+
+            return true;
+        }, startKey);
+    }
+    else if (accounts == "all") {
+        // traversing the whole DB, skipping wrong heights
+        AccountHistoryKey startKey{ CScript{}, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
+        pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
+            if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth)))
+                return true; // continue
+
+            ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+            return true;
+        }, startKey);
+
+    }
+    else {
+        // parse single script/address:
+        CScript const owner = DecodeScript(accounts);
+
+        AccountHistoryKey startKey{ owner, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
+        pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
+            if (owner != startKey.owner || (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth))))
+                return false;
+
+            ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+            return true;
+        }, startKey);
+    }
+
+    return ret;
+}
+
 UniValue listcommunitybalances(const JSONRPCRequest& request) {
     RPCHelpMan{"listcommunitybalances",
                "\nReturns information about all community balances.\n",
@@ -2892,6 +3021,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "updatepoolpair",     &updatepoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
+    {"accounts",    "listaccounthistory", &listaccounthistory, {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
     {"blockchain",  "setgov",             &setgov,             {"variables", "inputs"}},
     {"blockchain",  "getgov",             &getgov,             {"name"}},

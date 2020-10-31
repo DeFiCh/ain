@@ -237,6 +237,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listpoolshares", 0, "pagination" },
     { "listpoolshares", 1, "verbose" },
 
+    { "listaccounthistory", 1, "options" },
+
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
 };

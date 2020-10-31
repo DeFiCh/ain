@@ -1934,7 +1934,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             pcustomcsview->CreateDFIToken();
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, fJustCheck);
+                ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
                 AddCoins(view, *block.vtx[i], 0);
             }
         }
@@ -2176,7 +2176,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            const auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), pindex->nHeight, fJustCheck);
+            const auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 // we will never fail, but skip, unless transaction mints UTXOs
                 return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
@@ -2303,6 +2303,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         // construct undo
         auto& flushable = dynamic_cast<CFlushableStorageKV&>(cache.GetRaw());
+        cache.TrackAffectedAccounts(mnview.GetRaw(), flushable.GetRaw(), static_cast<uint32_t>(pindex->nHeight), std::numeric_limits<uint32_t>::max(), uint256(), (unsigned char) CustomTxType::NonTxRewards);
         auto undo = CUndo::Construct(mnview.GetRaw(), flushable.GetRaw());
         // flush changes to underlying view
         cache.Flush();

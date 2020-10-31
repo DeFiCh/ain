@@ -81,3 +81,4 @@ Res CAccountsView::SubBalances(CScript const & owner, CBalances const & balances
     }
     return Res::Ok();
 }
+
