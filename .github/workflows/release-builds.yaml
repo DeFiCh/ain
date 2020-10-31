@@ -109,41 +109,38 @@ jobs:
 
     - name: Create release
       id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: sondreb/action-release@master
       with:
-        tag_name: ${{ github.ref }}
-        release_name: ${{ github.ref }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         draft: false
         prerelease: false
+        name: ${{ github.ref }}
+        tag: ${{ github.ref }}
 
     - name: Upload release asset - linux
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: svenstaro/upload-release-action@v2
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
-        asset_content_type: application/gzip
+        tag: ${{ github.ref }}
+        overwrite: true
 
     - name: Upload release asset - windows
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: svenstaro/upload-release-action@v2
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip
-        asset_content_type: application/zip
+        tag: ${{ github.ref }}
+        overwrite: true
+
 
     - name: Upload release asset - macos
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: svenstaro/upload-release-action@v2
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
-        asset_content_type: application/gzip
+        tag: ${{ github.ref }}
+        overwrite: true
