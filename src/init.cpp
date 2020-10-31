@@ -1900,6 +1900,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         LOCK(cs_main);
 
         CTxDestination destination = DecodeDestination(gArgs.GetArg("-masternode_operator", ""));
+        CTxDestination
         CKeyID const operatorId = destination.which() == 1 ? CKeyID(*boost::get<PKHash>(&destination)) :
                                   (destination.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID());
         if (operatorId.IsNull()) {
@@ -1928,12 +1929,20 @@ bool AppInitMain(InitInterfaces& interfaces)
                     LogPrintf("Error: masternode operator private key not found\n");
                     return false;
                 }
+                
+                CTxDestination rewardAddress; 
+                
+                auto myIDs = pcustomcsview->AmIOperator();
+                if(myIDs) {
+                    CMasternode const node = *pcustomcsview->GetMasternode(myIDs->second);	
+                    rewardAddress = node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress));
+                }
 
                 CTxDestination const mintToAddress = DecodeDestination(gArgs.GetArg("-rewardaddress", ""), Params());
                 if (IsValidDestination(mintToAddress))
-                    destination = mintToAddress;
+                    rewardAddress = mintToAddress;
 
-                CScript coinbaseScript = GetScriptForDestination(destination);
+                CScript coinbaseScript = GetScriptForDestination(rewardAddress);
 
                 stakerParams.coinbaseScript = coinbaseScript;
                 stakerParams.minterKey = minterKey;
