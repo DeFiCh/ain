@@ -31,21 +31,31 @@ class TokensMintingTest (DefiTestFramework):
         #========================
         collateralGold = self.nodes[0].getnewaddress("", "legacy")
         collateralSilver = self.nodes[0].getnewaddress("", "legacy")
+        collateralCupper = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
             "collateralAddress": collateralGold
         })
+        self.nodes[0].generate(1)
+
         self.nodes[0].createtoken({
             "symbol": "SILVER",
             "name": "just silver",
             "collateralAddress": collateralSilver
         })
-
         self.nodes[0].generate(1)
+
+        self.nodes[0].createtoken({
+            "symbol": "CUPPER",
+            "name": "just cupper",
+            "collateralAddress": collateralCupper
+        })
+        self.nodes[0].generate(1)
+
         # At this point, tokens was created
         tokens = self.nodes[0].listtokens()
-        assert_equal(len(tokens), 3)
+        assert_equal(len(tokens), 4)
 
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
@@ -53,9 +63,12 @@ class TokensMintingTest (DefiTestFramework):
                 idGold = idx
             if (token["symbol"] == "SILVER"):
                 idSilver = idx
+            if (token["symbol"] == "CUPPER"):
+                idCupper = idx
 
         symbolGold = "GOLD#" + idGold
         symbolSilver = "SILVER#" + idSilver
+        symbolCupper = "CUPPER#" + idCupper
 
         self.sync_blocks()
 
@@ -63,26 +76,27 @@ class TokensMintingTest (DefiTestFramework):
         #========================
         # Funding auth addresses
 
-        self.nodes[0].sendmany("", { collateralGold : 1, collateralSilver : 1 })
+        self.nodes[0].sendmany("", { collateralGold : 1, collateralSilver : 1, collateralCupper : 1 })
         self.nodes[0].generate(1)
-        self.nodes[0].sendmany("", { collateralGold : 1, collateralSilver : 1 })
+        self.nodes[0].sendmany("", { collateralGold : 1, collateralSilver : 1, collateralCupper : 1 })
         self.nodes[0].generate(1)
 
         # print(self.nodes[0].listunspent())
 
-        self.nodes[0].minttokens("300@" + symbolGold)
-        self.nodes[0].minttokens("3000@" + symbolSilver)
+        self.nodes[0].minttokens(["300@" + symbolGold, "3000@" + symbolSilver, "500@" + symbolCupper])
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         assert_equal(self.nodes[0].getaccount(collateralGold, {}, True)[idGold], 300)
         assert_equal(self.nodes[0].getaccount(collateralSilver, {}, True)[idSilver], 3000)
+        assert_equal(self.nodes[0].getaccount(collateralCupper, {}, True)[idCupper], 500)
 
         alienMintAddr = self.nodes[1].getnewaddress("", "legacy")
 
         # Checking the number of minted coins
         assert_equal(self.nodes[0].gettoken(symbolGold)[idGold]['minted'], 300)
         assert_equal(self.nodes[0].gettoken(symbolSilver)[idSilver]['minted'], 3000)
+        assert_equal(self.nodes[0].gettoken(symbolCupper)[idCupper]['minted'], 500)
 
         assert_equal(self.nodes[0].gettoken(symbolGold)[idGold]['collateralAddress'], collateralGold)
         assert_equal(self.nodes[0].gettoken(symbolSilver)[idSilver]['collateralAddress'], collateralSilver)
