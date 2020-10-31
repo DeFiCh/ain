@@ -1900,7 +1900,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         LOCK(cs_main);
 
         CTxDestination destination = DecodeDestination(gArgs.GetArg("-masternode_operator", ""));
-        CTxDestination
+
         CKeyID const operatorId = destination.which() == 1 ? CKeyID(*boost::get<PKHash>(&destination)) :
                                   (destination.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID());
         if (operatorId.IsNull()) {
