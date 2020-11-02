@@ -3019,7 +3019,7 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     uint256 txHash = ParseHashV(request.params[0], "txid");
     int blockHeight = request.params[1].get_int();
 
-    const auto undo = pcustomcsview->GetUndo(UndoKey{blockHeight, txHash});
+    const auto undo = pcustomcsview->GetUndo(UndoKey{static_cast<uint32_t>(blockHeight), txHash});
 
     if (!undo) { // no changes done
         result.setBool(false);
