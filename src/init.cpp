@@ -1900,10 +1900,10 @@ bool AppInitMain(InitInterfaces& interfaces)
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
         LOCK(cs_main);
 
-        CTxDestination destination = DecodeDestination(gArgs.GetArg("-masternode_operator", ""));
+        CTxDestination operatorAddress = DecodeDestination(gArgs.GetArg("-masternode_operator", ""));
 
-        CKeyID const operatorId = destination.which() == 1 ? CKeyID(*boost::get<PKHash>(&destination)) :
-                                  (destination.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID());
+        CKeyID const operatorId = operatorAddress.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorAddress)) :
+                                  (operatorAddress.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&operatorAddress)) : CKeyID());
         if (operatorId.IsNull()) {
             LogPrintf("Error: wrong (or empty) masternode_operator address (%s)\n", gArgs.GetArg("-masternode_operator", "").c_str());
             return false;
@@ -1931,7 +1931,8 @@ bool AppInitMain(InitInterfaces& interfaces)
                     return false;
                 }
                 
-                CTxDestination rewardAddress; 
+                CTxDestination rewardAddress;
+                CTxDestination const mintToAddress = DecodeDestination(gArgs.GetArg("-rewardaddress", ""), Params());
                 
                 auto myIDs = pcustomcsview->AmIOperator();
                 if(myIDs) {
@@ -1939,9 +1940,11 @@ bool AppInitMain(InitInterfaces& interfaces)
                     rewardAddress = node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress));
                 }
 
-                CTxDestination const mintToAddress = DecodeDestination(gArgs.GetArg("-rewardaddress", ""), Params());
-                if (IsValidDestination(mintToAddress))
+                if (IsValidDestination(mintToAddress)) {
                     rewardAddress = mintToAddress;
+                }
+
+                assert(IsValidDestination(rewardAddress));
 
                 CScript coinbaseScript = GetScriptForDestination(rewardAddress);
 
