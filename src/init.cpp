@@ -1931,21 +1931,28 @@ bool AppInitMain(InitInterfaces& interfaces)
                     return false;
                 }
                 
-                CTxDestination rewardAddress; 
-                
-                auto myIDs = pcustomcsview->AmIOperator();
-                if(myIDs) {
-                    CMasternode const node = *pcustomcsview->GetMasternode(myIDs->second);	
-                    rewardAddress = node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress));
+                // determine coinbase script for minting thread
+                CTxDestination ownerDest;
+                auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
+                if (optMasternodeID) {
+                    auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
+                    assert(nodePtr); // this should not happen if MN was found by operator's id
+                    ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
                 }
 
-                CTxDestination const mintToAddress = DecodeDestination(gArgs.GetArg("-rewardaddress", ""), Params());
-                if (IsValidDestination(mintToAddress))
-                    rewardAddress = mintToAddress;
+                CTxDestination const rewardAddress = DecodeDestination(gArgs.GetArg("-rewardaddress", ""), Params());
+                if (IsValidDestination(rewardAddress)) {
+                    LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", gArgs.GetArg("-rewardaddress", "").c_str());
+                    stakerParams.coinbaseScript = GetScriptForDestination(rewardAddress);
+                }
+                else if (IsValidDestination(ownerDest)) {
+                    LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest).c_str());
+                    stakerParams.coinbaseScript = GetScriptForDestination(ownerDest);
+                }
+                else {
+                    LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
+                }
 
-                CScript coinbaseScript = GetScriptForDestination(rewardAddress);
-
-                stakerParams.coinbaseScript = coinbaseScript;
                 stakerParams.minterKey = minterKey;
                 stakerParams.operatorID = operatorId;
             }
