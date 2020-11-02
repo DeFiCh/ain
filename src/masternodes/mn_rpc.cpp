@@ -2459,6 +2459,70 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
+void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage &poolSwapMsg, int &targetHeight) {
+    std::string tokenFrom, tokenTo;
+    UniValue metadataObj = request.params[0].get_obj();
+    if (!metadataObj["from"].isNull()) {
+        poolSwapMsg.from = DecodeScript(metadataObj["from"].getValStr());
+    }
+    if (!metadataObj["tokenFrom"].isNull()) {
+        tokenFrom = metadataObj["tokenFrom"].getValStr();
+    }
+    if (!metadataObj["amountFrom"].isNull()) {
+        poolSwapMsg.amountFrom = AmountFromValue(metadataObj["amountFrom"]);
+    }
+    if (!metadataObj["to"].isNull()) {
+        poolSwapMsg.to = DecodeScript(metadataObj["to"].getValStr());
+    }
+    if (!metadataObj["tokenTo"].isNull()) {
+        tokenTo = metadataObj["tokenTo"].getValStr();
+    }
+    {
+        LOCK(cs_main);
+        auto token = pcustomcsview->GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
+        if (!token)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenFrom was not found");
+
+        auto token2 = pcustomcsview->GetTokenGuessId(tokenTo, poolSwapMsg.idTokenTo);
+        if (!token2)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenTo was not found");
+
+        if (!metadataObj["maxPrice"].isNull()) {
+            CAmount maxPrice = AmountFromValue(metadataObj["maxPrice"]);
+            poolSwapMsg.maxPrice.integer = maxPrice / COIN;
+            poolSwapMsg.maxPrice.fraction = maxPrice % COIN;
+        }
+        else {
+            // This is only for maxPrice calculation
+
+            auto poolPair = pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+            if (!poolPair) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Can't find the poolpair " + tokenFrom + "-" + tokenTo);
+            }
+            CPoolPair const & pool = poolPair->second;
+            if (pool.totalLiquidity <= CPoolPair::MINIMUM_LIQUIDITY) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Pool is empty!");
+            }
+
+            auto resA = pool.reserveA;
+            auto resB = pool.reserveB;
+            if (poolSwapMsg.idTokenFrom != pool.idTokenA) {
+                std::swap(resA, resB);
+            }
+            arith_uint256 price256 = arith_uint256(resB) * CPoolPair::PRECISION / arith_uint256(resA);
+            price256 += price256 * 3 / 100; // +3%
+            // this should not happen IRL, but for sure:
+            if (price256 / CPoolPair::PRECISION > std::numeric_limits<int64_t>::max()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Current price +3% overflow!");
+            }
+            auto priceInt = price256 / CPoolPair::PRECISION;
+            poolSwapMsg.maxPrice.integer = priceInt.GetLow64();
+            poolSwapMsg.maxPrice.fraction = (price256 - priceInt * CPoolPair::PRECISION).GetLow64(); // cause there is no operator "%"
+        }
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+}
+
 UniValue poolswap(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -2523,68 +2587,8 @@ UniValue poolswap(const JSONRPCRequest& request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
     CPoolSwapMessage poolSwapMsg{};
-    std::string tokenFrom, tokenTo;
-    UniValue metadataObj = request.params[0].get_obj();
-    if (!metadataObj["from"].isNull()) {
-        poolSwapMsg.from = DecodeScript(metadataObj["from"].getValStr());
-    }
-    if (!metadataObj["tokenFrom"].isNull()) {
-        tokenFrom = metadataObj["tokenFrom"].getValStr();
-    }
-    if (!metadataObj["amountFrom"].isNull()) {
-        poolSwapMsg.amountFrom = AmountFromValue(metadataObj["amountFrom"]);
-    }
-    if (!metadataObj["to"].isNull()) {
-        poolSwapMsg.to = DecodeScript(metadataObj["to"].getValStr());
-    }
-    if (!metadataObj["tokenTo"].isNull()) {
-        tokenTo = metadataObj["tokenTo"].getValStr();
-    }
     int targetHeight;
-    {
-        LOCK(cs_main);
-        auto token = pcustomcsview->GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
-        if (!token)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenFrom was not found");
-
-        auto token2 = pcustomcsview->GetTokenGuessId(tokenTo, poolSwapMsg.idTokenTo);
-        if (!token2)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenTo was not found");
-
-        if (!metadataObj["maxPrice"].isNull()) {
-            CAmount maxPrice = AmountFromValue(metadataObj["maxPrice"]);
-            poolSwapMsg.maxPrice.integer = maxPrice / COIN;
-            poolSwapMsg.maxPrice.fraction = maxPrice % COIN;
-        }
-        else {
-            // This is only for maxPrice calculation
-
-            auto poolPair = pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
-            if (!poolPair) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Can't find the poolpair " + tokenFrom + "-" + tokenTo);
-            }
-            CPoolPair const & pool = poolPair->second;
-            if (pool.totalLiquidity <= CPoolPair::MINIMUM_LIQUIDITY) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Pool is empty!");
-            }
-
-            auto resA = pool.reserveA;
-            auto resB = pool.reserveB;
-            if (poolSwapMsg.idTokenFrom != pool.idTokenA) {
-                std::swap(resA, resB);
-            }
-            arith_uint256 price256 = arith_uint256(resB) * CPoolPair::PRECISION / arith_uint256(resA);
-            price256 += price256 * 3 / 100; // +3%
-            // this should not happen IRL, but for sure:
-            if (price256 / CPoolPair::PRECISION > std::numeric_limits<int64_t>::max()) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Current price +3% overflow!");
-            }
-            auto priceInt = price256 / CPoolPair::PRECISION;
-            poolSwapMsg.maxPrice.integer = priceInt.GetLow64();
-            poolSwapMsg.maxPrice.fraction = (price256 - priceInt * CPoolPair::PRECISION).GetLow64(); // cause there is no operator "%"
-        }
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    CheckAndFillPoolSwapMessage(request, poolSwapMsg, targetHeight);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::PoolSwap)
@@ -2623,6 +2627,85 @@ UniValue poolswap(const JSONRPCRequest& request) {
         }
     }
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+}
+
+UniValue testpoolswap(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"testpoolswap",
+               "\nTests a poolswap transaction with given metadata and returns poolswap result.\n",
+               {
+                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                       {
+                           {"from", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "Address of the owner of tokenA."},
+                           {"tokenFrom", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "One of the keys may be specified (id/symbol)"},
+                           {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                                       "tokenFrom coins amount"},
+                           {"to", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "Address of the owner of tokenB."},
+                           {"tokenTo", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "One of the keys may be specified (id/symbol)"},
+                           {"maxPrice", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                       "Maximum acceptable price"},
+                       },
+                   },
+               },
+               RPCResult{
+                          "\"amount@tokenId\"    (string) The string with amount result of poolswap in format AMOUNT@TOKENID.\n"
+               },
+               RPCExamples{
+                    HelpExampleCli("testpoolswap",   "\"{\\\"from\\\":\\\"MyAddress\\\","
+                                                    "\\\"tokenFrom\\\":\\\"MyToken1\\\","
+                                                    "\\\"amountFrom\\\":\\\"0.001\\\","
+                                                    "\\\"to\\\":\\\"Address\\\","
+                                                    "\\\"tokenTo\\\":\\\"Token2\\\","
+                                                    "\\\"maxPrice\\\":\\\"0.01\\\""
+                                                    "}\"")
+                    + HelpExampleRpc("testpoolswap", "\"{\\\"from\\\":\\\"MyAddress\\\","
+                                                    "\\\"tokenFrom\\\":\\\"MyToken1\\\","
+                                                    "\\\"amountFrom\\\":\\\"0.001\\\","
+                                                    "\\\"to\\\":\\\"Address\\\","
+                                                    "\\\"tokenTo\\\":\\\"Token2\\\","
+                                                    "\\\"maxPrice\\\":\\\"0.01\\\""
+                                                    "}\"")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
+
+    CPoolSwapMessage poolSwapMsg{};
+    int targetHeight;
+    CheckAndFillPoolSwapMessage(request, poolSwapMsg, targetHeight);
+
+    // test execution and get amount
+    Res res = Res::Ok();
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // create dummy cache for test state writing
+
+        auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+
+        const std::string base{"PoolSwap creation: " + poolSwapMsg.ToString()};
+
+        CPoolPair pp = poolPair->second;
+        res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
+            auto resPP = mnview_dummy.SetPoolPair(poolPair->first, pp);
+            if (!resPP.ok) {
+                return Res::Err("%s: %s", base, resPP.msg);
+            }
+
+            auto sub = mnview_dummy.SubBalance(poolSwapMsg.from, {poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom});
+            if (!sub.ok) {
+                return Res::Err("%s: %s", base, sub.msg);
+            }
+            return Res::Ok(tokenAmount.ToString());
+        });
+
+        if (!res.ok)
+            throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);
+    }
+    return UniValue(res.msg);
 }
 
 UniValue poolShareToJSON(DCT_ID const & poolId, CScript const & provider, CAmount const& amount, CPoolPair const& poolPair, bool verbose) {
@@ -3021,6 +3104,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "updatepoolpair",     &updatepoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
+    {"poolpair",    "testpoolswap",       &testpoolswap,       {"metadata"}},
     {"accounts",    "listaccounthistory", &listaccounthistory, {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
     {"blockchain",  "setgov",             &setgov,             {"variables", "inputs"}},

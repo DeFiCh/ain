@@ -161,6 +161,24 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].updatepoolpair({"pool": "GS", "status": True})
         self.nodes[0].generate(1)
 
+        testPoolSwapRes =  self.nodes[0].testpoolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolSILVER,
+            "amountFrom": 10,
+            "to": accountSN1,
+            "tokenTo": symbolGOLD,
+        })
+
+        # this acc will be
+        goldCheckPS = self.nodes[2].getaccount(accountSN1, {}, True)[idGold]
+        print("goldCheckPS:", goldCheckPS)
+        print("testPoolSwapRes:", testPoolSwapRes)
+
+        testPoolSwapRes = str(testPoolSwapRes).split("@", 2)
+
+        psTestAmount = testPoolSwapRes[0]
+        psTestTokenId = testPoolSwapRes[1]
+        assert_equal(psTestTokenId, idGold)
 
         self.nodes[0].poolswap({
             "from": accountGN0,
@@ -194,6 +212,7 @@ class PoolPairTest (DefiTestFramework):
         assert(goldCheckN0 == 700)
         assert(str(silverCheckN0) == "490.49990000") # TODO: calculate "true" values with trading fee!
         assert(list_pool['1']['reserveA'] + goldCheckN1 == 300)
+        assert(Decimal(goldCheckPS) + Decimal(psTestAmount) == Decimal(goldCheckN1))
         assert(str(silverCheckN1) == "500.50000000")
         assert(list_pool['1']['reserveB'] == 1009) #1010 - 1 (commission)
 
