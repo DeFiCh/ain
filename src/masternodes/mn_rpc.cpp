@@ -1143,7 +1143,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
                 }
 
                 for (const auto& auth : auths) {
-                    if (std::find_if(rawTx.vin.begin(), rawTx.vin.end(), [&auth](const CTxIn& txIn) { return txIn == auth; }) == rawTx.vin.end()) {
+                    if (std::find(rawTx.vin.begin(), rawTx.vin.end(), auth) == rawTx.vin.end()) {
                         rawTx.vin.push_back(auth);
                     }
                 }
@@ -1745,7 +1745,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
 
             std::vector<CTxIn> auths = GetAuthInputs(pwallet, ownerDest, UniValue(UniValue::VARR));
             for (const auto& auth : auths) {
-                if (std::find_if(rawTx.vin.begin(), rawTx.vin.end(), [&auth](const CTxIn& txIn) { return txIn == auth; }) == rawTx.vin.end()) {
+                if (std::find(rawTx.vin.begin(), rawTx.vin.end(), auth) == rawTx.vin.end()) {
                     rawTx.vin.push_back(auth);
                 }
             }
