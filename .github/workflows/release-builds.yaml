@@ -147,3 +147,9 @@ jobs:
         asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
         asset_content_type: application/gzip
+
+    - name: Generate SHA256 checksum
+        run: |
+            sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+            sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip
+            sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
