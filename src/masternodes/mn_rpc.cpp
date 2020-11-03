@@ -1141,7 +1141,12 @@ UniValue minttokens(const JSONRPCRequest& request) {
                         throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
                     gotFoundersAuth = true; // we need only one any utxo from founder
                 }
-                rawTx.vin.insert(rawTx.vin.end(), auths.begin(), auths.end());
+
+                for (const auto& auth : auths) {
+                    if (std::find(rawTx.vin.begin(), rawTx.vin.end(), auth) == rawTx.vin.end()) {
+                        rawTx.vin.push_back(auth);
+                    }
+                }
             }
         } // else
     }
@@ -1737,8 +1742,13 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
             if (!ExtractDestination(kv.first, ownerDest)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
             }
-            std::vector<CTxIn> rawIn = GetAuthInputs(pwallet, ownerDest, UniValue(UniValue::VARR));
-            rawTx.vin.insert(rawTx.vin.end(), rawIn.begin(), rawIn.end());
+
+            std::vector<CTxIn> auths = GetAuthInputs(pwallet, ownerDest, UniValue(UniValue::VARR));
+            for (const auto& auth : auths) {
+                if (std::find(rawTx.vin.begin(), rawTx.vin.end(), auth) == rawTx.vin.end()) {
+                    rawTx.vin.push_back(auth);
+                }
+            }
         }
     }
 
