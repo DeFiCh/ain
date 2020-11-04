@@ -51,6 +51,8 @@ RUN ./autogen.sh
 # XREF: #make-configure
 RUN CONFIG_SITE=`pwd`/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/
 
+ARG BUILD_VERSION=
+
 RUN make
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
 
