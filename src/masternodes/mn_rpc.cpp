@@ -159,8 +159,7 @@ static CWallet* GetWallet(const JSONRPCRequest& request) {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 
-    EnsureWalletIsAvailable(pwallet, false);
-    EnsureWalletIsUnlocked(pwallet);
+    EnsureWalletIsAvailable(pwallet, request.fHelp);
     return pwallet;
 }
 
