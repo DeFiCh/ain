@@ -91,6 +91,13 @@ signsend(const CMutableTransaction& _mtx, JSONRPCRequest const& request, CWallet
     }
 }
 
+static int chainHeight(interfaces::Chain::Lock& locked_chain)
+{
+    if (auto height = locked_chain.getHeight())
+        return *height;
+    return 0;
+}
+
 // returns either base58/bech32 address, or hex if format is unknown
 std::string ScriptToString(CScript const& script) {
     CTxDestination dest;
@@ -100,9 +107,9 @@ std::string ScriptToString(CScript const& script) {
     return EncodeDestination(dest);
 }
 
-CAmount EstimateMnCreationFee() {
+CAmount EstimateMnCreationFee(int targetHeight) {
     // Current height + (1 day blocks) to avoid rejection;
-    int targetHeight = ::ChainActive().Height() + 1 + (60 * 60 / Params().GetConsensus().pos.nTargetSpacing);
+    targetHeight += (60 * 60 / Params().GetConsensus().pos.nTargetSpacing);
     return GetMnCreationFee(targetHeight);
 }
 
@@ -228,11 +235,7 @@ UniValue createmasternode(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -241,7 +244,7 @@ UniValue createmasternode(const JSONRPCRequest& request) {
         rawTx.vin = GetInputs(request.params[2].get_array());
     }
 
-    rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(), scriptMeta));
+    rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(targetHeight), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(), GetScriptForDestination(ownerDest)));
 
     rawTx = fund(rawTx, request, pwallet);
@@ -628,11 +631,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -1079,11 +1078,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
         txInputs.setArray();
     }
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -1488,7 +1483,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
             totalBalances.Add(balance);
         }
         return true;
-    }, BalanceKey{});
+    });
     auto it = totalBalances.balances.lower_bound(start);
     for (int i = 0; it != totalBalances.balances.end() && i < limit; it++, i++) {
         CTokenAmount bal = CTokenAmount{(*it).first, (*it).second};
@@ -1498,9 +1493,9 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
             tokenIdStr = token->CreateSymbolKey(bal.nTokenId);
         }
         if (indexed_amounts)
-                ret.pushKV(tokenIdStr, ValueFromAmount(bal.nValue));
-            else
-                ret.push_back(ValueFromAmount(bal.nValue).getValStr() + "@" + tokenIdStr);
+            ret.pushKV(tokenIdStr, ValueFromAmount(bal.nValue));
+        else
+            ret.push_back(ValueFromAmount(bal.nValue).getValStr() + "@" + tokenIdStr);
     }
     return ret;
 }
@@ -1718,11 +1713,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -1819,11 +1810,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -1919,11 +1906,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -2012,11 +1995,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -2117,16 +2096,12 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         scriptMeta << OP_RETURN << dummyMetadata;
     }
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     // auth
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
-    
+
     CTxDestination ownerDest;
     if (!ExtractDestination(msg.from, ownerDest)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
@@ -2468,7 +2443,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     return signsend(rawTx, request, pwallet)->GetHash().GetHex();
 }
 
-void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage &poolSwapMsg, int &targetHeight) {
+void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage &poolSwapMsg) {
     std::string tokenFrom, tokenTo;
     UniValue metadataObj = request.params[0].get_obj();
     if (!metadataObj["from"].isNull()) {
@@ -2528,7 +2503,6 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage
             poolSwapMsg.maxPrice.integer = priceInt.GetLow64();
             poolSwapMsg.maxPrice.fraction = (price256 - priceInt * CPoolPair::PRECISION).GetLow64(); // cause there is no operator "%"
         }
-        targetHeight = ::ChainActive().Height() + 1;
     }
 }
 
@@ -2596,8 +2570,8 @@ UniValue poolswap(const JSONRPCRequest& request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
     CPoolSwapMessage poolSwapMsg{};
-    int targetHeight;
-    CheckAndFillPoolSwapMessage(request, poolSwapMsg, targetHeight);
+    CheckAndFillPoolSwapMessage(request, poolSwapMsg);
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::PoolSwap)
@@ -2684,8 +2658,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ}, true);
 
     CPoolSwapMessage poolSwapMsg{};
-    int targetHeight;
-    CheckAndFillPoolSwapMessage(request, poolSwapMsg, targetHeight);
+    CheckAndFillPoolSwapMessage(request, poolSwapMsg);
 
     // test execution and get amount
     Res res = Res::Ok();
@@ -2884,12 +2857,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
-
-    if (startBlock > ::ChainActive().Height()) {
-        startBlock = ::ChainActive().Height();
-    }
+    startBlock = std::min(startBlock, uint32_t(chainHeight(*pwallet->chain().lock())));
 
     UniValue ret(UniValue::VARR);
 
@@ -3016,11 +2984,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
