@@ -376,10 +376,7 @@ public:
     template<typename By, typename KeyType, typename ValueType>
     bool ForEach(std::function<bool(KeyType const &, ValueType &)> callback, KeyType const & start = KeyType()) const {
         auto& self = const_cast<CStorageView&>(*this);
-
-        using pref_type = typename std::remove_const<decltype( By::prefix )>::type;
-        auto key = std::make_pair<pref_type, KeyType>(pref_type(By::prefix), KeyType(start));
-//            std::pair<char, KeyType> key; // failsafe
+        auto key = std::make_pair(By::prefix, start);
 
         auto it = self.DB().NewIterator();
         for(it->Seek(DbTypeToBytes(key)); it->Valid() && (BytesToDbType(it->Key(), key), key.first == By::prefix); it->Next()) {
