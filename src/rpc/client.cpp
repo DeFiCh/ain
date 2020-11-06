@@ -179,7 +179,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listmasternodes", 1, "verbose" },
     { "createtoken", 0, "metadata" },
     { "createtoken", 1, "inputs"},
-    { "updatetoken", 0, "token"},
     { "updatetoken", 1, "metadata"},
     { "updatetoken", 2, "inputs"},
     { "listtokens", 0, "pagination" },
