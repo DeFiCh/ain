@@ -522,6 +522,6 @@ bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
     // check if it was token collateral and token already destroyed
     /// @todo token check for total supply/limit when implemented
     auto pair = GetTokenByCreationTx(txId);
-    return !pair || pair->second.destructionTx != uint256{};
+    return !pair || pair->second.destructionTx != uint256{} || pair->second.IsPoolShare();
 }
 

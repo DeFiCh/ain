@@ -220,7 +220,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     const auto txType = GuessCustomTxType(tx, dummy);
 
     if (NotAllowedToFail(txType)) {
-        auto res = ApplyCustomTx(const_cast<CCustomCSView&>(*mnview), inputs, tx, Params(), nSpendHeight, true); // note for 'isCheck == true' here
+        auto res = ApplyCustomTx(const_cast<CCustomCSView&>(*mnview), inputs, tx, Params(), nSpendHeight, 0, true); // note for 'isCheck == true' here; 'zero' for txn is dummy value
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }

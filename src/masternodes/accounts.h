@@ -1,4 +1,4 @@
-// Copyright (c) 2019 DeFi Blockchain Developers
+// Copyright (c) 2020 DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -14,7 +14,7 @@
 class CAccountsView : public virtual CStorageView
 {
 public:
-    void ForEachBalance(std::function<bool(CScript const & owner, CTokenAmount const & amount)> callback, BalanceKey start) const;
+    void ForEachBalance(std::function<bool(CScript const & owner, CTokenAmount const & amount)> callback, BalanceKey start = {}) const;
     CTokenAmount GetBalance(CScript const & owner, DCT_ID tokenID) const;
 
     Res SetBalance(CScript const & owner, CTokenAmount amount);

@@ -35,23 +35,58 @@ enum class CustomTxType : unsigned char
     // custom tokens:
     CreateToken         = 'T',
     MintToken           = 'M',
-    UpdateToken         = 'N',
+    UpdateToken         = 'N', // previous type, only DAT flag triggers
+    UpdateTokenAny      = 'n', // new type of token's update with any flags/fields possible
     // dex orders - just not to overlap in future
 //    CreateOrder         = 'O',
 //    DestroyOrder        = 'E',
 //    MatchOrders         = 'A',
+    //poolpair
+    CreatePoolPair      = 'p',
+    UpdatePoolPair      = 'u',
+    PoolSwap            = 's',
+    AddPoolLiquidity    = 'l',
+    RemovePoolLiquidity = 'r',
     // accounts
     UtxosToAccount     = 'U',
     AccountToUtxos     = 'b',
-    AccountToAccount  = 'B'
+    AccountToAccount  = 'B',
+    //set governance variable
+    SetGovVariable       = 'G',
+
+    // this is not the real tx type (!) but special category for accounts/history tracking
+    NonTxRewards   = '+'
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMDNUbB";
+    char const txtypes[] = "CRTMNnpuslrUbBG+";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
         return CustomTxType::None;
+}
+
+inline std::string ToString(CustomTxType type) {
+    switch (type)
+    {
+        case CustomTxType::CreateMasternode:    return "CreateMasternode";
+        case CustomTxType::ResignMasternode:    return "ResignMasternode";
+        case CustomTxType::CreateToken:         return "CreateToken";
+        case CustomTxType::UpdateToken:         return "UpdateToken";
+        case CustomTxType::UpdateTokenAny:      return "UpdateTokenAny";
+        case CustomTxType::MintToken:           return "MintToken";
+        case CustomTxType::CreatePoolPair:      return "CreatePoolPair";
+        case CustomTxType::UpdatePoolPair:      return "UpdatePoolPair";
+        case CustomTxType::PoolSwap:            return "PoolSwap";
+        case CustomTxType::AddPoolLiquidity:    return "AddPoolLiquidity";
+        case CustomTxType::RemovePoolLiquidity: return "RemovePoolLiquidity";
+        case CustomTxType::UtxosToAccount:      return "UtxosToAccount";
+        case CustomTxType::AccountToUtxos:      return "AccountToUtxos";
+        case CustomTxType::AccountToAccount:    return "AccountToAccount";
+        case CustomTxType::SetGovVariable:      return "SetGovVariable";
+        case CustomTxType::NonTxRewards:        return "Rewards";
+        default:                                return "None";
+    }
 }
 
 inline bool NotAllowedToFail(CustomTxType txType) {
@@ -76,18 +111,27 @@ bool HasAuth(CTransaction const & tx, CKeyID const & auth);
 bool HasAuth(CTransaction const & tx, CCoinsViewCache const & coins, CScript const & auth);
 bool HasCollateralAuth(CTransaction const & tx, CCoinsViewCache const & coins, uint256 const & collateralTx);
 
-Res ApplyCustomTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, const Consensus::Params& consensusParams, uint32_t height, bool isCheck = true);
+Res ApplyCustomTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, const Consensus::Params& consensusParams, uint32_t height, uint32_t txn, bool isCheck = true);
 //! Deep check (and write)
 Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata);
 
 Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+
+Res ApplyCreatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+Res ApplyPoolSwapTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 
 Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+
+Res ApplySetGovernanceTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 

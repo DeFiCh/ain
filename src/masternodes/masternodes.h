@@ -10,9 +10,12 @@
 #include <pubkey.h>
 #include <serialize.h>
 #include <masternodes/accounts.h>
+#include <masternodes/accountshistory.h>
 #include <masternodes/incentivefunding.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
+#include <masternodes/poolpairs.h>
+#include <masternodes/gv.h>
 #include <uint256.h>
 
 #include <functional>
@@ -181,8 +184,11 @@ class CCustomCSView
         , public CAnchorRewardsView
         , public CTokensView
         , public CAccountsView
+        , public CAccountsHistoryView
         , public CCommunityBalancesView
         , public CUndosView
+        , public CPoolPairView
+        , public CGovView
 {
 public:
     CCustomCSView(CStorageKV & st)

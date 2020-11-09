@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DeFi Foundation
+// Copyright (c) 2020 The DeFi Foundation
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -37,12 +37,12 @@ std::unique_ptr<CToken> CTokensView::GetToken(DCT_ID id) const
     return {};
 }
 
-boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetToken(const std::string & symbol) const
+boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetToken(const std::string & symbolKey) const
 {
     DCT_ID id;
     auto varint = WrapVarInt(id.v);
 
-    if (ReadBy<Symbol, std::string>(symbol, varint)) {
+    if (ReadBy<Symbol, std::string>(symbolKey, varint)) {
 //        assert(id >= DCT_ID_START);// ? not needed anymore?
         return { std::make_pair(id, std::move(GetToken(id)))};
     }
@@ -90,12 +90,12 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
     return {};
 }
 
-void CTokensView::ForEachToken(std::function<bool (const DCT_ID &, const CToken &)> callback, DCT_ID const & start)
+void CTokensView::ForEachToken(std::function<bool (const DCT_ID &, const CTokenImpl &)> callback, DCT_ID const & start)
 {
     DCT_ID tokenId = start;
     auto hint = WrapVarInt(tokenId.v);
 
-    ForEach<ID, CVarInt<VarIntMode::DEFAULT, uint32_t>, CTokenImpl>([&tokenId, &callback] (CVarInt<VarIntMode::DEFAULT, uint32_t> const &, CTokenImpl tokenImpl) {
+    ForEach<ID, CVarInt<VarIntMode::DEFAULT, uint32_t>, CTokenImpl>([&tokenId, &callback] (CVarInt<VarIntMode::DEFAULT, uint32_t> const &, CTokenImpl & tokenImpl) {
         return callback(tokenId, tokenImpl);
     }, hint);
 
@@ -108,7 +108,10 @@ Res CTokensView::CreateDFIToken()
     token.name = "Default Defi token";
     token.creationTx = uint256();
     token.creationHeight = 0;
-    token.flags |= (uint8_t)CToken::TokenFlags::isDAT;
+    token.flags = '\0';
+    token.flags |= (uint8_t)CToken::TokenFlags::DAT;
+    token.flags |= (uint8_t)CToken::TokenFlags::Tradeable;
+    token.flags |= (uint8_t)CToken::TokenFlags::Finalized;
 
     DCT_ID id{0};
     WriteBy<ID>(WrapVarInt(id.v), token);
@@ -117,39 +120,47 @@ Res CTokensView::CreateDFIToken()
     return Res::Ok();
 }
 
-Res CTokensView::CreateToken(const CTokensView::CTokenImpl & token)
+ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, bool isPreBayfront)
 {
     // this should not happen, but for sure
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }
 
+    auto checkSymbolRes = token.IsValidSymbol();
+    if (!checkSymbolRes.ok) {
+        return checkSymbolRes;
+    }
+
     DCT_ID id{0};
-    if(token.flags & (uint8_t)CToken::TokenFlags::isDAT) {
-        ForEachToken([&](DCT_ID const& currentId, CToken const& token) {
+    if(token.IsDAT()) {
+        if (GetToken(token.symbol)) {
+            return Res::Err("token '%s' already exists!", token.symbol);
+        }
+        ForEachToken([&](DCT_ID const& currentId, CTokenImplementation const& ) {
             if(currentId < DCT_ID_START)
                 id.v = currentId.v + 1;
             return currentId < DCT_ID_START;
         }, id);
-        if(id == DCT_ID_START) {
-            LogPrintf("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n");
-            assert (false);
-        }
-        if (GetToken(token.symbol)) {
-            return Res::Err("token '%s' already exists!", token.symbol);
+        if (id == DCT_ID_START) {
+            if (isPreBayfront)
+                return Res::Err("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n"); // asserted before BayfrontHeight, keep it for strict sameness
+            id = IncrementLastDctId();
+            LogPrintf("Warning! Range <DCT_ID_START already filled. Using \"common\" id=%s for new token\n", id.ToString().c_str());
         }
     }
     else
         id = IncrementLastDctId();
 
-    std::string symbolKey = token.symbol + (token.IsDAT() ? "" : "#" + std::to_string(id.v));
+    std::string symbolKey = token.CreateSymbolKey(id);
 
     WriteBy<ID>(WrapVarInt(id.v), token);
     WriteBy<Symbol>(symbolKey, WrapVarInt(id.v));
     WriteBy<CreationTx>(token.creationTx, WrapVarInt(id.v));
-    return Res::Ok();
+    return {id, Res::Ok()};
 }
 
+/// @deprecated used only by tests. rewrite tests
 bool CTokensView::RevertCreateToken(const uint256 & txid)
 {
     auto pair = GetTokenByCreationTx(txid);
@@ -171,29 +182,83 @@ bool CTokensView::RevertCreateToken(const uint256 & txid)
     return true;
 }
 
-Res CTokensView::UpdateToken(const uint256 &tokenTx)
+Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isPreBayfront)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
         return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
     }
-    CTokenImpl & tokenImpl = pair->second;
+    DCT_ID id = pair->first;
+    CTokenImpl & oldToken = pair->second;
 
-    std::string symbolKey = tokenImpl.symbol + "#" + std::to_string(pair->first.v);
-    if (!tokenImpl.IsDAT()) {
-        if (GetToken(tokenImpl.symbol)) {
-            return Res::Err("token '%s' already exists!", tokenImpl.symbol);
-        }
-        EraseBy<Symbol>(symbolKey);
-        WriteBy<Symbol>(tokenImpl.symbol, WrapVarInt(pair->first.v));
-    } else {
-        EraseBy<Symbol>(tokenImpl.symbol);
-        WriteBy<Symbol>(symbolKey, WrapVarInt(pair->first.v));
+    if (!isPreBayfront && oldToken.IsFinalized()) { // for compatibility, in potential case when someone cheat and create finalized token with old node (and then alter dat for ex.)
+        return Res::Err("can't alter 'Finalized' tokens");
     }
 
-    tokenImpl.flags ^= (uint8_t)CToken::TokenFlags::isDAT;
+    // 'name' and 'symbol' were trimmed in 'Apply'
+    oldToken.name = newToken.name;
 
-    WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
+    // check new symbol correctness
+    auto checkSymbolRes = newToken.IsValidSymbol();
+    if (!checkSymbolRes.ok) {
+        return checkSymbolRes;
+    }
+
+    // deal with DB symbol indexes before touching symbols/DATs:
+    if (oldToken.symbol != newToken.symbol || oldToken.IsDAT() != newToken.IsDAT()) { // in both cases it leads to index changes
+        // create keys with regard of new flag
+        std::string oldSymbolKey = oldToken.CreateSymbolKey(id);
+        std::string newSymbolKey = newToken.CreateSymbolKey(id);
+        if (GetToken(newSymbolKey)) {
+            return Res::Err("token with key '%s' already exists!", newSymbolKey);
+        }
+        EraseBy<Symbol>(oldSymbolKey);
+        WriteBy<Symbol>(newSymbolKey, WrapVarInt(id.v));
+    }
+
+    // apply DAT flag and symbol only AFTER dealing with symbol indexes:
+    oldToken.symbol = newToken.symbol;
+    if (oldToken.IsDAT() != newToken.IsDAT())
+        oldToken.flags ^= (uint8_t)CToken::TokenFlags::DAT;
+
+    // regular flags:
+    if (oldToken.IsMintable() != newToken.IsMintable())
+        oldToken.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
+
+    if (oldToken.IsTradeable() != newToken.IsTradeable())
+        oldToken.flags ^= (uint8_t)CToken::TokenFlags::Tradeable;
+
+    if (!oldToken.IsFinalized() && newToken.IsFinalized()) // IsFinalized() itself was checked upthere (with Err)
+        oldToken.flags |= (uint8_t)CToken::TokenFlags::Finalized;
+
+    WriteBy<ID>(WrapVarInt(id.v), oldToken);
+    return Res::Ok();
+}
+
+/*
+ * Removes `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
+ * Call this EXECTLY at the 'bayfrontHeight-1' block
+ */
+Res CTokensView::BayfrontFlagsCleanup()
+{
+    ForEachToken([&] (DCT_ID const & id, CTokenImpl const & token){
+        bool changed{false};
+        if (token.IsFinalized()) {
+            const_cast<CTokenImpl &>(token).flags ^= (uint8_t)CToken::TokenFlags::Finalized;
+            LogPrintf("Warning! Got `Finalized` token, id=%s\n", id.ToString().c_str());
+            changed = true;
+        }
+        if (token.IsPoolShare()) {
+            const_cast<CTokenImpl &>(token).flags ^= (uint8_t)CToken::TokenFlags::LPS;
+            LogPrintf("Warning! Got `LPS` token, id=%s\n", id.ToString().c_str());
+            changed = true;
+        }
+        if (changed) {
+            DCT_ID dummy = id;
+            WriteBy<ID>(WrapVarInt(dummy.v), token);
+        }
+        return true;
+    }, DCT_ID{1}); // start from non-DFI
     return Res::Ok();
 }
 
@@ -226,6 +291,7 @@ DCT_ID CTokensView::IncrementLastDctId()
     return result;
 }
 
+/// @deprecated used only by "revert*". rewrite tests
 DCT_ID CTokensView::DecrementLastDctId()
 {
     auto lastDctId = ReadLastDctId();

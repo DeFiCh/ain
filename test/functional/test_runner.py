@@ -70,6 +70,7 @@ EXTENDED_SCRIPTS = [
     # These tests are not run by default.
     # Longest test should go first, to favor running tests in parallel
     'example_block_hash.py',
+    'feature_poolswap_mechanism.py',
     'feature_pruning.py',
     'feature_dbcrash.py',
     'feature_block.py', # moved to ext due to heavy load for trevis
@@ -120,6 +121,7 @@ BASE_SCRIPTS = [
     'feature_anchor_rewards.py',
     'feature_anchorauths_pruning.py',
     'feature_criminals.py',
+    'feature_setgov.py',
     'interface_zmq.py',
     'interface_defi_cli.py',
     'mempool_resurrect.py',
@@ -147,6 +149,9 @@ BASE_SCRIPTS = [
     'wallet_createwallet.py --usecli',
     'wallet_watchonly.py',
     'wallet_watchonly.py --usecli',
+    'feature_poolpair.py',
+    'feature_poolpair_liquidity.py',
+    'feature_poolswap.py',
     'interface_http.py',
     'interface_rpc.py',
     'rpc_psbt.py',

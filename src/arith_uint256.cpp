@@ -184,6 +184,29 @@ unsigned int base_uint<BITS>::bits() const
     return 0;
 }
 
+template <unsigned int BITS>
+base_uint<BITS> base_uint<BITS>::sqrt() const
+{
+    base_uint<BITS> num = *this;
+    base_uint<BITS> res = 0;
+    base_uint<BITS> bit = base_uint<BITS>(1) << (BITS-2); // The second-to-top bit is set.
+                           // Same as ((unsigned) INT32_MAX + 1) / 2.
+
+    // "bit" starts at the highest power of four <= the argument.
+    while (bit > num)
+        bit >>= 2;
+
+    while (bit != 0) {
+        if (num >= res + bit) {
+            num -= res + bit;
+            res = (res >> 1) + bit;
+        } else
+            res >>= 1;
+        bit >>= 2;
+    }
+    return res;
+}
+
 // Explicit instantiations for base_uint<256>
 template base_uint<256>::base_uint(const std::string&);
 template base_uint<256>& base_uint<256>::operator<<=(unsigned int);
@@ -199,6 +222,7 @@ template std::string base_uint<256>::ToString() const;
 template void base_uint<256>::SetHex(const char*);
 template void base_uint<256>::SetHex(const std::string&);
 template unsigned int base_uint<256>::bits() const;
+template base_uint<256> base_uint<256>::sqrt() const;
 
 // This implementation directly uses shifts instead of going
 // through an intermediate MPI representation.

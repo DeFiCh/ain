@@ -20,6 +20,7 @@
 #include <index/txindex.h>
 #include <masternodes/anchors.h>
 #include <masternodes/criminals.h>
+#include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <policy/fees.h>
@@ -1933,7 +1934,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             pcustomcsview->CreateDFIToken();
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, fJustCheck);
+                ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
                 AddCoins(view, *block.vtx[i], 0);
             }
         }
@@ -2175,7 +2176,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            const auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), pindex->nHeight, fJustCheck);
+            const auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 // we will never fail, but skip, unless transaction mints UTXOs
                 return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
@@ -2270,8 +2271,39 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
 //        cache.CallYourInterblockProcessingsHere();
 
+        // distribute pool incentive rewards and trading fees:
+        /// @attention it throws (at least for debug), cause errors are critical!
+        {
+            std::shared_ptr<LP_DAILY_DFI_REWARD> var = std::dynamic_pointer_cast<LP_DAILY_DFI_REWARD>(cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName()));
+            CAmount poolsBlockReward = std::min(
+                                           cache.GetCommunityBalance(CommunityAccountType::IncentiveFunding),
+                                           var->dailyReward / (60*60*24/chainparams.GetConsensus().pos.nTargetSpacing) // 2880
+                                                );
+
+            CAmount distributed = cache.DistributeRewards(poolsBlockReward,
+                [&cache] (CScript const & owner, DCT_ID tokenID) {
+                    return cache.GetBalance(owner, tokenID);
+                },
+                [&cache, &block] (CScript const & to, CTokenAmount amount) {
+                    auto res = cache.AddBalance(to, amount);
+                    if (!res.ok)
+                        throw std::runtime_error(strprintf("Pool rewards: can't update balance of %s: %s, Block %ld (%s)", to.GetHex(), res.msg, block.height, block.GetHash().ToString()));
+                    return res;
+                }
+            );
+
+            auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);
+            if (!res.ok)
+                throw std::runtime_error(strprintf("Pool rewards: can't update community balance: %s. Block %ld (%s)", res.msg, block.height, block.GetHash().ToString()));
+        }
+        // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
+        if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
+            cache.BayfrontFlagsCleanup();
+        }
+
         // construct undo
         auto& flushable = dynamic_cast<CFlushableStorageKV&>(cache.GetRaw());
+        cache.TrackAffectedAccounts(mnview.GetRaw(), flushable.GetRaw(), static_cast<uint32_t>(pindex->nHeight), std::numeric_limits<uint32_t>::max(), uint256(), (unsigned char) CustomTxType::NonTxRewards);
         auto undo = CUndo::Construct(mnview.GetRaw(), flushable.GetRaw());
         // flush changes to underlying view
         cache.Flush();

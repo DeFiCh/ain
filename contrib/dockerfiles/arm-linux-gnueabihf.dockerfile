@@ -51,6 +51,8 @@ RUN ./configure --prefix=`pwd`/depends/${TARGET} \
     --enable-reduce-exports \
     LDFLAGS="-static-libstdc++"
 
+ARG BUILD_VERSION=
+
 RUN make
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
 

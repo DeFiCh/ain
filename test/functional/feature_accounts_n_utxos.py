@@ -210,7 +210,7 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
-        assert_equal(len(self.nodes[0].getrawmempool()), 4) # 5 txs
+        assert_equal(len(self.nodes[0].getrawmempool()), 4) # 4 txs
 
 
 if __name__ == '__main__':

@@ -605,15 +605,27 @@ namespace pos {
         // this part of code stay valid until tip got changed
         /// @todo is 'tip' can be changed here? is it possible to pull 'getTip()' and mnview access to the upper (calling 'stake()') block?
         uint32_t mintedBlocks(0);
+        uint256 masternodeID{};
+        CScript defaultScript;
         {
             LOCK(cs_main);
-            auto nodePtr = pcustomcsview->GetMasternode(args.masternodeID);
+            auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(args.operatorID);
+            if (!optMasternodeID)
+            {
+                return Status::initWaiting;
+            }
+            masternodeID = *optMasternodeID;
+            auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
             if (!nodePtr || !nodePtr->IsActive(tip->height)) /// @todo miner: height+1 or nHeight+1 ???
             {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
             }
             mintedBlocks = nodePtr->mintedBlocks;
+            if (args.coinbaseScript.empty()) {
+                // this is safe cause MN was found
+                defaultScript = GetScriptForDestination(nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress)));
+            }
         }
 
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
@@ -621,7 +633,7 @@ namespace pos {
                 std::map <uint256, CBlockHeader> blockHeaders{};
                 {
                     LOCK(cs_main);
-                    pcriminals->FetchMintedHeaders(args.masternodeID, mintedBlocks + 1, blockHeaders, fIsFakeNet);
+                    pcriminals->FetchMintedHeaders(masternodeID, mintedBlocks + 1, blockHeaders, fIsFakeNet);
                 }
                 for (std::pair <uint256, CBlockHeader> const & blockHeader : blockHeaders) {
                     if (IsDoubleSignRestricted(blockHeader.second.height, tip->nHeight + (uint64_t)1)) {
@@ -633,7 +645,7 @@ namespace pos {
             //
             // Create block template
             //
-            std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(args.coinbaseScript));
+            std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(args.coinbaseScript.empty() ? defaultScript : args.coinbaseScript));
             if (!pblocktemplate.get()) {
                 throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
             }
@@ -653,7 +665,7 @@ namespace pos {
 
                 pblock->nTime = ((uint32_t)coinstakeTime - t);
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, chainparams.GetConsensus(), args.masternodeID).hashOk) {
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, chainparams.GetConsensus(), masternodeID).hashOk) {
                     LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                     found = true;

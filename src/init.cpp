@@ -415,6 +415,7 @@ void SetupServerArgs()
     hidden_args.emplace_back("-sysperms");
 #endif
     gArgs.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-acindex", strprintf("Maintain a full account history index, tracking all accounts balances changes. Used by the listaccounthistory rpc call (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blockfilterindex=<type>",
                  strprintf("Maintain an index of compact filters by block (default: %s, values: %s).", DEFAULT_BLOCKFILTERINDEX, ListBlockFilterTypes()) +
                  " If <type> is not supplied or if <type> = 1, indexes for all known types are enabled.",
@@ -463,6 +464,7 @@ void SetupServerArgs()
     gArgs.AddArg("-spv_testnet", "Flag to use bitcoin testnet instead of main (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_rescan", "Block height to rescan from (default: 0 = off)", ArgsManager::ALLOW_INT, OptionsCategory::OPTIONS);
     gArgs.AddArg("-amkheight", "AMK fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-bayfrontheight", "Bayfront fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1898,8 +1900,14 @@ bool AppInitMain(InitInterfaces& interfaces)
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
         LOCK(cs_main);
 
-        auto myIDs = pcustomcsview->AmIOperator();
-        if (myIDs)
+        CTxDestination destination = DecodeDestination(gArgs.GetArg("-masternode_operator", ""));
+
+        CKeyID const operatorId = destination.which() == 1 ? CKeyID(*boost::get<PKHash>(&destination)) :
+                                  (destination.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID());
+        if (operatorId.IsNull()) {
+            LogPrintf("Error: wrong (or empty) masternode_operator address (%s)\n", gArgs.GetArg("-masternode_operator", "").c_str());
+            return false;
+        }
         {
             pos::ThreadStaker::Args stakerParams{};
             {
@@ -1913,7 +1921,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 CKey minterKey;
                 bool found =false;
                 for (auto&& wallet : wallets) {
-                    if (wallet->GetKey(myIDs->first, minterKey)) {
+                    if (wallet->GetKey(operatorId, minterKey)) {
                         found = true;
                         break;
                     }
@@ -1922,19 +1930,31 @@ bool AppInitMain(InitInterfaces& interfaces)
                     LogPrintf("Error: masternode operator private key not found\n");
                     return false;
                 }
+                
+                // determine coinbase script for minting thread
+                CTxDestination ownerDest;
+                auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
+                if (optMasternodeID) {
+                    auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
+                    assert(nodePtr); // this should not happen if MN was found by operator's id
+                    ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+                }
 
-                CMasternode const node = *pcustomcsview->GetMasternode(myIDs->second);
-                CTxDestination destination = node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress));
+                CTxDestination const rewardAddress = DecodeDestination(gArgs.GetArg("-rewardaddress", ""), Params());
+                if (IsValidDestination(rewardAddress)) {
+                    LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", gArgs.GetArg("-rewardaddress", "").c_str());
+                    stakerParams.coinbaseScript = GetScriptForDestination(rewardAddress);
+                }
+                else if (IsValidDestination(ownerDest)) {
+                    LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest).c_str());
+                    stakerParams.coinbaseScript = GetScriptForDestination(ownerDest);
+                }
+                else {
+                    LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
+                }
 
-                CTxDestination const mintToAddress = DecodeDestination(gArgs.GetArg("-rewardaddress", ""), Params());
-                if (IsValidDestination(mintToAddress))
-                    destination = mintToAddress;
-
-                CScript coinbaseScript = GetScriptForDestination(destination);
-
-                stakerParams.coinbaseScript = coinbaseScript;
                 stakerParams.minterKey = minterKey;
-                stakerParams.masternodeID = myIDs->second;
+                stakerParams.operatorID = operatorId;
             }
 
             // Mint proof-of-stake blocks in background
