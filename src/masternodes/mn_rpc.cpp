@@ -903,6 +903,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
 
 UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
+    tokenObj.pushKV("id", uint64_t(id.v));
     tokenObj.pushKV("symbol", token.symbol);
     tokenObj.pushKV("symbolKey", token.CreateSymbolKey(id));
 
@@ -928,9 +929,7 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
             tokenObj.pushKV("collateralAddress", "undefined");
         }
     }
-    UniValue ret(UniValue::VOBJ);
-    ret.pushKV(id.ToString(), tokenObj);
-    return ret;
+    return tokenObj;
 }
 
 // @todo implement pagination, similar to list* calls below
@@ -994,9 +993,9 @@ UniValue listtokens(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    UniValue ret(UniValue::VOBJ);
+    UniValue ret(UniValue::VARR);
     pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation const& token) {
-        ret.pushKVs(tokenToJSON(id, token, verbose));
+        ret.push_back(tokenToJSON(id, token, verbose));
 
         limit--;
         return limit != 0;
