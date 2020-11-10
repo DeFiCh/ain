@@ -199,8 +199,8 @@ UniValue createmasternode(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                   HelpExampleCli("createmasternode", "ownerAddress operatorAddress \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                   + HelpExampleRpc("createmasternode", "ownerAddress operatorAddress \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                   HelpExampleCli("createmasternode", "ownerAddress operatorAddress '[{\"txid\":\"id\",\"vout\":0}]'")
+                   + HelpExampleRpc("createmasternode", "ownerAddress operatorAddress '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -288,8 +288,8 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                   HelpExampleCli("resignmasternode", "mn_id \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                   + HelpExampleRpc("resignmasternode", "mn_id \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                   HelpExampleCli("resignmasternode", "mn_id '[{\"txid\":\"id\",\"vout\":0}]'")
+                   + HelpExampleRpc("resignmasternode", "mn_id '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -394,8 +394,8 @@ UniValue listmasternodes(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with masternodes information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listmasternodes", "\"[mn_id]\" False")
-                       + HelpExampleRpc("listmasternodes", "\"[mn_id]\" False")
+                       HelpExampleCli("listmasternodes", "'[mn_id]' False")
+                       + HelpExampleRpc("listmasternodes", "'[mn_id]' False")
                },
     }.Check(request);
 
@@ -451,8 +451,8 @@ UniValue getmasternode(const JSONRPCRequest& request) {
                        "{id:{...}}     (object) Json object with masternode information\n"
                },
                RPCExamples{
-                       HelpExampleCli("getmasternode", "\"mn_id\"")
-                       + HelpExampleRpc("getmasternode", "\"mn_id\"")
+                       HelpExampleCli("getmasternode", "mn_id")
+                       + HelpExampleRpc("getmasternode", "mn_id")
                },
     }.Check(request);
 
@@ -579,14 +579,14 @@ UniValue createtoken(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("createtoken", "\"{\\\"symbol\\\":\\\"MyToken\\\","
-                                                     "\\\"collateralAddress\\\":\\\"address\\\"}\"")
-                       + HelpExampleCli("createtoken", "\"{\\\"symbol\\\":\\\"MyToken\\\","
-                                                     "\\\"collateralAddress\\\":\\\"address\\\"}\" "
-                                                     "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                       + HelpExampleRpc("createtoken", "\"{\\\"symbol\\\":\\\"MyToken\\\","
-                                                       "\\\"collateralAddress\\\":\\\"address\\\"}\" "
-                                                       "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                       HelpExampleCli("createtoken", "'{\"symbol\":\"MyToken\","
+                                                     "\"collateralAddress\":\"address\"}'")
+                       + HelpExampleCli("createtoken", "'{\"symbol\":\"MyToken\","
+                                                     "\"collateralAddress\":\"address\"}' "
+                                                     "'[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("createtoken", "'{\"symbol\":\"MyToken\","
+                                                       "\"collateralAddress\":\"address\"}' "
+                                                       "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -727,10 +727,10 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("updatetoken", "\"token {\\\"isDAT\\\":true}\" "
-                                                     "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                       + HelpExampleRpc("updatetoken", "\"token {\\\"isDAT\\\":true}\" "
-                                                       "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                       HelpExampleCli("updatetoken", "token '{\"isDAT\":true}' "
+                                                     "'[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("updatetoken", "token '{\"isDAT\":true}' "
+                                                       "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -956,8 +956,8 @@ UniValue listtokens(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with tokens information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listtokens", "{\"start\":128} False")
-                       + HelpExampleRpc("listtokens", "{\"start\":128} False")
+                       HelpExampleCli("listtokens", "'{\"start\":128}' False")
+                       + HelpExampleRpc("listtokens", "'{\"start\":128}' False")
                },
     }.Check(request);
 
@@ -1058,10 +1058,10 @@ UniValue minttokens(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("minttokens", "\"10@symbol\"")
+                       HelpExampleCli("minttokens", "10@symbol")
                        + HelpExampleCli("minttokens",
-                                      "\"10@symbol\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                       + HelpExampleRpc("minttokens", "\"10@symbol\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                                      "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("minttokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -1256,7 +1256,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("listaccounts", "")
-                       + HelpExampleRpc("listaccounts", "{} False")
+                       + HelpExampleRpc("listaccounts", "'{}' False")
                        + HelpExampleRpc("listaccounts", "'{\"start\":\"a914b12ecde1759f792e0228e4fa6d262902687ca7eb87@0\","
                                                       "\"limit\":1000"
                                                       "}'")
@@ -1565,8 +1565,8 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with pools information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listpoolpairs", "{\"start\":128} False")
-                       + HelpExampleRpc("listpoolpairs", "{\"start\":128} False")
+                       HelpExampleCli("listpoolpairs", "'{\"start\":128}' False")
+                       + HelpExampleRpc("listpoolpairs", "'{\"start\":128}' False")
                },
     }.Check(request);
 
@@ -1688,10 +1688,10 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                RPCExamples{
                        HelpExampleCli("addpoolliquidity",
                                       "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
-                                      "share_address []")
+                                      "share_address '[]'")
                        + HelpExampleRpc("addpoolliquidity",
                                       "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
-                                      "share_address []")
+                                      "share_address '[]'")
                },
     }.Check(request);
 
@@ -1874,9 +1874,9 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("utxostoaccount", "\"{\\\"address1\\\":\\\"1.0@DFI\\\","
-                                                     "\\\"address2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]"
-                                                     "}\" \"[]\"")
+                       HelpExampleCli("utxostoaccount", "'{\"address1\":\"1.0@DFI\","
+                                                     "\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]"
+                                                     "}' '[]'")
                },
     }.Check(request);
 
@@ -1968,8 +1968,8 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                        HelpExampleCli("accounttoaccount", "sender_address "
-                                                     "\"{\\\"address1\\\":\\\"1.0@DFI\\\",\\\"address2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]}\" "
-                                                     "[]")
+                                                     "'{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}' "
+                                                     "'[]'")
                },
     }.Check(request);
 
@@ -2068,8 +2068,8 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                RPCExamples{
-                       HelpExampleCli("accounttoutxos", "sender_address \\\"{\\\"address1\\\":\\\"100@DFI\"}\\\" [] ")
-                       + HelpExampleCli("accounttoutxos", "sender_address \"{\\\"address1\\\":\\\"1.0@DFI\\\",\\\"address2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]}\" []")
+                       HelpExampleCli("accounttoutxos", "sender_address '{\"address1\":\"100@DFI\"}' '[]'")
+                       + HelpExampleCli("accounttoutxos", "sender_address '{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}' '[]'")
                },
     }.Check(request);
 
@@ -2198,18 +2198,18 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("createpoolpair",   "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
-                                                          "\\\"tokenB\\\":\\\"MyToken2\\\","
-                                                          "\\\"commission\\\":\\\"0.001\\\","
-                                                          "\\\"status\\\":\\\"True\\\","
-                                                          "\\\"ownerAddress\\\":\\\"Address\\\""
-                                                          "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
-                       + HelpExampleRpc("createpoolpair", "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
-                                                          "\\\"tokenB\\\":\\\"MyToken2\\\","
-                                                          "\\\"commission\\\":\\\"0.001\\\","
-                                                          "\\\"status\\\":\\\"True\\\","
-                                                          "\\\"ownerAddress\\\":\\\"Address\\\""
-                                                            "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
+                       HelpExampleCli("createpoolpair",   "'{\"tokenA\":\"MyToken1\","
+                                                          "\"tokenB\":\"MyToken2\","
+                                                          "\"commission\":\"0.001\","
+                                                          "\"status\":\"True\","
+                                                          "\"ownerAddress\":\"Address\""
+                                                          "}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("createpoolpair", "'{\"tokenA\":\"MyToken1\","
+                                                          "\"tokenB\":\"MyToken2\","
+                                                          "\"commission\":\"0.001\","
+                                                          "\"status\":\"True\","
+                                                          "\"ownerAddress\":\"Address\""
+                                                            "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -2348,12 +2348,12 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("updatepoolpair", "\"{\"pool\":\"POOL\",\"status\":true,"
-                                                     "\"commission\":0.01,\"ownerAddress\":\"Address\"}\" "
-                                                     "\"[{\"txid\":\"id\",\"vout\":0}]\"")
-                       + HelpExampleRpc("updatepoolpair", "\"{\"pool\":\"POOL\",\"status\":true,"
-                                                       "\"commission\":0.01,\"ownerAddress\":\"Address\"}\" "
-                                                       "\"[{\"txid\":\"id\",\"vout\":0}]\"")
+                       HelpExampleCli("updatepoolpair", "'{\"pool\":\"POOL\",\"status\":true,"
+                                                     "\"commission\":0.01,\"ownerAddress\":\"Address\"}' "
+                                                     "'[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("updatepoolpair", "'{\"pool\":\"POOL\",\"status\":true,"
+                                                       "\"commission\":0.01,\"ownerAddress\":\"Address\"}' "
+                                                       "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -2545,20 +2545,20 @@ UniValue poolswap(const JSONRPCRequest& request) {
                           "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                       },
                              RPCExamples{
-                                 HelpExampleCli("poolswap",   "\"{\\\"from\\\":\\\"MyAddress\\\","
-                                                                    "\\\"tokenFrom\\\":\\\"MyToken1\\\","
-                                                                    "\\\"amountFrom\\\":\\\"0.001\\\","
-                                                                    "\\\"to\\\":\\\"Address\\\","
-                                                                    "\\\"tokenTo\\\":\\\"Token2\\\","
-                                                                    "\\\"maxPrice\\\":\\\"0.01\\\""
-                                                                    "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
-                                         + HelpExampleRpc("poolswap", "\"{\\\"from\\\":\\\"MyAddress\\\","
-                                                                            "\\\"tokenFrom\\\":\\\"MyToken1\\\","
-                                                                            "\\\"amountFrom\\\":\\\"0.001\\\","
-                                                                            "\\\"to\\\":\\\"Address\\\","
-                                                                            "\\\"tokenTo\\\":\\\"Token2\\\","
-                                                                            "\\\"maxPrice\\\":\\\"0.01\\\""
-                                                                            "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
+                                 HelpExampleCli("poolswap",   "'{\"from\":\"MyAddress\","
+                                                                    "\"tokenFrom\":\"MyToken1\","
+                                                                    "\"amountFrom\":\"0.001\","
+                                                                    "\"to\":\"Address\","
+                                                                    "\"tokenTo\":\"Token2\","
+                                                                    "\"maxPrice\":\"0.01\""
+                                                                    "}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                                         + HelpExampleRpc("poolswap", "'{\"from\":\"MyAddress\","
+                                                                            "\"tokenFrom\":\"MyToken1\","
+                                                                            "\"amountFrom\":\"0.001\","
+                                                                            "\"to\":\"Address\","
+                                                                            "\"tokenTo\":\"Token2\","
+                                                                            "\"maxPrice\":\"0.01\""
+                                                                            "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                              },
               }.Check(request);
 
@@ -2638,20 +2638,20 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                           "\"amount@tokenId\"    (string) The string with amount result of poolswap in format AMOUNT@TOKENID.\n"
                },
                RPCExamples{
-                    HelpExampleCli("testpoolswap",   "\"{\\\"from\\\":\\\"MyAddress\\\","
-                                                    "\\\"tokenFrom\\\":\\\"MyToken1\\\","
-                                                    "\\\"amountFrom\\\":\\\"0.001\\\","
-                                                    "\\\"to\\\":\\\"Address\\\","
-                                                    "\\\"tokenTo\\\":\\\"Token2\\\","
-                                                    "\\\"maxPrice\\\":\\\"0.01\\\""
-                                                    "}\"")
-                    + HelpExampleRpc("testpoolswap", "\"{\\\"from\\\":\\\"MyAddress\\\","
-                                                    "\\\"tokenFrom\\\":\\\"MyToken1\\\","
-                                                    "\\\"amountFrom\\\":\\\"0.001\\\","
-                                                    "\\\"to\\\":\\\"Address\\\","
-                                                    "\\\"tokenTo\\\":\\\"Token2\\\","
-                                                    "\\\"maxPrice\\\":\\\"0.01\\\""
-                                                    "}\"")
+                    HelpExampleCli("testpoolswap",   "'{\"from\":\"MyAddress\","
+                                                    "\"tokenFrom\":\"MyToken1\","
+                                                    "\"amountFrom\":\"0.001\","
+                                                    "\"to\":\"Address\","
+                                                    "\"tokenTo\":\"Token2\","
+                                                    "\"maxPrice\":\"0.01\""
+                                                    "}'")
+                    + HelpExampleRpc("testpoolswap", "'{\"from\":\"MyAddress\","
+                                                    "\"tokenFrom\":\"MyToken1\","
+                                                    "\"amountFrom\":\"0.001\","
+                                                    "\"to\":\"Address\","
+                                                    "\"tokenTo\":\"Token2\","
+                                                    "\"maxPrice\":\"0.01\""
+                                                    "}'")
                },
     }.Check(request);
 
@@ -2727,8 +2727,8 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with pools information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listpoolshares", "{\"start\":128} False")
-                       + HelpExampleRpc("listpoolshares", "{\"start\":128} False")
+                       HelpExampleCli("listpoolshares", "'{\"start\":128}' False")
+                       + HelpExampleRpc("listpoolshares", "'{\"start\":128}' False")
                },
     }.Check(request);
 
@@ -2827,8 +2827,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                        "[{},{}...]     (array) Objects with account history information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listaccounthistory", "\"all\" {\"maxBlockHeight\":160,\"depth\":10}")
-                       + HelpExampleRpc("listaccounthistory", "\"address\" False")
+                       HelpExampleCli("listaccounthistory", "all '{\"maxBlockHeight\":160,\"depth\":10}'")
+                       + HelpExampleRpc("listaccounthistory", "address False")
                },
     }.Check(request);
 
@@ -2959,8 +2959,8 @@ UniValue setgov(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("setgov", "{\"LP_SPLITS\": {\"2\":0.2,\"3\":0.8}")
-                       + HelpExampleRpc("setgov", "{\"LP_DAILY_DFI_REWARD\":109440}")
+                       HelpExampleCli("setgov", "'{\"LP_SPLITS\": {\"2\":0.2,\"3\":0.8}'")
+                       + HelpExampleRpc("setgov", "'{\"LP_DAILY_DFI_REWARD\":109440}'")
                },
     }.Check(request);
 
@@ -3061,8 +3061,8 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
                        "(bool) The boolean indicate that custom transaction was affected on chain\n"
                },
                RPCExamples{
-                       HelpExampleCli("isappliedcustomtx", "\"b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235\" 1005")
-                       + HelpExampleRpc("isappliedcustomtx", "\"b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235\" 1005")
+                       HelpExampleCli("isappliedcustomtx", "b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235 1005")
+                       + HelpExampleRpc("isappliedcustomtx", "b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235 1005")
                },
     }.Check(request);
 
