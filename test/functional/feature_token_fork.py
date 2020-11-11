@@ -90,8 +90,8 @@ class TokensForkTest (DefiTestFramework):
             if (token["symbol"] == "SILVER"):
                 idSilver = token["id"]
 
-        symbolGold = "GOLD#" + str(idGold)
-        symbolSilver = "SILVER#" + str(idSilver)
+        symbolGold = "GOLD#" + idGold
+        symbolSilver = "SILVER#" + idSilver
 
         self.sync_blocks()
 

@@ -51,8 +51,8 @@ class PoolLiquidityTest (DefiTestFramework):
         idSilver = self.nodes[0].gettoken(symbolSILVER)["id"]
         accountGold = self.nodes[0].get_genesis_keys().ownerAuthAddress
         accountSilver = self.nodes[1].get_genesis_keys().ownerAuthAddress
-        initialGold = self.nodes[0].getaccount(accountGold, {}, True)[str(idGold)]
-        initialSilver = self.nodes[1].getaccount(accountSilver, {}, True)[str(idSilver)]
+        initialGold = self.nodes[0].getaccount(accountGold, {}, True)[idGold]
+        initialSilver = self.nodes[1].getaccount(accountSilver, {}, True)[idSilver]
         print("Initial GOLD:", initialGold, ", id", idGold)
         print("Initial SILVER:", initialSilver, ", id", idSilver)
 
@@ -79,8 +79,8 @@ class PoolLiquidityTest (DefiTestFramework):
         # check tokens id
         pool = self.nodes[0].getpoolpair("GS")
         idGS = self.nodes[0].gettoken("GS")["id"]
-        assert(pool[str(idGS)]['idTokenA'] == str(idGold))
-        assert(pool[str(idGS)]['idTokenB'] == str(idSilver))
+        assert(pool[idGS]['idTokenA'] == idGold)
+        assert(pool[idGS]['idTokenB'] == idSilver)
 
         # Add liquidity
         #========================
@@ -123,9 +123,9 @@ class PoolLiquidityTest (DefiTestFramework):
         assert_equal(len(accountGoldInfo), 3)
         assert_equal(len(accountGoldInfo), 3)
 
-        amountGS = accountGoldInfo[str(idGS)]
-        amountGold = accountGoldInfo[str(idGold)]
-        amountSilver = accountGoldInfo[str(idSilver)]
+        amountGS = accountGoldInfo[idGS]
+        amountGold = accountGoldInfo[idGold]
+        amountSilver = accountGoldInfo[idSilver]
 
         assert_equal(str(amountGS), "99.99999000")
 
@@ -134,9 +134,9 @@ class PoolLiquidityTest (DefiTestFramework):
 
         accountGoldInfo = self.nodes[1].getaccount(accountGold, {}, True)
 
-        assert_equal(str(accountGoldInfo[str(idGS)]), "99.99999000")
-        assert_equal(accountGoldInfo[str(idGold)], initialGold - 100)
-        assert_equal(accountGoldInfo[str(idSilver)], initialSilver - 1100)
+        assert_equal(str(accountGoldInfo[idGS]), "99.99999000")
+        assert_equal(accountGoldInfo[idGold], initialGold - 100)
+        assert_equal(accountGoldInfo[idSilver], initialSilver - 1100)
 
         # getpoolpair
         pool = self.nodes[0].getpoolpair("GS", True)
@@ -159,10 +159,10 @@ class PoolLiquidityTest (DefiTestFramework):
         accountTestInfo = self.nodes[3].getaccount(accountTest, {}, True)
         accountGoldInfo = self.nodes[3].getaccount(accountGold, {}, True)
 
-        assert_equal(accountTestInfo[str(idGold)], 500)
-        assert_equal(accountTestInfo[str(idSilver)], 500)
-        assert_equal(accountGoldInfo[str(idGold)], amountGold - 500)
-        assert_equal(accountGoldInfo[str(idSilver)], amountSilver - 500)
+        assert_equal(accountTestInfo[idGold], 500)
+        assert_equal(accountTestInfo[idSilver], 500)
+        assert_equal(accountGoldInfo[idGold], amountGold - 500)
+        assert_equal(accountGoldInfo[idSilver], amountSilver - 500)
 
         # transfer liquidity
         self.nodes[3].addpoolliquidity({
@@ -176,9 +176,9 @@ class PoolLiquidityTest (DefiTestFramework):
         accountTestInfo = self.nodes[3].getaccount(accountTest, {}, True)
         pool = self.nodes[3].getpoolpair("GS", True)
 
-        assert_equal(accountTestInfo[str(idGS)], 50)
-        assert_equal(accountTestInfo[str(idGold)], 450)
-        assert_equal(accountTestInfo[str(idSilver)], 100)
+        assert_equal(accountTestInfo[idGS], 50)
+        assert_equal(accountTestInfo[idGold], 450)
+        assert_equal(accountTestInfo[idSilver], 100)
 
         assert_equal(pool['1']['reserveA'], 150)
         assert_equal(pool['1']['reserveB'], 500)
@@ -187,8 +187,8 @@ class PoolLiquidityTest (DefiTestFramework):
         # Remove liquidity
         #========================
 
-        amountGold = accountGoldInfo[str(idGold)]
-        amountSilver = accountGoldInfo[str(idSilver)]
+        amountGold = accountGoldInfo[idGold]
+        amountSilver = accountGoldInfo[idSilver]
 
         poolReserveA = pool['1']['reserveA']
         poolReserveB = pool['1']['reserveB']
@@ -226,9 +226,9 @@ class PoolLiquidityTest (DefiTestFramework):
         pool = self.nodes[0].getpoolpair("GS", True)
 
 
-        assert_equal(accountGoldInfo[str(idGS)], amountGS - 25)
-        assert_equal(accountGoldInfo[str(idGold)], amountGold + resAmountA)
-        assert_equal(accountGoldInfo[str(idSilver)], amountSilver + resAmountB)
+        assert_equal(accountGoldInfo[idGS], amountGS - 25)
+        assert_equal(accountGoldInfo[idGold], amountGold + resAmountA)
+        assert_equal(accountGoldInfo[idSilver], amountSilver + resAmountB)
 
         assert_equal(pool['1']['reserveA'], poolReserveA - resAmountA)
         assert_equal(pool['1']['reserveB'], poolReserveB - resAmountB)
@@ -272,13 +272,13 @@ class PoolLiquidityTest (DefiTestFramework):
         accountGoldInfo = self.nodes[0].getaccount(accountGold, {}, True)
         accountTestInfo = self.nodes[0].getaccount(accountTest, {}, True)
 
-        gsAmountAcc1 = accountGoldInfo[str(idGS)]
-        goldAmountAcc1 = accountGoldInfo[str(idGold)]
-        silverAmountAcc1 = accountGoldInfo[str(idSilver)]
+        gsAmountAcc1 = accountGoldInfo[idGS]
+        goldAmountAcc1 = accountGoldInfo[idGold]
+        silverAmountAcc1 = accountGoldInfo[idSilver]
 
-        gsAmountAcc2 = accountTestInfo[str(idGS)]
-        goldAmountAcc2 = accountTestInfo[str(idGold)]
-        silverAmountAcc2 = accountTestInfo[str(idSilver)]
+        gsAmountAcc2 = accountTestInfo[idGS]
+        goldAmountAcc2 = accountTestInfo[idGold]
+        silverAmountAcc2 = accountTestInfo[idSilver]
 
         poolReserveA = pool['1']['reserveA']
         poolReserveB = pool['1']['reserveB']
@@ -296,8 +296,8 @@ class PoolLiquidityTest (DefiTestFramework):
         pool = self.nodes[0].getpoolpair("GS", True)
 
         assert(not idGS in accountGoldInfo)
-        assert_equal(accountGoldInfo[str(idGold)], goldAmountAcc1 + resAmountA)
-        assert_equal(accountGoldInfo[str(idSilver)], silverAmountAcc1 + resAmountB)
+        assert_equal(accountGoldInfo[idGold], goldAmountAcc1 + resAmountA)
+        assert_equal(accountGoldInfo[idSilver], silverAmountAcc1 + resAmountB)
 
         assert_equal(pool['1']['reserveA'], poolReserveA - resAmountA)
         assert_equal(pool['1']['reserveB'], poolReserveB - resAmountB)
@@ -320,8 +320,8 @@ class PoolLiquidityTest (DefiTestFramework):
         pool = self.nodes[0].getpoolpair("GS", True)
 
         assert(not idGS in accountTestInfo)
-        assert_equal(accountTestInfo[str(idGold)], goldAmountAcc2 + resAmountA)
-        assert_equal(accountTestInfo[str(idSilver)], silverAmountAcc2 + resAmountB)
+        assert_equal(accountTestInfo[idGold], goldAmountAcc2 + resAmountA)
+        assert_equal(accountTestInfo[idSilver], silverAmountAcc2 + resAmountB)
 
         print("Empty pool:")
         pprint(pool)
@@ -342,8 +342,8 @@ class PoolLiquidityTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[str(idGold)], initialGold)
-        assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[str(idSilver)], initialSilver)
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
+        assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
         assert_equal(len(self.nodes[0].getrawmempool()), 13) # 13 txs
 

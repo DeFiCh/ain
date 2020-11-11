@@ -39,8 +39,8 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         idSilver = self.nodes[0].gettoken(symbolSILVER)["id"]
         accountGold = self.nodes[0].get_genesis_keys().ownerAuthAddress
         accountSilver = self.nodes[1].get_genesis_keys().ownerAuthAddress
-        initialGold = self.nodes[0].getaccount(accountGold, {}, True)[str(idGold)]
-        initialSilver = self.nodes[1].getaccount(accountSilver, {}, True)[str(idSilver)]
+        initialGold = self.nodes[0].getaccount(accountGold, {}, True)[idGold]
+        initialSilver = self.nodes[1].getaccount(accountSilver, {}, True)[idSilver]
         print("Initial GOLD:", initialGold, ", id", idGold)
         print("Initial SILVER:", initialSilver, ", id", idSilver)
 
@@ -88,21 +88,21 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolGOLD}, [])
         self.nodes[0].generate(1)
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[str(idGold)], initialGold - 100)
-        assert_equal(self.nodes[0].getaccount(toGold, {}, True)[str(idGold)], 100)
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
+        assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], 100)
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[str(idGold)], self.nodes[1].getaccount(accountGold, {}, True)[str(idGold)])
-        assert_equal(self.nodes[0].getaccount(toGold, {}, True)[str(idGold)], self.nodes[1].getaccount(toGold, {}, True)[str(idGold)])
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], self.nodes[1].getaccount(accountGold, {}, True)[idGold])
+        assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], self.nodes[1].getaccount(toGold, {}, True)[idGold])
 
         # transfer between nodes
         self.nodes[1].accounttoaccount(accountSilver, {toSilver: "100@" + symbolSILVER}, [])
         self.nodes[1].generate(1)
 
-        assert_equal(self.nodes[1].getaccount(accountSilver, {}, True)[str(idSilver)], initialSilver - 100)
-        assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[str(idSilver)], 100)
+        assert_equal(self.nodes[1].getaccount(accountSilver, {}, True)[idSilver], initialSilver - 100)
+        assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[idSilver], 100)
 
-        assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[str(idSilver)], self.nodes[1].getaccount(accountSilver, {}, True)[str(idSilver)])
-        assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[str(idSilver)], self.nodes[1].getaccount(toSilver, {}, True)[str(idSilver)])
+        assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], self.nodes[1].getaccount(accountSilver, {}, True)[idSilver])
+        assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[idSilver], self.nodes[1].getaccount(toSilver, {}, True)[idSilver])
 
         # missing (account exists, there are tokens, but not token 0)
         try:
@@ -184,14 +184,14 @@ class AccountsAndUTXOsTest (DefiTestFramework):
             errorString = e.error['message']
         assert("AccountToUtxos only available for DFI transactions" in errorString)
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[str(idGold)], initialGold - 100)
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[str(idGold)], self.nodes[1].getaccount(accountGold, {}, True)[str(idGold)])
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], self.nodes[1].getaccount(accountGold, {}, True)[idGold])
 
         # gettokenbalances
         #========================
         # check balances about all accounts belonging to the wallet
-        assert_equal(self.nodes[0].gettokenbalances({}, True)[str(idGold)], initialGold - 100)
-        assert_equal(self.nodes[0].gettokenbalances({}, True)[str(idSilver)], 100)
+        assert_equal(self.nodes[0].gettokenbalances({}, True)[idGold], initialGold - 100)
+        assert_equal(self.nodes[0].gettokenbalances({}, True)[idSilver], 100)
 
         # chech work is_mine_only field
         list_all_acc = len(self.nodes[0].listaccounts({}, False, True, False))
@@ -207,8 +207,8 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[str(idGold)], initialGold)
-        assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[str(idSilver)], initialSilver)
+        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
+        assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
         assert_equal(len(self.nodes[0].getrawmempool()), 4) # 4 txs
 

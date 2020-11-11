@@ -76,9 +76,9 @@ class TokensMintingTest (DefiTestFramework):
             if (token["symbol"] == "CUPPER"):
                 idCupper = token["id"]
 
-        symbolGold = "GOLD#" + str(idGold)
-        symbolSilver = "SILVER#" + str(idSilver)
-        symbolCupper = "CUPPER#" + str(idCupper)
+        symbolGold = "GOLD#" + idGold
+        symbolSilver = "SILVER#" + idSilver
+        symbolCupper = "CUPPER#" + idCupper
 
         self.sync_blocks()
 
@@ -97,9 +97,9 @@ class TokensMintingTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getaccount(collateralGold, {}, True)[str(idGold)], 300)
-        assert_equal(self.nodes[0].getaccount(collateralSilver, {}, True)[str(idSilver)], 3000)
-        assert_equal(self.nodes[0].getaccount(collateralCupper, {}, True)[str(idCupper)], 500)
+        assert_equal(self.nodes[0].getaccount(collateralGold, {}, True)[idGold], 300)
+        assert_equal(self.nodes[0].getaccount(collateralSilver, {}, True)[idSilver], 3000)
+        assert_equal(self.nodes[0].getaccount(collateralCupper, {}, True)[idCupper], 500)
 
         alienMintAddr = self.nodes[1].getnewaddress("", "legacy")
 

@@ -903,7 +903,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
 
 UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
     UniValue tokenObj(UniValue::VOBJ);
-    tokenObj.pushKV("id", uint64_t(id.v));
+    tokenObj.pushKV("id", id.ToString());
     tokenObj.pushKV("symbol", token.symbol);
     tokenObj.pushKV("symbolKey", token.CreateSymbolKey(id));
 
