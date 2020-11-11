@@ -45,12 +45,12 @@ class PoolPairTest (DefiTestFramework):
         # 1 Getting new addresses and checking coins
         symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
         symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
-        idGold = list(self.nodes[0].gettoken(symbolGOLD).keys())[0]
-        idSilver = list(self.nodes[0].gettoken(symbolSILVER).keys())[0]
+        idGold = self.nodes[0].gettoken(symbolGOLD)["id"]
+        idSilver = self.nodes[0].gettoken(symbolSILVER)["id"]
         accountGN0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
         accountSN1 = self.nodes[1].get_genesis_keys().ownerAuthAddress
-        initialGold = self.nodes[0].getaccount(accountGN0, {}, True)[idGold]
-        initialSilver = self.nodes[1].getaccount(accountSN1, {}, True)[idSilver]
+        initialGold = self.nodes[0].getaccount(accountGN0, {}, True)[str(idGold)]
+        initialSilver = self.nodes[1].getaccount(accountSN1, {}, True)[str(idSilver)]
         print("Initial GOLD AccN0:", initialGold, ", id", idGold)
         print("Initial SILVER AccN1:", initialSilver, ", id", idSilver)
 
@@ -63,9 +63,9 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].accounttoaccount(accountGN0, {accountSN1: "200@" + symbolGOLD})
         self.nodes[0].generate(1)
 
-        silverCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[idSilver]
+        silverCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[str(idSilver)]
         print("Checking Silver on AccN0:", silverCheckN0, ", id", idSilver)
-        silverCheckN1 = self.nodes[1].getaccount(accountSN1, {}, True)[idSilver]
+        silverCheckN1 = self.nodes[1].getaccount(accountSN1, {}, True)[str(idSilver)]
         print("Checking Silver on AccN1:", silverCheckN1, ", id", idSilver)
 
         # 3 Creating poolpair
@@ -84,9 +84,9 @@ class PoolPairTest (DefiTestFramework):
 
         # check tokens id
         pool = self.nodes[0].getpoolpair("GS")
-        idGS = list(self.nodes[0].gettoken("GS").keys())[0]
-        assert(pool[idGS]['idTokenA'] == idGold)
-        assert(pool[idGS]['idTokenB'] == idSilver)
+        idGS = self.nodes[0].gettoken("GS")["id"]
+        assert(pool[str(idGS)]['idTokenA'] == str(idGold))
+        assert(pool[str(idGS)]['idTokenB'] == str(idSilver))
 
         # Fail swap: lack of liquidity
         try:
@@ -128,9 +128,9 @@ class PoolPairTest (DefiTestFramework):
         #list_poolshares = self.nodes[0].listpoolshares()
         #print (list_poolshares)
 
-        goldCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[idGold]
+        goldCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[str(idGold)]
         print("Checking Gold on AccN0:", goldCheckN0, ", id", idGold)
-        silverCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[idSilver]
+        silverCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[str(idSilver)]
         print("Checking Silver on AccN0:", silverCheckN0, ", id", idSilver)
 
         # 5 Checking that liquidity is correct
@@ -170,7 +170,7 @@ class PoolPairTest (DefiTestFramework):
         })
 
         # this acc will be
-        goldCheckPS = self.nodes[2].getaccount(accountSN1, {}, True)[idGold]
+        goldCheckPS = self.nodes[2].getaccount(accountSN1, {}, True)[str(idGold)]
         print("goldCheckPS:", goldCheckPS)
         print("testPoolSwapRes:", testPoolSwapRes)
 
@@ -178,7 +178,7 @@ class PoolPairTest (DefiTestFramework):
 
         psTestAmount = testPoolSwapRes[0]
         psTestTokenId = testPoolSwapRes[1]
-        assert_equal(psTestTokenId, idGold)
+        assert_equal(psTestTokenId, str(idGold))
 
         self.nodes[0].poolswap({
             "from": accountGN0,
@@ -193,14 +193,14 @@ class PoolPairTest (DefiTestFramework):
         self.sync_blocks([self.nodes[0], self.nodes[2]])
 
         # 8 Checking that poolswap is correct
-        goldCheckN0 = self.nodes[2].getaccount(accountGN0, {}, True)[idGold]
+        goldCheckN0 = self.nodes[2].getaccount(accountGN0, {}, True)[str(idGold)]
         print("Checking Gold on AccN0:", goldCheckN0, ", id", idGold)
-        silverCheckN0 = self.nodes[2].getaccount(accountGN0, {}, True)[idSilver]
+        silverCheckN0 = self.nodes[2].getaccount(accountGN0, {}, True)[str(idSilver)]
         print("Checking Silver on AccN0:", silverCheckN0, ", id", idSilver)
 
-        goldCheckN1 = self.nodes[2].getaccount(accountSN1, {}, True)[idGold]
+        goldCheckN1 = self.nodes[2].getaccount(accountSN1, {}, True)[str(idGold)]
         print("Checking Gold on AccN1:", goldCheckN1, ", id", idGold)
-        silverCheckN1 = self.nodes[2].getaccount(accountSN1, {}, True)[idSilver]
+        silverCheckN1 = self.nodes[2].getaccount(accountSN1, {}, True)[str(idSilver)]
         print("Checking Silver on AccN1:", silverCheckN1, ", id", idSilver)
 
         list_pool = self.nodes[2].listpoolpairs()

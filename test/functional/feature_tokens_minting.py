@@ -68,17 +68,17 @@ class TokensMintingTest (DefiTestFramework):
         assert_equal(self.nodes[0].isappliedcustomtx("b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235", txid2_blockHeight), False)
 
         list_tokens = self.nodes[0].listtokens()
-        for idx, token in list_tokens.items():
+        for token in list_tokens:
             if (token["symbol"] == "GOLD"):
-                idGold = idx
+                idGold = token["id"]
             if (token["symbol"] == "SILVER"):
-                idSilver = idx
+                idSilver = token["id"]
             if (token["symbol"] == "CUPPER"):
-                idCupper = idx
+                idCupper = token["id"]
 
-        symbolGold = "GOLD#" + idGold
-        symbolSilver = "SILVER#" + idSilver
-        symbolCupper = "CUPPER#" + idCupper
+        symbolGold = "GOLD#" + str(idGold)
+        symbolSilver = "SILVER#" + str(idSilver)
+        symbolCupper = "CUPPER#" + str(idCupper)
 
         self.sync_blocks()
 
@@ -97,19 +97,19 @@ class TokensMintingTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getaccount(collateralGold, {}, True)[idGold], 300)
-        assert_equal(self.nodes[0].getaccount(collateralSilver, {}, True)[idSilver], 3000)
-        assert_equal(self.nodes[0].getaccount(collateralCupper, {}, True)[idCupper], 500)
+        assert_equal(self.nodes[0].getaccount(collateralGold, {}, True)[str(idGold)], 300)
+        assert_equal(self.nodes[0].getaccount(collateralSilver, {}, True)[str(idSilver)], 3000)
+        assert_equal(self.nodes[0].getaccount(collateralCupper, {}, True)[str(idCupper)], 500)
 
         alienMintAddr = self.nodes[1].getnewaddress("", "legacy")
 
         # Checking the number of minted coins
-        assert_equal(self.nodes[0].gettoken(symbolGold)[idGold]['minted'], 300)
-        assert_equal(self.nodes[0].gettoken(symbolSilver)[idSilver]['minted'], 3000)
-        assert_equal(self.nodes[0].gettoken(symbolCupper)[idCupper]['minted'], 500)
+        assert_equal(self.nodes[0].gettoken(symbolGold)['minted'], 300)
+        assert_equal(self.nodes[0].gettoken(symbolSilver)['minted'], 3000)
+        assert_equal(self.nodes[0].gettoken(symbolCupper)['minted'], 500)
 
-        assert_equal(self.nodes[0].gettoken(symbolGold)[idGold]['collateralAddress'], collateralGold)
-        assert_equal(self.nodes[0].gettoken(symbolSilver)[idSilver]['collateralAddress'], collateralSilver)
+        assert_equal(self.nodes[0].gettoken(symbolGold)['collateralAddress'], collateralGold)
+        assert_equal(self.nodes[0].gettoken(symbolSilver)['collateralAddress'], collateralSilver)
 
         try:
             self.nodes[0].accounttoutxos(collateralGold, { self.nodes[0].getnewaddress("", "legacy"): "100@" + symbolGold, alienMintAddr: "200@" + symbolGold}, [])

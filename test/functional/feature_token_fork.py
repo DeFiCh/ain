@@ -84,14 +84,14 @@ class TokensForkTest (DefiTestFramework):
         assert_equal(len(tokens), 3)
 
         list_tokens = self.nodes[0].listtokens()
-        for idx, token in list_tokens.items():
+        for token in list_tokens:
             if (token["symbol"] == "GOLD"):
-                idGold = idx
+                idGold = token["id"]
             if (token["symbol"] == "SILVER"):
-                idSilver = idx
+                idSilver = token["id"]
 
-        symbolGold = "GOLD#" + idGold
-        symbolSilver = "SILVER#" + idSilver
+        symbolGold = "GOLD#" + str(idGold)
+        symbolSilver = "SILVER#" + str(idSilver)
 
         self.sync_blocks()
 

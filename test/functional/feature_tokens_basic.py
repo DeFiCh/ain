@@ -87,21 +87,21 @@ class TokensBasicTest (DefiTestFramework):
         # At this point, token was created
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 2)
-        assert_equal(tokens['128']["symbol"], "GOLD")
-        assert_equal(tokens['128']["creationTx"], createTokenTx)
+        assert_equal(tokens[1]["symbol"], "GOLD")
+        assert_equal(tokens[1]["creationTx"], createTokenTx)
 
         # check sync:
         tokens = self.nodes[1].listtokens()
         assert_equal(len(tokens), 2)
-        assert_equal(tokens['128']["symbol"], "GOLD")
-        assert_equal(tokens['128']["creationTx"], createTokenTx)
+        assert_equal(tokens[1]["symbol"], "GOLD")
+        assert_equal(tokens[1]["creationTx"], createTokenTx)
 
         # Check 'gettoken' output
         t0 = self.nodes[0].gettoken(0)
-        assert_equal(t0['0']['symbol'], "DFI")
+        assert_equal(t0['symbol'], "DFI")
         assert_equal(self.nodes[0].gettoken("DFI"), t0)
         t128 = self.nodes[0].gettoken(128)
-        assert_equal(t128['128']['symbol'], "GOLD")
+        assert_equal(t128['symbol'], "GOLD")
         assert_equal(self.nodes[0].gettoken("GOLD#128"), t128)
         assert_equal(self.nodes[0].gettoken(createTokenTx), t128)
 
@@ -132,7 +132,7 @@ class TokensBasicTest (DefiTestFramework):
 
         # Get token by SYMBOL#ID
         t129 = self.nodes[0].gettoken("GOLD#129")
-        assert_equal(t129['129']['symbol'], "GOLD")
+        assert_equal(t129['symbol'], "GOLD")
         assert_equal(self.nodes[0].gettoken("GOLD#129"), t129)
 
         # Funding auth address for resigning
@@ -140,8 +140,8 @@ class TokensBasicTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([]))
-        assert_equal(self.nodes[0].listtokens()['128']['destructionHeight'], -1)
-        assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
+        assert_equal(self.nodes[0].listtokens()[1]['destructionHeight'], -1)
+        assert_equal(self.nodes[0].listtokens()[1]['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
 
 if __name__ == '__main__':
     TokensBasicTest ().main ()

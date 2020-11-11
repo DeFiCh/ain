@@ -57,12 +57,12 @@ class PoolPairTest (DefiTestFramework):
         # At this point, token was created
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 2)
-        assert_equal(tokens['1']["symbol"], "PT")
+        assert_equal(tokens[1]["symbol"], "PT")
 
         # check sync:
-        tokens = self.nodes[2].listtokens()
+        tokens = self.nodes[1].listtokens()
         assert_equal(len(tokens), 2)
-        assert_equal(tokens['1']["symbol"], "PT")
+        assert_equal(tokens[1]["symbol"], "PT")
 
         # 3 Trying to make regular token
         self.nodes[0].generate(1)
@@ -76,8 +76,8 @@ class PoolPairTest (DefiTestFramework):
         # Checks
         tokens = self.nodes[0].listtokens()
         assert_equal(len(tokens), 3)
-        assert_equal(tokens['128']["symbol"], "GOLD")
-        assert_equal(tokens['128']["creationTx"], createTokenTx)
+        assert_equal(tokens[2]["symbol"], "GOLD")
+        assert_equal(tokens[2]["creationTx"], createTokenTx)
 
         # 7 Creating PoolPair from Foundation -> OK
         self.nodes[0].createpoolpair({

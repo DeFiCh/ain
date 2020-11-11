@@ -58,9 +58,9 @@ class PoolSwapTest (DefiTestFramework):
 
     def get_id_token(self, symbol):
         list_tokens = self.nodes[0].listtokens()
-        for idx, token in list_tokens.items():
+        for token in list_tokens:
             if (token["symbol"] == symbol):
-                return str(idx)
+                return str(token["id"])
 
     def generate_accounts(self):
         for i in range(self.COUNT_ACCOUNT):

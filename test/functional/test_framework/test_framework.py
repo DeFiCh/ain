@@ -316,9 +316,9 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
 
     def get_id_token(self, symbol):
         list_tokens = self.nodes[0].listtokens()
-        for idx, token in list_tokens.items():
+        for token in list_tokens:
             if (token["symbol"] == symbol):
-                return str(idx)
+                return str(token["id"])
 
     def setup_tokens(self):
         # creates two tokens: GOLD for node#0 and SILVER for node1. Mint by 1000 for them
