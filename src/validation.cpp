@@ -407,10 +407,16 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool,
             if (GetMintTokenMetadata(tx)) {
                 auto values = tx.GetValuesOut();
                 for (auto const & pair : values) {
-                    if (pair.first == DCT_ID{0})
+                    if (pair.first == DCT_ID{0}) {
+                        if (!MoneyRange(pair.second))
+                            throw std::runtime_error(std::string(__func__) + ": value out of range");
                         continue;
+                    }
                     // remove only if token does not exist any more
-                    if (!pcustomcsview->GetToken(pair.first)) {
+                    if (auto token = pcustomcsview->GetToken(pair.first)) {
+                        if (!MoneyRange(pair.second, token->limit))
+                            throw std::runtime_error(std::string(__func__) + ": value out of range");
+                    } else {
                         mintTokensToRemove.push_back(tx.GetHash());
                     }
                 }
@@ -491,7 +497,14 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         *pfMissingInputs = false;
     }
 
-    if (!CheckTransaction(tx, state))
+    TAmounts maxMoney;
+    ForEachTokenOutput(tx, [&](DCT_ID const& id) {
+        if (id == DCT_ID{0})
+            maxMoney.emplace(id, MAX_MONEY);
+        else if (auto token = pcustomcsview->GetToken(id))
+            maxMoney.emplace(id, token->limit);
+    });
+    if (!CheckTransaction(tx, state, maxMoney))
         return false; // state filled in by CheckTransaction
 
     // Coinbase is only valid in a block, not as a loose transaction
@@ -1612,13 +1625,16 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 mnview.SetTeam(finMsg.currentTeam);
 
+                auto txValueOut = tx.GetValueOut();
+                if (!MoneyRange(txValueOut))
+                    throw std::runtime_error(std::string(__func__) + ": value out of range");
                 if (pindex->nHeight >= Params().GetConsensus().AMKHeight) {
-                    mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut()); // or just 'Set..'
-                    LogPrintf("CChainState::DisconnectBlock: post AMK logic, add community balance %d\n", tx.GetValueOut());
+                    mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, txValueOut); // or just 'Set..'
+                    LogPrintf("CChainState::DisconnectBlock: post AMK logic, add community balance %d\n", txValueOut);
                 }
                 else { // pre-AMK logic:
-                    assert(mnview.GetFoundationsDebt() >= tx.GetValueOut());
-                    mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - tx.GetValueOut());
+                    assert(mnview.GetFoundationsDebt() >= txValueOut);
+                    mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() - txValueOut);
                 }
                 mnview.RemoveRewardForAnchor(finMsg.btcTxHash);
 
@@ -3559,10 +3575,20 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // Check transactions
     // skip this validation if it is Genesis (due to mn creation txs)
     if (block.GetHash() != consensusParams.hashGenesisBlock) {
-        for (const auto& tx : block.vtx)
-            if (!CheckTransaction(*tx, state, true))
+        TAmounts maxMoney;
+        for (const auto& tx : block.vtx) {
+            ForEachTokenOutput(*tx, [&](DCT_ID const& id) {
+                if (maxMoney.count(id))
+                    return;
+                if (id == DCT_ID{0})
+                    maxMoney.emplace(id, MAX_MONEY);
+                else if (auto token = pcustomcsview->GetToken(id))
+                    maxMoney.emplace(id, token->limit);
+            });
+            if (!CheckTransaction(*tx, state, maxMoney, true))
                 return state.Invalid(state.GetReason(), false, state.GetRejectCode(), state.GetRejectReason(),
                                      strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
+        }
     }
 
     unsigned int nSigOps = 0;

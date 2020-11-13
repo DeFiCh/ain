@@ -1074,7 +1074,10 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
         mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
     }
     else {
-        mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
+        auto txValueOut = tx.GetValueOut();
+        if (!MoneyRange(txValueOut))
+            throw std::runtime_error(std::string(__func__) + ": value out of range");
+        mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + txValueOut);
     }
     mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
 

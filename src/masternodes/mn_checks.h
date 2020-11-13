@@ -212,7 +212,7 @@ inline TAmounts GetNonMintedValuesOut(const CTransaction & tx)
     return tx.GetValuesOut(mintingOutputsStart);
 }
 
-inline CAmount GetNonMintedValueOut(const CTransaction & tx, DCT_ID tokenID)
+inline CAmount GetNonMintedValueOut(const CTransaction & tx, DCT_ID tokenID = {0})
 {
     uint32_t mintingOutputsStart = std::numeric_limits<uint32_t>::max();
     const auto accountToUtxos = GetAccountToUtxosMsg(tx);

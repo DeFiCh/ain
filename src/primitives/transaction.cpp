@@ -61,7 +61,7 @@ CTxOut::CTxOut(const CAmount & nValueIn, CScript scriptPubKeyIn, DCT_ID nTokenId
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%d.%08d, nTokenId=%s, scriptPubKey=%s)", nValue / COIN, nValue % COIN, nTokenId.ToString(), HexStr(scriptPubKey).substr(0, 30));
+    return strprintf("CTxOut(nValue=%d, nTokenId=%s, scriptPubKey=%s)", nValue, nTokenId.ToString(), HexStr(scriptPubKey).substr(0, 30));
 }
 
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::TX_VERSION_2), nLockTime(0) {}
@@ -98,16 +98,15 @@ CTransaction::CTransaction(CMutableTransaction&& tx) : vin(std::move(tx.vin)), v
 
 CAmount CTransaction::GetValueOut(uint32_t mintingOutputsStart, DCT_ID nTokenId) const
 {
-    CAmount nValueOut = 0;
+    CTokenAmount nValueOut = {nTokenId, 0};
     for (uint32_t i = 0; i < (uint32_t) vout.size() && i < mintingOutputsStart; i++) {
         const auto& tx_out = vout[i];
         if (tx_out.nTokenId == nTokenId) {
-            nValueOut += tx_out.nValue;
-            if (!MoneyRange(tx_out.nValue) || !MoneyRange(nValueOut))
+            if (!nValueOut.Add(tx_out.nValue))
                 throw std::runtime_error(std::string(__func__) + ": value out of range");
         }
     }
-    return nValueOut;
+    return nValueOut.nValue;
 }
 
 TAmounts CTransaction::GetValuesOut(uint32_t mintingOutputsStart) const
@@ -115,9 +114,11 @@ TAmounts CTransaction::GetValuesOut(uint32_t mintingOutputsStart) const
     TAmounts nValuesOut;
     for (uint32_t i = 0; i < (uint32_t) vout.size() && i < mintingOutputsStart; i++) {
         const auto& tx_out = vout[i];
-        nValuesOut[tx_out.nTokenId] += tx_out.nValue;
-        if (!MoneyRange(tx_out.nValue) || !MoneyRange(nValuesOut[tx_out.nTokenId]))
+        auto& val = nValuesOut[tx_out.nTokenId];
+        auto res = SafeAdd(val, tx_out.nValue);
+        if (!res)
             throw std::runtime_error(std::string(__func__) + ": value out of range");
+        val = res;
     }
     return nValuesOut;
 }
