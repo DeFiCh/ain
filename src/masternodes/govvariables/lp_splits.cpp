@@ -17,7 +17,7 @@ Res LP_SPLITS::Import(const UniValue & val) {
         if (!id.ok) {
             return Res::Err(id.msg);
         }
-        splits.emplace(*id.val, AmountFromValue(val[key]));//todo: AmountFromValue
+        splits.emplace(*id.val, AmountFromValue(val[key]));
     }
     return Res::Ok();
 }

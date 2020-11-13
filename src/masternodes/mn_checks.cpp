@@ -273,6 +273,16 @@ Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     return Res::Ok(base);
 }
 
+template <typename T, typename std::enable_if<std::is_integral<T>::value, int>::type = 0>
+inline uint32_t bits(const T a)
+{
+    constexpr int size = sizeof(T) * 8 - 1 - int(std::is_signed<T>::value);
+    for (int i = size; i >= 0; --i)
+        if ((a >> i) & 1)
+            return i + 1;
+    return 1;
+}
+
 Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
@@ -308,6 +318,23 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         if(token.IsPoolShare()) {
             return Res::Err("%s: %s", base, "Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
         }
+    }
+
+    if (token.decimal > DECIMAL_LIMIT) {
+        return Res::Err("%s : %s", base, "Coin value is too small");
+    }
+
+    CAmount coin = std::pow(10, token.decimal);
+    if (token.limit == 0) {
+        auto limit = MAX_MONEY / COIN;
+        const auto cbits = bits(coin);
+        const auto lbits = bits(limit);
+        if (lbits + cbits > AMOUNT_BITS) { // overflow
+            limit = std::numeric_limits<CAmount>::max() / coin;
+        }
+        token.limit = limit * coin; // default token limit
+    } else if (token.limit < coin) {
+        return Res::Err("%s : %s", base, "Limit should be more than a coin");
     }
 
     auto res = mnview.CreateToken(token, (int)height < consensusParams.BayfrontHeight);
@@ -403,6 +430,14 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     }
     else if (!HasCollateralAuth(tx, coins, token.creationTx)) {
         return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
+    }
+
+    if (newToken.decimal != token.decimal) {
+        return Res::Err("%s : %s", base, "Decimal cannot be updated");
+    }
+
+    if (newToken.limit != token.limit) {
+        return Res::Err("%s : %s", base, "Limit cannot be updated");
     }
 
     auto res = mnview.UpdateToken(token.creationTx, newToken, false);
@@ -508,11 +543,6 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
     std::pair<DCT_ID, CAmount> amountB = *(std::next(sumTx.balances.begin(), 1));
 
-    // guaranteed by sumTx.balances.size() == 2
-//    if (amountA.first == amountB.first) {
-//        return Res::Err("%s: tokens IDs are the same", base);
-//    }
-
     // checked internally too. remove here?
     if (amountA.second <= 0 || amountB.second <= 0) {
         return Res::Err("%s: amount cannot be less than or equal to zero", base);
@@ -543,6 +573,12 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     // normalize A & B to correspond poolpair's tokens
     if (amountA.first != pool.idTokenA)
         std::swap(amountA, amountB);
+
+    if (amountA.first != pool.idTokenA)
+        return Res::Err("%s: unknown token %s", base, amountA.first.ToString());
+
+    if (amountB.first != pool.idTokenB)
+        return Res::Err("%s: unknown token %s", base, amountB.first.ToString());
 
     const auto res = pool.AddLiquidity(amountA.second, amountB.second, msg.shareAddress, [&] /*onMint*/(CScript to, CAmount liqAmount) {
 
@@ -851,6 +887,10 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     token.symbol = pairSymbol;
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
+    token.decimal = std::max(tokenA->decimal, tokenB->decimal);
+    CAmount CoinA = std::pow(10, tokenA->decimal);
+    CAmount CoinB = std::pow(10, tokenB->decimal);
+    token.limit = std::max(tokenA->limit / CoinA, tokenB->limit / CoinB) * std::pow(10, token.decimal);
 
     auto res = mnview.CreateToken(token, false);
     if (!res.ok) {
@@ -929,15 +969,10 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
     }
 
-//    auto tokenFrom = mnview.GetToken(poolSwapMsg.idTokenFrom);
-//    if (!tokenFrom) {
-//        return Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenFrom.ToString());
-//    }
-
-//    auto tokenTo = mnview.GetToken(poolSwapMsg.idTokenTo);
-//    if (!tokenTo) {
-//        return Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenTo.ToString());
-//    }
+    auto tokenFrom = mnview.GetToken(poolSwapMsg.idTokenFrom);
+    if (!tokenFrom) {
+        return Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenFrom.ToString());
+    }
 
     auto poolPair = mnview.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
     if (!poolPair) {

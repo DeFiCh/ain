@@ -47,6 +47,13 @@ public:
         , limit(0)
         , flags(uint8_t(TokenFlags::Default))
     {}
+
+    CToken(CToken&&) = default;
+    CToken(const CToken&) = default;
+
+    CToken& operator=(CToken&&) = default;
+    CToken& operator=(const CToken&) = default;
+
     virtual ~CToken() = default;
 
     inline bool IsMintable() const

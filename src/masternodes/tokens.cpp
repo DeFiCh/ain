@@ -32,7 +32,7 @@ std::unique_ptr<CToken> CTokensView::GetToken(DCT_ID id) const
 {
     auto tokenImpl = ReadBy<ID, CTokenImpl>(WrapVarInt(id.v)); // @todo change serialization of DCT_ID to VarInt by default?
     if (tokenImpl)
-        return MakeUnique<CTokenImpl>(*tokenImpl);
+        return MakeUnique<CTokenImpl>(std::move(*tokenImpl));
 
     return {};
 }
@@ -74,15 +74,12 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
 
     uint256 tx;
     if (ParseHashStr(key, tx)) {
-        auto pair = GetTokenByCreationTx(tx);
-        if (pair) {
+        if (auto pair = GetTokenByCreationTx(tx)) {
             id = pair->first;
-            return MakeUnique<CTokenImpl>(pair->second);
+            return MakeUnique<CTokenImpl>(std::move(pair->second));
         }
-    }
-    else {
-        auto pair = GetToken(key);
-        if (pair) {
+    } else {
+        if (auto pair = GetToken(key)) {
             id = pair->first;
             return std::move(pair->second);
         }
@@ -203,6 +200,12 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isP
     if (!checkSymbolRes.ok) {
         return checkSymbolRes;
     }
+
+    if (oldToken.decimal != newToken.decimal)
+        return Res::Err("token decimal should not be updated");
+
+    if (oldToken.limit != newToken.limit)
+        return Res::Err("token limit should not be updated");
 
     // deal with DB symbol indexes before touching symbols/DATs:
     if (oldToken.symbol != newToken.symbol || oldToken.IsDAT() != newToken.IsDAT()) { // in both cases it leads to index changes

@@ -87,8 +87,7 @@ struct ResVal : public Res
     template <typename F>
     T ValOrException(F&& _throw) const {
         if (!ok) {
-            _throw(code, msg);
-            throw std::logic_error{msg}; // shouldn't be reachable because of _throw
+            throw _throw(code, msg);
         }
         return *val;
     }

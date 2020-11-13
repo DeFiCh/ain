@@ -315,8 +315,9 @@ private:
 
 class CStorageView {
 public:
+    CStorageView() = default;
     CStorageView(CStorageKV * st) : storage(st) {}
-    CStorageView() {}
+    virtual ~CStorageView() = default;
 
     template<typename KeyType>
     bool Exists(const KeyType& key) const {

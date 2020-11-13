@@ -82,7 +82,18 @@ Res CPoolPairView::UpdatePoolPair(DCT_ID const & poolId, bool & status, CAmount 
 boost::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) const
 {
     DCT_ID poolID = poolId;
-    return ReadBy<ByID, CPoolPair>(WrapVarInt(poolID.v));
+    auto poolPair = ReadBy<ByID, CPoolPair>(WrapVarInt(poolID.v));
+    if (poolPair) {
+        auto storage = dynamic_cast<const CTokensView*>(this);
+        assert(storage); // we are the storage
+        auto tokenA = storage->GetToken(poolPair->idTokenA);
+        auto tokenB = storage->GetToken(poolPair->idTokenB);
+        if (!tokenA || !tokenB)
+            return {};
+        poolPair->tokenA = std::move(*tokenA);
+        poolPair->tokenB = std::move(*tokenB);
+    }
+    return poolPair;
 }
 
 boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const DCT_ID &tokenA, const DCT_ID &tokenB) const
@@ -92,8 +103,17 @@ boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const 
     ByPairKey key {tokenA, tokenB};
     if(ReadBy<ByPair, ByPairKey>(key, varint)) {
         auto poolPair = ReadBy<ByID, CPoolPair>(varint);
-        if(poolPair)
+        if(poolPair) {
+            auto storage = dynamic_cast<const CTokensView*>(this);
+            assert(storage); // we are the storage
+            auto tokenA = storage->GetToken(poolPair->idTokenA);
+            auto tokenB = storage->GetToken(poolPair->idTokenB);
+            if (!tokenA || !tokenB)
+                return {};
+            poolPair->tokenA = std::move(*tokenA);
+            poolPair->tokenB = std::move(*tokenB);
             return { std::make_pair(poolId, std::move(*poolPair)) };
+        }
     }
     return {};
 }
@@ -110,66 +130,66 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
 
     bool const forward = in.nTokenId == idTokenA;
 
-    // it is important that reserves are at least SLOPE_SWAP_RATE (1000) to be able to slide, otherwise it can lead to underflow
-    if (reserveA < SLOPE_SWAP_RATE || reserveB < SLOPE_SWAP_RATE)
+    // it is important that reserves are at least SLOPE_SWAP_RATE to be able to slide, otherwise it can lead to underflow
+    CAmount coinA = std::pow(10, tokenA.decimal);
+    CAmount swapRateA = SLOPE_SWAP_RATE * COIN / coinA;
+    CAmount coinB = std::pow(10, tokenB.decimal);
+    CAmount swapRateB = SLOPE_SWAP_RATE * COIN / coinB;
+    if (!forward) std::swap(swapRateA, swapRateB);
+
+    if (reserveA < swapRateA || reserveB < swapRateB)
         return Res::Err("Lack of liquidity.");
 
-    auto const aReserveA = arith_uint256(reserveA);
-    auto const aReserveB = arith_uint256(reserveB);
+    auto decMax = std::max(tokenA.decimal, tokenB.decimal);
+    CAmount decA = std::pow(10, decMax - tokenA.decimal);
+    CAmount decB = std::pow(10, decMax - tokenB.decimal);
+    if (!forward) std::swap(decA, decB);
 
-    arith_uint256 maxPrice256 = arith_uint256(maxPrice.integer) * PRECISION + maxPrice.fraction;
-    arith_uint256 priceAB = (aReserveA * PRECISION / aReserveB);
-    arith_uint256 priceBA = (aReserveB * PRECISION / aReserveA);
+    auto const aReserveA = arith_uint256(reserveA) * decA;
+    auto const aReserveB = arith_uint256(reserveB) * decB;
+
+    CAmount coin = std::pow(10, decMax);
+    arith_uint256 maxPrice256 = arith_uint256(maxPrice.integer) * coin + maxPrice.fraction;
+    arith_uint256 priceAB = (aReserveA * coin / aReserveB);
+    arith_uint256 priceBA = (aReserveB * coin / aReserveA);
     arith_uint256 curPrice = forward ? priceBA : priceAB;
     if (curPrice > maxPrice256)
         return Res::Err("Price is higher than indicated.");
 
-    // claim trading fee
+    // claim trading fee in DFI COIN
     if (commission) {
-        CAmount const tradeFee = (arith_uint256(in.nValue) * arith_uint256(commission) / arith_uint256(COIN)).GetLow64(); /// @todo check overflow (COIN vs PRECISION cause commission was normalized to COIN)
+        CAmount const tradeFee = (arith_uint256(in.nValue) * commission / COIN).GetLow64();
         in.nValue -= tradeFee;
         if (forward) {
             blockCommissionA += tradeFee;
-        }
-        else {
+        } else {
             blockCommissionB += tradeFee;
         }
     }
+
     auto checkRes = forward ? SafeAdd(reserveA, in.nValue) : SafeAdd(reserveB, in.nValue);
     if (!checkRes.ok) {
         return Res::Err("Swapping will lead to pool's reserve overflow");
     }
 
+    CAmount amount = checkRes;
+    if ((forward && !MoneyRange(amount, tokenA.limit))
+    || (!forward && !MoneyRange(amount, tokenB.limit))) {
+        return Res::Err("Amount overflow in pool swap");
+    }
+
     CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB) : slopeSwap(in.nValue, reserveB, reserveA);
-//    CAmount realPrice = (arith_uint256(result) * aPRECISION / arith_uint256(in.nValue)).GetLow64(); /// @todo check overflow
-//    if (realPrice > maxPrice)
-//        return Res::Err("Price higher than indicated.");
 
     swapEvent = true; // (!!!)
 
     return onTransfer({ forward ? idTokenB : idTokenA, result });
 }
 
-CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo) {
-    assert (unswapped >= 0 && poolFrom >= SLOPE_SWAP_RATE && poolTo >= SLOPE_SWAP_RATE);
-    assert (SafeAdd(unswapped, poolFrom).ok);
+CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolF, CAmount &poolT) {
 
-    arith_uint256 poolF = arith_uint256(poolFrom);
-    arith_uint256 poolT = arith_uint256(poolTo);
-    arith_uint256 swapped = 0;
-    CAmount chunk = poolFrom/SLOPE_SWAP_RATE < unswapped ? poolFrom/SLOPE_SWAP_RATE : unswapped;
-    while (unswapped > 0) {
-        //arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
-        CAmount stepFrom = std::min(chunk, unswapped);
-        arith_uint256 stepFrom256(stepFrom);
-        arith_uint256 stepTo = poolT * stepFrom256 / poolF;
-        poolF += stepFrom256;
-        poolT -= stepTo;
-        unswapped -= stepFrom;
-        swapped += stepTo;
-    }
-    poolFrom = poolF.GetLow64();
-    poolTo = poolT.GetLow64();
+    auto swapped = arith_uint256(poolT) - (arith_uint256(poolT) * poolF / (poolF + unswapped));
+    poolF += unswapped;
+    poolT -= swapped.GetLow64();
     return swapped.GetLow64();
 }
 

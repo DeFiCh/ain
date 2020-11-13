@@ -14,6 +14,7 @@
 #include <serialize.h>
 #include <uint256.h>
 #include <masternodes/balances.h>
+#include <masternodes/tokens.h>
 
 struct ByPairKey {
     DCT_ID idTokenA;
@@ -86,7 +87,6 @@ class CPoolPair : public CPoolPairMessage
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount SLOPE_SWAP_RATE = 1000;
-    static const uint32_t PRECISION = (uint32_t) COIN; // or just PRECISION_BITS for "<<" and ">>"
     CPoolPair(CPoolPairMessage const & msg = {})
         : CPoolPairMessage(msg)
         , reserveA(0)
@@ -101,6 +101,7 @@ public:
     {}
     virtual ~CPoolPair() = default;
 
+    CToken tokenA, tokenB; // do not serialize
     CAmount reserveA, reserveB, totalLiquidity;
     CAmount blockCommissionA, blockCommissionB;
 
@@ -110,25 +111,30 @@ public:
     uint256 creationTx;
     uint32_t creationHeight;
 
-    // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
-    // otherwise, 'AddLiquidity' should be () external to 'CPairPool' (i.e. CPoolPairView::AddLiquidity(TAmount a,b etc) with internal lookup of pool by TAmount a,b)
     Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint) {
         // instead of assertion due to tests
         if (amountA <= 0 || amountB <= 0) {
             return Res::Err("amounts should be positive");
         }
 
+        // make same base decimal point
+        auto decMax = std::max(tokenA.decimal, tokenB.decimal);
+
         CAmount liquidity{0};
         if (totalLiquidity == 0) {
-            liquidity = (CAmount) (arith_uint256(amountA) * arith_uint256(amountB)).sqrt().GetLow64(); // sure this is below std::numeric_limits<CAmount>::max() due to sqrt natue
-            if (liquidity <= MINIMUM_LIQUIDITY) // ensure that it'll be non-zero
+            // adjust coins to same base
+            CAmount dec = std::pow(10, std::abs(int(tokenA.decimal) - int(tokenB.decimal)));
+            liquidity = (arith_uint256(amountA) * amountB * dec).sqrt().GetLow64();
+            CAmount coin = std::pow(10, decMax);
+            CAmount minimum_liquidity = MINIMUM_LIQUIDITY * COIN / coin;
+            if (liquidity <= minimum_liquidity) // ensure that it'll be non-zero
                 return Res::Err("liquidity too low");
-            liquidity -= MINIMUM_LIQUIDITY;
-            // MINIMUM_LIQUIDITY is a hack for non-zero division
-            totalLiquidity = MINIMUM_LIQUIDITY;
+            liquidity -= minimum_liquidity;
+            totalLiquidity = minimum_liquidity;
         } else {
-            CAmount liqA = (arith_uint256(amountA) * arith_uint256(totalLiquidity) / reserveA).GetLow64();
-            CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
+            // adjustment isn't needed since it's % of amount vs reserve
+            CAmount liqA = (arith_uint256(amountA) * totalLiquidity / reserveA).GetLow64();
+            CAmount liqB = (arith_uint256(amountB) * totalLiquidity / reserveB).GetLow64();
             liquidity = std::min(liqA, liqB);
             if (liquidity == 0)
                 return Res::Err("amounts too low, zero liquidity");
@@ -145,8 +151,13 @@ public:
         auto resA = SafeAdd(reserveA, amountA);
         auto resB = SafeAdd(reserveB, amountB);
         if (resA.ok && resB.ok) {
-            reserveA = *resA.val;
-            reserveB = *resB.val;
+            auto newAmountA = *resA.val;
+            auto newAmountB = *resB.val;
+            if (!MoneyRange(newAmountA, tokenA.limit) || !MoneyRange(newAmountB, tokenB.limit)) {
+                return Res::Err("money out of range");
+            }
+            reserveA = newAmountA;
+            reserveB = newAmountB;
         } else {
             return Res::Err("overflow when adding to reserves");
         }
@@ -162,8 +173,9 @@ public:
         }
 
         CAmount resAmountA, resAmountB;
-        resAmountA = (arith_uint256(liqAmount) * arith_uint256(reserveA) / totalLiquidity).GetLow64();
-        resAmountB = (arith_uint256(liqAmount) * arith_uint256(reserveB) / totalLiquidity).GetLow64();
+        // liquidity as percentage of total one, no adjust needed
+        resAmountA = (arith_uint256(liqAmount) * reserveA / totalLiquidity).GetLow64();
+        resAmountB = (arith_uint256(liqAmount) * reserveB / totalLiquidity).GetLow64();
 
         reserveA -= resAmountA; // safe due to previous math
         reserveB -= resAmountB;
@@ -175,7 +187,7 @@ public:
     Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer);
 
 private:
-    CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo);
+    CAmount slopeSwap(CAmount unswapped, CAmount& poolFrom, CAmount& poolTo);
 
     inline void ioProofer() const { // may be it's more reasonable to use unsigned everywhere, but for basic CAmount compatibility
         if (reserveA < 0 || reserveB < 0 ||
@@ -249,13 +261,16 @@ public:
     /// @attention it throws (at least for debug), cause errors are critical!
     CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CTokenAmount amount)> onTransfer) {
 
-        uint32_t const PRECISION = 10000; // (== 100%) just searching the way to avoid arith256 inflating
         CAmount totalDistributed = 0;
 
         ForEachPoolPair([&] (DCT_ID const & poolId, CPoolPair const & pool) {
 
+            // calculate max precision
+            auto const decMax = std::max(pool.tokenA.decimal, pool.tokenB.decimal);
+            CAmount const PRECISION = std::pow(10, decMax);
+
             // yield farming counters
-            CAmount const poolReward = yieldFarming * pool.rewardPct / COIN; // 'rewardPct' should be defined by 'setgov "LP_SPLITS"', also, it is assumed that it was totally validated and normalized to 100%
+            auto const poolReward = arith_uint256(yieldFarming) * pool.rewardPct / COIN; // 'rewardPct' should be defined by 'setgov "LP_SPLITS"', also, it is assumed that it was totally validated and normalized to 100%
             CAmount distributedFeeA = 0;
             CAmount distributedFeeB = 0;
 
@@ -269,26 +284,29 @@ public:
                 }
                 CAmount const liquidity = onGetBalance(provider, poolId).nValue;
 
-                uint32_t const liqWeight = liquidity * PRECISION / pool.totalLiquidity;
+                auto const liqWeight = arith_uint256(liquidity) * PRECISION / pool.totalLiquidity;
                 assert (liqWeight < PRECISION);
 
-                // distribute trading fees
+                // distribute trading fees, it's % of liquidity token adjustment isn't needed
                 if (pool.swapEvent) {
-                    CAmount feeA = pool.blockCommissionA * liqWeight / PRECISION;       // liquidity / pool.totalLiquidity;
-                    distributedFeeA += feeA;
+                    CAmount feeA = (liqWeight * pool.blockCommissionA / PRECISION).GetLow64();
+                    if (auto sum = SafeAdd(distributedFeeA, feeA))
+                        distributedFeeA = sum;
                     onTransfer(provider, {pool.idTokenA, feeA}); //can throw
 
-                    CAmount feeB = pool.blockCommissionB * liqWeight / PRECISION;       // liquidity / pool.totalLiquidity;
-                    distributedFeeB += feeB;
+                    CAmount feeB = (liqWeight * pool.blockCommissionB / PRECISION).GetLow64();
+                    if (auto sum = SafeAdd(distributedFeeB, feeB))
+                        distributedFeeB = sum;
                     onTransfer(provider, {pool.idTokenB, feeB}); //can throw
                 }
 
                 // distribute yield farming
-                if (poolReward) {
-                    CAmount providerReward = poolReward * liqWeight / PRECISION;        //liquidity / pool.totalLiquidity;
+                if (poolReward != 0) {
+                    CAmount providerReward = (liqWeight * poolReward / PRECISION).GetLow64();
                     if (providerReward) {
                         onTransfer(provider, {DCT_ID{0}, providerReward}); //can throw
-                        totalDistributed += providerReward;
+                        if (auto sum = SafeAdd(totalDistributed, providerReward))
+                            totalDistributed = sum;
                     }
                 }
                 return true;
@@ -344,8 +362,7 @@ struct CRemoveLiquidityMessage {
     CTokenAmount amount;
 
     std::string ToString() const {
-        std::string result = "(" + from.GetHex() + "->" + amount.ToString() + ")";
-        return result;
+        return from.GetHex() + "->TokenId(" + amount.nTokenId.ToString() + ')';
     }
 
     ADD_SERIALIZE_METHODS;
