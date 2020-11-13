@@ -147,6 +147,7 @@ public:
     //! populates the values.
     virtual void findCoins(std::map<COutPoint, Coin>& coins) = 0;
 
+    virtual bool MoneyRange(const TAmounts& amounts) const = 0;
     virtual bool mnCanSpend(const uint256 & nodeId, int height) const = 0;
     virtual boost::optional<CMasternode> mnExists(const uint256 & nodeId) const = 0;
     virtual std::unique_ptr<CToken> existTokenGuessId(const std::string & str, DCT_ID & id) const = 0;

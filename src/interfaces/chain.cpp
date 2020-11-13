@@ -271,6 +271,18 @@ public:
         return true;
     }
     void findCoins(std::map<COutPoint, Coin>& coins) override { return FindCoins(coins); }
+    bool MoneyRange(const TAmounts& amounts) const override
+    {
+        LOCK(cs_main);
+        for (auto& value : amounts) {
+            auto token = pcustomcsview->GetToken(value.first);
+            if (!token)
+                return false;
+            if (!::MoneyRange(value.second, token->limit))
+                return false;
+        }
+        return true;
+    }
     bool mnCanSpend(const uint256 & nodeId, int height) const override
     {
         LOCK(cs_main);
