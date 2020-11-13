@@ -15,6 +15,8 @@
 #include <core_io.h>
 #include <hash.h>
 #include <index/blockfilterindex.h>
+#include <masternodes/masternodes.h>
+#include <masternodes/tokens.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -1000,7 +1002,8 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
     CCoinsStats stats;
     ::ChainstateActive().ForceFlushStateToDisk();
 
-    CCoinsView* coins_view = WITH_LOCK(cs_main, return &ChainstateActive().CoinsDB());
+    LOCK(cs_main);
+    auto coins_view = &ChainstateActive().CoinsDB();
     if (GetUTXOStats(coins_view, stats)) {
         ret.pushKV("height", (int64_t)stats.nHeight);
         ret.pushKV("bestblock", stats.hashBlock.GetHex());
@@ -1009,7 +1012,14 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
         ret.pushKV("bogosize", (int64_t)stats.nBogoSize);
         ret.pushKV("hash_serialized_2", stats.hashSerialized.GetHex());
         ret.pushKV("disk_size", stats.nDiskSize);
-        ret.pushKV("total_amount", ValueFromAmount(stats.nTotalAmount));
+        UniValue amounts(UniValue::VARR);
+        for (auto& amount : stats.nTotalAmounts) {
+            auto token = pcustomcsview->GetToken(amount.first);
+            if (!token)
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Invalid token");
+            amounts.push_back(ValueFromAmount(amount.second, amount.first, *token));
+        }
+        ret.pushKV("total_amount", amounts);
     } else {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
     }
@@ -1086,7 +1096,11 @@ UniValue gettxout(const JSONRPCRequest& request)
     } else {
         ret.pushKV("confirmations", (int64_t)(pindex->nHeight - coin.nHeight + 1));
     }
-    ret.pushKV("value", ValueFromAmount(coin.out.nValue));
+    auto token = pcustomcsview->GetToken(coin.out.nTokenId);
+    if (!token)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Unknown token");
+    ret.pushKV("token", coin.out.nTokenId.ToString());
+    ret.pushKV("value", ValueFromAmount(coin.out.nValue, token->decimal));
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToUniv(coin.out.scriptPubKey, o, true);
     ret.pushKV("scriptPubKey", o);
@@ -1833,8 +1847,10 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         CAmount tx_total_out = 0;
         if (loop_outputs) {
             for (const CTxOut& out : tx->vout) {
-                tx_total_out += out.nValue;
-                utxo_size_inc += GetSerializeSize(out, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+                if (out.nTokenId == DCT_ID{0}) {
+                    tx_total_out += out.nValue;
+                    utxo_size_inc += GetSerializeSize(out, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+                }
             }
         }
 
@@ -1874,9 +1890,10 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             const auto& txundo = blockUndo.vtxundo.at(i - 1);
             for (const Coin& coin: txundo.vprevout) {
                 const CTxOut& prevoutput = coin.out;
-
-                tx_total_in += prevoutput.nValue;
-                utxo_size_inc -= GetSerializeSize(prevoutput, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+                if (prevoutput.nTokenId == DCT_ID{0}) {
+                    tx_total_in += prevoutput.nValue;
+                    utxo_size_inc -= GetSerializeSize(prevoutput, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+                }
             }
 
             CAmount txfee = tx_total_in - tx_total_out;
@@ -2114,7 +2131,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
         }
         std::set<CScript> needles;
         std::map<CScript, std::string> descriptors;
-        CAmount total_in = 0;
+        TAmounts total_in;
 
         // loop through the scan objects
         for (const UniValue& scanobject : request.params[1].get_array().getValues()) {
@@ -2131,17 +2148,23 @@ UniValue scantxoutset(const JSONRPCRequest& request)
         UniValue unspents(UniValue::VARR);
         std::vector<CTxOut> input_txos;
         std::map<COutPoint, Coin> coins;
+        std::map<DCT_ID, std::unique_ptr<CToken>> tokens;
         g_should_abort_scan = false;
         g_scan_progress = 0;
         int64_t count = 0;
+        bool res;
         std::unique_ptr<CCoinsViewCursor> pcursor;
         {
             LOCK(cs_main);
             ::ChainstateActive().ForceFlushStateToDisk();
             pcursor = std::unique_ptr<CCoinsViewCursor>(::ChainstateActive().CoinsDB().Cursor());
             assert(pcursor);
+            res = FindScriptPubKey(g_scan_progress, g_should_abort_scan, count, pcursor.get(), needles, coins);
+            for (const auto& it : coins) {
+                auto tokenId = it.second.out.nTokenId;
+                tokens.emplace(tokenId, pcustomcsview->GetToken(tokenId));
+            }
         }
-        bool res = FindScriptPubKey(g_scan_progress, g_should_abort_scan, count, pcursor.get(), needles, coins);
         result.pushKV("success", res);
         result.pushKV("searched_items", count);
 
@@ -2150,20 +2173,26 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             const Coin& coin = it.second;
             const CTxOut& txo = coin.out;
             input_txos.push_back(txo);
-            total_in += txo.nValue;
+            total_in[txo.nTokenId] += txo.nValue;
 
             UniValue unspent(UniValue::VOBJ);
             unspent.pushKV("txid", outpoint.hash.GetHex());
             unspent.pushKV("vout", (int32_t)outpoint.n);
             unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
             unspent.pushKV("desc", descriptors[txo.scriptPubKey]);
-            unspent.pushKV("amount", ValueFromAmount(txo.nValue));
+            auto& token = tokens[txo.nTokenId];
+            if (!token)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown token");
+            unspent.pushKV("amount", ValueFromAmount(txo.nValue, txo.nTokenId, *token));
             unspent.pushKV("height", (int32_t)coin.nHeight);
 
             unspents.push_back(unspent);
         }
         result.pushKV("unspents", unspents);
-        result.pushKV("total_amount", ValueFromAmount(total_in));
+        UniValue amounts(UniValue::VARR);
+        for (auto& amount : total_in)
+            amounts.push_back(ValueFromAmount(amount.second, amount.first, *(tokens[amount.first])));
+        result.pushKV("total_amount", amounts);
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid command");
     }
