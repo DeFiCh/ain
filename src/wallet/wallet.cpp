@@ -1496,7 +1496,7 @@ isminetype CWallet::IsMine(const CTxOut& txout) const
 
 CTokenAmount CWallet::GetCredit(const CTxOut& txout, const isminefilter& filter) const
 {
-    if (!MoneyRange(txout.nValue))
+    if (!chain().MoneyRange({ {txout.nTokenId, txout.nValue} }))
         throw std::runtime_error(std::string(__func__) + ": value out of range");
     return ((IsMine(txout) & filter) ? CTokenAmount{txout.nTokenId, txout.nValue} : CTokenAmount{} );
 }
@@ -1530,7 +1530,7 @@ bool CWallet::IsChange(const CScript& script) const
 
 CTokenAmount CWallet::GetChange(const CTxOut& txout) const
 {
-    if (!MoneyRange(txout.nValue))
+    if (!chain().MoneyRange({ {txout.nTokenId, txout.nValue} }))
         throw std::runtime_error(std::string(__func__) + ": value out of range");
     return (IsChange(txout) ? CTokenAmount{txout.nTokenId, txout.nValue} : CTokenAmount{} );
 }
@@ -1555,10 +1555,14 @@ TAmounts CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter) c
     for (const CTxIn& txin : tx.vin)
     {
         CTokenAmount const amount = GetDebit(txin, filter);
-        nDebit[amount.nTokenId] += amount.nValue;
-        if (!MoneyRange(nDebit.at(amount.nTokenId)))
+        auto& val = nDebit[amount.nTokenId];
+        auto res = SafeAdd(val, amount.nValue);
+        if (!res)
             throw std::runtime_error(std::string(__func__) + ": value out of range");
+        val = res;
     }
+    if (!chain().MoneyRange(nDebit))
+        throw std::runtime_error(std::string(__func__) + ": value out of range");
     return nDebit;
 }
 
@@ -1589,10 +1593,14 @@ TAmounts CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) 
     for (const CTxOut& txout : tx.vout)
     {
         CTokenAmount const amount = GetCredit(txout, filter);
-        nCredit[amount.nTokenId] += amount.nValue;
-        if (!MoneyRange(nCredit.at(amount.nTokenId)))
+        auto& val = nCredit[amount.nTokenId];
+        auto res = SafeAdd(val, amount.nValue);
+        if (!res)
             throw std::runtime_error(std::string(__func__) + ": value out of range");
+        val = res;
     }
+    if (!chain().MoneyRange(nCredit))
+        throw std::runtime_error(std::string(__func__) + ": value out of range");
     return nCredit;
 }
 
@@ -1602,10 +1610,14 @@ TAmounts CWallet::GetChange(const CTransaction& tx) const
     for (const CTxOut& txout : tx.vout)
     {
         CTokenAmount const amount = GetChange(txout);
-        nChange[amount.nTokenId] += amount.nValue;
-        if (!MoneyRange(nChange.at(amount.nTokenId)))
+        auto& val = nChange[amount.nTokenId];
+        auto res = SafeAdd(val, amount.nValue);
+        if (!res)
             throw std::runtime_error(std::string(__func__) + ": value out of range");
+        val = res;
     }
+    if (!chain().MoneyRange(nChange))
+        throw std::runtime_error(std::string(__func__) + ": value out of range");
     return nChange;
 }
 
@@ -1923,7 +1935,7 @@ void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
     CAmount nDebit = GetDebit(filter)[DCT_ID{0}]; /// @todo tokens: only for id == 0???
     if (nDebit > 0) // debit>0 means we signed/sent this transaction
     {
-        CAmount nValueOut = GetNonMintedValueOut(*tx, DCT_ID{});
+        CAmount nValueOut = GetNonMintedValueOut(*tx);
         nFee = nDebit - nValueOut;
     }
 
@@ -2282,11 +2294,16 @@ TAmounts CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, bo
         if (!pwallet->IsSpent(locked_chain, hashTx, i) && (allow_used_addresses || !pwallet->IsUsedDestination(hashTx, i))) {
             const CTxOut &txout = tx->vout[i];
             CTokenAmount const amount = pwallet->GetCredit(txout, filter);
-            nCredit[amount.nTokenId] += amount.nValue;
-            if (!MoneyRange(nCredit.at(amount.nTokenId)))
-                throw std::runtime_error(std::string(__func__) + " : value out of range");
+            auto& val = nCredit[amount.nTokenId];
+            auto res = SafeAdd(val, amount.nValue);
+            if (!res)
+                throw std::runtime_error(std::string(__func__) + ": value out of range");
+            val = res;
         }
     }
+
+    if (!pwallet->chain().MoneyRange(nCredit))
+        throw std::runtime_error(std::string(__func__) + ": value out of range");
 
     if (allow_cache) {
         m_amounts[AVAILABLE_CREDIT].Set(filter, std::move(nCredit));
@@ -2594,7 +2611,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             vCoins.push_back(COutput(&wtx, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
 
             // Checks the sum amount of all UTXO's.
-            if (nMinimumSumAmount != MAX_MONEY) {
+            if (nMinimumSumAmount != INT64_MAX) {
                 nTotal += wtx.tx->vout[i].nValue;
 
                 if (nTotal >= nMinimumSumAmount) {
@@ -3026,7 +3043,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             CCoinControl ccSingleToken(coin_control);
             ccSingleToken.m_tokenFilter = { tokenId };
 
-            AvailableCoins(*locked_chain, vAvailableCoins, true, &ccSingleToken, 1, MAX_MONEY, MAX_MONEY, 0);
+            AvailableCoins(*locked_chain, vAvailableCoins, true, &ccSingleToken, 1, INT64_MAX, INT64_MAX, 0);
 
             tokensreservedest.emplace(tokenId, std::unique_ptr<ReserveDestination>(new ReserveDestination(this)));  // used dynamic here due to strange bug with direct emplacement under mac
             CScript scriptChange;
@@ -3083,7 +3100,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         LOCK(cs_wallet);
         {
             std::vector<COutput> vAvailableCoins;
-            AvailableCoins(*locked_chain, vAvailableCoins, true, &coin_control, 1, MAX_MONEY, MAX_MONEY, 0);
+            AvailableCoins(*locked_chain, vAvailableCoins, true, &coin_control, 1, INT64_MAX, INT64_MAX, 0);
             CoinSelectionParams coin_selection_params; // Parameters for coin selection, init with dummy
 
             // Create change script that will be used if we need change

@@ -118,7 +118,10 @@ Result CreateTotalBumpTransaction(const CWallet* wallet, const uint256& txid, co
     }
 
     // calculate the old fee and fee-rate
-    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[DCT_ID{0}] - GetNonMintedValueOut(*wtx.tx, DCT_ID{});
+    auto valueOut = GetNonMintedValueOut(*wtx.tx);
+    if (!MoneyRange(valueOut))
+        throw std::runtime_error(std::string(__func__) + ": value out of range");
+    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[DCT_ID{0}] - valueOut;
     CFeeRate nOldFeeRate(old_fee, txSize);
     // The wallet uses a conservative WALLET_INCREMENTAL_RELAY_FEE value to
     // future proof against changes to network wide policy for incremental relay
@@ -234,7 +237,10 @@ Result CreateRateBumpTransaction(CWallet* wallet, const uint256& txid, const CCo
     // Get the fee rate of the original transaction. This is calculated from
     // the tx fee/vsize, so it may have been rounded down. Add 1 satoshi to the
     // result.
-    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[DCT_ID{0}] - wtx.tx->GetValueOut();
+    auto txValueOut = wtx.tx->GetValueOut();
+    if (!MoneyRange(txValueOut))
+        throw std::runtime_error(std::string(__func__) + ": value out of range");
+    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[DCT_ID{0}] - txValueOut;
     int64_t txSize = GetVirtualTransactionSize(*(wtx.tx));
     // Feerate of thing we are bumping
     CFeeRate feerate(old_fee, txSize);

@@ -652,7 +652,7 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
                     nAmount += txout.nValue;
     }
 
-    return  ValueFromAmount(nAmount);
+    return ValueFromAmount(nAmount);
 }
 
 
@@ -1740,7 +1740,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     CAmount nCredit = wtx.GetCredit(*locked_chain, filter)[DCT_ID{0}]; /// @todo tokens: extend?
     CAmount nDebit = wtx.GetDebit(filter)[DCT_ID{0}];                  /// @todo tokens: extend?
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? GetNonMintedValueOut(*wtx.tx, DCT_ID{}) - nDebit : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? GetNonMintedValueOut(*wtx.tx) - nDebit : 0);
 
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
     if (wtx.IsFromMe(filter))
@@ -2902,8 +2902,8 @@ static UniValue listunspent(const JSONRPCRequest& request)
     }
 
     CAmount nMinimumAmount = 0;
-    CAmount nMaximumAmount = MAX_MONEY;
-    CAmount nMinimumSumAmount = MAX_MONEY;
+    CAmount nMaximumAmount = INT64_MAX;
+    CAmount nMinimumSumAmount = INT64_MAX;
     uint64_t nMaximumCount = 0;
     int nOnlyTokensId = -1; /// @todo tokens set default to 0 or -1 ???
 
@@ -3009,7 +3009,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
 
         entry.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
         entry.pushKV("amount", ValueFromAmount(out.tx->tx->vout[out.i].nValue));
-        entry.pushKV("tokenId", out.tx->tx->vout[out.i].nTokenId.ToString());
+        entry.pushKV("tokenId", uint64_t(out.tx->tx->vout[out.i].nTokenId.v));
         entry.pushKV("confirmations", out.nDepth);
         entry.pushKV("spendable", out.fSpendable);
         entry.pushKV("solvable", out.fSolvable);
@@ -3319,7 +3319,25 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
     }
     pwallet->chain().findCoins(coins);
 
-    return SignTransaction(mtx, request.params[1], pwallet, coins, false, request.params[2]);
+    UniValue values;
+    const auto& param = request.params[1];
+    if (param.isArray()) {
+        values.setArray();
+        auto& txs = param.get_array();
+        for (size_t idx = 0; idx < txs.size(); ++idx) {
+            auto& tx = txs[idx];
+            auto newTx = tx;
+            auto& amount = find_value(tx, "amount");
+            if (!amount.isNull()) {
+                auto tokenAmount = DecodeAmount(pwallet->chain(), amount, "signrawtransactionwithwallet");
+                newTx.pushKV("tokenId", uint64_t(tokenAmount.nTokenId.v));
+                newTx.pushKV("nValue", int64_t(tokenAmount.nValue));
+            }
+            values.push_back(newTx);
+        }
+    }
+
+    return SignTransaction(mtx, values, pwallet, coins, false, request.params[2]);
 }
 
 static UniValue bumpfee(const JSONRPCRequest& request)
