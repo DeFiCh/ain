@@ -159,4 +159,15 @@ static inline int64_t GetTransactionInputWeight(const CTxIn& txin)
     return ::GetSerializeSize(txin, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(txin, PROTOCOL_VERSION) + ::GetSerializeSize(txin.scriptWitness.stack, PROTOCOL_VERSION);
 }
 
+template <typename Callback>
+void ForEachTokenOutput(const CTransaction& tx, Callback callback)
+{
+    std::set<DCT_ID> tokens;
+    for (const auto& txout : tx.vout) {
+        if (tokens.insert(txout.nTokenId).second) {
+            callback(txout.nTokenId);
+        }
+    }
+}
+
 #endif // DEFI_CONSENSUS_VALIDATION_H

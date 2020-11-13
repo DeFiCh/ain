@@ -182,16 +182,28 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         }
 
         // Check for negative or overflow input values
-        nValuesIn[coin.out.nTokenId] += coin.out.nValue;
-        if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValuesIn[coin.out.nTokenId])) {
+        auto& val = nValuesIn[coin.out.nTokenId];
+        auto res = SafeAdd(val, coin.out.nValue);
+        if (!res)
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
-        }
+        val = res;
         /// @todo tokens: later match the range with TotalSupply
-
         if (prevout.n == 1 && !mnview->CanSpend(prevout.hash, nSpendHeight)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-collateral-locked",
                 strprintf("tried to spend locked collateral for %s", prevout.hash.ToString())); /// @todo may be somehow place the height of unlocking?
         }
+    }
+
+    for (const auto& value : nValuesIn) {
+        CAmount maxMoney = MAX_MONEY;
+        if (value.first != DCT_ID{0}) {
+            auto token = mnview->GetToken(value.first);
+            if (!token)
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-invalid-token");
+            maxMoney = token->limit;
+        }
+        if (!MoneyRange(value.second, maxMoney))
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
     }
 
     /// @attention Keep the order of checks not to break old tests

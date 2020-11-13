@@ -11,7 +11,7 @@
 const std::vector<unsigned char> DfCriminalTxMarker = {'D', 'f', 'C', 'r'};
 const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
 
-bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
+bool CheckTransaction(const CTransaction& tx, CValidationState &state, const TAmounts& maxMoney, bool fCheckDuplicateInputs)
 {
     /// @note we don't check minted token's outputs nor auth here!
     // Basic checks that don't depend on any context
@@ -24,15 +24,20 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
         return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-oversize");
 
     // Check for negative or overflow output values
-    CAmount nValueOut = 0;
+    TAmounts nValues;
     for (const auto& txout : tx.vout)
     {
         if (txout.nValue < 0)
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-vout-negative");
-        if (txout.nValue > MAX_MONEY)
+        auto& val = nValues[txout.nTokenId];
+        auto res = SafeAdd(val, txout.nValue);
+        if (!res)
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-vout-toolarge");
-        nValueOut += txout.nValue;
-        if (!MoneyRange(nValueOut))
+        val = res;
+        auto it = maxMoney.find(txout.nTokenId);
+        if (it == maxMoney.end())
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-txout-unknown-token");
+        if (!MoneyRange(val, it->second))
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
