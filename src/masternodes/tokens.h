@@ -92,6 +92,11 @@ public:
         READWRITE(decimal);
         READWRITE(limit);
         READWRITE(flags);
+
+        // restore previous functionality
+        if (ser_action.ForRead() && limit == 0) {
+            limit = MAX_MONEY;
+        }
     }
 };
 

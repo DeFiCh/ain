@@ -2676,7 +2676,10 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
             if (!sub.ok) {
                 return Res::Err("%s: %s", base, sub.msg);
             }
-            return Res::Ok(tokenAmount.ToString());
+            uint8_t decimal = 8;
+            if (auto token = mnview_dummy.GetToken(tokenAmount.nTokenId))
+                decimal = token->decimal;
+            return Res::Ok(tokenAmount.ToString(decimal));
         });
 
         if (!res.ok)

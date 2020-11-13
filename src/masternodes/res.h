@@ -39,6 +39,10 @@ struct Res
         return Res{true, {}, 0, {} };
     }
 
+    operator bool() const {
+        return ok;
+    }
+
 //    template<typename... Args>
 //    static Res Skipped(uint32_t code, std::string const & msg, const Args&... args) {
 //        return Res{true, tfm::format(msg, args...), code};
@@ -60,6 +64,8 @@ struct ResVal : public Res
 {
     boost::optional<T> val{};
 
+    using Res::operator bool;
+
     ResVal() = delete;
 
     ResVal(Res const & errRes) : Res(errRes) {
@@ -71,6 +77,11 @@ struct ResVal : public Res
 
     Res res() const {
         return *this;
+    }
+
+    operator T() const {
+        assert(ok);
+        return *val;
     }
 
     template <typename F>

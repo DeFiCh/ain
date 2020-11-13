@@ -11,6 +11,8 @@
 #include <serialize.h>
 #include <masternodes/res.h>
 
+#include <cctype>
+#include <cmath>
 #include <map>
 
 /** Amount in satoshis (Can be negative) */
@@ -21,8 +23,6 @@ struct DCT_ID {
     uint32_t v;
 
     std::string ToString() const {
-        //uint32_t v_be = htobe32(v);
-        //return HexStr(&v_be, &v_be + sizeof(v_be));
         return std::to_string(v);
     }
 
@@ -74,33 +74,56 @@ struct DCT_ID {
     }
 };
 
+// used by DFI only
 static const CAmount COIN = 100000000;
 
 typedef std::map<DCT_ID, CAmount> TAmounts;
 
-inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
+inline ResVal<CAmount> SafeAdd(CAmount a, CAmount b) {
     // check limits
-    if (_a < 0 || _b < 0) {
+    if (a < 0 || b < 0) {
         return Res::Err("negative amount");
     }
-    // convert to unsigned, because signed overflow is UB
-    const uint64_t a = (uint64_t) _a;
-    const uint64_t b = (uint64_t) _b;
-
-    const uint64_t sum = a + b;
     // check overflow
-    if ((sum - a) != b || ((uint64_t)std::numeric_limits<CAmount>::max()) < sum) {
+    auto diff = std::numeric_limits<CAmount>::max() - a;
+    if (b > diff) {
         return Res::Err("overflow");
     }
-    return {(CAmount) sum, Res::Ok()};
+    return {a + b, Res::Ok()};
 }
 
 struct CTokenAmount { // simple std::pair is less informative
     DCT_ID nTokenId;
     CAmount nValue;
 
-    std::string ToString() const {
-        return std::to_string(nValue / COIN) + "." + std::to_string(nValue % COIN) + "@" + nTokenId.ToString();
+    std::string ToString(uint8_t decimal) const {
+        bool sign = nValue < 0;
+        auto n_abs = (sign ? -nValue : nValue);
+        uint32_t coin = std::pow(10, decimal);
+        auto str = strprintf("%d.%.*d", (n_abs / coin), decimal, (n_abs % coin));
+        if (nTokenId != DCT_ID{0})
+            str += '@' + nTokenId.ToString();
+        if (sign)
+            str.insert(0, 1, '-');
+        return str;
+    }
+
+    static ResVal<CTokenAmount> FromString(const std::string& str, uint8_t decimal = 8) {
+        CTokenAmount amount{DCT_ID{0}, 0};
+        auto token = str.find('@');
+        if (token != str.npos) {
+            auto start = token;
+            const auto ssize = str.size();
+            while (++start < ssize && !std::isdigit(str[start]));
+            if (start == ssize)
+                return Res::Err("Invalid token");
+            auto res = DCT_ID::FromString(str.substr(start));
+            if (!res) return res;
+            amount.nTokenId = res;
+        }
+        if (!ParseFixedPoint(str.substr(0, token), decimal, &amount.nValue))
+            return Res::Err("Invalid amount");
+        return {amount, Res::Ok()};
     }
 
     Res Add(CAmount amount) {
@@ -109,11 +132,11 @@ struct CTokenAmount { // simple std::pair is less informative
             return Res::Err("negative amount: %d", amount);
         }
         // add
-        auto sumRes = SafeAdd(this->nValue, amount);
+        auto sumRes = SafeAdd(nValue, amount);
         if (!sumRes.ok) {
             return sumRes.res();
         }
-        this->nValue = *sumRes.val;
+        nValue = sumRes;
         return Res::Ok();
     }
     Res Sub(CAmount amount) {
@@ -121,11 +144,11 @@ struct CTokenAmount { // simple std::pair is less informative
         if (amount < 0) {
             return Res::Err("negative amount: %d", amount);
         }
-        if (this->nValue < amount) {
-            return Res::Err("Amount %s is less than %s", this->nValue, CTokenAmount{nTokenId, amount}.ToString());
+        if (nValue < amount) {
+            return Res::Err("Amount %d is less than %d", nValue, amount);
         }
         // sub
-        this->nValue -= amount;
+        nValue -= amount;
         return Res::Ok();
     }
 
@@ -147,7 +170,10 @@ struct CTokenAmount { // simple std::pair is less informative
  * critical; in unusual circumstances like a(nother) overflow bug that allowed
  * for the creation of coins out of thin air modification could lead to a fork.
  * */
+static const uint32_t AMOUNT_BITS = sizeof(CAmount) * 8 - int(std::is_signed<CAmount>::value);
+static const uint8_t DECIMAL_LIMIT = 18; // we should not allow lower coin value
+static const CAmount MIN_COINS_VALUE = 1000; // every token should have at least 1000 coins
 static const CAmount MAX_MONEY = 1200000000 * COIN; // (1.2B) - old 21000000 * 4
-inline bool MoneyRange(const CAmount& nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
+inline bool MoneyRange(CAmount nValue, CAmount maxMoney = MAX_MONEY) { return (nValue >= 0 && nValue <= maxMoney); }
 
 #endif //  DEFI_AMOUNT_H

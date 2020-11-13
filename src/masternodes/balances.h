@@ -70,9 +70,9 @@ struct CBalances
         str.reserve(100);
         for (const auto& kv : balances) {
             if (!str.empty()) {
-                str += ",";
+                str += ',';
             }
-            str += CTokenAmount{kv.first, kv.second}.ToString();
+            str += kv.first.ToString();
         }
         return str;
     }
