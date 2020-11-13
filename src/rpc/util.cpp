@@ -69,15 +69,16 @@ void RPCTypeCheckObj(const UniValue& o,
     }
 }
 
-CAmount AmountFromValue(const UniValue& value)
+CAmount AmountFromValue(const UniValue& value, uint8_t decimal)
 {
     if (!value.isNum() && !value.isStr())
         throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
-    CAmount amount;
-    if (!ParseFixedPoint(value.getValStr(), 8, &amount))
+    auto res = CTokenAmount::FromString(value.getValStr(), decimal);
+    if (!res)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-    if (!MoneyRange(amount))
-        throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
+    CAmount amount = (*res.val).nValue;
+    if (amount < 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Negative amount");
     return amount;
 }
 

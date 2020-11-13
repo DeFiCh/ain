@@ -22,9 +22,6 @@ namespace interfaces {
 class Chain;
 }
 
-std::pair<std::string, std::string> SplitAmount(std::string const & output);
-
-ResVal<std::pair<CAmount, std::string>> ParseTokenAmount(std::string const & tokenAmount);
 ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain,std::string const & tokenAmount);
 
 CScript DecodeScript(std::string const& str);

@@ -66,7 +66,9 @@ static void SetupDefiTxArgs()
         "This command requires JSON registers:"
         "prevtxs=JSON object, "
         "privatekeys=JSON object. "
-        "See signrawtransactionwithkey docs for format of sighash flags, JSON objects.", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
+        "See signrawtransactionwithkey docs for format of sighash flags, JSON objects. "
+        "Consider to add decimal alongside amount when it differs from DFI "
+        " or it will be guess eg. 0.33 -> decimal 2. WARNING specify correct value or this can harm your balance", ArgsManager::ALLOW_ANY, OptionsCategory::COMMANDS);
 
     gArgs.AddArg("load=NAME:FILENAME", "Load JSON file FILENAME into register NAME", ArgsManager::ALLOW_ANY, OptionsCategory::REGISTER_COMMANDS);
     gArgs.AddArg("set=NAME:JSON-STRING", "Set register NAME to given JSON-STRING", ArgsManager::ALLOW_ANY, OptionsCategory::REGISTER_COMMANDS);
@@ -530,16 +532,32 @@ static bool findSighashFlags(int& flags, const std::string& flagStr)
     return false;
 }
 
-static CAmount AmountFromValue(const UniValue& value)
+static CAmount AmountFromValue(const UniValue& value, uint8_t decimal)
 {
     if (!value.isNum() && !value.isStr())
         throw std::runtime_error("Amount is not a number or string");
-    CAmount amount;
-    if (!ParseFixedPoint(value.getValStr(), 8, &amount))
+    auto res = CTokenAmount::FromString(value.getValStr(), decimal);
+    if (!res)
         throw std::runtime_error("Invalid amount");
-    if (!MoneyRange(amount))
-        throw std::runtime_error("Amount out of range");
-    return amount;
+    return res;
+}
+
+uint8_t ParseDecimal(const UniValue& value)
+{
+    int decimal;
+    const auto& dec = find_value(value, "decimal");
+    if (!dec.isNull()) {
+        decimal = dec.get_int();
+    } else {
+        const auto str = value["amount"].getValStr();
+        const auto pos = str.find('.');
+        if (pos == str.npos)
+            throw std::runtime_error("Decimal point not present");
+        decimal = str.size() - pos - 1;
+    }
+    if (decimal > DECIMAL_LIMIT)
+        throw std::runtime_error("Coin value is too small");
+    return uint8_t(decimal);
 }
 
 static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
@@ -614,8 +632,13 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
                 Coin newcoin;
                 newcoin.out.scriptPubKey = scriptPubKey;
                 newcoin.out.nValue = 0;
+                newcoin.out.nTokenId = coin.out.nTokenId;
                 if (prevOut.exists("amount")) {
-                    newcoin.out.nValue = AmountFromValue(prevOut["amount"]);
+                    uint8_t decimal = 8;
+                    if (newcoin.out.nTokenId != DCT_ID{0}) {
+                        decimal = ParseDecimal(prevOut);
+                    }
+                    newcoin.out.nValue = AmountFromValue(prevOut["amount"], decimal);
                 }
                 newcoin.nHeight = 1;
                 view.AddCoin(out, std::move(newcoin), true);

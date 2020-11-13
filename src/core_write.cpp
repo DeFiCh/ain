@@ -7,6 +7,7 @@
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <key_io.h>
+#include <masternodes/tokens.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <serialize.h>
@@ -15,14 +16,15 @@
 #include <util/system.h>
 #include <util/strencodings.h>
 
-UniValue ValueFromAmount(const CAmount& amount)
+UniValue ValueFromAmount(const CAmount& amount, DCT_ID tokenId, const CToken& token)
 {
-    bool sign = amount < 0;
-    int64_t n_abs = (sign ? -amount : amount);
-    int64_t quotient = n_abs / COIN;
-    int64_t remainder = n_abs % COIN;
-    return UniValue(UniValue::VNUM,
-            strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder));
+    auto str = CTokenAmount{DCT_ID{0}, amount}.ToString(token.decimal);
+    return str + '@' + token.symbol + (token.IsDAT() ? "" : "#") + tokenId.ToString();
+}
+
+UniValue ValueFromAmount(const CAmount& amount, uint8_t decimal)
+{
+    return UniValue(UniValue::VNUM, CTokenAmount{DCT_ID{0}, amount}.ToString(decimal));
 }
 
 std::string FormatScript(const CScript& script)
@@ -175,7 +177,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     out.pushKV("addresses", a);
 }
 
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)
+void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags, const std::map<DCT_ID, uint8_t>& tokens)
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
@@ -217,7 +219,12 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 
         UniValue out(UniValue::VOBJ);
 
-        out.pushKV("value", ValueFromAmount(txout.nValue));
+        uint8_t decimal = 8;
+        auto it = tokens.find(txout.nTokenId);
+        if (it != tokens.end()) {
+            decimal = it->second;
+        }
+        out.pushKV("value", ValueFromAmount(txout.nValue, decimal));
         out.pushKV("n", (int64_t)i);
 
         UniValue o(UniValue::VOBJ);

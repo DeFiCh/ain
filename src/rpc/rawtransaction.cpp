@@ -11,6 +11,7 @@
 #include <core_io.h>
 #include <init.h>
 #include <index/txindex.h>
+#include <masternodes/masternodes.h>
 #include <merkleblock.h>
 #include <node/coin.h>
 #include <node/psbt.h>
@@ -51,11 +52,19 @@ static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& 
     // Blockchain contextual information (confirmations and blocktime) is not
     // available to code in defi-common, so we query them here and push the
     // data into the returned UniValue.
-    TxToUniv(tx, uint256(), entry, true, RPCSerializationFlags());
+    LOCK(cs_main);
+    std::map<DCT_ID, uint8_t> tokens;
+    ForEachTokenOutput(tx, [&](DCT_ID const& id) {
+        if (tokens.count(id))
+            return;
+        if (id == DCT_ID{0})
+            tokens.emplace(id, 8);
+        else if (auto token = pcustomcsview->GetToken(id))
+            tokens.emplace(id, token->decimal);
+    });
+    TxToUniv(tx, uint256(), entry, true, RPCSerializationFlags(), tokens);
 
     if (!hashBlock.IsNull()) {
-        LOCK(cs_main);
-
         entry.pushKV("blockhash", hashBlock.GetHex());
         CBlockIndex* pindex = LookupBlockIndex(hashBlock);
         if (pindex) {
@@ -484,7 +493,20 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
     }
 
     UniValue result(UniValue::VOBJ);
-    TxToUniv(CTransaction(std::move(mtx)), uint256(), result, false);
+    CTransaction tx(std::move(mtx));
+    std::map<DCT_ID, uint8_t> tokens;
+    {
+        LOCK(cs_main);
+        ForEachTokenOutput(tx, [&](DCT_ID const& id) {
+            if (tokens.count(id))
+                return;
+            if (id == DCT_ID{0})
+                tokens.emplace(id, 8);
+            else if (auto token = pcustomcsview->GetToken(id))
+                tokens.emplace(id, token->decimal);
+        });
+    }
+    TxToUniv(tx, uint256(), result, false, 0, tokens);
 
     return result;
 }
@@ -754,7 +776,25 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
     }
     FindCoins(coins);
 
-    return SignTransaction(mtx, request.params[2], &keystore, coins, true, request.params[3]);
+    UniValue values;
+    const auto& param = request.params[2];
+    if (param.isArray()) {
+        values.setArray();
+        auto& txs = param.get_array();
+        for (size_t idx = 0; idx < txs.size(); ++idx) {
+            auto& tx = txs[idx];
+            auto newTx = tx;
+            auto& amount = find_value(tx, "amount");
+            if (!amount.isNull()) {
+                auto tokenAmount = DecodeAmount(*g_rpc_interfaces->chain, amount, "signrawtransactionwithkey");
+                newTx.pushKV("tokenId", uint64_t(tokenAmount.nTokenId.v));
+                newTx.pushKV("nValue", int64_t(tokenAmount.nValue));
+            }
+            values.push_back(newTx);
+        }
+    }
+
+    return SignTransaction(mtx, values, &keystore, coins, true, request.params[3]);
 }
 
 static UniValue sendrawtransaction(const JSONRPCRequest& request)
@@ -1044,8 +1084,24 @@ UniValue decodepsbt(const JSONRPCRequest& request)
     UniValue result(UniValue::VOBJ);
 
     // Add the decoded tx
+    LOCK(cs_main);
+    CTransaction tx(*psbtx.tx);
     UniValue tx_univ(UniValue::VOBJ);
-    TxToUniv(CTransaction(*psbtx.tx), uint256(), tx_univ, false);
+    std::map<DCT_ID, uint8_t> tokens;
+    auto token = [&](DCT_ID const& id) -> uint8_t {
+        if (id == DCT_ID{0})
+            return 8;
+        auto it = tokens.find(id);
+        if (it != tokens.end())
+            return it->second;
+        uint8_t decimal = 8;
+        if (auto token = pcustomcsview->GetToken(id))
+            decimal = token->decimal;
+        tokens.emplace(id, decimal);
+        return decimal;
+    };
+    ForEachTokenOutput(tx, token);
+    TxToUniv(tx, uint256(), tx_univ, false, 0, tokens);
     result.pushKV("tx", tx_univ);
 
     // Unknown data
@@ -1068,8 +1124,11 @@ UniValue decodepsbt(const JSONRPCRequest& request)
 
             UniValue out(UniValue::VOBJ);
 
-            out.pushKV("amount", ValueFromAmount(txout.nValue));
-            total_in += txout.nValue;
+            const auto decimal = token(txout.nTokenId);
+            out.pushKV("tokenId", uint64_t(txout.nTokenId.v));
+            out.pushKV("amount", ValueFromAmount(txout.nValue, decimal));
+            if (txout.nTokenId == DCT_ID{0})
+                total_in += txout.nValue;
 
             UniValue o(UniValue::VOBJ);
             ScriptToUniv(txout.scriptPubKey, o, true);
@@ -1077,9 +1136,12 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             in.pushKV("witness_utxo", out);
         } else if (input.non_witness_utxo) {
             UniValue non_wit(UniValue::VOBJ);
-            TxToUniv(*input.non_witness_utxo, uint256(), non_wit, false);
+            ForEachTokenOutput(*input.non_witness_utxo, token);
+            TxToUniv(*input.non_witness_utxo, uint256(), non_wit, false, 0, tokens);
             in.pushKV("non_witness_utxo", non_wit);
-            total_in += input.non_witness_utxo->vout[psbtx.tx->vin[i].prevout.n].nValue;
+            const auto& txout = input.non_witness_utxo->vout[psbtx.tx->vin[i].prevout.n];
+            if (txout.nTokenId == DCT_ID{0})
+                total_in += txout.nValue;
         } else {
             have_all_utxos = false;
         }
@@ -1195,7 +1257,8 @@ UniValue decodepsbt(const JSONRPCRequest& request)
         outputs.push_back(out);
 
         // Fee calculation
-        output_value += psbtx.tx->vout[i].nValue;
+        if (psbtx.tx->vout[i].nTokenId == DCT_ID{0})
+            output_value += psbtx.tx->vout[i].nValue;
     }
     result.pushKV("outputs", outputs);
     if (have_all_utxos) {

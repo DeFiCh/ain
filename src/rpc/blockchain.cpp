@@ -145,16 +145,23 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("versionHex", strprintf("%08x", block.nVersion));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
     UniValue txs(UniValue::VARR);
-    for(const auto& tx : block.vtx)
-    {
-        if(txDetails)
-        {
+    std::map<DCT_ID, uint8_t> tokens;
+    for(const auto& tx : block.vtx) {
+        if(txDetails) {
+            ForEachTokenOutput(*tx, [&](DCT_ID const& id) {
+                if (tokens.count(id))
+                    return;
+                if (id == DCT_ID{0})
+                    tokens.emplace(id, 8);
+                else if (auto token = pcustomcsview->GetToken(id))
+                    tokens.emplace(id, token->decimal);
+            });
             UniValue objTx(UniValue::VOBJ);
-            TxToUniv(*tx, uint256(), objTx, true, RPCSerializationFlags());
+            TxToUniv(*tx, uint256(), objTx, true, RPCSerializationFlags(), tokens);
             txs.push_back(objTx);
-        }
-        else
+        } else {
             txs.push_back(tx->GetHash().GetHex());
+        }
     }
     result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
@@ -1099,7 +1106,7 @@ UniValue gettxout(const JSONRPCRequest& request)
     auto token = pcustomcsview->GetToken(coin.out.nTokenId);
     if (!token)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Unknown token");
-    ret.pushKV("token", coin.out.nTokenId.ToString());
+    ret.pushKV("tokenId", uint64_t(coin.out.nTokenId.v));
     ret.pushKV("value", ValueFromAmount(coin.out.nValue, token->decimal));
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToUniv(coin.out.scriptPubKey, o, true);

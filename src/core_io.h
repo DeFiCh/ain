@@ -14,6 +14,7 @@
 class CBlock;
 class CBlockHeader;
 class CScript;
+class CToken;
 class CTransaction;
 struct CMutableTransaction;
 class uint256;
@@ -39,12 +40,14 @@ std::vector<unsigned char> ParseHexUV(const UniValue& v, const std::string& strN
 int ParseSighashString(const UniValue& sighash);
 
 // core_write.cpp
-UniValue ValueFromAmount(const CAmount& amount);
+UniValue ValueFromAmount(const CAmount& amount, uint8_t decimal = 8);
+UniValue ValueFromAmount(const CAmount& amount, DCT_ID tokenId, const CToken& token);
 std::string FormatScript(const CScript& script);
 std::string EncodeHexTx(const CTransaction& tx, const int serializeFlags = 0);
 std::string SighashToStr(unsigned char sighash_type);
 void ScriptPubKeyToUniv(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 void ScriptToUniv(const CScript& script, UniValue& out, bool include_address);
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex = true, int serialize_flags = 0);
+void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
+              bool include_hex = true, int serialize_flags = 0, const std::map<DCT_ID, uint8_t>& tokens = {});
 
 #endif // DEFI_CORE_IO_H

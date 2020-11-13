@@ -25,56 +25,25 @@
 
 #include <string>
 
-std::function<void(int, std::string)> JSONRPCErrorThrower(const std::string& prefix) {
-    return [=](int code, const std::string& msg) {
-        throw JSONRPCError(code, prefix + ": " + msg);
-    };
-}
-
-
-std::pair<std::string, std::string> SplitAmount(std::string const & output)
-{
-    const unsigned char TOKEN_SPLITTER = '@';
-    size_t pos = output.rfind(TOKEN_SPLITTER);
-    std::string token_id = (pos != std::string::npos) ? output.substr(pos+1) : "";
-    std::string amount = (pos != std::string::npos) ? output.substr(0, pos) : output;
-    return { amount, token_id };
-}
-
-ResVal<std::pair<CAmount, std::string>> ParseTokenAmount(std::string const & tokenAmount)
-{
-    const auto strs = SplitAmount(tokenAmount);
-
-    CAmount amount{0};
-    if (!ParseFixedPoint(strs.first, 8, &amount))
-        return Res::ErrCode(RPC_TYPE_ERROR, "Invalid amount");
-    if (amount <= 0) {
-        return Res::ErrCode(RPC_TYPE_ERROR, "Amount out of range"); // keep it for tests compatibility
-    }
-    return {{amount, strs.second}, Res::Ok()};
-}
-
 ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain, std::string const & tokenAmount)
 {
-    const auto parsed = ParseTokenAmount(tokenAmount);
-    if (!parsed.ok) {
-        return {parsed.res()};
-    }
-    DCT_ID tokenId;
-    try {
-        // try to parse it as a number, in a case DCT_ID was written
-        tokenId.v = (uint32_t) std::stoul(parsed.val->second);
-        return {{tokenId, parsed.val->first}, Res::Ok()};
-    } catch (...) {
-        // assuming it's token symbol, read DCT_ID from DB
-        std::unique_ptr<CToken> token = chain.existTokenGuessId(parsed.val->second, tokenId);
-        if (!token) {
-            return Res::Err("Invalid Defi token: %s", parsed.val->second);
+    ResVal<CTokenAmount> res({}, Res::Ok());
+    auto symbol = tokenAmount.find('@');
+    if (symbol == tokenAmount.npos) {
+        res = CTokenAmount::FromString(tokenAmount); // legacy
+    } else {
+        DCT_ID tokenId;
+        if (auto token = chain.existTokenGuessId(tokenAmount.substr(symbol + 1), tokenId)) {
+            res = CTokenAmount::FromString(tokenAmount.substr(0, symbol), token->decimal);
+            if (res) (*res.val).nTokenId = tokenId;
+        } else {
+            res = CTokenAmount::FromString(tokenAmount); // fallback for parcing, token may not valid
         }
-        return {{tokenId, parsed.val->first}, Res::Ok()};
     }
+    if (res && (*res.val).nValue <= 0)
+        return Res::Err("Amount out of range");
+    return res;
 }
-
 
 // decodes either base58/bech32 address, or a hex format
 CScript DecodeScript(std::string const& str)
@@ -102,11 +71,13 @@ CTokenAmount DecodeAmount(interfaces::Chain const & chain, UniValue const& amoun
     if (amountUni.isArray()) { // * amounts
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, name + ": expected single amount");
     } else if (amountUni.isNum()) { // legacy format for '0' token
-        strAmount = amountUni.getValStr() + "@" + DCT_ID{0}.ToString();
+        strAmount = amountUni.getValStr();
     } else { // only 1 amount
         strAmount = amountUni.get_str();
     }
-    return GuessTokenAmount(chain, strAmount).ValOrException(JSONRPCErrorThrower(name));
+    return GuessTokenAmount(chain, strAmount).ValOrException([&name](uint32_t, const std::string& msg) -> UniValue {
+        return JSONRPCError(RPC_TYPE_ERROR, name + ": " + msg);
+    });
 }
 
 CBalances DecodeAmounts(interfaces::Chain const & chain, UniValue const& amountsUni, std::string const& name)
@@ -314,9 +285,16 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
                 }
                 Coin newcoin;
                 newcoin.out.scriptPubKey = scriptPubKey;
-                newcoin.out.nValue = MAX_MONEY;
+                newcoin.out.nValue = INT64_MAX;
+                newcoin.out.nTokenId = coin->second.out.nTokenId;
                 if (prevOut.exists("amount")) {
-                    newcoin.out.nValue = AmountFromValue(find_value(prevOut, "amount"));
+                    auto& tokenId = prevOut["tokenId"];
+                    auto& nValue = prevOut["nValue"];
+                    if (tokenId.isNull() || nValue.isNull())
+                        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Amount is not enough, tokenId + nValue needed");
+                    if (tokenId.get_int64() != newcoin.out.nTokenId.v)
+                        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Amount token mismatch");
+                    newcoin.out.nValue = nValue.get_int64();
                 }
                 newcoin.nHeight = 1;
                 coins[out] = std::move(newcoin);
@@ -383,7 +361,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
         UpdateInput(txin, sigdata);
 
         // amount must be specified for valid segwit signature
-        if (amount == MAX_MONEY && !txin.scriptWitness.IsNull()) {
+        if (amount == INT64_MAX && !txin.scriptWitness.IsNull()) {
             throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing amount for %s", coin->second.out.ToString()));
         }
 
