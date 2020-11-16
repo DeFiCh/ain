@@ -35,11 +35,6 @@
 #include <boost/assign/list_of.hpp>
 #include <rpc/rawtransaction_util.h>
 
-extern UniValue createrawtransaction(UniValue const& params, bool fHelp); // in rawtransaction.cpp
-extern UniValue fundrawtransaction(UniValue const& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue signrawtransaction(UniValue const& params, bool fHelp); // in rawtransaction.cpp
-extern UniValue sendrawtransaction(UniValue const& params, bool fHelp); // in rawtransaction.cpp
-extern UniValue getnewaddress(UniValue const& params, bool fHelp); // in rpcwallet.cpp
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in core_io.h
 
