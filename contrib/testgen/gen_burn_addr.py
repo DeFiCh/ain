@@ -124,6 +124,15 @@ def print_usage():
     print('  python3 gen_burn_addr.py 8addressForBurn')
     print('  python3 gen_burn_addr.py 7AddressForBurn')
 
+def check_start_range(fst2):
+    if fst2 >= '73' and fst2 <= '7R':
+        return True
+
+    if fst2 >= '8F' and fst2 <= '8d':
+        return True
+
+    return False
+
 if __name__ == '__main__':
     # Check our input parameters for this script
     if (len(sys.argv) < 2):
@@ -150,6 +159,17 @@ if __name__ == '__main__':
 
     if any((c in startString) for c in __unusedChars):
         print('Address start string cannot contain 0OIl')
+        sys.exit(0)
+
+    if (len(startString) < 2):
+        print('The start string is too short')
+        sys.exit(0)
+
+    fst2 = startString[0:2]
+    if not check_start_range(fst2):
+        print('Address start is not correct!')
+        print('Mainnet address start with string from 8F ~ 8d')
+        print('Testnet address start with string from 73 ~ 7R')
         sys.exit(0)
 
     anotherString = startString + "X" * (34 - len(startString))
