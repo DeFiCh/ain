@@ -41,7 +41,7 @@ extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in co
 extern void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position,
                             UniValue options);
 
-static CMutableTransaction fund(CMutableTransaction _mtx, JSONRPCRequest const& request, CWallet* const pwallet) {
+static CMutableTransaction fund(CMutableTransaction _mtx, CWallet* const pwallet) {
     CMutableTransaction mtx = std::move(_mtx);
     CAmount fee_out;
     int change_position = mtx.vout.size();
@@ -56,7 +56,7 @@ static CMutableTransaction fund(CMutableTransaction _mtx, JSONRPCRequest const& 
 }
 
 static CTransactionRef
-signsend(const CMutableTransaction& _mtx, JSONRPCRequest const& request, CWallet* const pwallet) {
+signsend(const CMutableTransaction& _mtx, JSONRPCRequest const& request) {
     // sign
     JSONRPCRequest new_request;
     new_request.id = request.id;
@@ -242,7 +242,7 @@ UniValue createmasternode(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(targetHeight), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(), GetScriptForDestination(ownerDest)));
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -254,7 +254,7 @@ UniValue createmasternode(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue resignmasternode(const JSONRPCRequest& request) {
@@ -323,7 +323,7 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -335,7 +335,7 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
@@ -656,7 +656,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(GetTokenCreationFee(targetHeight), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetTokenCollateralAmount(), GetScriptForDestination(collateralDest)));
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -668,7 +668,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue updatetoken(const JSONRPCRequest& request) {
@@ -874,7 +874,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -893,7 +893,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
@@ -1150,7 +1150,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -1163,7 +1163,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 CScript hexToScript(std::string const& str) {
@@ -1738,7 +1738,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     }
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -1750,7 +1750,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue removepoolliquidity(const JSONRPCRequest& request) {
@@ -1824,7 +1824,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
     rawTx.vin = GetAuthInputs(pwallet, ownerDest, txInputs.get_array());
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -1836,7 +1836,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue utxostoaccount(const JSONRPCRequest& request) {
@@ -1915,7 +1915,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     }
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -1928,7 +1928,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue accounttoaccount(const JSONRPCRequest& request) {
@@ -2009,7 +2009,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     rawTx.vin = GetAuthInputs(pwallet, ownerDest, txInputs.get_array());
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -2027,7 +2027,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue accounttoutxos(const JSONRPCRequest& request) {
@@ -2112,7 +2112,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // re-encode with filled mintingOutputsStart
     {
@@ -2150,7 +2150,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue createpoolpair(const JSONRPCRequest& request) {
@@ -2295,7 +2295,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     if(rawTx.vin.size() == 0)
         throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -2307,7 +2307,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue updatepoolpair(const JSONRPCRequest& request) {
@@ -2423,7 +2423,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -2435,7 +2435,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage &poolSwapMsg) {
@@ -2592,7 +2592,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
     rawTx.vin = GetAuthInputs(pwallet, ownerDest, txInputs.get_array());
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -2604,7 +2604,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue testpoolswap(const JSONRPCRequest& request) {
@@ -3002,7 +3002,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     if(rawTx.vin.size() == 0)
         throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -3014,7 +3014,7 @@ UniValue setgov(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue getgov(const JSONRPCRequest& request) {
