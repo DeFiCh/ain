@@ -465,6 +465,7 @@ void SetupServerArgs()
     gArgs.AddArg("-spv_rescan", "Block height to rescan from (default: 0 = off)", ArgsManager::ALLOW_INT, OptionsCategory::OPTIONS);
     gArgs.AddArg("-amkheight", "AMK fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-bayfrontheight", "Bayfront fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-cqheight", "CQ fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);

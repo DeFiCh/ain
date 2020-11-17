@@ -74,6 +74,8 @@ struct Params {
     int AMKHeight;
     /** What exactly? Changes to mint DAT, new updatetokens? */
     int BayfrontHeight;
+    /** Placeholder for third fork. Add ability to change token owner. */
+    int CQHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
 

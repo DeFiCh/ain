@@ -116,6 +116,7 @@ public:
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
         consensus.AMKHeight = 356500;
         consensus.BayfrontHeight = 405000;
+        consensus.CQHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -275,6 +276,7 @@ public:
         consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
         consensus.AMKHeight = 150;
         consensus.BayfrontHeight = 3000;
+        consensus.CQHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -411,6 +413,7 @@ public:
         consensus.BIP66Height = 0;
         consensus.AMKHeight = 150;
         consensus.BayfrontHeight = 250;
+        consensus.CQHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -542,6 +545,7 @@ public:
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
         consensus.AMKHeight = 10000000;
         consensus.BayfrontHeight = 10000000;
+        consensus.CQHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -705,6 +709,17 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.BayfrontHeight = static_cast<int>(height);
+    }
+
+    if (gArgs.IsArgSet("-cqheight")) {
+        int64_t height = gArgs.GetArg("-cqheight", consensus.CQHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for CQ is out of valid range. Use -1 to disable cq features.", height));
+        } else if (height == -1) {
+            LogPrintf("CQ disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.CQHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;
