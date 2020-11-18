@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE(recipients)
 
     // check wrong tokens
     // BOOST_CHECK_EXCEPTION(DecodeRecipients(*testChain, ParseNonRFCJSONValue("{\"" + p2pkh + "\":\"1@1\"}")), UniValue, HasReason("Invalid Defi token")); // note that if tokenId is digit - existance not checked
-    BOOST_CHECK_EXCEPTION(DecodeRecipients(*testChain, ParseNonRFCJSONValue("{\"" + p2pkh + "\":\"1@GOLD\"}")), UniValue, HasReason("Invalid Defi token"));
+    BOOST_CHECK_EXCEPTION(DecodeRecipients(*testChain, ParseNonRFCJSONValue("{\"" + p2pkh + "\":\"1@GOLD\"}")), UniValue, HasReason("Invalid token"));
 
     // check wrong amounts
     BOOST_CHECK_EXCEPTION(DecodeRecipients(*testChain, ParseNonRFCJSONValue("{\"" + p2pkh + "\":\"non-int\"}")), UniValue, HasReason("Invalid amount"));
