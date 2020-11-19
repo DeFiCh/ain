@@ -209,7 +209,7 @@ class BlockchainTest(DefiTestFramework):
         res = node.gettxoutsetinfo()
 
         # genesis txs are now taken into account too!!!
-        assert_equal(res['total_amount'], Decimal('8855.00000000')) # old value '8725.00000000'
+        assert_equal(res['total_amount'], ['8855.00000000@DFI0']) # old value '8725.00000000'
         assert_equal(res['transactions'], 209) # old value 200
         assert_equal(res['height'], 200)
         assert_equal(res['txouts'], 209) # old value 200
@@ -227,7 +227,7 @@ class BlockchainTest(DefiTestFramework):
 
         res2 = node.gettxoutsetinfo()
         assert_equal(res2['transactions'], 9) # old value 0
-        assert_equal(res2['total_amount'], Decimal('130')) # old value 0
+        assert_equal(res2['total_amount'], ['130.00000000@DFI0']) # old value 0
         assert_equal(res2['height'], 0)
         assert_equal(res2['txouts'], 9) # old value 0
         assert_equal(res2['bogosize'], 669), # old value 0

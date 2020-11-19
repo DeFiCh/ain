@@ -66,7 +66,7 @@ class InvalidMessagesTest(DefiTestFramework):
         msg_at_size = msg_unrecognized(str_data="b" * valid_data_limit)
         assert len(msg_at_size.serialize()) == msg_limit
 
-        increase_allowed = 0.7 # was 0.5
+        increase_allowed = 0.72 # was 0.5
         if [s for s in os.environ.get("DEFI_CONFIG", "").split(" ") if "--with-sanitizers" in s and "address" in s]:
             # how much we should increase for that "sanitizers"?
             increase_allowed = 3.5
