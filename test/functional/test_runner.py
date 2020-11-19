@@ -136,6 +136,7 @@ BASE_SCRIPTS = [
     'feature_tokens_basic.py',
     'feature_tokens_minting.py',
     'feature_tokens_dat.py',
+    'feature_tokens_owner.py',
     'feature_accounts_n_utxos.py',
     'feature_token_fork.py',
     'interface_rest.py',
