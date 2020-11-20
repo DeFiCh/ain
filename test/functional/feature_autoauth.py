@@ -40,7 +40,7 @@ class TokensAutoAuthTest (DefiTestFramework):
         self.step()
 
 
-        ##### Masternodes auth:
+        #==== Masternodes auth:
         # RPC 'resignmasternode'
         mnCollateral = n0.getnewaddress("", "legacy")
         mnId = n0.createmasternode(mnCollateral)
@@ -61,7 +61,7 @@ class TokensAutoAuthTest (DefiTestFramework):
         assert_equal(len(n0.getrawmempool()), 0)
 
 
-        ##### Tokens auth:
+        #==== Tokens auth:
         # RPC 'createtoken'
         collateralGold = self.nodes[0].getnewaddress("", "legacy")
         try:
@@ -128,7 +128,7 @@ class TokensAutoAuthTest (DefiTestFramework):
         assert_equal(n0.getaccount(collateralSilver, {}, True)['2'], 5000)
 
 
-        ##### Liquidity Pools auth:
+        #==== Liquidity Pools auth:
         # RPC 'createpoolpair'
         poolOwner = n0.getnewaddress("", "legacy")
         try:
@@ -255,7 +255,7 @@ class TokensAutoAuthTest (DefiTestFramework):
         assert_equal(len(n0.getrawmempool()), 0)
 
 
-        ##### Transfer auths:
+        #==== Transfer auths:
         # RPC 'accounttoaccount'
         try:
             n0.accounttoaccount(poolShare, {swapped: "1@GS"}, [ n0.listunspent()[0] ])
@@ -289,7 +289,6 @@ class TokensAutoAuthTest (DefiTestFramework):
         assert_equal(len(n0.getrawmempool()), 2)
         self.step()
         assert_equal(len(n0.getrawmempool()), 0)
-        # print ("n0.listunspent()", n0.listunspent(addresses = [swapped] ))
         assert_equal(n0.listunspent(addresses = [swapped] )[0]['amount'], Decimal('0.2'))
 
 
