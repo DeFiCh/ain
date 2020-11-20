@@ -315,7 +315,7 @@ public:
 };
 
 struct CLiquidityMessage {
-    std::map<CScript, CBalances> from; // from -> balances
+    CAccounts from; // from -> balances
     CScript shareAddress;
 
     std::string ToString() const {

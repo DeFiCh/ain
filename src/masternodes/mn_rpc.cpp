@@ -3084,7 +3084,7 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     return result;
 }
 
-std::map<CScript, CBalances> FindAccountsFromWallet(CWallet* const pwallet, bool includeWatchOnly = false) {
+CAccounts FindAccountsFromWallet(CWallet* const pwallet, bool includeWatchOnly = false) {
 
     // make request for getting all addresses from wallet
     UniValue params(UniValue::VARR);
@@ -3100,7 +3100,7 @@ std::map<CScript, CBalances> FindAccountsFromWallet(CWallet* const pwallet, bool
 
     UniValue addresses = ListReceived(*locked_chain, pwallet, params, false);
 
-    std::map<CScript, CBalances> walletAccounts;
+    CAccounts walletAccounts;
     {
         LOCK(cs_main);
         for (uint32_t i = 0; i < addresses.size(); i++) {
@@ -3148,8 +3148,8 @@ static AccountSelectionMode ParseAccountSelectionParam(const std::string selecti
     }
 }
 
-std::map<CScript, CBalances> SelectAccountsByTargetBalances(const std::map<CScript, CBalances>& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode) {
-    std::map<CScript, CBalances> selectedAccountsBalances;
+CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode) {
+    CAccounts selectedAccountsBalances;
     std::vector<std::pair<CScript, CBalances>> foundAccountsBalances;
     CBalances residualBalances(targetBalances);
 #ifdef DEBUG
@@ -3292,7 +3292,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     }
 
     if (request.params[0].get_obj().empty()) { // autofinding
-        std::map<CScript, CBalances> foundWalletAccounts = FindAccountsFromWallet(pwallet);
+        CAccounts foundWalletAccounts = FindAccountsFromWallet(pwallet);
 
         std::string selectionParam = request.params[2].isStr() ? request.params[2].get_str() : "pie";
         AccountSelectionMode selectionMode = ParseAccountSelectionParam(selectionParam);

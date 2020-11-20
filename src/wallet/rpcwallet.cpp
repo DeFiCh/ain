@@ -917,7 +917,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     }
 
 
-    std::map<CScript, CBalances> recip = DecodeRecipients(pwallet->chain(), sendTo);
+    CAccounts recip = DecodeRecipients(pwallet->chain(), sendTo);
     std::vector<CRecipient> vecSend;
 
     for (auto const & scriptBalances : recip) {

@@ -187,9 +187,11 @@ struct CAccountToUtxosMessage {
     }
 };
 
+using CAccounts = std::map<CScript, CBalances>;
+
 struct CAccountToAccountMessage {
     CScript from;
-    std::map<CScript, CBalances> to; // to -> balances
+    CAccounts to; // to -> balances
 
     std::string ToString() const {
         if (to.empty()) {
@@ -212,8 +214,8 @@ struct CAccountToAccountMessage {
 };
 
 struct CAnyAccountsToAccountsMessage {
-    std::map<CScript, CBalances> from; // from -> balances
-    std::map<CScript, CBalances> to; // to -> balances
+    CAccounts from; // from -> balances
+    CAccounts to; // to -> balances
 
     std::string ToString() const {
         if (from.empty() || to.empty()) {
@@ -240,7 +242,7 @@ struct CAnyAccountsToAccountsMessage {
 };
 
 struct CUtxosToAccountMessage {
-    std::map<CScript, CBalances> to; // to -> balances
+    CAccounts to; // to -> balances
 
     std::string ToString() const {
         if (to.empty()) {
@@ -261,7 +263,7 @@ struct CUtxosToAccountMessage {
     }
 };
 
-inline CBalances SumAllTransfers(std::map<CScript, CBalances> const & to) {
+inline CBalances SumAllTransfers(CAccounts const & to) {
     CBalances sum;
     for (const auto& kv : to) {
         sum.AddBalances(kv.second.balances);
