@@ -226,7 +226,7 @@ sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx
             if (!optAuthTx->vout[i].scriptPubKey.IsUnspendable()) {
                 UniValue prevout(UniValue::VOBJ);
                 prevout.pushKV("txid", optAuthTx->GetHash().GetHex());
-                prevout.pushKV("vout", i);
+                prevout.pushKV("vout", (uint64_t)i);
                 prevout.pushKV("scriptPubKey", optAuthTx->vout[i].scriptPubKey.GetHex());
                 //prevout.pushKV("redeemScript", );
                 //prevout.pushKV("witnessScript", );
