@@ -42,6 +42,8 @@ extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in co
 extern void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position,
                             UniValue options);
 
+extern UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet);
+
 static CMutableTransaction fund(CMutableTransaction _mtx, CWallet* const pwallet) {
     CMutableTransaction mtx = std::move(_mtx);
     CAmount fee_out;
