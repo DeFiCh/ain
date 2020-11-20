@@ -72,7 +72,7 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
         # pprint(list_tokens)
 
         # Split minters utxos
-        for i in range(128):
+        for i in range(100):
             repeat = True
             while repeat:
                 try:
@@ -87,6 +87,8 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
         self.sync_all()
+
+        start_block_count = self.nodes[0].getblockcount()
 
         # Stop node #3 for future revert
         self.stop_node(3)
@@ -105,6 +107,8 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
             # send to new address 4 utxos
             for k in range(4):
                 self.nodes[0].sendtoaddress(node1_wallet[i]["address"], 1)
+
+            self.nodes[0].generate(1)
 
             for token in tokens:
                 if i == wallet1_accs_count - 1: # last account
@@ -238,8 +242,9 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
 
         # reverting
         print ("Reverting...")
+        blocks = self.nodes[0].getblockcount() - start_block_count + 1
         self.start_node(3)
-        self.nodes[3].generate(30)
+        self.nodes[3].generate(blocks)
 
         connect_nodes_bi(self.nodes, 2, 3)
         self.sync_blocks()
