@@ -314,7 +314,7 @@ git_version() {
     fi
 
     echo "> version: ${IMAGE_VERSION}"
-    echo "::set-env name=BUILD_VERSION::${IMAGE_VERSION}" # GitHub Actions
+    echo "BUILD_VERSION::${IMAGE_VERSION}" >> $GITHUB_ENV # GitHub Actions
 }
 
 pkg_install_deps() {
