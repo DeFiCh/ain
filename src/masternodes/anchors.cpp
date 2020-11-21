@@ -291,7 +291,6 @@ void CAnchorIndex::ForEachAnchorByBtcHeight(std::function<bool(const CAnchorInde
     KList const & list = anchors.get<AnchorRec::ByBtcHeight>();
     for (auto it = list.rbegin(); it != list.rend(); ++it)
         if (!callback(*it)) break;
-
 }
 
 const CAnchorIndex::AnchorRec * CAnchorIndex::GetActiveAnchor() const
