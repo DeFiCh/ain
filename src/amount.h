@@ -100,11 +100,10 @@ struct CTokenAmount { // simple std::pair is less informative
     CAmount nValue;
 
     std::string ToString() const {
-        // copy of ValueFromAmount()
-        bool sign = nValue < 0;
-        int64_t n_abs = (sign ? -nValue : nValue);
-        int64_t quotient = n_abs / COIN;
-        int64_t remainder = n_abs % COIN;
+        const bool sign = nValue < 0;
+        const int64_t n_abs = (sign ? -nValue : nValue);
+        const int64_t quotient = n_abs / COIN;
+        const int64_t remainder = n_abs % COIN;
         return strprintf("%s%d.%08d@%d", sign ? "-" : "", quotient, remainder, nTokenId.v);
     }
 
