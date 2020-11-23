@@ -1188,8 +1188,8 @@ BalanceKey decodeBalanceKey(std::string const& str) {
 }
 
 std::string tokenAmountString(CTokenAmount const& amount) {
-    auto token = pcustomcsview->GetToken(amount.nTokenId);
-    std::string valueString = std::to_string(amount.nValue / COIN) + "." + std::to_string(amount.nValue % COIN);
+    const auto token = pcustomcsview->GetToken(amount.nTokenId);
+    const auto valueString = strprintf("%d.%08d", amount.nValue / COIN, amount.nValue % COIN);
     return valueString + "@" + token->symbol + (token->IsDAT() ? "" : "#" + amount.nTokenId.ToString());
 }
 
