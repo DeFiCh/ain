@@ -106,7 +106,7 @@ struct CTokenAmount { // simple std::pair is less informative
     Res Add(CAmount amount) {
         // safety checks
         if (amount < 0) {
-            return Sub(-amount);
+            return Res::Err("negative amount: %d", amount);
         }
         // add
         auto sumRes = SafeAdd(this->nValue, amount);
@@ -119,7 +119,7 @@ struct CTokenAmount { // simple std::pair is less informative
     Res Sub(CAmount amount) {
         // safety checks
         if (amount < 0) {
-            return Add(-amount);
+            return Res::Err("negative amount: %d", amount);
         }
         if (this->nValue < amount) {
             return Res::Err("Amount %s is less than %s", this->nValue, CTokenAmount{nTokenId, amount}.ToString());

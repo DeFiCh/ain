@@ -35,18 +35,13 @@
 #include <boost/assign/list_of.hpp>
 #include <rpc/rawtransaction_util.h>
 
-extern UniValue createrawtransaction(UniValue const& params, bool fHelp); // in rawtransaction.cpp
-extern UniValue fundrawtransaction(UniValue const& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue signrawtransaction(UniValue const& params, bool fHelp); // in rawtransaction.cpp
-extern UniValue sendrawtransaction(UniValue const& params, bool fHelp); // in rawtransaction.cpp
-extern UniValue getnewaddress(UniValue const& params, bool fHelp); // in rpcwallet.cpp
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in core_io.h
 
 extern void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position,
                             UniValue options);
 
-static CMutableTransaction fund(CMutableTransaction _mtx, JSONRPCRequest const& request, CWallet* const pwallet) {
+static CMutableTransaction fund(CMutableTransaction _mtx, CWallet* const pwallet) {
     CMutableTransaction mtx = std::move(_mtx);
     CAmount fee_out;
     int change_position = mtx.vout.size();
@@ -61,7 +56,7 @@ static CMutableTransaction fund(CMutableTransaction _mtx, JSONRPCRequest const& 
 }
 
 static CTransactionRef
-signsend(const CMutableTransaction& _mtx, JSONRPCRequest const& request, CWallet* const pwallet) {
+signsend(const CMutableTransaction& _mtx, JSONRPCRequest const& request) {
     // sign
     JSONRPCRequest new_request;
     new_request.id = request.id;
@@ -199,8 +194,8 @@ UniValue createmasternode(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                   HelpExampleCli("createmasternode", "ownerAddress operatorAddress \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                   + HelpExampleRpc("createmasternode", "ownerAddress operatorAddress \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                   HelpExampleCli("createmasternode", "ownerAddress operatorAddress '[{\"txid\":\"id\",\"vout\":0}]'")
+                   + HelpExampleRpc("createmasternode", "ownerAddress operatorAddress '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -247,7 +242,7 @@ UniValue createmasternode(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(targetHeight), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(), GetScriptForDestination(ownerDest)));
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -259,7 +254,7 @@ UniValue createmasternode(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue resignmasternode(const JSONRPCRequest& request) {
@@ -288,8 +283,8 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                   HelpExampleCli("resignmasternode", "mn_id \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                   + HelpExampleRpc("resignmasternode", "mn_id \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                   HelpExampleCli("resignmasternode", "mn_id '[{\"txid\":\"id\",\"vout\":0}]'")
+                   + HelpExampleRpc("resignmasternode", "mn_id '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -328,7 +323,7 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -340,7 +335,7 @@ UniValue resignmasternode(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
@@ -394,8 +389,8 @@ UniValue listmasternodes(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with masternodes information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listmasternodes", "\"[mn_id]\" False")
-                       + HelpExampleRpc("listmasternodes", "\"[mn_id]\" False")
+                       HelpExampleCli("listmasternodes", "'[mn_id]' False")
+                       + HelpExampleRpc("listmasternodes", "'[mn_id]' False")
                },
     }.Check(request);
 
@@ -451,8 +446,8 @@ UniValue getmasternode(const JSONRPCRequest& request) {
                        "{id:{...}}     (object) Json object with masternode information\n"
                },
                RPCExamples{
-                       HelpExampleCli("getmasternode", "\"mn_id\"")
-                       + HelpExampleRpc("getmasternode", "\"mn_id\"")
+                       HelpExampleCli("getmasternode", "mn_id")
+                       + HelpExampleRpc("getmasternode", "mn_id")
                },
     }.Check(request);
 
@@ -579,14 +574,14 @@ UniValue createtoken(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("createtoken", "\"{\\\"symbol\\\":\\\"MyToken\\\","
-                                                     "\\\"collateralAddress\\\":\\\"address\\\"}\"")
-                       + HelpExampleCli("createtoken", "\"{\\\"symbol\\\":\\\"MyToken\\\","
-                                                     "\\\"collateralAddress\\\":\\\"address\\\"}\" "
-                                                     "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                       + HelpExampleRpc("createtoken", "\"{\\\"symbol\\\":\\\"MyToken\\\","
-                                                       "\\\"collateralAddress\\\":\\\"address\\\"}\" "
-                                                       "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                       HelpExampleCli("createtoken", "'{\"symbol\":\"MyToken\","
+                                                     "\"collateralAddress\":\"address\"}'")
+                       + HelpExampleCli("createtoken", "'{\"symbol\":\"MyToken\","
+                                                     "\"collateralAddress\":\"address\"}' "
+                                                     "'[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("createtoken", "'{\"symbol\":\"MyToken\","
+                                                       "\"collateralAddress\":\"address\"}' "
+                                                       "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -661,7 +656,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(GetTokenCreationFee(targetHeight), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetTokenCollateralAmount(), GetScriptForDestination(collateralDest)));
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -673,7 +668,7 @@ UniValue createtoken(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue updatetoken(const JSONRPCRequest& request) {
@@ -727,10 +722,10 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("updatetoken", "\"token {\\\"isDAT\\\":true}\" "
-                                                     "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                       + HelpExampleRpc("updatetoken", "\"token {\\\"isDAT\\\":true}\" "
-                                                       "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                       HelpExampleCli("updatetoken", "token '{\"isDAT\":true}' "
+                                                     "'[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("updatetoken", "token '{\"isDAT\":true}' "
+                                                       "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -879,7 +874,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -898,7 +893,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose) {
@@ -956,8 +951,8 @@ UniValue listtokens(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with tokens information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listtokens", "{\"start\":128} False")
-                       + HelpExampleRpc("listtokens", "{\"start\":128} False")
+                       HelpExampleCli("listtokens", "'{\"start\":128}' False")
+                       + HelpExampleRpc("listtokens", "'{\"start\":128}' False")
                },
     }.Check(request);
 
@@ -1058,10 +1053,10 @@ UniValue minttokens(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("minttokens", "\"10@symbol\"")
+                       HelpExampleCli("minttokens", "10@symbol")
                        + HelpExampleCli("minttokens",
-                                      "\"10@symbol\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
-                       + HelpExampleRpc("minttokens", "\"10@symbol\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\"")
+                                      "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("minttokens", "10@symbol '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -1155,7 +1150,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -1168,7 +1163,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 CScript hexToScript(std::string const& str) {
@@ -1193,8 +1188,8 @@ BalanceKey decodeBalanceKey(std::string const& str) {
 }
 
 std::string tokenAmountString(CTokenAmount const& amount) {
-    auto token = pcustomcsview->GetToken(amount.nTokenId);
-    std::string valueString = std::to_string(amount.nValue / COIN) + "." + std::to_string(amount.nValue % COIN);
+    const auto token = pcustomcsview->GetToken(amount.nTokenId);
+    const auto valueString = strprintf("%d.%08d", amount.nValue / COIN, amount.nValue % COIN);
     return valueString + "@" + token->symbol + (token->IsDAT() ? "" : "#" + amount.nTokenId.ToString());
 }
 
@@ -1256,7 +1251,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("listaccounts", "")
-                       + HelpExampleRpc("listaccounts", "{} False")
+                       + HelpExampleRpc("listaccounts", "'{}' False")
                        + HelpExampleRpc("listaccounts", "'{\"start\":\"a914b12ecde1759f792e0228e4fa6d262902687ca7eb87@0\","
                                                       "\"limit\":1000"
                                                       "}'")
@@ -1565,8 +1560,8 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with pools information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listpoolpairs", "{\"start\":128} False")
-                       + HelpExampleRpc("listpoolpairs", "{\"start\":128} False")
+                       HelpExampleCli("listpoolpairs", "'{\"start\":128}' False")
+                       + HelpExampleRpc("listpoolpairs", "'{\"start\":128}' False")
                },
     }.Check(request);
 
@@ -1688,10 +1683,10 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                RPCExamples{
                        HelpExampleCli("addpoolliquidity",
                                       "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
-                                      "share_address []")
+                                      "share_address '[]'")
                        + HelpExampleRpc("addpoolliquidity",
                                       "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
-                                      "share_address []")
+                                      "share_address '[]'")
                },
     }.Check(request);
 
@@ -1743,7 +1738,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     }
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -1755,7 +1750,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue removepoolliquidity(const JSONRPCRequest& request) {
@@ -1829,7 +1824,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
     rawTx.vin = GetAuthInputs(pwallet, ownerDest, txInputs.get_array());
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -1841,7 +1836,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue utxostoaccount(const JSONRPCRequest& request) {
@@ -1874,9 +1869,9 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("utxostoaccount", "\"{\\\"address1\\\":\\\"1.0@DFI\\\","
-                                                     "\\\"address2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]"
-                                                     "}\" \"[]\"")
+                       HelpExampleCli("utxostoaccount", "'{\"address1\":\"1.0@DFI\","
+                                                     "\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]"
+                                                     "}' '[]'")
                },
     }.Check(request);
 
@@ -1920,7 +1915,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     }
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -1933,7 +1928,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue accounttoaccount(const JSONRPCRequest& request) {
@@ -1968,8 +1963,8 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                        HelpExampleCli("accounttoaccount", "sender_address "
-                                                     "\"{\\\"address1\\\":\\\"1.0@DFI\\\",\\\"address2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]}\" "
-                                                     "[]")
+                                                     "'{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}' "
+                                                     "'[]'")
                },
     }.Check(request);
 
@@ -2014,7 +2009,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     rawTx.vin = GetAuthInputs(pwallet, ownerDest, txInputs.get_array());
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -2032,7 +2027,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue accounttoutxos(const JSONRPCRequest& request) {
@@ -2068,8 +2063,8 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                RPCExamples{
-                       HelpExampleCli("accounttoutxos", "sender_address \\\"{\\\"address1\\\":\\\"100@DFI\"}\\\" [] ")
-                       + HelpExampleCli("accounttoutxos", "sender_address \"{\\\"address1\\\":\\\"1.0@DFI\\\",\\\"address2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]}\" []")
+                       HelpExampleCli("accounttoutxos", "sender_address '{\"address1\":\"100@DFI\"}' '[]'")
+                       + HelpExampleCli("accounttoutxos", "sender_address '{\"address1\":\"1.0@DFI\",\"address2\":[\"2.0@BTC\", \"3.0@ETH\"]}' '[]'")
                },
     }.Check(request);
 
@@ -2117,7 +2112,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // re-encode with filled mintingOutputsStart
     {
@@ -2155,7 +2150,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue createpoolpair(const JSONRPCRequest& request) {
@@ -2198,18 +2193,18 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("createpoolpair",   "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
-                                                          "\\\"tokenB\\\":\\\"MyToken2\\\","
-                                                          "\\\"commission\\\":\\\"0.001\\\","
-                                                          "\\\"status\\\":\\\"True\\\","
-                                                          "\\\"ownerAddress\\\":\\\"Address\\\""
-                                                          "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
-                       + HelpExampleRpc("createpoolpair", "\"{\\\"tokenA\\\":\\\"MyToken1\\\","
-                                                          "\\\"tokenB\\\":\\\"MyToken2\\\","
-                                                          "\\\"commission\\\":\\\"0.001\\\","
-                                                          "\\\"status\\\":\\\"True\\\","
-                                                          "\\\"ownerAddress\\\":\\\"Address\\\""
-                                                            "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
+                       HelpExampleCli("createpoolpair",   "'{\"tokenA\":\"MyToken1\","
+                                                          "\"tokenB\":\"MyToken2\","
+                                                          "\"commission\":\"0.001\","
+                                                          "\"status\":\"True\","
+                                                          "\"ownerAddress\":\"Address\""
+                                                          "}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("createpoolpair", "'{\"tokenA\":\"MyToken1\","
+                                                          "\"tokenB\":\"MyToken2\","
+                                                          "\"commission\":\"0.001\","
+                                                          "\"status\":\"True\","
+                                                          "\"ownerAddress\":\"Address\""
+                                                            "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -2300,7 +2295,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     if(rawTx.vin.size() == 0)
         throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -2312,7 +2307,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue updatepoolpair(const JSONRPCRequest& request) {
@@ -2348,12 +2343,12 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("updatepoolpair", "\"{\"pool\":\"POOL\",\"status\":true,"
-                                                     "\"commission\":0.01,\"ownerAddress\":\"Address\"}\" "
-                                                     "\"[{\"txid\":\"id\",\"vout\":0}]\"")
-                       + HelpExampleRpc("updatepoolpair", "\"{\"pool\":\"POOL\",\"status\":true,"
-                                                       "\"commission\":0.01,\"ownerAddress\":\"Address\"}\" "
-                                                       "\"[{\"txid\":\"id\",\"vout\":0}]\"")
+                       HelpExampleCli("updatepoolpair", "'{\"pool\":\"POOL\",\"status\":true,"
+                                                     "\"commission\":0.01,\"ownerAddress\":\"Address\"}' "
+                                                     "'[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("updatepoolpair", "'{\"pool\":\"POOL\",\"status\":true,"
+                                                       "\"commission\":0.01,\"ownerAddress\":\"Address\"}' "
+                                                       "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -2428,7 +2423,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -2440,7 +2435,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage &poolSwapMsg) {
@@ -2545,20 +2540,20 @@ UniValue poolswap(const JSONRPCRequest& request) {
                           "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                       },
                              RPCExamples{
-                                 HelpExampleCli("poolswap",   "\"{\\\"from\\\":\\\"MyAddress\\\","
-                                                                    "\\\"tokenFrom\\\":\\\"MyToken1\\\","
-                                                                    "\\\"amountFrom\\\":\\\"0.001\\\","
-                                                                    "\\\"to\\\":\\\"Address\\\","
-                                                                    "\\\"tokenTo\\\":\\\"Token2\\\","
-                                                                    "\\\"maxPrice\\\":\\\"0.01\\\""
-                                                                    "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
-                                         + HelpExampleRpc("poolswap", "\"{\\\"from\\\":\\\"MyAddress\\\","
-                                                                            "\\\"tokenFrom\\\":\\\"MyToken1\\\","
-                                                                            "\\\"amountFrom\\\":\\\"0.001\\\","
-                                                                            "\\\"to\\\":\\\"Address\\\","
-                                                                            "\\\"tokenTo\\\":\\\"Token2\\\","
-                                                                            "\\\"maxPrice\\\":\\\"0.01\\\""
-                                                                            "}\" \"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0}]\" ")
+                                 HelpExampleCli("poolswap",   "'{\"from\":\"MyAddress\","
+                                                                    "\"tokenFrom\":\"MyToken1\","
+                                                                    "\"amountFrom\":\"0.001\","
+                                                                    "\"to\":\"Address\","
+                                                                    "\"tokenTo\":\"Token2\","
+                                                                    "\"maxPrice\":\"0.01\""
+                                                                    "}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                                         + HelpExampleRpc("poolswap", "'{\"from\":\"MyAddress\","
+                                                                            "\"tokenFrom\":\"MyToken1\","
+                                                                            "\"amountFrom\":\"0.001\","
+                                                                            "\"to\":\"Address\","
+                                                                            "\"tokenTo\":\"Token2\","
+                                                                            "\"maxPrice\":\"0.01\""
+                                                                            "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                              },
               }.Check(request);
 
@@ -2597,7 +2592,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
     rawTx.vin = GetAuthInputs(pwallet, ownerDest, txInputs.get_array());
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -2609,7 +2604,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue testpoolswap(const JSONRPCRequest& request) {
@@ -2638,20 +2633,20 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                           "\"amount@tokenId\"    (string) The string with amount result of poolswap in format AMOUNT@TOKENID.\n"
                },
                RPCExamples{
-                    HelpExampleCli("testpoolswap",   "\"{\\\"from\\\":\\\"MyAddress\\\","
-                                                    "\\\"tokenFrom\\\":\\\"MyToken1\\\","
-                                                    "\\\"amountFrom\\\":\\\"0.001\\\","
-                                                    "\\\"to\\\":\\\"Address\\\","
-                                                    "\\\"tokenTo\\\":\\\"Token2\\\","
-                                                    "\\\"maxPrice\\\":\\\"0.01\\\""
-                                                    "}\"")
-                    + HelpExampleRpc("testpoolswap", "\"{\\\"from\\\":\\\"MyAddress\\\","
-                                                    "\\\"tokenFrom\\\":\\\"MyToken1\\\","
-                                                    "\\\"amountFrom\\\":\\\"0.001\\\","
-                                                    "\\\"to\\\":\\\"Address\\\","
-                                                    "\\\"tokenTo\\\":\\\"Token2\\\","
-                                                    "\\\"maxPrice\\\":\\\"0.01\\\""
-                                                    "}\"")
+                    HelpExampleCli("testpoolswap",   "'{\"from\":\"MyAddress\","
+                                                    "\"tokenFrom\":\"MyToken1\","
+                                                    "\"amountFrom\":\"0.001\","
+                                                    "\"to\":\"Address\","
+                                                    "\"tokenTo\":\"Token2\","
+                                                    "\"maxPrice\":\"0.01\""
+                                                    "}'")
+                    + HelpExampleRpc("testpoolswap", "'{\"from\":\"MyAddress\","
+                                                    "\"tokenFrom\":\"MyToken1\","
+                                                    "\"amountFrom\":\"0.001\","
+                                                    "\"to\":\"Address\","
+                                                    "\"tokenTo\":\"Token2\","
+                                                    "\"maxPrice\":\"0.01\""
+                                                    "}'")
                },
     }.Check(request);
 
@@ -2727,8 +2722,8 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with pools information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listpoolshares", "{\"start\":128} False")
-                       + HelpExampleRpc("listpoolshares", "{\"start\":128} False")
+                       HelpExampleCli("listpoolshares", "'{\"start\":128}' False")
+                       + HelpExampleRpc("listpoolshares", "'{\"start\":128}' False")
                },
     }.Check(request);
 
@@ -2827,8 +2822,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                        "[{},{}...]     (array) Objects with account history information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listaccounthistory", "\"all\" {\"maxBlockHeight\":160,\"depth\":10}")
-                       + HelpExampleRpc("listaccounthistory", "\"address\" False")
+                       HelpExampleCli("listaccounthistory", "all '{\"maxBlockHeight\":160,\"depth\":10}'")
+                       + HelpExampleRpc("listaccounthistory", "address False")
                },
     }.Check(request);
 
@@ -2959,8 +2954,8 @@ UniValue setgov(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("setgov", "{\"LP_SPLITS\": {\"2\":0.2,\"3\":0.8}")
-                       + HelpExampleRpc("setgov", "{\"LP_DAILY_DFI_REWARD\":109440}")
+                       HelpExampleCli("setgov", "'{\"LP_SPLITS\": {\"2\":0.2,\"3\":0.8}'")
+                       + HelpExampleRpc("setgov", "'{\"LP_DAILY_DFI_REWARD\":109440}'")
                },
     }.Check(request);
 
@@ -3007,7 +3002,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     if(rawTx.vin.size() == 0)
         throw JSONRPCError(RPC_INVALID_REQUEST, "Incorrect Authorization");
 
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -3019,7 +3014,7 @@ UniValue setgov(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 }
 
 UniValue getgov(const JSONRPCRequest& request) {
@@ -3061,8 +3056,8 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
                        "(bool) The boolean indicate that custom transaction was affected on chain\n"
                },
                RPCExamples{
-                       HelpExampleCli("isappliedcustomtx", "\"b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235\" 1005")
-                       + HelpExampleRpc("isappliedcustomtx", "\"b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235\" 1005")
+                       HelpExampleCli("isappliedcustomtx", "b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235 1005")
+                       + HelpExampleRpc("isappliedcustomtx", "b2bb09ffe9f9b292f13d23bafa1225ef26d0b9906da7af194c5738b63839b235 1005")
                },
     }.Check(request);
 

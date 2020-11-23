@@ -118,6 +118,15 @@ jobs:
         draft: false
         prerelease: false
 
+    - name: Generate SHA256 checksum
+      run: |
+        cd ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
+        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz > ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz.SHA256
+        cd .. && cd ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
+        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip > ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip.SHA256
+        cd .. && cd ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11
+        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz > ././defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz.SHA256
+
     - name: Upload release asset - linux
       uses: actions/upload-release-asset@v1
       env:
@@ -127,6 +136,16 @@ jobs:
         asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
         asset_content_type: application/gzip
+
+    - name: Upload checksum - linux
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz.SHA256
+        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz.SHA256
+        asset_content_type: text/plain
 
     - name: Upload release asset - windows
       uses: actions/upload-release-asset@v1
@@ -138,6 +157,16 @@ jobs:
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip
         asset_content_type: application/zip
 
+    - name: Upload checksum asset - windows
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip.SHA256
+        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip.SHA256
+        asset_content_type: text/plain
+
     - name: Upload release asset - macos
       uses: actions/upload-release-asset@v1
       env:
@@ -148,8 +177,12 @@ jobs:
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
         asset_content_type: application/gzip
 
-    - name: Generate SHA256 checksum
-      run: |
-        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
-        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip
-        sha256sum ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
+    - name: Upload checksum asset - macos
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz.SHA256
+        asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz.SHA256
+        asset_content_type: text/plain
