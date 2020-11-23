@@ -373,9 +373,18 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
 
     uint256 tokenTx;
     CToken newToken;
+    uint8_t updateFlags{static_cast<uint8_t>(TokenUpdateFlags::None)};
+    const uint256* newOwnerTX{nullptr};
+
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> tokenTx;
     ss >> newToken;
+
+    // Read updateflags, added after CQ
+    if (static_cast<int>(height) >= consensusParams.CQHeight && !ss.empty()) {
+        ss >> updateFlags;
+    }
+
     if (!ss.empty()) {
         return Res::Err("%s: deserialization failed: excess %d bytes", base, ss.size());
     }
@@ -405,7 +414,14 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
         return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
     }
 
-    auto res = mnview.UpdateToken(token.creationTx, newToken, false);
+    if (!isFoundersToken && (updateFlags & static_cast<uint8_t>(TokenUpdateFlags::NewOwner))) {
+        // Must have at least two vouts, vout[1] new collateral, default nTokenId expected
+        if (tx.vout.size() >= 2 && tx.vout[1].nValue == GetTokenCollateralAmount() && tx.vout[1].nTokenId == DCT_ID{0}) {
+            newOwnerTX = &tx.GetHash();
+        }
+    }
+
+    auto res = mnview.UpdateToken(token.creationTx, newToken, false, newOwnerTX);
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }

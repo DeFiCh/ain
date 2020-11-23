@@ -697,8 +697,8 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                            {"finalize", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                             "Lock token properties forever (bool, optional)"},
                            // it is possible to transfer token's owner. but later
-//                           {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
-//                            "Any valid destination for keeping collateral amount - used as token's owner auth"},
+                           {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                            "Any valid destination for keeping collateral amount - used as token's owner auth"},
                            // omitted for now, need to research/discuss
 //                           {"decimal", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
 //                            "Token's decimal places (optional, fixed to 8 for now, unchecked)"},
@@ -801,10 +801,19 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                               tokenImpl.flags | (uint8_t)CToken::TokenFlags::Finalized :
                               tokenImpl.flags;
     }
+    CTxDestination collateralDest;
+    if (!metaObj["collateralAddress"].isNull()) {
+        std::string collateralAddress = metaObj["collateralAddress"].getValStr();
+        collateralDest = DecodeDestination(collateralAddress);
+        if (collateralDest.which() == 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "collateralAddress (" + collateralAddress + ") does not refer to any valid address");
+        }
+    }
 
     /// @todo replace all heights with (+1)
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
+    bool isFoundersToken = Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
 
     if (targetHeight < Params().GetConsensus().BayfrontHeight) {
         if (metaObj.size() > 1 || !metaObj.exists("isDAT")) {
@@ -831,7 +840,6 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     }
     else
     { // post-bayfront auth
-        bool isFoundersToken = Params().GetConsensus().foundationMembers.find(owner) != Params().GetConsensus().foundationMembers.end();
         if (!txInputs.empty()) {
             rawTx.vin = GetInputs(txInputs);
         }
@@ -858,21 +866,34 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    uint8_t updateFlags{static_cast<uint8_t>(TokenUpdateFlags::None)};
 
     // tx type and serialized data differ:
     if (targetHeight < Params().GetConsensus().BayfrontHeight) {
         metadata << static_cast<unsigned char>(CustomTxType::UpdateToken)
                  << tokenImpl.creationTx <<  metaObj["isDAT"].getBool();
     }
-    else {
+    else if (targetHeight < Params().GetConsensus().CQHeight) {
         metadata << static_cast<unsigned char>(CustomTxType::UpdateTokenAny)
                  << tokenImpl.creationTx << static_cast<CToken>(tokenImpl); // casting to base token's data
+    } else {
+        if (!isFoundersToken && collateralDest.which() != 0 && ownerDest != collateralDest) {
+            updateFlags |= static_cast<uint8_t>(TokenUpdateFlags::NewOwner);
+        }
+
+        metadata << static_cast<unsigned char>(CustomTxType::UpdateTokenAny)
+                 << tokenImpl.creationTx << static_cast<CToken>(tokenImpl) << updateFlags;
     }
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    // Add new owner collateral
+    if (targetHeight >= Params().GetConsensus().CQHeight && collateralDest.which() != 0) {
+        rawTx.vout.push_back(CTxOut(GetTokenCollateralAmount(), GetScriptForDestination(collateralDest)));
+    }
 
     rawTx = fund(rawTx, pwallet);
 
@@ -885,9 +906,12 @@ UniValue updatetoken(const JSONRPCRequest& request) {
             res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), targetHeight,
                                           ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, metaObj["isDAT"].getBool()}), Params().GetConsensus());
         }
-        else {
+        else if (targetHeight < Params().GetConsensus().CQHeight) {
             res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), targetHeight,
                                           ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, static_cast<CToken>(tokenImpl)}), Params().GetConsensus());
+        } else {
+            res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), CTransaction(rawTx), targetHeight,
+                                          ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, static_cast<CToken>(tokenImpl), updateFlags}), Params().GetConsensus());
         }
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);

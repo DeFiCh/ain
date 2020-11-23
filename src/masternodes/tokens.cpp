@@ -182,7 +182,7 @@ bool CTokensView::RevertCreateToken(const uint256 & txid)
     return true;
 }
 
-Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isPreBayfront)
+Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isPreBayfront, const uint256* newOwnerTX)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
@@ -230,6 +230,13 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isP
 
     if (!oldToken.IsFinalized() && newToken.IsFinalized()) // IsFinalized() itself was checked upthere (with Err)
         oldToken.flags |= (uint8_t)CToken::TokenFlags::Finalized;
+
+    // Change the owner if newOwnerTX is not nullptr
+    if (newOwnerTX) {
+        EraseBy<CreationTx>(oldToken.creationTx);
+        oldToken.creationTx = *newOwnerTX;
+        WriteBy<CreationTx>(oldToken.creationTx, WrapVarInt(id.v));
+    }
 
     WriteBy<ID>(WrapVarInt(id.v), oldToken);
     return Res::Ok();

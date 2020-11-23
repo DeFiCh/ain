@@ -17,6 +17,13 @@ class CTransaction;
 
 std::string trim_ws(std::string const & str);
 
+enum class TokenUpdateFlags : uint8_t
+{
+    None = 0,
+    NewOwner = 0x01 // Notify ApplyUpdateTokenAnyTx to change owner
+    // Future flags
+};
+
 class CToken
 {
 public:
@@ -146,7 +153,7 @@ public:
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront);
     bool RevertCreateToken(uint256 const & txid);   /// @deprecated used only by tests. rewrite tests
-    Res UpdateToken(uint256 const & tokenTx, CToken & newToken, bool isPreBayfront);
+    Res UpdateToken(uint256 const & tokenTx, CToken & newToken, bool isPreBayfront, const uint256* newOwner = nullptr);
 
     Res BayfrontFlagsCleanup();
     Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
