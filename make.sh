@@ -164,7 +164,7 @@ docker_build() {
         echo "> building: ${img}"
         local docker_file="${dockerfiles_dir}/${target}.dockerfile"
         echo "> docker build: ${img}"
-        docker build --build-arg BUILD_VERSION=v${IMAGE_VERSION} -f "${docker_file}" -t "${img}" "${docker_context}"
+        docker build --build-arg BUILD_VERSION=${IMAGE_VERSION} -f "${docker_file}" -t "${img}" "${docker_context}"
     done
 }
 
@@ -314,7 +314,7 @@ git_version() {
     fi
 
     echo "> version: ${IMAGE_VERSION}"
-    echo "::set-env name=BUILD_VERSION::${IMAGE_VERSION}" # GitHub Actions
+    echo "BUILD_VERSION=${IMAGE_VERSION}" >> $GITHUB_ENV # GitHub Actions
 }
 
 pkg_install_deps() {

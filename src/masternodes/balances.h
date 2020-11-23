@@ -124,10 +124,12 @@ struct CBalances
 private:
     // TrimZeros is private because balances cannot have zeros normally
     void TrimZeros() {
-        for (auto it = balances.begin(); it != balances.end(); it++) {
+        for (auto it = balances.begin(); it != balances.end(); /* no advance */) {
             if (it->second == 0) {
                 it = balances.erase(it);
             }
+            else
+                it++;
         }
     }
 };
