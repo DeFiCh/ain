@@ -188,10 +188,13 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 and 2 must be non-null");
     }
-
+    
+    const UniValue inputs = request.params[0].get_array();
+    if (inputs.empty())
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction input cannot be empty");
+    }
     std::vector<spv::TxInputData> inputsData;
-    UniValue inputs(UniValue::VARR);
-    inputs = request.params[0].get_array();
     for (size_t idx = 0; idx < inputs.size(); ++idx)
     {
         UniValue const & input = inputs[idx].get_obj();
@@ -655,11 +658,11 @@ UniValue spv_listanchorrewards(const JSONRPCRequest& request)
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"spv_listanchorrewards",
-               "\nList anchor confirms (if any)\n",
+               "\nList anchor rewards (if any)\n",
                {
                },
                RPCResult{
-                       "\"array\"                  Returns array of anchor confirms\n"
+                       "\"array\"                  Returns array of anchor rewards\n"
                },
                RPCExamples{
                        HelpExampleCli("spv_listanchorrewards", "")
