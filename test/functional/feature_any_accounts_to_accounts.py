@@ -18,8 +18,6 @@ from decimal import Decimal
 
 import random
 
-from pprint import pprint
-
 class AnyAccountsToAccountsTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4

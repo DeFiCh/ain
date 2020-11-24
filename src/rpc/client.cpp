@@ -244,7 +244,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "isappliedcustomtx", 1, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
-    { "sendtokenstoaddress", 1, "to" }
+    { "sendtokenstoaddress", 1, "to" },
 };
 // clang-format on
 
