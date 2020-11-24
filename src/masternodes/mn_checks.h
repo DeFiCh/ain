@@ -50,7 +50,8 @@ enum class CustomTxType : unsigned char
     // accounts
     UtxosToAccount     = 'U',
     AccountToUtxos     = 'b',
-    AccountToAccount  = 'B',
+    AccountToAccount   = 'B',
+    AnyAccountsToAccounts  = 'a',
     //set governance variable
     SetGovVariable       = 'G',
 
@@ -59,7 +60,7 @@ enum class CustomTxType : unsigned char
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMNnpuslrUbBG+";
+    char const txtypes[] = "CRTMNnpuslrUbBaG+";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -83,6 +84,7 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::UtxosToAccount:      return "UtxosToAccount";
         case CustomTxType::AccountToUtxos:      return "AccountToUtxos";
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
+        case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
         case CustomTxType::NonTxRewards:        return "Rewards";
         default:                                return "None";
@@ -130,6 +132,7 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
 Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 
 Res ApplySetGovernanceTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 

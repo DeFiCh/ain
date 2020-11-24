@@ -180,6 +180,34 @@ struct CAccountToAccountMessage {
     }
 };
 
+struct CAnyAccountsToAccountsMessage {
+    std::map<CScript, CBalances> from; // from -> balances
+    std::map<CScript, CBalances> to; // to -> balances
+
+    std::string ToString() const {
+        if (from.empty() || to.empty()) {
+            return "empty transfer";
+        }
+        std::string result = "from ";
+        for (const auto& kv : from) {
+            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
+        }
+        result += " to ";
+        for (const auto& kv : to) {
+            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
+        }
+        return result;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(from);
+        READWRITE(to);
+    }
+};
+
 struct CUtxosToAccountMessage {
     std::map<CScript, CBalances> to; // to -> balances
 

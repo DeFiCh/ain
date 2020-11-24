@@ -796,6 +796,78 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     return Res::Ok(base);
 }
 
+Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
+{
+    /// @todo @attention it's a fork! replace with proper activation height here!
+    if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
+
+    // deserialize
+    CAnyAccountsToAccountsMessage msg;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("AnyAccountsToAccounts tx deserialization failed: excess %d bytes", ss.size());
+    }
+    const auto base = strprintf("Transfer AnyAccountsToAccounts: %s", msg.ToString());
+
+    // check auth
+    for (auto const & kv : msg.from) {
+        if (!HasAuth(tx, coins, kv.first)) {
+            return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+        }
+    }
+    // compare
+    auto const sumFrom = SumAllTransfers(msg.from);
+    auto const sumTo = SumAllTransfers(msg.to);
+    if (sumFrom != sumTo) {
+        return Res::Err("%s: %s", base, "sum of inputs (from) != sum of outputs (to)");
+    }
+
+    // transfer
+    // substraction
+    for (const auto& kv : msg.from) {
+        const auto res = mnview.SubBalances(kv.first, kv.second);
+        if (!res.ok) {
+            return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", base, res.msg);
+        }
+        // track pool shares
+        for (const auto& balance : kv.second.balances) {
+            auto token = mnview.GetToken(balance.first);
+            if (token->IsPoolShare()) {
+                const auto bal = mnview.GetBalance(kv.first, balance.first);
+                if (bal.nValue == 0) {
+                    const auto delShare = mnview.DelShare(balance.first, kv.first);
+                    if (!delShare.ok) {
+                        return Res::Err("%s: %s", base, delShare.msg);
+                    }
+                }
+            }
+        }
+    }
+
+    // addition
+    for (const auto& kv : msg.to) {
+        const auto res = mnview.AddBalances(kv.first, kv.second);
+        if (!res.ok) {
+            return Res::Err("%s: %s", base, res.msg);
+        }
+        // track pool shares
+        for (const auto& balance : kv.second.balances) {
+            auto token = mnview.GetToken(balance.first);
+            if (token->IsPoolShare()) {
+                const auto bal = mnview.GetBalance(kv.first, balance.first);
+                if (bal.nValue == balance.second) {
+                    const auto setShare = mnview.SetShare(balance.first, kv.first);
+                    if (!setShare.ok) {
+                        return Res::Err("%s: %s", base, setShare.msg);
+                    }
+                }
+            }
+        }
+    }
+    return Res::Ok(base);
+}
+
 Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams)
 {
     if ((int)height < consensusParams.BayfrontHeight) {
