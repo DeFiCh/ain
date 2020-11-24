@@ -243,6 +243,9 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setgov", 1, "inputs" },
 
     { "isappliedcustomtx", 1, "blockHeight" },
+    { "sendtokenstoaddress", 0, "from" },
+    { "sendtokenstoaddress", 1, "to" },
+    { "sendtokenstoaddress", 2, "inputs" },
 };
 // clang-format on
 

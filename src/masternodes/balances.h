@@ -46,6 +46,19 @@ struct CBalances
         }
         return Res::Ok();
     }
+    CTokenAmount SubWithRemainder(CTokenAmount amount) {
+        if (amount.nValue == 0) {
+            return CTokenAmount{amount.nTokenId, 0};
+        }
+        auto current = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
+        auto remainder = current.SubWithRemainder(amount.nValue);
+        if (current.nValue == 0) {
+            balances.erase(amount.nTokenId);
+        } else {
+            balances[amount.nTokenId] = current.nValue;
+        }
+        return CTokenAmount{amount.nTokenId, remainder};
+    }
     Res SubBalances(TAmounts const & other) {
         for (const auto& kv : other) {
             auto res = Sub(CTokenAmount{kv.first, kv.second});
@@ -55,6 +68,16 @@ struct CBalances
         }
         return Res::Ok();
     }
+    CBalances SubBalancesWithRemainder(TAmounts const & other) {
+        CBalances remainderBalances;
+        for (const auto& kv : other) {
+            CTokenAmount remainder = SubWithRemainder(CTokenAmount{kv.first, kv.second});
+            // if remainder token value is zero
+            // this addition won't get any effect
+            remainderBalances.Add(remainder);
+        }
+        return remainderBalances;
+    }
     Res AddBalances(TAmounts const & other) {
         for (const auto& kv : other) {
             auto res = Add(CTokenAmount{kv.first, kv.second});
@@ -63,6 +86,14 @@ struct CBalances
             }
         }
         return Res::Ok();
+    }
+
+    CAmount GetAllTokensAmount() {
+        CAmount sum = 0;
+        for (auto& balance : balances) {
+            sum += balance.second;
+        }
+        return sum;
     }
 
     std::string ToString() const {

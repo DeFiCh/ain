@@ -128,6 +128,21 @@ struct CTokenAmount { // simple std::pair is less informative
         this->nValue -= amount;
         return Res::Ok();
     }
+    CAmount SubWithRemainder(CAmount amount) {
+        // safety checks
+        if (amount < 0) {
+            Add(-amount);
+            return 0;
+        }
+        if (this->nValue < amount) {
+            CAmount remainder = amount - this->nValue;
+            this->nValue = 0;
+            return remainder;
+        }
+        // sub
+        this->nValue -= amount;
+        return 0;
+    }
 
     ADD_SERIALIZE_METHODS;
 

@@ -3081,39 +3081,288 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     return result;
 }
 
+std::map<CScript, CBalances> FindAccountsFromWallet(CWallet* const pwallet, bool includeWatchOnly = false) {
+
+    // make request for getting all addresses from wallet
+    UniValue params(UniValue::VARR);
+    // min confirmations
+    params.push_back(UniValue(0));
+    // include empty addresses
+    params.push_back(UniValue(true));
+    // include watch only addresses
+    params.push_back(UniValue(includeWatchOnly));
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    UniValue addresses = ListReceived(*locked_chain, pwallet, params, false);
+
+    std::map<CScript, CBalances> walletAccounts;
+    {
+        LOCK(cs_main);
+        for (uint32_t i = 0; i < addresses.size(); i++) {
+            CScript ownerScript = DecodeScript(addresses[i]["address"].get_str());
+            CBalances accountBalances;
+            pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
+                if (owner != ownerScript) return false;
+                accountBalances.Add(balance);
+            }, BalanceKey{ownerScript, 0});
+            walletAccounts.emplace(ownerScript, accountBalances);
+        }
+    }
+
+    return walletAccounts;
+}
+
+typedef enum {
+    // selecting accounts without sorting
+    SelectionForward,
+    // selecting accounts by ascending of sum token amounts
+    // it means that we select first accounts with min sum of
+    // neccessary token amounts
+    SelectionCrumbs,
+    // selecting accounts by descending of sum token amounts
+    // it means that we select first accounts with max sum of
+    // neccessary token amounts
+    SelectionPie,
+} AccountSelectionMode;
+
+static AccountSelectionMode ParseAccountSelectionParam(const std::string selectionParam) {
+    if (selectionParam == "forward") {
+        return SelectionForward;
+    }
+    else if (selectionParam == "crumbs") {
+        return SelectionCrumbs;
+    }
+    else if (selectionParam == "pie") {
+        return SelectionPie;
+    }
+    else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalide accounts selection mode.");
+    }
+}
+
+std::map<CScript, CBalances> SelectAccountsByTargetBalances(const std::map<CScript, CBalances>& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode) {
+    std::map<CScript, CBalances> selectedAccountsBalances;
+    std::vector<std::pair<CScript, CBalances>> foundAccountsBalances;
+    CBalances residualBalances(targetBalances);
+
+    // iterate at all accounts to finding all accounts with neccessaru token balances
+    for (auto accIt = accounts.begin(); accIt != accounts.end(); accIt++) {
+        // selectedBalances accumulates overlap between account balances and residual balances
+        CBalances selectedBalances;
+        // iterate at residual balances to find neccessary tokens in account
+        for (auto balIt = residualBalances.balances.begin(); balIt != residualBalances.balances.end(); balIt++) {
+            // find neccessary token amount from current account
+            auto foundTokenAmount = accIt->second.balances.find(balIt->first);
+            // account balance has neccessary token
+            if (foundTokenAmount != accIt->second.balances.end()) {
+                // add token amount to selected balances from current account
+                selectedBalances.Add(CTokenAmount{foundTokenAmount->first, foundTokenAmount->second});
+            }
+        }
+        if (!selectedBalances.balances.empty()) {
+            // added account and selected balances from account to selected accounts
+            foundAccountsBalances.emplace_back(accIt->first, selectedBalances);
+        }
+    }
+
+    if (selectionMode != SelectionForward) {
+        // we need sort vector by ascending or descending sum of token amounts
+        std::sort(foundAccountsBalances.begin(), foundAccountsBalances.end(), [&](std::pair<CScript, CBalances> p1, std::pair<CScript, CBalances> p2) {
+            return (selectionMode == SelectionCrumbs) ?
+                    p1.second.GetAllTokensAmount() > p2.second.GetAllTokensAmount() :
+                        p1.second.GetAllTokensAmount() < p2.second.GetAllTokensAmount();
+        });
+    }
+
+    // selecting accounts balances
+    for (auto accIt = foundAccountsBalances.begin(); accIt != foundAccountsBalances.end(); accIt++) {
+        // Substract residualBalances and selectedBalances with remainder.
+        // Substraction with remainder will remove tokenAmount from balances if remainder
+        // of token's amount is not zero (we got negative result of substraction)
+        CBalances remainder = residualBalances.SubBalancesWithRemainder(accIt->second.balances);
+        // calculate final balances by substraction account balances with remainder
+        // it is necessary to get rid of excess
+        CBalances finalBalances(accIt->second);
+        finalBalances.SubBalances(remainder.balances);
+        selectedAccountsBalances.emplace(accIt->first, finalBalances);
+        // if residual balances is empty we found all neccessary token amounts and can stop selecting
+        if (residualBalances.balances.empty())
+            break;
+    }
+
+    const auto selectedBalancesSum = SumAllTransfers(selectedAccountsBalances);
+    if (selectedBalancesSum < targetBalances) {
+        // we have not enough tokens balance to transfer
+        return {};
+    }
+
+    return selectedAccountsBalances;
+}
+
+UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"sendtokenstoaddress",
+               "\nCreates (and submits to local node and network) a transfer transaction from your accounts balances (may be picked manualy or autoselected) to the specfied accounts.\n" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                    {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The source defi address is the key, the value is amount in amount@token format. "
+                                                                                     "If obj is empty (no address keys exists) - trying to autoselecting accounts from wallet "
+                                                                                     "with necessary balances to transfer."},
+                        },
+                    },
+                    {"to", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
+                                                                                     "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                        },
+                    },
+                    {"selectionMode", RPCArg::Type::STR, /* default */ "pie", "If param \"from\" is empty this param indicates accaouts autoselection mode."
+                                                                              "May be once of:\n"
+                                                                              "  \"forward\" - Selecting accounts without sorting, just as address list sorted.\n"
+                                                                              "  \"crumbs\" - Selecting accounts by ascending of sum token amounts.\n"
+                                                                              "    It means that we will select first accounts with minimal sum of neccessary token amounts.\n"
+                                                                              "  \"pie\" - Selecting accounts by descending of sum token amounts.\n"
+                                                                              "    It means that we will select first accounts with maximal sum of neccessary token amounts."
+                    },
+                },
+                RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("sendtokenstoaddress", "\"{}\" "
+                                                    "\"{\\\"dstAddress1\\\":\\\"1.0@DFI\\\",\\\"dstAddress2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]}\" "
+                                                    "\"crumbs\"") +
+                        HelpExampleCli("sendtokenstoaddress", "\"{\\\"srcAddress1\\\":\\\"2.0@DFI\\\",\\\"srcAddress2\\\":[\\\"3.0@DFI\\\", \\\"2.0@ETH\\\"]}\" "
+                                                    "\"{\\\"dstAddress1\\\":[\\\"5.0@DFI\\\", \\\"2.0@ETH\\\"]}\"")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VOBJ, UniValue::VSTR}, false);
+
+    CAnyAccountsToAccountsMessage msg;
+
+    msg.to = DecodeRecipients(pwallet->chain(), request.params[1].get_obj());
+    const CBalances sumTransfersTo = SumAllTransfers(msg.to);
+    if (sumTransfersTo.balances.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
+    }
+
+    if (request.params[0].get_obj().empty()) { // autofinding
+        std::map<CScript, CBalances> foundWalletAccounts = FindAccountsFromWallet(pwallet);
+
+        AccountSelectionMode selectionMode = ParseAccountSelectionParam(request.params[2].get_str());
+
+        msg.from = SelectAccountsByTargetBalances(foundWalletAccounts, sumTransfersTo, selectionMode);
+
+        if (msg.from.empty()) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                                   "Not enough balance on wallet accounts, call utxostoaccount to increase it.\n");
+        }
+    }
+    else {
+        msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
+    }
+
+    // encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AnyAccountsToAccounts)
+                   << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    UniValue txInputs(UniValue::VARR);
+
+    for (const auto& acc : msg.from) {
+        CTxDestination ownerDest;
+        if (!ExtractDestination(acc.first, ownerDest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
+        }
+        auto authInputs(GetAuthInputs(pwallet, ownerDest, txInputs.get_array()));
+        rawTx.vin.insert(rawTx.vin.end(),
+            std::make_move_iterator(authInputs.begin()),
+            std::make_move_iterator(authInputs.end()));
+    }
+
+    // clear duplicated inputs
+    std::sort(rawTx.vin.begin(), rawTx.vin.end(), [&](const CTxIn& tx1, const CTxIn& tx2) {
+        return tx1.prevout < tx2.prevout;
+    });
+    rawTx.vin.erase(std::unique(rawTx.vin.begin(), rawTx.vin.end()), rawTx.vin.end());
+
+    // fund
+    rawTx = fund(rawTx, request, pwallet);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        const auto res = ApplyAnyAccountsToAccountsTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight,
+                                               ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
+        if (!res.ok) {
+            if (res.code == CustomTxErrCodes::NotEnoughBalance) {
+                throw JSONRPCError(RPC_INVALID_REQUEST,
+                                   "Execution test failed: not enough balance on owner's account, call utxostoaccount to increase it.\n" +
+                                   res.msg);
+            }
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+
+    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+
+}
+
 static const CRPCCommand commands[] =
 { //  category      name                  actor (function)     params
   //  ----------------- ------------------------    -----------------------     ----------
-    {"masternodes", "createmasternode",   &createmasternode,   {"ownerAddress", "operatorAddress", "inputs"}},
-    {"masternodes", "resignmasternode",   &resignmasternode,   {"mn_id", "inputs"}},
-    {"masternodes", "listmasternodes",    &listmasternodes,    {"pagination", "verbose"}},
-    {"masternodes", "getmasternode",      &getmasternode,      {"mn_id"}},
-    {"masternodes", "listcriminalproofs", &listcriminalproofs, {}},
-    {"tokens",      "createtoken",        &createtoken,        {"metadata", "inputs"}},
-    {"tokens",      "updatetoken",        &updatetoken,        {"token", "metadata", "inputs"}},
-    {"tokens",      "listtokens",         &listtokens,         {"pagination", "verbose"}},
-    {"tokens",      "gettoken",           &gettoken,           {"key" }},
-    {"tokens",      "minttokens",         &minttokens,         {"amounts", "inputs"}},
-    {"accounts",    "listaccounts",       &listaccounts,       {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
-    {"accounts",    "getaccount",         &getaccount,         {"owner", "pagination", "indexed_amounts"}},
-    {"poolpair",    "listpoolpairs",      &listpoolpairs,      {"pagination", "verbose"}},
-    {"poolpair",    "getpoolpair",        &getpoolpair,        {"key", "verbose" }},
-    {"poolpair",    "addpoolliquidity",   &addpoolliquidity,   {"from", "shareAddress", "inputs"}},
-    {"poolpair",    "removepoolliquidity",&removepoolliquidity,{"from", "amount", "inputs"}},
-    {"accounts",    "gettokenbalances",   &gettokenbalances,   {"pagination", "indexed_amounts", "symbol_lookup"}},
-    {"accounts",    "utxostoaccount",     &utxostoaccount,     {"amounts", "inputs"}},
-    {"accounts",    "accounttoaccount",   &accounttoaccount,   {"from", "to", "inputs"}},
-    {"accounts",    "accounttoutxos",     &accounttoutxos,     {"from", "to", "inputs"}},
-    {"poolpair",    "createpoolpair",     &createpoolpair,     {"metadata", "inputs"}},
-    {"poolpair",    "updatepoolpair",     &updatepoolpair,     {"metadata", "inputs"}},
-    {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
-    {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
-    {"poolpair",    "testpoolswap",       &testpoolswap,       {"metadata"}},
-    {"accounts",    "listaccounthistory", &listaccounthistory, {"owner", "options"}},
+    {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},
+    {"masternodes", "resignmasternode",      &resignmasternode,      {"mn_id", "inputs"}},
+    {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
+    {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
+    {"masternodes", "listcriminalproofs",    &listcriminalproofs,    {}},
+    {"tokens",      "createtoken",           &createtoken,           {"metadata", "inputs"}},
+    {"tokens",      "updatetoken",           &updatetoken,           {"token", "metadata", "inputs"}},
+    {"tokens",      "listtokens",            &listtokens,            {"pagination", "verbose"}},
+    {"tokens",      "gettoken",              &gettoken,              {"key" }},
+    {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
+    {"accounts",    "listaccounts",          &listaccounts,          {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
+    {"accounts",    "getaccount",            &getaccount,            {"owner", "pagination", "indexed_amounts"}},
+    {"poolpair",    "listpoolpairs",         &listpoolpairs,         {"pagination", "verbose"}},
+    {"poolpair",    "getpoolpair",           &getpoolpair,           {"key", "verbose" }},
+    {"poolpair",    "addpoolliquidity",      &addpoolliquidity,      {"from", "shareAddress", "inputs"}},
+    {"poolpair",    "removepoolliquidity",   &removepoolliquidity,   {"from", "amount", "inputs"}},
+    {"accounts",    "gettokenbalances",      &gettokenbalances,      {"pagination", "indexed_amounts", "symbol_lookup"}},
+    {"accounts",    "utxostoaccount",        &utxostoaccount,        {"amounts", "inputs"}},
+    {"accounts",    "accounttoaccount",      &accounttoaccount,      {"from", "to", "inputs"}},
+    {"accounts",    "accounttoutxos",        &accounttoutxos,        {"from", "to", "inputs"}},
+    {"poolpair",    "createpoolpair",        &createpoolpair,        {"metadata", "inputs"}},
+    {"poolpair",    "updatepoolpair",        &updatepoolpair,        {"metadata", "inputs"}},
+    {"poolpair",    "poolswap",              &poolswap,              {"metadata", "inputs"}},
+    {"poolpair",    "listpoolshares",        &listpoolshares,        {"pagination", "verbose"}},
+    {"poolpair",    "testpoolswap",          &testpoolswap,          {"metadata"}},
+    {"accounts",    "listaccounthistory",    &listaccounthistory,    {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
-    {"blockchain",  "setgov",             &setgov,             {"variables", "inputs"}},
-    {"blockchain",  "getgov",             &getgov,             {"name"}},
-    {"blockchain",  "isappliedcustomtx",  &isappliedcustomtx,  {"txid", "blockHeight"}},
+    {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
+    {"blockchain",  "getgov",                &getgov,                {"name"}},
+    {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
+    {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "inputs"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {
