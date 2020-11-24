@@ -3238,7 +3238,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
                                                     "\"{\\\"dstAddress1\\\":\\\"1.0@DFI\\\",\\\"dstAddress2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]}\" "
                                                     "\"crumbs\"") +
                         HelpExampleCli("sendtokenstoaddress", "\"{\\\"srcAddress1\\\":\\\"2.0@DFI\\\",\\\"srcAddress2\\\":[\\\"3.0@DFI\\\", \\\"2.0@ETH\\\"]}\" "
-                                                    "\"{\\\"dstAddress1\\\":[\\\"5.0@DFI\\\", \\\"2.0@ETH\\\"]}\"")
+                                                    "\"{\\\"dstAddress1\\\":[\\\"5.0@DFI\\\", \\\"2.0@ETH\\\"]}\" \"\"")
                },
     }.Check(request);
 
@@ -3260,7 +3260,8 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     if (request.params[0].get_obj().empty()) { // autofinding
         std::map<CScript, CBalances> foundWalletAccounts = FindAccountsFromWallet(pwallet);
 
-        AccountSelectionMode selectionMode = ParseAccountSelectionParam(request.params[2].get_str());
+        std::string selectionParam = request.params[2].isStr() ? request.params[2].get_str() : "pie";
+        AccountSelectionMode selectionMode = ParseAccountSelectionParam(selectionParam);
 
         msg.from = SelectAccountsByTargetBalances(foundWalletAccounts, sumTransfersTo, selectionMode);
 
@@ -3362,7 +3363,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
-    {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "inputs"}},
+    {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {
