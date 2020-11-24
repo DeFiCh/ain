@@ -44,6 +44,128 @@ extern void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAm
 
 extern UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet);
 
+static CAccounts FindAccountsFromWallet(CWallet* const pwallet, bool includeWatchOnly = false) {
+
+    // make request for getting all addresses from wallet
+    UniValue params(UniValue::VARR);
+    // min confirmations
+    params.push_back(UniValue(0));
+    // include empty addresses
+    params.push_back(UniValue(true));
+    // include watch only addresses
+    params.push_back(UniValue(includeWatchOnly));
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    UniValue addresses = ListReceived(*locked_chain, pwallet, params, false);
+
+    CAccounts walletAccounts;
+    {
+        LOCK(cs_main);
+        for (uint32_t i = 0; i < addresses.size(); i++) {
+            CScript ownerScript = DecodeScript(addresses[i]["address"].get_str());
+            CBalances accountBalances;
+            pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
+                if (owner != ownerScript)
+                    return false;
+                accountBalances.Add(balance);
+                return true;
+            }, BalanceKey{ownerScript, 0});
+            if (!accountBalances.balances.empty())
+                walletAccounts.emplace(ownerScript, accountBalances);
+        }
+    }
+
+    return walletAccounts;
+}
+
+typedef enum {
+    // selecting accounts without sorting
+    SelectionForward,
+    // selecting accounts by ascending of sum token amounts
+    // it means that we select first accounts with min sum of
+    // neccessary token amounts
+    SelectionCrumbs,
+    // selecting accounts by descending of sum token amounts
+    // it means that we select first accounts with max sum of
+    // neccessary token amounts
+    SelectionPie,
+} AccountSelectionMode;
+
+static AccountSelectionMode ParseAccountSelectionParam(const std::string selectionParam) {
+    if (selectionParam == "forward") {
+        return SelectionForward;
+    }
+    else if (selectionParam == "crumbs") {
+        return SelectionCrumbs;
+    }
+    else if (selectionParam == "pie") {
+        return SelectionPie;
+    }
+    else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalide accounts selection mode.");
+    }
+}
+
+static CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode) {
+    CAccounts selectedAccountsBalances;
+    std::vector<std::pair<CScript, CBalances>> foundAccountsBalances;
+    CBalances residualBalances(targetBalances);
+    // iterate at all accounts to finding all accounts with neccessaru token balances
+    for (auto accIt = accounts.begin(); accIt != accounts.end(); accIt++) {
+        // selectedBalances accumulates overlap between account balances and residual balances
+        CBalances selectedBalances;
+        // iterate at residual balances to find neccessary tokens in account
+        for (auto balIt = residualBalances.balances.begin(); balIt != residualBalances.balances.end(); balIt++) {
+            // find neccessary token amount from current account
+            auto foundTokenAmount = accIt->second.balances.find(balIt->first);
+            // account balance has neccessary token
+            if (foundTokenAmount != accIt->second.balances.end()) {
+                // add token amount to selected balances from current account
+                selectedBalances.Add(CTokenAmount{foundTokenAmount->first, foundTokenAmount->second});
+            }
+        }
+        if (!selectedBalances.balances.empty()) {
+            // added account and selected balances from account to selected accounts
+            foundAccountsBalances.emplace_back(accIt->first, selectedBalances);
+        }
+    }
+
+    if (selectionMode != SelectionForward) {
+        // we need sort vector by ascending or descending sum of token amounts
+        std::sort(foundAccountsBalances.begin(), foundAccountsBalances.end(), [&](std::pair<CScript, CBalances> p1, std::pair<CScript, CBalances> p2) {
+            return (selectionMode == SelectionCrumbs) ?
+                    p1.second.GetAllTokensAmount() > p2.second.GetAllTokensAmount() :
+                        p1.second.GetAllTokensAmount() < p2.second.GetAllTokensAmount();
+        });
+    }
+
+    // selecting accounts balances
+    for (auto accIt = foundAccountsBalances.begin(); accIt != foundAccountsBalances.end(); accIt++) {
+        // Substract residualBalances and selectedBalances with remainder.
+        // Substraction with remainder will remove tokenAmount from balances if remainder
+        // of token's amount is not zero (we got negative result of substraction)
+        CBalances remainder = residualBalances.SubBalancesWithRemainder(accIt->second.balances);
+        // calculate final balances by substraction account balances with remainder
+        // it is necessary to get rid of excess
+        CBalances finalBalances(accIt->second);
+        finalBalances.SubBalances(remainder.balances);
+        if (!finalBalances.balances.empty())
+            selectedAccountsBalances.emplace(accIt->first, finalBalances);
+        // if residual balances is empty we found all neccessary token amounts and can stop selecting
+        if (residualBalances.balances.empty())
+            break;
+    }
+
+    const auto selectedBalancesSum = SumAllTransfers(selectedAccountsBalances);
+    if (selectedBalancesSum != targetBalances) {
+        // we have not enough tokens balance to transfer
+        return {};
+    }
+    return selectedAccountsBalances;
+}
+
 static CMutableTransaction fund(CMutableTransaction _mtx, CWallet* const pwallet) {
     CMutableTransaction mtx = std::move(_mtx);
     CAmount fee_out;
@@ -3084,157 +3206,6 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     return result;
 }
 
-CAccounts FindAccountsFromWallet(CWallet* const pwallet, bool includeWatchOnly = false) {
-
-    // make request for getting all addresses from wallet
-    UniValue params(UniValue::VARR);
-    // min confirmations
-    params.push_back(UniValue(0));
-    // include empty addresses
-    params.push_back(UniValue(true));
-    // include watch only addresses
-    params.push_back(UniValue(includeWatchOnly));
-
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
-
-    UniValue addresses = ListReceived(*locked_chain, pwallet, params, false);
-
-    CAccounts walletAccounts;
-    {
-        LOCK(cs_main);
-        for (uint32_t i = 0; i < addresses.size(); i++) {
-            CScript ownerScript = DecodeScript(addresses[i]["address"].get_str());
-            CBalances accountBalances;
-            pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
-                if (owner != ownerScript)
-                    return false;
-                accountBalances.Add(balance);
-                return true;
-            }, BalanceKey{ownerScript, 0});
-            if (!accountBalances.balances.empty())
-                walletAccounts.emplace(ownerScript, accountBalances);
-        }
-    }
-
-    return walletAccounts;
-}
-
-typedef enum {
-    // selecting accounts without sorting
-    SelectionForward,
-    // selecting accounts by ascending of sum token amounts
-    // it means that we select first accounts with min sum of
-    // neccessary token amounts
-    SelectionCrumbs,
-    // selecting accounts by descending of sum token amounts
-    // it means that we select first accounts with max sum of
-    // neccessary token amounts
-    SelectionPie,
-} AccountSelectionMode;
-
-static AccountSelectionMode ParseAccountSelectionParam(const std::string selectionParam) {
-    if (selectionParam == "forward") {
-        return SelectionForward;
-    }
-    else if (selectionParam == "crumbs") {
-        return SelectionCrumbs;
-    }
-    else if (selectionParam == "pie") {
-        return SelectionPie;
-    }
-    else {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalide accounts selection mode.");
-    }
-}
-
-CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode) {
-    CAccounts selectedAccountsBalances;
-    std::vector<std::pair<CScript, CBalances>> foundAccountsBalances;
-    CBalances residualBalances(targetBalances);
-#ifdef DEBUG
-    LogPrintf("wallet accounts:\n");
-    for (auto &acc : accounts) {
-        LogPrintf("%s: %s\n", acc.first.GetHex(), acc.second.ToString());
-    }
-
-    const auto walletAccountsBalancesSum = SumAllTransfers(accounts);
-    LogPrintf("walletAccountsBalancesSum: %s\n", walletAccountsBalancesSum.ToString());
-#endif
-    // iterate at all accounts to finding all accounts with neccessaru token balances
-    for (auto accIt = accounts.begin(); accIt != accounts.end(); accIt++) {
-        // selectedBalances accumulates overlap between account balances and residual balances
-        CBalances selectedBalances;
-        // iterate at residual balances to find neccessary tokens in account
-        for (auto balIt = residualBalances.balances.begin(); balIt != residualBalances.balances.end(); balIt++) {
-            // find neccessary token amount from current account
-            auto foundTokenAmount = accIt->second.balances.find(balIt->first);
-            // account balance has neccessary token
-            if (foundTokenAmount != accIt->second.balances.end()) {
-                // add token amount to selected balances from current account
-                selectedBalances.Add(CTokenAmount{foundTokenAmount->first, foundTokenAmount->second});
-            }
-        }
-        if (!selectedBalances.balances.empty()) {
-            // added account and selected balances from account to selected accounts
-            foundAccountsBalances.emplace_back(accIt->first, selectedBalances);
-        }
-    }
-
-    if (selectionMode != SelectionForward) {
-        // we need sort vector by ascending or descending sum of token amounts
-        std::sort(foundAccountsBalances.begin(), foundAccountsBalances.end(), [&](std::pair<CScript, CBalances> p1, std::pair<CScript, CBalances> p2) {
-            return (selectionMode == SelectionCrumbs) ?
-                    p1.second.GetAllTokensAmount() > p2.second.GetAllTokensAmount() :
-                        p1.second.GetAllTokensAmount() < p2.second.GetAllTokensAmount();
-        });
-    }
-
-    // selecting accounts balances
-    for (auto accIt = foundAccountsBalances.begin(); accIt != foundAccountsBalances.end(); accIt++) {
-#ifdef DEBUG
-        LogPrintf("residualBalances: %s\n", residualBalances.ToString());
-        LogPrintf("candidate: %s\n", accIt->second.ToString());
-#endif
-        // Substract residualBalances and selectedBalances with remainder.
-        // Substraction with remainder will remove tokenAmount from balances if remainder
-        // of token's amount is not zero (we got negative result of substraction)
-        CBalances remainder = residualBalances.SubBalancesWithRemainder(accIt->second.balances);
-#ifdef DEBUG
-        LogPrintf("remainder: %s\n", remainder.ToString());
-#endif
-        // calculate final balances by substraction account balances with remainder
-        // it is necessary to get rid of excess
-        CBalances finalBalances(accIt->second);
-        finalBalances.SubBalances(remainder.balances);
-#ifdef DEBUG
-        LogPrintf("selected balance: %s\n", finalBalances.ToString());
-#endif
-        if (!finalBalances.balances.empty())
-            selectedAccountsBalances.emplace(accIt->first, finalBalances);
-        // if residual balances is empty we found all neccessary token amounts and can stop selecting
-        if (residualBalances.balances.empty())
-            break;
-    }
-
-    const auto selectedBalancesSum = SumAllTransfers(selectedAccountsBalances);
-#ifdef DEBUG
-    LogPrintf("selectedBalancesSum: %s\n", selectedBalancesSum.ToString());
-    LogPrintf("targetBalances: %s\n", targetBalances.ToString());
-#endif
-    if (selectedBalancesSum != targetBalances) {
-        // we have not enough tokens balance to transfer
-        return {};
-    }
-#ifdef DEBUG
-    LogPrintf("selectedAccountsBalances:\n");
-    for (auto &acc : selectedAccountsBalances) {
-        LogPrintf("%s: %s\n", acc.first.GetHex(), acc.second.ToString());
-    }
-#endif
-    return selectedAccountsBalances;
-}
-
 UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -3245,7 +3216,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
                     {"from", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The source defi address is the key, the value is amount in amount@token format. "
-                                                                                     "If obj is empty (no address keys exists) - trying to autoselecting accounts from wallet "
+                                                                                     "If obj is empty (no address keys exists) then will try to auto-select accounts from wallet "
                                                                                      "with necessary balances to transfer."},
                         },
                     },
@@ -3288,7 +3259,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     msg.to = DecodeRecipients(pwallet->chain(), request.params[1].get_obj());
     const CBalances sumTransfersTo = SumAllTransfers(msg.to);
     if (sumTransfersTo.balances.empty()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts in \"to\" param");
     }
 
     if (request.params[0].get_obj().empty()) { // autofinding
@@ -3317,7 +3288,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
     if (scriptMeta.size() > nMaxDatacarrierBytes) {
         throw JSONRPCError(RPC_VERIFY_REJECTED, "The output custom script size has exceeded the maximum OP_RETURN script size."
-                                                "It could have happened because too many \"from\" accounts balances or \"to\"."
+                                                "It could have happened because too many \"from\" or \"to\" accounts balances."
                                                 "If you used autofinding, you can try to use \"pie\" selection mode for decreasing accounts count.");
     }
 
@@ -3348,7 +3319,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     rawTx.vin.erase(std::unique(rawTx.vin.begin(), rawTx.vin.end()), rawTx.vin.end());
 
     // fund
-    rawTx = fund(rawTx, request, pwallet);
+    rawTx = fund(rawTx, pwallet);
 
     // check execution
     {
@@ -3366,7 +3337,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, request, pwallet)->GetHash().GetHex();
+    return signsend(rawTx, request)->GetHash().GetHex();
 
 }
 
