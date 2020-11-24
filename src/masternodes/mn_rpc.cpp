@@ -17,6 +17,7 @@
 #include <rpc/util.h>
 #include <script/script_error.h>
 #include <script/sign.h>
+#include <script/standard.h>
 #include <univalue/include/univalue.h>
 #include <util/validation.h>
 #include <validation.h>
@@ -3104,10 +3105,13 @@ std::map<CScript, CBalances> FindAccountsFromWallet(CWallet* const pwallet, bool
             CScript ownerScript = DecodeScript(addresses[i]["address"].get_str());
             CBalances accountBalances;
             pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
-                if (owner != ownerScript) return false;
+                if (owner != ownerScript)
+                    return false;
                 accountBalances.Add(balance);
+                return true;
             }, BalanceKey{ownerScript, 0});
-            walletAccounts.emplace(ownerScript, accountBalances);
+            if (!accountBalances.balances.empty())
+                walletAccounts.emplace(ownerScript, accountBalances);
         }
     }
 
@@ -3186,14 +3190,15 @@ std::map<CScript, CBalances> SelectAccountsByTargetBalances(const std::map<CScri
         // it is necessary to get rid of excess
         CBalances finalBalances(accIt->second);
         finalBalances.SubBalances(remainder.balances);
-        selectedAccountsBalances.emplace(accIt->first, finalBalances);
+        if (!finalBalances.balances.empty())
+            selectedAccountsBalances.emplace(accIt->first, finalBalances);
         // if residual balances is empty we found all neccessary token amounts and can stop selecting
         if (residualBalances.balances.empty())
             break;
     }
 
     const auto selectedBalancesSum = SumAllTransfers(selectedAccountsBalances);
-    if (selectedBalancesSum < targetBalances) {
+    if (selectedBalancesSum != targetBalances) {
         // we have not enough tokens balance to transfer
         return {};
     }
@@ -3280,6 +3285,12 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    if (scriptMeta.size() > nMaxDatacarrierBytes) {
+        throw JSONRPCError(RPC_VERIFY_REJECTED, "The output custom script size has exceeded the maximum OP_RETURN script size."
+                                                "It could have happened because too many \"from\" accounts balances or \"to\"."
+                                                "If you used autofinding, you can try to use \"pie\" selection mode for decreasing accounts count.");
+    }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
