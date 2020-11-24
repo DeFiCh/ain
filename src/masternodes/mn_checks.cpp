@@ -176,6 +176,9 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::SetGovVariable:
                 res = ApplySetGovernanceTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
+            case CustomTxType::AnyAccountsToAccounts:
+                res = ApplyAnyAccountsToAccountsTx(mnview, coins, tx, height, metadata, consensusParams);
+                break;
             default:
                 return Res::Ok(); // not "custom" tx
         }
