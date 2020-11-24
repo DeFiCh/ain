@@ -14,6 +14,8 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
+from decimal import Decimal
+
 import random
 
 from pprint import pprint
@@ -22,11 +24,13 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
+        # We need to enlarge -datacarriersize for allowing for test big OP_RETURN scripts
+        # resulting from building AnyAccountsToAccounts msg with many accounts balances
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50'],
-            ['-txnotokens=0', '-amkheight=50'],
-            ['-txnotokens=0', '-amkheight=50'],
-            ['-txnotokens=0', '-amkheight=50']
+            ['-txnotokens=0', '-amkheight=50', '-datacarriersize=1000'],
+            ['-txnotokens=0', '-amkheight=50', '-datacarriersize=1000'],
+            ['-txnotokens=0', '-amkheight=50', '-datacarriersize=1000'],
+            ['-txnotokens=0', '-amkheight=50', '-datacarriersize=1000']
         ]
 
     def run_test(self):
@@ -69,234 +73,197 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
         # list_tokens = self.nodes[0].listtokens()
         # pprint(list_tokens)
 
-        addr_types = ["legacy", "p2sh-segwit", "bech32"]
+        # Split minters utxos
+        for i in range(128):
+            repeat = True
+            while repeat:
+                try:
+                    self.nodes[0].sendtoaddress(self.nodes[0].get_genesis_keys().ownerAuthAddress, 1)
+                    repeat = False
+                except JSONRPCException as e:
+                    if (e.error['message'] == "Insufficient funds"):
+                        self.nodes[0].generate(1)
+                    else:
+                        print(e.error['message'])
+                        break
 
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # Stop node #3 for future revert
+        self.stop_node(3)
+        enabled_nodes = [self.nodes[0], self.nodes[1], self.nodes[2]]
+
+        # create node1 wallet from 12 addresses
+        addr_types = ["legacy", "p2sh-segwit", "bech32"]
         node1_wallet = []
 
         minterAccountBalances = self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress, {}, True)
 
-        for i in range(12):
+        wallet1_accs_count = 12
+
+        for i in range(wallet1_accs_count):
             node1_wallet.append({"address": self.nodes[1].getnewaddress("", addr_types[i % len(addr_types)])})
-            print("Filling address:", node1_wallet[i]["address"])
-            # send to address 4 utxos
+            # send to new address 4 utxos
             for k in range(4):
                 self.nodes[0].sendtoaddress(node1_wallet[i]["address"], 1)
 
-            print("minter balances:")
-            pprint(minterAccountBalances)
-
             for token in tokens:
-                if i == 11:
+                if i == wallet1_accs_count - 1: # last account
                     amount = minterAccountBalances[token["tokenId"]]
                 else:
                     amount = random.randint(0, minterAccountBalances[token["tokenId"]] // 2)
 
-                print("Token", token["symbolId"], "amount =", str(amount))
-
                 if amount == 0:
                     continue
 
-                token["wallet"].accounttoaccount(
-                    token["collateralAddress"], # from
-                    {node1_wallet[i]["address"]: str(amount) + "@" + token["symbolId"]} # to
-                )
-                node1_wallet[i][token["symbolId"]] = amount
+                repeat = True
+                while repeat:
+                    try:
+                        token["wallet"].accounttoaccount(
+                            token["collateralAddress"], # from
+                            {node1_wallet[i]["address"]: str(amount) + "@" + token["symbolId"]}) # to
+                        repeat = False
+                    except JSONRPCException as e:
+                        if ("Can't find any UTXO's for owner." in e.error["message"]):
+                            self.nodes[0].generate(1)
+                        else:
+                            repeat = False
+                            raise e
+                node1_wallet[i][token["tokenId"]] = Decimal(amount)
                 minterAccountBalances[token["tokenId"]] = minterAccountBalances[token["tokenId"]] - amount
 
             self.nodes[0].generate(1)
-            self.sync_all()
 
-        print("node 1 balances:")
-        pprint(node1_wallet)
-        print("minter balances:")
-        pprint(minterAccountBalances)
+        self.sync_all(enabled_nodes)
 
-        # Stop node #3 for future revert
-        self.stop_node(3)
+        # check that RPC getaccounts is equal of
+        node1_wallet_rpc = []
+        for node1_acc in node1_wallet:
+            node1_wallet_rpc.append(self.nodes[0].getaccount(node1_acc["address"], {}, True))
 
-        '''
+        assert_equal(len(node1_wallet), len(node1_wallet_rpc))
 
-        symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
-        symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
+        for i in range(len(node1_wallet)):
+            _node1_acc = {**node1_wallet[i]}
+            _node1_acc.pop("address")
+            assert_equal(_node1_acc, node1_wallet_rpc[i])
 
-        idGold = list(self.nodes[0].gettoken(symbolGOLD).keys())[0]
-        idSilver = list(self.nodes[0].gettoken(symbolSILVER).keys())[0]
-        accountGold = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        accountSilver = self.nodes[1].get_genesis_keys().ownerAuthAddress
-        initialGold = self.nodes[0].getaccount(accountGold, {}, True)[idGold]
-        initialSilver = self.nodes[1].getaccount(accountSilver, {}, True)[idSilver]
-        print("Initial GOLD:", initialGold, ", id", idGold)
-        print("Initial SILVER:", initialSilver, ", id", idSilver)
+        wallet2_addr1 = self.nodes[2].getnewaddress("", "legacy")
+        wallet2_addr2 = self.nodes[2].getnewaddress("", "legacy")
 
-        toGold = self.nodes[1].getnewaddress("", "legacy")
-        toSilver = self.nodes[0].getnewaddress("", "legacy")
+        # sendtokenstoaddress
 
-        # accounttoaccount
-        #========================
-        # missing from (account)
+        # not enough balances for transfer
+        to = {}
+
+        to[wallet2_addr1] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"]]
+        to[wallet2_addr2] = ["51@" + tokens[3]["symbolId"]] # we have only 50
+
         try:
-            self.nodes[0].accounttoaccount(self.nodes[0].getnewaddress("", "legacy"), {toGold: "100@" + symbolGOLD}, [])
+            self.nodes[1].sendtokenstoaddress({}, to, "forward")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
 
-        # missing from (account exist, but no tokens)
-        try:
-            self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolSILVER}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("not enough balance" in errorString)
+        assert("Not enough balance on wallet accounts" in errorString)
 
-        # missing amount
-        try:
-            self.nodes[0].accounttoaccount(accountGold, {toGold: ""}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Invalid amount" in errorString)
+        # normal transfer from wallet1
+        to = {}
+        to[wallet2_addr1] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"]]
+        to[wallet2_addr2] = ["20@" + tokens[2]["symbolId"], "20@" + tokens[3]["symbolId"]]
 
-        #invalid UTXOs
-        try:
-            self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolGOLD}, [{"": 0}])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("JSON value is not a string as expected" in errorString)
+        self.nodes[1].sendtokenstoaddress({}, to)
 
-        # missing (account exists, but does not belong)
-        try:
-            self.nodes[0].accounttoaccount(accountSilver, {accountGold: "100@" + symbolSILVER}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
-
-        # transfer
-        self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolGOLD}, [])
+        self.sync_mempools(enabled_nodes)
         self.nodes[0].generate(1)
+        self.sync_all(enabled_nodes)
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
-        assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], 100)
+        wallet2_addr1_balance = self.nodes[0].getaccount(wallet2_addr1, {}, True)
+        wallet2_addr2_balance = self.nodes[0].getaccount(wallet2_addr2, {}, True)
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], self.nodes[1].getaccount(accountGold, {}, True)[idGold])
-        assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], self.nodes[1].getaccount(toGold, {}, True)[idGold])
+        assert_equal(wallet2_addr1_balance[tokens[0]["tokenId"]], Decimal(20))
+        assert_equal(wallet2_addr1_balance[tokens[1]["tokenId"]], Decimal(20))
+        assert_equal(wallet2_addr2_balance[tokens[2]["tokenId"]], Decimal(20))
+        assert_equal(wallet2_addr2_balance[tokens[3]["tokenId"]], Decimal(20))
 
-        # transfer between nodes
-        self.nodes[1].accounttoaccount(accountSilver, {toSilver: "100@" + symbolSILVER}, [])
-        self.nodes[1].generate(1)
+        # send all remaining tokens to wallet1 change address
+        wallet1_change_addr = self.nodes[1].getnewaddress("", "legacy")
+        to = {}
+        to[wallet1_change_addr] = ["30@" + tokens[0]["symbolId"], "30@" + tokens[1]["symbolId"], "30@" + tokens[2]["symbolId"], "30@" + tokens[3]["symbolId"]]
 
-        assert_equal(self.nodes[1].getaccount(accountSilver, {}, True)[idSilver], initialSilver - 100)
-        assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[idSilver], 100)
+        self.nodes[1].sendtokenstoaddress({}, to)
 
-        assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], self.nodes[1].getaccount(accountSilver, {}, True)[idSilver])
-        assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[idSilver], self.nodes[1].getaccount(toSilver, {}, True)[idSilver])
-
-        # missing (account exists, there are tokens, but not token 0)
-        try:
-            self.nodes[0].accounttoaccount(toSilver, {accountGold: "100@" + symbolSILVER}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
-
-        # utxostoaccount
-        #========================
-        try:
-            self.nodes[0].utxostoaccount({toGold: "100@" + symbolGOLD}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Insufficient funds" in errorString)
-
-        # missing amount
-        try:
-            self.nodes[0].utxostoaccount({toGold: ""}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Invalid amount" in errorString)
-
-        #invalid UTXOs
-        try:
-            self.nodes[0].utxostoaccount({accountGold: "100@DFI"}, [{"": 0}])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Invalid amount" in errorString)
-
-        # transfer
-        initialBalance = self.nodes[0].getbalances()['mine']['trusted']
-        self.nodes[0].utxostoaccount({accountGold: "100@DFI"}, [])
+        self.sync_mempools(enabled_nodes)
         self.nodes[0].generate(1)
-        assert(initialBalance != self.nodes[0].getbalances()['mine']['trusted'])
+        self.sync_all(enabled_nodes)
 
-        # accounttoutxos
-        #========================
-        # missing from (account)
-        try:
-            self.nodes[0].accounttoutxos(self.nodes[0].getnewaddress("", "legacy"), {toGold: "100@" + symbolGOLD}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
+        wallet1_change_addr_balance = self.nodes[0].getaccount(wallet1_change_addr, {}, True)
 
-        # missing amount
-        try:
-            self.nodes[0].accounttoutxos(accountGold, {accountGold: ""}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Invalid amount" in errorString)
+        assert_equal(wallet1_change_addr_balance[tokens[0]["tokenId"]], Decimal(30))
+        assert_equal(wallet1_change_addr_balance[tokens[1]["tokenId"]], Decimal(30))
+        assert_equal(wallet1_change_addr_balance[tokens[2]["tokenId"]], Decimal(30))
+        assert_equal(wallet1_change_addr_balance[tokens[3]["tokenId"]], Decimal(30))
 
-        #invalid UTXOs
-        try:
-            self.nodes[0].accounttoutxos(accountGold, {accountGold: "100@" + symbolGOLD}, [{"": 0}])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("JSON value is not a string as expected" in errorString)
+        # send utxos to wallet2
+        for k in range(4):
+            self.nodes[0].sendtoaddress(wallet2_addr1, 1)
+            self.nodes[0].sendtoaddress(wallet2_addr2, 1)
 
-        # missing (account exists, but does not belong)
-        try:
-            self.nodes[0].accounttoutxos(accountSilver, {accountGold: "100@" + symbolSILVER}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
+        self.nodes[0].generate(1)
+        self.sync_all(enabled_nodes)
 
-        # missing (account exists, there are tokens, but not token 0)
-        try:
-            self.nodes[0].accounttoutxos(toSilver, {accountGold: "100@" + symbolSILVER}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
+        # send tokens from wallet2 to wallet1 with manual "from" param
+        accsFrom = {}
+        accsFrom[wallet2_addr1] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"]]
+        accsFrom[wallet2_addr2] = ["20@" + tokens[2]["symbolId"], "20@" + tokens[3]["symbolId"]]
+        to = {}
+        to[wallet1_change_addr] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"], "20@" + tokens[2]["symbolId"], "20@" + tokens[3]["symbolId"]]
 
-        # transfer
-        try:
-            self.nodes[0].accounttoutxos(accountGold, {accountGold: "100@" + symbolGOLD}, [])
-            self.nodes[0].generate(1)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("AccountToUtxos only available for DFI transactions" in errorString)
+        self.nodes[2].sendtokenstoaddress(accsFrom, to)
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], self.nodes[1].getaccount(accountGold, {}, True)[idGold])
+        self.sync_mempools(enabled_nodes)
+        self.nodes[0].generate(1)
+        self.sync_all(enabled_nodes)
 
-        # gettokenbalances
-        #========================
-        # check balances about all accounts belonging to the wallet
-        assert_equal(self.nodes[0].gettokenbalances({}, True)[idGold], initialGold - 100)
-        assert_equal(self.nodes[0].gettokenbalances({}, True)[idSilver], 100)
+        # check that wallet2 is empty
+        wallet2_addr1_balance = self.nodes[0].getaccount(wallet2_addr1, {}, True)
+        wallet2_addr2_balance = self.nodes[0].getaccount(wallet2_addr2, {}, True)
+        assert(not wallet2_addr1_balance)
+        assert(not wallet2_addr2_balance)
 
-        # chech work is_mine_only field
-        list_all_acc = len(self.nodes[0].listaccounts({}, False, True, False))
-        list_mine_acc = len(self.nodes[0].listaccounts({}, False, True, True))
-        assert(list_all_acc != list_mine_acc)
+        # check that wallet1_change_addr has all tokens amount
+        wallet1_change_addr_balance = self.nodes[0].getaccount(wallet1_change_addr, {}, True)
+        assert_equal(wallet1_change_addr_balance[tokens[0]["tokenId"]], Decimal(50))
+        assert_equal(wallet1_change_addr_balance[tokens[1]["tokenId"]], Decimal(50))
+        assert_equal(wallet1_change_addr_balance[tokens[2]["tokenId"]], Decimal(50))
+        assert_equal(wallet1_change_addr_balance[tokens[3]["tokenId"]], Decimal(50))
 
-        # REVERTING:
-        #========================
+        # reverting
         print ("Reverting...")
-        self.start_node(2)
-        self.nodes[2].generate(20)
+        self.start_node(3)
+        self.nodes[3].generate(30)
 
-        connect_nodes_bi(self.nodes, 1, 2)
+        connect_nodes_bi(self.nodes, 2, 3)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
-        assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
+        # check that wallet1 and wallet 2 is empty
+        for node1_acc in node1_wallet:
+            node1_acc_ballance = self.nodes[1].getaccount(node1_acc["address"], {}, True)
+            assert(not node1_acc_ballance)
 
-        assert_equal(len(self.nodes[0].getrawmempool()), 4) # 4 txs
-        '''
+        wallet1_change_addr_balance = self.nodes[1].getaccount(wallet1_change_addr, {}, True)
+        wallet2_addr1_balance = self.nodes[2].getaccount(wallet2_addr1, {}, True)
+        wallet2_addr2_balance = self.nodes[2].getaccount(wallet2_addr2, {}, True)
+        assert(not wallet1_change_addr_balance)
+        assert(not wallet2_addr1_balance)
+        assert(not wallet2_addr2_balance)
 
+        minterAccountBalances = self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress, {}, True)
+
+        assert_equal(minterAccountBalances[tokens[0]["tokenId"]], Decimal(50))
+        assert_equal(minterAccountBalances[tokens[1]["tokenId"]], Decimal(50))
+        assert_equal(minterAccountBalances[tokens[2]["tokenId"]], Decimal(50))
+        assert_equal(minterAccountBalances[tokens[3]["tokenId"]], Decimal(50))
 
 if __name__ == '__main__':
     AnyAccountsToAccountsTest().main()
