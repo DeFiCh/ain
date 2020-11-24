@@ -320,8 +320,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             if (token["symbol"] == symbol):
                 return str(idx)
 
-    def setup_tokens(self):
-        # creates two tokens: GOLD for node#0 and SILVER for node1. Mint by 1000 for them
+    def setup_tokens(self, my_tokens = None):
         assert(self.setup_clean_chain == True)
         assert('-txnotokens=0' in self.extra_args[0])
         assert('-txnotokens=0' in self.extra_args[1])
@@ -331,29 +330,62 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
         self.nodes[0].generate(100)
         self.sync_all()
 
-        self.nodes[0].createtoken({
-            "symbol": "GOLD",
-            "name": "shiny gold",
-            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress # collateralGold
-        })
-        self.nodes[1].createtoken({
-            "symbol": "SILVER",
-            "name": "just silver",
-            "collateralAddress": self.nodes[1].get_genesis_keys().ownerAuthAddress # collateralSilver
-        })
-        self.sync_mempools()
-        self.nodes[0].generate(1)
-        # At this point, tokens was created
-        tokens = self.nodes[0].listtokens()
-        assert_equal(len(tokens), 3)
+        if my_tokens is not None:
+            '''
+                my_tokens list should contain objects with following structure:
+                {
+                    "wallet": node_obj,             # The test node obj with "collateralAddress" secret key in wallet
+                    "symbol": "SYMBOL",             # The token symbol
+                    "name": "token name",           # The token name
+                    "collateralAddress": "address", # The token collateral address
+                    "amount": amount,               # The token amount for minting
+                }
+            '''
+            # create tokens
+            for token in my_tokens:
+                token["wallet"].createtoken({
+                    "symbol": token["symbol"],
+                    "name": token["name"],
+                    "collateralAddress": token["collateralAddress"]
+                })
+            self.sync_mempools()
+            self.nodes[0].generate(1)
+            tokens = self.nodes[1].listtokens()
+            assert_equal(len(tokens), len(my_tokens) + 1)
 
-        symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
-        symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
+            # mint tokens
+            for token in my_tokens:
+                token["tokenId"] = self.get_id_token(token["symbol"])
+                token["symbolId"] = token["symbol"] + "#" + token["tokenId"]
+                token["wallet"].minttokens(str(token["amount"]) + "@" + token["symbolId"])
 
-        self.nodes[0].minttokens("1000@" + symbolGOLD)
-        self.nodes[1].minttokens("2000@" + symbolSILVER)
-        self.sync_mempools()
-        self.nodes[0].generate(1)
+            self.sync_mempools()
+            self.nodes[0].generate(1)
+        else:
+            # creates two tokens: GOLD for node#0 and SILVER for node1. Mint by 1000 for them
+            self.nodes[0].createtoken({
+                "symbol": "GOLD",
+                "name": "shiny gold",
+                "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress # collateralGold
+            })
+            self.nodes[1].createtoken({
+                "symbol": "SILVER",
+                "name": "just silver",
+                "collateralAddress": self.nodes[1].get_genesis_keys().ownerAuthAddress # collateralSilver
+            })
+            self.sync_mempools()
+            self.nodes[0].generate(1)
+            # At this point, tokens was created
+            tokens = self.nodes[0].listtokens()
+            assert_equal(len(tokens), 3)
+
+            symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
+            symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
+
+            self.nodes[0].minttokens("1000@" + symbolGOLD)
+            self.nodes[1].minttokens("2000@" + symbolSILVER)
+            self.sync_mempools()
+            self.nodes[0].generate(1)
 
     def import_deterministic_coinbase_privkeys(self):
         for n in self.nodes:
