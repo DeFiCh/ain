@@ -3150,7 +3150,15 @@ std::map<CScript, CBalances> SelectAccountsByTargetBalances(const std::map<CScri
     std::map<CScript, CBalances> selectedAccountsBalances;
     std::vector<std::pair<CScript, CBalances>> foundAccountsBalances;
     CBalances residualBalances(targetBalances);
+#ifdef DEBUG
+    LogPrintf("wallet accounts:\n");
+    for (auto &acc : accounts) {
+        LogPrintf("%s: %s\n", acc.first.GetHex(), acc.second.ToString());
+    }
 
+    const auto walletAccountsBalancesSum = SumAllTransfers(accounts);
+    LogPrintf("walletAccountsBalancesSum: %s\n", walletAccountsBalancesSum.ToString());
+#endif
     // iterate at all accounts to finding all accounts with neccessaru token balances
     for (auto accIt = accounts.begin(); accIt != accounts.end(); accIt++) {
         // selectedBalances accumulates overlap between account balances and residual balances
@@ -3182,14 +3190,24 @@ std::map<CScript, CBalances> SelectAccountsByTargetBalances(const std::map<CScri
 
     // selecting accounts balances
     for (auto accIt = foundAccountsBalances.begin(); accIt != foundAccountsBalances.end(); accIt++) {
+#ifdef DEBUG
+        LogPrintf("residualBalances: %s\n", residualBalances.ToString());
+        LogPrintf("candidate: %s\n", accIt->second.ToString());
+#endif
         // Substract residualBalances and selectedBalances with remainder.
         // Substraction with remainder will remove tokenAmount from balances if remainder
         // of token's amount is not zero (we got negative result of substraction)
         CBalances remainder = residualBalances.SubBalancesWithRemainder(accIt->second.balances);
+#ifdef DEBUG
+        LogPrintf("remainder: %s\n", remainder.ToString());
+#endif
         // calculate final balances by substraction account balances with remainder
         // it is necessary to get rid of excess
         CBalances finalBalances(accIt->second);
         finalBalances.SubBalances(remainder.balances);
+#ifdef DEBUG
+        LogPrintf("selected balance: %s\n", finalBalances.ToString());
+#endif
         if (!finalBalances.balances.empty())
             selectedAccountsBalances.emplace(accIt->first, finalBalances);
         // if residual balances is empty we found all neccessary token amounts and can stop selecting
@@ -3198,11 +3216,20 @@ std::map<CScript, CBalances> SelectAccountsByTargetBalances(const std::map<CScri
     }
 
     const auto selectedBalancesSum = SumAllTransfers(selectedAccountsBalances);
+#ifdef DEBUG
+    LogPrintf("selectedBalancesSum: %s\n", selectedBalancesSum.ToString());
+    LogPrintf("targetBalances: %s\n", targetBalances.ToString());
+#endif
     if (selectedBalancesSum != targetBalances) {
         // we have not enough tokens balance to transfer
         return {};
     }
-
+#ifdef DEBUG
+    LogPrintf("selectedAccountsBalances:\n");
+    for (auto &acc : selectedAccountsBalances) {
+        LogPrintf("%s: %s\n", acc.first.GetHex(), acc.second.ToString());
+    }
+#endif
     return selectedAccountsBalances;
 }
 
