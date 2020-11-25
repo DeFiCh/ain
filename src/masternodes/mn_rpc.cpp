@@ -3239,12 +3239,11 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("sendtokenstoaddress", "\"{}\" "
-                                                    "\"{\\\"dstAddress1\\\":\\\"1.0@DFI\\\",\\\"dstAddress2\\\":[\\\"2.0@BTC\\\", \\\"3.0@ETH\\\"]}\" "
-                                                    "\"crumbs\"") +
-                        HelpExampleCli("sendtokenstoaddress", "\"{\\\"srcAddress1\\\":\\\"2.0@DFI\\\",\\\"srcAddress2\\\":[\\\"3.0@DFI\\\", \\\"2.0@ETH\\\"]}\" "
-                                                    "\"{\\\"dstAddress1\\\":[\\\"5.0@DFI\\\", \\\"2.0@ETH\\\"]}\" \"\"")
-               },
+                        HelpExampleCli("sendtokenstoaddress", "'{}' "
+                                                    "'{\"dstAddress1\":\"1.0@DFI\",\"dstAddress2\":[\"2.0@BTC\", \"3.0@ETH\"]}' \"crumbs\"") +
+                        HelpExampleCli("sendtokenstoaddress", "'{\"srcAddress1\":\"2.0@DFI\", \"srcAddress2\":[\"3.0@DFI\", \"2.0@ETH\"]}' "
+                                                    "'{\"dstAddress1\":[\"5.0@DFI\", \"2.0@ETH\"]}'")
+                        },
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
