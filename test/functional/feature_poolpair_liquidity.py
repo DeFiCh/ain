@@ -164,9 +164,9 @@ class PoolLiquidityTest (DefiTestFramework):
         assert_equal(accountGoldInfo[idGold], amountGold - 500)
         assert_equal(accountGoldInfo[idSilver], amountSilver - 500)
 
-        # transfer liquidity
+        # transfer liquidity with auto-selection accounts from wallet
         self.nodes[3].addpoolliquidity({
-            accountTest: ["50@" + symbolGOLD, "400@" + symbolSILVER]
+            "*": ["50@" + symbolGOLD, "400@" + symbolSILVER]
         }, accountTest, [])
 
         self.sync_all([self.nodes[0], self.nodes[3]])

@@ -1786,7 +1786,8 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                         {
                                 {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address(es) is the key(s), the value(s) is amount in amount@token format. "
                                                                                      "You should provide exectly two types of tokens for pool's 'token A' and 'token B' in any combinations."
-                                                                                     "If multiple tokens from one address are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                                                                                     "If multiple tokens from one address are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"
+                                                                                     "If \"from\" obj contain only one amount entry with address-key: \"*\" (star), it's means auto-selection accounts from wallet."},
                         },
                        },
                        {"shareAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address for crediting tokens."},
@@ -1809,6 +1810,9 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
                        HelpExampleCli("addpoolliquidity",
                                       "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
                                       "share_address '[]'")
+                       + HelpExampleCli("addpoolliquidity",
+                                      "'{\"*\": [\"2.0@BTC\", \"3.0@ETH\"]}' "
+                                      "share_address '[]'")
                        + HelpExampleRpc("addpoolliquidity",
                                       "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
                                       "share_address '[]'")
@@ -1823,7 +1827,22 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
 
     // decode
     CLiquidityMessage msg{};
-    msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
+    if (request.params[0].get_obj().getKeys().size() == 1 &&
+            request.params[0].get_obj().getKeys()[0] == "*") { // auto-selection accounts from wallet
+        CAccounts foundWalletAccounts = FindAccountsFromWallet(pwallet);
+
+        CBalances sumTransfers = DecodeAmounts(pwallet->chain(), request.params[0].get_obj()["*"], "*");
+
+        msg.from = SelectAccountsByTargetBalances(foundWalletAccounts, sumTransfers, SelectionPie);
+
+        if (msg.from.empty()) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                                   "Not enough balance on wallet accounts, call utxostoaccount to increase it.\n");
+        }
+    }
+    else {
+        msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
+    }
     msg.shareAddress = DecodeScript(request.params[1].get_str());
 
     // encode
