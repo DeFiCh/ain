@@ -3245,7 +3245,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
                                                                                      "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
                         },
                     },
-                    {"selectionMode", RPCArg::Type::STR, /* default */ "pie", "If param \"from\" is empty this param indicates accaouts autoselection mode."
+                    {"selectionMode", RPCArg::Type::STR, /* default */ "pie", "If param \"from\" is empty this param indicates accounts autoselection mode."
                                                                               "May be once of:\n"
                                                                               "  \"forward\" - Selecting accounts without sorting, just as address list sorted.\n"
                                                                               "  \"crumbs\" - Selecting accounts by ascending of sum token amounts.\n"
@@ -3280,7 +3280,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts in \"to\" param");
     }
 
-    if (request.params[0].get_obj().empty()) { // autofinding
+    if (request.params[0].get_obj().empty()) { // autoselection
         CAccounts foundWalletAccounts = FindAccountsFromWallet(pwallet);
 
         std::string selectionParam = request.params[2].isStr() ? request.params[2].get_str() : "pie";
@@ -3306,8 +3306,8 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
     if (scriptMeta.size() > nMaxDatacarrierBytes) {
         throw JSONRPCError(RPC_VERIFY_REJECTED, "The output custom script size has exceeded the maximum OP_RETURN script size."
-                                                "It could have happened because too many \"from\" or \"to\" accounts balances."
-                                                "If you used autofinding, you can try to use \"pie\" selection mode for decreasing accounts count.");
+                                                "It may happened because too many \"from\" or \"to\" accounts balances."
+                                                "If you use autoselection, you can try to use \"pie\" selection mode for decreasing accounts count.");
     }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
