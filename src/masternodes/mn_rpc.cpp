@@ -551,9 +551,9 @@ UniValue createtoken(const JSONRPCRequest& request) {
                             {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                              "Token's total supply limit (optional, zero for now, unchecked)"},
                             {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                             "Token's 'Mintable' property (bool, optional), fixed to 'True' for now"},
+                             "Token's 'Mintable' property (bool, optional), default is 'True'"},
                             {"tradeable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                             "Token's 'Tradeable' property (bool, optional), fixed to 'True' for now"},
+                             "Token's 'Tradeable' property (bool, optional), default is 'True'"},
                             {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
                              "Any valid destination for keeping collateral amount - used as token's owner auth"},
                         },
@@ -614,10 +614,17 @@ UniValue createtoken(const JSONRPCRequest& request) {
     token.symbol = trim_ws(metaObj["symbol"].getValStr()).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     token.name = trim_ws(metaObj["name"].getValStr()).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
     token.flags = metaObj["isDAT"].getBool() ? token.flags | (uint8_t)CToken::TokenFlags::DAT : token.flags; // setting isDAT
-//    token.decimal = metaObj["name"].get_int(); // fixed for now, check range later
-//    token.limit = metaObj["limit"].get_int(); // fixed for now, check range later
-//    token.flags = metaObj["mintable"].get_bool() ? token.flags | CToken::TokenFlags::Mintable : token.flags; // fixed for now, check later
-//    token.flags = metaObj["tradeable"].get_bool() ? token.flags | CToken::TokenFlags::Tradeable : token.flags; // fixed for now, check later
+
+    if (!metaObj["tradeable"].isNull()) {
+        token.flags = metaObj["tradeable"].getBool() ?
+            token.flags | uint8_t(CToken::TokenFlags::Tradeable) :
+            token.flags & ~uint8_t(CToken::TokenFlags::Tradeable);
+    }
+    if (!metaObj["mintable"].isNull()) {
+        token.flags = metaObj["mintable"].getBool() ?
+            token.flags | uint8_t(CToken::TokenFlags::Mintable) :
+            token.flags & ~uint8_t(CToken::TokenFlags::Mintable);
+    }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateToken)
