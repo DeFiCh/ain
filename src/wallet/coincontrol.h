@@ -49,6 +49,8 @@ public:
     CTxDestination matchDestination;
     //! Token's filter. Match token's ids if set
     std::set<DCT_ID> m_tokenFilter;
+    //! Possible non-wallet inputs (that are not in the wallet nor mempool yet - result of prev pending tx)
+    std::map<COutPoint, CTxOut> m_linkedCoins;
 
     CCoinControl()
     {
