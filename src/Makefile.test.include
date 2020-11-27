@@ -86,6 +86,7 @@ DEFI_TESTS =\
   test/amount_tests.cpp \
   test/allocator_tests.cpp \
   test/anchor_tests.cpp \
+  test/applytx_tests.cpp \
   test/base32_tests.cpp \
   test/base58_tests.cpp \
   test/base64_tests.cpp \
