@@ -2816,6 +2816,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                   "Optional height to iterate from (downto genesis block), (default = chaintip)."},
                                  {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Maximum depth, 100 blocks by default for every account"},
+                                 {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                  "Filter out rewards"},
+                                 {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                  "Filter by token"},
                             },
                         },
                },
@@ -2835,6 +2839,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     uint32_t startBlock = std::numeric_limits<uint32_t>::max();
     uint32_t depth = 100;
+    bool noRewards = false;
+    std::string tokenFilter;
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -2849,6 +2855,14 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
         if (!optionsObj["depth"].isNull()) {
             depth = (uint32_t) optionsObj["depth"].get_int64();
+        }
+
+        if (!optionsObj["no_rewards"].isNull()) {
+            noRewards = optionsObj["no_rewards"].get_bool();
+        }
+
+        if (!optionsObj["token"].isNull()) {
+            tokenFilter = optionsObj["token"].get_str();
         }
     }
 
@@ -2866,12 +2880,37 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth)))
                 return true; // continue
 
+            if(!tokenFilter.empty()) {
+                bool hasToken = false;
+                for (auto const & diff : diffs) {
+                    auto token = pcustomcsview->GetToken(diff.first);
+                    std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
+
+                    if(tokenIdStr == tokenFilter) {
+                        hasToken = true;
+                        break;
+                    }
+                }
+
+                if(!hasToken) {
+                    return true; // continue
+                }
+            }
+
+            if(noRewards) {
+                if(category == CustomTxType::NonTxRewards) {
+                    return true; // continue
+                }
+            }
+
             if (prevOwner != owner) {
                 prevOwner = owner;
                 isMine = IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
             }
-            if (isMine)
+
+            if (isMine) {
                 ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+            }
 
             return true;
         }, startKey);
@@ -2880,8 +2919,32 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         // traversing the whole DB, skipping wrong heights
         AccountHistoryKey startKey{ CScript{}, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
-            if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth)))
+            if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth))) {
                 return true; // continue
+            }
+
+            if(!tokenFilter.empty()) {
+                bool hasToken = false;
+                for (auto const & diff : diffs) {
+                    auto token = pcustomcsview->GetToken(diff.first);
+                    std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
+
+                    if(tokenIdStr == tokenFilter) {
+                        hasToken = true;
+                        break;
+                    }
+                }
+
+                if(!hasToken) {
+                    return true; // continue
+                }
+            }
+
+            if(noRewards) {
+                if(category == CustomTxType::NonTxRewards) {
+                    return true; // continue
+                }
+            }
 
             ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
             return true;
@@ -2896,6 +2959,29 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
             if (owner != startKey.owner || (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth))))
                 return false;
+
+            if(!tokenFilter.empty()) {
+                bool hasToken = false;
+                for (auto const & diff : diffs) {
+                    auto token = pcustomcsview->GetToken(diff.first);
+                    std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
+
+                    if(tokenIdStr == tokenFilter) {
+                        hasToken = true;
+                        break;
+                    }
+                }
+
+                if(!hasToken) {
+                    return true; // continue
+                }
+            }
+
+            if(noRewards) {
+                if(category == CustomTxType::NonTxRewards) {
+                    return true; // continue
+                }
+            }
 
             ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
             return true;

@@ -405,6 +405,12 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
         return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
     }
 
+    //check foundation auth
+    if((newToken.IsDAT()) && !HasFoundationAuth(tx, coins, consensusParams))
+    {//no need to check Authority if we don't create isDAT
+        return Res::Err("%s: %s", base, "can't set isDAT to true, tx not from foundation member");
+    }
+
     auto res = mnview.UpdateToken(token.creationTx, newToken, false);
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
