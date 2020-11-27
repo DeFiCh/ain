@@ -928,7 +928,6 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
     return ret;
 }
 
-// @todo implement pagination, similar to list* calls below
 UniValue listtokens(const JSONRPCRequest& request) {
     RPCHelpMan{"listtokens",
                "\nReturns information about tokens.\n",
@@ -1302,13 +1301,15 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     LOCK(cs_main);
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
         if (isMineOnly) {
-            if (IsMine(*pwallet, owner) == ISMINE_SPENDABLE)
+            if (IsMine(*pwallet, owner) == ISMINE_SPENDABLE) {
                 ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+                limit--;
+            }
         } else {
             ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+            limit--;
         }
 
-        limit--;
         return limit != 0;
     }, start);
 
