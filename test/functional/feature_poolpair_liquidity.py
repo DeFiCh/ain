@@ -56,11 +56,12 @@ class PoolLiquidityTest (DefiTestFramework):
         print("Initial GOLD:", initialGold, ", id", idGold)
         print("Initial SILVER:", initialSilver, ", id", idSilver)
 
-        owner = self.nodes[0].getnewaddress("", "legacy")
+        poolOwner = self.nodes[0].getnewaddress("", "legacy")
 
         # transfer silver
         self.nodes[1].accounttoaccount(accountSilver, {accountGold: "1000@" + symbolSILVER})
         self.nodes[1].generate(1)
+        self.sync_all([self.nodes[0], self.nodes[1]])
 
         # create pool
         self.nodes[0].createpoolpair({
@@ -68,7 +69,7 @@ class PoolLiquidityTest (DefiTestFramework):
             "tokenB": symbolSILVER,
             "commission": 1,
             "status": True,
-            "ownerAddress": owner,
+            "ownerAddress": poolOwner,
             "pairSymbol": "GS",
         }, [])
         self.nodes[0].generate(1)
@@ -132,6 +133,7 @@ class PoolLiquidityTest (DefiTestFramework):
         assert_equal(amountGold, initialGold - 100)
         assert_equal(amountSilver, initialSilver - 1100)
 
+        self.sync_all([self.nodes[0], self.nodes[1]])
         accountGoldInfo = self.nodes[1].getaccount(accountGold, {}, True)
 
         assert_equal(str(accountGoldInfo[idGS]), "99.99999000")
@@ -155,6 +157,7 @@ class PoolLiquidityTest (DefiTestFramework):
         # transfer tokens
         self.nodes[0].accounttoaccount(accountGold, {accountTest: ["500@" + symbolSILVER, "500@" + symbolGOLD]})
         self.nodes[0].generate(1)
+        self.sync_all([self.nodes[0], self.nodes[3]])
 
         accountTestInfo = self.nodes[3].getaccount(accountTest, {}, True)
         accountGoldInfo = self.nodes[3].getaccount(accountGold, {}, True)
@@ -172,6 +175,7 @@ class PoolLiquidityTest (DefiTestFramework):
         self.sync_all([self.nodes[0], self.nodes[3]])
 
         self.nodes[0].generate(1)
+        self.sync_all([self.nodes[0], self.nodes[3]])
 
         accountTestInfo = self.nodes[3].getaccount(accountTest, {}, True)
         pool = self.nodes[3].getpoolpair("GS", True)
@@ -210,10 +214,18 @@ class PoolLiquidityTest (DefiTestFramework):
 
         # missing (account exists, but does not belong)
         try:
-            self.nodes[0].removepoolliquidity(owner, "200@GS", [])
+            self.nodes[0].removepoolliquidity(accountTest, "10@GS", [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Are you an owner?" in errorString)
+        assert("Incorrect auth" in errorString)
+
+        # missing amount of share (account exists and mine, but it is not a LP share account)
+        try:
+            self.nodes[0].removepoolliquidity(poolOwner, "10@GS", [])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Amount 0 is less" in errorString)
+
 
         resAmountA = make_rounded_decimal(25 * poolReserveA / poolLiquidity)
         resAmountB = make_rounded_decimal(25 * poolReserveB / poolLiquidity)
@@ -312,6 +324,7 @@ class PoolLiquidityTest (DefiTestFramework):
         resAmountB = make_rounded_decimal(gsAmountAcc2 * poolReserveB / poolLiquidity)
 
         # transfer
+        self.sync_all([self.nodes[0], self.nodes[3]])
         self.nodes[3].removepoolliquidity(accountTest, str(gsAmountAcc2)+"@GS", [])
         self.sync_all([self.nodes[0], self.nodes[3]])
         self.nodes[0].generate(1)

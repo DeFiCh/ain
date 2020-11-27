@@ -137,7 +137,7 @@ class PoolPairTest (DefiTestFramework):
         }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Incorrect Authorization" in errorString)
+        assert("Need foundation member authorization" in errorString)
 
         # 9 Checking pool existence
         p0 = self.nodes[0].getpoolpair("PTGOLD")
