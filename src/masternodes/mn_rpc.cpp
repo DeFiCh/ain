@@ -371,14 +371,11 @@ CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & a
 }
 
 static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWallet* const pwallet) {
-    CScript anyFounder;
     for (auto const & founderScript : Params().GetConsensus().foundationMembers) {
         if (IsMine(*pwallet, founderScript) == ISMINE_SPENDABLE) {
             CTxDestination destination;
             if (ExtractDestination(founderScript, destination)) {
-                anyFounder = founderScript;
-                auto auth = GetAuthInputOnly(pwallet, destination);
-                if (auth) {
+                if (auto auth = GetAuthInputOnly(pwallet, destination)) {
                     return auth;
                 }
             }

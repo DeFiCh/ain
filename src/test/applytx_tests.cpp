@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         res = ApplyCustomTx(mnview, coinview, CTransaction(rawTx), amkCheated, 1, 0, false);
         BOOST_CHECK(!res.ok);
-        BOOST_CHECK(res.msg.find("negative amount") != std::string::npos);
+        BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
         BOOST_CHECK_EQUAL(mnview.GetBalance(CScript(0xA), DFI), CTokenAmount{});
@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         res = ApplyCustomTx(mnview, coinview, CTransaction(rawTx), amkCheated, 1, 0, false);
         BOOST_CHECK(!res.ok);
-        BOOST_CHECK(res.msg.find("negative amount") != std::string::npos);
+        BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
         BOOST_CHECK_EQUAL(mnview.GetBalance(CScript(0xA), DFI), CTokenAmount{});
