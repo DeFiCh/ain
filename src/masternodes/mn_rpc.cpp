@@ -2898,7 +2898,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             if(noRewards) {
-                if(category == CustomTxType::NonTxRewards) {
+                if(category == (unsigned char)CustomTxType::NonTxRewards) {
                     return true; // continue
                 }
             }
@@ -2941,7 +2941,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             if(noRewards) {
-                if(category == CustomTxType::NonTxRewards) {
+                if(category == (unsigned char)CustomTxType::NonTxRewards) {
                     return true; // continue
                 }
             }
@@ -2978,7 +2978,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             if(noRewards) {
-                if(category == CustomTxType::NonTxRewards) {
+                if(category == (unsigned char)CustomTxType::NonTxRewards) {
                     return true; // continue
                 }
             }
