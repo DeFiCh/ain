@@ -130,6 +130,20 @@ public:
             CAmount liqA = (arith_uint256(amountA) * arith_uint256(totalLiquidity) / reserveA).GetLow64();
             CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
             liquidity = std::min(liqA, liqB);
+
+            arith_uint256 maxLiquidity256 = arith_uint256(std::max(liqA, liqB)) * arith_uint256(CPoolPair::PRECISION);
+            maxLiquidity256 -= maxLiquidity256 * 3 / 100; // -3%
+            // this should not happen IRL, but for sure:
+            if (maxLiquidity256 / CPoolPair::PRECISION > std::numeric_limits<int64_t>::max()) {
+                return Res::Err( "Max liquidity +3% overflow!");
+            }
+
+            CAmount maxLiquidity = (maxLiquidity256 / arith_uint256(CPoolPair::PRECISION)).GetLow64();;
+
+            if(liquidity < maxLiquidity) {
+                return Res::Err( "Bad liquidity ratio, more than 3% difference");
+            }
+
             if (liquidity == 0)
                 return Res::Err("amounts too low, zero liquidity");
         }
