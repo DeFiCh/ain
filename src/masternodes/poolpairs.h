@@ -131,7 +131,7 @@ public:
             CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
             liquidity = std::min(liqA, liqB);
 
-            if ((std::max(liqA, liqB) - liquidity) / liquidity * 100 >= 3) {
+            if (liquidity > 0 && (std::max(liqA, liqB) - liquidity) * 100 / liquidity >= 3) {
                 return Res::Err( "Exceeds max ratio slippage protection of 3%");
             }
 
