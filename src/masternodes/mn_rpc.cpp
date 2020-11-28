@@ -2719,7 +2719,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
                         {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                     "Flag for verbose list (default = true), otherwise only % are shown."},
                         {"is_mine_only", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                    "Get shares for all accounts belonging to the wallet"},
+                                    "Get shares for all accounts belonging to the wallet (default = false)"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with pools information\n"
