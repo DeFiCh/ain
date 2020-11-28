@@ -133,15 +133,10 @@ public:
 
             arith_uint256 maxLiquidity256 = arith_uint256(std::max(liqA, liqB)) * arith_uint256(CPoolPair::PRECISION);
             maxLiquidity256 -= maxLiquidity256 * 3 / 100; // -3%
-            // this should not happen IRL, but for sure:
-            if (maxLiquidity256 / CPoolPair::PRECISION > std::numeric_limits<int64_t>::max()) {
-                return Res::Err( "Max liquidity +3% overflow!");
-            }
+            CAmount minimumLiquidityThreshold = (maxLiquidity256 / arith_uint256(CPoolPair::PRECISION)).GetLow64();;
 
-            CAmount maxLiquidity = (maxLiquidity256 / arith_uint256(CPoolPair::PRECISION)).GetLow64();;
-
-            if(liquidity < maxLiquidity) {
-                return Res::Err( "Bad liquidity ratio, more than 3% difference");
+            if(liquidity < minimumLiquidityThreshold) {
+                return Res::Err( "Exceeds max ratio slippage protection of 3%");
             }
 
             if (liquidity == 0)
