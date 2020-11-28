@@ -2865,6 +2865,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             {
                 {"maxBlockHeight", UniValueType(UniValue::VNUM)},
                 {"depth", UniValueType(UniValue::VNUM)},
+                {"no_rewards", UniValueType(UniValue::VBOOL)},
+                {"token", UniValueType(UniValue::VSTR)},
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
