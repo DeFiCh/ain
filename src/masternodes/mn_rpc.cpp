@@ -2608,6 +2608,8 @@ UniValue poolswap(const JSONRPCRequest& request) {
     return signsend(rawTx, request)->GetHash().GetHex();
 }
 
+./defi-cli -testnet testpoolswap '{"from":"7Q2nZCcKnxiRiHSNQtLB27RA5efxm2cE7w", "tokenFrom":"0", "amountFrom": 10, "to":"7Q2nZCcKnxiRiHSNQtLB27RA5efxm2cE7w", "tokenTo":"1", "maxPrice": 0.6}'
+
 UniValue testpoolswap(const JSONRPCRequest& request) {
 
     RPCHelpMan{"testpoolswap",
@@ -2673,10 +2675,6 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                 return Res::Err("%s: %s", base, resPP.msg);
             }
 
-            auto sub = mnview_dummy.SubBalance(poolSwapMsg.from, {poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom});
-            if (!sub.ok) {
-                return Res::Err("%s: %s", base, sub.msg);
-            }
             return Res::Ok(tokenAmount.ToString());
         });
 
