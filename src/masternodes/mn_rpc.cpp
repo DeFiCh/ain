@@ -2725,8 +2725,8 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with pools information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listpoolshares", "'{\"start\":128}' False")
-                       + HelpExampleRpc("listpoolshares", "'{\"start\":128}' False")
+                       HelpExampleCli("listpoolshares", "'{\"start\":128}' False False")
+                       + HelpExampleRpc("listpoolshares", "'{\"start\":128}' False False")
                },
     }.Check(request);
 
