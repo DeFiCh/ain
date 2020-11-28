@@ -406,7 +406,7 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     }
 
     //check foundation auth
-    if((newToken.IsDAT()) && !HasFoundationAuth(tx, coins, consensusParams))
+    if((newToken.IsDAT() != token.IsDAT()) && !HasFoundationAuth(tx, coins, consensusParams))
     {//no need to check Authority if we don't create isDAT
         return Res::Err("%s: %s", base, "can't set isDAT to true, tx not from foundation member");
     }
