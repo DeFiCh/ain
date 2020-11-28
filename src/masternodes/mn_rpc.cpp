@@ -2718,6 +2718,8 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
                         },
                         {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                     "Flag for verbose list (default = true), otherwise only % are shown."},
+                        {"is_mine_only", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                    "Get shares for all accounts belonging to the wallet"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with pools information\n"
@@ -2732,6 +2734,13 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
     if (request.params.size() > 1) {
         verbose = request.params[1].getBool();
     }
+
+    bool isMineOnly = false;
+    if (request.params.size() > 2) {
+        isMineOnly = request.params[2].get_bool();
+    }
+
+    CWallet* const pwallet = GetWallet(request);
 
     // parse pagination
     size_t limit = 100;
@@ -2771,10 +2780,18 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
         if(tokenAmount.nValue) {
             const auto poolPair = pcustomcsview->GetPoolPair(poolId);
             if(poolPair) {
-                ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
+                if (isMineOnly) {
+                    if (IsMine(*pwallet, provider) == ISMINE_SPENDABLE) {
+                        ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
+                        limit--;
+                    }
+                } else {
+                    ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
+                    limit--;
+                }
             }
         }
-        limit--;
+
         return limit != 0;
     }, startKey);
 
@@ -3194,7 +3211,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "createpoolpair",     &createpoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "updatepoolpair",     &updatepoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
-    {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
+    {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose", "is_mine_only"}},
     {"poolpair",    "testpoolswap",       &testpoolswap,       {"metadata"}},
     {"accounts",    "listaccounthistory", &listaccounthistory, {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
