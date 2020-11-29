@@ -111,7 +111,7 @@ public:
     uint32_t creationHeight;
 
     Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint) {
-        this->AddLiquidity(amountA, amountB, shareAddress, onMint, false);
+        return this->AddLiquidity(amountA, amountB, shareAddress, onMint, false);
     }    
 
     // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
