@@ -235,6 +235,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "testpoolswap", 0, "metadata"},
     { "listpoolshares", 0, "pagination" },
     { "listpoolshares", 1, "verbose" },
+    { "listpoolshares", 2, "is_mine_only" },
 
     { "listaccounthistory", 1, "options" },
 
