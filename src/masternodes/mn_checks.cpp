@@ -554,6 +554,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     if (amountA.first != pool.idTokenA)
         std::swap(amountA, amountB);
 
+    bool slippageProtection = static_cast<int>(height) >= consensusParams.BayfrontMarinaHeight;
     const auto res = pool.AddLiquidity(amountA.second, amountB.second, msg.shareAddress, [&] /*onMint*/(CScript to, CAmount liqAmount) {
 
         auto add = mnview.AddBalance(to, { lpTokenID, liqAmount });
@@ -568,7 +569,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         }
 
         return Res::Ok();
-    });
+    }, slippageProtection);
 
     if (!res.ok) {
         return Res::Err("%s: %s", base, res.msg);
