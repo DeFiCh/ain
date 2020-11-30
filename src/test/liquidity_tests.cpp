@@ -135,9 +135,6 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.Swap(CTokenAmount{pool.idTokenB, 2}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, FAIL_onSwap);
         BOOST_CHECK(!res.ok && res.msg == "Lack of liquidity.");
 
-        res = pool.AddLiquidity(3037000500+1, 1, {}, FAIL_onMint);
-        BOOST_CHECK(!res.ok && res.msg == "Exceeds max ratio slippage protection of 3%");
-
         // thats all, we can't place anything here until removing. trading disabled due to reserveB < SLOPE_SWAP_RATE
     }
 
