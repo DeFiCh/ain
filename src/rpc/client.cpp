@@ -212,7 +212,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "spv_sendrawtx", 0, "rawtx" },
     { "spv_createanchor", 0, "inputs" },
-    { "spv_createanchor", 1, "rewardAddress" },
     { "spv_createanchor", 2, "send" },
     { "spv_createanchor", 3, "feerate" },
     { "spv_createanchortemplate", 0, "rewardAddress" },
@@ -236,6 +235,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "testpoolswap", 0, "metadata"},
     { "listpoolshares", 0, "pagination" },
     { "listpoolshares", 1, "verbose" },
+    { "listpoolshares", 2, "is_mine_only" },
 
     { "listaccounthistory", 1, "options" },
 

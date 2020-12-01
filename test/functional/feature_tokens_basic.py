@@ -122,7 +122,7 @@ class TokensBasicTest (DefiTestFramework):
             errorString = e.error['message']
         assert("collateral-locked," in errorString)
 
-        # Create new GOLD token
+        # Create new GOLD token, mintable and tradable by default
         self.nodes[0].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
@@ -133,6 +133,8 @@ class TokensBasicTest (DefiTestFramework):
         # Get token by SYMBOL#ID
         t129 = self.nodes[0].gettoken("GOLD#129")
         assert_equal(t129['129']['symbol'], "GOLD")
+        assert_equal(t129['129']['mintable'], True)
+        assert_equal(t129['129']['tradeable'], True)
         assert_equal(self.nodes[0].gettoken("GOLD#129"), t129)
 
         # Funding auth address for resigning
@@ -142,6 +144,22 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([]))
         assert_equal(self.nodes[0].listtokens()['128']['destructionHeight'], -1)
         assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
+
+         # Create new neither mintable nor tradable token
+        self.nodes[0].createtoken({
+            "symbol": "WK",
+            "name": "weak",
+            "mintable": False,
+            "tradeable": False,
+            "collateralAddress": collateral0
+        })
+        self.nodes[0].generate(1)
+
+        # Get token by SYMBOL#ID
+        t130 = self.nodes[0].gettoken("WK#130")
+        assert_equal(t130['130']['symbol'], "WK")
+        assert_equal(t130['130']['mintable'], False)
+        assert_equal(t130['130']['tradeable'], False)
 
 if __name__ == '__main__':
     TokensBasicTest ().main ()

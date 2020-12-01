@@ -100,7 +100,11 @@ struct CTokenAmount { // simple std::pair is less informative
     CAmount nValue;
 
     std::string ToString() const {
-        return std::to_string(nValue / COIN) + "." + std::to_string(nValue % COIN) + "@" + nTokenId.ToString();
+        const bool sign = nValue < 0;
+        const int64_t n_abs = (sign ? -nValue : nValue);
+        const int64_t quotient = n_abs / COIN;
+        const int64_t remainder = n_abs % COIN;
+        return strprintf("%s%d.%08d@%d", sign ? "-" : "", quotient, remainder, nTokenId.v);
     }
 
     Res Add(CAmount amount) {
@@ -122,7 +126,7 @@ struct CTokenAmount { // simple std::pair is less informative
             return Res::Err("negative amount: %d", amount);
         }
         if (this->nValue < amount) {
-            return Res::Err("Amount %s is less than %s", this->nValue, CTokenAmount{nTokenId, amount}.ToString());
+            return Res::Err("amount %d is less than %d", this->nValue, amount);
         }
         // sub
         this->nValue -= amount;
@@ -151,7 +155,22 @@ struct CTokenAmount { // simple std::pair is less informative
         READWRITE(VARINT(nTokenId.v));
         READWRITE(nValue);
     }
+
+    friend bool operator==(const CTokenAmount& a, const CTokenAmount& b)
+    {
+        return a.nTokenId == b.nTokenId && a.nValue == b.nValue;
+    }
+
+    friend bool operator!=(const CTokenAmount& a, const CTokenAmount& b)
+    {
+        return !(a == b);
+    }
 };
+
+inline std::ostream& operator << (std::ostream &os, const CTokenAmount &ta)
+{
+    return os << ta.ToString();
+}
 
 /** No amount larger than this (in satoshi) is valid.
  *

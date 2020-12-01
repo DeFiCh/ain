@@ -127,13 +127,6 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         res = pool.AddLiquidity(1, 1, {}, FAIL_onMint);
         BOOST_CHECK(!res.ok && res.msg == "amounts too low, zero liquidity");
 
-        // we should place smth significant, that give us at least 1 liq point ("X * totalLiquidity >= reserve")
-        // plus 3037000500+1
-        res = pool.AddLiquidity(3037000500+1, 1, {}, FAIL_onMint);
-        BOOST_CHECK(!res.ok && res.msg == "overflow when adding to reserves"); // in fact we got min liquidity == 1, but reserves overflowed
-
-        // thats all, we can't place anything here until removing. trading disabled due to reserveB < SLOPE_SWAP_RATE
-
         // we can't swap forward even 1 satoshi
         res = pool.Swap(CTokenAmount{pool.idTokenA, 1}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, FAIL_onSwap);
         BOOST_CHECK(!res.ok && res.msg == "Lack of liquidity.");
@@ -141,6 +134,8 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         // and backward too
         res = pool.Swap(CTokenAmount{pool.idTokenB, 2}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, FAIL_onSwap);
         BOOST_CHECK(!res.ok && res.msg == "Lack of liquidity.");
+
+        // thats all, we can't place anything here until removing. trading disabled due to reserveB < SLOPE_SWAP_RATE
     }
 
     {   // two limits
@@ -153,6 +148,9 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         BOOST_CHECK(pool.reserveA == std::numeric_limits<CAmount>::max());
         BOOST_CHECK(pool.reserveB == std::numeric_limits<CAmount>::max());
         BOOST_CHECK(pool.totalLiquidity == std::numeric_limits<CAmount>::max());
+
+        res = pool.AddLiquidity(1, 1, {}, FAIL_onMint);
+        BOOST_CHECK(!res.ok && res.msg.find("can't add") != res.msg.npos); // in fact we got liquidity overflows
 
         // thats all, we can't do anything here until removing
     }
