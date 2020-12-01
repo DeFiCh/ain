@@ -15,7 +15,6 @@
 #include <uint256.h>
 
 #include <vector>
-#include <boost/optional.hpp>
 
 /**
  * Maximum amount of time that a block timestamp is allowed to exceed the
@@ -188,7 +187,6 @@ public:
     uint64_t mintedBlocks;
     uint256 stakeModifier; // hash modifier for proof-of-stake
     std::vector<unsigned char> sig;
-    CKeyID minter; // memory only
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -220,7 +218,6 @@ public:
         height         = 0;
         mintedBlocks   = 0;
         sig            = {};
-        minter         = CKeyID();
     }
 
     CBlockIndex()
@@ -240,7 +237,6 @@ public:
         mintedBlocks   = block.mintedBlocks;
         stakeModifier  = block.stakeModifier;
         sig            = block.sig;
-        block.ExtractMinterKey(minter);
     }
 
     FlatFilePos GetBlockPos() const {
@@ -277,7 +273,15 @@ public:
         return block;
     }
 
-    uint256 GetBlockHash() const
+    CKeyID minterKey() const
+    {
+        CKeyID key;
+        if (!GetBlockHeader().ExtractMinterKey(key) && pprev)
+            throw std::runtime_error("Wrong minter public key, data is corrupt");
+        return key;
+    }
+
+    const uint256& GetBlockHash() const
     {
         return *phashBlock;
     }

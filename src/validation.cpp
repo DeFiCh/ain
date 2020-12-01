@@ -1679,7 +1679,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
     if (!fIsFakeNet) {
-        mnview.DecrementMintedBy(pindex->minter);
+        mnview.DecrementMintedBy(pindex->minterKey());
     }
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
@@ -1944,7 +1944,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
     if (!fJustCheck && !fIsFakeNet) {
         // Check only that mintedBlocks counter is correct (MN existence and activation was partially checked before in CheckBlock()->ContextualCheckProofOfStake(), but not in the case of fJustCheck)
-        auto nodeId = mnview.GetMasternodeIdByOperator(pindex->minter);
+        auto nodeId = mnview.GetMasternodeIdByOperator(pindex->minterKey());
         assert(nodeId);
         auto const & node = *mnview.GetMasternode(*nodeId);
         if (node.mintedBlocks + 1 != block.mintedBlocks)
@@ -2314,7 +2314,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     if (!fIsFakeNet) {
-        mnview.IncrementMintedBy(pindex->minter); // pindex->minter was extracted before
+        mnview.IncrementMintedBy(pindex->minterKey());
     }
     mnview.SetLastHeight(pindex->nHeight);
 
