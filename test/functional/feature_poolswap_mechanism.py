@@ -15,7 +15,6 @@ from test_framework.util import assert_equal, \
 
 import random
 import time
-import math
 from decimal import Decimal
 
 class PoolSwapTest (DefiTestFramework):
