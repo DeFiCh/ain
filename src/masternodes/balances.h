@@ -46,6 +46,19 @@ struct CBalances
         }
         return Res::Ok();
     }
+    CTokenAmount SubWithRemainder(CTokenAmount amount) {
+        if (amount.nValue == 0) {
+            return CTokenAmount{amount.nTokenId, 0};
+        }
+        auto current = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
+        auto remainder = current.SubWithRemainder(amount.nValue);
+        if (current.nValue == 0) {
+            balances.erase(amount.nTokenId);
+        } else {
+            balances[amount.nTokenId] = current.nValue;
+        }
+        return CTokenAmount{amount.nTokenId, remainder};
+    }
     Res SubBalances(TAmounts const & other) {
         for (const auto& kv : other) {
             auto res = Sub(CTokenAmount{kv.first, kv.second});
@@ -55,6 +68,16 @@ struct CBalances
         }
         return Res::Ok();
     }
+    CBalances SubBalancesWithRemainder(TAmounts const & other) {
+        CBalances remainderBalances;
+        for (const auto& kv : other) {
+            CTokenAmount remainder = SubWithRemainder(CTokenAmount{kv.first, kv.second});
+            // if remainder token value is zero
+            // this addition won't get any effect
+            remainderBalances.Add(remainder);
+        }
+        return remainderBalances;
+    }
     Res AddBalances(TAmounts const & other) {
         for (const auto& kv : other) {
             auto res = Add(CTokenAmount{kv.first, kv.second});
@@ -63,6 +86,14 @@ struct CBalances
             }
         }
         return Res::Ok();
+    }
+
+    CAmount GetAllTokensAmount() {
+        CAmount sum = 0;
+        for (auto& balance : balances) {
+            sum += balance.second;
+        }
+        return sum;
     }
 
     std::string ToString() const {
@@ -156,9 +187,11 @@ struct CAccountToUtxosMessage {
     }
 };
 
+using CAccounts = std::map<CScript, CBalances>;
+
 struct CAccountToAccountMessage {
     CScript from;
-    std::map<CScript, CBalances> to; // to -> balances
+    CAccounts to; // to -> balances
 
     std::string ToString() const {
         if (to.empty()) {
@@ -180,8 +213,36 @@ struct CAccountToAccountMessage {
     }
 };
 
+struct CAnyAccountsToAccountsMessage {
+    CAccounts from; // from -> balances
+    CAccounts to; // to -> balances
+
+    std::string ToString() const {
+        if (from.empty() || to.empty()) {
+            return "empty transfer";
+        }
+        std::string result = "from ";
+        for (const auto& kv : from) {
+            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
+        }
+        result += " to ";
+        for (const auto& kv : to) {
+            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
+        }
+        return result;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(from);
+        READWRITE(to);
+    }
+};
+
 struct CUtxosToAccountMessage {
-    std::map<CScript, CBalances> to; // to -> balances
+    CAccounts to; // to -> balances
 
     std::string ToString() const {
         if (to.empty()) {
@@ -202,7 +263,7 @@ struct CUtxosToAccountMessage {
     }
 };
 
-inline CBalances SumAllTransfers(std::map<CScript, CBalances> const & to) {
+inline CBalances SumAllTransfers(CAccounts const & to) {
     CBalances sum;
     for (const auto& kv : to) {
         sum.AddBalances(kv.second.balances);
