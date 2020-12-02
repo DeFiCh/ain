@@ -183,7 +183,7 @@ public:
         return onReclaim(address, resAmountA, resAmountB);
     }
 
-    Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer, bool postBayfrontGardens = false);
+    Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer, bool postBayfrontGardens = true);
 
 private:
     CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo, bool postBayfrontGardens = false);
