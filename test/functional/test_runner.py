@@ -70,7 +70,6 @@ EXTENDED_SCRIPTS = [
     # These tests are not run by default.
     # Longest test should go first, to favor running tests in parallel
     'example_block_hash.py',
-    'feature_poolswap_mechanism.py',
     'feature_pruning.py',
     'feature_dbcrash.py',
     'feature_block.py', # moved to ext due to heavy load for trevis
@@ -154,6 +153,7 @@ BASE_SCRIPTS = [
     'feature_poolpair_liquidity.py',
     'feature_any_accounts_to_accounts.py',
     'feature_poolswap.py',
+    'feature_poolswap_mechanism.py',
     'interface_http.py',
     'interface_rpc.py',
     'rpc_psbt.py',

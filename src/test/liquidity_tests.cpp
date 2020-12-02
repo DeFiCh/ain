@@ -78,8 +78,6 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
 {
     auto FAIL_onMint = [](const CScript &, CAmount)-> Res { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
     auto FAIL_onSwap = [](const CTokenAmount &)-> Res { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
-    auto OK_onMint = [](const CScript &, CAmount)-> Res { return Res::Ok(); };
-    auto OK_onSwap = [](const CTokenAmount &)-> Res { return Res::Ok(); };
 
     CCustomCSView mnview(*pcustomcsview);
 
@@ -235,9 +233,9 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         BOOST_CHECK_EQUAL(pool.reserveA, 100099000);
         BOOST_CHECK_EQUAL(pool.reserveB, 99901097913); // pre-optimization: 99901000000
 
-       printf("comissionA = %ld\n", pool.blockCommissionA);
-       printf("reserveA = %ld\n", pool.reserveA);
-       printf("reserveB = %ld\n", pool.reserveB);
+//       printf("comissionA = %ld\n", pool.blockCommissionA);
+//       printf("reserveA = %ld\n", pool.reserveA);
+//       printf("reserveB = %ld\n", pool.reserveB);
     }
 }
 
@@ -322,9 +320,9 @@ BOOST_AUTO_TEST_CASE(math_rewards)
             }
         );
         int64_t nTimeEnd = GetTimeMicros(); auto nTimeRwd = nTimeEnd - nTimeBegin;
-        printf("Rewarded %d pools with %d shares each: %.2fms \n", PoolCount, ProvidersCount, 0.001 * (nTimeRwd));
+//        printf("Rewarded %d pools with %d shares each: %.2fms \n", PoolCount, ProvidersCount, 0.001 * (nTimeRwd));
 
-        printf("Distributed: = %ld\n", distributed);
+//        printf("Distributed: = %ld\n", distributed);
         BOOST_CHECK(distributed == 9999000000); // always slightly less due to MINIMUM_LIQUIDITY & rounding
 
         // check it
