@@ -812,8 +812,7 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
 Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
-    /// @todo @attention it's a fork! replace with proper activation height here!
-    if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
+    if((int)height < consensusParams.BayfrontGardensHeight) { return Res::Err("Token tx before BayfrontGardensHeight (block %d)", consensusParams.BayfrontGardensHeight ); }
 
     // deserialize
     CAnyAccountsToAccountsMessage msg;
