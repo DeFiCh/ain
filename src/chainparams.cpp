@@ -117,7 +117,7 @@ public:
         consensus.AMKHeight = 356500;
         consensus.BayfrontHeight = 405000;
         consensus.BayfrontMarinaHeight = 465150;
-        consensus.BayfrontGardensHeight = std::numeric_limits<int>::max();
+        consensus.BayfrontGardensHeight = 488300;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -278,7 +278,7 @@ public:
         consensus.AMKHeight = 150;
         consensus.BayfrontHeight = 3000;
         consensus.BayfrontMarinaHeight = 90470;
-        consensus.BayfrontGardensHeight = std::numeric_limits<int>::max();
+        consensus.BayfrontGardensHeight = 101342;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
