@@ -2289,7 +2289,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     if (!res.ok)
                         throw std::runtime_error(strprintf("Pool rewards: can't update balance of %s: %s, Block %ld (%s)", to.GetHex(), res.msg, block.height, block.GetHash().ToString()));
                     return res;
-                }
+                },
+                pindex->nHeight >= chainparams.GetConsensus().BayfrontGardensHeight // Toggle new reward calc behaviour
             );
 
             auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);
