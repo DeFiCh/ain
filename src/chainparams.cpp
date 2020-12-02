@@ -723,7 +723,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             LogPrintf("Bayfront disabled for testing\n");
             height = std::numeric_limits<int>::max();
         }
-        consensus.BayfrontHeight = static_cast<int>(height);
+        consensus.BayfrontGardensHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;
