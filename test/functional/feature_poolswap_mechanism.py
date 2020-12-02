@@ -207,21 +207,18 @@ class PoolSwapTest (DefiTestFramework):
                     assert_equal(amountsB[idx] - amount + (feeB / self.DECIMAL), self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
 
                     # realPoolReward =
-                    self.nodes[0].getaccount(self.accounts[idx], {}, True)['0'] - poolRewards[idx]
+                    realPoolReward = self.nodes[0].getaccount(self.accounts[idx], {}, True)['0'] - poolRewards[idx]
 
                     yieldFarming = int(self.LP_DAILY_DFI_REWARD * self.DECIMAL) / (60 * 60 * 24 / 600) # Regression test in chainparams.cpp
                     rewardPct = self.nodes[0].getpoolpair(pool, True)[idPool]['rewardPct']
                     assert(rewardPct > 0)
-                    poolReward = yieldFarming * int(rewardPct * self.DECIMAL) / self.DECIMAL
+                    poolReward = yieldFarming * int(rewardPct * self.DECIMAL) // self.DECIMAL
 
                     if poolReward:
                         providerReward = poolReward * liqWeight / 10000
                         if providerReward:
-                            (d, n) = math.modf(providerReward)
-                            if math.ceil(d) < 1:
-                                providerReward -= 1
                             # Inaccurate calculations
-                            #assert_equal(str(int(realPoolReward * self.DECIMAL)), str(int(providerReward)))
+                            assert_equal(str(int(realPoolReward * self.DECIMAL)), str(int(providerReward)))
 
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
                 assert_equal(str(reserveB), format(newReserveB, '.8f'))
