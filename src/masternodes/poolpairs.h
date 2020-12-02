@@ -258,7 +258,7 @@ public:
     }
 
     /// @attention it throws (at least for debug), cause errors are critical!
-    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CTokenAmount amount)> onTransfer) {
+    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CTokenAmount amount)> onTransfer, bool newRewardCalc = false) {
 
         uint32_t const PRECISION = 10000; // (== 100%) just searching the way to avoid arith256 inflating
         CAmount totalDistributed = 0;
@@ -270,7 +270,8 @@ public:
             CAmount distributedFeeA = 0;
             CAmount distributedFeeB = 0;
 
-            if (!pool.swapEvent && (poolReward == 0 || pool.totalLiquidity == 0)) {
+            
+            if (pool.totalLiquidity == 0 || (!pool.swapEvent && poolReward == 0)) {
                 return true; // no events, skip to the next pool
             }
 
@@ -285,18 +286,27 @@ public:
 
                 // distribute trading fees
                 if (pool.swapEvent) {
-                    CAmount feeA = pool.blockCommissionA * liqWeight / PRECISION;       // liquidity / pool.totalLiquidity;
+                    CAmount feeA = pool.blockCommissionA * liquidity / pool.totalLiquidity;
+                    if (!newRewardCalc) {
+                        feeA = pool.blockCommissionA * liqWeight / PRECISION;
+                    }
                     distributedFeeA += feeA;
                     onTransfer(provider, {pool.idTokenA, feeA}); //can throw
 
-                    CAmount feeB = pool.blockCommissionB * liqWeight / PRECISION;       // liquidity / pool.totalLiquidity;
+                    CAmount feeB = pool.blockCommissionB * liquidity / pool.totalLiquidity;
+                    if (!newRewardCalc) {
+                        feeB = pool.blockCommissionB * liqWeight / PRECISION;
+                    }
                     distributedFeeB += feeB;
                     onTransfer(provider, {pool.idTokenB, feeB}); //can throw
                 }
 
                 // distribute yield farming
                 if (poolReward) {
-                    CAmount providerReward = poolReward * liqWeight / PRECISION;        //liquidity / pool.totalLiquidity;
+                    CAmount providerReward = poolReward * liquidity / pool.totalLiquidity;
+                    if (!newRewardCalc) {
+                        providerReward = poolReward * liqWeight / PRECISION;
+                    }
                     if (providerReward) {
                         onTransfer(provider, {DCT_ID{0}, providerReward}); //can throw
                         totalDistributed += providerReward;
