@@ -45,8 +45,10 @@ enum class CustomTxType : unsigned char
     CreatePoolPair      = 'p',
     UpdatePoolPair      = 'u',
     PoolSwap            = 's',
+    AnyPoolSwap         = 'S',
     AddPoolLiquidity    = 'l',
     RemovePoolLiquidity = 'r',
+    RemoveAnyPoolLiquidity = 'L',
     // accounts
     UtxosToAccount     = 'U',
     AccountToUtxos     = 'b',
@@ -60,7 +62,7 @@ enum class CustomTxType : unsigned char
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMNnpuslrUbBaG+";
+    char const txtypes[] = "CRTMNnpuslrUbBaLG+";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -81,6 +83,7 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::PoolSwap:            return "PoolSwap";
         case CustomTxType::AddPoolLiquidity:    return "AddPoolLiquidity";
         case CustomTxType::RemovePoolLiquidity: return "RemovePoolLiquidity";
+        case CustomTxType::RemoveAnyPoolLiquidity: return "RemoveAnyPoolLiquidity";
         case CustomTxType::UtxosToAccount:      return "UtxosToAccount";
         case CustomTxType::AccountToUtxos:      return "AccountToUtxos";
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
@@ -126,8 +129,10 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
 Res ApplyCreatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 Res ApplyPoolSwapTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+Res ApplyAnyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams);
 Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+Res ApplyRemoveAnyPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 
 Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);

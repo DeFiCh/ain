@@ -158,11 +158,17 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::PoolSwap:
                 res = ApplyPoolSwapTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
+            case CustomTxType::AnyPoolSwap:
+                res = ApplyAnyPoolSwapTx(mnview, coins, tx, height, metadata, consensusParams);
+                break;
             case CustomTxType::AddPoolLiquidity:
                 res = ApplyAddPoolLiquidityTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::RemovePoolLiquidity:
                 res = ApplyRemovePoolLiquidityTx(mnview, coins, tx, height, metadata, consensusParams);
+                break;
+            case CustomTxType::RemoveAnyPoolLiquidity:
+                res = ApplyRemoveAnyPoolLiquidityTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::UtxosToAccount:
                 res = ApplyUtxosToAccountTx(mnview, tx, height, metadata, consensusParams);
@@ -569,37 +575,19 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     return mnview.SetPoolPair(lpTokenID, pool);
 }
 
-Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
-{
-    if ((int)height < consensusParams.BayfrontHeight) {
-        return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
-    }
-
-    // deserialize
-    CRemoveLiquidityMessage msg;
-    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> msg;
-    if (!ss.empty()) {
-        return Res::Err("Removing liquidity tx deserialization failed: excess %d bytes", ss.size());
-    }
-
-    const auto base = strprintf("Removing liquidity %s", msg.ToString());
-
-    CScript from = msg.from;
-    CTokenAmount amount = msg.amount;
-
+static Res RemovePoolLiquidity(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, const std::string& base, const CScript& scriptFrom, const CTokenAmount& tokenAmount) {
     // checked internally too. remove here?
-    if (amount.nValue <= 0) {
+    if (tokenAmount.nValue <= 0) {
         return Res::Err("%s: amount cannot be less than or equal to zero", base);
     }
 
-    auto pair = mnview.GetPoolPair(amount.nTokenId);
+    auto pair = mnview.GetPoolPair(tokenAmount.nTokenId);
 
     if (!pair) {
         return Res::Err("%s: there is no such pool pair", base);
     }
 
-    if (!HasAuth(tx, coins, from)) {
+    if (!HasAuth(tx, coins, scriptFrom)) {
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
     }
 
@@ -607,20 +595,20 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
 
     // subtract liq.balance BEFORE RemoveLiquidity call to check balance correctness
     {
-        auto sub = mnview.SubBalance(from, amount);
+        auto sub = mnview.SubBalance(scriptFrom, tokenAmount);
         if (!sub.ok) {
             return Res::Err("%s: %s", base, sub.msg);
         }
-        if (mnview.GetBalance(from, amount.nTokenId).nValue == 0) {
+        if (mnview.GetBalance(scriptFrom, tokenAmount.nTokenId).nValue == 0) {
             //delete ByShare index
-            const auto delShare = mnview.DelShare(amount.nTokenId, from);
+            const auto delShare = mnview.DelShare(tokenAmount.nTokenId, scriptFrom);
             if (!delShare.ok) {
                 return Res::Err("%s: %s", base, delShare.msg);
             }
         }
     }
 
-    const auto res = pool.RemoveLiquidity(from, amount.nValue, [&] (CScript to, CAmount amountA, CAmount amountB) {
+    auto res = pool.RemoveLiquidity(scriptFrom, tokenAmount.nValue, [&] (CScript to, CAmount amountA, CAmount amountB) {
 
         auto addA = mnview.AddBalance(to, { pool.idTokenA, amountA });
         if (!addA.ok) {
@@ -639,7 +627,59 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
         return Res::Err("%s: %s", base, res.msg);
     }
 
-    return mnview.SetPoolPair(amount.nTokenId, pool);
+    res = mnview.SetPoolPair(tokenAmount.nTokenId, pool);
+
+    if (!res.ok) {
+        return Res::Err("%s: %s", base, res.msg);
+    }
+
+    return Res::Ok();
+}
+
+Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
+{
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    }
+
+    // deserialize
+    CRemoveLiquidityMessage msg;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("Removing liquidity tx deserialization failed: excess %d bytes", ss.size());
+    }
+
+    const auto base = strprintf("Removing liquidity %s", msg.ToString());
+
+    return RemovePoolLiquidity(mnview, coins, tx, base, msg.from, msg.amount);
+}
+
+Res ApplyRemoveAnyPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
+{
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    }
+
+    // deserialize
+    CRemoveAnyLiquidityMessage msg;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("Removing liquidity tx deserialization failed: excess %d bytes", ss.size());
+    }
+
+    const auto base = strprintf("Removing liquidity %s", msg.ToString());
+
+    for (const auto& acc : msg.from) {
+        for (const auto& balance : acc.second.balances) {
+            Res res = RemovePoolLiquidity(mnview, coins, tx, base, acc.first, CTokenAmount{balance.first, balance.second});
+            if (!res.ok) {
+                return res;
+            }
+        }
+    }
+    return Res::Ok();
 }
 
 
@@ -984,6 +1024,45 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     return Res::Ok(base);
 }
 
+static Res PoolSwap(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, const std::string& base, const CScript& scriptFrom, const DCT_ID idTokenFrom, const CAmount amountFrom, const CScript& scriptTo, const DCT_ID idTokenTo, const PoolPrice maxPrice)
+{
+    // check auth
+    if (!HasAuth(tx, coins, scriptFrom)) {
+        return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+    }
+
+    auto poolPair = mnview.GetPoolPair(idTokenFrom, idTokenTo);
+    if (!poolPair) {
+        return Res::Err("%s: can't find the poolpair!", base);
+    }
+
+    CPoolPair pp = poolPair->second;
+    const auto res = pp.Swap({idTokenFrom, amountFrom}, maxPrice, [&] (const CTokenAmount &tokenAmount) {
+        auto resPP = mnview.SetPoolPair(poolPair->first, pp);
+        if (!resPP.ok) {
+            return Res::Err("%s: %s", base, resPP.msg);
+        }
+
+        auto sub = mnview.SubBalance(scriptFrom, {idTokenFrom, amountFrom});
+        if (!sub.ok) {
+            return Res::Err("%s: %s", base, sub.msg);
+        }
+
+        auto add = mnview.AddBalance(scriptTo, tokenAmount);
+        if (!add.ok) {
+            return Res::Err("%s: %s", base, add.msg);
+        }
+
+        return Res::Ok();
+    });
+
+    if (!res.ok) {
+        return Res::Err("%s: %s", base, res.msg);
+    }
+
+    return Res::Ok();
+}
+
 Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams)
 {
     if ((int)height < consensusParams.BayfrontHeight) {
@@ -999,48 +1078,37 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
 
     const std::string base{"PoolSwap creation: " + poolSwapMsg.ToString()};
 
-    // check auth
-    if (!HasAuth(tx, coins, poolSwapMsg.from)) {
-        return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+    return PoolSwap(mnview, coins, tx, base, poolSwapMsg.from, poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom, poolSwapMsg.to, poolSwapMsg.idTokenTo, poolSwapMsg.maxPrice);
+}
+
+Res ApplyAnyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams)
+{
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
-//    auto tokenFrom = mnview.GetToken(poolSwapMsg.idTokenFrom);
-//    if (!tokenFrom) {
-//        return Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenFrom.ToString());
-//    }
-
-//    auto tokenTo = mnview.GetToken(poolSwapMsg.idTokenTo);
-//    if (!tokenTo) {
-//        return Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenTo.ToString());
-//    }
-
-    auto poolPair = mnview.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
-    if (!poolPair) {
-        return Res::Err("%s: can't find the poolpair!", base);
+    CAnyPoolSwapMessage poolSwapMsg;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> poolSwapMsg;
+    if (!ss.empty()) {
+        return Res::Err("PoolSwap: deserialization failed: excess %d bytes",  ss.size());
     }
 
-    CPoolPair pp = poolPair->second;
-    const auto res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
-        auto resPP = mnview.SetPoolPair(poolPair->first, pp);
-        if (!resPP.ok) {
-            return Res::Err("%s: %s", base, resPP.msg);
+    const std::string base{"PoolSwap creation: " + poolSwapMsg.ToString()};
+
+    const CBalances fromBalances = SumAllTransfers(poolSwapMsg.from);
+
+    if (fromBalances.balances.size() != 1) {
+        return Res::Err("%s: %s", base, "from balances must have only one token");
+    }
+
+    for (const auto& acc : poolSwapMsg.from) {
+        for (const auto& balance : acc.second.balances) {
+            Res res = PoolSwap(mnview, coins, tx, base, acc.first, balance.first, balance.second, poolSwapMsg.to, poolSwapMsg.idTokenTo, poolSwapMsg.maxPrice);
+            if (!res.ok) {
+                return res;
+            }
         }
-
-        auto sub = mnview.SubBalance(poolSwapMsg.from, {poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom});
-        if (!sub.ok) {
-            return Res::Err("%s: %s", base, sub.msg);
-        }
-
-        auto add = mnview.AddBalance(poolSwapMsg.to, tokenAmount);
-        if (!add.ok) {
-            return Res::Err("%s: %s", base, add.msg);
-        }
-
-        return Res::Ok();
-    });
-
-    if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
     }
 
     return Res::Ok();

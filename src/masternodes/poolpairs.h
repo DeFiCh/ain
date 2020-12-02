@@ -63,6 +63,33 @@ struct CPoolSwapMessage {
     }
 };
 
+struct CAnyPoolSwapMessage {
+    CAccounts from;
+    CScript to;
+    DCT_ID idTokenTo;
+    PoolPrice maxPrice;
+
+    std::string ToString() const {
+        std::string result;
+        result += "(";
+        for (const auto& kv : from) {
+            result += kv.first.GetHex() + ":" + kv.second.ToString() + "\n";
+        }
+        result += "->" + to.GetHex() + ":?@" + idTokenTo.ToString() +")";
+        return result;
+    }
+
+    ADD_SERIALIZE_METHODS
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(from);
+        READWRITE(to);
+        READWRITE(VARINT(idTokenTo.v));
+        READWRITE(maxPrice);
+    }
+};
+
 struct CPoolPairMessage {
     DCT_ID idTokenA, idTokenB;
     CAmount commission;   // comission %% for traders
@@ -354,6 +381,28 @@ struct CRemoveLiquidityMessage {
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(from);
         READWRITE(amount);
+    }
+};
+
+struct CRemoveAnyLiquidityMessage {
+    CAccounts from;
+
+    std::string ToString() const {
+        if (from.empty()) {
+            return "empty transfer";
+        }
+        std::string result;
+        for (const auto& kv : from) {
+            result += "(" + kv.first.GetHex() + "->" + kv.second.ToString() + ")";
+        }
+        return result;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(from);
     }
 };
 
