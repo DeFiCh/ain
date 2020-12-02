@@ -25,10 +25,10 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
         # We need to enlarge -datacarriersize for allowing for test big OP_RETURN scripts
         # resulting from building AnyAccountsToAccounts msg with many accounts balances
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-datacarriersize=1000'],
-            ['-txnotokens=0', '-amkheight=50', '-datacarriersize=1000'],
-            ['-txnotokens=0', '-amkheight=50', '-datacarriersize=1000'],
-            ['-txnotokens=0', '-amkheight=50', '-datacarriersize=1000']
+            ['-txnotokens=0', '-bayfrontgardensheight=50', '-datacarriersize=1000'],
+            ['-txnotokens=0', '-bayfrontgardensheight=50', '-datacarriersize=1000'],
+            ['-txnotokens=0', '-bayfrontgardensheight=50', '-datacarriersize=1000'],
+            ['-txnotokens=0', '-bayfrontgardensheight=50', '-datacarriersize=1000']
         ]
 
     def run_test(self):
