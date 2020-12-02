@@ -201,6 +201,8 @@ public:
 
     //! Derive BIP32 child pubkey.
     bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc) const;
+
+    static bool TryRecoverSigCompat(const std::vector<unsigned char>& vchSig, std::vector<unsigned char>* sig = nullptr);
 };
 
 struct CExtPubKey {

@@ -280,13 +280,9 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->mintedBlocks = diskindex.mintedBlocks;
                 pindexNew->sig = diskindex.sig;
                 if (pindexNew->nHeight && !skipSigCheck) {
-                    CPubKey recoveredPubKey{};
-                    if (!recoveredPubKey.RecoverCompact(pindexNew->GetBlockHeader().GetHashToSign(), pindexNew->sig)) {
+                    if (!CPubKey::TryRecoverSigCompat(pindexNew->sig)) {
                         return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Index content: %s", __func__, pindexNew->nHeight, pindexNew->GetBlockHash().ToString(), pindexNew->ToString());
                     }
-                    pindexNew->minter = recoveredPubKey.GetID();
-                } else {
-                    pindexNew->minter = CKeyID();
                 }
 //                if (pindexNew->nHeight > 0 && pindexNew->stakeModifier != pos::ComputeStakeModifier(pindexNew->pprev->stakeModifier, pindexNew->minter)) { // TODO: SS disable check stake modifier
 //                    return error("%s: The block index #%d (%s) wasn't saved on disk correctly. Stake modifier is incorrect (%s != %s). Index content: %s",

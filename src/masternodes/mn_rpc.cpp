@@ -551,9 +551,9 @@ UniValue createtoken(const JSONRPCRequest& request) {
                             {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                              "Token's total supply limit (optional, zero for now, unchecked)"},
                             {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                             "Token's 'Mintable' property (bool, optional), fixed to 'True' for now"},
+                             "Token's 'Mintable' property (bool, optional), default is 'True'"},
                             {"tradeable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                             "Token's 'Tradeable' property (bool, optional), fixed to 'True' for now"},
+                             "Token's 'Tradeable' property (bool, optional), default is 'True'"},
                             {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
                              "Any valid destination for keeping collateral amount - used as token's owner auth"},
                         },
@@ -614,10 +614,17 @@ UniValue createtoken(const JSONRPCRequest& request) {
     token.symbol = trim_ws(metaObj["symbol"].getValStr()).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     token.name = trim_ws(metaObj["name"].getValStr()).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
     token.flags = metaObj["isDAT"].getBool() ? token.flags | (uint8_t)CToken::TokenFlags::DAT : token.flags; // setting isDAT
-//    token.decimal = metaObj["name"].get_int(); // fixed for now, check range later
-//    token.limit = metaObj["limit"].get_int(); // fixed for now, check range later
-//    token.flags = metaObj["mintable"].get_bool() ? token.flags | CToken::TokenFlags::Mintable : token.flags; // fixed for now, check later
-//    token.flags = metaObj["tradeable"].get_bool() ? token.flags | CToken::TokenFlags::Tradeable : token.flags; // fixed for now, check later
+
+    if (!metaObj["tradeable"].isNull()) {
+        token.flags = metaObj["tradeable"].getBool() ?
+            token.flags | uint8_t(CToken::TokenFlags::Tradeable) :
+            token.flags & ~uint8_t(CToken::TokenFlags::Tradeable);
+    }
+    if (!metaObj["mintable"].isNull()) {
+        token.flags = metaObj["mintable"].getBool() ?
+            token.flags | uint8_t(CToken::TokenFlags::Mintable) :
+            token.flags & ~uint8_t(CToken::TokenFlags::Mintable);
+    }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateToken)
@@ -928,7 +935,6 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
     return ret;
 }
 
-// @todo implement pagination, similar to list* calls below
 UniValue listtokens(const JSONRPCRequest& request) {
     RPCHelpMan{"listtokens",
                "\nReturns information about tokens.\n",
@@ -1302,13 +1308,15 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     LOCK(cs_main);
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
         if (isMineOnly) {
-            if (IsMine(*pwallet, owner) == ISMINE_SPENDABLE)
+            if (IsMine(*pwallet, owner) == ISMINE_SPENDABLE) {
                 ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+                limit--;
+            }
         } else {
             ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+            limit--;
         }
 
-        limit--;
         return limit != 0;
     }, start);
 
@@ -2672,10 +2680,6 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
                 return Res::Err("%s: %s", base, resPP.msg);
             }
 
-            auto sub = mnview_dummy.SubBalance(poolSwapMsg.from, {poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom});
-            if (!sub.ok) {
-                return Res::Err("%s: %s", base, sub.msg);
-            }
             return Res::Ok(tokenAmount.ToString());
         });
 
@@ -2717,13 +2721,15 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
                         },
                         {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                     "Flag for verbose list (default = true), otherwise only % are shown."},
+                        {"is_mine_only", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                    "Get shares for all accounts belonging to the wallet (default = false)"},
                },
                RPCResult{
                        "{id:{...},...}     (array) Json object with pools information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listpoolshares", "'{\"start\":128}' False")
-                       + HelpExampleRpc("listpoolshares", "'{\"start\":128}' False")
+                       HelpExampleCli("listpoolshares", "'{\"start\":128}' False False")
+                       + HelpExampleRpc("listpoolshares", "'{\"start\":128}' False False")
                },
     }.Check(request);
 
@@ -2731,6 +2737,13 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
     if (request.params.size() > 1) {
         verbose = request.params[1].getBool();
     }
+
+    bool isMineOnly = false;
+    if (request.params.size() > 2) {
+        isMineOnly = request.params[2].get_bool();
+    }
+
+    CWallet* const pwallet = GetWallet(request);
 
     // parse pagination
     size_t limit = 100;
@@ -2770,10 +2783,18 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
         if(tokenAmount.nValue) {
             const auto poolPair = pcustomcsview->GetPoolPair(poolId);
             if(poolPair) {
-                ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
+                if (isMineOnly) {
+                    if (IsMine(*pwallet, provider) == ISMINE_SPENDABLE) {
+                        ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
+                        limit--;
+                    }
+                } else {
+                    ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
+                    limit--;
+                }
             }
         }
-        limit--;
+
         return limit != 0;
     }, startKey);
 
@@ -2815,6 +2836,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                   "Optional height to iterate from (downto genesis block), (default = chaintip)."},
                                  {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Maximum depth, 100 blocks by default for every account"},
+                                 {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                  "Filter out rewards"},
+                                 {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                  "Filter by token"},
                             },
                         },
                },
@@ -2834,6 +2859,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     uint32_t startBlock = std::numeric_limits<uint32_t>::max();
     uint32_t depth = 100;
+    bool noRewards = false;
+    std::string tokenFilter;
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -2841,6 +2868,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             {
                 {"maxBlockHeight", UniValueType(UniValue::VNUM)},
                 {"depth", UniValueType(UniValue::VNUM)},
+                {"no_rewards", UniValueType(UniValue::VBOOL)},
+                {"token", UniValueType(UniValue::VSTR)},
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -2848,6 +2877,14 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
         if (!optionsObj["depth"].isNull()) {
             depth = (uint32_t) optionsObj["depth"].get_int64();
+        }
+
+        if (!optionsObj["no_rewards"].isNull()) {
+            noRewards = optionsObj["no_rewards"].get_bool();
+        }
+
+        if (!optionsObj["token"].isNull()) {
+            tokenFilter = optionsObj["token"].get_str();
         }
     }
 
@@ -2865,12 +2902,37 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth)))
                 return true; // continue
 
+            if(!tokenFilter.empty()) {
+                bool hasToken = false;
+                for (auto const & diff : diffs) {
+                    auto token = pcustomcsview->GetToken(diff.first);
+                    std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
+
+                    if(tokenIdStr == tokenFilter) {
+                        hasToken = true;
+                        break;
+                    }
+                }
+
+                if(!hasToken) {
+                    return true; // continue
+                }
+            }
+
+            if(noRewards) {
+                if(category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
+                    return true; // continue
+                }
+            }
+
             if (prevOwner != owner) {
                 prevOwner = owner;
                 isMine = IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
             }
-            if (isMine)
+
+            if (isMine) {
                 ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+            }
 
             return true;
         }, startKey);
@@ -2879,8 +2941,32 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         // traversing the whole DB, skipping wrong heights
         AccountHistoryKey startKey{ CScript{}, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
-            if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth)))
+            if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth))) {
                 return true; // continue
+            }
+
+            if(!tokenFilter.empty()) {
+                bool hasToken = false;
+                for (auto const & diff : diffs) {
+                    auto token = pcustomcsview->GetToken(diff.first);
+                    std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
+
+                    if(tokenIdStr == tokenFilter) {
+                        hasToken = true;
+                        break;
+                    }
+                }
+
+                if(!hasToken) {
+                    return true; // continue
+                }
+            }
+
+            if(noRewards) {
+                if(category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
+                    return true; // continue
+                }
+            }
 
             ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
             return true;
@@ -2895,6 +2981,29 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
             if (owner != startKey.owner || (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth))))
                 return false;
+
+            if(!tokenFilter.empty()) {
+                bool hasToken = false;
+                for (auto const & diff : diffs) {
+                    auto token = pcustomcsview->GetToken(diff.first);
+                    std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
+
+                    if(tokenIdStr == tokenFilter) {
+                        hasToken = true;
+                        break;
+                    }
+                }
+
+                if(!hasToken) {
+                    return true; // continue
+                }
+            }
+
+            if(noRewards) {
+                if(category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
+                    return true; // continue
+                }
+            }
 
             ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
             return true;
@@ -3107,7 +3216,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "createpoolpair",     &createpoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "updatepoolpair",     &updatepoolpair,     {"metadata", "inputs"}},
     {"poolpair",    "poolswap",           &poolswap,           {"metadata", "inputs"}},
-    {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose"}},
+    {"poolpair",    "listpoolshares",     &listpoolshares,     {"pagination", "verbose", "is_mine_only"}},
     {"poolpair",    "testpoolswap",       &testpoolswap,       {"metadata"}},
     {"accounts",    "listaccounthistory", &listaccounthistory, {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},

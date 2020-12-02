@@ -74,6 +74,8 @@ struct Params {
     int AMKHeight;
     /** What exactly? Changes to mint DAT, new updatetokens? */
     int BayfrontHeight;
+    int BayfrontMarinaHeight;
+    int BayfrontGardensHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
 

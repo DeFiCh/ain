@@ -110,9 +110,13 @@ public:
     uint256 creationTx;
     uint32_t creationHeight;
 
+    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint) {
+        return this->AddLiquidity(amountA, amountB, shareAddress, onMint, false);
+    }    
+
     // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
     // otherwise, 'AddLiquidity' should be () external to 'CPairPool' (i.e. CPoolPairView::AddLiquidity(TAmount a,b etc) with internal lookup of pool by TAmount a,b)
-    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint) {
+    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint, bool slippageProtection) {
         // instead of assertion due to tests
         if (amountA <= 0 || amountB <= 0) {
             return Res::Err("amounts should be positive");
@@ -130,8 +134,15 @@ public:
             CAmount liqA = (arith_uint256(amountA) * arith_uint256(totalLiquidity) / reserveA).GetLow64();
             CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
             liquidity = std::min(liqA, liqB);
+
             if (liquidity == 0)
                 return Res::Err("amounts too low, zero liquidity");
+
+            if(slippageProtection) {
+                if ((std::max(liqA, liqB) - liquidity) * 100 / liquidity >= 3) {
+                    return Res::Err("Exceeds max ratio slippage protection of 3%%");
+                }
+            }
         }
 
         // increasing totalLiquidity
@@ -247,7 +258,7 @@ public:
     }
 
     /// @attention it throws (at least for debug), cause errors are critical!
-    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CTokenAmount amount)> onTransfer) {
+    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CTokenAmount amount)> onTransfer, bool newRewardCalc = false) {
 
         uint32_t const PRECISION = 10000; // (== 100%) just searching the way to avoid arith256 inflating
         CAmount totalDistributed = 0;
@@ -259,7 +270,8 @@ public:
             CAmount distributedFeeA = 0;
             CAmount distributedFeeB = 0;
 
-            if (!pool.swapEvent && (poolReward == 0 || pool.totalLiquidity == 0)) {
+            
+            if (pool.totalLiquidity == 0 || (!pool.swapEvent && poolReward == 0)) {
                 return true; // no events, skip to the next pool
             }
 
@@ -274,18 +286,27 @@ public:
 
                 // distribute trading fees
                 if (pool.swapEvent) {
-                    CAmount feeA = pool.blockCommissionA * liqWeight / PRECISION;       // liquidity / pool.totalLiquidity;
+                    CAmount feeA = pool.blockCommissionA * liquidity / pool.totalLiquidity;
+                    if (!newRewardCalc) {
+                        feeA = pool.blockCommissionA * liqWeight / PRECISION;
+                    }
                     distributedFeeA += feeA;
                     onTransfer(provider, {pool.idTokenA, feeA}); //can throw
 
-                    CAmount feeB = pool.blockCommissionB * liqWeight / PRECISION;       // liquidity / pool.totalLiquidity;
+                    CAmount feeB = pool.blockCommissionB * liquidity / pool.totalLiquidity;
+                    if (!newRewardCalc) {
+                        feeB = pool.blockCommissionB * liqWeight / PRECISION;
+                    }
                     distributedFeeB += feeB;
                     onTransfer(provider, {pool.idTokenB, feeB}); //can throw
                 }
 
                 // distribute yield farming
                 if (poolReward) {
-                    CAmount providerReward = poolReward * liqWeight / PRECISION;        //liquidity / pool.totalLiquidity;
+                    CAmount providerReward = poolReward * liquidity / pool.totalLiquidity;
+                    if (!newRewardCalc) {
+                        providerReward = poolReward * liqWeight / PRECISION;
+                    }
                     if (providerReward) {
                         onTransfer(provider, {DCT_ID{0}, providerReward}); //can throw
                         totalDistributed += providerReward;
