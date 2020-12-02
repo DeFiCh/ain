@@ -98,7 +98,7 @@ boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const 
     return {};
 }
 
-Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer) {
+Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer, bool postBayfrontGardens) {
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB) {
         throw std::runtime_error("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
     }
@@ -140,7 +140,7 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
         return Res::Err("Swapping will lead to pool's reserve overflow");
     }
 
-    CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB) : slopeSwap(in.nValue, reserveB, reserveA);
+    CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB, postBayfrontGardens) : slopeSwap(in.nValue, reserveB, reserveA, postBayfrontGardens);
 //    CAmount realPrice = (arith_uint256(result) * aPRECISION / arith_uint256(in.nValue)).GetLow64(); /// @todo check overflow
 //    if (realPrice > maxPrice)
 //        return Res::Err("Price higher than indicated.");
@@ -150,7 +150,7 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
     return onTransfer({ forward ? idTokenB : idTokenA, result });
 }
 
-CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo, bool postBayfrontGardens = false) {
+CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo, bool postBayfrontGardens) {
     assert (unswapped >= 0);
     assert (SafeAdd(unswapped, poolFrom).ok);
 

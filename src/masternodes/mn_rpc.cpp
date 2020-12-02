@@ -2807,6 +2807,8 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
     CPoolSwapMessage poolSwapMsg{};
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
 
+    int targetHeight = ::ChainActive().Height() + 1;
+
     // test execution and get amount
     Res res = Res::Ok();
     {
@@ -2825,7 +2827,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
             }
 
             return Res::Ok(tokenAmount.ToString());
-        });
+        }, targetHeight >= Params().GetConsensus().BayfrontGardensHeight);
 
         if (!res.ok)
             throw JSONRPCError(RPC_VERIFY_ERROR, res.msg);
