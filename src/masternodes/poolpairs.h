@@ -270,7 +270,8 @@ public:
             CAmount distributedFeeA = 0;
             CAmount distributedFeeB = 0;
 
-            if (!pool.swapEvent && (poolReward == 0 || pool.totalLiquidity == 0)) {
+            
+            if (pool.totalLiquidity == 0 || (!pool.swapEvent && poolReward == 0)) {
                 return true; // no events, skip to the next pool
             }
 
