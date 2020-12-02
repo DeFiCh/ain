@@ -158,7 +158,7 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     arith_uint256 poolT = arith_uint256(poolTo);
    
     arith_uint256 swapped = 0;
-    if(!postBayfrontGardens) {
+    if (!postBayfrontGardens) {
         CAmount chunk = poolFrom/SLOPE_SWAP_RATE < unswapped ? poolFrom/SLOPE_SWAP_RATE : unswapped;
         while (unswapped > 0) {
             //arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
