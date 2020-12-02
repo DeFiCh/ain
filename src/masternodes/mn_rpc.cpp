@@ -514,8 +514,8 @@ UniValue listmasternodes(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with masternodes information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listmasternodes", "'[mn_id]' False")
-                       + HelpExampleRpc("listmasternodes", "'[mn_id]' False")
+                       HelpExampleCli("listmasternodes", "'[mn_id]' false")
+                       + HelpExampleRpc("listmasternodes", "'[mn_id]' false")
                },
     }.Check(request);
 
@@ -1082,8 +1082,8 @@ UniValue listtokens(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with tokens information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listtokens", "'{\"start\":128}' False")
-                       + HelpExampleRpc("listtokens", "'{\"start\":128}' False")
+                       HelpExampleCli("listtokens", "'{\"start\":128}' false")
+                       + HelpExampleRpc("listtokens", "'{\"start\":128}' false")
                },
     }.Check(request);
 
@@ -1382,7 +1382,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("listaccounts", "")
-                       + HelpExampleRpc("listaccounts", "'{}' False")
+                       + HelpExampleRpc("listaccounts", "'{}' false")
                        + HelpExampleRpc("listaccounts", "'{\"start\":\"a914b12ecde1759f792e0228e4fa6d262902687ca7eb87@0\","
                                                       "\"limit\":1000"
                                                       "}'")
@@ -1693,8 +1693,8 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with pools information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listpoolpairs", "'{\"start\":128}' False")
-                       + HelpExampleRpc("listpoolpairs", "'{\"start\":128}' False")
+                       HelpExampleCli("listpoolpairs", "'{\"start\":128}' false")
+                       + HelpExampleRpc("listpoolpairs", "'{\"start\":128}' false")
                },
     }.Check(request);
 
@@ -2874,8 +2874,8 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
                        "{id:{...},...}     (array) Json object with pools information\n"
                },
                RPCExamples{
-                       HelpExampleCli("listpoolshares", "'{\"start\":128}' False False")
-                       + HelpExampleRpc("listpoolshares", "'{\"start\":128}' False False")
+                       HelpExampleCli("listpoolshares", "'{\"start\":128}' false false")
+                       + HelpExampleRpc("listpoolshares", "'{\"start\":128}' false false")
                },
     }.Check(request);
 
@@ -2994,7 +2994,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("listaccounthistory", "all '{\"maxBlockHeight\":160,\"depth\":10}'")
-                       + HelpExampleRpc("listaccounthistory", "address False")
+                       + HelpExampleRpc("listaccounthistory", "address false")
                },
     }.Check(request);
 
