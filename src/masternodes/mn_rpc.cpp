@@ -3012,7 +3012,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     bool noRewards = false;
     std::string tokenFilter;
     uint32_t limit = 100;
-    uint8_t txType = uint8_t(CustomTxType::None);
+    auto txType = CustomTxType::None;
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -3044,7 +3044,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         if (!optionsObj["txtype"].isNull()) {
             const auto str = optionsObj["txtype"].get_str();
             if (str.size() == 1) {
-                txType = uint8_t(CustomTxCodeToType(str[0]));
+                txType = CustomTxCodeToType(str[0]);
             }
         }
         if (!optionsObj["limit"].isNull()) {
@@ -3072,7 +3072,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (height > startKey.blockHeight || depth <= startKey.blockHeight)
                 return true; // continue
 
-            if (txType && txType != category) {
+            if (CustomTxType::None != txType && category != uint8_t(txType)) {
                 return true;
             }
 
@@ -3120,7 +3120,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return true; // continue
             }
 
-            if (txType && txType != category) {
+            if (CustomTxType::None != txType && category != uint8_t(txType)) {
                 return true;
             }
 
@@ -3161,7 +3161,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (owner != startKey.owner || height > startKey.blockHeight || depth <= startKey.blockHeight)
                 return false;
 
-            if (txType && txType != category) {
+            if (CustomTxType::None != txType && category != uint8_t(txType)) {
                 return true;
             }
 
