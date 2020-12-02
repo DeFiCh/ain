@@ -2981,13 +2981,15 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                  {"maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Optional height to iterate from (downto genesis block), (default = chaintip)."},
                                  {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Maximum depth, 100 blocks by default for every account"},
+                                  "Maximum depth, 100 blocks by default for every account, if limit is set it does nothing"},
                                  {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                   "Filter out rewards"},
                                  {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                   "Filter by token"},
                                  {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                   "Filter by transaction type, supported letter from 'CRTMNnpuslrUbBG'"},
+                                 {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                  "Maximum number of records to return, 100 by default"},
                             },
                         },
                },
@@ -3009,6 +3011,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     uint32_t depth = 100;
     bool noRewards = false;
     std::string tokenFilter;
+    uint32_t limit = 100;
     uint8_t txType = uint8_t(CustomTxType::None);
 
     if (request.params.size() > 1) {
@@ -3020,6 +3023,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"no_rewards", UniValueType(UniValue::VBOOL)},
                 {"token", UniValueType(UniValue::VSTR)},
                 {"txtype", UniValueType(UniValue::VSTR)},
+                {"limit", UniValueType(UniValue::VNUM)},
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -3043,10 +3047,19 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 txType = uint8_t(CustomTxCodeToType(str[0]));
             }
         }
+        if (!optionsObj["limit"].isNull()) {
+            limit = (uint32_t) optionsObj["limit"].get_int64();
+            depth = std::numeric_limits<decltype(depth)>::max();
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
     startBlock = std::min(startBlock, uint32_t(chainHeight(*pwallet->chain().lock())));
+    depth = std::min(depth, std::numeric_limits<decltype(depth)>::max() - startBlock - 1);
+    depth += startBlock + 1;
 
     UniValue ret(UniValue::VARR);
 
@@ -3056,7 +3069,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         bool isMine = false;
         AccountHistoryKey startKey{ prevOwner, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
-            if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth)))
+            if (height > startKey.blockHeight || depth <= startKey.blockHeight)
                 return true; // continue
 
             if (txType && txType != category) {
@@ -3093,16 +3106,17 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
             if (isMine) {
                 ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+                --limit;
             }
 
-            return true;
+            return limit != 0;
         }, startKey);
     }
     else if (accounts == "all") {
         // traversing the whole DB, skipping wrong heights
         AccountHistoryKey startKey{ CScript{}, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
-            if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth))) {
+            if (height > startKey.blockHeight || depth <= startKey.blockHeight) {
                 return true; // continue
             }
 
@@ -3134,7 +3148,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
-            return true;
+            return --limit != 0;
         }, startKey);
 
     }
@@ -3144,7 +3158,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
         AccountHistoryKey startKey{ owner, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
-            if (owner != startKey.owner || (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth))))
+            if (owner != startKey.owner || height > startKey.blockHeight || depth <= startKey.blockHeight)
                 return false;
 
             if (txType && txType != category) {
@@ -3175,7 +3189,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
-            return true;
+            return --limit != 0;
         }, startKey);
     }
 
