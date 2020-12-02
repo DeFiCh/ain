@@ -2986,6 +2986,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                   "Filter out rewards"},
                                  {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                   "Filter by token"},
+                                 {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                  "Filter by transaction type, supported letter from 'CRTMNnpuslrUbBG'"},
                             },
                         },
                },
@@ -3007,6 +3009,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     uint32_t depth = 100;
     bool noRewards = false;
     std::string tokenFilter;
+    uint8_t txType = uint8_t(CustomTxType::None);
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -3016,6 +3019,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 {"depth", UniValueType(UniValue::VNUM)},
                 {"no_rewards", UniValueType(UniValue::VBOOL)},
                 {"token", UniValueType(UniValue::VSTR)},
+                {"txtype", UniValueType(UniValue::VSTR)},
             }, true, true);
 
         if (!optionsObj["maxBlockHeight"].isNull()) {
@@ -3032,6 +3036,13 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         if (!optionsObj["token"].isNull()) {
             tokenFilter = optionsObj["token"].get_str();
         }
+
+        if (!optionsObj["txtype"].isNull()) {
+            const auto str = optionsObj["txtype"].get_str();
+            if (str.size() == 1) {
+                txType = uint8_t(CustomTxCodeToType(str[0]));
+            }
+        }
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
@@ -3047,6 +3058,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
             if (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth)))
                 return true; // continue
+
+            if (txType && txType != category) {
+                return true;
+            }
 
             if(!tokenFilter.empty()) {
                 bool hasToken = false;
@@ -3091,6 +3106,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return true; // continue
             }
 
+            if (txType && txType != category) {
+                return true;
+            }
+
             if(!tokenFilter.empty()) {
                 bool hasToken = false;
                 for (auto const & diff : diffs) {
@@ -3127,6 +3146,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
             if (owner != startKey.owner || (height > startKey.blockHeight || (depth <= startKey.blockHeight && (height < startKey.blockHeight - depth))))
                 return false;
+
+            if (txType && txType != category) {
+                return true;
+            }
 
             if(!tokenFilter.empty()) {
                 bool hasToken = false;
