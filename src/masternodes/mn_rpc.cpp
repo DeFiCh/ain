@@ -110,7 +110,7 @@ CAmount EstimateMnCreationFee(int targetHeight) {
 
 static std::vector<CTxIn> ParseInputs(UniValue const& inputs) {
     std::vector<CTxIn> vin{};
-    auto& array = inputs.get_array();
+    const auto& array = inputs.get_array();
     for (unsigned int idx = 0; idx < array.size(); idx++) {
         const UniValue& input = array[idx];
         const UniValue& o = input.get_obj();
@@ -173,7 +173,9 @@ static std::vector<CTxIn> GetMineAuthInputs(CWallet* const pwallet)
 {
     CTxDestination destination;
     for(auto& script : Params().GetConsensus().foundationMembers) {
+
         if(IsMine(*pwallet, script) == ISMINE_SPENDABLE) {
+
             if (!ExtractDestination(script, destination)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid destination");
             }
@@ -819,7 +821,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
-    bool searchInFoundationMemebers = true;
+    bool searchInFoundationMembers = true;
 
     if (targetHeight < Params().GetConsensus().BayfrontHeight) {
         if (metaObj.size() > 1 || !metaObj.exists("isDAT")) {
@@ -827,13 +829,13 @@ UniValue updatetoken(const JSONRPCRequest& request) {
         }
     } else if (isNonEmptyArray(txInputs)) { // post-bayfront auth
         rawTx.vin = ParseInputs(txInputs);
-        searchInFoundationMemebers = false;
+        searchInFoundationMembers = false;
     } else if (!Params().GetConsensus().foundationMembers.count(owner)) {
         rawTx.vin = GetAuthInputs(pwallet, ownerDest);
-        searchInFoundationMemebers = false;
+        searchInFoundationMembers = false;
     }
 
-    if (searchInFoundationMemebers)
+    if (searchInFoundationMembers)
         rawTx.vin = GetMineAuthInputs(pwallet);
 
     if(rawTx.vin.empty())
