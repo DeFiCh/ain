@@ -110,13 +110,9 @@ public:
     uint256 creationTx;
     uint32_t creationHeight;
 
-    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint) {
-        return this->AddLiquidity(amountA, amountB, shareAddress, onMint, false);
-    }    
-
     // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
     // otherwise, 'AddLiquidity' should be () external to 'CPairPool' (i.e. CPoolPairView::AddLiquidity(TAmount a,b etc) with internal lookup of pool by TAmount a,b)
-    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint, bool slippageProtection) {
+    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint, bool slippageProtection = false) {
         // instead of assertion due to tests
         if (amountA <= 0 || amountB <= 0) {
             return Res::Err("amounts should be positive");
