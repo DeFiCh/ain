@@ -282,14 +282,13 @@ public:
 
                 // distribute trading fees
                 if (pool.swapEvent) {
-                    CAmount feeA = pool.blockCommissionA * liquidity / pool.totalLiquidity;
+                    CAmount feeA = static_cast<CAmount>((arith_uint256(pool.blockCommissionA) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                     if (!newRewardCalc) {
                         feeA = pool.blockCommissionA * liqWeight / PRECISION;
                     }
                     distributedFeeA += feeA;
                     onTransfer(provider, {pool.idTokenA, feeA}); //can throw
-
-                    CAmount feeB = pool.blockCommissionB * liquidity / pool.totalLiquidity;
+                    CAmount feeB = static_cast<CAmount>((arith_uint256(pool.blockCommissionB) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                     if (!newRewardCalc) {
                         feeB = pool.blockCommissionB * liqWeight / PRECISION;
                     }
@@ -299,7 +298,7 @@ public:
 
                 // distribute yield farming
                 if (poolReward) {
-                    CAmount providerReward = poolReward * liquidity / pool.totalLiquidity;
+                    CAmount providerReward = static_cast<CAmount>((arith_uint256(poolReward) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                     if (!newRewardCalc) {
                         providerReward = poolReward * liqWeight / PRECISION;
                     }
