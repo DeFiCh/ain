@@ -525,3 +525,36 @@ bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
     return !pair || pair->second.destructionTx != uint256{} || pair->second.IsPoolShare();
 }
 
+CAccountsHistoryStorage::CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type)
+    : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height), txn(txn), txid(txid), type(type)
+{
+    acindex = gArgs.GetBoolArg("-acindex", false);
+}
+
+Res CAccountsHistoryStorage::AddBalance(CScript const & owner, CTokenAmount amount)
+{
+    auto res = CCustomCSView::AddBalance(owner, amount);
+    if (acindex && res.ok) {
+        diffs[owner][amount.nTokenId] += amount.nValue;
+    }
+    return res;
+}
+
+Res CAccountsHistoryStorage::SubBalance(CScript const & owner, CTokenAmount amount)
+{
+    auto res = CCustomCSView::SubBalance(owner, amount);
+    if (acindex && res.ok) {
+        diffs[owner][amount.nTokenId] -= amount.nValue;
+    }
+    return res;
+}
+
+bool CAccountsHistoryStorage::Flush()
+{
+    if (acindex) {
+        for (const auto& diff : diffs) {
+            SetAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
+        }
+    }
+    return CCustomCSView::Flush();
+}

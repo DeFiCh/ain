@@ -121,12 +121,20 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
         return Res::Ok(); // not "custom" tx
     }
 
-    CCustomCSView mnview(base_mnview);
     CustomTxType guess;
+    std::vector<unsigned char> metadata;
+
+    try {
+        guess = GuessCustomTxType(tx, metadata);
+    } catch (std::exception& e) {
+        return Res::Err("GuessCustomTxType: %s", e.what());
+    } catch (...) {
+        return Res::Err("GuessCustomTxType: unexpected error");
+    }
+
+    CAccountsHistoryStorage mnview(base_mnview, height, txn, tx.GetHash(), (uint8_t)guess);
     try {
         // Check if it is custom tx with metadata
-        std::vector<unsigned char> metadata;
-        guess = GuessCustomTxType(tx, metadata);
         switch (guess)
         {
             case CustomTxType::CreateMasternode:
@@ -196,7 +204,6 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
 
     // construct undo
     auto& flushable = dynamic_cast<CFlushableStorageKV&>(mnview.GetRaw());
-    mnview.TrackAffectedAccounts(base_mnview.GetRaw(), flushable.GetRaw(), height, txn, tx.GetHash(), (unsigned char) guess);
     auto undo = CUndo::Construct(base_mnview.GetRaw(), flushable.GetRaw());
     // flush changes
     mnview.Flush();

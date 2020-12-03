@@ -56,9 +56,8 @@ struct AccountHistoryValue {
 class CAccountsHistoryView : public virtual CStorageView
 {
 public:
-    Res SetAccountHistory(CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diff);
-    void ForEachAccountHistory(std::function<bool(CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diff)> callback, AccountHistoryKey start) const;
-    bool TrackAffectedAccounts(CStorageKV const & before, MapKV const & diff, uint32_t height, uint32_t txn, const uint256 & txid, unsigned char category);
+    Res SetAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
+    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, AccountHistoryValue const &)> callback, AccountHistoryKey start) const;
 
     // tags
     struct ByAccountHistoryKey { static const unsigned char prefix; };

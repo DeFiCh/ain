@@ -191,6 +191,8 @@ class CCustomCSView
         , public CGovView
 {
 public:
+    CCustomCSView() = default;
+
     CCustomCSView(CStorageKV & st)
         : CStorageView(new CFlushableStorageKV(st))
     {}
@@ -215,6 +217,21 @@ public:
     CStorageKV& GetRaw() {
         return DB();
     }
+};
+
+class CAccountsHistoryStorage : public CCustomCSView
+{
+    bool acindex;
+    const uint32_t height;
+    const uint32_t txn;
+    const uint256 txid;
+    const uint8_t type;
+    std::map<CScript, TAmounts> diffs;
+public:
+    CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type);
+    Res AddBalance(CScript const & owner, CTokenAmount amount) override;
+    Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    bool Flush();
 };
 
 /** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */

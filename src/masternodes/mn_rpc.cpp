@@ -3000,15 +3000,15 @@ UniValue AmountsToJSON(TAmounts const & diffs) {
     return obj;
 }
 
-UniValue accounthistoryToJSON(CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
+UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue const & value) {
     UniValue obj(UniValue::VOBJ);
 
-    obj.pushKV("owner", ScriptToString(owner));
-    obj.pushKV("blockHeight", (uint64_t) height);
-    obj.pushKV("type", ToString(CustomTxCodeToType(category)));
-    if (!txid.IsNull()) {
-        obj.pushKV("txn", (uint64_t) txn);
-        obj.pushKV("txid", txid.ToString());
+    obj.pushKV("owner", ScriptToString(key.owner));
+    obj.pushKV("blockHeight", (uint64_t) key.blockHeight);
+    obj.pushKV("type", ToString(CustomTxCodeToType(value.category)));
+    if (!value.txid.IsNull()) {
+        obj.pushKV("txn", (uint64_t) key.txn);
+        obj.pushKV("txid", value.txid.ToString());
     }
 
     obj.pushKV("amounts", AmountsToJSON(diffs));
@@ -3136,7 +3136,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         bool isMine = false;
         filter = ISMINE_SPENDABLE;
         AccountHistoryKey startKey{ prevOwner, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
-        pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
+        pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
             if (height > startKey.blockHeight || depth <= startKey.blockHeight)
                 return true; // continue
 
@@ -3146,7 +3146,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
             if(!tokenFilter.empty()) {
                 bool hasToken = false;
-                for (auto const & diff : diffs) {
+                for (auto const & diff : value.diff) {
                     auto token = pcustomcsview->GetToken(diff.first);
                     std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
 
@@ -3162,18 +3162,18 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             if(noRewards) {
-                if(category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
+                if(value.category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
                     return true; // continue
                 }
             }
 
-            if (prevOwner != owner) {
-                prevOwner = owner;
-                isMine = IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
+            if (prevOwner != key.owner) {
+                prevOwner = key.owner;
+                isMine = IsMine(*pwallet, key.owner) == ISMINE_SPENDABLE;
             }
 
             if (isMine) {
-                ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+                ret.push_back(accounthistoryToJSON(key, value));
                 --limit;
 
                 if (shouldSearchInWallet) {
@@ -3187,8 +3187,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     else if (accounts == "all") {
         // traversing the whole DB, skipping wrong heights
         AccountHistoryKey startKey{ CScript{}, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
-        pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
-            if (height > startKey.blockHeight || depth <= startKey.blockHeight) {
+        pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
+            if (key.blockHeight > startKey.blockHeight || (depth <= startKey.blockHeight && (key.blockHeight < startKey.blockHeight - depth))) {
                 return true; // continue
             }
 
@@ -3198,7 +3198,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
             if(!tokenFilter.empty()) {
                 bool hasToken = false;
-                for (auto const & diff : diffs) {
+                for (auto const & diff : value.diff) {
                     auto token = pcustomcsview->GetToken(diff.first);
                     std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
 
@@ -3214,12 +3214,12 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             if(noRewards) {
-                if(category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
+                if(value.category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
                     return true; // continue
                 }
             }
 
-            ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+            ret.push_back(accounthistoryToJSON(key, value));
             if (shouldSearchInWallet) {
                 txs.insert(txid);
             }
@@ -3232,8 +3232,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         owner = DecodeScript(accounts);
 
         AccountHistoryKey startKey{ owner, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
-        pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
-            if (owner != startKey.owner || height > startKey.blockHeight || depth <= startKey.blockHeight)
+        pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
+            if (key.owner != startKey.owner || (key.blockHeight > startKey.blockHeight || (depth <= startKey.blockHeight && (key.blockHeight < startKey.blockHeight - depth))))
                 return false;
 
             if (CustomTxType::None != txType && category != uint8_t(txType)) {
@@ -3242,7 +3242,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
             if(!tokenFilter.empty()) {
                 bool hasToken = false;
-                for (auto const & diff : diffs) {
+                for (auto const & diff : value.diff) {
                     auto token = pcustomcsview->GetToken(diff.first);
                     std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
 
@@ -3258,12 +3258,12 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             if(noRewards) {
-                if(category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
+                if(value.category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
                     return true; // continue
                 }
             }
 
-            ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+            ret.push_back(accounthistoryToJSON(key, value));
             if (shouldSearchInWallet) {
                 txs.insert(txid);
             }
