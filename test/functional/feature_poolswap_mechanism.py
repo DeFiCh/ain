@@ -24,7 +24,9 @@ class PoolSwapTest (DefiTestFramework):
         # node1: secondary tester
         # node2: revert create (all)
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0'], ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0'], ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0'],
+        ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0'],
+        ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0']]
 
         # SET parameters for create tokens and pools
         #========================
@@ -147,18 +149,13 @@ class PoolSwapTest (DefiTestFramework):
                 self.nodes[0].generate(1)
 
     def slope_swap(self, unswapped, poolFrom, poolTo):
-        while unswapped > 0:
-            if poolFrom / 1000 > unswapped:
-                stepFrom = unswapped
-            else:
-                stepFrom = poolFrom / 1000
-            stepTo = poolTo * stepFrom / poolFrom
-            poolFrom += stepFrom
-            poolTo -= stepTo
-            unswapped -= stepFrom
+        swapped = poolTo - (poolTo * poolFrom / (poolFrom + unswapped))
+        poolFrom += unswapped
+        poolTo -= swapped
+
         return (poolFrom, poolTo)
 
-    def pollswap(self):
+    def poolswap(self):
         for item in range(self.COUNT_POOLS):
             tokenA = "GOLD" + str(item)
             tokenB = "SILVER" + str(item)
@@ -198,14 +195,16 @@ class PoolSwapTest (DefiTestFramework):
                 for idx in range(start, end):
                     liquidity = self.nodes[0].getaccount(self.accounts[idx], {}, True)[idPool]
                     totalLiquidity = self.nodes[0].getpoolpair(pool, True)[idPool]['totalLiquidity']
-                    liqWeight = int(liquidity * self.DECIMAL) * 10000 // int(totalLiquidity * self.DECIMAL)
-                    assert(liqWeight < 10000)
-                    feeB = (int(blockCommissionB * self.DECIMAL) * liqWeight) / Decimal(10000)
+
+                    liquidity = int(liquidity * self.DECIMAL)
+                    totalLiquidity = int(totalLiquidity * self.DECIMAL)
+
+                    feeB = (int(blockCommissionB * self.DECIMAL) * liquidity) // totalLiquidity
                     (reserveB, reserveA) = self.slope_swap(Decimal(amount - (amount * self.COMMISSION)), reserveB, reserveA)
                     newReserveB = reserveB
-                    assert_equal(amountsB[idx] - amount + (feeB / self.DECIMAL), self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
 
-                    # realPoolReward =
+                    assert_equal(amountsB[idx] - amount + Decimal(str(feeB / self.DECIMAL)), self.nodes[0].getaccount(self.accounts[idx], {}, True)[self.get_id_token(tokenB)])
+
                     realPoolReward = self.nodes[0].getaccount(self.accounts[idx], {}, True)['0'] - poolRewards[idx]
 
                     yieldFarming = int(self.LP_DAILY_DFI_REWARD * self.DECIMAL) / (60 * 60 * 24 / 600) # Regression test in chainparams.cpp
@@ -214,10 +213,9 @@ class PoolSwapTest (DefiTestFramework):
                     poolReward = yieldFarming * int(rewardPct * self.DECIMAL) // self.DECIMAL
 
                     if poolReward:
-                        providerReward = poolReward * liqWeight / 10000
+                        providerReward = poolReward * liquidity // totalLiquidity
                         if providerReward:
-                            # Inaccurate calculations
-                            assert_equal(str(int(realPoolReward * self.DECIMAL)), str(int(providerReward)))
+                            assert_equal(int(realPoolReward * self.DECIMAL), int(providerReward))
 
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
                 assert_equal(str(reserveB), format(newReserveB, '.8f'))
@@ -300,7 +298,7 @@ class PoolSwapTest (DefiTestFramework):
 
         print("Swapping tokens...")
         start_time = time.time()
-        self.pollswap()
+        self.poolswap()
         end_time = time.time() - start_time
         print("Tokens exchanged")
         print("Elapsed time: {} s".format(end_time))
