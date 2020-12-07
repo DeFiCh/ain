@@ -556,3 +556,32 @@ bool CAccountsHistoryStorage::Flush()
     }
     return CCustomCSView::Flush();
 }
+
+CRewardsHistoryStorage::CRewardsHistoryStorage(CCustomCSView & storage, uint32_t height)
+    : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height)
+{
+    acindex = gArgs.GetBoolArg("-acindex", false);
+}
+
+Res CRewardsHistoryStorage::AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount)
+{
+    auto res = CCustomCSView::AddBalance(owner, amount);
+    if (acindex && res.ok) {
+        auto& tuple = diffs[owner];
+        std::get<0>(tuple) = poolID;
+        std::get<1>(tuple) = type;
+        std::get<2>(tuple)[amount.nTokenId] += amount.nValue;
+    }
+    return res;
+}
+
+bool CRewardsHistoryStorage::Flush()
+{
+    if (acindex) {
+        for (const auto& diff : diffs) {
+            const auto& tuple = diff.second;
+            SetRewardHistory({diff.first, height, std::get<0>(tuple)}, {std::get<1>(tuple), std::get<2>(tuple)});
+        }
+    }
+    return CCustomCSView::Flush();
+}

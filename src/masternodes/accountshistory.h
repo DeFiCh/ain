@@ -53,6 +53,43 @@ struct AccountHistoryValue {
     }
 };
 
+struct RewardHistoryKey {
+    CScript owner;
+    uint32_t blockHeight;
+    DCT_ID poolID; // for order in block
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(owner);
+
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(blockHeight));
+            blockHeight = ~blockHeight;
+        }
+        else {
+            uint32_t blockHeight_ = ~blockHeight;
+            READWRITE(WrapBigEndian(blockHeight_));
+        }
+
+        READWRITE(VARINT(poolID.v));
+    }
+};
+
+struct RewardHistoryValue {
+    unsigned char category;
+    TAmounts diff;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(category);
+        READWRITE(diff);
+    }
+};
+
 class CAccountsHistoryView : public virtual CStorageView
 {
 public:
@@ -61,6 +98,16 @@ public:
 
     // tags
     struct ByAccountHistoryKey { static const unsigned char prefix; };
+};
+
+class CRewardsHistoryView : public virtual CStorageView
+{
+public:
+    Res SetRewardHistory(RewardHistoryKey const & key, RewardHistoryValue const & value);
+    void ForEachRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start = {}) const;
+
+    // tags
+    struct ByRewardHistoryKey { static const unsigned char prefix; };
 };
 
 #endif //DEFI_MASTERNODES_ACCOUNTSHISTORY_H

@@ -23,6 +23,7 @@
 #include <map>
 #include <set>
 #include <stdint.h>
+#include <tuple>
 
 #include <boost/optional.hpp>
 
@@ -185,6 +186,7 @@ class CCustomCSView
         , public CTokensView
         , public CAccountsView
         , public CAccountsHistoryView
+        , public CRewardsHistoryView
         , public CCommunityBalancesView
         , public CUndosView
         , public CPoolPairView
@@ -231,6 +233,17 @@ public:
     CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type);
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    bool Flush();
+};
+
+class CRewardsHistoryStorage : public CCustomCSView
+{
+    bool acindex;
+    const uint32_t height;
+    std::map<CScript, std::tuple<DCT_ID, uint8_t, TAmounts>> diffs;
+public:
+    CRewardsHistoryStorage(CCustomCSView & storage, uint32_t height);
+    Res AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount);
     bool Flush();
 };
 

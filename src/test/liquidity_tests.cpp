@@ -315,7 +315,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
             [&cache] (CScript const & owner, DCT_ID tokenID) {
                 return cache.GetBalance(owner, tokenID);
             },
-            [&cache] (CScript const & to, CTokenAmount amount) {
+            [&cache] (CScript const & to, DCT_ID poolID, uint8_t type, CTokenAmount amount) {
                 return cache.AddBalance(to, amount);
             }
         );

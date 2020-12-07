@@ -230,6 +230,21 @@ struct PoolShareKey {
     }
 };
 
+enum class RewardType : uint8_t
+{
+    Commission = 128,
+    PoolReward = 129,
+};
+
+inline std::string RewardToString(RewardType type)
+{
+    switch(type) {
+        case RewardType::Commission: return "Commission";
+        case RewardType::PoolReward: return "PoolReward";
+    }
+    return "Unknown";
+}
+
 class CPoolPairView : public virtual CStorageView
 {
 public:
@@ -253,7 +268,7 @@ public:
     }
 
     /// @attention it throws (at least for debug), cause errors are critical!
-    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CTokenAmount amount)> onTransfer, bool newRewardCalc = false) {
+    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, DCT_ID poolID, uint8_t type, CTokenAmount amount)> onTransfer, bool newRewardCalc = false) {
 
         uint32_t const PRECISION = 10000; // (== 100%) just searching the way to avoid arith256 inflating
         CAmount totalDistributed = 0;
@@ -285,13 +300,13 @@ public:
                         feeA = pool.blockCommissionA * liqWeight / PRECISION;
                     }
                     distributedFeeA += feeA;
-                    onTransfer(provider, {pool.idTokenA, feeA}); //can throw
+                    onTransfer(provider, poolId, uint8_t(RewardType::Commission), {pool.idTokenA, feeA}); //can throw
                     CAmount feeB = static_cast<CAmount>((arith_uint256(pool.blockCommissionB) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                     if (!newRewardCalc) {
                         feeB = pool.blockCommissionB * liqWeight / PRECISION;
                     }
                     distributedFeeB += feeB;
-                    onTransfer(provider, {pool.idTokenB, feeB}); //can throw
+                    onTransfer(provider, poolId, uint8_t(RewardType::Commission), {pool.idTokenB, feeB}); //can throw
                 }
 
                 // distribute yield farming
@@ -301,7 +316,7 @@ public:
                         providerReward = poolReward * liqWeight / PRECISION;
                     }
                     if (providerReward) {
-                        onTransfer(provider, {DCT_ID{0}, providerReward}); //can throw
+                        onTransfer(provider, poolId, uint8_t(RewardType::PoolReward), {DCT_ID{0}, providerReward}); //can throw
                         totalDistributed += providerReward;
                     }
                 }

@@ -1585,6 +1585,21 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
                 pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
+                if (!fReset && gArgs.GetBoolArg("-acindex", false)) {
+                    bool hasAccountHistory = false, hasRewardHistory = false;
+                    pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>) {
+                        hasAccountHistory = true;
+                        return false;
+                    });
+                    pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>) {
+                        hasRewardHistory = true;
+                        return false;
+                    });
+                    if (hasAccountHistory && !hasRewardHistory) {
+                        strLoadError = _("Account history needs rebuild").translated;
+                        break;
+                    }
+                }
 
                 panchorauths.reset();
                 panchorauths = MakeUnique<CAnchorAuthIndex>();

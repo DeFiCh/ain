@@ -2266,7 +2266,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     { // old data pruning and other (some processing made for the whole block)
         // make all changes to the new cache/snapshot to make it possible to take a diff later:
-        CAccountsHistoryStorage cache(mnview, static_cast<uint32_t>(pindex->nHeight), std::numeric_limits<uint32_t>::max(), uint256(), uint8_t(CustomTxType::NonTxRewards));
+        CRewardsHistoryStorage cache(mnview, static_cast<uint32_t>(pindex->nHeight));
 
 //        cache.CallYourInterblockProcessingsHere();
 
@@ -2283,8 +2283,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 [&cache] (CScript const & owner, DCT_ID tokenID) {
                     return cache.GetBalance(owner, tokenID);
                 },
-                [&cache, &block] (CScript const & to, CTokenAmount amount) {
-                    auto res = cache.AddBalance(to, amount);
+                [&cache, &block] (CScript const & to, DCT_ID poolID, uint8_t type, CTokenAmount amount) {
+                    auto res = cache.AddBalance(to, poolID, type, amount);
                     if (!res.ok)
                         throw std::runtime_error(strprintf("Pool rewards: can't update balance of %s: %s, Block %ld (%s)", to.GetHex(), res.msg, block.height, block.GetHash().ToString()));
                     return res;
