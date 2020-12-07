@@ -11,11 +11,9 @@
 /// @attention make sure that it does not overlap with those in masternodes.cpp/tokens.cpp/undos.cpp/accounts.cpp !!!
 const unsigned char CAccountsHistoryView::ByAccountHistoryKey::prefix = 'h'; // don't intersects with CMintedHeadersView::MintedHeaders::prefix due to different DB
 
-void CAccountsHistoryView::ForEachAccountHistory(std::function<bool(AccountHistoryKey const & key, AccountHistoryValue const & value)> callback, AccountHistoryKey start) const
+void CAccountsHistoryView::ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start) const
 {
-    ForEach<ByAccountHistoryKey, AccountHistoryKey, AccountHistoryValue>([&callback] (AccountHistoryKey const & key, AccountHistoryValue const & value) {
-        return callback(key, value);
-    }, start);
+    ForEach<ByAccountHistoryKey, AccountHistoryKey, AccountHistoryValue>(callback, start);
 }
 
 Res CAccountsHistoryView::SetAccountHistory(const AccountHistoryKey& key, const AccountHistoryValue& value)

@@ -313,6 +313,24 @@ private:
     MapKV changed;
 };
 
+template<typename T>
+struct CLazySerialize
+{
+    CStorageKVIterator& it;
+
+    operator T()
+    {
+        return get();
+    }
+
+    T get()
+    {
+        T value;
+        BytesToDbType(it.Value(), value);
+        return value;
+    }
+};
+
 class CStorageView {
 public:
     CStorageView() = default;
@@ -375,7 +393,7 @@ public:
     }
 
     template<typename By, typename KeyType, typename ValueType>
-    bool ForEach(std::function<bool(KeyType const &, ValueType &)> callback, KeyType const & start = KeyType()) const {
+    bool ForEach(std::function<bool(KeyType const &, CLazySerialize<ValueType>)> callback, KeyType const & start = KeyType()) const {
         auto& self = const_cast<CStorageView&>(*this);
         auto key = std::make_pair(By::prefix, start);
 
@@ -383,10 +401,7 @@ public:
         for(it->Seek(DbTypeToBytes(key)); it->Valid() && (BytesToDbType(it->Key(), key), key.first == By::prefix); it->Next()) {
             boost::this_thread::interruption_point();
 
-            ValueType value;
-            BytesToDbType(it->Value(), value);
-
-            if (!callback(key.second, value))
+            if (!callback(key.second, CLazySerialize<ValueType>{*it}))
                 break;
         }
         return true;

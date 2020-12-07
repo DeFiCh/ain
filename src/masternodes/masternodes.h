@@ -117,7 +117,7 @@ public:
     boost::optional<CMasternode> GetMasternode(uint256 const & id) const;
     boost::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
     boost::optional<uint256> GetMasternodeIdByOwner(CKeyID const & id) const;
-    void ForEachMasternode(std::function<bool(uint256 const & id, CMasternode & node)> callback, uint256 const & start = uint256());
+    void ForEachMasternode(std::function<bool(uint256 const &, CLazySerialize<CMasternode>)> callback, uint256 const & start = uint256());
 
     void IncrementMintedBy(CKeyID const & minter);
     void DecrementMintedBy(CKeyID const & minter);
@@ -171,7 +171,7 @@ public:
 
     void AddRewardForAnchor(AnchorTxHash const &btcTxHash, RewardTxHash const & rewardTxHash);
     void RemoveRewardForAnchor(AnchorTxHash const &btcTxHash);
-    void ForEachAnchorReward(std::function<bool(AnchorTxHash const &, RewardTxHash &)> callback);
+    void ForEachAnchorReward(std::function<bool(AnchorTxHash const &, CLazySerialize<RewardTxHash>)> callback);
 
     struct BtcTx { static const unsigned char prefix; };
 };

@@ -156,7 +156,7 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
 
     arith_uint256 poolF = arith_uint256(poolFrom);
     arith_uint256 poolT = arith_uint256(poolTo);
-   
+
     arith_uint256 swapped = 0;
     if (!postBayfrontGardens) {
         CAmount chunk = poolFrom/SLOPE_SWAP_RATE < unswapped ? poolFrom/SLOPE_SWAP_RATE : unswapped;
@@ -183,18 +183,18 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     return swapped.GetLow64();
 }
 
-void CPoolPairView::ForEachPoolPair(std::function<bool(const DCT_ID &, const CPoolPair &)> callback, DCT_ID const & start) {
+void CPoolPairView::ForEachPoolPair(std::function<bool(const DCT_ID &, CLazySerialize<CPoolPair>)> callback, DCT_ID const & start) {
     DCT_ID poolId = start;
     auto hint = WrapVarInt(poolId.v);
 
-    ForEach<ByID, CVarInt<VarIntMode::DEFAULT, uint32_t>, CPoolPair>([&poolId, &callback] (CVarInt<VarIntMode::DEFAULT, uint32_t> const &, CPoolPair & pool) {
+    ForEach<ByID, CVarInt<VarIntMode::DEFAULT, uint32_t>, CPoolPair>([&poolId, &callback] (CVarInt<VarIntMode::DEFAULT, uint32_t> const &, CLazySerialize<CPoolPair> pool) {
         return callback(poolId, pool);
     }, hint);
 }
 
-void CPoolPairView::ForEachPoolShare(std::function<bool (DCT_ID const & id, CScript const & provider)> callback, const PoolShareKey &startKey) const
+void CPoolPairView::ForEachPoolShare(std::function<bool (DCT_ID const &, CScript const &)> callback, const PoolShareKey &startKey) const
 {
-    ForEach<ByShare, PoolShareKey, char>([&callback] (PoolShareKey const & poolShareKey, const char &) {
+    ForEach<ByShare, PoolShareKey, char>([&callback] (PoolShareKey const & poolShareKey, CLazySerialize<char>) {
         return callback(poolShareKey.poolID, poolShareKey.owner);
     }, startKey);
 }

@@ -721,7 +721,7 @@ UniValue listmasternodes(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
 
     LOCK(cs_main);
-    pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternode& node) {
+    pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternode node) {
         ret.pushKVs(mnToJSON(nodeId, node, verbose));
         limit--;
         return limit != 0;
@@ -1239,7 +1239,7 @@ UniValue listtokens(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation const& token) {
+    pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
         ret.pushKVs(tokenToJSON(id, token, verbose));
 
         limit--;
@@ -1820,10 +1820,10 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CPoolPair const & pool) {
+    pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CLazySerialize<CPoolPair> pool) {
         const auto token = pcustomcsview->GetToken(id);
         if (token) {
-            ret.pushKVs(poolToJSON(id, pool, *token, verbose));
+            ret.pushKVs(poolToJSON(id, pool.get(), *token, verbose));
         }
 
         limit--;

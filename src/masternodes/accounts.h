@@ -14,7 +14,7 @@
 class CAccountsView : public virtual CStorageView
 {
 public:
-    void ForEachBalance(std::function<bool(CScript const & owner, CTokenAmount const & amount)> callback, BalanceKey start = {}) const;
+    void ForEachBalance(std::function<bool(CScript const &, CTokenAmount const &)> callback, BalanceKey const & start = {}) const;
     CTokenAmount GetBalance(CScript const & owner, DCT_ID tokenID) const;
 
     virtual Res AddBalance(CScript const & owner, CTokenAmount amount);

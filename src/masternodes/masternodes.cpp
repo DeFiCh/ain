@@ -209,11 +209,9 @@ boost::optional<uint256> CMasternodesView::GetMasternodeIdByOwner(const CKeyID &
     return ReadBy<Owner, uint256>(id);
 }
 
-void CMasternodesView::ForEachMasternode(std::function<bool (const uint256 &, CMasternode &)> callback, uint256 const & start)
+void CMasternodesView::ForEachMasternode(std::function<bool (const uint256 &, CLazySerialize<CMasternode>)> callback, uint256 const & start)
 {
-    ForEach<ID, uint256, CMasternode>([&callback] (uint256 const & txid, CMasternode & node) {
-        return callback(txid, node);
-    }, start);
+    ForEach<ID, uint256, CMasternode>(callback, start);
 }
 
 void CMasternodesView::IncrementMintedBy(const CKeyID & minter)
@@ -426,7 +424,7 @@ void CAnchorRewardsView::RemoveRewardForAnchor(const CAnchorRewardsView::AnchorT
     EraseBy<BtcTx>(btcTxHash);
 }
 
-void CAnchorRewardsView::ForEachAnchorReward(std::function<bool (const CAnchorRewardsView::AnchorTxHash &, CAnchorRewardsView::RewardTxHash &)> callback)
+void CAnchorRewardsView::ForEachAnchorReward(std::function<bool (const CAnchorRewardsView::AnchorTxHash &, CLazySerialize<CAnchorRewardsView::RewardTxHash>)> callback)
 {
     ForEach<BtcTx, AnchorTxHash, RewardTxHash>(callback);
 }
@@ -442,7 +440,7 @@ CTeamView::CTeam CCustomCSView::CalcNextTeam(const uint256 & stakeModifier)
     int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
-    ForEachMasternode([&stakeModifier, &priorityMN] (uint256 const & id, CMasternode & node) {
+    ForEachMasternode([&stakeModifier, &priorityMN] (uint256 const & id, CMasternode node) {
         if(!node.IsActive())
             return true;
 

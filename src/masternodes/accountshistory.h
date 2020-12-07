@@ -57,7 +57,7 @@ class CAccountsHistoryView : public virtual CStorageView
 {
 public:
     Res SetAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
-    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, AccountHistoryValue const &)> callback, AccountHistoryKey start) const;
+    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {}) const;
 
     // tags
     struct ByAccountHistoryKey { static const unsigned char prefix; };
