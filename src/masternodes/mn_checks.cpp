@@ -1047,7 +1047,7 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
         }
 
         return Res::Ok();
-    }, height >= consensusParams.BayfrontGardensHeight);
+    }, static_cast<int>(height) >= consensusParams.BayfrontGardensHeight);
 
     if (!res.ok) {
         return Res::Err("%s: %s", base, res.msg);

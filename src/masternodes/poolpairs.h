@@ -110,13 +110,9 @@ public:
     uint256 creationTx;
     uint32_t creationHeight;
 
-    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint) {
-        return this->AddLiquidity(amountA, amountB, shareAddress, onMint, false);
-    }    
-
     // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
     // otherwise, 'AddLiquidity' should be () external to 'CPairPool' (i.e. CPoolPairView::AddLiquidity(TAmount a,b etc) with internal lookup of pool by TAmount a,b)
-    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint, bool slippageProtection) {
+    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint, bool slippageProtection = false) {
         // instead of assertion due to tests
         if (amountA <= 0 || amountB <= 0) {
             return Res::Err("amounts should be positive");
@@ -183,7 +179,7 @@ public:
         return onReclaim(address, resAmountA, resAmountB);
     }
 
-    Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer, bool postBayfrontGardens = false);
+    Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer, bool postBayfrontGardens = true);
 
 private:
     CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo, bool postBayfrontGardens = false);
@@ -286,14 +282,13 @@ public:
 
                 // distribute trading fees
                 if (pool.swapEvent) {
-                    CAmount feeA = pool.blockCommissionA * liquidity / pool.totalLiquidity;
+                    CAmount feeA = static_cast<CAmount>((arith_uint256(pool.blockCommissionA) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                     if (!newRewardCalc) {
                         feeA = pool.blockCommissionA * liqWeight / PRECISION;
                     }
                     distributedFeeA += feeA;
                     onTransfer(provider, {pool.idTokenA, feeA}); //can throw
-
-                    CAmount feeB = pool.blockCommissionB * liquidity / pool.totalLiquidity;
+                    CAmount feeB = static_cast<CAmount>((arith_uint256(pool.blockCommissionB) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                     if (!newRewardCalc) {
                         feeB = pool.blockCommissionB * liqWeight / PRECISION;
                     }
@@ -303,7 +298,7 @@ public:
 
                 // distribute yield farming
                 if (poolReward) {
-                    CAmount providerReward = poolReward * liquidity / pool.totalLiquidity;
+                    CAmount providerReward = static_cast<CAmount>((arith_uint256(poolReward) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                     if (!newRewardCalc) {
                         providerReward = poolReward * liqWeight / PRECISION;
                     }

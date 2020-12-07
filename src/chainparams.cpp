@@ -548,7 +548,7 @@ public:
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
         consensus.AMKHeight = 10000000;
         consensus.BayfrontHeight = 10000000;
-        consensus.BayfrontMarinaHeight = 0;
+        consensus.BayfrontMarinaHeight = 10000000;
         consensus.BayfrontGardensHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -723,7 +723,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             LogPrintf("Bayfront disabled for testing\n");
             height = std::numeric_limits<int>::max();
         }
-        consensus.BayfrontHeight = static_cast<int>(height);
+        consensus.BayfrontGardensHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;
