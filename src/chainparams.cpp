@@ -117,6 +117,7 @@ public:
         consensus.AMKHeight = 356500;
         consensus.BayfrontHeight = 405000;
         consensus.BayfrontMarinaHeight = 465150;
+        consensus.BayfrontGardensHeight = 488300;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -277,6 +278,7 @@ public:
         consensus.AMKHeight = 150;
         consensus.BayfrontHeight = 3000;
         consensus.BayfrontMarinaHeight = 90470;
+        consensus.BayfrontGardensHeight = 101342;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -414,6 +416,7 @@ public:
         consensus.AMKHeight = 150;
         consensus.BayfrontHeight = 250;
         consensus.BayfrontMarinaHeight = 0;
+        consensus.BayfrontGardensHeight = 0;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -545,7 +548,8 @@ public:
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
         consensus.AMKHeight = 10000000;
         consensus.BayfrontHeight = 10000000;
-        consensus.BayfrontMarinaHeight = 0;
+        consensus.BayfrontMarinaHeight = 10000000;
+        consensus.BayfrontGardensHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -709,6 +713,17 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.BayfrontHeight = static_cast<int>(height);
+    }
+
+    if (gArgs.IsArgSet("-bayfrontgardensheight")) {
+        int64_t height = gArgs.GetArg("-bayfrontgardensheight", consensus.BayfrontGardensHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for Bayfront is out of valid range. Use -1 to disable bayfront gardens features.", height));
+        } else if (height == -1) {
+            LogPrintf("Bayfront disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.BayfrontGardensHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;

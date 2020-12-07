@@ -24,10 +24,10 @@ class PoolPairTest (DefiTestFramework):
         # node2: Non Foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-acindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-acindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-acindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-acindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0']]
 
 
     def run_test(self):
@@ -85,8 +85,8 @@ class PoolPairTest (DefiTestFramework):
         # check tokens id
         pool = self.nodes[0].getpoolpair("GS")
         idGS = list(self.nodes[0].gettoken("GS").keys())[0]
-        assert(pool[idGS]['idTokenA'] == idGold)
-        assert(pool[idGS]['idTokenB'] == idSilver)
+        assert_equal(pool[idGS]['idTokenA'], idGold)
+        assert_equal(pool[idGS]['idTokenB'], idSilver)
 
         # Fail swap: lack of liquidity
         try:
@@ -134,14 +134,14 @@ class PoolPairTest (DefiTestFramework):
         print("Checking Silver on AccN0:", silverCheckN0, ", id", idSilver)
 
         # 5 Checking that liquidity is correct
-        assert(goldCheckN0 == 700)
-        assert(silverCheckN0 == 500)
+        assert_equal(goldCheckN0, 700)
+        assert_equal(silverCheckN0, 500)
 
         list_pool = self.nodes[0].listpoolpairs()
         #print (list_pool)
 
-        assert(list_pool['1']['reserveA'] == 200)  # GOLD
-        assert(list_pool['1']['reserveB'] == 1000) # SILVER
+        assert_equal(list_pool['1']['reserveA'], 200)  # GOLD
+        assert_equal(list_pool['1']['reserveB'], 1000) # SILVER
 
         # 6 Trying to poolswap
 
@@ -160,6 +160,14 @@ class PoolPairTest (DefiTestFramework):
         assert("turned off" in errorString)
         self.nodes[0].updatepoolpair({"pool": "GS", "status": True})
         self.nodes[0].generate(1)
+
+        print("Before swap")
+        print("Checking Gold on AccN0:", goldCheckN0, ", id", idGold)
+        print("Checking Silver on AccN0:", silverCheckN0, ", id", idSilver)
+        goldCheckN1 = self.nodes[2].getaccount(accountSN1, {}, True)[idGold]
+        print("Checking Gold on AccN1:", goldCheckN1, ", id", idGold)
+        silverCheckN1 = self.nodes[2].getaccount(accountSN1, {}, True)[idSilver]
+        print("Checking Silver on AccN1:", silverCheckN1, ", id", idSilver)
 
         testPoolSwapRes =  self.nodes[0].testpoolswap({
             "from": accountGN0,
@@ -193,6 +201,7 @@ class PoolPairTest (DefiTestFramework):
         self.sync_blocks([self.nodes[0], self.nodes[2]])
 
         # 8 Checking that poolswap is correct
+        print("After swap")
         goldCheckN0 = self.nodes[2].getaccount(accountGN0, {}, True)[idGold]
         print("Checking Gold on AccN0:", goldCheckN0, ", id", idGold)
         silverCheckN0 = self.nodes[2].getaccount(accountGN0, {}, True)[idSilver]
@@ -209,12 +218,12 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].listpoolshares()
         #print (list_poolshares)
 
-        assert(goldCheckN0 == 700)
-        assert(str(silverCheckN0) == "490.49990000") # TODO: calculate "true" values with trading fee!
-        assert(list_pool['1']['reserveA'] + goldCheckN1 == 300)
-        assert(Decimal(goldCheckPS) + Decimal(psTestAmount) == Decimal(goldCheckN1))
-        assert(str(silverCheckN1) == "500.50000000")
-        assert(list_pool['1']['reserveB'] == 1009) #1010 - 1 (commission)
+        assert_equal(goldCheckN0, 700)
+        assert_equal(str(silverCheckN0), "490.49999997") # TODO: calculate "true" values with trading fee!
+        assert_equal(list_pool['1']['reserveA'] + goldCheckN1 , 300)
+        assert_equal(Decimal(goldCheckPS) + Decimal(psTestAmount), Decimal(goldCheckN1))
+        assert_equal(str(silverCheckN1), "500.50000000")
+        assert_equal(list_pool['1']['reserveB'], 1009) #1010 - 1 (commission)
 
         # 9 Fail swap: price higher than indicated
         price = list_pool['1']['reserveA/reserveB']

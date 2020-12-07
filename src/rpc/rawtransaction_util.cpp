@@ -128,9 +128,9 @@ CBalances DecodeAmounts(interfaces::Chain const & chain, UniValue const& amounts
 // "addr": "123.0@0",
 // "addr": "123.0@DFI",
 // "addr": ["123.0@DFI", "123.0@0", ...]
-std::map<CScript, CBalances> DecodeRecipients(interfaces::Chain const & chain, UniValue const& sendTo)
+CAccounts DecodeRecipients(interfaces::Chain const & chain, UniValue const& sendTo)
 {
-    std::map<CScript, CBalances> recipients;
+    CAccounts recipients;
     for (const std::string& addr : sendTo.getKeys()) {
         // decode recipient
         const auto recipient = DecodeScript(addr);

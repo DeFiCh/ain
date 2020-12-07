@@ -98,7 +98,7 @@ boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const 
     return {};
 }
 
-Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer) {
+Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer, bool postBayfrontGardens) {
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB) {
         throw std::runtime_error("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
     }
@@ -140,7 +140,7 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
         return Res::Err("Swapping will lead to pool's reserve overflow");
     }
 
-    CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB) : slopeSwap(in.nValue, reserveB, reserveA);
+    CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB, postBayfrontGardens) : slopeSwap(in.nValue, reserveB, reserveA, postBayfrontGardens);
 //    CAmount realPrice = (arith_uint256(result) * aPRECISION / arith_uint256(in.nValue)).GetLow64(); /// @todo check overflow
 //    if (realPrice > maxPrice)
 //        return Res::Err("Price higher than indicated.");
@@ -150,24 +150,34 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
     return onTransfer({ forward ? idTokenB : idTokenA, result });
 }
 
-CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo) {
-    assert (unswapped >= 0 && poolFrom >= SLOPE_SWAP_RATE && poolTo >= SLOPE_SWAP_RATE);
+CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &poolTo, bool postBayfrontGardens) {
+    assert (unswapped >= 0);
     assert (SafeAdd(unswapped, poolFrom).ok);
 
     arith_uint256 poolF = arith_uint256(poolFrom);
     arith_uint256 poolT = arith_uint256(poolTo);
+   
     arith_uint256 swapped = 0;
-    CAmount chunk = poolFrom/SLOPE_SWAP_RATE < unswapped ? poolFrom/SLOPE_SWAP_RATE : unswapped;
-    while (unswapped > 0) {
-        //arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
-        CAmount stepFrom = std::min(chunk, unswapped);
-        arith_uint256 stepFrom256(stepFrom);
-        arith_uint256 stepTo = poolT * stepFrom256 / poolF;
-        poolF += stepFrom256;
-        poolT -= stepTo;
-        unswapped -= stepFrom;
-        swapped += stepTo;
+    if (!postBayfrontGardens) {
+        CAmount chunk = poolFrom/SLOPE_SWAP_RATE < unswapped ? poolFrom/SLOPE_SWAP_RATE : unswapped;
+        while (unswapped > 0) {
+            //arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
+            CAmount stepFrom = std::min(chunk, unswapped);
+            arith_uint256 stepFrom256(stepFrom);
+            arith_uint256 stepTo = poolT * stepFrom256 / poolF;
+            poolF += stepFrom256;
+            poolT -= stepTo;
+            unswapped -= stepFrom;
+            swapped += stepTo;
+        }
+    } else {
+        arith_uint256 unswappedA = arith_uint256(unswapped);
+
+        swapped = poolT - (poolT * poolF / (poolF + unswappedA));
+        poolF += unswappedA;
+        poolT -= swapped;
     }
+
     poolFrom = poolF.GetLow64();
     poolTo = poolT.GetLow64();
     return swapped.GetLow64();

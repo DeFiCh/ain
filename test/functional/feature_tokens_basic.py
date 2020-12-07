@@ -145,7 +145,7 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(self.nodes[0].listtokens()['128']['destructionHeight'], -1)
         assert_equal(self.nodes[0].listtokens()['128']['destructionTx'], '0000000000000000000000000000000000000000000000000000000000000000')
 
-         # Create new neither mintable nor tradable token
+        # Create new neither mintable nor tradable token
         self.nodes[0].createtoken({
             "symbol": "WK",
             "name": "weak",
