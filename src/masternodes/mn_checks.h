@@ -62,7 +62,7 @@ enum class CustomTxType : unsigned char
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMNnpuslrUbBaLG+";
+    char const txtypes[] = "CRTMNnpusSlrLUbBaG+";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -81,6 +81,7 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::CreatePoolPair:      return "CreatePoolPair";
         case CustomTxType::UpdatePoolPair:      return "UpdatePoolPair";
         case CustomTxType::PoolSwap:            return "PoolSwap";
+        case CustomTxType::AnyPoolSwap:         return "AnyPoolSwap";
         case CustomTxType::AddPoolLiquidity:    return "AddPoolLiquidity";
         case CustomTxType::RemovePoolLiquidity: return "RemovePoolLiquidity";
         case CustomTxType::RemoveAnyPoolLiquidity: return "RemoveAnyPoolLiquidity";

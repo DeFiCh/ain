@@ -235,6 +235,12 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "poolswap", 0, "metadata" },
     { "poolswap", 1, "inputs" },
     { "testpoolswap", 0, "metadata"},
+    { "anypoolswap", 0, "from"},
+    { "anypoolswap", 2, "tokenTo"},
+    { "anypoolswap", 3, "maxPrice"},
+    { "testanypoolswap", 0, "from"},
+    { "testanypoolswap", 2, "tokenTo"},
+    { "testanypoolswap", 3, "maxPrice"},
     { "listpoolshares", 0, "pagination" },
     { "listpoolshares", 1, "verbose" },
 
