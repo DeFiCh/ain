@@ -3468,16 +3468,13 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
     UniValue txInputs(UniValue::VARR);
 
+    // auth
+    std::set<CScript> auths;
     for (const auto& acc : msg.from) {
-        CTxDestination ownerDest;
-        if (!ExtractDestination(acc.first, ownerDest)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner destination");
-        }
-        auto authInputs(GetAuthInputs(pwallet, ownerDest, txInputs.get_array()));
-        rawTx.vin.insert(rawTx.vin.end(),
-            std::make_move_iterator(authInputs.begin()),
-            std::make_move_iterator(authInputs.end()));
+        auths.emplace(acc.first);
     }
+    CTransactionRef optAuthTx;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
 
     // clear duplicated inputs
     std::sort(rawTx.vin.begin(), rawTx.vin.end(), [&](const CTxIn& tx1, const CTxIn& tx2) {
@@ -3486,12 +3483,15 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     rawTx.vin.erase(std::unique(rawTx.vin.begin(), rawTx.vin.end()), rawTx.vin.end());
 
     // fund
-    rawTx = fund(rawTx, pwallet);
+    rawTx = fund(rawTx, pwallet, optAuthTx);
 
     // check execution
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
         const auto res = ApplyAnyAccountsToAccountsTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight,
                                                ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
         if (!res.ok) {
@@ -3504,7 +3504,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, request)->GetHash().GetHex();
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 
 }
 
