@@ -35,6 +35,9 @@ class PoolLiquidityTest (DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
 
     def run_test(self):
+
+        isRemoveAny = (self.testMode == "any")
+
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
         print("Generating initial chain...")
@@ -43,6 +46,8 @@ class PoolLiquidityTest (DefiTestFramework):
         # stop node #2 for future revert
         self.stop_node(2)
         connect_nodes_bi(self.nodes, 0, 3)
+
+        startHeight = self.nodes[0].getblockcount()
 
         symbolGOLD = "GOLD#" + self.get_id_token("GOLD")
         symbolSILVER = "SILVER#" + self.get_id_token("SILVER")
@@ -196,21 +201,30 @@ class PoolLiquidityTest (DefiTestFramework):
 
         # missing pool
         try:
-            self.nodes[0].removepoolliquidity(accountGold, "100@DFI", [])
+            if (not isRemoveAny):
+                self.nodes[0].removepoolliquidity(accountGold, "100@DFI", [])
+            else:
+                self.nodes[0].removeanypoolliquidity({accountGold: ["100@DFI"]})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("there is no such pool pair" in errorString)
 
         # missing amount
         try:
-            self.nodes[0].removepoolliquidity(accountGold, "0@GS", [])
+            if (not isRemoveAny):
+                self.nodes[0].removepoolliquidity(accountGold, "0@GS", [])
+            else:
+                self.nodes[0].removeanypoolliquidity({accountGold: ["0@GS"]})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Amount out of range" in errorString)
 
         # missing (account exists, but does not belong)
         try:
-            self.nodes[0].removepoolliquidity(owner, "200@GS", [])
+            if (not isRemoveAny):
+                self.nodes[0].removepoolliquidity(owner, "200@GS", [])
+            else:
+                self.nodes[0].removeanypoolliquidity({owner: ["200@GS"]})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Are you an owner?" in errorString)
@@ -219,7 +233,10 @@ class PoolLiquidityTest (DefiTestFramework):
         resAmountB = make_rounded_decimal(25 * poolReserveB / poolLiquidity)
 
         # transfer
-        self.nodes[0].removepoolliquidity(accountGold, "25@GS", [])
+        if (not isRemoveAny):
+            self.nodes[0].removepoolliquidity(accountGold, "25@GS", [])
+        else:
+            self.nodes[0].removeanypoolliquidity({accountGold: ["25@GS"]})
         self.nodes[0].generate(1)
 
         accountGoldInfo = self.nodes[0].getaccount(accountGold, {}, True)
@@ -289,7 +306,10 @@ class PoolLiquidityTest (DefiTestFramework):
         resAmountB = make_rounded_decimal(gsAmountAcc1 * poolReserveB / poolLiquidity)
 
         # transfer
-        self.nodes[0].removepoolliquidity(accountGold, str(gsAmountAcc1)+"@GS", [])
+        if (not isRemoveAny):
+            self.nodes[0].removepoolliquidity(accountGold, str(gsAmountAcc1)+"@GS", [])
+        else:
+            self.nodes[0].removeanypoolliquidity({accountGold: [str(gsAmountAcc1)+"@GS"]})
         self.nodes[0].generate(1)
 
         accountGoldInfo = self.nodes[0].getaccount(accountGold, {}, True)
@@ -312,7 +332,10 @@ class PoolLiquidityTest (DefiTestFramework):
         resAmountB = make_rounded_decimal(gsAmountAcc2 * poolReserveB / poolLiquidity)
 
         # transfer
-        self.nodes[3].removepoolliquidity(accountTest, str(gsAmountAcc2)+"@GS", [])
+        if (not isRemoveAny):
+            self.nodes[3].removepoolliquidity(accountTest, str(gsAmountAcc2)+"@GS", [])
+        else:
+            self.nodes[3].removeanypoolliquidity({accountTest: [str(gsAmountAcc2)+"@GS"]})
         self.sync_all([self.nodes[0], self.nodes[3]])
         self.nodes[0].generate(1)
 
@@ -335,9 +358,10 @@ class PoolLiquidityTest (DefiTestFramework):
 
         # REVERTING:
         #========================
+        endHeight = self.nodes[0].getblockcount()
         print ("Reverting...")
         self.start_node(2)
-        self.nodes[2].generate(20)
+        self.nodes[2].generate(endHeight - startHeight + 1)
 
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
@@ -349,4 +373,6 @@ class PoolLiquidityTest (DefiTestFramework):
 
 
 if __name__ == '__main__':
-    PoolLiquidityTest ().main ()
+    test = PoolLiquidityTest()
+    test.testMode = "one"
+    test.main ()

@@ -31,6 +31,9 @@ class PoolPairTest (DefiTestFramework):
 
 
     def run_test(self):
+
+        isAnyTestMode = (self.testMode == "any")
+
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
         #self.nodes[0].generate(100)
@@ -38,6 +41,7 @@ class PoolPairTest (DefiTestFramework):
         print("Generating initial chain...")
         self.setup_tokens()
         # Stop node #3 for future revert
+        startHeight = self.nodes[0].getblockcount()
         self.stop_node(3)
 
         # CREATION:
@@ -90,13 +94,20 @@ class PoolPairTest (DefiTestFramework):
 
         # Fail swap: lack of liquidity
         try:
-            self.nodes[0].poolswap({
-                "from": accountGN0,
-                "tokenFrom": symbolSILVER,
-                "amountFrom": 10,
-                "to": accountSN1,
-                "tokenTo": symbolGOLD,
-            }, [])
+            if (not isAnyTestMode):
+                self.nodes[0].poolswap({
+                    "from": accountGN0,
+                    "tokenFrom": symbolSILVER,
+                    "amountFrom": 10,
+                    "to": accountSN1,
+                    "tokenTo": symbolGOLD,
+                }, [])
+            else:
+                self.nodes[0].anypoolswap(
+                    {accountGN0: [str(10) + "@" + symbolSILVER]}, # from
+                    accountSN1, # account to
+                    symbolGOLD  # token to
+                )
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Pool is empty!" in errorString)
@@ -148,26 +159,40 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].updatepoolpair({"pool": "GS", "status": False})
         self.nodes[0].generate(1)
         try:
-            self.nodes[0].poolswap({
-                "from": accountGN0,
-                "tokenFrom": symbolSILVER,
-                "amountFrom": 10,
-                "to": accountSN1,
-                "tokenTo": symbolGOLD,
-            }, [])
+            if (not isAnyTestMode):
+                self.nodes[0].poolswap({
+                    "from": accountGN0,
+                    "tokenFrom": symbolSILVER,
+                    "amountFrom": 10,
+                    "to": accountSN1,
+                    "tokenTo": symbolGOLD,
+                }, [])
+            else:
+                self.nodes[0].anypoolswap(
+                    {accountGN0: [str(10) + "@" + symbolSILVER]}, # from
+                    accountSN1, # account to
+                    symbolGOLD  # token to
+                )
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("turned off" in errorString)
         self.nodes[0].updatepoolpair({"pool": "GS", "status": True})
         self.nodes[0].generate(1)
 
-        testPoolSwapRes =  self.nodes[0].testpoolswap({
-            "from": accountGN0,
-            "tokenFrom": symbolSILVER,
-            "amountFrom": 10,
-            "to": accountSN1,
-            "tokenTo": symbolGOLD,
-        })
+        if (not isAnyTestMode):
+            testPoolSwapRes =  self.nodes[0].testpoolswap({
+                "from": accountGN0,
+                "tokenFrom": symbolSILVER,
+                "amountFrom": 10,
+                "to": accountSN1,
+                "tokenTo": symbolGOLD,
+            })
+        else:
+            testPoolSwapRes = self.nodes[0].testanypoolswap(
+                {accountGN0: [str(10) + "@" + symbolSILVER]}, # from
+                accountSN1, # account to
+                symbolGOLD # token to
+            )
 
         # this acc will be
         goldCheckPS = self.nodes[2].getaccount(accountSN1, {}, True)[idGold]
@@ -180,13 +205,21 @@ class PoolPairTest (DefiTestFramework):
         psTestTokenId = testPoolSwapRes[1]
         assert_equal(psTestTokenId, idGold)
 
-        self.nodes[0].poolswap({
-            "from": accountGN0,
-            "tokenFrom": symbolSILVER,
-            "amountFrom": 10,
-            "to": accountSN1,
-            "tokenTo": symbolGOLD,
-        }, [])
+        if (not isAnyTestMode):
+            self.nodes[0].poolswap({
+                "from": accountGN0,
+                "tokenFrom": symbolSILVER,
+                "amountFrom": 10,
+                "to": accountSN1,
+                "tokenTo": symbolGOLD,
+            }, [])
+        else:
+            self.nodes[0].anypoolswap(
+                {accountGN0: [str(10) + "@" + symbolSILVER]}, # from
+                accountSN1, # account to
+                symbolGOLD  # token to
+            )
+
         self.nodes[0].generate(1)
 
         # 7 Sync
@@ -219,14 +252,22 @@ class PoolPairTest (DefiTestFramework):
         # 9 Fail swap: price higher than indicated
         price = list_pool['1']['reserveA/reserveB']
         try:
-            self.nodes[0].poolswap({
-                "from": accountGN0,
-                "tokenFrom": symbolSILVER,
-                "amountFrom": 10,
-                "to": accountSN1,
-                "tokenTo": symbolGOLD,
-                "maxPrice": price - Decimal('0.1'),
-            }, [])
+            if (not isAnyTestMode):
+                self.nodes[0].poolswap({
+                    "from": accountGN0,
+                    "tokenFrom": symbolSILVER,
+                    "amountFrom": 10,
+                    "to": accountSN1,
+                    "tokenTo": symbolGOLD,
+                    "maxPrice": price - Decimal('0.1'),
+                }, [])
+            else:
+                self.nodes[0].anypoolswap(
+                    {accountGN0: [str(10) + "@" + symbolSILVER]}, # from
+                    accountSN1,  # account to
+                    symbolGOLD,  # token to
+                    price - Decimal('0.1') # max price
+                )
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Price is higher than indicated." in errorString)
@@ -242,14 +283,18 @@ class PoolPairTest (DefiTestFramework):
 
         # REVERTING:
         #========================
+        endHeight = self.nodes[0].getblockcount()
         print ("Reverting...")
         # Reverting creation!
         self.start_node(3)
-        self.nodes[3].generate(30)
+        self.nodes[3].generate(endHeight - startHeight + 1)
 
         connect_nodes_bi(self.nodes, 0, 3)
         self.sync_blocks()
         assert_equal(len(self.nodes[0].listpoolpairs()), 0)
 
 if __name__ == '__main__':
-    PoolPairTest ().main ()
+    poolPairTest = PoolPairTest()
+    poolPairTest.testMode = "one"
+    poolPairTest.main()
+
