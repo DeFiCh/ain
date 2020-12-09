@@ -233,14 +233,14 @@ struct PoolShareKey {
 enum class RewardType : uint8_t
 {
     Commission = 128,
-    PoolReward = 129,
+    Rewards = 129,
 };
 
 inline std::string RewardToString(RewardType type)
 {
     switch(type) {
         case RewardType::Commission: return "Commission";
-        case RewardType::PoolReward: return "PoolReward";
+        case RewardType::Rewards: return "Rewards";
     }
     return "Unknown";
 }
@@ -316,7 +316,7 @@ public:
                         providerReward = poolReward * liqWeight / PRECISION;
                     }
                     if (providerReward) {
-                        onTransfer(provider, poolId, uint8_t(RewardType::PoolReward), {DCT_ID{0}, providerReward}); //can throw
+                        onTransfer(provider, poolId, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}); //can throw
                         totalDistributed += providerReward;
                     }
                 }
