@@ -602,7 +602,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         view.GetBestBlock();
 
         CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, pcustomcsview.get(), GetSpendHeight(view), nFees)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, pcustomcsview.get(), GetSpendHeight(view), nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
@@ -2116,7 +2116,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
-            if (!Consensus::CheckTxInputs(tx, state, view, &mnview, pindex->nHeight, txfee)) {
+            if (!Consensus::CheckTxInputs(tx, state, view, &mnview, pindex->nHeight, txfee, chainparams)) {
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
                     // PREMATURE_SPEND but we can't return that, as it's not
@@ -2957,7 +2957,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
         // any disconnected transactions back to the mempool.
         UpdateMempoolForReorg(disconnectpool, true);
     }
-    mempool.xcheck(&CoinsTip(), pcustomcsview.get());
+    mempool.xcheck(&CoinsTip(), pcustomcsview.get(), chainparams);
 
     // Callbacks/notifications for a new best chain.
     if (fInvalidFound)

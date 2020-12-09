@@ -39,7 +39,6 @@ class MasternodesRpcBasicTest (DefiTestFramework):
             )
         except JSONRPCException as e:
             errorString = e.error['message']
-            print (errorString)
         assert("Insufficient funds" in errorString)
 
         # Create node0
@@ -82,11 +81,13 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # RESIGNING:
         #========================
         # Fail to resign: Have no money on ownerauth address
-        try:
-            self.nodes[0].resignmasternode(idnode0)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Can't find any UTXO's" in errorString)
+
+        # Deprecated due to auth automation
+        # try:
+        #     self.nodes[0].resignmasternode(idnode0)
+        # except JSONRPCException as e:
+        #     errorString = e.error['message']
+        # assert("Can't find any UTXO's" in errorString)
 
         # Funding auth address and successful resign
         fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)

@@ -104,7 +104,7 @@ class TokensBasicTest (DefiTestFramework):
             self.nodes[2].updatetoken("GOLD#128", {"isDAT": True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Incorrect Authorization" in errorString)
+        assert("Need foundation member authorization" in errorString)
 
         # 4.1 Trying to set smth else
         try:

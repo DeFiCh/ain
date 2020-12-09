@@ -5,11 +5,12 @@
 #include <consensus/tx_verify.h>
 
 #include <consensus/consensus.h>
+#include <consensus/validation.h>
+#include <chainparams.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
-#include <consensus/validation.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -161,7 +162,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     return nSigOps;
 }
 
-bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, const CCustomCSView * mnview, int nSpendHeight, CAmount& txfee)
+bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, const CCustomCSView * mnview, int nSpendHeight, CAmount& txfee, const CChainParams& chainparams)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -220,7 +221,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     const auto txType = GuessCustomTxType(tx, dummy);
 
     if (NotAllowedToFail(txType)) {
-        auto res = ApplyCustomTx(const_cast<CCustomCSView&>(*mnview), inputs, tx, Params(), nSpendHeight, 0, true); // note for 'isCheck == true' here; 'zero' for txn is dummy value
+        auto res = ApplyCustomTx(const_cast<CCustomCSView&>(*mnview), inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, true); // note for 'isCheck == true' here; 'zero' for txn is dummy value
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }
