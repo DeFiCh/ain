@@ -54,7 +54,7 @@ class AccountsAndUTXOsTest (DefiTestFramework):
             self.nodes[0].accounttoaccount(self.nodes[0].getnewaddress("", "legacy"), {toGold: "100@" + symbolGOLD}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
+        assert("not enough balance" in errorString)
 
         # missing from (account exist, but no tokens)
         try:
@@ -77,12 +77,12 @@ class AccountsAndUTXOsTest (DefiTestFramework):
             errorString = e.error['message']
         assert("JSON value is not a string as expected" in errorString)
 
-        # missing (account exists, but does not belong)
+        # missing (account exists, but does not belong) -
         try:
             self.nodes[0].accounttoaccount(accountSilver, {accountGold: "100@" + symbolSILVER}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
+        assert("Incorrect auth" in errorString)
 
         # transfer
         self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolGOLD}, [])
@@ -104,12 +104,12 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], self.nodes[1].getaccount(accountSilver, {}, True)[idSilver])
         assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[idSilver], self.nodes[1].getaccount(toSilver, {}, True)[idSilver])
 
-        # missing (account exists, there are tokens, but not token 0)
-        try:
-            self.nodes[0].accounttoaccount(toSilver, {accountGold: "100@" + symbolSILVER}, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
+        # missing (account exists, there are tokens, but not token 0) - autofunded now!
+        # try:
+        #     self.nodes[0].accounttoaccount(toSilver, {accountGold: "100@" + symbolSILVER}, [])
+        # except JSONRPCException as e:
+        #     errorString = e.error['message']
+        # assert("Can't find any UTXO" in errorString)
 
         # utxostoaccount
         #========================
@@ -143,10 +143,10 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         #========================
         # missing from (account)
         try:
-            self.nodes[0].accounttoutxos(self.nodes[0].getnewaddress("", "legacy"), {toGold: "100@" + symbolGOLD}, [])
+            self.nodes[0].accounttoutxos(self.nodes[0].getnewaddress("", "legacy"), {toGold: "100@DFI"}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
+        assert("not enough balance" in errorString)
 
         # missing amount
         try:
@@ -167,14 +167,14 @@ class AccountsAndUTXOsTest (DefiTestFramework):
             self.nodes[0].accounttoutxos(accountSilver, {accountGold: "100@" + symbolSILVER}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
+        assert("Incorrect auth" in errorString)
 
         # missing (account exists, there are tokens, but not token 0)
         try:
-            self.nodes[0].accounttoutxos(toSilver, {accountGold: "100@" + symbolSILVER}, [])
+            self.nodes[0].accounttoutxos(toSilver, {accountGold: "100@DFI"}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Can't find any UTXO" in errorString)
+        assert("not enough balance" in errorString)
 
         # transfer
         try:

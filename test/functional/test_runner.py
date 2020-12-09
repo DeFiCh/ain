@@ -119,6 +119,7 @@ BASE_SCRIPTS = [
     'feature_anchors.py',
     'feature_anchor_rewards.py',
     'feature_anchorauths_pruning.py',
+    'feature_autoauth.py',
     'feature_criminals.py',
     'feature_setgov.py',
     'interface_zmq.py',

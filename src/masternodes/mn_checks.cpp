@@ -91,8 +91,7 @@ bool HasAuth(CTransaction const & tx, CCoinsViewCache const & coins, CScript con
 {
     for (auto input : tx.vin) {
         const Coin& coin = coins.AccessCoin(input.prevout);
-        assert(!coin.IsSpent());
-        if (coin.out.scriptPubKey == auth)
+        if (!coin.IsSpent() && coin.out.scriptPubKey == auth)
             return true;
     }
     return false;
@@ -108,8 +107,7 @@ bool HasFoundationAuth(CTransaction const & tx, CCoinsViewCache const & coins, C
 {
     for (auto input : tx.vin) {
         const Coin& coin = coins.AccessCoin(input.prevout);
-        assert(!coin.IsSpent());
-        if (consensusParams.foundationMembers.find(coin.out.scriptPubKey) != consensusParams.foundationMembers.end())
+        if (!coin.IsSpent() && consensusParams.foundationMembers.find(coin.out.scriptPubKey) != consensusParams.foundationMembers.end())
             return true;
     }
     return false;

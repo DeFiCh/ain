@@ -1873,7 +1873,7 @@ bool CWallet::ImportScriptPubKeys(const std::string& label, const std::set<CScri
     return true;
 }
 
-int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, bool use_max_sig)
+int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, bool use_max_sig, std::map<COutPoint, CTxOut> const & linkedCoins)
 {
     std::vector<CTxOut> txouts;
     // Look up the inputs.  We should have already checked that this transaction
@@ -1882,10 +1882,15 @@ int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wall
     for (const CTxIn& input : tx.vin) {
         const auto mi = wallet->mapWallet.find(input.prevout.hash);
         if (mi == wallet->mapWallet.end()) {
-            return -1;
+            const auto li = linkedCoins.find(input.prevout);
+            if (li == linkedCoins.end())
+                return -1;
+            txouts.emplace_back(li->second);
         }
-        assert(input.prevout.n < mi->second.tx->vout.size());
-        txouts.emplace_back(mi->second.tx->vout[input.prevout.n]);
+        else {
+            assert(input.prevout.n < mi->second.tx->vout.size());
+            txouts.emplace_back(mi->second.tx->vout[input.prevout.n]);
+        }
     }
     return CalculateMaximumSignedTxSize(tx, wallet, txouts, use_max_sig);
 }
@@ -2726,6 +2731,7 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     DCT_ID onlyToken = coin_control.m_tokenFilter.empty() ? DCT_ID{0} : *coin_control.m_tokenFilter.begin();
 
     // coin control -> return all selected outputs (we want all selected to go into the transaction for sure)
+    /// @note it looks like bug here - return selected inputs but from ALL available coins, not from preselected!
     if (coin_control.HasSelected() && !coin_control.fAllowOtherInputs)
     {
         // We didn't use BnB here, so set it to false.
@@ -2766,8 +2772,15 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
             // Just to calculate the marginal byte size
             nValueFromPresetInputs += wtx.tx->vout[outpoint.n].nValue;
             setPresetCoins.insert(CInputCoin(wtx.tx, outpoint.n));
-        } else
-            return false; // TODO: Allow non-wallet inputs
+        } else {
+            auto const it = coin_control.m_linkedCoins.find(outpoint);
+            if (it == coin_control.m_linkedCoins.end())
+                return false; // fail?
+            if (it->second.nTokenId != onlyToken)
+                continue;
+            nValueFromPresetInputs += it->second.nValue;
+            setPresetCoins.insert(CInputCoin(it->first, it->second));
+        }
     }
 
     // remove preset inputs from vCoins
@@ -3005,7 +3018,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     const auto txVersion = GetTransactionVersion(locked_chain.getHeight().get_value_or(0));
     CMutableTransaction txNew(txVersion);
 
-    if (!vTokenValues.empty())
+    if (!vTokenValues.empty() && txNew.nVersion < CTransaction::TOKENS_MIN_VERSION)
         txNew.nVersion = CTransaction::TOKENS_MIN_VERSION;
 
     txNew.nLockTime = GetLocktimeForNewTransaction(chain(), locked_chain);
@@ -3254,7 +3267,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                     txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
                 }
 
-                nBytes = CalculateMaximumSignedTxSize(CTransaction(txNew), this, coin_control.fAllowWatchOnly);
+                nBytes = CalculateMaximumSignedTxSize(CTransaction(txNew), this, coin_control.fAllowWatchOnly, coin_control.m_linkedCoins);
                 if (nBytes < 0) {
                     strFailReason = _("Signing transaction failed").translated;
                     return false;
