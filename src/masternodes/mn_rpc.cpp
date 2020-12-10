@@ -3228,7 +3228,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             pwtx->GetAmounts(listReceived, listSent, nFee, filter);
             const auto index = LookupBlockIndex(pwtx->hashBlock);
             for (auto it = listSent.begin(); limit != 0 && it != listSent.end(); ++it) {
-                if (IsValidDestination(destination) && destination != it->destination) {
+                if (!IsValidDestination(it->destination) || (IsValidDestination(destination) && destination != it->destination)) {
                     continue;
                 }
                 it->amount = -(it->amount);
@@ -3236,7 +3236,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 --limit;
             }
             for (auto it = listReceived.begin(); limit != 0 && it != listReceived.end(); ++it) {
-                if (IsValidDestination(destination) && destination != it->destination) {
+                if (!IsValidDestination(it->destination) || (IsValidDestination(destination) && destination != it->destination)) {
                     continue;
                 }
                 ret.push_back(outputEntryToJSON(*it, index->nHeight, pwtx->hashBlock, txid, "receive"));
