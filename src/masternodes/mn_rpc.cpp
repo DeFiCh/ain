@@ -2989,6 +2989,17 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
     return ret;
 }
 
+UniValue AmountsToJSON(TAmounts const & diffs) {
+    UniValue obj(UniValue::VARR);
+
+    for (auto const & diff : diffs) {
+        auto token = pcustomcsview->GetToken(diff.first);
+        auto const tokenIdStr = token->CreateSymbolKey(diff.first);
+        obj.push_back(ValueFromAmount(diff.second).getValStr() + "@" + tokenIdStr);
+    }
+    return obj;
+}
+
 UniValue accounthistoryToJSON(CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
     UniValue obj(UniValue::VOBJ);
 
@@ -3000,14 +3011,20 @@ UniValue accounthistoryToJSON(CScript const & owner, uint32_t height, uint32_t t
         obj.pushKV("txid", txid.ToString());
     }
 
-    UniValue diffsObj(UniValue::VARR);
-    for (auto const & diff : diffs) {
-        auto token = pcustomcsview->GetToken(diff.first);
-        std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
+    obj.pushKV("amounts", AmountsToJSON(diffs));
+    return obj;
+}
 
-        diffsObj.push_back(ValueFromAmount(diff.second).getValStr() + "@" + tokenIdStr);
-    }
-    obj.pushKV("amounts", diffsObj);
+UniValue outputEntryToJSON(COutputEntry const & entry, uint32_t height, uint256 const & hashBlock, uint256 const & txid, std::string const & type) {
+    UniValue obj(UniValue::VOBJ);
+
+    obj.pushKV("owner", EncodeDestination(entry.destination));
+    obj.pushKV("blockHeight", (uint64_t)height);
+    obj.pushKV("blockHash", hashBlock.GetHex());
+    obj.pushKV("type", type);
+    obj.pushKV("txn", (uint64_t) entry.vout);
+    obj.pushKV("txid", txid.ToString());
+    obj.pushKV("amounts", AmountsToJSON({{DCT_ID{0}, entry.amount}}));
     return obj;
 }
 
@@ -3103,12 +3120,21 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     depth = std::min(depth, std::numeric_limits<decltype(depth)>::max() - startBlock - 1);
     depth += startBlock + 1;
 
+    CScript owner;
+    isminefilter filter = ISMINE_ALL_USED;
+
+    std::set<uint256> txs;
+    const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
+
     UniValue ret(UniValue::VARR);
+
+    LOCK2(cs_main, pwallet->cs_wallet);
 
     if (accounts == "mine") {
         // traversing through owned scripts
         CScript prevOwner{};
         bool isMine = false;
+        filter = ISMINE_SPENDABLE;
         AccountHistoryKey startKey{ prevOwner, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
             if (height > startKey.blockHeight || depth <= startKey.blockHeight)
@@ -3149,6 +3175,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (isMine) {
                 ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
                 --limit;
+
+                if (shouldSearchInWallet) {
+                    txs.insert(txid);
+                }
             }
 
             return limit != 0;
@@ -3190,13 +3220,16 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+            if (shouldSearchInWallet) {
+                txs.insert(txid);
+            }
             return --limit != 0;
         }, startKey);
 
     }
     else {
         // parse single script/address:
-        CScript const owner = DecodeScript(accounts);
+        owner = DecodeScript(accounts);
 
         AccountHistoryKey startKey{ owner, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
         pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
@@ -3231,8 +3264,52 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+            if (shouldSearchInWallet) {
+                txs.insert(txid);
+            }
             return --limit != 0;
         }, startKey);
+    }
+
+    if (shouldSearchInWallet) {
+
+        CAmount nFee;
+        std::list<COutputEntry> listSent;
+        std::list<COutputEntry> listReceived;
+
+        CTxDestination destination;
+        if (!owner.empty()) {
+            ExtractDestination(owner, destination);
+        }
+
+        const auto& txOrdered = pwallet->wtxOrdered;
+
+        for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
+            CWalletTx *const pwtx = (*it).second;
+
+            if(pwtx->IsCoinBase()) {
+                continue;
+            }
+            const auto& txid = pwtx->GetHash();
+            if (txs.count(txid)) {
+                continue;
+            }
+            pwtx->GetAmounts(listReceived, listSent, nFee, filter);
+            const auto index = LookupBlockIndex(pwtx->hashBlock);
+            for (auto& sent : listSent) {
+                if (IsValidDestination(destination) && destination != sent.destination) {
+                    continue;
+                }
+                sent.amount = -sent.amount;
+                ret.push_back(outputEntryToJSON(sent, index->nHeight, pwtx->hashBlock, txid, "sent"));
+            }
+            for (auto& recv : listReceived) {
+                if (IsValidDestination(destination) && destination != recv.destination) {
+                    continue;
+                }
+                ret.push_back(outputEntryToJSON(recv, index->nHeight, pwtx->hashBlock, txid, "receive"));
+            }
+        }
     }
 
     return ret;
