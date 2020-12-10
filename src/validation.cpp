@@ -2175,7 +2175,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            const auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
+            /// @NOTE do not use fJustCheck here cause we want to verify all txs in a block not just one-by-one
+            const auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), pindex->nHeight, i, false);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 // we will never fail, but skip, unless transaction mints UTXOs
                 return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
