@@ -443,7 +443,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     int64_t nConsecutiveFailed = 0;
 
     // Custom TXs to undo at the end
-    std::set<uint256> accountUndo;
+    std::set<uint256> checkedTX;
+
+    // Copy of the view
+    CCustomCSView view(*pcustomcsview);
 
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
@@ -544,45 +547,33 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         // Account check
         bool customTxPassed{true};
 
-        // Custom TXs to undo at the end of following loop if the TX fails.
-        std::set<uint256> localUndo;
-
         // Apply and check custom TXs in order
         for (size_t i = 0; i < sortedEntries.size(); ++i) {
             const CTransaction& tx = sortedEntries[i]->GetTx();
 
             // Do not double check already checked custom TX. This will be an ancestor of current TX.
-            if (accountUndo.find(tx.GetHash()) != accountUndo.end()) {
+            if (checkedTX.find(tx.GetHash()) != checkedTX.end()) {
                 continue;
             }
 
             std::vector<unsigned char> metadata;
             CustomTxType txType = GuessCustomTxType(sortedEntries[i]->GetTx(), metadata);
 
-            // If custom TX wll need to be undone afterwards
+            // Only check custom TXs
             if (txType != CustomTxType::None) {
-                auto res = ApplyCustomTx(*pcustomcsview, g_chainstate->CoinsTip(), sortedEntries[i]->GetTx(), chainparams.GetConsensus(), nHeight, std::numeric_limits<uint32_t>::max(), false, true);
-
-                // Add to recently applied custom TXs from sortedEntries
-                localUndo.insert(tx.GetHash());
+                auto res = ApplyCustomTx(view, ::ChainstateActive().CoinsTip(), sortedEntries[i]->GetTx(), chainparams.GetConsensus(), nHeight, std::numeric_limits<uint32_t>::max(), false, true);
 
                 // Not okay invalidate, undo and skip
                 if (!res.ok && NotAllowedToFail(txType)) {
                     customTxPassed = false;
-
-                    // Undo local applied custom TXs
-                    for (auto const hash : localUndo) {
-                        pcustomcsview->OnUndoTx(hash, nHeight);
-                    }
-                    pcustomcsview->SetLastHeight(nHeight - 1);
 
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), sortedEntries[i]->GetTx().GetHash().GetHex(), res.msg);
 
                     break;
                 }
 
-                // Will be undone at the end
-                accountUndo.insert(tx.GetHash());
+                // Track checked TXs to avoid double applying
+                checkedTX.insert(tx.GetHash());
             }
         }
 
@@ -605,14 +596,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         // Update transactions that depend on each of these
         nDescendantsUpdated += UpdatePackagesForAdded(ancestors, mapModifiedTx);
-    }
-
-    // Undo custom TXs to restore state before adding TXs to block
-    if (!accountUndo.empty()) {
-        for (auto const hash : accountUndo) {
-            pcustomcsview->OnUndoTx(hash, nHeight);
-        }
-        pcustomcsview->SetLastHeight(nHeight - 1);
     }
 }
 
