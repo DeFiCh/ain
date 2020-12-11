@@ -3590,12 +3590,6 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     CTransactionRef optAuthTx;
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
 
-    // clear duplicated inputs
-    std::sort(rawTx.vin.begin(), rawTx.vin.end(), [&](const CTxIn& tx1, const CTxIn& tx2) {
-        return tx1.prevout < tx2.prevout;
-    });
-    rawTx.vin.erase(std::unique(rawTx.vin.begin(), rawTx.vin.end()), rawTx.vin.end());
-
     // fund
     rawTx = fund(rawTx, pwallet, optAuthTx);
 
