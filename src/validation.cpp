@@ -1835,7 +1835,6 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
 
     if (height >= consensus.AMKHeight) {
-        LogPrintf("ApplyGeneralCoinbaseTx() post AMK logic\n");
         // check classic UTXO foundation share:
         if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1 != 0) {
             CAmount foundationReward = blockReward * consensus.foundationShareDFIP1 / COIN;

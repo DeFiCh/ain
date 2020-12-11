@@ -16,7 +16,7 @@ class AccountMiningTest(DefiTestFramework):
 
     def run_test(self):
         node = self.nodes[0]
-        node.generate(101)
+        node.generate(110)
 
         # Get addresses and set up account
         account = node.getnewaddress()
@@ -28,8 +28,10 @@ class AccountMiningTest(DefiTestFramework):
         assert_equal(node.getaccount(account)[0], "10.00000000@DFI")
 
         # Send double the amount we have in account
-        node.accounttoutxos(account, {destination: "10@0"})
-        node.accounttoutxos(account, {destination: "10@0"})
+        node.accounttoutxos(account, {destination: "10@DFI"})
+        node.accounttoutxos(account, {destination: "2@DFI"})
+        node.accounttoutxos(account, {destination: "2@DFI"})
+        node.accounttoutxos(account, {destination: "2@DFI"})
 
         # Store block height
         blockcount = node.getblockcount()

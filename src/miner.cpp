@@ -226,7 +226,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
-    addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+    addPackageTxs(nPackagesSelected, nDescendantsUpdated, nHeight);
 
     int64_t nTime1 = GetTimeMicros();
 
@@ -421,7 +421,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // Each time through the loop, we compare the best transaction in
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -441,6 +441,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // mempool has a lot of entries.
     const int64_t MAX_CONSECUTIVE_FAILURES = 1000;
     int64_t nConsecutiveFailed = 0;
+
+    // Custom TXs to undo at the end
+    std::set<uint256> accountUndo;
 
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
@@ -492,7 +495,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         if (packageFees < blockMinFeeRate.GetFee(packageSize)) {
             // Everything else we might consider has a lower fee rate
-            return;
+            break;
         }
 
         if (!TestPackage(packageSize, packageSigOpsCost)) {
@@ -538,6 +541,60 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         std::vector<CTxMemPool::txiter> sortedEntries;
         SortForBlock(ancestors, sortedEntries);
 
+        // Account check
+        bool customTxPassed{true};
+
+        // Custom TXs to undo at the end of following loop if the TX fails.
+        std::set<uint256> localUndo;
+
+        // Apply and check custom TXs in order
+        for (size_t i = 0; i < sortedEntries.size(); ++i) {
+            const CTransaction& tx = sortedEntries[i]->GetTx();
+
+            // Do not double check already checked custom TX. This will be an ancestor of current TX.
+            if (accountUndo.find(tx.GetHash()) != accountUndo.end()) {
+                continue;
+            }
+
+            std::vector<unsigned char> metadata;
+            CustomTxType txType = GuessCustomTxType(sortedEntries[i]->GetTx(), metadata);
+
+            // If custom TX wll need to be undone afterwards
+            if (txType != CustomTxType::None) {
+                auto res = ApplyCustomTx(*pcustomcsview, g_chainstate->CoinsTip(), sortedEntries[i]->GetTx(), chainparams.GetConsensus(), nHeight, std::numeric_limits<uint32_t>::max(), false, true);
+
+                // Add to recently applied custom TXs from sortedEntries
+                localUndo.insert(tx.GetHash());
+
+                // Not okay invalidate, undo and skip
+                if (!res.ok && NotAllowedToFail(txType)) {
+                    customTxPassed = false;
+
+                    // Undo local applied custom TXs
+                    for (auto const hash : localUndo) {
+                        pcustomcsview->OnUndoTx(hash, nHeight);
+                    }
+                    pcustomcsview->SetLastHeight(nHeight - 1);
+
+                    LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), sortedEntries[i]->GetTx().GetHash().GetHex(), res.msg);
+
+                    break;
+                }
+
+                // Will be undone at the end
+                accountUndo.insert(tx.GetHash());
+            }
+        }
+
+        // Failed, let's move on!
+        if (!customTxPassed) {
+            if (fUsingModified) {
+                mapModifiedTx.get<ancestor_score>().erase(modit);
+                failedTx.insert(iter);
+            }
+            continue;
+        }
+
         for (size_t i=0; i<sortedEntries.size(); ++i) {
             AddToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
@@ -548,6 +605,14 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         // Update transactions that depend on each of these
         nDescendantsUpdated += UpdatePackagesForAdded(ancestors, mapModifiedTx);
+    }
+
+    // Undo custom TXs to restore state before adding TXs to block
+    if (!accountUndo.empty()) {
+        for (auto const hash : accountUndo) {
+            pcustomcsview->OnUndoTx(hash, nHeight);
+        }
+        pcustomcsview->SetLastHeight(nHeight - 1);
     }
 }
 
