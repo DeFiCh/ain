@@ -579,28 +579,46 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         ClearPrioritisation(tx->GetHash());
     }
 
-    std::set<CTransactionRef> txsToRemove;
-    CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(&::ChainstateActive().CoinsTip()));
-    CAmount txfee = 0;
+    bool accountConflict{false};
 
-    // Check custom TX consensus types are now not in conflict with account layer
+    // Check if any custom TXs are in mempool with conflict
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); ++it) {
-        CValidationState state;
-        if (!Consensus::CheckTxInputs(it->GetTx(), state, mempoolDuplicate, pcustomcsview.get(), nBlockHeight, txfee, Params())) {
-            LogPrintf("%s: Remove conflicting TX: %s\n", __func__, it->GetTx().GetHash().GetHex());
-            txsToRemove.insert(it->GetSharedTx());
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(it->GetTx(), metadata);
+        if (NotAllowedToFail(txType)) {
+            auto res = ApplyCustomTx(*pcustomcsview, g_chainstate->CoinsTip(), it->GetTx(), Params().GetConsensus(), nBlockHeight, 0, true);
+            if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
+                accountConflict = true;
+                break;
+            }
         }
     }
 
-    for (auto& tx : txsToRemove) {
-        txiter it = mapTx.find(tx->GetHash());
-        if (it != mapTx.end()) {
-            setEntries stage;
-            stage.insert(it);
-            RemoveStaged(stage, true, MemPoolRemovalReason::CONFLICT);
+    // Account conflict, check entire mempool
+    if (accountConflict) {
+        std::set<CTransactionRef> txsToRemove;
+        CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(&::ChainstateActive().CoinsTip()));
+        CAmount txfee = 0;
+
+        // Check custom TX consensus types are now not in conflict with account layer
+        for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); ++it) {
+            CValidationState state;
+            if (!Consensus::CheckTxInputs(it->GetTx(), state, mempoolDuplicate, pcustomcsview.get(), nBlockHeight, txfee, Params())) {
+                LogPrintf("%s: Remove conflicting TX: %s\n", __func__, it->GetTx().GetHash().GetHex());
+                txsToRemove.insert(it->GetSharedTx());
+            }
         }
-        removeConflicts(*tx);
-        ClearPrioritisation(tx->GetHash());
+
+        for (auto& tx : txsToRemove) {
+            txiter it = mapTx.find(tx->GetHash());
+            if (it != mapTx.end()) {
+                setEntries stage;
+                stage.insert(it);
+                RemoveStaged(stage, true, MemPoolRemovalReason::CONFLICT);
+            }
+            removeConflicts(*tx);
+            ClearPrioritisation(tx->GetHash());
+        }
     }
 
     lastRollingFeeUpdate = GetTime();
