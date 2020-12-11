@@ -579,17 +579,16 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         ClearPrioritisation(tx->GetHash());
     }
 
-    // Check custom TX consensus types are now not in conflict with account layer
     std::set<CTransactionRef> txsToRemove;
+    CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(&::ChainstateActive().CoinsTip()));
+    CAmount txfee = 0;
+
+    // Check custom TX consensus types are now not in conflict with account layer
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); ++it) {
-        std::vector<unsigned char> metadata;
-        CustomTxType txType = GuessCustomTxType(it->GetTx(), metadata);
-        if (NotAllowedToFail(txType)) {
-            auto res = ApplyCustomTx(*pcustomcsview, g_chainstate->CoinsTip(), it->GetTx(), Params().GetConsensus(), nBlockHeight, 0, true);
-            if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
-                LogPrintf("%s: Remove custom TX: %s\n", __func__, res.msg);
-                txsToRemove.insert(it->GetSharedTx());
-            }
+        CValidationState state;
+        if (!Consensus::CheckTxInputs(it->GetTx(), state, mempoolDuplicate, pcustomcsview.get(), nBlockHeight, txfee, Params())) {
+            LogPrintf("%s: Remove conflicting TX: %s\n", __func__, it->GetTx().GetHash().GetHex());
+            txsToRemove.insert(it->GetSharedTx());
         }
     }
 
