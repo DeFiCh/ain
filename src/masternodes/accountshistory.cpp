@@ -6,6 +6,8 @@
 #include <masternodes/accounts.h>
 #include <key_io.h>
 
+#include <limits>
+
 /// @attention make sure that it does not overlap with those in masternodes.cpp/tokens.cpp/undos.cpp/accounts.cpp !!!
 const unsigned char CAccountsHistoryView::ByAccountHistoryKey::prefix = 'h'; // don't intersects with CMintedHeadersView::MintedHeaders::prefix due to different DB
 
@@ -32,7 +34,8 @@ Res CAccountsHistoryView::SetAccountHistory(const CScript & owner, uint32_t heig
 }
 
 bool CAccountsHistoryView::TrackAffectedAccounts(CStorageKV const & before, MapKV const & diff, uint32_t height, uint32_t txn, const uint256 & txid, unsigned char category) {
-    if (!gArgs.GetBoolArg("-acindex", false))
+    // txn set to max if called from CreateNewBlock to check account balances, do not track here.
+    if (!gArgs.GetBoolArg("-acindex", false) || txn == std::numeric_limits<uint32_t>::max())
         return false;
 
     std::map<CScript, TAmounts> balancesDiff;
