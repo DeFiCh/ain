@@ -113,7 +113,7 @@ bool HasFoundationAuth(CTransaction const & tx, CCoinsViewCache const & coins, C
     return false;
 }
 
-Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CTransaction const & tx, Consensus::Params const & consensusParams, uint32_t height, uint32_t txn, bool isCheck)
+Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CTransaction const & tx, Consensus::Params const & consensusParams, uint32_t height, uint32_t txn, bool isCheck, bool skipAuth)
 {
     Res res = Res::Ok();
 
@@ -145,7 +145,7 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyUpdateTokenAnyTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::MintToken:
-                res = ApplyMintTokenTx(mnview, coins, tx, height, metadata, consensusParams);
+                res = ApplyMintTokenTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
                 break;
             case CustomTxType::CreatePoolPair:
                 res = ApplyCreatePoolPairTx(mnview, coins, tx, height, metadata, consensusParams);
@@ -166,7 +166,7 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyUtxosToAccountTx(mnview, tx, height, metadata, consensusParams);
                 break;
             case CustomTxType::AccountToUtxos:
-                res = ApplyAccountToUtxosTx(mnview, coins, tx, height, metadata, consensusParams);
+                res = ApplyAccountToUtxosTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
                 break;
             case CustomTxType::AccountToAccount:
                 res = ApplyAccountToAccountTx(mnview, coins, tx, height, metadata, consensusParams);
@@ -423,7 +423,7 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     return Res::Ok(base);
 }
 
-Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
+Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
@@ -473,7 +473,7 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
                 return Res::Err("%s: token not mintable!", tokenId.ToString());
             }
 
-            if (!HasAuth(tx, coins, auth.out.scriptPubKey)) { // in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
+            if (!skipAuth && !HasAuth(tx, coins, auth.out.scriptPubKey)) { // in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
                 if (!tokenImpl.IsDAT())
                     return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
 
@@ -696,7 +696,7 @@ Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint3
     return Res::Ok(base);
 }
 
-Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
+Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
@@ -710,7 +710,7 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     const auto base = strprintf("Transfer AccountToUtxos: %s", msg.ToString());
 
     // check auth
-    if (!HasAuth(tx, coins, msg.from)) {
+    if (!skipAuth && !HasAuth(tx, coins, msg.from)) {
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
     }
     // check that all tokens are minted, and no excess tokens are minted

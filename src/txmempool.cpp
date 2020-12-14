@@ -5,6 +5,7 @@
 
 #include <txmempool.h>
 
+#include <chainparams.h>
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
@@ -577,6 +578,49 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         removeConflicts(*tx);
         ClearPrioritisation(tx->GetHash());
     }
+
+    bool accountConflict{false};
+
+    // Check if any custom TXs are in mempool with conflict
+    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); ++it) {
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(it->GetTx(), metadata);
+        if (NotAllowedToFail(txType)) {
+            auto res = ApplyCustomTx(*pcustomcsview, g_chainstate->CoinsTip(), it->GetTx(), Params().GetConsensus(), nBlockHeight, 0, true);
+            if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
+                accountConflict = true;
+                break;
+            }
+        }
+    }
+
+    // Account conflict, check entire mempool
+    if (accountConflict) {
+        std::set<CTransactionRef> txsToRemove;
+        CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(&::ChainstateActive().CoinsTip()));
+        CAmount txfee = 0;
+
+        // Check custom TX consensus types are now not in conflict with account layer
+        for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); ++it) {
+            CValidationState state;
+            if (!Consensus::CheckTxInputs(it->GetTx(), state, mempoolDuplicate, pcustomcsview.get(), nBlockHeight, txfee, Params())) {
+                LogPrintf("%s: Remove conflicting TX: %s\n", __func__, it->GetTx().GetHash().GetHex());
+                txsToRemove.insert(it->GetSharedTx());
+            }
+        }
+
+        for (auto& tx : txsToRemove) {
+            txiter it = mapTx.find(tx->GetHash());
+            if (it != mapTx.end()) {
+                setEntries stage;
+                stage.insert(it);
+                RemoveStaged(stage, true, MemPoolRemovalReason::CONFLICT);
+            }
+            removeConflicts(*tx);
+            ClearPrioritisation(tx->GetHash());
+        }
+    }
+
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = true;
 }
