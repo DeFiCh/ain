@@ -40,8 +40,35 @@ class AccountMiningTest(DefiTestFramework):
         # Check the blockchain has extended as expected
         assert_equal(node.getblockcount(), blockcount + 1)
 
+        # Generate 10 more blocks
+        node.generate(10)
+
+        # Check the blockchain has extended as expected
+        assert_equal(node.getblockcount(), blockcount + 11)
+
         # Account should now be empty
         assert_equal(node.getaccount(account), [])
+
+        # Update block height
+        blockcount = node.getblockcount()
+
+        # Send more UTXOs to account
+        node.utxostoaccount({account: "1@0"})
+        node.generate(1)
+
+        # Update block height
+        blockcount = node.getblockcount()
+
+        # Test mixture of account TXs
+        for _ in range(10):
+            node.accounttoaccount(account, {destination: "1@DFI"})
+            node.accounttoutxos(account, {destination: "1@DFI"})
+
+        # Generate 1 more blocks
+        node.generate(1)
+
+        # Check the blockchain has extended as expected
+        assert_equal(node.getblockcount(), blockcount + 1)
 
 if __name__ == '__main__':
     AccountMiningTest().main ()
