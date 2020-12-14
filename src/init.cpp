@@ -1586,18 +1586,24 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsview.reset();
                 pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
                 if (!fReset && gArgs.GetBoolArg("-acindex", false)) {
-                    bool hasAccountHistory = false, hasRewardHistory = false;
-                    pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>) {
-                        hasAccountHistory = true;
-                        return false;
-                    });
+                    bool hasRewardHistory = false;
                     pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>) {
                         hasRewardHistory = true;
                         return false;
                     });
-                    if (hasAccountHistory && !hasRewardHistory) {
-                        strLoadError = _("Account history needs rebuild").translated;
-                        break;
+                    if (!hasRewardHistory) {
+                        bool hasOldAccountHistory = false;
+                        pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue>) {
+                            if (key.txn == std::numeric_limits<uint32_t>::max()) {
+                                hasOldAccountHistory = true;
+                                return false;
+                            }
+                            return true;
+                        }, { {}, 0, std::numeric_limits<uint32_t>::max() });
+                        if (hasOldAccountHistory) {
+                            strLoadError = _("Account history needs rebuild").translated;
+                            break;
+                        }
                     }
                 }
 
