@@ -603,21 +603,28 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         view.GetBestBlock();
 
         const auto height = GetSpendHeight(view);
-        std::vector<unsigned char> metadata;
 
         // check for txs in mempool
         for (const auto& e : mempool.mapTx) {
             const auto& tx = e.GetTx();
-            const auto txType = GuessCustomTxType(tx, metadata);
-            if (NotAllowedToFail(txType)) {
-                auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
-                assert(res.ok || !(res.code & CustomTxErrCodes::Fatal)); // inconsistent mempool
-            }
+            auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
+            assert(res.ok || !(res.code & CustomTxErrCodes::Fatal)); // inconsistent mempool
         }
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, &mnview, height, nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
+        }
+
+        // NOTE Consensus::CheckTxInputs will check for NotAllowToFail
+        std::vector<unsigned char> metadata;
+        const auto txType = GuessCustomTxType(tx, metadata);
+
+        if (!NotAllowedToFail(txType)) {
+            auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
+            if (!res.ok) {
+                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
+            }
         }
 
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
