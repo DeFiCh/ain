@@ -35,7 +35,7 @@ Res CAccountsHistoryView::SetAccountHistory(const CScript & owner, uint32_t heig
 
 bool CAccountsHistoryView::TrackAffectedAccounts(CStorageKV const & before, MapKV const & diff, uint32_t height, uint32_t txn, const uint256 & txid, unsigned char category) {
     // txn set to max if called from CreateNewBlock to check account balances, do not track here.
-    if (!gArgs.GetBoolArg("-acindex", false) || txn == std::numeric_limits<uint32_t>::max())
+    if (!gArgs.GetBoolArg("-acindex", false))
         return false;
 
     std::map<CScript, TAmounts> balancesDiff;
