@@ -98,13 +98,12 @@ class TokensMultisigOwnerTest(DefiTestFramework):
         signed_rawtx_1 = self.nodes[0].signrawtransactionwithkey(rawtx_1, [owner_1_privkey], [{"txid":txid_owner_1,"vout":vout_owner_1,"scriptPubKey":owner_1_scriptpubkey}])
         assert_equal(signed_rawtx_1['complete'], True)
 
-        # Send first name change TX
-        self.nodes[0].sendrawtransaction(signed_rawtx_1['hex'])
-        self.nodes[0].generate(1)
-
-        # Check that name has not changed
-        t128 = self.nodes[0].gettoken(128)
-        assert_equal(t128['128']['name'], "shiny")
+        # Send should fail as transaction is invalid
+        try:
+            self.nodes[0].sendrawtransaction(signed_rawtx_1['hex'])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("tx must have at least one input from token owner" in errorString)
 
         # Test that multisig TXs can change names
         rawtx_1 = self.nodes[0].createrawtransaction([{"txid":txid_1,"vout":vout_1}], [{"data":name_change_1},{owner_1:0.9999}])
