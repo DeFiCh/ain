@@ -561,6 +561,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
+        CCustomCSView mnview(*pcustomcsview);
 
         LockPoints lp;
         CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
@@ -601,8 +602,21 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // Bring the best block into scope
         view.GetBestBlock();
 
+        const auto height = GetSpendHeight(view);
+        std::vector<unsigned char> metadata;
+
+        // check for txs in mempool
+        for (const auto& e : mempool.mapTx) {
+            const auto& tx = e.GetTx();
+            const auto txType = GuessCustomTxType(tx, metadata);
+            if (NotAllowedToFail(txType)) {
+                auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
+                assert(res.ok || !(res.code & CustomTxErrCodes::Fatal)); // inconsistent mempool
+            }
+        }
+
         CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, pcustomcsview.get(), GetSpendHeight(view), nFees, chainparams)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, &mnview, height, nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
