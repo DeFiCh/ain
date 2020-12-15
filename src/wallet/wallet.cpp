@@ -2152,8 +2152,19 @@ void CWallet::ReacceptWalletTransactions(interfaces::Chain::Lock& locked_chain)
     // Try to add wallet transactions to memory pool
     for (const std::pair<const int64_t, CWalletTx*>& item : mapSorted) {
         CWalletTx& wtx = *(item.second);
-        std::string unused_err_string;
-        wtx.SubmitMemoryPoolAndRelay(unused_err_string, false, locked_chain);
+        std::string err_string;
+        bool result = wtx.SubmitMemoryPoolAndRelay(err_string, false, locked_chain);
+
+        // err_string only set on mempool acceptance failure
+        if (!result && !err_string.empty()) {
+            std::vector<unsigned char> metadata;
+            CustomTxType txType = GuessCustomTxType(*item.second->tx, metadata);
+
+            // Abandon custom TXs that are rejected by mempool
+            if (txType != CustomTxType::None) {
+                AbandonTransaction(locked_chain, item.second->tx->GetHash());
+            }
+        }
     }
 }
 

@@ -561,6 +561,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
+        CCustomCSView mnview(*pcustomcsview);
 
         LockPoints lp;
         CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
@@ -601,9 +602,29 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // Bring the best block into scope
         view.GetBestBlock();
 
+        const auto height = GetSpendHeight(view);
+
+        // check for txs in mempool
+        for (const auto& e : mempool.mapTx.get<entry_time>()) {
+            const auto& tx = e.GetTx();
+            auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
+            assert(res.ok || !(res.code & CustomTxErrCodes::Fatal)); // inconsistent mempool
+        }
+
         CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, pcustomcsview.get(), GetSpendHeight(view), nFees, chainparams)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, &mnview, height, nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
+        }
+
+        // NOTE Consensus::CheckTxInputs will check for NotAllowToFail
+        std::vector<unsigned char> metadata;
+        const auto txType = GuessCustomTxType(tx, metadata);
+
+        if (!NotAllowedToFail(txType)) {
+            auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
+            if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
+                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
+            }
         }
 
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool

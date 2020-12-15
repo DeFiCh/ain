@@ -561,10 +561,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                auto res = ApplyCustomTx(view, ::ChainstateActive().CoinsTip(), tx, chainparams.GetConsensus(), nHeight, std::numeric_limits<uint32_t>::max(), false, true);
+                auto res = ApplyCustomTx(view, ::ChainstateActive().CoinsTip(), tx, chainparams.GetConsensus(), nHeight, 0, false, true);
 
                 // Not okay invalidate, undo and skip
-                if (!res.ok && NotAllowedToFail(txType)) {
+                if (!res.ok) {
                     customTxPassed = false;
 
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
