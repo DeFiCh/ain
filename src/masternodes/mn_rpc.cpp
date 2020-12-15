@@ -3007,6 +3007,7 @@ UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue
     obj.pushKV("blockHeight", (uint64_t) key.blockHeight);
     if (auto block = ::ChainActive()[key.blockHeight]) {
         obj.pushKV("blockHash", block->GetBlockHash().GetHex());
+        obj.pushKV("blockTime", block->GetBlockTime());
     }
     obj.pushKV("type", ToString(CustomTxCodeToType(value.category)));
     obj.pushKV("txn", (uint64_t) key.txn);
@@ -3021,6 +3022,7 @@ UniValue rewardhistoryToJSON(RewardHistoryKey const & key, RewardHistoryValue co
     obj.pushKV("blockHeight", (uint64_t) key.blockHeight);
     if (auto block = ::ChainActive()[key.blockHeight]) {
         obj.pushKV("blockHash", block->GetBlockHash().GetHex());
+        obj.pushKV("blockTime", block->GetBlockTime());
     }
     obj.pushKV("type", RewardToString(RewardType(value.category)));
     obj.pushKV("poolID", key.poolID.ToString());
@@ -3028,12 +3030,13 @@ UniValue rewardhistoryToJSON(RewardHistoryKey const & key, RewardHistoryValue co
     return obj;
 }
 
-UniValue outputEntryToJSON(COutputEntry const & entry, uint32_t height, uint256 const & hashBlock, uint256 const & txid, std::string const & type) {
+UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index, uint256 const & txid, std::string const & type) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", EncodeDestination(entry.destination));
-    obj.pushKV("blockHeight", (uint64_t)height);
-    obj.pushKV("blockHash", hashBlock.GetHex());
+    obj.pushKV("blockHeight", index->height);
+    obj.pushKV("blockHash", index->GetBlockHash().GetHex());
+    obj.pushKV("blockTime", index->GetBlockTime());
     obj.pushKV("type", type);
     obj.pushKV("txn", (uint64_t) entry.vout);
     obj.pushKV("txid", txid.ToString());
@@ -3232,14 +3235,14 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                     continue;
                 }
                 it->amount = -(it->amount);
-                ret.push_back(outputEntryToJSON(*it, index->nHeight, pwtx->hashBlock, txid, "sent"));
+                ret.push_back(outputEntryToJSON(*it, index, txid, "sent"));
                 --limit;
             }
             for (auto it = listReceived.begin(); limit != 0 && it != listReceived.end(); ++it) {
                 if (!IsValidDestination(it->destination) || (IsValidDestination(destination) && destination != it->destination)) {
                     continue;
                 }
-                ret.push_back(outputEntryToJSON(*it, index->nHeight, pwtx->hashBlock, txid, "receive"));
+                ret.push_back(outputEntryToJSON(*it, index, txid, "receive"));
                 --limit;
             }
         }
