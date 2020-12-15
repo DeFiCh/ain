@@ -238,6 +238,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listpoolshares", 2, "is_mine_only" },
 
     { "listaccounthistory", 1, "options" },
+    { "accounthistorycount", 1, "options" },
 
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },

@@ -3216,6 +3216,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             ExtractDestination(owner, destination);
         }
 
+        LOCK(pwallet->cs_wallet);
+
         const auto& txOrdered = pwallet->wtxOrdered;
 
         for (auto it = txOrdered.rbegin(); limit != 0 && it != txOrdered.rend(); ++it) {
@@ -3271,6 +3273,142 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     }, { account, startBlock, std::numeric_limits<uint32_t>::max() });
 
     return ret;
+}
+
+UniValue accounthistorycount(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+    RPCHelpMan{"accounthistorycount",
+               "\nReturns count of account history.\n",
+               {
+                   {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                       "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
+
+                   {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                       {
+                            {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
+                       },
+                   },
+               },
+               RPCResult{
+                       "count     (int) Count of account history\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("accounthistorycount", "all '{no_rewards: true}'")
+                       + HelpExampleRpc("accounthistorycount", "")
+               },
+    }.Check(request);
+
+    std::string accounts = "mine";
+    if (request.params.size() > 0) {
+        accounts = request.params[0].getValStr();
+    }
+
+    bool noRewards = false;
+
+    if (request.params.size() > 1) {
+        UniValue optionsObj = request.params[1].get_obj();
+        RPCTypeCheckObj(optionsObj,
+            {
+                {"no_rewards", UniValueType(UniValue::VBOOL)},
+            }, true, true);
+
+        noRewards = optionsObj["no_rewards"].get_bool();
+    }
+
+    LOCK(cs_main);
+    UniValue ret(UniValue::VARR);
+
+    uint64_t count = 0;
+    std::set<uint256> txs;
+
+    CScript owner;
+    std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
+
+    if (accounts == "mine") {
+        isForMe = [pwallet](CScript const & owner) {
+            return IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
+        };
+    } else if (accounts != "all") {
+        owner = DecodeScript(accounts);
+    }
+
+    pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
+
+        if (!owner.empty() && owner != key.owner) {
+            return false;
+        }
+
+        if (isForMe(key.owner)) {
+            ++count;
+            txs.insert(valueLazy.get().txid);
+        }
+
+        return true;
+    }, {owner, 0, 0} );
+
+    {
+        CAmount nFee;
+        std::list<COutputEntry> listSent;
+        std::list<COutputEntry> listReceived;
+
+        LOCK(pwallet->cs_wallet);
+
+        const auto& txOrdered = pwallet->wtxOrdered;
+
+        for (const auto& tx : txOrdered) {
+
+            auto pwtx = tx.second;
+
+            if(pwtx->IsCoinBase()) {
+                continue;
+            }
+
+            CTxDestination destination;
+            if (!owner.empty()) {
+                ExtractDestination(owner, destination);
+            }
+
+            const auto& txid = pwtx->GetHash();
+            if (txs.count(txid)) {
+                continue;
+            }
+
+            pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
+
+            for (const auto& sent : listSent) {
+                if (!IsValidDestination(sent.destination) || (IsValidDestination(destination) && destination != sent.destination)) {
+                    continue;
+                }
+                ++count;
+            }
+
+            for (const auto& recv : listReceived) {
+                if (!IsValidDestination(recv.destination) || (IsValidDestination(destination) && destination != recv.destination)) {
+                    continue;
+                }
+                ++count;
+            }
+        }
+    }
+
+    if (noRewards) {
+        return count;
+    }
+
+    pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue>) {
+
+        if (!owner.empty() && owner != key.owner) {
+            return false;
+        }
+
+        if (isForMe(key.owner)) {
+            ++count;
+        }
+
+        return true;
+    }, {owner, 0, 0} );
+
+    return count;
 }
 
 UniValue listcommunitybalances(const JSONRPCRequest& request) {
@@ -3604,6 +3742,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "listpoolshares",        &listpoolshares,     {"pagination", "verbose", "is_mine_only"}},
     {"poolpair",    "testpoolswap",          &testpoolswap,          {"metadata"}},
     {"accounts",    "listaccounthistory",    &listaccounthistory,    {"owner", "options"}},
+    {"accounts",    "accounthistorycount",   &accounthistorycount,   {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},
