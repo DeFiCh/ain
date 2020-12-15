@@ -721,7 +721,7 @@ UniValue listmasternodes(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
 
     LOCK(cs_main);
-    pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternode& node) {
+    pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternode node) {
         ret.pushKVs(mnToJSON(nodeId, node, verbose));
         limit--;
         return limit != 0;
@@ -1239,7 +1239,7 @@ UniValue listtokens(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation const& token) {
+    pcustomcsview->ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
         ret.pushKVs(tokenToJSON(id, token, verbose));
 
         limit--;
@@ -1820,10 +1820,10 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CPoolPair const & pool) {
+    pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CLazySerialize<CPoolPair> pool) {
         const auto token = pcustomcsview->GetToken(id);
         if (token) {
-            ret.pushKVs(poolToJSON(id, pool, *token, verbose));
+            ret.pushKVs(poolToJSON(id, pool.get(), *token, verbose));
         }
 
         limit--;
@@ -3000,27 +3000,43 @@ UniValue AmountsToJSON(TAmounts const & diffs) {
     return obj;
 }
 
-UniValue accounthistoryToJSON(CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
+UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue const & value) {
     UniValue obj(UniValue::VOBJ);
 
-    obj.pushKV("owner", ScriptToString(owner));
-    obj.pushKV("blockHeight", (uint64_t) height);
-    obj.pushKV("type", ToString(CustomTxCodeToType(category)));
-    if (!txid.IsNull()) {
-        obj.pushKV("txn", (uint64_t) txn);
-        obj.pushKV("txid", txid.ToString());
+    obj.pushKV("owner", ScriptToString(key.owner));
+    obj.pushKV("blockHeight", (uint64_t) key.blockHeight);
+    if (auto block = ::ChainActive()[key.blockHeight]) {
+        obj.pushKV("blockHash", block->GetBlockHash().GetHex());
+        obj.pushKV("blockTime", block->GetBlockTime());
     }
-
-    obj.pushKV("amounts", AmountsToJSON(diffs));
+    obj.pushKV("type", ToString(CustomTxCodeToType(value.category)));
+    obj.pushKV("txn", (uint64_t) key.txn);
+    obj.pushKV("txid", value.txid.ToString());
+    obj.pushKV("amounts", AmountsToJSON(value.diff));
     return obj;
 }
 
-UniValue outputEntryToJSON(COutputEntry const & entry, uint32_t height, uint256 const & hashBlock, uint256 const & txid, std::string const & type) {
+UniValue rewardhistoryToJSON(RewardHistoryKey const & key, RewardHistoryValue const & value) {
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("owner", ScriptToString(key.owner));
+    obj.pushKV("blockHeight", (uint64_t) key.blockHeight);
+    if (auto block = ::ChainActive()[key.blockHeight]) {
+        obj.pushKV("blockHash", block->GetBlockHash().GetHex());
+        obj.pushKV("blockTime", block->GetBlockTime());
+    }
+    obj.pushKV("type", RewardToString(RewardType(value.category)));
+    obj.pushKV("poolID", key.poolID.ToString());
+    obj.pushKV("amounts", AmountsToJSON(value.diff));
+    return obj;
+}
+
+UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index, uint256 const & txid, std::string const & type) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", EncodeDestination(entry.destination));
-    obj.pushKV("blockHeight", (uint64_t)height);
-    obj.pushKV("blockHash", hashBlock.GetHex());
+    obj.pushKV("blockHeight", index->height);
+    obj.pushKV("blockHash", index->GetBlockHash().GetHex());
+    obj.pushKV("blockTime", index->GetBlockTime());
     obj.pushKV("type", type);
     obj.pushKV("txn", (uint64_t) entry.vout);
     obj.pushKV("txid", txid.ToString());
@@ -3126,149 +3142,67 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::set<uint256> txs;
     const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
 
+    CScript account;
+    std::function<bool(uint32_t, CScript const&)> preCondition;
+    std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
+
+    if (accounts == "mine" || accounts == "all") {
+        preCondition = [startBlock, depth](uint32_t blockHeight, CScript const&) {
+            return blockHeight > startBlock || depth <= startBlock;
+        };
+        if (accounts == "mine") {
+            isForMe = [pwallet](CScript const & owner) {
+                return IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
+            };
+        }
+    } else {
+        account = DecodeScript(accounts);
+        preCondition = [startBlock, &account, depth](uint32_t blockHeight, CScript const & owner) {
+            return owner != account || blockHeight > startBlock || depth <= startBlock;
+        };
+    }
+
+    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
+        for (auto const & diff : diffs) {
+            auto token = pcustomcsview->GetToken(diff.first);
+            auto const tokenIdStr = token->CreateSymbolKey(diff.first);
+            if(tokenIdStr == tokenFilter) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    LOCK(cs_main);
     UniValue ret(UniValue::VARR);
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
+        if (preCondition(key.blockHeight, key.owner))
+            return true; // continue
 
-    if (accounts == "mine") {
-        // traversing through owned scripts
-        CScript prevOwner{};
-        bool isMine = false;
-        filter = ISMINE_SPENDABLE;
-        AccountHistoryKey startKey{ prevOwner, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
-        pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
-            if (height > startKey.blockHeight || depth <= startKey.blockHeight)
-                return true; // continue
+        auto value = valueLazy.get();
 
-            if (CustomTxType::None != txType && category != uint8_t(txType)) {
-                return true;
-            }
+        if(!tokenFilter.empty() && !hasToken(value.diff)) {
+            return true;
+        }
 
-            if(!tokenFilter.empty()) {
-                bool hasToken = false;
-                for (auto const & diff : diffs) {
-                    auto token = pcustomcsview->GetToken(diff.first);
-                    std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
+        if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
+            return true;
+        }
 
-                    if(tokenIdStr == tokenFilter) {
-                        hasToken = true;
-                        break;
-                    }
-                }
-
-                if(!hasToken) {
-                    return true; // continue
-                }
-            }
-
-            if(noRewards) {
-                if(category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
-                    return true; // continue
-                }
-            }
-
-            if (prevOwner != owner) {
-                prevOwner = owner;
-                isMine = IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
-            }
-
-            if (isMine) {
-                ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
-                --limit;
-
-                if (shouldSearchInWallet) {
-                    txs.insert(txid);
-                }
-            }
-
-            return limit != 0;
-        }, startKey);
-    }
-    else if (accounts == "all") {
-        // traversing the whole DB, skipping wrong heights
-        AccountHistoryKey startKey{ CScript{}, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
-        pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
-            if (height > startKey.blockHeight || depth <= startKey.blockHeight) {
-                return true; // continue
-            }
-
-            if (CustomTxType::None != txType && category != uint8_t(txType)) {
-                return true;
-            }
-
-            if(!tokenFilter.empty()) {
-                bool hasToken = false;
-                for (auto const & diff : diffs) {
-                    auto token = pcustomcsview->GetToken(diff.first);
-                    std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
-
-                    if(tokenIdStr == tokenFilter) {
-                        hasToken = true;
-                        break;
-                    }
-                }
-
-                if(!hasToken) {
-                    return true; // continue
-                }
-            }
-
-            if(noRewards) {
-                if(category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
-                    return true; // continue
-                }
-            }
-
-            ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
+        if (isForMe(key.owner)) {
+            ret.push_back(accounthistoryToJSON(key, value));
             if (shouldSearchInWallet) {
-                txs.insert(txid);
+                txs.insert(value.txid);
             }
-            return --limit != 0;
-        }, startKey);
+            --limit;
+        }
 
-    }
-    else {
-        // parse single script/address:
-        owner = DecodeScript(accounts);
+        return limit != 0;
+    }, { account, startBlock, std::numeric_limits<uint32_t>::max() });
 
-        AccountHistoryKey startKey{ owner, startBlock, std::numeric_limits<uint32_t>::max() }; // starting from max txn values
-        pcustomcsview->ForEachAccountHistory([&](CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diffs) {
-            if (owner != startKey.owner || height > startKey.blockHeight || depth <= startKey.blockHeight)
-                return false;
-
-            if (CustomTxType::None != txType && category != uint8_t(txType)) {
-                return true;
-            }
-
-            if(!tokenFilter.empty()) {
-                bool hasToken = false;
-                for (auto const & diff : diffs) {
-                    auto token = pcustomcsview->GetToken(diff.first);
-                    std::string const tokenIdStr = token->CreateSymbolKey(diff.first);
-
-                    if(tokenIdStr == tokenFilter) {
-                        hasToken = true;
-                        break;
-                    }
-                }
-
-                if(!hasToken) {
-                    return true; // continue
-                }
-            }
-
-            if(noRewards) {
-                if(category == static_cast<unsigned char>(CustomTxType::NonTxRewards)) {
-                    return true; // continue
-                }
-            }
-
-            ret.push_back(accounthistoryToJSON(owner, height, txn, txid, category, diffs));
-            if (shouldSearchInWallet) {
-                txs.insert(txid);
-            }
-            return --limit != 0;
-        }, startKey);
+    if (!limit) {
+        return ret;
     }
 
     if (shouldSearchInWallet) {
@@ -3282,9 +3216,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             ExtractDestination(owner, destination);
         }
 
+        LOCK(pwallet->cs_wallet);
+
         const auto& txOrdered = pwallet->wtxOrdered;
 
-        for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
+        for (auto it = txOrdered.rbegin(); limit != 0 && it != txOrdered.rend(); ++it) {
             CWalletTx *const pwtx = (*it).second;
 
             if(pwtx->IsCoinBase()) {
@@ -3296,23 +3232,183 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
             pwtx->GetAmounts(listReceived, listSent, nFee, filter);
             const auto index = LookupBlockIndex(pwtx->hashBlock);
-            for (auto& sent : listSent) {
-                if (IsValidDestination(destination) && destination != sent.destination) {
+            for (auto it = listSent.begin(); limit != 0 && it != listSent.end(); ++it) {
+                if (!IsValidDestination(it->destination) || (IsValidDestination(destination) && destination != it->destination)) {
                     continue;
                 }
-                sent.amount = -sent.amount;
-                ret.push_back(outputEntryToJSON(sent, index->nHeight, pwtx->hashBlock, txid, "sent"));
+                it->amount = -(it->amount);
+                ret.push_back(outputEntryToJSON(*it, index, txid, "sent"));
+                --limit;
             }
-            for (auto& recv : listReceived) {
-                if (IsValidDestination(destination) && destination != recv.destination) {
+            for (auto it = listReceived.begin(); limit != 0 && it != listReceived.end(); ++it) {
+                if (!IsValidDestination(it->destination) || (IsValidDestination(destination) && destination != it->destination)) {
                     continue;
                 }
-                ret.push_back(outputEntryToJSON(recv, index->nHeight, pwtx->hashBlock, txid, "receive"));
+                ret.push_back(outputEntryToJSON(*it, index, txid, "receive"));
+                --limit;
             }
         }
     }
 
+    if (noRewards || !limit) {
+        return ret;
+    }
+
+    pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) {
+        if (preCondition(key.blockHeight, key.owner))
+            return true; // continue
+
+        auto value = valueLazy.get();
+
+        if(!tokenFilter.empty() && !hasToken(value.diff)) {
+            return true;
+        }
+
+        if (isForMe(key.owner)) {
+            ret.push_back(rewardhistoryToJSON(key, value));
+            --limit;
+        }
+
+        return limit != 0;
+    }, { account, startBlock, std::numeric_limits<uint32_t>::max() });
+
     return ret;
+}
+
+UniValue accounthistorycount(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+    RPCHelpMan{"accounthistorycount",
+               "\nReturns count of account history.\n",
+               {
+                   {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                       "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
+
+                   {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                       {
+                            {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
+                       },
+                   },
+               },
+               RPCResult{
+                       "count     (int) Count of account history\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("accounthistorycount", "all '{no_rewards: true}'")
+                       + HelpExampleRpc("accounthistorycount", "")
+               },
+    }.Check(request);
+
+    std::string accounts = "mine";
+    if (request.params.size() > 0) {
+        accounts = request.params[0].getValStr();
+    }
+
+    bool noRewards = false;
+
+    if (request.params.size() > 1) {
+        UniValue optionsObj = request.params[1].get_obj();
+        RPCTypeCheckObj(optionsObj,
+            {
+                {"no_rewards", UniValueType(UniValue::VBOOL)},
+            }, true, true);
+
+        noRewards = optionsObj["no_rewards"].get_bool();
+    }
+
+    LOCK(cs_main);
+    UniValue ret(UniValue::VARR);
+
+    uint64_t count = 0;
+    std::set<uint256> txs;
+
+    CScript owner;
+    std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
+
+    if (accounts == "mine") {
+        isForMe = [pwallet](CScript const & owner) {
+            return IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
+        };
+    } else if (accounts != "all") {
+        owner = DecodeScript(accounts);
+    }
+
+    pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
+
+        if (!owner.empty() && owner != key.owner) {
+            return false;
+        }
+
+        if (isForMe(key.owner)) {
+            ++count;
+            txs.insert(valueLazy.get().txid);
+        }
+
+        return true;
+    }, {owner, 0, 0} );
+
+    {
+        CAmount nFee;
+        std::list<COutputEntry> listSent;
+        std::list<COutputEntry> listReceived;
+
+        LOCK(pwallet->cs_wallet);
+
+        const auto& txOrdered = pwallet->wtxOrdered;
+
+        for (const auto& tx : txOrdered) {
+
+            auto pwtx = tx.second;
+
+            if(pwtx->IsCoinBase()) {
+                continue;
+            }
+
+            CTxDestination destination;
+            if (!owner.empty()) {
+                ExtractDestination(owner, destination);
+            }
+
+            const auto& txid = pwtx->GetHash();
+            if (txs.count(txid)) {
+                continue;
+            }
+
+            pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
+
+            for (const auto& sent : listSent) {
+                if (!IsValidDestination(sent.destination) || (IsValidDestination(destination) && destination != sent.destination)) {
+                    continue;
+                }
+                ++count;
+            }
+
+            for (const auto& recv : listReceived) {
+                if (!IsValidDestination(recv.destination) || (IsValidDestination(destination) && destination != recv.destination)) {
+                    continue;
+                }
+                ++count;
+            }
+        }
+    }
+
+    if (noRewards) {
+        return count;
+    }
+
+    pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue>) {
+
+        if (!owner.empty() && owner != key.owner) {
+            return false;
+        }
+
+        if (isForMe(key.owner)) {
+            ++count;
+        }
+
+        return true;
+    }, {owner, 0, 0} );
+
+    return count;
 }
 
 UniValue listcommunitybalances(const JSONRPCRequest& request) {
@@ -3646,6 +3742,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "listpoolshares",        &listpoolshares,     {"pagination", "verbose", "is_mine_only"}},
     {"poolpair",    "testpoolswap",          &testpoolswap,          {"metadata"}},
     {"accounts",    "listaccounthistory",    &listaccounthistory,    {"owner", "options"}},
+    {"accounts",    "accounthistorycount",   &accounthistorycount,   {"owner", "options"}},
     {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},

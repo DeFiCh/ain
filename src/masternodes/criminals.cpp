@@ -43,11 +43,11 @@ bool CMintedHeadersView::FetchMintedHeaders(const uint256 & txid, const uint64_t
     }
 
     blockHeaders.clear();
-    ForEach<MintedHeaders,DBMNBlockHeadersKey,CBlockHeader>([&txid, &mintedBlocks, &blockHeaders] (DBMNBlockHeadersKey const & key, CBlockHeader & blockHeader) {
+    ForEach<MintedHeaders,DBMNBlockHeadersKey,CBlockHeader>([&txid, &mintedBlocks, &blockHeaders] (DBMNBlockHeadersKey const & key, CLazySerialize<CBlockHeader> blockHeader) {
         if (key.masternodeID == txid &&
             key.mintedBlocks == mintedBlocks) {
 
-            blockHeaders.emplace(key.blockHash, std::move(blockHeader));
+            blockHeaders.emplace(key.blockHash, blockHeader.get());
             return true; // continue
         }
         return false; // break!
@@ -76,12 +76,12 @@ void CCriminalProofsView::RemoveCriminalProofs(const uint256 & mnId) {
 CCriminalProofsView::CMnCriminals CCriminalProofsView::GetUnpunishedCriminals() {
 
     CMnCriminals result;
-    ForEach<Proofs, uint256, CDoubleSignFact>([&result] (uint256 const & id, CDoubleSignFact & proof) {
+    ForEach<Proofs, uint256, CDoubleSignFact>([&result] (uint256 const & id, CLazySerialize<CDoubleSignFact> proof) {
 
         // matching with already punished. and this is the ONLY measure!
         auto node = pcustomcsview->GetMasternode(id); // assert?
         if (node && node->banTx.IsNull()) {
-            result.emplace(id, std::move(proof));
+            result.emplace(id, proof.get());
         }
         return true; // continue
     });

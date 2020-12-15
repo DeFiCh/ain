@@ -54,13 +54,10 @@ enum class CustomTxType : unsigned char
     AnyAccountsToAccounts  = 'a',
     //set governance variable
     SetGovVariable       = 'G',
-
-    // this is not the real tx type (!) but special category for accounts/history tracking
-    NonTxRewards   = '+'
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMNnpuslrUbBaG+";
+    char const txtypes[] = "CRTMNnpuslrUbBaG";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -86,7 +83,6 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
-        case CustomTxType::NonTxRewards:        return "Rewards";
         default:                                return "None";
     }
 }

@@ -35,7 +35,7 @@ public:
     CAmount GetCommunityBalance(CommunityAccountType account) const;
     Res SetCommunityBalance(CommunityAccountType account, CAmount amount);
 
-    void ForEachCommunityBalance(std::function<bool(CommunityAccountType account, CAmount amount)> callback) const;
+    void ForEachCommunityBalance(std::function<bool(CommunityAccountType, CLazySerialize<CAmount>)> callback) const;
 
     Res AddCommunityBalance(CommunityAccountType account, CAmount amount);
     Res SubCommunityBalance(CommunityAccountType account, CAmount amount);

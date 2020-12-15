@@ -415,7 +415,7 @@ void SetupServerArgs()
     hidden_args.emplace_back("-sysperms");
 #endif
     gArgs.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-acindex", strprintf("Maintain a full account history index, tracking all accounts balances changes. Used by the listaccounthistory rpc call (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-acindex", strprintf("Maintain a full account history index, tracking all accounts balances changes. Used by the listaccounthistory and accounthistorycount rpc calls (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blockfilterindex=<type>",
                  strprintf("Maintain an index of compact filters by block (default: %s, values: %s).", DEFAULT_BLOCKFILTERINDEX, ListBlockFilterTypes()) +
                  " If <type> is not supplied or if <type> = 1, indexes for all known types are enabled.",
@@ -1585,6 +1585,27 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
                 pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
+                if (!fReset && gArgs.GetBoolArg("-acindex", false)) {
+                    bool hasRewardHistory = false;
+                    pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>) {
+                        hasRewardHistory = true;
+                        return false;
+                    });
+                    if (!hasRewardHistory) {
+                        bool hasOldAccountHistory = false;
+                        pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue>) {
+                            if (key.txn == std::numeric_limits<uint32_t>::max()) {
+                                hasOldAccountHistory = true;
+                                return false;
+                            }
+                            return true;
+                        }, { {}, 0, std::numeric_limits<uint32_t>::max() });
+                        if (hasOldAccountHistory) {
+                            strLoadError = _("Account history needs rebuild").translated;
+                            break;
+                        }
+                    }
+                }
 
                 panchorauths.reset();
                 panchorauths = MakeUnique<CAnchorAuthIndex>();

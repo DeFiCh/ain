@@ -230,6 +230,20 @@ struct PoolShareKey {
     }
 };
 
+enum class RewardType : uint8_t
+{
+    Commission = 128,
+    Rewards = 129,
+};
+
+inline std::string RewardToString(RewardType type)
+{
+    switch(type) {
+        case RewardType::Commission: return "Commission";
+        case RewardType::Rewards: return "Rewards";
+    }
+    return "Unknown";
+}
 
 class CPoolPairView : public virtual CStorageView
 {
@@ -241,11 +255,11 @@ public:
     boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
     boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 
-    void ForEachPoolPair(std::function<bool(DCT_ID const & id, CPoolPair const & pool)> callback, DCT_ID const & start = DCT_ID{0});
-    void ForEachPoolShare(std::function<bool(DCT_ID const & id, CScript const & provider)> callback, PoolShareKey const &startKey = PoolShareKey{0,CScript{}}) const;
+    void ForEachPoolPair(std::function<bool(DCT_ID const &, CLazySerialize<CPoolPair>)> callback, DCT_ID const & start = DCT_ID{0});
+    void ForEachPoolShare(std::function<bool(DCT_ID const &, CScript const &)> callback, PoolShareKey const &startKey = PoolShareKey{0,CScript{}}) const;
 
     Res SetShare(DCT_ID const & poolId, CScript const & provider) {
-        WriteBy<ByShare>(PoolShareKey{ poolId, provider}, '\0');
+        WriteBy<ByShare>(PoolShareKey{poolId, provider}, '\0');
         return Res::Ok();
     }
     Res DelShare(DCT_ID const & poolId, CScript const & provider) {
@@ -254,19 +268,18 @@ public:
     }
 
     /// @attention it throws (at least for debug), cause errors are critical!
-    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CTokenAmount amount)> onTransfer, bool newRewardCalc = false) {
+    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, DCT_ID poolID, uint8_t type, CTokenAmount amount)> onTransfer, bool newRewardCalc = false) {
 
         uint32_t const PRECISION = 10000; // (== 100%) just searching the way to avoid arith256 inflating
         CAmount totalDistributed = 0;
 
-        ForEachPoolPair([&] (DCT_ID const & poolId, CPoolPair const & pool) {
+        ForEachPoolPair([&] (DCT_ID const & poolId, CPoolPair pool) {
 
             // yield farming counters
             CAmount const poolReward = yieldFarming * pool.rewardPct / COIN; // 'rewardPct' should be defined by 'setgov "LP_SPLITS"', also, it is assumed that it was totally validated and normalized to 100%
             CAmount distributedFeeA = 0;
             CAmount distributedFeeB = 0;
 
-            
             if (pool.totalLiquidity == 0 || (!pool.swapEvent && poolReward == 0)) {
                 return true; // no events, skip to the next pool
             }
@@ -287,13 +300,13 @@ public:
                         feeA = pool.blockCommissionA * liqWeight / PRECISION;
                     }
                     distributedFeeA += feeA;
-                    onTransfer(provider, {pool.idTokenA, feeA}); //can throw
+                    onTransfer(provider, poolId, uint8_t(RewardType::Commission), {pool.idTokenA, feeA}); //can throw
                     CAmount feeB = static_cast<CAmount>((arith_uint256(pool.blockCommissionB) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                     if (!newRewardCalc) {
                         feeB = pool.blockCommissionB * liqWeight / PRECISION;
                     }
                     distributedFeeB += feeB;
-                    onTransfer(provider, {pool.idTokenB, feeB}); //can throw
+                    onTransfer(provider, poolId, uint8_t(RewardType::Commission), {pool.idTokenB, feeB}); //can throw
                 }
 
                 // distribute yield farming
@@ -303,17 +316,16 @@ public:
                         providerReward = poolReward * liqWeight / PRECISION;
                     }
                     if (providerReward) {
-                        onTransfer(provider, {DCT_ID{0}, providerReward}); //can throw
+                        onTransfer(provider, poolId, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}); //can throw
                         totalDistributed += providerReward;
                     }
                 }
                 return true;
             }, PoolShareKey{poolId, CScript{}});
 
-            // we have no "non-const foreaches", but it is safe here cause not broke indexes, so:
-            const_cast<CPoolPair &>(pool).blockCommissionA -= distributedFeeA;
-            const_cast<CPoolPair &>(pool).blockCommissionB -= distributedFeeB;
-            const_cast<CPoolPair &>(pool).swapEvent = false;
+            pool.blockCommissionA -= distributedFeeA;
+            pool.blockCommissionB -= distributedFeeB;
+            pool.swapEvent = false;
 
             auto res = SetPoolPair(poolId, pool);
             if (!res.ok)

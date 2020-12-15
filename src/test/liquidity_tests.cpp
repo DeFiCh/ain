@@ -273,7 +273,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
 
     }
     // create shares
-    mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair const & pool) {
+    mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CLazySerialize<CPoolPair>) {
 //            printf("pool id = %s\n", idPool.ToString().c_str());
         for (int i = 0; i < ProvidersCount; ++i) {
             CScript shareAddress = CScript(idPool.v * ProvidersCount + i);
@@ -302,7 +302,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
         /// DCT_ID{10} - 0
 
         // set "traded fees" here too, just to estimate proc.load
-        cache.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair const & pool) {
+        cache.ForEachPoolPair([&] (DCT_ID const & idPool, CLazySerialize<CPoolPair>) {
             SetPoolTradeFees(cache, idPool, idPool.v * COIN, idPool.v * COIN*2);
             return true;
         });
@@ -315,7 +315,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
             [&cache] (CScript const & owner, DCT_ID tokenID) {
                 return cache.GetBalance(owner, tokenID);
             },
-            [&cache] (CScript const & to, CTokenAmount amount) {
+            [&cache] (CScript const & to, DCT_ID poolID, uint8_t type, CTokenAmount amount) {
                 return cache.AddBalance(to, amount);
             }
         );

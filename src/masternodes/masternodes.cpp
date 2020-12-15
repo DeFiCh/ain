@@ -209,11 +209,9 @@ boost::optional<uint256> CMasternodesView::GetMasternodeIdByOwner(const CKeyID &
     return ReadBy<Owner, uint256>(id);
 }
 
-void CMasternodesView::ForEachMasternode(std::function<bool (const uint256 &, CMasternode &)> callback, uint256 const & start)
+void CMasternodesView::ForEachMasternode(std::function<bool (const uint256 &, CLazySerialize<CMasternode>)> callback, uint256 const & start)
 {
-    ForEach<ID, uint256, CMasternode>([&callback] (uint256 const & txid, CMasternode & node) {
-        return callback(txid, node);
-    }, start);
+    ForEach<ID, uint256, CMasternode>(callback, start);
 }
 
 void CMasternodesView::IncrementMintedBy(const CKeyID & minter)
@@ -426,7 +424,7 @@ void CAnchorRewardsView::RemoveRewardForAnchor(const CAnchorRewardsView::AnchorT
     EraseBy<BtcTx>(btcTxHash);
 }
 
-void CAnchorRewardsView::ForEachAnchorReward(std::function<bool (const CAnchorRewardsView::AnchorTxHash &, CAnchorRewardsView::RewardTxHash &)> callback)
+void CAnchorRewardsView::ForEachAnchorReward(std::function<bool (const CAnchorRewardsView::AnchorTxHash &, CLazySerialize<CAnchorRewardsView::RewardTxHash>)> callback)
 {
     ForEach<BtcTx, AnchorTxHash, RewardTxHash>(callback);
 }
@@ -442,7 +440,7 @@ CTeamView::CTeam CCustomCSView::CalcNextTeam(const uint256 & stakeModifier)
     int anchoringTeamSize = Params().GetConsensus().mn.anchoringTeamSize;
 
     std::map<arith_uint256, CKeyID, std::less<arith_uint256>> priorityMN;
-    ForEachMasternode([&stakeModifier, &priorityMN] (uint256 const & id, CMasternode & node) {
+    ForEachMasternode([&stakeModifier, &priorityMN] (uint256 const & id, CMasternode node) {
         if(!node.IsActive())
             return true;
 
@@ -525,3 +523,65 @@ bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
     return !pair || pair->second.destructionTx != uint256{} || pair->second.IsPoolShare();
 }
 
+CAccountsHistoryStorage::CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type)
+    : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height), txn(txn), txid(txid), type(type)
+{
+    acindex = gArgs.GetBoolArg("-acindex", false);
+}
+
+Res CAccountsHistoryStorage::AddBalance(CScript const & owner, CTokenAmount amount)
+{
+    auto res = CCustomCSView::AddBalance(owner, amount);
+    if (acindex && res.ok) {
+        diffs[owner][amount.nTokenId] += amount.nValue;
+    }
+    return res;
+}
+
+Res CAccountsHistoryStorage::SubBalance(CScript const & owner, CTokenAmount amount)
+{
+    auto res = CCustomCSView::SubBalance(owner, amount);
+    if (acindex && res.ok) {
+        diffs[owner][amount.nTokenId] -= amount.nValue;
+    }
+    return res;
+}
+
+bool CAccountsHistoryStorage::Flush()
+{
+    if (acindex) {
+        for (const auto& diff : diffs) {
+            SetAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
+        }
+    }
+    return CCustomCSView::Flush();
+}
+
+CRewardsHistoryStorage::CRewardsHistoryStorage(CCustomCSView & storage, uint32_t height)
+    : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height)
+{
+    acindex = gArgs.GetBoolArg("-acindex", false);
+}
+
+Res CRewardsHistoryStorage::AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount)
+{
+    auto res = CCustomCSView::AddBalance(owner, amount);
+    if (acindex && res.ok) {
+        auto& tuple = diffs[owner];
+        std::get<0>(tuple) = poolID;
+        std::get<1>(tuple) = type;
+        std::get<2>(tuple)[amount.nTokenId] += amount.nValue;
+    }
+    return res;
+}
+
+bool CRewardsHistoryStorage::Flush()
+{
+    if (acindex) {
+        for (const auto& diff : diffs) {
+            const auto& tuple = diff.second;
+            SetRewardHistory({diff.first, height, std::get<0>(tuple)}, {std::get<1>(tuple), std::get<2>(tuple)});
+        }
+    }
+    return CCustomCSView::Flush();
+}

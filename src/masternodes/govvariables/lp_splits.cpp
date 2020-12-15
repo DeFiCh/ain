@@ -50,12 +50,12 @@ Res LP_SPLITS::Validate(const CCustomCSView & mnview) const {
 }
 
 Res LP_SPLITS::Apply(CCustomCSView & mnview) {
-    mnview.ForEachPoolPair([&] (const DCT_ID poolId, const CPoolPair & pool) {
+    mnview.ForEachPoolPair([&] (const DCT_ID poolId, CPoolPair pool) {
         // we ought to reset previous value:
-        const_cast<CPoolPair &>(pool).rewardPct = 0;
+        pool.rewardPct = 0;
         auto it = splits.find(poolId);
         if (it != splits.end()) {
-            const_cast<CPoolPair &>(pool).rewardPct = it->second;
+            pool.rewardPct = it->second;
         }
 
         mnview.SetPoolPair(poolId, pool);

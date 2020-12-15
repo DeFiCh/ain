@@ -49,7 +49,7 @@ UniValue CallRPC(std::string args)
 int GetTokensCount()
 {
     int counter{0};
-    pcustomcsview->ForEachToken([&counter] (DCT_ID const & id, CTokenImplementation const & token) {
+    pcustomcsview->ForEachToken([&counter] (DCT_ID const & id, CLazySerialize<CTokenImplementation>) {
 //        printf("DCT_ID: %d, Token: %s: %s\n", id, token.symbol.c_str(), token.name.c_str()); // dump for debug
         ++counter;
         return true;
@@ -307,7 +307,7 @@ BOOST_AUTO_TEST_CASE(for_each_order)
         pcustomcsview->WriteBy<TestForward>(TestForward{((uint32_t)-1)}, 8);
 
         int test = 1;
-        pcustomcsview->ForEach<TestForward, TestForward, int>([&] (TestForward const & key, int & value) {
+        pcustomcsview->ForEach<TestForward, TestForward, int>([&] (TestForward const & key, int value) {
 //            printf("%ld : %d\n", key.n, value);
             BOOST_CHECK(value == test);
             ++test;
@@ -323,7 +323,7 @@ BOOST_AUTO_TEST_CASE(for_each_order)
         pcustomcsview->WriteBy<TestBackward>(TestBackward{(uint16_t)-1}, 6);
 
         int test = 6;
-        pcustomcsview->ForEach<TestBackward, TestBackward, int>([&] (TestBackward const & key, int & value) {
+        pcustomcsview->ForEach<TestBackward, TestBackward, int>([&] (TestBackward const & key, int value) {
 //            printf("%ld : %d\n", key.n, value);
             BOOST_CHECK(value == test);
             --test;

@@ -7,9 +7,9 @@
 /// @attention make sure that it does not overlap with those in masternodes.cpp/tokens.cpp/undos.cpp/accounts.cpp !!!
 const unsigned char CAccountsView::ByBalanceKey::prefix = 'a';
 
-void CAccountsView::ForEachBalance(std::function<bool(CScript const & owner, CTokenAmount const & amount)> callback, BalanceKey start) const
+void CAccountsView::ForEachBalance(std::function<bool(CScript const &, CTokenAmount const &)> callback, BalanceKey const & start) const
 {
-    ForEach<ByBalanceKey, BalanceKey, CAmount>([&callback] (BalanceKey const & key, CAmount const & val) {
+    ForEach<ByBalanceKey, BalanceKey, CAmount>([&callback] (BalanceKey const & key, CAmount val) {
         return callback(key.owner, CTokenAmount{key.tokenID, val});
     }, start);
 }

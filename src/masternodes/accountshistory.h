@@ -53,15 +53,61 @@ struct AccountHistoryValue {
     }
 };
 
+struct RewardHistoryKey {
+    CScript owner;
+    uint32_t blockHeight;
+    DCT_ID poolID; // for order in block
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(owner);
+
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(blockHeight));
+            blockHeight = ~blockHeight;
+        }
+        else {
+            uint32_t blockHeight_ = ~blockHeight;
+            READWRITE(WrapBigEndian(blockHeight_));
+        }
+
+        READWRITE(VARINT(poolID.v));
+    }
+};
+
+struct RewardHistoryValue {
+    unsigned char category;
+    TAmounts diff;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(category);
+        READWRITE(diff);
+    }
+};
+
 class CAccountsHistoryView : public virtual CStorageView
 {
 public:
-    Res SetAccountHistory(CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diff);
-    void ForEachAccountHistory(std::function<bool(CScript const & owner, uint32_t height, uint32_t txn, uint256 const & txid, unsigned char category, TAmounts const & diff)> callback, AccountHistoryKey start) const;
-    bool TrackAffectedAccounts(CStorageKV const & before, MapKV const & diff, uint32_t height, uint32_t txn, const uint256 & txid, unsigned char category);
+    Res SetAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
+    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {}) const;
 
     // tags
     struct ByAccountHistoryKey { static const unsigned char prefix; };
+};
+
+class CRewardsHistoryView : public virtual CStorageView
+{
+public:
+    Res SetRewardHistory(RewardHistoryKey const & key, RewardHistoryValue const & value);
+    void ForEachRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start = {}) const;
+
+    // tags
+    struct ByRewardHistoryKey { static const unsigned char prefix; };
 };
 
 #endif //DEFI_MASTERNODES_ACCOUNTSHISTORY_H

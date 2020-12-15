@@ -23,6 +23,7 @@
 #include <map>
 #include <set>
 #include <stdint.h>
+#include <tuple>
 
 #include <boost/optional.hpp>
 
@@ -117,7 +118,7 @@ public:
     boost::optional<CMasternode> GetMasternode(uint256 const & id) const;
     boost::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
     boost::optional<uint256> GetMasternodeIdByOwner(CKeyID const & id) const;
-    void ForEachMasternode(std::function<bool(uint256 const & id, CMasternode & node)> callback, uint256 const & start = uint256());
+    void ForEachMasternode(std::function<bool(uint256 const &, CLazySerialize<CMasternode>)> callback, uint256 const & start = uint256());
 
     void IncrementMintedBy(CKeyID const & minter);
     void DecrementMintedBy(CKeyID const & minter);
@@ -171,7 +172,7 @@ public:
 
     void AddRewardForAnchor(AnchorTxHash const &btcTxHash, RewardTxHash const & rewardTxHash);
     void RemoveRewardForAnchor(AnchorTxHash const &btcTxHash);
-    void ForEachAnchorReward(std::function<bool(AnchorTxHash const &, RewardTxHash &)> callback);
+    void ForEachAnchorReward(std::function<bool(AnchorTxHash const &, CLazySerialize<RewardTxHash>)> callback);
 
     struct BtcTx { static const unsigned char prefix; };
 };
@@ -185,12 +186,15 @@ class CCustomCSView
         , public CTokensView
         , public CAccountsView
         , public CAccountsHistoryView
+        , public CRewardsHistoryView
         , public CCommunityBalancesView
         , public CUndosView
         , public CPoolPairView
         , public CGovView
 {
 public:
+    CCustomCSView() = default;
+
     CCustomCSView(CStorageKV & st)
         : CStorageView(new CFlushableStorageKV(st))
     {}
@@ -215,6 +219,32 @@ public:
     CStorageKV& GetRaw() {
         return DB();
     }
+};
+
+class CAccountsHistoryStorage : public CCustomCSView
+{
+    bool acindex;
+    const uint32_t height;
+    const uint32_t txn;
+    const uint256 txid;
+    const uint8_t type;
+    std::map<CScript, TAmounts> diffs;
+public:
+    CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type);
+    Res AddBalance(CScript const & owner, CTokenAmount amount) override;
+    Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    bool Flush();
+};
+
+class CRewardsHistoryStorage : public CCustomCSView
+{
+    bool acindex;
+    const uint32_t height;
+    std::map<CScript, std::tuple<DCT_ID, uint8_t, TAmounts>> diffs;
+public:
+    CRewardsHistoryStorage(CCustomCSView & storage, uint32_t height);
+    Res AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount);
+    bool Flush();
 };
 
 /** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
