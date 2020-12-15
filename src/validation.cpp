@@ -605,7 +605,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         const auto height = GetSpendHeight(view);
 
         // check for txs in mempool
-        for (const auto& e : mempool.mapTx) {
+        for (const auto& e : mempool.mapTx.get<entry_time>()) {
             const auto& tx = e.GetTx();
             auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
             assert(res.ok || !(res.code & CustomTxErrCodes::Fatal)); // inconsistent mempool
@@ -622,7 +622,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         if (!NotAllowedToFail(txType)) {
             auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
-            if (!res.ok) {
+            if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
             }
         }
