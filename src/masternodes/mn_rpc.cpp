@@ -3600,7 +3600,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyAnyAccountsToAccountsTx(mnview_dummy, g_chainstate->CoinsTip(), CTransaction(rawTx), targetHeight,
+        const auto res = ApplyAnyAccountsToAccountsTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
                                                ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
         if (!res.ok) {
             if (res.code == CustomTxErrCodes::NotEnoughBalance) {
