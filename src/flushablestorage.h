@@ -171,7 +171,7 @@ private:
 class CFlushableStorageKVIterator : public CStorageKVIterator {
 public:
     explicit CFlushableStorageKVIterator(std::unique_ptr<CStorageKVIterator>&& pIt_, MapKV& map_) : pIt{std::move(pIt_)}, map(map_) {
-        inited = parentOk = mapOk = false;
+        inited = parentOk = mapOk = useMap = false;
     }
          // No copying allowed
     CFlushableStorageKVIterator(const CFlushableStorageKVIterator&) = delete;
@@ -188,8 +188,10 @@ public:
     }
     void Next() override {
         if (!inited) throw std::runtime_error("Iterator wasn't inited.");
-        key.clear();
-        value.clear();
+
+        if (!prevKey.empty()) {
+            useMap ? nextMap() : nextParent();
+        }
 
         while (mapOk || parentOk) {
             if (mapOk) {
@@ -198,55 +200,50 @@ public:
 
                     if (mIt->second) {
                         ok = prevKey.empty() || mIt->first > prevKey;
-                    }
-                    else {
+                    } else {
                         prevKey = mIt->first;
                     }
                     if (ok) {
-                        key = mIt->first;
-                        value = *mIt->second;
-                        prevKey = key;
+                        useMap = true;
+                        prevKey = mIt->first;
+                        return;
                     }
-                    if (mapOk) {
-                        mIt++;
-                        mapOk = mIt != map.end();
-                    }
-                    if (ok) return;
+                    nextMap();
                 }
             }
             if (parentOk) {
-                bool ok = prevKey.empty() || pIt->Key() > prevKey;
-                if (ok) {
-                    key = pIt->Key();
-                    value = pIt->Value();
-                    prevKey = key;
+                if (prevKey.empty() || pIt->Key() > prevKey) {
+                    useMap = false;
+                    prevKey = pIt->Key();
+                    return;
                 }
-                if (parentOk) {
-                    pIt->Next();
-                    parentOk = pIt->Valid();
-                }
-                if (ok) return;
+                nextParent();
             }
         }
     }
     bool Valid() override {
-        return !key.empty();
+        return mapOk || parentOk;
     }
     TBytes Key() override {
-        return key;
+        return useMap ? mIt->first : pIt->Key();
     }
     TBytes Value() override {
-        return value;
+        return useMap ? *mIt->second : pIt->Value();
     }
 private:
+    void nextMap() {
+        mapOk = mapOk && ++mIt != map.end();
+    }
+    void nextParent() {
+        parentOk = parentOk && (pIt->Next(), pIt->Valid());
+    }
     bool inited;
+    bool useMap;
     std::unique_ptr<CStorageKVIterator> pIt;
     bool parentOk;
     MapKV& map;
     MapKV::iterator mIt;
     bool mapOk;
-    TBytes key;
-    TBytes value;
     TBytes prevKey;
 };
 
