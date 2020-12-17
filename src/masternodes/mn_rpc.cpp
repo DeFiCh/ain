@@ -3056,7 +3056,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                  {"maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Optional height to iterate from (downto genesis block), (default = chaintip)."},
                                  {"depth", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Maximum depth, 100 blocks by default for every account"},
+                                  "Maximum depth, from the genesis block is the default"},
                                  {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                   "Filter out rewards"},
                                  {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
@@ -3083,7 +3083,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     }
 
     uint32_t maxBlockHeight = std::numeric_limits<uint32_t>::max();
-    uint32_t depth = 100;
+    uint32_t depth = maxBlockHeight;
     bool noRewards = false;
     std::string tokenFilter;
     uint32_t limit = 100;
@@ -3143,7 +3143,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
 
     CScript account;
-    std::function<bool(CScript const&)> isAmI = [](CScript const&) { return true; };
+    std::function<bool(uint32_t, CScript const&)> shouldSkipBlock =
+        [startBlock, maxBlockHeight](uint32_t blockHeight, CScript const&) {
+            return startBlock > blockHeight || blockHeight > maxBlockHeight;
+    };
     std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
 
     if (accounts == "mine") {
@@ -3152,8 +3155,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         };
     } else if (accounts != "all") {
         account = DecodeScript(accounts);
-        isAmI = [&account](CScript const & owner) {
-            return owner == account;
+        shouldSkipBlock = [&account, startBlock, maxBlockHeight](uint32_t blockHeight, CScript const & owner) {
+            return owner != account || startBlock > blockHeight || blockHeight > maxBlockHeight;
         };
     }
 
@@ -3172,11 +3175,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
     pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
-        if (key.blockHeight > maxBlockHeight) {
-            return false;
-        }
-
-        if (!isAmI(key.owner)) {
+        if (shouldSkipBlock(key.blockHeight, key.owner)) {
             return true;
         }
 
@@ -3258,11 +3257,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     if (!noRewards) {
         pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) {
-            if (key.blockHeight > maxBlockHeight) {
-                return false;
-            }
-
-            if (!isAmI(key.owner)) {
+            if (shouldSkipBlock(key.blockHeight, key.owner)) {
                 return true;
             }
 
