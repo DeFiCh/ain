@@ -3143,22 +3143,17 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
 
     CScript account;
-    std::function<bool(uint32_t, CScript const&)> preCondition;
+    std::function<bool(CScript const&)> isAmI = [](CScript const&) { return true; };
     std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
 
-    if (accounts == "mine" || accounts == "all") {
-        preCondition = [maxBlockHeight](uint32_t blockHeight, CScript const&) {
-            return blockHeight > maxBlockHeight;
+    if (accounts == "mine") {
+        isForMe = [pwallet](CScript const & owner) {
+            return IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
         };
-        if (accounts == "mine") {
-            isForMe = [pwallet](CScript const & owner) {
-                return IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
-            };
-        }
-    } else {
+    } else if (accounts != "all") {
         account = DecodeScript(accounts);
-        preCondition = [maxBlockHeight, &account](uint32_t blockHeight, CScript const & owner) {
-            return owner != account || blockHeight > maxBlockHeight;
+        isAmI = [&account](CScript const & owner) {
+            return owner == account;
         };
     }
 
@@ -3177,8 +3172,13 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
     pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
-        if (preCondition(key.blockHeight, key.owner))
+        if (key.blockHeight > maxBlockHeight) {
             return false;
+        }
+
+        if (!isAmI(key.owner)) {
+            return true;
+        }
 
         auto value = valueLazy.get();
 
@@ -3227,10 +3227,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 continue;
             }
             const auto index = LookupBlockIndex(pwtx->hashBlock);
-            if (startBlock > index->height) {
-                break;
-            }
-            if (index->height > maxBlockHeight) {
+            if (startBlock > index->height || index->height > maxBlockHeight) {
                 continue;
             }
             pwtx->GetAmounts(listReceived, listSent, nFee, filter);
@@ -3254,8 +3251,13 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     if (!noRewards) {
         pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) {
-            if (preCondition(key.blockHeight, key.owner))
+            if (key.blockHeight > maxBlockHeight) {
                 return false;
+            }
+
+            if (!isAmI(key.owner)) {
+                return true;
+            }
 
             auto value = valueLazy.get();
 
