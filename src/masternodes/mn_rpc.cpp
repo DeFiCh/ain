@@ -3230,6 +3230,12 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (startBlock > index->height || index->height > maxBlockHeight) {
                 continue;
             }
+
+            // Check we have index before progressing, wallet might be reindexing.
+            if (!index) {
+                continue;
+            }
+
             pwtx->GetAmounts(listReceived, listSent, nFee, filter);
             for (auto& sent : listSent) {
                 if (!IsValidDestination(sent.destination) || (IsValidDestination(destination) && destination != sent.destination)) {
