@@ -3232,6 +3232,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
             pwtx->GetAmounts(listReceived, listSent, nFee, filter);
             const auto index = LookupBlockIndex(pwtx->hashBlock);
+            // Check we have index before progressing, wallet might be reindexing.
+            if (!index) {
+                continue;
+            }
             for (auto it = listSent.begin(); limit != 0 && it != listSent.end(); ++it) {
                 if (!IsValidDestination(it->destination) || (IsValidDestination(destination) && destination != it->destination)) {
                     continue;
