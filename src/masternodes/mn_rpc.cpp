@@ -3340,6 +3340,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
     uint64_t count = 0;
     std::set<uint256> txs;
+    const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
 
     CScript owner;
     std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
@@ -3377,13 +3378,15 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
         if (isForMe(key.owner)) {
             ++count;
-            txs.insert(value.txid);
+            if (shouldSearchInWallet) {
+                txs.insert(value.txid);
+            }
         }
 
         return true;
     }, {owner, 0, 0} );
 
-    {
+    if (shouldSearchInWallet) {
         CAmount nFee;
         std::list<COutputEntry> listSent;
         std::list<COutputEntry> listReceived;
