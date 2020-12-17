@@ -3297,6 +3297,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                    {"options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                        {
                             {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
+                            {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by token"},
                        },
                    },
                },
@@ -3315,15 +3316,21 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     }
 
     bool noRewards = false;
+    std::string tokenFilter;
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
         RPCTypeCheckObj(optionsObj,
             {
                 {"no_rewards", UniValueType(UniValue::VBOOL)},
+                {"token", UniValueType(UniValue::VSTR)},
             }, true, true);
 
         noRewards = optionsObj["no_rewards"].get_bool();
+
+        if (!optionsObj["token"].isNull()) {
+            tokenFilter = optionsObj["token"].get_str();
+        }
     }
 
     LOCK(cs_main);
@@ -3343,15 +3350,32 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         owner = DecodeScript(accounts);
     }
 
+    auto hasToken = [&tokenFilter](TAmounts const & diffs) {
+        for (auto const & diff : diffs) {
+            auto token = pcustomcsview->GetToken(diff.first);
+            auto const tokenIdStr = token->CreateSymbolKey(diff.first);
+            if(tokenIdStr == tokenFilter) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
 
         if (!owner.empty() && owner != key.owner) {
             return false;
         }
 
+        auto value = valueLazy.get();
+
+        if(!tokenFilter.empty() && !hasToken(value.diff)) {
+            return true;
+        }
+
         if (isForMe(key.owner)) {
             ++count;
-            txs.insert(valueLazy.get().txid);
+            txs.insert(value.txid);
         }
 
         return true;
@@ -3406,10 +3430,14 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         return count;
     }
 
-    pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue>) {
+    pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) {
 
         if (!owner.empty() && owner != key.owner) {
             return false;
+        }
+
+        if(!tokenFilter.empty() && !hasToken(valueLazy.get().diff)) {
+            return true;
         }
 
         if (isForMe(key.owner)) {
