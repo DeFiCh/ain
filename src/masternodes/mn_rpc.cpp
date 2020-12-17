@@ -3227,12 +3227,13 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 continue;
             }
             const auto index = LookupBlockIndex(pwtx->hashBlock);
-            if (startBlock > index->height || index->height > maxBlockHeight) {
-                continue;
-            }
 
             // Check we have index before progressing, wallet might be reindexing.
             if (!index) {
+                continue;
+            }
+
+            if (startBlock > index->height || index->height > maxBlockHeight) {
                 continue;
             }
 
