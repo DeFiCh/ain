@@ -409,8 +409,8 @@ static std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txV
             notFoundYet.insert(auth);
         }
     }
-    // next, look for founder's auth inputs
-    if (needFounderAuth) {
+    // Look for founder's auth. minttoken may already have an auth in result.
+    if (needFounderAuth && result.empty()) {
         auto anyFounder = AmIFounder(pwallet);
         if (!anyFounder) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation member authorization");
@@ -1348,9 +1348,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
                     if (tokenImpl.IsDAT()) {
                         needFoundersAuth = true;
                     }
-                    else {
-                        auths.insert(authCoin.out.scriptPubKey);
-                    }
+                    auths.insert(authCoin.out.scriptPubKey);
                 }
             }
             rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
