@@ -9,6 +9,8 @@
 
 #include <arith_uint256.h>
 #include <chainparams.h>
+#include <core_io.h>
+#include <index/txindex.h>
 #include <logging.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
@@ -219,7 +221,7 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
  * Checks if given tx is 'txCreateMasternode'. Creates new MN if all checks are passed
  * Issued by: any
  */
-Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata)
+Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, UniValue *rpcInfo)
 {
     const std::string base{"Creation of masternode"};
     // Check quick conditions first
@@ -251,14 +253,22 @@ Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uin
     }
     node.creationHeight = height;
 
+    // Return here to avoid addresses exit error
+    if (rpcInfo) {
+        rpcInfo->pushKV("masternodeoperator", EncodeDestination(node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) :
+                                                CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress))));
+        return Res::Ok(base);
+    }
+
     auto res = mnview.CreateMasternode(tx.GetHash(), node);
     if (!res.ok) {
         return Res::Err("%s: %s", base, res.msg);
     }
+
     return Res::Ok(base);
 }
 
-Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, const std::vector<unsigned char> & metadata, bool skipAuth)
+Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, const std::vector<unsigned char> & metadata, bool skipAuth, UniValue *rpcInfo)
 {
     const std::string base{"Resigning of masternode"};
 
@@ -274,6 +284,12 @@ Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         return Res::Err("%s %s: %s", base, nodeId.ToString(), "tx must have at least one input from masternode owner");
     }
 
+    // Return here to avoid state is not ENABLED error
+    if (rpcInfo) {
+        rpcInfo->pushKV("id", nodeId.GetHex());
+        return Res::Ok(base);
+    }
+
     auto res = mnview.ResignMasternode(nodeId, tx.GetHash(), height);
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, nodeId.ToString(), res.msg);
@@ -281,7 +297,7 @@ Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     return Res::Ok(base);
 }
 
-Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
@@ -318,6 +334,19 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         }
     }
 
+    // Return here to avoid already exist error
+    if (rpcInfo) {
+        rpcInfo->pushKV("creationTx", token.creationTx.GetHex());
+        rpcInfo->pushKV("name", token.name);
+        rpcInfo->pushKV("symbol", token.symbol);
+        rpcInfo->pushKV("isDAT", token.IsDAT());
+        rpcInfo->pushKV("mintable", token.IsMintable());
+        rpcInfo->pushKV("tradeable", token.IsTradeable());
+        rpcInfo->pushKV("finalized", token.IsFinalized());
+
+        return Res::Ok(base);
+    }
+
     auto res = mnview.CreateToken(token, (int)height < consensusParams.BayfrontHeight);
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
@@ -327,7 +356,7 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 }
 
 /// @deprecated version of updatetoken tx, prefer using UpdateTokenAny after "bayfront" fork
-Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
@@ -367,11 +396,17 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
             return Res::Err("%s %s: %s", base, token.symbol, res.msg);
         }
     }
+
+    // Only isDAT changed in deprecated ApplyUpdateTokenTx
+    if (rpcInfo) {
+        rpcInfo->pushKV("isDAT", token.IsDAT());
+    }
+
     return Res::Ok(base);
 }
 
 
-Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if ((int)height < consensusParams.BayfrontHeight) {
         return Res::Err("Improved updatetoken tx before Bayfront height");
@@ -429,10 +464,20 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
     }
+
+    if (rpcInfo) {
+        rpcInfo->pushKV("name", newToken.name);
+        rpcInfo->pushKV("symbol", newToken.symbol);
+        rpcInfo->pushKV("isDAT", newToken.IsDAT());
+        rpcInfo->pushKV("mintable", newToken.IsDAT());
+        rpcInfo->pushKV("tradeable", newToken.IsDAT());
+        rpcInfo->pushKV("finalized", newToken.IsDAT());
+    }
+
     return Res::Ok(base);
 }
 
-Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
@@ -478,21 +523,19 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
                 return Res::Err("can't mint LPS tokens!", base, tokenId.ToString());
             }
             // may be different logic with LPS, so, dedicated check:
-            if (!tokenImpl.IsMintable()) {
+            if (!rpcInfo && !tokenImpl.IsMintable()) { // Skip on rpcInfo as we cannot reliably check whether mintable has been toggled historically
                 return Res::Err("%s: token not mintable!", tokenId.ToString());
             }
 
             if (!skipAuth && !HasAuth(tx, coins, auth.out.scriptPubKey)) { // in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
-                if (!tokenImpl.IsDAT())
+                if (!tokenImpl.IsDAT()) {
                     return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
-
-                // additional way for IsDAT and founders:
-                if (!HasFoundationAuth(tx, coins, consensusParams)) {
+                } else if (!HasFoundationAuth(tx, coins, consensusParams)) { // Is a DAT, check founders auth
                     return Res::Err("%s: %s", base, "token is DAT and tx not from foundation member");
                 }
             }
         }
-        auto mint = mnview.AddMintedTokens(tokenImpl.creationTx, kv.second);
+        auto mint = mnview.AddMintedTokens(tokenImpl.creationTx, kv.second, rpcInfo);
         if (!mint.ok) {
             return Res::Err("%s %s: %s", base, tokenImpl.symbol, mint.msg);
         }
@@ -504,7 +547,7 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
     return Res::Ok(base);
 }
 
-Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if ((int)height < consensusParams.BayfrontHeight) {
         return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
@@ -552,6 +595,15 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         }
     }
 
+    // Return here to avoid balance errors below.
+    if (rpcInfo) {
+        rpcInfo->pushKV(std::to_string(amountA.first.v), ValueFromAmount(amountA.second));
+        rpcInfo->pushKV(std::to_string(amountB.first.v), ValueFromAmount(amountB.second));
+        rpcInfo->pushKV("shareaddress", msg.shareAddress.GetHex());
+
+        return Res::Ok(base);
+    }
+
     for (const auto& kv : msg.from) {
         const auto res = mnview.SubBalances(kv.first, kv.second);
         if (!res.ok) {
@@ -589,7 +641,7 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     return mnview.SetPoolPair(lpTokenID, pool);
 }
 
-Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if ((int)height < consensusParams.BayfrontHeight) {
         return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
@@ -621,6 +673,14 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
 
     if (!skipAuth && !HasAuth(tx, coins, from)) {
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+    }
+
+    // Return here to avoid balance errors below.
+    if (rpcInfo) {
+        rpcInfo->pushKV("from", msg.from.GetHex());
+        rpcInfo->pushKV("amount", msg.amount.ToString());
+
+        return Res::Ok(base);
     }
 
     CPoolPair & pool = pair.get();
@@ -663,7 +723,7 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
 }
 
 
-Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
+Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, UniValue *rpcInfo)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
@@ -685,6 +745,16 @@ Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint3
     if (burnt.val->balances != mustBeBurnt.balances) {
         return Res::Err("%s: transfer tokens mismatch burnt tokens: (%s) != (%s)", base, mustBeBurnt.ToString(), burnt.val->ToString());
     }
+
+    // Create balances here and return to avoid balance errors below
+    if (rpcInfo) {
+        for (const auto& kv : msg.to) {
+            rpcInfo->pushKV(kv.first.GetHex(), kv.second.ToString());
+        }
+
+        return Res::Ok(base);
+    }
+
     // transfer
     for (const auto& kv : msg.to) {
         const auto res = mnview.AddBalances(kv.first, kv.second);
@@ -707,7 +777,7 @@ Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint3
     return Res::Ok(base);
 }
 
-Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
@@ -724,6 +794,20 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     if (!skipAuth && !HasAuth(tx, coins, msg.from)) {
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
     }
+
+    // Return here to avoid balance errors below
+    if (rpcInfo) {
+        rpcInfo->pushKV("from", msg.from.GetHex());
+
+        UniValue dest(UniValue::VOBJ);
+        for (uint32_t i = msg.mintingOutputsStart; i <  static_cast<uint32_t>(tx.vout.size()); i++) {
+            dest.pushKV(tx.vout[i].scriptPubKey.GetHex(), tx.vout[i].TokenAmount().ToString());
+        }
+        rpcInfo->pushKV("to", dest);
+
+        return Res::Ok(base);
+    }
+
     // check that all tokens are minted, and no excess tokens are minted
     const auto minted = MintedTokens(tx, msg.mintingOutputsStart);
     if (!minted.ok) {
@@ -762,7 +846,7 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     return Res::Ok(base);
 }
 
-Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
@@ -779,6 +863,20 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     if (!skipAuth && !HasAuth(tx, coins, msg.from)) {
         return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
     }
+
+    // Return here to avoid balance errors below.
+    if (rpcInfo) {
+        rpcInfo->pushKV("from", msg.from.GetHex());
+
+        UniValue dest(UniValue::VOBJ);
+        for (const auto& to : msg.to) {
+            dest.pushKV(to.first.GetHex(), to.second.ToString());
+        }
+        rpcInfo->pushKV("to", dest);
+
+        return Res::Ok(base);
+    }
+
     // transfer
     auto res = mnview.SubBalances(msg.from, SumAllTransfers(msg.to));
     if (!res.ok) {
@@ -819,7 +917,7 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     return Res::Ok(base);
 }
 
-Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if((int)height < consensusParams.BayfrontGardensHeight) { return Res::Err("Token tx before BayfrontGardensHeight (block %d)", consensusParams.BayfrontGardensHeight ); }
 
@@ -839,6 +937,23 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
                 return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
             }
         }
+    }
+
+    // Return here to avoid balance errors below.
+    if (rpcInfo) {
+        UniValue source(UniValue::VOBJ);
+        for (const auto& from : msg.from) {
+            source.pushKV(from.first.GetHex(), from.second.ToString());
+        }
+        rpcInfo->pushKV("from", source);
+
+        UniValue dest(UniValue::VOBJ);
+        for (const auto& to : msg.to) {
+            dest.pushKV(to.first.GetHex(), to.second.ToString());
+        }
+        rpcInfo->pushKV("to", dest);
+
+        return Res::Ok(base);
     }
 
     // compare
@@ -893,7 +1008,7 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
     return Res::Ok(base);
 }
 
-Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if ((int)height < consensusParams.BayfrontHeight) {
         return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
@@ -949,6 +1064,24 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
+    // Return here to avoid token and poolpair exists errors below
+    if (rpcInfo) {
+        rpcInfo->pushKV("creationTx", tx.GetHash().GetHex());
+        rpcInfo->pushKV("name", token.name);
+        rpcInfo->pushKV("symbol", pairSymbol);
+        rpcInfo->pushKV("tokenA", tokenA->name);
+        rpcInfo->pushKV("tokenB", tokenB->name);
+        rpcInfo->pushKV("commission", ValueFromAmount(poolPairMsg.commission));
+        rpcInfo->pushKV("status", poolPairMsg.status);
+        rpcInfo->pushKV("ownerAddress", poolPairMsg.ownerAddress.GetHex());
+        rpcInfo->pushKV("isDAT", token.IsDAT());
+        rpcInfo->pushKV("mineable", token.IsMintable());
+        rpcInfo->pushKV("tradeable", token.IsTradeable());
+        rpcInfo->pushKV("finalized", token.IsFinalized());
+
+        return Res::Ok(base);
+    }
+
     auto res = mnview.CreateToken(token, false);
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, token.symbol, res.msg);
@@ -968,7 +1101,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     return Res::Ok(base);
 }
 
-Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if((int)height < consensusParams.BayfrontHeight) {
         return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
@@ -1003,10 +1136,17 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     if (!res.ok) {
         return Res::Err("%s %s: %s", base, poolId.ToString(), res.msg);
     }
+
+    if (rpcInfo) {
+        rpcInfo->pushKV("commission", ValueFromAmount(commission));
+        rpcInfo->pushKV("status", status);
+        rpcInfo->pushKV("ownerAddress", ownerAddress.GetHex());
+    }
+
     return Res::Ok(base);
 }
 
-Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if ((int)height < consensusParams.BayfrontHeight) {
         return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
@@ -1041,6 +1181,18 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
         return Res::Err("%s: can't find the poolpair!", base);
     }
 
+    // Return here to avoid balance errors below
+    if (rpcInfo) {
+        rpcInfo->pushKV("fromAddress", poolSwapMsg.from.GetHex());
+        rpcInfo->pushKV("fromToken", std::to_string(poolSwapMsg.idTokenFrom.v));
+        rpcInfo->pushKV("fromAmount", ValueFromAmount(poolSwapMsg.amountFrom));
+        rpcInfo->pushKV("toAddress", poolSwapMsg.to.GetHex());
+        rpcInfo->pushKV("toToken", std::to_string(poolSwapMsg.idTokenTo.v));
+        rpcInfo->pushKV("maxPrice", ValueFromAmount((poolSwapMsg.maxPrice.integer * COIN) + poolSwapMsg.maxPrice.fraction));
+
+        return Res::Ok();
+    }
+
     CPoolPair pp = poolPair->second;
     const auto res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
         auto resPP = mnview.SetPoolPair(poolPair->first, pp);
@@ -1068,7 +1220,7 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
     return Res::Ok();
 }
 
-Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams, bool skipAuth)
+Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue* rpcInfo)
 {
     if ((int)height < consensusParams.BayfrontHeight) {
         return Res::Err("Governance tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
@@ -1083,10 +1235,12 @@ Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, co
     }
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    std::set<std::string> names;
     while(!ss.empty())
     {
         std::string name;
         ss >> name;
+        names.insert(name);
         auto var = GovVariable::Create(name);
         if (!var)
             return Res::Err("%s '%s': variable does not registered", base, name);
@@ -1103,6 +1257,13 @@ Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, co
         auto add = mnview.SetVariable(*var);
         if (!add.ok)
             return Res::Err("%s '%s': %s", base, name, add.msg);
+    }
+
+    if (rpcInfo) {
+        for (const auto& name : names) {
+            auto var = mnview.GetVariable(name);
+            rpcInfo->pushKV(var->GetName(), var->Export());
+        }
     }
     //in this case it will throw (and cathced by outer method)
 //    if (!ss.empty()) {
