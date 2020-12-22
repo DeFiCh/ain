@@ -413,15 +413,19 @@ static std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txV
     if (needFounderAuth && result.empty()) {
         auto anyFounder = AmIFounder(pwallet);
         if (!anyFounder) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation member authorization");
-        }
-        auto authInput = GetAnyFoundationAuthInput(pwallet);
-        if (authInput) {
-            if (std::find(result.begin(), result.end(), *authInput) == result.end())
-                result.push_back(authInput.get());
-        }
-        else {
-            notFoundYet.insert(anyFounder.get());
+            // Called from minttokens if auth not empty here which can use collateralAddress
+            if (auths.empty()) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation member authorization");
+            }
+        } else {
+            auto authInput = GetAnyFoundationAuthInput(pwallet);
+            if (authInput) {
+                if (std::find(result.begin(), result.end(), *authInput) == result.end())
+                    result.push_back(authInput.get());
+            }
+            else {
+                notFoundYet.insert(anyFounder.get());
+            }
         }
     }
 
