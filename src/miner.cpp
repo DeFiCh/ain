@@ -187,13 +187,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if (!rewardTx) {
             LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);
             pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+            pblocktemplate->vTxFees.push_back(0);
+            pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
         }else {
             LogPrintf("AnchorConfirms::CreateNewBlock(): reward for anchor %s already exists (tx: %s), skip reward again\n",
                 finMsg.btcTxHash.ToString(), (*rewardTx).ToString());
         }
-
-        pblocktemplate->vTxFees.push_back(0);
-        pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
 
         // DO NOT erase votes here! they'll be cleaned after block connection (ONLY!)
 //        panchorAwaitingConfirms->EraseAnchor(confirmsForAnchor.first);
