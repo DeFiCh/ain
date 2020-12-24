@@ -3138,7 +3138,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     // start block for asc order
     const auto startBlock = maxBlockHeight - depth;
 
-    CScript owner;
     isminefilter filter = ISMINE_ALL_USED;
 
     std::set<uint256> txs;
@@ -3200,7 +3199,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         return true;
-    }, { account, startBlock, std::numeric_limits<uint32_t>::max() });
+    }, { CScript(), startBlock, std::numeric_limits<uint32_t>::max() });
 
     if (shouldSearchInWallet) {
 
@@ -3209,8 +3208,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         std::list<COutputEntry> listReceived;
 
         CTxDestination destination;
-        if (!owner.empty()) {
-            ExtractDestination(owner, destination);
+        if (!account.empty()) {
+            ExtractDestination(account, destination);
         }
 
         LOCK(pwallet->cs_wallet);
@@ -3275,7 +3274,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             return true;
-        }, { account, startBlock, std::numeric_limits<uint32_t>::max() });
+        }, { CScript(), startBlock, {std::numeric_limits<uint32_t>::max()} });
     }
 
     UniValue slice(UniValue::VARR);
