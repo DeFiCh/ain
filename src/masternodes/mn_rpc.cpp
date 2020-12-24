@@ -3138,9 +3138,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     // start block for asc order
     const auto startBlock = maxBlockHeight - depth;
 
-    std::set<uint256> txs;
-    const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
-
     CScript account;
     std::function<bool(uint32_t, CScript const&)> shouldSkipBlock =
         [startBlock, maxBlockHeight](uint32_t blockHeight, CScript const&) {
@@ -3164,6 +3161,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return owner != account || startBlock > blockHeight || blockHeight > maxBlockHeight;
         };
     }
+
+    std::set<uint256> txs;
+    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !account.empty();
 
     auto hasToken = [&tokenFilter](TAmounts const & diffs) {
         for (auto const & diff : diffs) {
@@ -3208,9 +3208,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     if (shouldSearchInWallet) {
 
         CTxDestination destination;
-        if (!account.empty()) {
-            ExtractDestination(account, destination);
-        }
+        ExtractDestination(account, destination);
 
         if (IsValidDestination(destination)) {
 
@@ -3343,13 +3341,6 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         }
     }
 
-    LOCK(cs_main);
-    UniValue ret(UniValue::VARR);
-
-    uint64_t count = 0;
-    std::set<uint256> txs;
-    const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
-
     CScript owner;
     std::map<CScript, isminetype> mineResults;
     std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
@@ -3366,6 +3357,9 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         owner = DecodeScript(accounts);
     }
 
+    std::set<uint256> txs;
+    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !owner.empty();
+
     auto hasToken = [&tokenFilter](TAmounts const & diffs) {
         for (auto const & diff : diffs) {
             auto token = pcustomcsview->GetToken(diff.first);
@@ -3376,6 +3370,11 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         }
         return false;
     };
+
+    LOCK(cs_main);
+    UniValue ret(UniValue::VARR);
+
+    uint64_t count = 0;
 
     pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
 
@@ -3402,9 +3401,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     if (shouldSearchInWallet) {
 
         CTxDestination destination;
-        if (!owner.empty()) {
-            ExtractDestination(owner, destination);
-        }
+        ExtractDestination(owner, destination);
 
         if (IsValidDestination(destination)) {
 
