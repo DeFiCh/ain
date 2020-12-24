@@ -3138,9 +3138,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     // start block for asc order
     const auto startBlock = maxBlockHeight - depth;
 
-    CScript owner;
-    isminefilter filter = ISMINE_ALL_USED;
-
     std::set<uint256> txs;
     const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
 
@@ -3149,11 +3146,17 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         [startBlock, maxBlockHeight](uint32_t blockHeight, CScript const&) {
             return startBlock > blockHeight || blockHeight > maxBlockHeight;
     };
+
+    std::map<CScript, isminetype> mineResults;
     std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
 
     if (accounts == "mine") {
-        isForMe = [pwallet](CScript const & owner) {
-            return IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
+        isForMe = [pwallet, &mineResults](CScript const & owner) {
+            auto it = mineResults.find(owner);
+            if (it == mineResults.end()) {
+                it = mineResults.emplace(owner, IsMine(*pwallet, owner)).first;
+            }
+            return it->second == ISMINE_SPENDABLE;
         };
     } else if (accounts != "all") {
         account = DecodeScript(accounts);
@@ -3204,55 +3207,58 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     if (shouldSearchInWallet) {
 
-        CAmount nFee;
-        std::list<COutputEntry> listSent;
-        std::list<COutputEntry> listReceived;
-
         CTxDestination destination;
-        if (!owner.empty()) {
-            ExtractDestination(owner, destination);
+        if (!account.empty()) {
+            ExtractDestination(account, destination);
         }
 
-        LOCK(pwallet->cs_wallet);
+        if (IsValidDestination(destination)) {
 
-        const auto& txOrdered = pwallet->wtxOrdered;
+            CAmount nFee;
+            std::list<COutputEntry> listSent;
+            std::list<COutputEntry> listReceived;
 
-        for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
-            CWalletTx *const pwtx = (*it).second;
+            LOCK(pwallet->cs_wallet);
 
-            if(pwtx->IsCoinBase()) {
-                continue;
-            }
-            const auto& txid = pwtx->GetHash();
-            if (txs.count(txid)) {
-                continue;
-            }
-            const auto index = LookupBlockIndex(pwtx->hashBlock);
+            const auto& txOrdered = pwallet->wtxOrdered;
 
-            // Check we have index before progressing, wallet might be reindexing.
-            if (!index) {
-                continue;
-            }
+            for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
+                CWalletTx *const pwtx = (*it).second;
 
-            if (startBlock > index->height || index->height > maxBlockHeight) {
-                continue;
-            }
-
-            pwtx->GetAmounts(listReceived, listSent, nFee, filter);
-            for (auto& sent : listSent) {
-                if (!IsValidDestination(sent.destination) || (IsValidDestination(destination) && destination != sent.destination)) {
+                if(pwtx->IsCoinBase()) {
                     continue;
                 }
-                sent.amount = -(sent.amount);
-                auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
-                array.push_back(outputEntryToJSON(sent, index, txid, "sent"));
-            }
-            for (auto& rcv : listReceived) {
-                if (!IsValidDestination(rcv.destination) || (IsValidDestination(destination) && destination != rcv.destination)) {
+                const auto& txid = pwtx->GetHash();
+                if (txs.count(txid)) {
                     continue;
                 }
-                auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
-                array.push_back(outputEntryToJSON(rcv, index, txid, "receive"));
+                const auto index = LookupBlockIndex(pwtx->hashBlock);
+
+                // Check we have index before progressing, wallet might be reindexing.
+                if (!index) {
+                    continue;
+                }
+
+                if (startBlock > index->height || index->height > maxBlockHeight) {
+                    continue;
+                }
+
+                pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
+                for (auto& sent : listSent) {
+                    if (!IsValidDestination(sent.destination) || destination != sent.destination) {
+                        continue;
+                    }
+                    sent.amount = -(sent.amount);
+                    auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
+                    array.push_back(outputEntryToJSON(sent, index, txid, "sent"));
+                }
+                for (auto& rcv : listReceived) {
+                    if (!IsValidDestination(rcv.destination) || destination != rcv.destination) {
+                        continue;
+                    }
+                    auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
+                    array.push_back(outputEntryToJSON(rcv, index, txid, "receive"));
+                }
             }
         }
     }
@@ -3345,11 +3351,16 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
 
     CScript owner;
+    std::map<CScript, isminetype> mineResults;
     std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
 
     if (accounts == "mine") {
-        isForMe = [pwallet](CScript const & owner) {
-            return IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
+        isForMe = [pwallet, &mineResults](CScript const & owner) {
+            auto it = mineResults.find(owner);
+            if (it == mineResults.end()) {
+                it = mineResults.emplace(owner, IsMine(*pwallet, owner)).first;
+            }
+            return it->second == ISMINE_SPENDABLE;
         };
     } else if (accounts != "all") {
         owner = DecodeScript(accounts);
@@ -3389,46 +3400,50 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     }, {owner, 0, 0} );
 
     if (shouldSearchInWallet) {
-        CAmount nFee;
-        std::list<COutputEntry> listSent;
-        std::list<COutputEntry> listReceived;
 
-        LOCK(pwallet->cs_wallet);
+        CTxDestination destination;
+        if (!owner.empty()) {
+            ExtractDestination(owner, destination);
+        }
 
-        const auto& txOrdered = pwallet->wtxOrdered;
+        if (IsValidDestination(destination)) {
 
-        for (const auto& tx : txOrdered) {
+            CAmount nFee;
+            std::list<COutputEntry> listSent;
+            std::list<COutputEntry> listReceived;
 
-            auto pwtx = tx.second;
+            LOCK(pwallet->cs_wallet);
 
-            if(pwtx->IsCoinBase()) {
-                continue;
-            }
+            const auto& txOrdered = pwallet->wtxOrdered;
 
-            CTxDestination destination;
-            if (!owner.empty()) {
-                ExtractDestination(owner, destination);
-            }
+            for (const auto& tx : txOrdered) {
 
-            const auto& txid = pwtx->GetHash();
-            if (txs.count(txid)) {
-                continue;
-            }
+                auto pwtx = tx.second;
 
-            pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
-
-            for (const auto& sent : listSent) {
-                if (!IsValidDestination(sent.destination) || (IsValidDestination(destination) && destination != sent.destination)) {
+                if (pwtx->IsCoinBase()) {
                     continue;
                 }
-                ++count;
-            }
 
-            for (const auto& recv : listReceived) {
-                if (!IsValidDestination(recv.destination) || (IsValidDestination(destination) && destination != recv.destination)) {
+                const auto& txid = pwtx->GetHash();
+                if (txs.count(txid)) {
                     continue;
                 }
-                ++count;
+
+                pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
+
+                for (const auto& sent : listSent) {
+                    if (!IsValidDestination(sent.destination) || destination != sent.destination) {
+                        continue;
+                    }
+                    ++count;
+                }
+
+                for (const auto& recv : listReceived) {
+                    if (!IsValidDestination(recv.destination) || destination != recv.destination) {
+                        continue;
+                    }
+                    ++count;
+                }
             }
         }
     }
