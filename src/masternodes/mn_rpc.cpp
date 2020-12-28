@@ -324,9 +324,19 @@ std::vector<CTxIn> GetInputs(UniValue const& inputs) {
     return vin;
 }
 
+static isminetype IsMineCached(CWallet const & wallet, CScript const & script)
+{
+    static std::map<CScript, isminetype> mineCached;
+    auto it = mineCached.find(script);
+    if (it == mineCached.end()) {
+        it = mineCached.emplace(script, ::IsMine(wallet, script)).first;
+    }
+    return it->second;
+}
+
 boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
     for(auto const & script : Params().GetConsensus().foundationMembers) {
-        if(IsMine(*pwallet, script) == ISMINE_SPENDABLE)
+        if(IsMineCached(*pwallet, script) == ISMINE_SPENDABLE)
             return { script };
     }
     return {};
@@ -372,7 +382,7 @@ CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & a
 
 static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWallet* const pwallet) {
     for (auto const & founderScript : Params().GetConsensus().foundationMembers) {
-        if (IsMine(*pwallet, founderScript) == ISMINE_SPENDABLE) {
+        if (IsMineCached(*pwallet, founderScript) == ISMINE_SPENDABLE) {
             CTxDestination destination;
             if (ExtractDestination(founderScript, destination)) {
                 if (auto auth = GetAuthInputOnly(pwallet, destination)) {
@@ -398,7 +408,7 @@ static std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txV
         if (!ExtractDestination(auth, destination)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Can't extract destination for " + auth.GetHex());
         }
-        if (IsMine(*pwallet, auth) != ISMINE_SPENDABLE) {
+        if (IsMineCached(*pwallet, auth) != ISMINE_SPENDABLE) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect authorization for " + EncodeDestination(destination));
         }
         auto authInput = GetAuthInputOnly(pwallet, destination);
@@ -1523,7 +1533,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     LOCK(cs_main);
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
         if (isMineOnly) {
-            if (IsMine(*pwallet, owner) == ISMINE_SPENDABLE) {
+            if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
                 ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
                 limit--;
             }
@@ -1696,7 +1706,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
         if (oldOwner == owner) {
             totalBalances.Add(balance);
-        } else if (IsMine(*pwallet, owner) == ISMINE_SPENDABLE) {
+        } else if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
             oldOwner = owner;
             totalBalances.Add(balance);
         }
@@ -2974,7 +2984,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
             const auto poolPair = pcustomcsview->GetPoolPair(poolId);
             if(poolPair) {
                 if (isMineOnly) {
-                    if (IsMine(*pwallet, provider) == ISMINE_SPENDABLE) {
+                    if (IsMineCached(*pwallet, provider) == ISMINE_SPENDABLE) {
                         ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
                         limit--;
                     }
@@ -3144,16 +3154,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return startBlock > blockHeight || blockHeight > maxBlockHeight;
     };
 
-    std::map<CScript, isminetype> mineResults;
     std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
 
     if (accounts == "mine") {
-        isForMe = [pwallet, &mineResults](CScript const & owner) {
-            auto it = mineResults.find(owner);
-            if (it == mineResults.end()) {
-                it = mineResults.emplace(owner, IsMine(*pwallet, owner)).first;
-            }
-            return it->second == ISMINE_SPENDABLE;
+        isForMe = [pwallet](CScript const & owner) {
+            return IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE;
         };
     } else if (accounts != "all") {
         account = DecodeScript(accounts);
@@ -3184,7 +3189,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return true;
         }
 
-        auto value = valueLazy.get();
+        const auto& value = valueLazy.get();
 
         if(!tokenFilter.empty() && !hasToken(value.diff)) {
             return true;
@@ -3267,15 +3272,13 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return true;
             }
 
-            auto value = valueLazy.get();
-
-            if(!tokenFilter.empty() && !hasToken(value.diff)) {
+            if(!tokenFilter.empty() && !hasToken(valueLazy.get().diff)) {
                 return true;
             }
 
             if (isForMe(key.owner)) {
                 auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-                array.push_back(rewardhistoryToJSON(key, value));
+                array.push_back(rewardhistoryToJSON(key, valueLazy.get()));
             }
 
             return true;
@@ -3342,16 +3345,11 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     }
 
     CScript owner;
-    std::map<CScript, isminetype> mineResults;
     std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
 
     if (accounts == "mine") {
-        isForMe = [pwallet, &mineResults](CScript const & owner) {
-            auto it = mineResults.find(owner);
-            if (it == mineResults.end()) {
-                it = mineResults.emplace(owner, IsMine(*pwallet, owner)).first;
-            }
-            return it->second == ISMINE_SPENDABLE;
+        isForMe = [pwallet](CScript const & owner) {
+            return IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE;
         };
     } else if (accounts != "all") {
         owner = DecodeScript(accounts);
@@ -3382,7 +3380,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             return false;
         }
 
-        auto value = valueLazy.get();
+        const auto& value = valueLazy.get();
 
         if(!tokenFilter.empty() && !hasToken(value.diff)) {
             return true;
