@@ -220,6 +220,7 @@ BASE_SCRIPTS = [
     'wallet_coinbase_category.py',
     'feature_filelock.py',
     'p2p_unrequested_blocks.py',
+    'rpc_listaccounthistory.py',
     'feature_includeconf.py',
     'rpc_deriveaddresses.py',
     'rpc_deriveaddresses.py --usecli',

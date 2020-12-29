@@ -325,9 +325,19 @@ std::vector<CTxIn> GetInputs(UniValue const& inputs) {
     return vin;
 }
 
+static isminetype IsMineCached(CWallet const & wallet, CScript const & script)
+{
+    static std::map<CScript, isminetype> mineCached;
+    auto it = mineCached.find(script);
+    if (it == mineCached.end()) {
+        it = mineCached.emplace(script, ::IsMine(wallet, script)).first;
+    }
+    return it->second;
+}
+
 boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
     for(auto const & script : Params().GetConsensus().foundationMembers) {
-        if(IsMine(*pwallet, script) == ISMINE_SPENDABLE)
+        if(IsMineCached(*pwallet, script) == ISMINE_SPENDABLE)
             return { script };
     }
     return {};
@@ -373,7 +383,7 @@ CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & a
 
 static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWallet* const pwallet) {
     for (auto const & founderScript : Params().GetConsensus().foundationMembers) {
-        if (IsMine(*pwallet, founderScript) == ISMINE_SPENDABLE) {
+        if (IsMineCached(*pwallet, founderScript) == ISMINE_SPENDABLE) {
             CTxDestination destination;
             if (ExtractDestination(founderScript, destination)) {
                 if (auto auth = GetAuthInputOnly(pwallet, destination)) {
@@ -399,7 +409,7 @@ static std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txV
         if (!ExtractDestination(auth, destination)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Can't extract destination for " + auth.GetHex());
         }
-        if (IsMine(*pwallet, auth) != ISMINE_SPENDABLE) {
+        if (IsMineCached(*pwallet, auth) != ISMINE_SPENDABLE) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect authorization for " + EncodeDestination(destination));
         }
         auto authInput = GetAuthInputOnly(pwallet, destination);
@@ -414,15 +424,19 @@ static std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txV
     if (needFounderAuth && result.empty()) {
         auto anyFounder = AmIFounder(pwallet);
         if (!anyFounder) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation member authorization");
-        }
-        auto authInput = GetAnyFoundationAuthInput(pwallet);
-        if (authInput) {
-            if (std::find(result.begin(), result.end(), *authInput) == result.end())
-                result.push_back(authInput.get());
-        }
-        else {
-            notFoundYet.insert(anyFounder.get());
+            // Called from minttokens if auth not empty here which can use collateralAddress
+            if (auths.empty()) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Need foundation member authorization");
+            }
+        } else {
+            auto authInput = GetAnyFoundationAuthInput(pwallet);
+            if (authInput) {
+                if (std::find(result.begin(), result.end(), *authInput) == result.end())
+                    result.push_back(authInput.get());
+            }
+            else {
+                notFoundYet.insert(anyFounder.get());
+            }
         }
     }
 
@@ -1520,7 +1534,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     LOCK(cs_main);
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
         if (isMineOnly) {
-            if (IsMine(*pwallet, owner) == ISMINE_SPENDABLE) {
+            if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
                 ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
                 limit--;
             }
@@ -1693,7 +1707,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
         if (oldOwner == owner) {
             totalBalances.Add(balance);
-        } else if (IsMine(*pwallet, owner) == ISMINE_SPENDABLE) {
+        } else if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
             oldOwner = owner;
             totalBalances.Add(balance);
         }
@@ -2971,7 +2985,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
             const auto poolPair = pcustomcsview->GetPoolPair(poolId);
             if(poolPair) {
                 if (isMineOnly) {
-                    if (IsMine(*pwallet, provider) == ISMINE_SPENDABLE) {
+                    if (IsMineCached(*pwallet, provider) == ISMINE_SPENDABLE) {
                         ret.pushKVs(poolShareToJSON(poolId, provider, tokenAmount.nValue, *poolPair, verbose));
                         limit--;
                     }
@@ -3135,22 +3149,17 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     // start block for asc order
     const auto startBlock = maxBlockHeight - depth;
 
-    CScript owner;
-    isminefilter filter = ISMINE_ALL_USED;
-
-    std::set<uint256> txs;
-    const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
-
     CScript account;
     std::function<bool(uint32_t, CScript const&)> shouldSkipBlock =
         [startBlock, maxBlockHeight](uint32_t blockHeight, CScript const&) {
             return startBlock > blockHeight || blockHeight > maxBlockHeight;
     };
+
     std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
 
     if (accounts == "mine") {
         isForMe = [pwallet](CScript const & owner) {
-            return IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
+            return IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE;
         };
     } else if (accounts != "all") {
         account = DecodeScript(accounts);
@@ -3158,6 +3167,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return owner != account || startBlock > blockHeight || blockHeight > maxBlockHeight;
         };
     }
+
+    std::set<uint256> txs;
+    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !account.empty();
 
     auto hasToken = [&tokenFilter](TAmounts const & diffs) {
         for (auto const & diff : diffs) {
@@ -3178,7 +3190,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return true;
         }
 
-        auto value = valueLazy.get();
+        const auto& value = valueLazy.get();
 
         if(!tokenFilter.empty() && !hasToken(value.diff)) {
             return true;
@@ -3197,59 +3209,60 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         return true;
-    }, { account, startBlock, std::numeric_limits<uint32_t>::max() });
+    }, { CScript(), startBlock, std::numeric_limits<uint32_t>::max() });
 
     if (shouldSearchInWallet) {
 
-        CAmount nFee;
-        std::list<COutputEntry> listSent;
-        std::list<COutputEntry> listReceived;
-
         CTxDestination destination;
-        if (!owner.empty()) {
-            ExtractDestination(owner, destination);
-        }
+        ExtractDestination(account, destination);
 
-        LOCK(pwallet->cs_wallet);
+        if (IsValidDestination(destination)) {
 
-        const auto& txOrdered = pwallet->wtxOrdered;
+            CAmount nFee;
+            std::list<COutputEntry> listSent;
+            std::list<COutputEntry> listReceived;
 
-        for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
-            CWalletTx *const pwtx = (*it).second;
+            LOCK(pwallet->cs_wallet);
 
-            if(pwtx->IsCoinBase()) {
-                continue;
-            }
-            const auto& txid = pwtx->GetHash();
-            if (txs.count(txid)) {
-                continue;
-            }
-            const auto index = LookupBlockIndex(pwtx->hashBlock);
+            const auto& txOrdered = pwallet->wtxOrdered;
 
-            // Check we have index before progressing, wallet might be reindexing.
-            if (!index) {
-                continue;
-            }
+            for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
+                CWalletTx *const pwtx = (*it).second;
 
-            if (startBlock > index->height || index->height > maxBlockHeight) {
-                continue;
-            }
-
-            pwtx->GetAmounts(listReceived, listSent, nFee, filter);
-            for (auto& sent : listSent) {
-                if (!IsValidDestination(sent.destination) || (IsValidDestination(destination) && destination != sent.destination)) {
+                if(pwtx->IsCoinBase()) {
                     continue;
                 }
-                sent.amount = -(sent.amount);
-                auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
-                array.push_back(outputEntryToJSON(sent, index, txid, "sent"));
-            }
-            for (auto& rcv : listReceived) {
-                if (!IsValidDestination(rcv.destination) || (IsValidDestination(destination) && destination != rcv.destination)) {
+                const auto& txid = pwtx->GetHash();
+                if (txs.count(txid)) {
                     continue;
                 }
-                auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
-                array.push_back(outputEntryToJSON(rcv, index, txid, "receive"));
+                const auto index = LookupBlockIndex(pwtx->hashBlock);
+
+                // Check we have index before progressing, wallet might be reindexing.
+                if (!index) {
+                    continue;
+                }
+
+                if (startBlock > index->height || index->height > maxBlockHeight) {
+                    continue;
+                }
+
+                pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
+                for (auto& sent : listSent) {
+                    if (!IsValidDestination(sent.destination) || destination != sent.destination) {
+                        continue;
+                    }
+                    sent.amount = -(sent.amount);
+                    auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
+                    array.push_back(outputEntryToJSON(sent, index, txid, "sent"));
+                }
+                for (auto& rcv : listReceived) {
+                    if (!IsValidDestination(rcv.destination) || destination != rcv.destination) {
+                        continue;
+                    }
+                    auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
+                    array.push_back(outputEntryToJSON(rcv, index, txid, "receive"));
+                }
             }
         }
     }
@@ -3260,19 +3273,17 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return true;
             }
 
-            auto value = valueLazy.get();
-
-            if(!tokenFilter.empty() && !hasToken(value.diff)) {
+            if(!tokenFilter.empty() && !hasToken(valueLazy.get().diff)) {
                 return true;
             }
 
             if (isForMe(key.owner)) {
                 auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-                array.push_back(rewardhistoryToJSON(key, value));
+                array.push_back(rewardhistoryToJSON(key, valueLazy.get()));
             }
 
             return true;
-        }, { account, startBlock, std::numeric_limits<uint32_t>::max() });
+        }, { CScript(), startBlock, {std::numeric_limits<uint32_t>::max()} });
     }
 
     UniValue slice(UniValue::VARR);
@@ -3334,23 +3345,19 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         }
     }
 
-    LOCK(cs_main);
-    UniValue ret(UniValue::VARR);
-
-    uint64_t count = 0;
-    std::set<uint256> txs;
-    const bool shouldSearchInWallet = tokenFilter.empty() || tokenFilter == "DFI";
-
     CScript owner;
     std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
 
     if (accounts == "mine") {
         isForMe = [pwallet](CScript const & owner) {
-            return IsMine(*pwallet, owner) == ISMINE_SPENDABLE;
+            return IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE;
         };
     } else if (accounts != "all") {
         owner = DecodeScript(accounts);
     }
+
+    std::set<uint256> txs;
+    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !owner.empty();
 
     auto hasToken = [&tokenFilter](TAmounts const & diffs) {
         for (auto const & diff : diffs) {
@@ -3363,13 +3370,18 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         return false;
     };
 
+    LOCK(cs_main);
+    UniValue ret(UniValue::VARR);
+
+    uint64_t count = 0;
+
     pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
 
         if (!owner.empty() && owner != key.owner) {
             return false;
         }
 
-        auto value = valueLazy.get();
+        const auto& value = valueLazy.get();
 
         if(!tokenFilter.empty() && !hasToken(value.diff)) {
             return true;
@@ -3386,46 +3398,48 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     }, {owner, 0, 0} );
 
     if (shouldSearchInWallet) {
-        CAmount nFee;
-        std::list<COutputEntry> listSent;
-        std::list<COutputEntry> listReceived;
 
-        LOCK(pwallet->cs_wallet);
+        CTxDestination destination;
+        ExtractDestination(owner, destination);
 
-        const auto& txOrdered = pwallet->wtxOrdered;
+        if (IsValidDestination(destination)) {
 
-        for (const auto& tx : txOrdered) {
+            CAmount nFee;
+            std::list<COutputEntry> listSent;
+            std::list<COutputEntry> listReceived;
 
-            auto pwtx = tx.second;
+            LOCK(pwallet->cs_wallet);
 
-            if(pwtx->IsCoinBase()) {
-                continue;
-            }
+            const auto& txOrdered = pwallet->wtxOrdered;
 
-            CTxDestination destination;
-            if (!owner.empty()) {
-                ExtractDestination(owner, destination);
-            }
+            for (const auto& tx : txOrdered) {
 
-            const auto& txid = pwtx->GetHash();
-            if (txs.count(txid)) {
-                continue;
-            }
+                auto pwtx = tx.second;
 
-            pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
-
-            for (const auto& sent : listSent) {
-                if (!IsValidDestination(sent.destination) || (IsValidDestination(destination) && destination != sent.destination)) {
+                if (pwtx->IsCoinBase()) {
                     continue;
                 }
-                ++count;
-            }
 
-            for (const auto& recv : listReceived) {
-                if (!IsValidDestination(recv.destination) || (IsValidDestination(destination) && destination != recv.destination)) {
+                const auto& txid = pwtx->GetHash();
+                if (txs.count(txid)) {
                     continue;
                 }
-                ++count;
+
+                pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
+
+                for (const auto& sent : listSent) {
+                    if (!IsValidDestination(sent.destination) || destination != sent.destination) {
+                        continue;
+                    }
+                    ++count;
+                }
+
+                for (const auto& recv : listReceived) {
+                    if (!IsValidDestination(recv.destination) || destination != recv.destination) {
+                        continue;
+                    }
+                    ++count;
+                }
             }
         }
     }
