@@ -6,6 +6,8 @@
 #define DEFI_FLUSHABLESTORAGE_H
 
 #include <dbwrapper.h>
+#include <optional.h>
+
 #include <boost/optional.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/thread.hpp>
@@ -311,20 +313,27 @@ private:
 };
 
 template<typename T>
-struct CLazySerialize
+class CLazySerialize
 {
+    Optional<T> value;
     CStorageKVIterator& it;
+
+public:
+    CLazySerialize(const CLazySerialize&) = default;
+    explicit CLazySerialize(CStorageKVIterator& it) : it(it) {}
 
     operator T()
     {
         return get();
     }
 
-    T get()
+    const T& get()
     {
-        T value;
-        BytesToDbType(it.Value(), value);
-        return value;
+        if (!value) {
+            value = T{};
+            BytesToDbType(it.Value(), *value);
+        }
+        return *value;
     }
 };
 
@@ -398,7 +407,7 @@ public:
         for(it->Seek(DbTypeToBytes(key)); it->Valid() && (BytesToDbType(it->Key(), key), key.first == By::prefix); it->Next()) {
             boost::this_thread::interruption_point();
 
-            if (!callback(key.second, CLazySerialize<ValueType>{*it}))
+            if (!callback(key.second, CLazySerialize<ValueType>(*it)))
                 break;
         }
         return true;
