@@ -9,6 +9,7 @@
 #include <functional>
 #include <optional.h>
 #include <map>
+#include <memusage.h>
 
 #include <boost/thread.hpp>
 
@@ -55,6 +56,7 @@ public:
     virtual bool Erase(const TBytes& key) = 0;
     virtual bool Read(const TBytes& key, TBytes& value) const = 0;
     virtual std::unique_ptr<CStorageKVIterator> NewIterator() = 0;
+    virtual size_t SizeEstimate() const = 0;
     virtual bool Flush() = 0;
 };
 
@@ -139,6 +141,9 @@ public:
         auto result = db.WriteBatch(batch);
         batch.Clear();
         return result;
+    }
+    size_t SizeEstimate() const override {
+        return batch.SizeEstimate();
     }
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
         return MakeUnique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db.NewIterator()));
@@ -276,6 +281,9 @@ public:
         changed.clear();
         return true;
     }
+    size_t SizeEstimate() const override {
+        return memusage::DynamicUsage(changed);
+    }
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
         return MakeUnique<CFlushableStorageKVIterator>(db.NewIterator(), changed);
     }
@@ -385,6 +393,8 @@ public:
     }
 
     bool Flush() { return DB().Flush(); }
+
+    size_t SizeEstimate() const { return DB().SizeEstimate(); }
 
 protected:
     CStorageKV & DB() { return *storage.get(); }

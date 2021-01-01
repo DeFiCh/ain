@@ -1579,10 +1579,10 @@ bool AppInitMain(InitInterfaces& interfaces)
                 });
 
                 pcriminals.reset();
-                pcriminals = MakeUnique<CCriminalsView>(GetDataDir() / "criminals", nMinDbCache << 20, false, fReset || fReindexChainState);
+                pcriminals = MakeUnique<CCriminalsView>(GetDataDir() / "criminals", nDefaultDbCache << 20, false, fReset || fReindexChainState);
 
                 pcustomcsDB.reset();
-                pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, false, fReset || fReindexChainState);
+                pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nDefaultDbCache << 20, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
                 pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
                 if (!fReset && gArgs.GetBoolArg("-acindex", false)) {
@@ -1613,7 +1613,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
                 panchors.reset();
                 /// @todo research best way of spv+anchors loading/update/regeneration
-                panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, false, gArgs.GetBoolArg("-spv", false) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
+                panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", false) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
                 // load anchors after spv due to spv (and spv height) not set before (no last height yet)
 
                 if (gArgs.GetBoolArg("-spv", false)) {
