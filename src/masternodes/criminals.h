@@ -62,7 +62,7 @@ class CCriminalsView
 {
 public:
     CCriminalsView(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false)
-        : CStorageView(new CStorageLevelDB(dbName, cacheSize, fMemory, fWipe, true)) // direct!
+        : CStorageView(new CStorageLevelDB(dbName, cacheSize, fMemory, fWipe))
     {}
 
 };

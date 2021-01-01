@@ -214,8 +214,6 @@ public:
 
     bool CanSpend(const uint256 & txId, int height) const;
 
-    bool Flush() { return DB().Flush(); }
-
     CStorageKV& GetRaw() {
         return DB();
     }

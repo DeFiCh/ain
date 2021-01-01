@@ -2591,6 +2591,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
         for (auto const & cr : disconnectedCriminals) {
             pcriminals->AddCriminalProof(cr.first, cr.second.blockHeader, cr.second.conflictBlockHeader);
         }
+        pcriminals->Flush();
     }
     LogPrint(BCLog::BENCH, "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * MILLI);
     // Write the chain state to disk, if necessary.
@@ -3847,9 +3848,9 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             if (it) {
             	auto const & nodeId = *it;
 
-	        std::map <uint256, CBlockHeader> blockHeaders{};
-        	pcriminals->FetchMintedHeaders(nodeId, block.mintedBlocks, blockHeaders, fIsFakeNet);
-        	if (blockHeaders.find(hash) == blockHeaders.end()) {
+                std::map <uint256, CBlockHeader> blockHeaders{};
+                pcriminals->FetchMintedHeaders(nodeId, block.mintedBlocks, blockHeaders, fIsFakeNet);
+                if (blockHeaders.find(hash) == blockHeaders.end()) {
             	    pcriminals->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block, fIsFakeNet);
             	}
 
@@ -3862,6 +3863,7 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
                         }
                     }
                 }
+                pcriminals->Flush();
             }
         }
 
