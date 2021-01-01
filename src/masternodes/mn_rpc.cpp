@@ -3028,7 +3028,7 @@ UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue
     return obj;
 }
 
-UniValue rewardhistoryToJSON(RewardHistoryKey const & key, RewardHistoryValue const & value) {
+UniValue rewardhistoryToJSON(RewardHistoryKey const & key, std::pair<DCT_ID, TAmounts> const & value) {
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("owner", ScriptToString(key.owner));
     obj.pushKV("blockHeight", (uint64_t) key.blockHeight);
@@ -3036,9 +3036,9 @@ UniValue rewardhistoryToJSON(RewardHistoryKey const & key, RewardHistoryValue co
         obj.pushKV("blockHash", block->GetBlockHash().GetHex());
         obj.pushKV("blockTime", block->GetBlockTime());
     }
-    obj.pushKV("type", RewardToString(RewardType(value.category)));
-    obj.pushKV("poolID", key.poolID.ToString());
-    obj.pushKV("amounts", AmountsToJSON(value.diff));
+    obj.pushKV("type", RewardToString(RewardType(key.category)));
+    obj.pushKV("poolID", value.first.ToString());
+    obj.pushKV("amounts", AmountsToJSON(value.second));
     return obj;
 }
 
@@ -3282,14 +3282,27 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 return true;
             }
 
-            if(!tokenFilter.empty() && !hasToken(valueLazy.get().diff)) {
-                return true;
+            if(!tokenFilter.empty()) {
+                bool tokenFound = false;
+                for (const auto & value : valueLazy.get()) {
+                    if (hasToken(value.second)) {
+                        tokenFound = true;
+                        break;
+                    }
+                }
+                if (!tokenFound) {
+                    return true;
+                }
             }
 
             if (isForMe(key.owner)) {
                 auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-                array.push_back(rewardhistoryToJSON(key, valueLazy.get()));
-                --count;
+                for (const auto & value : valueLazy.get()) {
+                    array.push_back(rewardhistoryToJSON(key, value));
+                    if (--count == 0) {
+                        break;
+                    }
+                }
             }
 
             return count != 0;
@@ -3464,8 +3477,17 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             return false;
         }
 
-        if(!tokenFilter.empty() && !hasToken(valueLazy.get().diff)) {
-            return true;
+        if(!tokenFilter.empty()) {
+            bool tokenFound = false;
+            for (const auto & value : valueLazy.get()) {
+                if (hasToken(value.second)) {
+                    tokenFound = true;
+                    break;
+                }
+            }
+            if (!tokenFound) {
+                return true;
+            }
         }
 
         if (isForMe(key.owner)) {

@@ -25,6 +25,7 @@
 #include <interfaces/chain.h>
 #include <key.h>
 #include <key_io.h>
+#include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/criminals.h>
 #include <miner.h>
@@ -1586,24 +1587,9 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsview.reset();
                 pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
                 if (!fReset && gArgs.GetBoolArg("-acindex", false)) {
-                    bool hasRewardHistory = false;
-                    pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>) {
-                        hasRewardHistory = true;
-                        return false;
-                    });
-                    if (!hasRewardHistory) {
-                        bool hasOldAccountHistory = false;
-                        pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue>) {
-                            if (key.txn == std::numeric_limits<uint32_t>::max()) {
-                                hasOldAccountHistory = true;
-                                return false;
-                            }
-                            return true;
-                        }, { {}, 0, std::numeric_limits<uint32_t>::max() });
-                        if (hasOldAccountHistory) {
-                            strLoadError = _("Account history needs rebuild").translated;
-                            break;
-                        }
+                    if (shouldMigrateOldRewardHistory(*pcustomcsview)) {
+                        strLoadError = _("Account history needs rebuild").translated;
+                        break;
                     }
                 }
 

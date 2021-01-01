@@ -6,6 +6,7 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/rewardhistoryold.h>
 #include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
 
@@ -330,6 +331,45 @@ BOOST_AUTO_TEST_CASE(for_each_order)
             --test;
             return true;
         }, TestBackward{ (uint32_t) -1 });
+    }
+}
+
+BOOST_AUTO_TEST_CASE(RewardMigrationTests)
+{
+    {
+        CCustomCSView view(*pcustomcsview);
+
+        // Nothing to migrate
+        BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
+
+        view.Write(std::make_pair(oldRewardHistoryPrefix, oldRewardHistoryKey{}), RewardHistoryValue{});
+
+        // we have old prefix and key, should migrate
+        BOOST_CHECK(shouldMigrateOldRewardHistory(view));
+    }
+
+    {
+        CCustomCSView view(*pcustomcsview);
+
+        // Nothing to migrate
+        BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
+
+        view.SetRewardHistory(RewardHistoryKey{}, RewardHistoryValue{});
+
+        // we have new prefix and key, should not migrate
+        BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
+    }
+
+    {
+        CCustomCSView view(*pcustomcsview);
+
+        // Nothing to migrate
+        BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
+
+        view.SetAccountHistory({ {}, 0, std::numeric_limits<uint32_t>::max() }, {});
+
+        // we have old accounthistory, should migrate
+        BOOST_CHECK(shouldMigrateOldRewardHistory(view));
     }
 }
 
