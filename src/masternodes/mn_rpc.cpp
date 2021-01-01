@@ -3184,6 +3184,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     LOCK(cs_main);
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
+    auto count = limit;
+
     pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
         if (shouldSkipBlock(key.blockHeight, key.owner)) {
             return true;
@@ -3191,11 +3193,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
         const auto& value = valueLazy.get();
 
-        if(!tokenFilter.empty() && !hasToken(value.diff)) {
+        if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
             return true;
         }
 
-        if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
+        if(!tokenFilter.empty() && !hasToken(value.diff)) {
             return true;
         }
 
@@ -3205,10 +3207,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (shouldSearchInWallet) {
                 txs.insert(value.txid);
             }
+            --count;
         }
 
-        return true;
-    }, { CScript(), startBlock, std::numeric_limits<uint32_t>::max() });
+        return count != 0;
+    }, { CScript(), maxBlockHeight, std::numeric_limits<uint32_t>::max() });
 
     if (shouldSearchInWallet) {
 
@@ -3223,9 +3226,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
             LOCK(pwallet->cs_wallet);
 
+            count = limit;
+
             const auto& txOrdered = pwallet->wtxOrdered;
 
-            for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
+            for (auto it = txOrdered.rbegin(); count != 0 && it != txOrdered.rend(); ++it) {
                 CWalletTx *const pwtx = (*it).second;
 
                 if(pwtx->IsCoinBase()) {
@@ -3247,26 +3252,31 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 }
 
                 pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
-                for (auto& sent : listSent) {
-                    if (!IsValidDestination(sent.destination) || destination != sent.destination) {
+
+                for (auto it = listSent.begin(); count != 0 &&  it != listSent.end(); ++it) {
+                    if (!IsValidDestination(it->destination) || destination != it->destination) {
                         continue;
                     }
-                    sent.amount = -(sent.amount);
+                    it->amount = -(it->amount);
                     auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
-                    array.push_back(outputEntryToJSON(sent, index, txid, "sent"));
+                    array.push_back(outputEntryToJSON(*it, index, txid, "sent"));
+                    --count;
                 }
-                for (auto& rcv : listReceived) {
-                    if (!IsValidDestination(rcv.destination) || destination != rcv.destination) {
+
+                for (auto it = listReceived.begin(); count != 0 && it != listReceived.end(); ++it) {
+                    if (!IsValidDestination(it->destination) || destination != it->destination) {
                         continue;
                     }
                     auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
-                    array.push_back(outputEntryToJSON(rcv, index, txid, "receive"));
+                    array.push_back(outputEntryToJSON(*it, index, txid, "receive"));
+                    --count;
                 }
             }
         }
     }
 
     if (!noRewards) {
+        count = limit;
         pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) {
             if (shouldSkipBlock(key.blockHeight, key.owner)) {
                 return true;
@@ -3279,10 +3289,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             if (isForMe(key.owner)) {
                 auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
                 array.push_back(rewardhistoryToJSON(key, valueLazy.get()));
+                --count;
             }
 
-            return true;
-        }, { CScript(), startBlock, {std::numeric_limits<uint32_t>::max()} });
+            return count != 0;
+        }, { CScript(), maxBlockHeight, 0 });
     }
 
     UniValue slice(UniValue::VARR);

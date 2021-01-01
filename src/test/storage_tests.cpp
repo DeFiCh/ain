@@ -4,6 +4,7 @@
 
 #include <interfaces/chain.h>
 #include <key_io.h>
+#include <masternodes/accountshistory.h>
 #include <masternodes/masternodes.h>
 #include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
@@ -330,6 +331,33 @@ BOOST_AUTO_TEST_CASE(for_each_order)
             return true;
         }, TestBackward{ (uint32_t) -1 });
     }
+}
+
+BOOST_AUTO_TEST_CASE(AccountHistoryDescOrderTest)
+{
+    CCustomCSView view(*pcustomcsview);
+
+    view.SetAccountHistory({ {}, 5021, 0 }, {});
+    view.SetAccountHistory({ {}, 5022, 1 }, {});
+    view.SetAccountHistory({ {}, 5023, 2 }, {});
+    view.SetAccountHistory({ {}, 5024, 3 }, {});
+    view.SetAccountHistory({ {}, 5025, 4 }, {});
+    view.SetAccountHistory({ {}, 5026, 5 }, {});
+
+    uint32_t startBlock = 5021; // exclude
+    uint32_t maxBlockHeight = 5025;
+    auto blockCount = maxBlockHeight;
+
+    view.ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue) {
+        if (startBlock > key.blockHeight || key.blockHeight > maxBlockHeight) {
+            return true;
+        }
+
+        BOOST_CHECK_EQUAL(blockCount, key.blockHeight);
+        --blockCount;
+
+        return true;
+    }, { {}, maxBlockHeight, std::numeric_limits<uint32_t>::max() });
 }
 
 BOOST_AUTO_TEST_SUITE_END()
