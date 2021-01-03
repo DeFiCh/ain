@@ -2835,7 +2835,6 @@ CBlockIndex* CChainState::FindMostWorkChain() {
         // Find the best candidate header.
         {
             auto filtered = FilterAnchorSatisfying(setBlockIndexCandidates);
-            LogPrintf("FindMostWorkChain: setBlockIndexCandidates: %i, filtered: %i\n", setBlockIndexCandidates.size(), filtered.size());
 
             std::set<CBlockIndex*, CBlockIndexWorkComparator>::reverse_iterator it = filtered.rbegin();
             if (it == filtered.rend())
