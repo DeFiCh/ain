@@ -2432,22 +2432,25 @@ bool CChainState::FlushStateToDisk(
                 UnlinkPrunedFiles(setFilesToPrune);
             nLastWrite = nNow;
         }
+        bool fMemoryCacheLarge = fDoFullFlush || (mode == FlushStateMode::PERIODIC && pcustomcsview->SizeEstimate() > (nDefaultDbCache << 16));
         // Flush best chain related state. This can only be done if the blocks / block index write was also done.
-        if (fDoFullFlush && !CoinsTip().GetBestBlock().IsNull()) {
+        if (fMemoryCacheLarge && !CoinsTip().GetBestBlock().IsNull()) {
+            // Flush view first to estimate size on disk later
+            if (!pcustomcsview->Flush()) {
+                return AbortNode(state, "Failed to write db batch");
+            }
             // Typical Coin structures on disk are around 48 bytes in size.
             // Pushing a new one to the database can cause it to be written
             // twice (once in the log, and once in the tables). This is already
             // an overestimation, as most will delete an existing entry or
             // overwrite one. Still, use a conservative safety factor of 2.
-            /// @todo check free space for pcustomcsview flushing
-            if (!CheckDiskSpace(GetDataDir(), 48 * 2 * 2 * CoinsTip().GetCacheSize())) {
+            if (!CheckDiskSpace(GetDataDir(), 48 * 2 * 2 * CoinsTip().GetCacheSize() + pcustomcsDB->SizeEstimate())) {
                 return AbortNode(state, "Disk space is too low!", _("Error: Disk space is too low!").translated, CClientUIInterface::MSG_NOPREFIX);
             }
             // Flush the chainstate (which may refer to block index entries).
-            /// @todo may be integrate pcustomcsview into ChainState?
-            /// @attention it is critical to flush 'pcustomcsview', then 'pcustomcsDB'!!!
-            if (!CoinsTip().Flush() || !pcustomcsview->Flush() || !pcustomcsDB->Flush())
-                return AbortNode(state, "Failed to write to coin or masternodes database");
+            if (!CoinsTip().Flush() || !pcustomcsDB->Flush()) {
+                return AbortNode(state, "Failed to write to coin or masternode db to disk");
+            }
             nLastFlush = nNow;
             full_flush_completed = true;
         }
@@ -2591,6 +2594,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
         for (auto const & cr : disconnectedCriminals) {
             pcriminals->AddCriminalProof(cr.first, cr.second.blockHeader, cr.second.conflictBlockHeader);
         }
+        pcriminals->Flush();
     }
     LogPrint(BCLog::BENCH, "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * MILLI);
     // Write the chain state to disk, if necessary.
@@ -2831,7 +2835,6 @@ CBlockIndex* CChainState::FindMostWorkChain() {
         // Find the best candidate header.
         {
             auto filtered = FilterAnchorSatisfying(setBlockIndexCandidates);
-            LogPrintf("FindMostWorkChain: setBlockIndexCandidates: %i, filtered: %i\n", setBlockIndexCandidates.size(), filtered.size());
 
             std::set<CBlockIndex*, CBlockIndexWorkComparator>::reverse_iterator it = filtered.rbegin();
             if (it == filtered.rend())
@@ -3847,9 +3850,9 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             if (it) {
             	auto const & nodeId = *it;
 
-	        std::map <uint256, CBlockHeader> blockHeaders{};
-        	pcriminals->FetchMintedHeaders(nodeId, block.mintedBlocks, blockHeaders, fIsFakeNet);
-        	if (blockHeaders.find(hash) == blockHeaders.end()) {
+                std::map <uint256, CBlockHeader> blockHeaders{};
+                pcriminals->FetchMintedHeaders(nodeId, block.mintedBlocks, blockHeaders, fIsFakeNet);
+                if (blockHeaders.find(hash) == blockHeaders.end()) {
             	    pcriminals->WriteMintedBlockHeader(nodeId, block.mintedBlocks, hash, block, fIsFakeNet);
             	}
 
@@ -3862,6 +3865,7 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
                         }
                     }
                 }
+                pcriminals->Flush();
             }
         }
 

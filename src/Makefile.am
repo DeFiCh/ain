@@ -166,6 +166,7 @@ DEFI_CORE_H = \
   masternodes/masternodes.h \
   masternodes/mn_checks.h \
   masternodes/res.h \
+  masternodes/rewardhistoryold.h \
   masternodes/tokens.h \
   masternodes/poolpairs.h \
   masternodes/undo.h \
