@@ -23,7 +23,6 @@
 #include <map>
 #include <set>
 #include <stdint.h>
-#include <tuple>
 
 #include <boost/optional.hpp>
 
@@ -214,8 +213,6 @@ public:
 
     bool CanSpend(const uint256 & txId, int height) const;
 
-    bool Flush() { return DB().Flush(); }
-
     CStorageKV& GetRaw() {
         return DB();
     }
@@ -240,7 +237,7 @@ class CRewardsHistoryStorage : public CCustomCSView
 {
     bool acindex;
     const uint32_t height;
-    std::map<CScript, std::tuple<DCT_ID, uint8_t, TAmounts>> diffs;
+    std::map<std::pair<CScript, uint8_t>, std::map<DCT_ID, TAmounts>> diffs;
 public:
     CRewardsHistoryStorage(CCustomCSView & storage, uint32_t height);
     Res AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount);

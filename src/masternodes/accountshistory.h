@@ -5,9 +5,8 @@
 #ifndef DEFI_MASTERNODES_ACCOUNTSHISTORY_H
 #define DEFI_MASTERNODES_ACCOUNTSHISTORY_H
 
-#include <flushablestorage.h>
-#include <masternodes/res.h>
 #include <amount.h>
+#include <flushablestorage.h>
 #include <script/script.h>
 #include <uint256.h>
 
@@ -56,7 +55,7 @@ struct AccountHistoryValue {
 struct RewardHistoryKey {
     CScript owner;
     uint32_t blockHeight;
-    DCT_ID poolID; // for order in block
+    uint8_t category;
 
     ADD_SERIALIZE_METHODS;
 
@@ -73,22 +72,11 @@ struct RewardHistoryKey {
             READWRITE(WrapBigEndian(blockHeight_));
         }
 
-        READWRITE(VARINT(poolID.v));
-    }
-};
-
-struct RewardHistoryValue {
-    unsigned char category;
-    TAmounts diff;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(category);
-        READWRITE(diff);
     }
 };
+
+using RewardHistoryValue = std::map<DCT_ID, TAmounts>;
 
 class CAccountsHistoryView : public virtual CStorageView
 {
@@ -109,5 +97,8 @@ public:
     // tags
     struct ByRewardHistoryKey { static const unsigned char prefix; };
 };
+
+class CCustomCSView;
+bool shouldMigrateOldRewardHistory(CCustomCSView & view);
 
 #endif //DEFI_MASTERNODES_ACCOUNTSHISTORY_H

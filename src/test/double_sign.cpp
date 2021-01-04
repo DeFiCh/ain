@@ -83,6 +83,7 @@ BOOST_AUTO_TEST_CASE(check_doublesign)
     /// @todo newbase
     pcriminals->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[0].GetHash(), criminalsBlockHeaders[0], false);
     pcriminals->WriteMintedBlockHeader(masternodeID, mintedBlocks, criminalsBlockHeaders[1].GetHash(), criminalsBlockHeaders[1], false);
+    pcriminals->Flush();
     CKeyID dummy;
     BOOST_CHECK(IsDoubleSigned(criminalsBlockHeaders[0], criminalsBlockHeaders[1], dummy));
 

@@ -14,6 +14,7 @@
 #include <uint256.h>
 
 class CTransaction;
+class UniValue;
 
 std::string trim_ws(std::string const & str);
 
@@ -149,7 +150,7 @@ public:
     Res UpdateToken(uint256 const & tokenTx, CToken & newToken, bool isPreBayfront);
 
     Res BayfrontFlagsCleanup();
-    Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
+    Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount, UniValue *rpcInfo = nullptr);
 
     // tags
     struct ID { static const unsigned char prefix; };
