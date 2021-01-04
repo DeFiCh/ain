@@ -50,6 +50,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "policy/fees -> txmempool -> validation -> wallet/wallet -> policy/fees"
     "policy/fees -> txmempool -> validation -> wallet/wallet -> util/fees -> policy/fees"
     "chainparams -> masternodes/mn_checks -> txmempool -> chainparams"
+    "index/txindex -> validation -> masternodes/mn_checks -> index/txindex"
 )
 
 EXIT_CODE=0
