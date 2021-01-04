@@ -10,6 +10,7 @@
 #include <chainparams.h>
 #include <core_io.h>
 #include <consensus/validation.h>
+#include <index/txindex.h>
 #include <net.h>
 #include <policy/policy.h>
 #include <policy/settings.h>
@@ -3801,6 +3802,213 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
 }
 
+static UniValue getcustomtx(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    RPCHelpMan{"getcustomtx",
+        "\nGet detailed information about a DeFiChain custom transaction. Will search wallet transactions and mempool transaction,\n"
+        "if a blockhash is provided and that block is available then details for that transaction can be returned. -txindex\n"
+        "can be enabled to return details for any transaction.",
+        {
+            {"txid", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction id"},
+            {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The block in which to look for the transaction"},
+        },
+        RPCResult{
+            "{\n"
+            "  \"type\":               (string) The transaction type.\n"
+            "  \"valid\"               (bool) Whether the transaction was valid.\n"
+            "  \"results\"             (json object) Set of results related to the transaction type\n"
+            "  \"block height\"        (string) The block height containing the transaction.\n"
+            "  \"blockhash\"           (string) The block hash containing the transaction.\n"
+            "  \"confirmations\": n,   (numeric) The number of confirmations for the transaction."
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("getcustomtx", "\"66ea2ac081e2917f075e2cca7c1c0baa12fb85c469f34561185fa64d7d2f9305\"")
+                    + HelpExampleRpc("getcustomtx", "\"66ea2ac081e2917f075e2cca7c1c0baa12fb85c469f34561185fa64d7d2f9305\"")
+        },
+    }.Check(request);
+
+    const uint256 hash(ParseHashV(request.params[0], "txid"));
+
+    CTransactionRef tx;
+    uint256 hashBlock;
+
+    // Search wallet if available
+    if (pwallet) {
+        LOCK(pwallet->cs_wallet);
+        auto it = pwallet->mapWallet.find(hash);
+        if (it != pwallet->mapWallet.end())
+        {
+            tx = it->second.tx;
+            hashBlock = it->second.hashBlock;
+        }
+    }
+
+    CBlockIndex* blockindex{nullptr};
+
+    // No wallet or not a wallet TX, try mempool, txindex and a block if hash provided
+    if (!pwallet || !tx)
+    {
+        if (!request.params[1].isNull()) {
+            LOCK(cs_main);
+
+            uint256 blockhash = ParseHashV(request.params[1], "blockhash");
+            blockindex = LookupBlockIndex(blockhash);
+            if (!blockindex) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block hash not found");
+            }
+        }
+
+        bool f_txindex_ready{false};
+        if (g_txindex && !blockindex) {
+            f_txindex_ready = g_txindex->BlockUntilSyncedToCurrentChain();
+        }
+
+        if (!GetTransaction(hash, tx, Params().GetConsensus(), hashBlock, blockindex)) {
+            std::string errmsg;
+            if (blockindex) {
+                if (!(blockindex->nStatus & BLOCK_HAVE_DATA)) {
+                    throw JSONRPCError(RPC_MISC_ERROR, "Block not available");
+                }
+                errmsg = "No such transaction found in the provided block.";
+            } else if (!g_txindex) {
+                errmsg = "No such mempool or wallet transaction. Use -txindex or provide a block hash.";
+            } else if (!f_txindex_ready) {
+                errmsg = "No such mempool or wallet transaction. Transactions are still in the process of being indexed.";
+            } else {
+                errmsg = "No such mempool, wallet or blockchain transaction.";
+            }
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, errmsg);
+        }
+    }
+
+    int nHeight{0};
+    bool actualHeight{false};
+    CustomTxType guess;
+    UniValue txResults(UniValue::VOBJ);
+    Res res{};
+
+    if (tx)
+    {
+        LOCK(cs_main);
+
+        // Found a block hash but no block index yet
+        if (!hashBlock.IsNull() && !blockindex) {
+            blockindex = LookupBlockIndex(hashBlock);
+        }
+
+        // Default to next block height
+        nHeight = ::ChainActive().Height() + 1;
+
+        // Get actual height if blockindex avaiable
+        if (blockindex) {
+            nHeight = blockindex->nHeight;
+            actualHeight = true;
+        }
+
+        // Skip coinbase TXs except for genesis block
+        if ((tx->IsCoinBase() && nHeight > 0)) {
+            return "Coinbase transaction. Not a custom transaction.";
+        }
+
+        std::vector<unsigned char> metadata;
+        guess = GuessCustomTxType(*tx, metadata);
+        CCustomCSView mnview_dummy(*pcustomcsview);
+
+        switch (guess)
+        {
+            case CustomTxType::CreateMasternode:
+                res = ApplyCreateMasternodeTx(mnview_dummy, *tx, nHeight, metadata, &txResults);
+                break;
+            case CustomTxType::ResignMasternode:
+                res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
+                break;
+            case CustomTxType::CreateToken:
+                res = ApplyCreateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::UpdateToken:
+                res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::UpdateTokenAny:
+                res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::MintToken:
+                res = ApplyMintTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::CreatePoolPair:
+                res = ApplyCreatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::UpdatePoolPair:
+                res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::PoolSwap:
+                res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::AddPoolLiquidity:
+                res = ApplyAddPoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::RemovePoolLiquidity:
+                res = ApplyRemovePoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::UtxosToAccount:
+                res = ApplyUtxosToAccountTx(mnview_dummy, *tx, nHeight, metadata, Params().GetConsensus(), &txResults);
+                break;
+            case CustomTxType::AccountToUtxos:
+                res = ApplyAccountToUtxosTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::AccountToAccount:
+                res = ApplyAccountToAccountTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::SetGovVariable:
+                res = ApplySetGovernanceTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            case CustomTxType::AnyAccountsToAccounts:
+                res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+                break;
+            default:
+                return "Not a custom transaction";
+        }
+    } else {
+        // Should not really get here without prior failure.
+        return "Could not find matching transaction.";
+    }
+
+    UniValue result(UniValue::VOBJ);
+
+    result.pushKV("type", ToString(guess));
+    if (!actualHeight) {
+        result.pushKV("valid", res.ok ? true : false);
+    } else {
+        auto undo = pcustomcsview->GetUndo(UndoKey{static_cast<uint32_t>(nHeight), hash});
+        result.pushKV("valid", undo ? true : false);
+    }
+
+    if (!res.ok) {
+        result.pushKV("error", res.msg);
+    } else {
+        result.pushKV("results", txResults);
+    }
+
+    if (!hashBlock.IsNull()) {
+        LOCK(cs_main);
+
+        result.pushKV("blockhash", hashBlock.GetHex());
+        if (blockindex) {
+            result.pushKV("block height", blockindex->nHeight);
+            result.pushKV("blocktime", blockindex->GetBlockTime());
+            result.pushKV("confirmations", 1 + ::ChainActive().Height() - blockindex->nHeight);
+        } else {
+            result.pushKV("confirmations", 0);
+        }
+    }
+
+    return result;
+}
+
+
 static const CRPCCommand commands[] =
 { //  category      name                  actor (function)     params
   //  ----------------- ------------------------    -----------------------     ----------
@@ -3814,6 +4022,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "updatetoken",           &updatetoken,           {"token", "metadata", "inputs"}},
     {"tokens",      "listtokens",            &listtokens,            {"pagination", "verbose"}},
     {"tokens",      "gettoken",              &gettoken,              {"key" }},
+    {"tokens",      "getcustomtx",           &getcustomtx,           {"txid", "blockhash"}},
     {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
     {"accounts",    "listaccounts",          &listaccounts,          {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
     {"accounts",    "getaccount",            &getaccount,            {"owner", "pagination", "indexed_amounts"}},
