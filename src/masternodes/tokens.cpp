@@ -3,8 +3,12 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/tokens.h>
+
+#include <amount.h>
 #include <core_io.h>
 #include <primitives/transaction.h>
+
+#include <univalue.h>
 
 /// @attention make sure that it does not overlap with other views !!!
 const unsigned char CTokensView::ID          ::prefix = 'T';
@@ -262,7 +266,7 @@ Res CTokensView::BayfrontFlagsCleanup()
     return Res::Ok();
 }
 
-Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount)
+Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount, UniValue* rpcInfo)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
@@ -275,6 +279,11 @@ Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount)
         return Res::Err("overflow when adding to minted");
     }
     tokenImpl.minted = *resMinted.val;
+
+    // Transaction info for getcustomtx RPC call
+    if (rpcInfo) {
+        rpcInfo->pushKV(std::to_string(pair->first.v), ValueFromAmount(amount));
+    }
 
     WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
     return Res::Ok();
