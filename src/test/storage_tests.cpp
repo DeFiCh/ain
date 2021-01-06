@@ -354,7 +354,7 @@ BOOST_AUTO_TEST_CASE(RewardMigrationTests)
         // Nothing to migrate
         BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
 
-        view.SetRewardHistory(RewardHistoryKey{}, RewardHistoryValue{});
+        view.SetAllRewardHistory(RewardHistoryKey{}, RewardHistoryValue{});
 
         // we have new prefix and key, should not migrate
         BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
@@ -366,7 +366,7 @@ BOOST_AUTO_TEST_CASE(RewardMigrationTests)
         // Nothing to migrate
         BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
 
-        view.SetAccountHistory({ {}, 0, std::numeric_limits<uint32_t>::max() }, {});
+        view.SetAllAccountHistory({ {}, 0, std::numeric_limits<uint32_t>::max() }, {});
 
         // we have old accounthistory, should migrate
         BOOST_CHECK(shouldMigrateOldRewardHistory(view));
@@ -377,18 +377,18 @@ BOOST_AUTO_TEST_CASE(AccountHistoryDescOrderTest)
 {
     CCustomCSView view(*pcustomcsview);
 
-    view.SetAccountHistory({ {}, 5021, 0 }, {});
-    view.SetAccountHistory({ {}, 5022, 1 }, {});
-    view.SetAccountHistory({ {}, 5023, 2 }, {});
-    view.SetAccountHistory({ {}, 5024, 3 }, {});
-    view.SetAccountHistory({ {}, 5025, 4 }, {});
-    view.SetAccountHistory({ {}, 5026, 5 }, {});
+    view.SetAllAccountHistory({ {}, 5021, 0 }, {});
+    view.SetAllAccountHistory({ {}, 5022, 1 }, {});
+    view.SetAllAccountHistory({ {}, 5023, 2 }, {});
+    view.SetAllAccountHistory({ {}, 5024, 3 }, {});
+    view.SetAllAccountHistory({ {}, 5025, 4 }, {});
+    view.SetAllAccountHistory({ {}, 5026, 5 }, {});
 
     uint32_t startBlock = 5021; // exclude
     uint32_t maxBlockHeight = 5025;
     auto blockCount = maxBlockHeight;
 
-    view.ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue) {
+    view.ForEachAllAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue) {
         if (startBlock > key.blockHeight || key.blockHeight > maxBlockHeight) {
             return true;
         }

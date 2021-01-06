@@ -81,22 +81,31 @@ using RewardHistoryValue = std::map<DCT_ID, TAmounts>;
 class CAccountsHistoryView : public virtual CStorageView
 {
 public:
-    Res SetAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
-    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {}) const;
+    Res SetMineAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
+    Res SetAllAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
+    void ForEachMineAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {}) const;
+    void ForEachAllAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {}) const;
 
     // tags
-    struct ByAccountHistoryKey { static const unsigned char prefix; };
+    struct ByMineAccountHistoryKey { static const unsigned char prefix; };
+    struct ByAllAccountHistoryKey { static const unsigned char prefix; };
 };
 
 class CRewardsHistoryView : public virtual CStorageView
 {
 public:
-    Res SetRewardHistory(RewardHistoryKey const & key, RewardHistoryValue const & value);
-    void ForEachRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start = {}) const;
+    Res SetMineRewardHistory(RewardHistoryKey const & key, RewardHistoryValue const & value);
+    Res SetAllRewardHistory(RewardHistoryKey const & key, RewardHistoryValue const & value);
+    void ForEachMineRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start = {}) const;
+    void ForEachAllRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start = {}) const;
 
     // tags
-    struct ByRewardHistoryKey { static const unsigned char prefix; };
+    struct ByMineRewardHistoryKey { static const unsigned char prefix; };
+    struct ByAllRewardHistoryKey { static const unsigned char prefix; };
 };
+
+static constexpr bool DEFAULT_ACINDEX = false;
+static constexpr bool DEFAULT_ACINDEX_MINEONLY = true;
 
 class CCustomCSView;
 bool shouldMigrateOldRewardHistory(CCustomCSView & view);

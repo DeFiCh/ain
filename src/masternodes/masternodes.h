@@ -17,6 +17,7 @@
 #include <masternodes/poolpairs.h>
 #include <masternodes/gv.h>
 #include <uint256.h>
+#include <wallet/ismine.h>
 
 #include <functional>
 #include <iostream>
@@ -220,7 +221,7 @@ public:
 
 class CAccountsHistoryStorage : public CCustomCSView
 {
-    bool acindex;
+    int acindex;
     const uint32_t height;
     const uint32_t txn;
     const uint256 txid;
@@ -235,7 +236,7 @@ public:
 
 class CRewardsHistoryStorage : public CCustomCSView
 {
-    bool acindex;
+    int acindex;
     const uint32_t height;
     std::map<std::pair<CScript, uint8_t>, std::map<DCT_ID, TAmounts>> diffs;
 public:
@@ -243,6 +244,9 @@ public:
     Res AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount);
     bool Flush();
 };
+
+class CWallet;
+isminetype IsMineCached(CWallet const & wallet, CScript const & script);
 
 /** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
 extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;

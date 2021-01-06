@@ -325,16 +325,6 @@ std::vector<CTxIn> GetInputs(UniValue const& inputs) {
     return vin;
 }
 
-static isminetype IsMineCached(CWallet const & wallet, CScript const & script)
-{
-    static std::map<CScript, isminetype> mineCached;
-    auto it = mineCached.find(script);
-    if (it == mineCached.end()) {
-        it = mineCached.emplace(script, ::IsMine(wallet, script)).first;
-    }
-    return it->second;
-}
-
 boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
     for(auto const & script : Params().GetConsensus().foundationMembers) {
         if(IsMineCached(*pwallet, script) == ISMINE_SPENDABLE)
@@ -3057,6 +3047,60 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     return obj;
 }
 
+static void searchInWallet(CWallet const * pwallet, CScript const & account,
+                           std::function<bool(CWalletTx const *)> shouldSkipTx,
+                           std::function<bool(COutputEntry const &)> onSent,
+                           std::function<bool(COutputEntry const &)> onReceive) {
+
+    CTxDestination destination;
+    ExtractDestination(account, destination);
+
+    if (!IsValidDestination(destination)) {
+        return;
+    }
+
+    CAmount nFee;
+    std::list<COutputEntry> listSent;
+    std::list<COutputEntry> listReceived;
+
+    LOCK(pwallet->cs_wallet);
+
+    const auto& txOrdered = pwallet->wtxOrdered;
+
+    for (const auto& tx : txOrdered) {
+        auto pwtx = tx.second;
+
+        if (pwtx->IsCoinBase()) {
+            continue;
+        }
+
+        if (shouldSkipTx(pwtx)) {
+            continue;
+        }
+
+        pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
+
+        for (auto& sent : listSent) {
+            if (!IsValidDestination(sent.destination) || destination != sent.destination) {
+                continue;
+            }
+            sent.amount = -sent.amount;
+            if (!onSent(sent)) {
+                return;
+            }
+        }
+
+        for (const auto& recv : listReceived) {
+            if (!IsValidDestination(recv.destination) || destination != recv.destination) {
+                continue;
+            }
+            if (!onReceive(recv)) {
+                return;
+            }
+        }
+    }
+}
+
 UniValue listaccounthistory(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
     RPCHelpMan{"listaccounthistory",
@@ -3093,6 +3137,13 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     std::string accounts = "mine";
     if (request.params.size() > 0) {
         accounts = request.params[0].getValStr();
+    }
+
+    const auto acFull = gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX);
+    const auto acMineOnly = gArgs.GetBoolArg("-acindex-mineonly", DEFAULT_ACINDEX_MINEONLY);
+
+    if (!acMineOnly && !acFull) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex or -acindex-mineonly is need for account history");
     }
 
     uint32_t maxBlockHeight = std::numeric_limits<uint32_t>::max();
@@ -3155,14 +3206,15 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return startBlock > blockHeight || blockHeight > maxBlockHeight;
     };
 
-    std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
-
+    bool isMine = false;
     if (accounts == "mine") {
-        isForMe = [pwallet](CScript const & owner) {
-            return IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE;
-        };
+        isMine = true;
     } else if (accounts != "all") {
         account = DecodeScript(accounts);
+        isMine = IsMineCached(*pwallet, account) == ISMINE_SPENDABLE;
+        if (acMineOnly && !isMine) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "account " + accounts + " is not mine, it's needed -acindex to find it");
+        }
         shouldSkipBlock = [&account, startBlock, maxBlockHeight](uint32_t blockHeight, CScript const & owner) {
             return owner != account || startBlock > blockHeight || blockHeight > maxBlockHeight;
         };
@@ -3187,12 +3239,12 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     auto count = limit;
 
-    pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
         if (shouldSkipBlock(key.blockHeight, key.owner)) {
             return true;
         }
 
-        const auto& value = valueLazy.get();
+        const auto & value = valueLazy.get();
 
         if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
             return true;
@@ -3202,92 +3254,61 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return true;
         }
 
-        if (isForMe(key.owner)) {
-            auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-            array.push_back(accounthistoryToJSON(key, value));
-            if (shouldSearchInWallet) {
-                txs.insert(value.txid);
-            }
-            --count;
+        auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+        array.push_back(accounthistoryToJSON(key, value));
+        if (shouldSearchInWallet) {
+            txs.insert(value.txid);
         }
+        return --count != 0;
+    };
 
-        return count != 0;
-    }, { CScript(), maxBlockHeight, std::numeric_limits<uint32_t>::max() });
+    AccountHistoryKey startKey{account, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
+
+    if (isMine) {
+        pcustomcsview->ForEachMineAccountHistory(shouldContinueToNextAccountHistory, startKey);
+    } else {
+        pcustomcsview->ForEachAllAccountHistory(shouldContinueToNextAccountHistory, startKey);
+    }
 
     if (shouldSearchInWallet) {
-
-        CTxDestination destination;
-        ExtractDestination(account, destination);
-
-        if (IsValidDestination(destination)) {
-
-            CAmount nFee;
-            std::list<COutputEntry> listSent;
-            std::list<COutputEntry> listReceived;
-
-            LOCK(pwallet->cs_wallet);
-
-            count = limit;
-
-            const auto& txOrdered = pwallet->wtxOrdered;
-
-            for (auto it = txOrdered.rbegin(); count != 0 && it != txOrdered.rend(); ++it) {
-                CWalletTx *const pwtx = (*it).second;
-
-                if(pwtx->IsCoinBase()) {
-                    continue;
-                }
-                const auto& txid = pwtx->GetHash();
-                if (txs.count(txid)) {
-                    continue;
-                }
-                const auto index = LookupBlockIndex(pwtx->hashBlock);
-
-                // Check we have index before progressing, wallet might be reindexing.
-                if (!index) {
-                    continue;
-                }
-
-                if (startBlock > index->height || index->height > maxBlockHeight) {
-                    continue;
-                }
-
-                pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
-
-                for (auto it = listSent.begin(); count != 0 &&  it != listSent.end(); ++it) {
-                    if (!IsValidDestination(it->destination) || destination != it->destination) {
-                        continue;
-                    }
-                    it->amount = -(it->amount);
-                    auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
-                    array.push_back(outputEntryToJSON(*it, index, txid, "sent"));
-                    --count;
-                }
-
-                for (auto it = listReceived.begin(); count != 0 && it != listReceived.end(); ++it) {
-                    if (!IsValidDestination(it->destination) || destination != it->destination) {
-                        continue;
-                    }
-                    auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
-                    array.push_back(outputEntryToJSON(*it, index, txid, "receive"));
-                    --count;
-                }
+        uint256 txid;
+        CBlockIndex const * index;
+        auto insertEntry = [&](COutputEntry const & entry, std::string const & info) -> bool {
+            auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
+            array.push_back(outputEntryToJSON(entry, index, txid, info));
+            return --count != 0;
+        };
+        searchInWallet(pwallet, account, [&](CWalletTx const * pwtx) -> bool {
+            txid = pwtx->GetHash();
+            if (txs.count(txid)) {
+                return true;
             }
-        }
+
+            // Check we have index before progressing, wallet might be reindexing.
+            if (!(index = LookupBlockIndex(pwtx->hashBlock))) {
+                return true;
+            }
+
+            if (startBlock > index->height || index->height > maxBlockHeight) {
+                return true;
+            }
+
+            return false;
+        }, std::bind(insertEntry, std::placeholders::_1, "sent"),
+           std::bind(insertEntry, std::placeholders::_1, "receive"));
     }
 
     if (!noRewards) {
         count = limit;
-        pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) {
+        auto shouldContinueToNextReward = [&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) -> bool {
             if (shouldSkipBlock(key.blockHeight, key.owner)) {
                 return true;
             }
 
             if(!tokenFilter.empty()) {
                 bool tokenFound = false;
-                for (const auto & value : valueLazy.get()) {
-                    if (hasToken(value.second)) {
-                        tokenFound = true;
+                for (auto& value : valueLazy.get()) {
+                    if ((tokenFound = hasToken(value.second))) {
                         break;
                     }
                 }
@@ -3296,18 +3317,23 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                 }
             }
 
-            if (isForMe(key.owner)) {
-                auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-                for (const auto & value : valueLazy.get()) {
-                    array.push_back(rewardhistoryToJSON(key, value));
-                    if (--count == 0) {
-                        break;
-                    }
+            auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+            for (const auto & value : valueLazy.get()) {
+                array.push_back(rewardhistoryToJSON(key, value));
+                if (--count == 0) {
+                    break;
                 }
             }
-
             return count != 0;
-        }, { CScript(), maxBlockHeight, 0 });
+        };
+
+        RewardHistoryKey startKey{account, maxBlockHeight, 0};
+
+        if (isMine) {
+            pcustomcsview->ForEachMineRewardHistory(shouldContinueToNextReward, startKey);
+        } else {
+            pcustomcsview->ForEachAllRewardHistory(shouldContinueToNextReward, startKey);
+        }
     }
 
     UniValue slice(UniValue::VARR);
@@ -3351,6 +3377,13 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         accounts = request.params[0].getValStr();
     }
 
+    const auto acFull = gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX);
+    const auto acMineOnly = gArgs.GetBoolArg("-acindex-mineonly", DEFAULT_ACINDEX_MINEONLY);
+
+    if (!acMineOnly && !acFull) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex or -acindex-mineonly is need for account history");
+    }
+
     bool noRewards = false;
     std::string tokenFilter;
 
@@ -3370,14 +3403,16 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     }
 
     CScript owner;
-    std::function<bool(CScript const&)> isForMe = [](CScript const&) { return true; };
+    bool isMine = false;
 
     if (accounts == "mine") {
-        isForMe = [pwallet](CScript const & owner) {
-            return IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE;
-        };
+        isMine = true;
     } else if (accounts != "all") {
         owner = DecodeScript(accounts);
+        isMine = IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE;
+        if (acMineOnly && !isMine) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "account " + accounts + " is not mine, it's needed -acindex to find it");
+        }
     }
 
     std::set<uint256> txs;
@@ -3399,8 +3434,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
     uint64_t count = 0;
 
-    pcustomcsview->ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) {
-
+    auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
         if (!owner.empty() && owner != key.owner) {
             return false;
         }
@@ -3411,69 +3445,33 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             return true;
         }
 
-        if (isForMe(key.owner)) {
-            ++count;
-            if (shouldSearchInWallet) {
-                txs.insert(value.txid);
-            }
+        if (shouldSearchInWallet) {
+            txs.insert(value.txid);
         }
-
+        ++count;
         return true;
-    }, {owner, 0, 0} );
+    };
+
+    AccountHistoryKey startAccountKey{owner, 0, 0};
+
+    if (isMine) {
+        pcustomcsview->ForEachMineAccountHistory(shouldContinueToNextAccountHistory, startAccountKey);
+    } else {
+        pcustomcsview->ForEachAllAccountHistory(shouldContinueToNextAccountHistory, startAccountKey);
+    }
 
     if (shouldSearchInWallet) {
-
-        CTxDestination destination;
-        ExtractDestination(owner, destination);
-
-        if (IsValidDestination(destination)) {
-
-            CAmount nFee;
-            std::list<COutputEntry> listSent;
-            std::list<COutputEntry> listReceived;
-
-            LOCK(pwallet->cs_wallet);
-
-            const auto& txOrdered = pwallet->wtxOrdered;
-
-            for (const auto& tx : txOrdered) {
-
-                auto pwtx = tx.second;
-
-                if (pwtx->IsCoinBase()) {
-                    continue;
-                }
-
-                const auto& txid = pwtx->GetHash();
-                if (txs.count(txid)) {
-                    continue;
-                }
-
-                pwtx->GetAmounts(listReceived, listSent, nFee, ISMINE_ALL_USED);
-
-                for (const auto& sent : listSent) {
-                    if (!IsValidDestination(sent.destination) || destination != sent.destination) {
-                        continue;
-                    }
-                    ++count;
-                }
-
-                for (const auto& recv : listReceived) {
-                    if (!IsValidDestination(recv.destination) || destination != recv.destination) {
-                        continue;
-                    }
-                    ++count;
-                }
-            }
-        }
+        auto incCount = [&count](COutputEntry const &) { ++count; return true; };
+        searchInWallet(pwallet, owner, [&](CWalletTx const *) -> bool {
+            return false;
+        }, incCount, incCount);
     }
 
     if (noRewards) {
         return count;
     }
 
-    pcustomcsview->ForEachRewardHistory([&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) {
-
+    auto shouldContinueToNextReward = [&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) -> bool {
         if (!owner.empty() && owner != key.owner) {
             return false;
         }
@@ -3481,8 +3479,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         if(!tokenFilter.empty()) {
             bool tokenFound = false;
             for (const auto & value : valueLazy.get()) {
-                if (hasToken(value.second)) {
-                    tokenFound = true;
+                if ((tokenFound = hasToken(value.second))) {
                     break;
                 }
             }
@@ -3490,13 +3487,17 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                 return true;
             }
         }
-
-        if (isForMe(key.owner)) {
-            ++count;
-        }
-
+        ++count;
         return true;
-    }, {owner, 0, 0} );
+    };
+
+    RewardHistoryKey startHistoryKey{owner, 0, 0};
+
+    if (isMine) {
+        pcustomcsview->ForEachMineRewardHistory(shouldContinueToNextReward, startHistoryKey);
+    } else {
+        pcustomcsview->ForEachAllRewardHistory(shouldContinueToNextReward, startHistoryKey);
+    }
 
     return count;
 }
