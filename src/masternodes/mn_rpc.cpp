@@ -3201,9 +3201,12 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     const auto startBlock = maxBlockHeight - depth;
 
     CScript account;
-    std::function<bool(uint32_t, CScript const&)> shouldSkipBlock =
-        [startBlock, maxBlockHeight](uint32_t blockHeight, CScript const&) {
-            return startBlock > blockHeight || blockHeight > maxBlockHeight;
+    auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
+        return startBlock > blockHeight || blockHeight > maxBlockHeight;
+    };
+
+    std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
+        return true;
     };
 
     bool isMine = false;
@@ -3215,8 +3218,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         if (acMineOnly && !isMine) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "account " + accounts + " is not mine, it's needed -acindex to find it");
         }
-        shouldSkipBlock = [&account, startBlock, maxBlockHeight](uint32_t blockHeight, CScript const & owner) {
-            return owner != account || startBlock > blockHeight || blockHeight > maxBlockHeight;
+        isMatchOwner = [&account](CScript const & owner) {
+            return owner == account;
         };
     }
 
@@ -3240,7 +3243,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     auto count = limit;
 
     auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
-        if (shouldSkipBlock(key.blockHeight, key.owner)) {
+        if (!isMatchOwner(key.owner)) {
+            return false;
+        }
+
+        if (shouldSkipBlock(key.blockHeight)) {
             return true;
         }
 
@@ -3301,7 +3308,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     if (!noRewards) {
         count = limit;
         auto shouldContinueToNextReward = [&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) -> bool {
-            if (shouldSkipBlock(key.blockHeight, key.owner)) {
+            if (!isMatchOwner(key.owner)) {
+                return false;
+            }
+
+            if (shouldSkipBlock(key.blockHeight)) {
                 return true;
             }
 
@@ -3395,7 +3406,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                 {"token", UniValueType(UniValue::VSTR)},
             }, true, true);
 
-        noRewards = optionsObj["no_rewards"].get_bool();
+        noRewards = optionsObj["no_rewards"].getBool();
 
         if (!optionsObj["token"].isNull()) {
             tokenFilter = optionsObj["token"].get_str();
@@ -3433,6 +3444,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
 
     uint64_t count = 0;
+    const auto currentHeight = uint32_t(::ChainActive().Height() + 1);
 
     auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
         if (!owner.empty() && owner != key.owner) {
@@ -3452,7 +3464,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         return true;
     };
 
-    AccountHistoryKey startAccountKey{owner, 0, 0};
+    AccountHistoryKey startAccountKey{owner, currentHeight, 0};
 
     if (isMine) {
         pcustomcsview->ForEachMineAccountHistory(shouldContinueToNextAccountHistory, startAccountKey);
@@ -3491,7 +3503,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         return true;
     };
 
-    RewardHistoryKey startHistoryKey{owner, 0, 0};
+    RewardHistoryKey startHistoryKey{owner, currentHeight, 0};
 
     if (isMine) {
         pcustomcsview->ForEachMineRewardHistory(shouldContinueToNextReward, startHistoryKey);
