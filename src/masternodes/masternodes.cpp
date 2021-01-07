@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <unordered_map>
 
 /// @attention make sure that it does not overlap with those in tokens.cpp !!!
 // Prefixes for the 'custom chainstate database' (customsc/)
@@ -523,16 +524,23 @@ bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
     return !pair || pair->second.destructionTx != uint256{} || pair->second.IsPoolShare();
 }
 
+enum accountHistoryType {
+    None = 0,
+    MineOnly,
+    Full,
+};
+
 CAccountsHistoryStorage::CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type)
     : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height), txn(txn), txid(txid), type(type)
 {
-    acindex = gArgs.GetBoolArg("-acindex", false);
+    acindex = gArgs.GetBoolArg("-acindex-mineonly", DEFAULT_ACINDEX_MINEONLY) ? accountHistoryType::MineOnly :
+              gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX) ? accountHistoryType::Full : accountHistoryType::None;
 }
 
 Res CAccountsHistoryStorage::AddBalance(CScript const & owner, CTokenAmount amount)
 {
     auto res = CCustomCSView::AddBalance(owner, amount);
-    if (acindex && res.ok) {
+    if (acindex && res.ok && amount.nValue != 0) {
         diffs[owner][amount.nTokenId] += amount.nValue;
     }
     return res;
@@ -541,7 +549,7 @@ Res CAccountsHistoryStorage::AddBalance(CScript const & owner, CTokenAmount amou
 Res CAccountsHistoryStorage::SubBalance(CScript const & owner, CTokenAmount amount)
 {
     auto res = CCustomCSView::SubBalance(owner, amount);
-    if (acindex && res.ok) {
+    if (acindex && res.ok && amount.nValue != 0) {
         diffs[owner][amount.nTokenId] -= amount.nValue;
     }
     return res;
@@ -550,8 +558,18 @@ Res CAccountsHistoryStorage::SubBalance(CScript const & owner, CTokenAmount amou
 bool CAccountsHistoryStorage::Flush()
 {
     if (acindex) {
+        auto wallets = GetWallets();
         for (const auto& diff : diffs) {
-            SetAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
+            bool isMine = false;
+            for (auto wallet : wallets) {
+                if ((isMine = IsMineCached(*wallet, diff.first) == ISMINE_SPENDABLE)) {
+                    SetMineAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
+                    break;
+                }
+            }
+            if (!isMine && acindex == accountHistoryType::Full) {
+                SetAllAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
+            }
         }
     }
     return CCustomCSView::Flush();
@@ -560,7 +578,8 @@ bool CAccountsHistoryStorage::Flush()
 CRewardsHistoryStorage::CRewardsHistoryStorage(CCustomCSView & storage, uint32_t height)
     : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height)
 {
-    acindex = gArgs.GetBoolArg("-acindex", false);
+    acindex = gArgs.GetBoolArg("-acindex-mineonly", DEFAULT_ACINDEX_MINEONLY) ? accountHistoryType::MineOnly :
+              gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX) ? accountHistoryType::Full : accountHistoryType::None;
 }
 
 Res CRewardsHistoryStorage::AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount)
@@ -576,10 +595,34 @@ Res CRewardsHistoryStorage::AddBalance(CScript const & owner, DCT_ID poolID, uin
 bool CRewardsHistoryStorage::Flush()
 {
     if (acindex) {
+        auto wallets = GetWallets();
         for (const auto& diff : diffs) {
+            bool isMine = false;
             const auto& pair = diff.first;
-            SetRewardHistory({pair.first, height, pair.second}, diff.second);
+            for (auto wallet : wallets) {
+                if ((isMine = IsMineCached(*wallet, pair.first) == ISMINE_SPENDABLE)) {
+                    SetMineRewardHistory({pair.first, height, pair.second}, diff.second);
+                    break;
+                }
+            }
+            if (!isMine && acindex == accountHistoryType::Full) {
+                SetAllRewardHistory({pair.first, height, pair.second}, diff.second);
+            }
         }
     }
     return CCustomCSView::Flush();
+}
+
+isminetype IsMineCached(CWallet const & wallet, CScript const & script)
+{
+    static std::unordered_map<std::string, std::map<CScript, isminetype>> mineCached;
+    auto it = mineCached.find(wallet.GetName());
+    if (it == mineCached.end()) {
+        it = mineCached.emplace(wallet.GetName(), std::map<CScript, isminetype>{}).first;
+    }
+    auto mIt = it->second.find(script);
+    if (mIt == it->second.end()) {
+        mIt = it->second.emplace(script, ::IsMine(wallet, script)).first;
+    }
+    return mIt->second;
 }

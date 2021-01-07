@@ -50,6 +50,7 @@ class TokensRPCListAccountHistory(DefiTestFramework):
 
         # Expect two sends, two receives and one mint tokens
         assert_equal(len(results), 5)
+        assert_equal(self.nodes[0].accounthistorycount(collateral_a), 5)
 
         # All TXs should be for collateral_a and contain a MintTokens TX
         found = False
@@ -64,6 +65,7 @@ class TokensRPCListAccountHistory(DefiTestFramework):
 
         # Expect one mint token TX
         assert_equal(len(results), 1)
+        assert_equal(self.nodes[1].accounthistorycount(collateral_a), 1)
 
         # Check owner is collateral_a and type MintTokens
         assert_equal(results[0]['owner'], collateral_a)
