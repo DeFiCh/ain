@@ -74,8 +74,8 @@ class TokensRPCGetCustomTX(DefiTestFramework):
 
         # All nodes agree
         assert_equal(self.nodes[0].gettoken(token_a)[token_a]['minted'], 300)
-        assert_equal(self.nodes[0].gettoken(token_a)[token_a]['minted'], 300)
-        assert_equal(self.nodes[0].gettoken(token_a)[token_a]['minted'], 300)
+        assert_equal(self.nodes[1].gettoken(token_a)[token_a]['minted'], 300)
+        assert_equal(self.nodes[2].gettoken(token_a)[token_a]['minted'], 300)
 
         # Get history node 0 from wallet TX
         result = self.nodes[0].getcustomtx(minttx)
