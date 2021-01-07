@@ -11,3 +11,4 @@ export PACKAGES="clang llvm python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0
 export NO_DEPENDS=1
 export GOAL="install"
 export DEFI_CONFIG="--enable-zmq --with-incompatible-bdb CPPFLAGS=-DDEBUG_LOCKORDER --with-sanitizers=address,integer,undefined CC=clang CXX=clang++"
+export RUN_CI_ON_HOST="1"
