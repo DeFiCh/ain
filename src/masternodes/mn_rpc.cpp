@@ -3577,7 +3577,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VARR);
 
     uint64_t count = 0;
-    const auto currentHeight = uint32_t(::ChainActive().Height() + 1);
+    const auto currentHeight = uint32_t(::ChainActive().Height());
 
     auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool {
         if (!owner.empty() && owner != key.owner) {
@@ -3597,7 +3597,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         return true;
     };
 
-    AccountHistoryKey startAccountKey{owner, currentHeight, 0};
+    AccountHistoryKey startAccountKey{owner, currentHeight, std::numeric_limits<uint32_t>::max()};
 
     if (isMine) {
         pcustomcsview->ForEachMineAccountHistory(shouldContinueToNextAccountHistory, startAccountKey);
@@ -3607,7 +3607,22 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
     if (shouldSearchInWallet) {
         auto incCount = [&count](COutputEntry const &) { ++count; return true; };
-        searchInWallet(pwallet, owner, [&](CWalletTx const *) -> bool {
+        searchInWallet(pwallet, owner, [&](CWalletTx const * pwtx) -> bool {
+            if (txs.count(pwtx->GetHash())) {
+                return true;
+            }
+
+            auto index = LookupBlockIndex(pwtx->hashBlock);
+
+            // Check we have index before progressing, wallet might be reindexing.
+            if (!index) {
+                return true;
+            }
+
+            if (index->height > currentHeight) {
+                return true;
+            }
+
             return false;
         }, incCount, incCount);
     }
