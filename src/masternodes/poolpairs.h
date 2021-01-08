@@ -9,6 +9,7 @@
 
 #include <amount.h>
 #include <arith_uint256.h>
+#include <chainparams.h>
 #include <masternodes/res.h>
 #include <script/script.h>
 #include <serialize.h>
@@ -250,7 +251,9 @@ class CPoolPairView : public virtual CStorageView
 public:
     Res SetPoolPair(const DCT_ID &poolId, CPoolPair const & pool);
     Res UpdatePoolPair(DCT_ID const & poolId, bool & status, CAmount const & commission, CScript const & ownerAddress);
-    Res DeletePoolPair(DCT_ID const & poolId);
+
+    Res SetPoolCustomReward(const DCT_ID &poolId, CBalances &rewards);
+    boost::optional<CBalances> GetPoolCustomReward(const DCT_ID &poolId);
 
     boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
     boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
@@ -268,7 +271,9 @@ public:
     }
 
     /// @attention it throws (at least for debug), cause errors are critical!
-    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, DCT_ID poolID, uint8_t type, CTokenAmount amount)> onTransfer, bool newRewardCalc = false) {
+    CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CScript const & from, DCT_ID poolID, uint8_t type, CTokenAmount amount)> onTransfer, int nHeight = 0) {
+
+        bool newRewardCalc = nHeight >= Params().GetConsensus().BayfrontGardensHeight;
 
         uint32_t const PRECISION = 10000; // (== 100%) just searching the way to avoid arith256 inflating
         CAmount totalDistributed = 0;
@@ -280,7 +285,28 @@ public:
             CAmount distributedFeeA = 0;
             CAmount distributedFeeB = 0;
 
-            if (pool.totalLiquidity == 0 || (!pool.swapEvent && poolReward == 0)) {
+            auto rewards = GetPoolCustomReward(poolId);
+            bool payCustomRewards{false};
+
+            if (nHeight >= Params().GetConsensus().ClarkeQuayHeight && rewards && !rewards->balances.empty()) {
+                for (auto it = rewards->balances.cbegin(), next_it = it; it != rewards->balances.cend(); it = next_it) {
+                    ++next_it;
+
+                    // Get token balance
+                    const auto balance = onGetBalance(pool.ownerAddress, it->first).nValue;
+
+                    // Make there's enough to pay reward otherwise remove it
+                    if (balance < it->second) {
+                        rewards->balances.erase(it);
+                    }
+                }
+
+                if (!rewards->balances.empty()) {
+                    payCustomRewards = true;
+                }
+            }
+
+            if (pool.totalLiquidity == 0 || (!pool.swapEvent && poolReward == 0 && !payCustomRewards)) {
                 return true; // no events, skip to the next pool
             }
 
@@ -300,13 +326,13 @@ public:
                         feeA = pool.blockCommissionA * liqWeight / PRECISION;
                     }
                     distributedFeeA += feeA;
-                    onTransfer(provider, poolId, uint8_t(RewardType::Commission), {pool.idTokenA, feeA}); //can throw
+                    onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Commission), {pool.idTokenA, feeA}); //can throw
                     CAmount feeB = static_cast<CAmount>((arith_uint256(pool.blockCommissionB) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                     if (!newRewardCalc) {
                         feeB = pool.blockCommissionB * liqWeight / PRECISION;
                     }
                     distributedFeeB += feeB;
-                    onTransfer(provider, poolId, uint8_t(RewardType::Commission), {pool.idTokenB, feeB}); //can throw
+                    onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Commission), {pool.idTokenB, feeB}); //can throw
                 }
 
                 // distribute yield farming
@@ -316,10 +342,22 @@ public:
                         providerReward = poolReward * liqWeight / PRECISION;
                     }
                     if (providerReward) {
-                        onTransfer(provider, poolId, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}); //can throw
+                        onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}); //can throw
                         totalDistributed += providerReward;
                     }
                 }
+
+                // Distribute custom rewards
+                if (payCustomRewards) {
+                    for (const auto reward : rewards->balances) {
+                        CAmount providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
+
+                        if (providerReward) {
+                            onTransfer(provider, pool.ownerAddress, poolId, uint8_t(RewardType::Rewards), {reward.first, providerReward}); //can throw
+                        }
+                    }
+                }
+
                 return true;
             }, PoolShareKey{poolId, CScript{}});
 
@@ -340,6 +378,7 @@ public:
     struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair
     struct ByPair { static const unsigned char prefix; }; // tokenA+tokenB -> lsTokenID
     struct ByShare { static const unsigned char prefix; }; // lsTokenID+accountID -> {}
+    struct Reward { static const unsigned char prefix; }; // lsTokenID -> CBalances
 };
 
 struct CLiquidityMessage {

@@ -10,6 +10,7 @@
 const unsigned char CPoolPairView::ByID          ::prefix = 'i';
 const unsigned char CPoolPairView::ByPair        ::prefix = 'j';
 const unsigned char CPoolPairView::ByShare       ::prefix = 'k';
+const unsigned char CPoolPairView::Reward        ::prefix = 'I';
 
 Res CPoolPairView::SetPoolPair(DCT_ID const & poolId, CPoolPair const & pool)
 {
@@ -96,6 +97,36 @@ boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const 
             return { std::make_pair(poolId, std::move(*poolPair)) };
     }
     return {};
+}
+
+Res CPoolPairView::SetPoolCustomReward(const DCT_ID &poolId, CBalances& rewards)
+{
+    DCT_ID poolID = poolId;
+    if (!GetPoolPair(poolID))
+    {
+        return Res::Err("Error %s: poolID %s does not exist", __func__, poolID.ToString());
+    }
+
+    // Get existing rewards, can be called from update pool pair.
+    auto currentRewards = ReadBy<Reward, CBalances>(WrapVarInt(poolID.v));
+    if (currentRewards) {
+        for (const auto& item : currentRewards->balances) {
+
+            // If current token is not included in update, add it to rewards so it remains unchanged
+            if (rewards.balances.find(item.first) == rewards.balances.end()) {
+                rewards.Add(CTokenAmount{item.first, item.second});
+            }
+        }
+    }
+
+    WriteBy<Reward>(WrapVarInt(poolID.v), rewards);
+    return Res::Ok();
+}
+
+boost::optional<CBalances> CPoolPairView::GetPoolCustomReward(const DCT_ID &poolId)
+{
+    DCT_ID poolID = poolId;
+    return ReadBy<Reward, CBalances>(WrapVarInt(poolID.v));
 }
 
 Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer, bool postBayfrontGardens) {

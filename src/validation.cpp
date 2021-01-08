@@ -2304,13 +2304,19 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 [&cache] (CScript const & owner, DCT_ID tokenID) {
                     return cache.GetBalance(owner, tokenID);
                 },
-                [&cache, &block] (CScript const & to, DCT_ID poolID, uint8_t type, CTokenAmount amount) {
+                [&cache, &block] (CScript const & to, CScript const & from, DCT_ID poolID, uint8_t type, CTokenAmount amount) {
+                    if (from != CScript()) {
+                        auto res = cache.SubBalance(from, amount);
+                        if (!res.ok) {
+                            throw std::runtime_error(strprintf("Custom pool rewards: can't update balance of %s: %s, Block %ld (%s)", to.GetHex(), res.msg, block.height, block.GetHash().ToString()));
+                        }
+                    }
                     auto res = cache.AddBalance(to, poolID, type, amount);
                     if (!res.ok)
                         throw std::runtime_error(strprintf("Pool rewards: can't update balance of %s: %s, Block %ld (%s)", to.GetHex(), res.msg, block.height, block.GetHash().ToString()));
                     return res;
                 },
-                pindex->nHeight >= chainparams.GetConsensus().BayfrontGardensHeight // Toggle new reward calc behaviour
+                pindex->nHeight
             );
 
             auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);

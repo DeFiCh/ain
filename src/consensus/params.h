@@ -76,6 +76,8 @@ struct Params {
     int BayfrontHeight;
     int BayfrontMarinaHeight;
     int BayfrontGardensHeight;
+    /** Third major fork. */
+    int ClarkeQuayHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
 

@@ -1018,9 +1018,16 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 
     CPoolPairMessage poolPairMsg;
     std::string pairSymbol;
+    CBalances rewards;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> poolPairMsg;
     ss >> pairSymbol;
+
+    // Read custom pool rewards
+    if (static_cast<int>(height) >= consensusParams.ClarkeQuayHeight && !ss.empty()) {
+        ss >> rewards;
+    }
+
     if (!ss.empty()) {
         return Res::Err("%s: deserialization failed: excess %d bytes", base,  ss.size());
     }
@@ -1079,6 +1086,20 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         rpcInfo->pushKV("tradeable", token.IsTradeable());
         rpcInfo->pushKV("finalized", token.IsFinalized());
 
+        if (!rewards.balances.empty()) {
+            UniValue rewardArr(UniValue::VARR);
+
+            for (const auto& reward : rewards.balances) {
+                if (reward.second > 0) {
+                    rewardArr.push_back(CTokenAmount{reward.first, reward.second}.ToString());
+                }
+            }
+
+            if (!rewardArr.empty()) {
+                rpcInfo->pushKV("customRewards", rewardArr);
+            }
+        }
+
         return Res::Ok(base);
     }
 
@@ -1098,6 +1119,24 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         return Res::Err("%s %s: %s", base, pairSymbol, resPP.msg);
     }
 
+    if (!rewards.balances.empty()) {
+        // Remove empty reward amounts
+        for (auto it = rewards.balances.cbegin(), next_it = it; it != rewards.balances.cend(); it = next_it) {
+            ++next_it;
+
+            if (it->second == 0) {
+                rewards.balances.erase(it);
+            }
+        }
+
+        auto resCR = mnview.SetPoolCustomReward(pairToken->first, rewards);
+
+        // Will only fail if pool was not actually created in SetPoolPair
+        if (!resCR.ok) {
+            return Res::Err("%s %s: %s", base, pairSymbol, resCR.msg);
+        }
+    }
+
     return Res::Ok(base);
 }
 
@@ -1113,11 +1152,18 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     bool status;
     CAmount commission;
     CScript ownerAddress;
+    CBalances rewards;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> poolId;
     ss >> status;
     ss >> commission;
     ss >> ownerAddress;
+
+    // Read custom pool rewards
+    if (static_cast<int>(height) >= consensusParams.ClarkeQuayHeight && !ss.empty()) {
+        ss >> rewards;
+    }
+
     if (!ss.empty()) {
         return Res::Err("Pool Update: deserialization failed: excess %d bytes", ss.size());
     }
@@ -1141,6 +1187,39 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
         rpcInfo->pushKV("commission", ValueFromAmount(commission));
         rpcInfo->pushKV("status", status);
         rpcInfo->pushKV("ownerAddress", ownerAddress.GetHex());
+
+        // Add rewards here before processing them below to avoid adding current rewards
+        if (!rewards.balances.empty()) {
+            UniValue rewardArr(UniValue::VARR);
+
+            for (const auto& reward : rewards.balances) {
+                if (reward.second > 0) {
+                    rewardArr.push_back(CTokenAmount{reward.first, reward.second}.ToString());
+                }
+            }
+
+            if (!rewardArr.empty()) {
+                rpcInfo->pushKV("customRewards", rewardArr);
+            }
+        }
+    }
+
+    if (!rewards.balances.empty()) {
+        // Remove empty reward amounts
+        for (auto it = rewards.balances.cbegin(), next_it = it; it != rewards.balances.cend(); it = next_it) {
+            ++next_it;
+
+            if (it->second == 0) {
+                rewards.balances.erase(it);
+            }
+        }
+
+        auto resCR = mnview.SetPoolCustomReward(poolId, rewards);
+
+        // Will only fail if pool was not actually created in SetPoolPair
+        if (!resCR.ok) {
+            return Res::Err("%s %s: %s", base, poolId.ToString(), resCR.msg);
+        }
     }
 
     return Res::Ok(base);
