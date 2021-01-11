@@ -8,6 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal
+from test_framework.authproxy import JSONRPCException
 
 class TokensCustomPoolReward(DefiTestFramework):
     def set_test_params(self):
@@ -56,8 +57,42 @@ class TokensCustomPoolReward(DefiTestFramework):
         self.nodes[0].minttokens(["100000@" + token_b])
         self.nodes[0].generate(1)
 
-        # Create pool pair
+        # Create pool collateral address
         pool_collateral = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fail on zero amount token reward
+        try:
+            self.nodes[0].createpoolpair({
+            "tokenA": "GOLD#" + token_a,
+            "tokenB": "SILVER#" + token_b,
+            "commission": 0.001,
+            "status": True,
+            "ownerAddress": pool_collateral,
+            "pairSymbol": "SILVGOLD",
+            "customRewards": ["0@" + token_a]
+        })
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Amount out of range" in errorString)
+        errorString = ""
+
+        # Fail on token that does not exist
+        try:
+            self.nodes[0].createpoolpair({
+            "tokenA": "GOLD#" + token_a,
+            "tokenB": "SILVER#" + token_b,
+            "commission": 0.001,
+            "status": True,
+            "ownerAddress": pool_collateral,
+            "pairSymbol": "SILVGOLD",
+            "customRewards": ["1@100"]
+        })
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("reward token 100 does not exist" in errorString)
+        errorString = ""
+
+        # Create pool with token rewards
         poolpair_tx = self.nodes[0].createpoolpair({
             "tokenA": "GOLD#" + token_a,
             "tokenB": "SILVER#" + token_b,
@@ -65,7 +100,7 @@ class TokensCustomPoolReward(DefiTestFramework):
             "status": True,
             "ownerAddress": pool_collateral,
             "pairSymbol": "SILVGOLD",
-            "customReward": ["1@" + token_a, "1@" + token_b]
+            "customRewards": ["1@" + token_a, "1@" + token_b]
         })
         self.nodes[0].generate(1)
 
@@ -201,8 +236,24 @@ class TokensCustomPoolReward(DefiTestFramework):
         self.nodes[0].accounttoaccount(collateral_c, {pool_collateral: "10@" + token_c})
         self.nodes[0].generate(1)
 
-        # Remove token a from rewards
-        updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1", "customReward": ["1@" + token_c]})
+        # Fail on zero amount token reward
+        try:
+            self.nodes[0].updatepoolpair({"pool": "1", "customRewards": ["0@" + token_c]})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Amount out of range" in errorString)
+        errorString = ""
+
+        # Update poolpair with invalid reward token
+        try:
+            self.nodes[0].updatepoolpair({"pool": "1", "customRewards": ["1@100"]})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("reward token 100 does not exist" in errorString)
+        errorString = ""
+
+        # Replace tokens with token c
+        updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1", "customRewards": ["1@" + token_c]})
         self.nodes[0].generate(1)
 
         # Check that customReards shows up in getcustomtx
@@ -214,23 +265,72 @@ class TokensCustomPoolReward(DefiTestFramework):
         assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '20.99979000@GOLD#128', '20.99979000@SILVER#129', '0.99999000@BRONZE#130'])
         assert_equal(self.nodes[1].getaccount(pool_collateral), ['0.00021000@GOLD#128', '0.00021000@SILVER#129', '9.00001000@BRONZE#130'])
 
-        # Provide pool reward for token a
+        # Provide pool reward for token a, should not show as it wasd removed
         self.nodes[0].accounttoaccount(collateral_a, {pool_collateral: "10@" + token_a})
         self.nodes[0].generate(1)
 
         # Check for new block reward and payout
-        assert_equal(self.nodes[1].getpoolpair(1)['1']['customRewards'], ['1.00000000@128', '1.00000000@130'])
-        assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '21.99978000@GOLD#128', '20.99979000@SILVER#129', '1.99998000@BRONZE#130'])
-        assert_equal(self.nodes[1].getaccount(pool_collateral), ['9.00022000@GOLD#128', '0.00021000@SILVER#129', '8.00002000@BRONZE#130'])
+        assert_equal(self.nodes[1].getpoolpair(1)['1']['customRewards'], ['1.00000000@130'])
+        assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '20.99979000@GOLD#128', '20.99979000@SILVER#129', '1.99998000@BRONZE#130'])
+        assert_equal(self.nodes[1].getaccount(pool_collateral), ['10.00021000@GOLD#128', '0.00021000@SILVER#129', '8.00002000@BRONZE#130'])
 
-        # Provide pool reward for token a
+        # Add back token a
+        updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1", "customRewards": ["1@" + token_a, "1@" + token_c]})
+        self.nodes[0].generate(1)
+
+        # Check that customReards shows up in getcustomtx
+        result = self.nodes[0].getcustomtx(updatepoolpair_tx)
+        assert_equal(result['results']['customRewards'], ["1.00000000@" + token_a, "1.00000000@" + token_c])
+
+        # Check for new block reward and payout for token a and c
+        assert_equal(self.nodes[1].getpoolpair(1)['1']['customRewards'], ['1.00000000@128', '1.00000000@130'])
+        assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '21.99978000@GOLD#128', '20.99979000@SILVER#129', '2.99997000@BRONZE#130'])
+        assert_equal(self.nodes[1].getaccount(pool_collateral), ['9.00022000@GOLD#128', '0.00021000@SILVER#129', '7.00003000@BRONZE#130'])
+
+        # Provide pool reward for token b, should not show as it was removed
         self.nodes[0].accounttoaccount(collateral_b, {pool_collateral: "10@" + token_b})
         self.nodes[0].generate(1)
 
         # Check for new block reward and payout
+        assert_equal(self.nodes[1].getpoolpair(1)['1']['customRewards'], ['1.00000000@128', '1.00000000@130'])
+        assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '22.99977000@GOLD#128', '20.99979000@SILVER#129', '3.99996000@BRONZE#130'])
+        assert_equal(self.nodes[1].getaccount(pool_collateral), ['8.00023000@GOLD#128', '10.00021000@SILVER#129', '6.00004000@BRONZE#130'])
+
+        # Add back token b
+        updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1", "customRewards": ["1@" + token_a, "1@" + token_b, "1@" + token_c]})
+        self.nodes[0].generate(1)
+
+        # Check that customReards shows up in getcustomtx
+        result = self.nodes[0].getcustomtx(updatepoolpair_tx)
+        assert_equal(result['results']['customRewards'], ["1.00000000@" + token_a, "1.00000000@" + token_b, "1.00000000@" + token_c])
+
+        # Check for new block reward and payout for token a, b and c
         assert_equal(self.nodes[1].getpoolpair(1)['1']['customRewards'], ['1.00000000@128', '1.00000000@129', '1.00000000@130'])
-        assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '22.99977000@GOLD#128', '21.99978000@SILVER#129', '2.99997000@BRONZE#130'])
-        assert_equal(self.nodes[1].getaccount(pool_collateral), ['8.00023000@GOLD#128', '9.00022000@SILVER#129', '7.00003000@BRONZE#130'])
+        assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '23.99976000@GOLD#128', '21.99978000@SILVER#129', '4.99995000@BRONZE#130'])
+        assert_equal(self.nodes[1].getaccount(pool_collateral), ['7.00024000@GOLD#128', '9.00022000@SILVER#129', '5.00005000@BRONZE#130'])
+
+        # Do nothing
+        updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1"})
+        self.nodes[0].generate(1)
+
+        # Check that customReards shows up in getcustomtx
+        result = self.nodes[0].getcustomtx(updatepoolpair_tx)
+        assert('customRewards' not in result['results'])
+
+        # Check for new block reward and payout for token a, b and c
+        assert_equal(self.nodes[1].getpoolpair(1)['1']['customRewards'], ['1.00000000@128', '1.00000000@129', '1.00000000@130'])
+        assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '24.99975000@GOLD#128', '22.99977000@SILVER#129', '5.99994000@BRONZE#130'])
+        assert_equal(self.nodes[1].getaccount(pool_collateral), ['6.00025000@GOLD#128', '8.00023000@SILVER#129', '4.00006000@BRONZE#130'])
+
+        # Wipe all rewards
+        updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1", "customRewards": []})
+        self.nodes[0].generate(1)
+
+        # Check TX shows rewards present and empty and balances should be unchanged
+        result = self.nodes[0].getcustomtx(updatepoolpair_tx)
+        assert_equal(result['results']['customRewards'], [])
+        assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '24.99975000@GOLD#128', '22.99977000@SILVER#129', '5.99994000@BRONZE#130'])
+        assert_equal(self.nodes[1].getaccount(pool_collateral), ['6.00025000@GOLD#128', '8.00023000@SILVER#129', '4.00006000@BRONZE#130'])
 
 if __name__ == '__main__':
     TokensCustomPoolReward().main()

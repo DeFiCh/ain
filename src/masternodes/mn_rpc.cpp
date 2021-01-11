@@ -2525,7 +2525,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                             "Pool Status: True is Active, False is Restricted"},
                             {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
                             "Address of the pool owner."},
-                            {"customReward", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                            {"customRewards", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                             "Token reward to be paid on each block, multiple can be specified."},
                             {"pairSymbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                              "Pair symbol (unique), no longer than " +
@@ -2552,14 +2552,14 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                                                           "\"commission\":\"0.001\","
                                                           "\"status\":\"True\","
                                                           "\"ownerAddress\":\"Address\","
-                                                          "\"customReward\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\""
+                                                          "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\""
                                                           "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                        + HelpExampleRpc("createpoolpair", "'{\"tokenA\":\"MyToken1\","
                                                           "\"tokenB\":\"MyToken2\","
                                                           "\"commission\":\"0.001\","
                                                           "\"status\":\"True\","
                                                           "\"ownerAddress\":\"Address\","
-                                                          "\"customReward\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\""
+                                                          "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\""
                                                           "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
@@ -2596,8 +2596,8 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     if (!metadataObj["pairSymbol"].isNull()) {
         pairSymbol = metadataObj["pairSymbol"].getValStr();
     }
-    if (!metadataObj["customReward"].isNull()) {
-        rewards = DecodeAmounts(pwallet->chain(), metadataObj["customReward"], "");
+    if (!metadataObj["customRewards"].isNull()) {
+        rewards = DecodeAmounts(pwallet->chain(), metadataObj["customRewards"], "");
     }
 
     int targetHeight;
@@ -2685,7 +2685,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                            {"status", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Pool Status new property (bool)"},
                            {"commission", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Pool commission, up to 10^-8"},
                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address of the pool owner."},
-                           {"customReward", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token reward to be paid on each block, multiple can be specified."},
+                           {"customRewards", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token reward to be paid on each block, multiple can be specified."},
                        },
                    },
                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
@@ -2706,11 +2706,11 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                RPCExamples{
                        HelpExampleCli("updatepoolpair", "'{\"pool\":\"POOL\",\"status\":true,"
                                                      "\"commission\":0.01,\"ownerAddress\":\"Address\","
-                                                     "\"customReward\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\"}' "
+                                                     "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\"}' "
                                                      "'[{\"txid\":\"id\",\"vout\":0}]'")
                        + HelpExampleRpc("updatepoolpair", "'{\"pool\":\"POOL\",\"status\":true,"
                                                        "\"commission\":0.01,\"ownerAddress\":\"Address\","
-                                                       "\"customReward\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\"}' "
+                                                       "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\"}' "
                                                        "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
@@ -2758,8 +2758,13 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     if (!metaObj["ownerAddress"].isNull()) {
         ownerAddress = DecodeScript(metaObj["ownerAddress"].getValStr());
     }
-    if (!metaObj["customReward"].isNull()) {
-        rewards = DecodeAmounts(pwallet->chain(), metaObj["customReward"], "");
+    if (!metaObj["customRewards"].isNull()) {
+        rewards = DecodeAmounts(pwallet->chain(), metaObj["customRewards"], "");
+
+        if (rewards.balances.empty()) {
+            // Add special case to wipe rewards
+            rewards.balances.insert(std::pair<DCT_ID, CAmount>(DCT_ID{std::numeric_limits<uint32_t>::max()}, std::numeric_limits<CAmount>::max()));
+        }
     }
 
     const auto txVersion = GetTransactionVersion(targetHeight);

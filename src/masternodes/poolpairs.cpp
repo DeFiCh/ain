@@ -107,18 +107,6 @@ Res CPoolPairView::SetPoolCustomReward(const DCT_ID &poolId, CBalances& rewards)
         return Res::Err("Error %s: poolID %s does not exist", __func__, poolID.ToString());
     }
 
-    // Get existing rewards, can be called from update pool pair.
-    auto currentRewards = ReadBy<Reward, CBalances>(WrapVarInt(poolID.v));
-    if (currentRewards) {
-        for (const auto& item : currentRewards->balances) {
-
-            // If current token is not included in update, add it to rewards so it remains unchanged
-            if (rewards.balances.find(item.first) == rewards.balances.end()) {
-                rewards.Add(CTokenAmount{item.first, item.second});
-            }
-        }
-    }
-
     WriteBy<Reward>(WrapVarInt(poolID.v), rewards);
     return Res::Ok();
 }

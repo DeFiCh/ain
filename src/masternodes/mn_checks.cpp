@@ -1049,12 +1049,12 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 
     auto tokenA = mnview.GetToken(poolPairMsg.idTokenA);
     if (!tokenA) {
-        return Res::Err("%s: token %s does not exist!", poolPairMsg.idTokenA.ToString());
+        return Res::Err("%s: token %s does not exist!", base, poolPairMsg.idTokenA.ToString());
     }
 
     auto tokenB = mnview.GetToken(poolPairMsg.idTokenB);
     if (!tokenB) {
-        return Res::Err("%s: token %s does not exist!", poolPairMsg.idTokenB.ToString());
+        return Res::Err("%s: token %s does not exist!", base, poolPairMsg.idTokenB.ToString());
     }
 
     if(pairSymbol.empty())
@@ -1120,9 +1120,14 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     }
 
     if (!rewards.balances.empty()) {
-        // Remove empty reward amounts
+        // Check tokens exist and remove empty reward amounts
         for (auto it = rewards.balances.cbegin(), next_it = it; it != rewards.balances.cend(); it = next_it) {
             ++next_it;
+
+            auto token = pcustomcsview->GetToken(it->first);
+            if (!token) {
+                return Res::Err("%s: reward token %d does not exist!", base, it->first.v);
+            }
 
             if (it->second == 0) {
                 rewards.balances.erase(it);
@@ -1192,22 +1197,39 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
         if (!rewards.balances.empty()) {
             UniValue rewardArr(UniValue::VARR);
 
-            for (const auto& reward : rewards.balances) {
-                if (reward.second > 0) {
-                    rewardArr.push_back(CTokenAmount{reward.first, reward.second}.ToString());
-                }
-            }
-
-            if (!rewardArr.empty()) {
+            // Check for special case to wipe rewards
+            if (rewards.balances.size() == 1 && rewards.balances.cbegin()->first == DCT_ID{std::numeric_limits<uint32_t>::max()}
+                    && rewards.balances.cbegin()->second == std::numeric_limits<CAmount>::max()) {
                 rpcInfo->pushKV("customRewards", rewardArr);
+            } else {
+                for (const auto& reward : rewards.balances) {
+                    if (reward.second > 0) {
+                        rewardArr.push_back(CTokenAmount{reward.first, reward.second}.ToString());
+                    }
+                }
+
+                if (!rewardArr.empty()) {
+                    rpcInfo->pushKV("customRewards", rewardArr);
+                }
             }
         }
     }
 
     if (!rewards.balances.empty()) {
-        // Remove empty reward amounts
+        // Check for special case to wipe rewards
+        if (rewards.balances.size() == 1 && rewards.balances.cbegin()->first == DCT_ID{std::numeric_limits<uint32_t>::max()}
+                && rewards.balances.cbegin()->second == std::numeric_limits<CAmount>::max()) {
+            rewards.balances.clear();
+        }
+
+        // Check if tokens exist and remove empty reward amounts
         for (auto it = rewards.balances.cbegin(), next_it = it; it != rewards.balances.cend(); it = next_it) {
             ++next_it;
+
+            auto token = pcustomcsview->GetToken(it->first);
+            if (!token) {
+                return Res::Err("%s: reward token %d does not exist!", base, it->first.v);
+            }
 
             if (it->second == 0) {
                 rewards.balances.erase(it);
