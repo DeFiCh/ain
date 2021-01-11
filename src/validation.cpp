@@ -2321,7 +2321,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);
             if (!res.ok)
-                throw std::runtime_error(strprintf("Pool rewards: can't update community balance: %s. Block %ld (%s)", res.msg, block.height, block.GetHash().ToString()));
+                LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, block.height, block.GetHash().ToString());
         }
         // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
         if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
