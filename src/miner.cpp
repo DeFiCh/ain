@@ -631,6 +631,9 @@ namespace pos {
 
             if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers && g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
                 return Status::initWaiting;
+
+            if (::ChainstateActive().IsInitialBlockDownload())
+                return Status::initWaiting;
         }
 
         if (nLastSystemTime.time_since_epoch().count() != 0 && nLastSteadyTime.time_since_epoch().count() != 0) {
