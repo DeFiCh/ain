@@ -18,8 +18,6 @@ The first step is to download the binaries. Here are links to binaries for Windo
 
 [Downloads](https://defichain.com/downloads/)
 
-We can download this on Linux using the command:
-
 Following that we can extract the tar file by running:
 ```
 tar -xvzf defichain-1.3.1-x86_64-pc-linux-gnu.tar.gz
