@@ -14,16 +14,11 @@ In this scenario, operator's address will be equal to the owner's (collateral) a
 
 ### Step 1 - Download and extract node software
 
-The first step is to download the binaries. Here are links to binaries for Linux and Macosx:
+The first step is to download the binaries. Here are links to binaries for Windows, Linux and Macosx (Please download the latest release):
 
-[Linux v1.3.1](https://github.com/DeFiCh/ain/releases/download/v1.3.1/defichain-1.3.1-x86_64-pc-linux-gnu.tar.gz)
-[Mac OSX v1.3.1](https://github.com/DeFiCh/ain/releases/download/v1.3.1/defichain-1.3.1-x86_64-apple-darwin11.tar.gz)
+[Downloads](https://defichain.com/downloads/)
 
 We can download this on Linux using the command:
-
-```
-wget https://github.com/DeFiCh/ain/releases/download/v1.3.1/defichain-1.3.1-x86_64-pc-linux-gnu.tar.gz
-```
 
 Following that we can extract the tar file by running:
 ```
