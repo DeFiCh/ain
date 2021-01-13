@@ -1815,6 +1815,31 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
 
         poolObj.pushKV("rewardPct", ValueFromAmount(pool.rewardPct));
 
+        auto rewards = pcustomcsview->GetPoolCustomReward(id);
+        if (rewards && !rewards->balances.empty()) {
+            for (auto it = rewards->balances.cbegin(), next_it = it; it != rewards->balances.cend(); it = next_it) {
+                ++next_it;
+
+                // Get token balance
+                const auto balance = pcustomcsview->GetBalance(pool.ownerAddress, it->first).nValue;
+
+                // Make there's enough to pay reward otherwise remove it
+                if (balance < it->second) {
+                    rewards->balances.erase(it);
+                }
+            }
+
+            if (!rewards->balances.empty()) {
+                UniValue rewardArr(UniValue::VARR);
+
+                for (const auto& reward : rewards->balances) {
+                    rewardArr.push_back(CTokenAmount{reward.first, reward.second}.ToString());
+                }
+
+                poolObj.pushKV("customRewards", rewardArr);
+            }
+        }
+
         poolObj.pushKV("creationTx", pool.creationTx.GetHex());
         poolObj.pushKV("creationHeight", (uint64_t) pool.creationHeight);
     }
@@ -2500,6 +2525,8 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                             "Pool Status: True is Active, False is Restricted"},
                             {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
                             "Address of the pool owner."},
+                            {"customRewards", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                            "Token reward to be paid on each block, multiple can be specified."},
                             {"pairSymbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                              "Pair symbol (unique), no longer than " +
                              std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
@@ -2524,14 +2551,16 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                                                           "\"tokenB\":\"MyToken2\","
                                                           "\"commission\":\"0.001\","
                                                           "\"status\":\"True\","
-                                                          "\"ownerAddress\":\"Address\""
+                                                          "\"ownerAddress\":\"Address\","
+                                                          "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\""
                                                           "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                        + HelpExampleRpc("createpoolpair", "'{\"tokenA\":\"MyToken1\","
                                                           "\"tokenB\":\"MyToken2\","
                                                           "\"commission\":\"0.001\","
                                                           "\"status\":\"True\","
-                                                          "\"ownerAddress\":\"Address\""
-                                                            "}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                                                          "\"ownerAddress\":\"Address\","
+                                                          "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\""
+                                                          "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -2546,6 +2575,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     std::string tokenA, tokenB, pairSymbol;
     CAmount commission = 0; // !!!
     CScript ownerAddress;
+    CBalances rewards;
     bool status = true; // default Active
     UniValue metadataObj = request.params[0].get_obj();
     if (!metadataObj["tokenA"].isNull()) {
@@ -2565,6 +2595,9 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     }
     if (!metadataObj["pairSymbol"].isNull()) {
         pairSymbol = metadataObj["pairSymbol"].getValStr();
+    }
+    if (!metadataObj["customRewards"].isNull()) {
+        rewards = DecodeAmounts(pwallet->chain(), metadataObj["customRewards"], "");
     }
 
     int targetHeight;
@@ -2593,6 +2626,10 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
              << poolPairMsg << pairSymbol;
+
+    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
+        metadata << rewards;
+    }
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -2648,7 +2685,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                            {"status", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Pool Status new property (bool)"},
                            {"commission", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Pool commission, up to 10^-8"},
                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address of the pool owner."},
-
+                           {"customRewards", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token reward to be paid on each block, multiple can be specified."},
                        },
                    },
                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
@@ -2668,10 +2705,12 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("updatepoolpair", "'{\"pool\":\"POOL\",\"status\":true,"
-                                                     "\"commission\":0.01,\"ownerAddress\":\"Address\"}' "
+                                                     "\"commission\":0.01,\"ownerAddress\":\"Address\","
+                                                     "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\"}' "
                                                      "'[{\"txid\":\"id\",\"vout\":0}]'")
                        + HelpExampleRpc("updatepoolpair", "'{\"pool\":\"POOL\",\"status\":true,"
-                                                       "\"commission\":0.01,\"ownerAddress\":\"Address\"}' "
+                                                       "\"commission\":0.01,\"ownerAddress\":\"Address\","
+                                                       "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\"}' "
                                                        "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
@@ -2688,6 +2727,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     bool status = true;
     CAmount commission = -1;
     CScript ownerAddress;
+    CBalances rewards;
     UniValue const & metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
 
@@ -2718,6 +2758,14 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     if (!metaObj["ownerAddress"].isNull()) {
         ownerAddress = DecodeScript(metaObj["ownerAddress"].getValStr());
     }
+    if (!metaObj["customRewards"].isNull()) {
+        rewards = DecodeAmounts(pwallet->chain(), metaObj["customRewards"], "");
+
+        if (rewards.balances.empty()) {
+            // Add special case to wipe rewards
+            rewards.balances.insert(std::pair<DCT_ID, CAmount>(DCT_ID{std::numeric_limits<uint32_t>::max()}, std::numeric_limits<CAmount>::max()));
+        }
+    }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -2729,6 +2777,10 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
              << poolId << status << commission << ownerAddress;
+
+    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
+        metadata << rewards;
+    }
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
