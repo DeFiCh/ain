@@ -51,7 +51,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['mintable'], True)
         assert_equal(result['results']['tradeable'], True)
         assert_equal(result['results']['finalized'], False)
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -82,7 +82,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['type'], "MintToken")
         assert_equal(result['valid'], True)
         assert_equal(result['results'][str(token_a)], Decimal("300.00000000"))
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -91,7 +91,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['type'], "MintToken")
         assert_equal(result['valid'], True)
         assert_equal(result['results'][str(token_a)], Decimal("300.00000000"))
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -108,7 +108,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['type'], "MintToken")
         assert_equal(result['valid'], True)
         assert_equal(result['results'][str(token_a)], Decimal("300.00000000"))
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -135,7 +135,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['name'], "silver")
         assert_equal(result['results']['mintable'], False)
         assert_equal(result['results']['tradeable'], False)
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -157,7 +157,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['type'], "CreateMasternode")
         assert_equal(result['valid'], True)
         assert_equal(result['results']['masternodeoperator'], collateral)
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -177,7 +177,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['type'], "ResignMasternode")
         assert_equal(result['valid'], True)
         assert_equal(result['results']['id'], mn_txid)
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -241,7 +241,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['mineable'], False)
         assert_equal(result['results']['tradeable'], True)
         assert_equal(result['results']['finalized'], True)
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -262,7 +262,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['from'], address_b_scriptpubkey)
         assert_equal([*result['results']['to']][0], address_a_scriptpubkey)
         assert_equal(list(result['results']['to'].values())[0], "100.00000000@" + token_b)
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -285,7 +285,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results'][token_a], Decimal("100.00000000"))
         assert_equal(result['results'][token_b], Decimal("100.00000000"))
         assert_equal(result['results']['shareaddress'], pool_share_scriptpubkey)
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -314,7 +314,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['toAddress'], address_b_scriptpubkey)
         assert_equal(result['results']['toToken'], token_b)
         assert_equal(result['results']['maxPrice'], Decimal("2.00000000"))
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -332,7 +332,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['valid'], True)
         assert_equal(result['results']['from'], pool_share_scriptpubkey)
         assert_equal(result['results']['amount'], "25.00000000@1")
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -356,7 +356,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['commission'], Decimal("0.10000000"))
         assert_equal(result['results']['status'], False)
         assert_equal(result['results']['ownerAddress'], owner_scriptpubkey)
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -373,7 +373,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['type'], "UtxosToAccount")
         assert_equal(result['valid'], True)
         assert_equal(result['results'][address_a_scriptpubkey], "1.00000000@0")
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -392,7 +392,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['from'], address_a_scriptpubkey)
         assert_equal(list(result['results']['to'].keys())[0], address_b_scriptpubkey)
         assert_equal(list(result['results']['to'].values())[0], "1.00000000@0")
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -415,7 +415,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(list(result['results']['from'].values())[0], "1.00000000@0")
         assert_equal(list(result['results']['to'].keys())[0], address_b_scriptpubkey)
         assert_equal(list(result['results']['to'].values())[0], "1.00000000@0")
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 
@@ -433,7 +433,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['valid'], True)
         assert_equal(list(result['results'].keys())[0], "LP_DAILY_DFI_REWARD")
         assert_equal(list(result['results'].values())[0], Decimal("35.00000000"))
-        assert_equal(result['block height'], blockheight)
+        assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
 

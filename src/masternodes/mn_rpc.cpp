@@ -4036,6 +4036,69 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
 }
 
+static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)
+{
+    std::vector<unsigned char> metadata;
+    guess = GuessCustomTxType(*tx, metadata);
+    CCustomCSView mnview_dummy(*pcustomcsview);
+
+    switch (guess)
+    {
+        case CustomTxType::CreateMasternode:
+            res = ApplyCreateMasternodeTx(mnview_dummy, *tx, nHeight, metadata, &txResults);
+            break;
+        case CustomTxType::ResignMasternode:
+            res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
+            break;
+        case CustomTxType::CreateToken:
+            res = ApplyCreateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdateToken:
+            res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdateTokenAny:
+            res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::MintToken:
+            res = ApplyMintTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::CreatePoolPair:
+            res = ApplyCreatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdatePoolPair:
+            res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::PoolSwap:
+            res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AddPoolLiquidity:
+            res = ApplyAddPoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::RemovePoolLiquidity:
+            res = ApplyRemovePoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UtxosToAccount:
+            res = ApplyUtxosToAccountTx(mnview_dummy, *tx, nHeight, metadata, Params().GetConsensus(), &txResults);
+            break;
+        case CustomTxType::AccountToUtxos:
+            res = ApplyAccountToUtxosTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AccountToAccount:
+            res = ApplyAccountToAccountTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::SetGovVariable:
+            res = ApplySetGovernanceTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AnyAccountsToAccounts:
+            res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        default:
+            return false;
+    }
+
+    return true;
+}
+
 static UniValue getcustomtx(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -4148,63 +4211,10 @@ static UniValue getcustomtx(const JSONRPCRequest& request)
             return "Coinbase transaction. Not a custom transaction.";
         }
 
-        std::vector<unsigned char> metadata;
-        guess = GuessCustomTxType(*tx, metadata);
-        CCustomCSView mnview_dummy(*pcustomcsview);
-
-        switch (guess)
-        {
-            case CustomTxType::CreateMasternode:
-                res = ApplyCreateMasternodeTx(mnview_dummy, *tx, nHeight, metadata, &txResults);
-                break;
-            case CustomTxType::ResignMasternode:
-                res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
-                break;
-            case CustomTxType::CreateToken:
-                res = ApplyCreateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::UpdateToken:
-                res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::UpdateTokenAny:
-                res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::MintToken:
-                res = ApplyMintTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::CreatePoolPair:
-                res = ApplyCreatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::UpdatePoolPair:
-                res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::PoolSwap:
-                res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::AddPoolLiquidity:
-                res = ApplyAddPoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::RemovePoolLiquidity:
-                res = ApplyRemovePoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::UtxosToAccount:
-                res = ApplyUtxosToAccountTx(mnview_dummy, *tx, nHeight, metadata, Params().GetConsensus(), &txResults);
-                break;
-            case CustomTxType::AccountToUtxos:
-                res = ApplyAccountToUtxosTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::AccountToAccount:
-                res = ApplyAccountToAccountTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::SetGovVariable:
-                res = ApplySetGovernanceTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::AnyAccountsToAccounts:
-                res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            default:
-                return "Not a custom transaction";
+        if (!GetCustomTXInfo(nHeight, tx, guess, res, txResults)) {
+            return "Not a custom transaction";
         }
+
     } else {
         // Should not really get here without prior failure.
         return "Could not find matching transaction.";
@@ -4231,8 +4241,8 @@ static UniValue getcustomtx(const JSONRPCRequest& request)
 
         result.pushKV("blockhash", hashBlock.GetHex());
         if (blockindex) {
-            result.pushKV("block height", blockindex->nHeight);
-            result.pushKV("blocktime", blockindex->GetBlockTime());
+            result.pushKV("blockHeight", blockindex->nHeight);
+            result.pushKV("blockTime", blockindex->GetBlockTime());
             result.pushKV("confirmations", 1 + ::ChainActive().Height() - blockindex->nHeight);
         } else {
             result.pushKV("confirmations", 0);
