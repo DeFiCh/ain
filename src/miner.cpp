@@ -183,11 +183,16 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             mTx.vout[1].nValue = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, chainparams.GetConsensus());
         }
 
-        LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);
-        pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
-
-        pblocktemplate->vTxFees.push_back(0);
-        pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+        auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
+        if (!rewardTx) {
+            LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);
+            pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+            pblocktemplate->vTxFees.push_back(0);
+            pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+        }else {
+            LogPrintf("AnchorConfirms::CreateNewBlock(): reward for anchor %s already exists (tx: %s), skip reward again\n",
+                finMsg.btcTxHash.ToString(), (*rewardTx).ToString());
+        }
 
         // DO NOT erase votes here! they'll be cleaned after block connection (ONLY!)
 //        panchorAwaitingConfirms->EraseAnchor(confirmsForAnchor.first);
@@ -625,6 +630,9 @@ namespace pos {
                 throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
 
             if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers && g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
+                return Status::initWaiting;
+
+            if (::ChainstateActive().IsInitialBlockDownload())
                 return Status::initWaiting;
         }
 
