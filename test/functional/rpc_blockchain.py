@@ -131,6 +131,7 @@ class BlockchainTest(DefiTestFramework):
             'segwit': {'type': 'buried', 'active': True, 'height': 0},
             'amk': {'type': 'buried', 'active': False, 'height': 10000000},
             'bayfront': {'type': 'buried', 'active': False, 'height': 10000000},
+            'clarkequay': {'type': 'buried', 'active': False, 'height': 10000000},
             'testdummy': {
                 'type': 'bip9',
                 'bip9': {
