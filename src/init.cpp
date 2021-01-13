@@ -1914,73 +1914,89 @@ bool AppInitMain(InitInterfaces& interfaces)
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
         LOCK(cs_main);
 
-        CTxDestination destination = DecodeDestination(gArgs.GetArg("-masternode_operator", ""));
-
-        CKeyID const operatorId = destination.which() == 1 ? CKeyID(*boost::get<PKHash>(&destination)) :
-                                  (destination.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID());
-        if (operatorId.IsNull()) {
-            LogPrintf("Error: wrong (or empty) masternode_operator address (%s)\n", gArgs.GetArg("-masternode_operator", "").c_str());
-            return false;
+        auto wallets = GetWallets();
+        if (wallets.size() == 0) {
+            LogPrintf("Warning! wallets not found\n");
+            return true;
         }
-        {
-            pos::ThreadStaker::Args stakerParams{};
-            {
-                std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-                if (wallets.size() == 0) {
-                    LogPrintf("Warning! wallets not found\n");
-                    return true;
-                }
-                std::shared_ptr<CWallet> defaultWallet = wallets[0];
 
-                CKey minterKey;
-                bool found =false;
-                for (auto&& wallet : wallets) {
-                    if (wallet->GetKey(operatorId, minterKey)) {
-                        found = true;
-                        break;
-                    }
+        std::set<std::string> operatorsSet;
+        bool atLeastOneRunningOperator = false;
+        auto const operators = gArgs.GetArgs("-masternode_operator");
+
+        for (auto const & op : operators) {
+            // do not process duplicate operator option
+            if (operatorsSet.count(op)) {
+                continue;
+            }
+            operatorsSet.insert(op);
+
+            pos::ThreadStaker::Args stakerParams;
+            auto& minterKey = stakerParams.minterKey;
+            auto& operatorId = stakerParams.operatorID;
+            auto& coinbaseScript = stakerParams.coinbaseScript;
+
+            CTxDestination destination = DecodeDestination(op);
+            operatorId = destination.which() == 1 ? CKeyID(*boost::get<PKHash>(&destination)) :
+                         destination.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID();
+
+            if (operatorId.IsNull()) {
+                LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
+                continue;
+            }
+
+            bool found = false;
+            for (auto wallet : wallets) {
+                if (wallet->GetKey(operatorId, minterKey)) {
+                    found = true;
+                    break;
                 }
-                if (!found) {
-                    LogPrintf("Error: masternode operator private key not found\n");
-                    return false;
-                }
-                
+            }
+
+            if (!found) {
+                LogPrintf("Error: masternode operator (%s) private key not found\n", op);
+                continue;
+            }
+
+            auto const rewardAddressStr = gArgs.GetArg("-rewardaddress", "");
+            CTxDestination const rewardAddress = rewardAddressStr.empty() ? CNoDestination{} :
+                                                    DecodeDestination(rewardAddressStr, chainparams);
+            if (IsValidDestination(rewardAddress)) {
+                coinbaseScript = GetScriptForDestination(rewardAddress);
+                LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", rewardAddressStr);
+            } else {
                 // determine coinbase script for minting thread
                 CTxDestination ownerDest;
                 auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
                 if (optMasternodeID) {
                     auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
                     assert(nodePtr); // this should not happen if MN was found by operator's id
-                    ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+                    ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
+                                                CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
                 }
-
-                CTxDestination const rewardAddress = DecodeDestination(gArgs.GetArg("-rewardaddress", ""), Params());
-                if (IsValidDestination(rewardAddress)) {
-                    LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", gArgs.GetArg("-rewardaddress", "").c_str());
-                    stakerParams.coinbaseScript = GetScriptForDestination(rewardAddress);
-                }
-                else if (IsValidDestination(ownerDest)) {
-                    LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest).c_str());
-                    stakerParams.coinbaseScript = GetScriptForDestination(ownerDest);
-                }
-                else {
+                if (IsValidDestination(ownerDest)) {
+                    coinbaseScript = GetScriptForDestination(ownerDest);
+                    LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
+                } else {
                     LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
                 }
-
-                stakerParams.minterKey = minterKey;
-                stakerParams.operatorID = operatorId;
             }
 
-            // Mint proof-of-stake blocks in background
-            threadGroup.create_thread([=]() {
-                TraceThread("CoinStaker", [=]() {
-                    // Fill Staker Args
+            atLeastOneRunningOperator = true;
 
+            // Mint proof-of-stake blocks in background
+            threadGroup.create_thread(
+                std::bind(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
                     // Run ThreadStaker
-                    pos::ThreadStaker threadStaker{};
-                    threadStaker(stakerParams, chainparams);
-                });
-            });
+                    pos::ThreadStaker threadStaker;
+                    threadStaker(std::move(stakerParams), std::move(chainparams));
+                }
+            ));
+        }
+
+        if (!atLeastOneRunningOperator) {
+            LogPrintf("Error: there is no valid masternode_operator\n");
+            return false;
         }
     }
 
