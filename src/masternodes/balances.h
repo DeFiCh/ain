@@ -88,7 +88,7 @@ struct CBalances
         return Res::Ok();
     }
 
-    CAmount GetAllTokensAmount() {
+    CAmount GetAllTokensAmount() const {
         CAmount sum = 0;
         for (auto& balance : balances) {
             sum += balance.second;
@@ -125,12 +125,10 @@ struct CBalances
     friend bool operator<(const CBalances& a, const CBalances& b) {
         for (const auto& a_kv : a.balances) {
             const auto b_value_it = b.balances.find(a_kv.first);
-            CAmount b_value = 0;
             if (b_value_it != b.balances.end()) {
-                b_value = b_value_it->second;
-            }
-            if (a_kv.second >= b_value) {
-                return false;
+                if (a_kv.second >= b_value_it->second) {
+                    return false;
+                }
             }
         }
         return true;

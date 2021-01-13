@@ -110,57 +110,61 @@ static AccountSelectionMode ParseAccountSelectionParam(const std::string selecti
 }
 
 static CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode) {
-    CAccounts selectedAccountsBalances;
+
     std::vector<std::pair<CScript, CBalances>> foundAccountsBalances;
-    CBalances residualBalances(targetBalances);
     // iterate at all accounts to finding all accounts with neccessaru token balances
-    for (auto accIt = accounts.begin(); accIt != accounts.end(); accIt++) {
+    for (const auto& account : accounts) {
         // selectedBalances accumulates overlap between account balances and residual balances
         CBalances selectedBalances;
         // iterate at residual balances to find neccessary tokens in account
-        for (auto balIt = residualBalances.balances.begin(); balIt != residualBalances.balances.end(); balIt++) {
+        for (const auto& balance : targetBalances.balances) {
             // find neccessary token amount from current account
-            auto foundTokenAmount = accIt->second.balances.find(balIt->first);
+            const auto& accountBalances = account.second.balances;
+            auto foundTokenAmount = accountBalances.find(balance.first);
             // account balance has neccessary token
-            if (foundTokenAmount != accIt->second.balances.end()) {
+            if (foundTokenAmount != accountBalances.end()) {
                 // add token amount to selected balances from current account
                 selectedBalances.Add(CTokenAmount{foundTokenAmount->first, foundTokenAmount->second});
             }
         }
         if (!selectedBalances.balances.empty()) {
             // added account and selected balances from account to selected accounts
-            foundAccountsBalances.emplace_back(accIt->first, selectedBalances);
+            foundAccountsBalances.emplace_back(account.first, selectedBalances);
         }
     }
 
     if (selectionMode != SelectionForward) {
         // we need sort vector by ascending or descending sum of token amounts
-        std::sort(foundAccountsBalances.begin(), foundAccountsBalances.end(), [&](std::pair<CScript, CBalances> p1, std::pair<CScript, CBalances> p2) {
+        std::sort(foundAccountsBalances.begin(), foundAccountsBalances.end(), [&](const std::pair<CScript, CBalances>& p1, const std::pair<CScript, CBalances>& p2) {
             return (selectionMode == SelectionCrumbs) ?
                     p1.second.GetAllTokensAmount() > p2.second.GetAllTokensAmount() :
-                        p1.second.GetAllTokensAmount() < p2.second.GetAllTokensAmount();
+                    p1.second.GetAllTokensAmount() < p2.second.GetAllTokensAmount();
         });
     }
 
+    CAccounts selectedAccountsBalances;
+    CBalances residualBalances(targetBalances);
     // selecting accounts balances
-    for (auto accIt = foundAccountsBalances.begin(); accIt != foundAccountsBalances.end(); accIt++) {
+    for (const auto& accountBalances : foundAccountsBalances) {
         // Substract residualBalances and selectedBalances with remainder.
         // Substraction with remainder will remove tokenAmount from balances if remainder
         // of token's amount is not zero (we got negative result of substraction)
-        CBalances remainder = residualBalances.SubBalancesWithRemainder(accIt->second.balances);
+        CBalances finalBalances(accountBalances.second);
+        CBalances remainder = residualBalances.SubBalancesWithRemainder(finalBalances.balances);
         // calculate final balances by substraction account balances with remainder
         // it is necessary to get rid of excess
-        CBalances finalBalances(accIt->second);
         finalBalances.SubBalances(remainder.balances);
-        if (!finalBalances.balances.empty())
-            selectedAccountsBalances.emplace(accIt->first, finalBalances);
+        if (!finalBalances.balances.empty()) {
+            selectedAccountsBalances.emplace(accountBalances.first, finalBalances);
+        }
         // if residual balances is empty we found all neccessary token amounts and can stop selecting
-        if (residualBalances.balances.empty())
+        if (residualBalances.balances.empty()) {
             break;
+        }
     }
 
     const auto selectedBalancesSum = SumAllTransfers(selectedAccountsBalances);
-    if (selectedBalancesSum != targetBalances) {
+    if (selectedBalancesSum < targetBalances) {
         // we have not enough tokens balance to transfer
         return {};
     }
