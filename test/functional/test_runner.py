@@ -214,6 +214,7 @@ BASE_SCRIPTS = [
     'feature_cltv.py',
     'rpc_uptime.py',
     'wallet_resendwallettransactions.py',
+    'feature_custom_poolreward.py',
     'wallet_fallbackfee.py',
     'feature_minchainwork.py',
     'rpc_getblockstats.py',

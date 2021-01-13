@@ -110,57 +110,61 @@ static AccountSelectionMode ParseAccountSelectionParam(const std::string selecti
 }
 
 static CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode) {
-    CAccounts selectedAccountsBalances;
+
     std::vector<std::pair<CScript, CBalances>> foundAccountsBalances;
-    CBalances residualBalances(targetBalances);
     // iterate at all accounts to finding all accounts with neccessaru token balances
-    for (auto accIt = accounts.begin(); accIt != accounts.end(); accIt++) {
+    for (const auto& account : accounts) {
         // selectedBalances accumulates overlap between account balances and residual balances
         CBalances selectedBalances;
         // iterate at residual balances to find neccessary tokens in account
-        for (auto balIt = residualBalances.balances.begin(); balIt != residualBalances.balances.end(); balIt++) {
+        for (const auto& balance : targetBalances.balances) {
             // find neccessary token amount from current account
-            auto foundTokenAmount = accIt->second.balances.find(balIt->first);
+            const auto& accountBalances = account.second.balances;
+            auto foundTokenAmount = accountBalances.find(balance.first);
             // account balance has neccessary token
-            if (foundTokenAmount != accIt->second.balances.end()) {
+            if (foundTokenAmount != accountBalances.end()) {
                 // add token amount to selected balances from current account
                 selectedBalances.Add(CTokenAmount{foundTokenAmount->first, foundTokenAmount->second});
             }
         }
         if (!selectedBalances.balances.empty()) {
             // added account and selected balances from account to selected accounts
-            foundAccountsBalances.emplace_back(accIt->first, selectedBalances);
+            foundAccountsBalances.emplace_back(account.first, selectedBalances);
         }
     }
 
     if (selectionMode != SelectionForward) {
         // we need sort vector by ascending or descending sum of token amounts
-        std::sort(foundAccountsBalances.begin(), foundAccountsBalances.end(), [&](std::pair<CScript, CBalances> p1, std::pair<CScript, CBalances> p2) {
+        std::sort(foundAccountsBalances.begin(), foundAccountsBalances.end(), [&](const std::pair<CScript, CBalances>& p1, const std::pair<CScript, CBalances>& p2) {
             return (selectionMode == SelectionCrumbs) ?
                     p1.second.GetAllTokensAmount() > p2.second.GetAllTokensAmount() :
-                        p1.second.GetAllTokensAmount() < p2.second.GetAllTokensAmount();
+                    p1.second.GetAllTokensAmount() < p2.second.GetAllTokensAmount();
         });
     }
 
+    CAccounts selectedAccountsBalances;
+    CBalances residualBalances(targetBalances);
     // selecting accounts balances
-    for (auto accIt = foundAccountsBalances.begin(); accIt != foundAccountsBalances.end(); accIt++) {
+    for (const auto& accountBalances : foundAccountsBalances) {
         // Substract residualBalances and selectedBalances with remainder.
         // Substraction with remainder will remove tokenAmount from balances if remainder
         // of token's amount is not zero (we got negative result of substraction)
-        CBalances remainder = residualBalances.SubBalancesWithRemainder(accIt->second.balances);
+        CBalances finalBalances(accountBalances.second);
+        CBalances remainder = residualBalances.SubBalancesWithRemainder(finalBalances.balances);
         // calculate final balances by substraction account balances with remainder
         // it is necessary to get rid of excess
-        CBalances finalBalances(accIt->second);
         finalBalances.SubBalances(remainder.balances);
-        if (!finalBalances.balances.empty())
-            selectedAccountsBalances.emplace(accIt->first, finalBalances);
+        if (!finalBalances.balances.empty()) {
+            selectedAccountsBalances.emplace(accountBalances.first, finalBalances);
+        }
         // if residual balances is empty we found all neccessary token amounts and can stop selecting
-        if (residualBalances.balances.empty())
+        if (residualBalances.balances.empty()) {
             break;
+        }
     }
 
     const auto selectedBalancesSum = SumAllTransfers(selectedAccountsBalances);
-    if (selectedBalancesSum != targetBalances) {
+    if (selectedBalancesSum < targetBalances) {
         // we have not enough tokens balance to transfer
         return {};
     }
@@ -1815,6 +1819,31 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
 
         poolObj.pushKV("rewardPct", ValueFromAmount(pool.rewardPct));
 
+        auto rewards = pcustomcsview->GetPoolCustomReward(id);
+        if (rewards && !rewards->balances.empty()) {
+            for (auto it = rewards->balances.cbegin(), next_it = it; it != rewards->balances.cend(); it = next_it) {
+                ++next_it;
+
+                // Get token balance
+                const auto balance = pcustomcsview->GetBalance(pool.ownerAddress, it->first).nValue;
+
+                // Make there's enough to pay reward otherwise remove it
+                if (balance < it->second) {
+                    rewards->balances.erase(it);
+                }
+            }
+
+            if (!rewards->balances.empty()) {
+                UniValue rewardArr(UniValue::VARR);
+
+                for (const auto& reward : rewards->balances) {
+                    rewardArr.push_back(CTokenAmount{reward.first, reward.second}.ToString());
+                }
+
+                poolObj.pushKV("customRewards", rewardArr);
+            }
+        }
+
         poolObj.pushKV("creationTx", pool.creationTx.GetHex());
         poolObj.pushKV("creationHeight", (uint64_t) pool.creationHeight);
     }
@@ -2500,6 +2529,8 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                             "Pool Status: True is Active, False is Restricted"},
                             {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
                             "Address of the pool owner."},
+                            {"customRewards", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                            "Token reward to be paid on each block, multiple can be specified."},
                             {"pairSymbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                              "Pair symbol (unique), no longer than " +
                              std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
@@ -2524,14 +2555,16 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
                                                           "\"tokenB\":\"MyToken2\","
                                                           "\"commission\":\"0.001\","
                                                           "\"status\":\"True\","
-                                                          "\"ownerAddress\":\"Address\""
+                                                          "\"ownerAddress\":\"Address\","
+                                                          "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\""
                                                           "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                        + HelpExampleRpc("createpoolpair", "'{\"tokenA\":\"MyToken1\","
                                                           "\"tokenB\":\"MyToken2\","
                                                           "\"commission\":\"0.001\","
                                                           "\"status\":\"True\","
-                                                          "\"ownerAddress\":\"Address\""
-                                                            "}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                                                          "\"ownerAddress\":\"Address\","
+                                                          "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\""
+                                                          "}' '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -2546,6 +2579,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     std::string tokenA, tokenB, pairSymbol;
     CAmount commission = 0; // !!!
     CScript ownerAddress;
+    CBalances rewards;
     bool status = true; // default Active
     UniValue metadataObj = request.params[0].get_obj();
     if (!metadataObj["tokenA"].isNull()) {
@@ -2565,6 +2599,9 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     }
     if (!metadataObj["pairSymbol"].isNull()) {
         pairSymbol = metadataObj["pairSymbol"].getValStr();
+    }
+    if (!metadataObj["customRewards"].isNull()) {
+        rewards = DecodeAmounts(pwallet->chain(), metadataObj["customRewards"], "");
     }
 
     int targetHeight;
@@ -2593,6 +2630,10 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
              << poolPairMsg << pairSymbol;
+
+    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
+        metadata << rewards;
+    }
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -2648,7 +2689,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                            {"status", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Pool Status new property (bool)"},
                            {"commission", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Pool commission, up to 10^-8"},
                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address of the pool owner."},
-
+                           {"customRewards", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token reward to be paid on each block, multiple can be specified."},
                        },
                    },
                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
@@ -2668,10 +2709,12 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("updatepoolpair", "'{\"pool\":\"POOL\",\"status\":true,"
-                                                     "\"commission\":0.01,\"ownerAddress\":\"Address\"}' "
+                                                     "\"commission\":0.01,\"ownerAddress\":\"Address\","
+                                                     "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\"}' "
                                                      "'[{\"txid\":\"id\",\"vout\":0}]'")
                        + HelpExampleRpc("updatepoolpair", "'{\"pool\":\"POOL\",\"status\":true,"
-                                                       "\"commission\":0.01,\"ownerAddress\":\"Address\"}' "
+                                                       "\"commission\":0.01,\"ownerAddress\":\"Address\","
+                                                       "\"customRewards\":\"[\\\"1@tokena\\\",\\\"10@tokenb\\\"]\"}' "
                                                        "'[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
@@ -2688,6 +2731,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     bool status = true;
     CAmount commission = -1;
     CScript ownerAddress;
+    CBalances rewards;
     UniValue const & metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
 
@@ -2718,6 +2762,14 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     if (!metaObj["ownerAddress"].isNull()) {
         ownerAddress = DecodeScript(metaObj["ownerAddress"].getValStr());
     }
+    if (!metaObj["customRewards"].isNull()) {
+        rewards = DecodeAmounts(pwallet->chain(), metaObj["customRewards"], "");
+
+        if (rewards.balances.empty()) {
+            // Add special case to wipe rewards
+            rewards.balances.insert(std::pair<DCT_ID, CAmount>(DCT_ID{std::numeric_limits<uint32_t>::max()}, std::numeric_limits<CAmount>::max()));
+        }
+    }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -2729,6 +2781,10 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
              << poolId << status << commission << ownerAddress;
+
+    if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
+        metadata << rewards;
+    }
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -3984,6 +4040,69 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
 }
 
+static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)
+{
+    std::vector<unsigned char> metadata;
+    guess = GuessCustomTxType(*tx, metadata);
+    CCustomCSView mnview_dummy(*pcustomcsview);
+
+    switch (guess)
+    {
+        case CustomTxType::CreateMasternode:
+            res = ApplyCreateMasternodeTx(mnview_dummy, *tx, nHeight, metadata, &txResults);
+            break;
+        case CustomTxType::ResignMasternode:
+            res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
+            break;
+        case CustomTxType::CreateToken:
+            res = ApplyCreateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdateToken:
+            res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdateTokenAny:
+            res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::MintToken:
+            res = ApplyMintTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::CreatePoolPair:
+            res = ApplyCreatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdatePoolPair:
+            res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::PoolSwap:
+            res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AddPoolLiquidity:
+            res = ApplyAddPoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::RemovePoolLiquidity:
+            res = ApplyRemovePoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UtxosToAccount:
+            res = ApplyUtxosToAccountTx(mnview_dummy, *tx, nHeight, metadata, Params().GetConsensus(), &txResults);
+            break;
+        case CustomTxType::AccountToUtxos:
+            res = ApplyAccountToUtxosTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AccountToAccount:
+            res = ApplyAccountToAccountTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::SetGovVariable:
+            res = ApplySetGovernanceTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AnyAccountsToAccounts:
+            res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        default:
+            return false;
+    }
+
+    return true;
+}
+
 static UniValue getcustomtx(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -4096,63 +4215,10 @@ static UniValue getcustomtx(const JSONRPCRequest& request)
             return "Coinbase transaction. Not a custom transaction.";
         }
 
-        std::vector<unsigned char> metadata;
-        guess = GuessCustomTxType(*tx, metadata);
-        CCustomCSView mnview_dummy(*pcustomcsview);
-
-        switch (guess)
-        {
-            case CustomTxType::CreateMasternode:
-                res = ApplyCreateMasternodeTx(mnview_dummy, *tx, nHeight, metadata, &txResults);
-                break;
-            case CustomTxType::ResignMasternode:
-                res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
-                break;
-            case CustomTxType::CreateToken:
-                res = ApplyCreateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::UpdateToken:
-                res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::UpdateTokenAny:
-                res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::MintToken:
-                res = ApplyMintTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::CreatePoolPair:
-                res = ApplyCreatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::UpdatePoolPair:
-                res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::PoolSwap:
-                res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::AddPoolLiquidity:
-                res = ApplyAddPoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::RemovePoolLiquidity:
-                res = ApplyRemovePoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::UtxosToAccount:
-                res = ApplyUtxosToAccountTx(mnview_dummy, *tx, nHeight, metadata, Params().GetConsensus(), &txResults);
-                break;
-            case CustomTxType::AccountToUtxos:
-                res = ApplyAccountToUtxosTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::AccountToAccount:
-                res = ApplyAccountToAccountTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::SetGovVariable:
-                res = ApplySetGovernanceTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            case CustomTxType::AnyAccountsToAccounts:
-                res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-                break;
-            default:
-                return "Not a custom transaction";
+        if (!GetCustomTXInfo(nHeight, tx, guess, res, txResults)) {
+            return "Not a custom transaction";
         }
+
     } else {
         // Should not really get here without prior failure.
         return "Could not find matching transaction.";
@@ -4179,8 +4245,8 @@ static UniValue getcustomtx(const JSONRPCRequest& request)
 
         result.pushKV("blockhash", hashBlock.GetHex());
         if (blockindex) {
-            result.pushKV("block height", blockindex->nHeight);
-            result.pushKV("blocktime", blockindex->GetBlockTime());
+            result.pushKV("blockHeight", blockindex->nHeight);
+            result.pushKV("blockTime", blockindex->GetBlockTime());
             result.pushKV("confirmations", 1 + ::ChainActive().Height() - blockindex->nHeight);
         } else {
             result.pushKV("confirmations", 0);
