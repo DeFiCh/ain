@@ -156,6 +156,8 @@ BASE_SCRIPTS = [
     'feature_any_accounts_to_accounts.py',
     'feature_poolswap.py',
     'feature_poolswap_mechanism.py',
+    'feature_prevent_bad_tx_propagation.py',
+    'feature_masternode_operator.py',
     'interface_http.py',
     'interface_rpc.py',
     'rpc_psbt.py',
@@ -236,8 +238,6 @@ BASE_SCRIPTS = [
     'rpc_help.py',
     'feature_help.py',
     'feature_shutdown.py',
-    'feature_prevent_bad_tx_propagation.py'
-    'masternode_operator.py'
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]
