@@ -38,7 +38,7 @@ if [ -z "$RUN_CI_ON_HOST" ]; then
 else
   echo "Running on host system without docker wrapper"
   DOCKER_EXEC () {
-    bash -c "cd $PWD && $*"
+    sudo bash -c "cd $PWD && $*"
   }
 fi
 

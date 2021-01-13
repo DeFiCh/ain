@@ -14,6 +14,7 @@
 #include <script/standard.h>
 #include <validation.h>
 #include <wallet/wallet.h>
+#include <wallet/walletutil.h>
 
 #include <algorithm>
 #include <functional>
@@ -620,9 +621,10 @@ bool CRewardsHistoryStorage::Flush()
 isminetype IsMineCached(CWallet const & wallet, CScript const & script)
 {
     static std::unordered_map<std::string, std::map<CScript, isminetype>> mineCached;
-    auto it = mineCached.find(wallet.GetName());
+    const auto& walletFilePath = wallet.GetLocation().GetFilePath();
+    auto it = mineCached.find(walletFilePath);
     if (it == mineCached.end()) {
-        it = mineCached.emplace(wallet.GetName(), std::map<CScript, isminetype>{}).first;
+        it = mineCached.emplace(walletFilePath, std::map<CScript, isminetype>{}).first;
     }
     auto mIt = it->second.find(script);
     if (mIt == it->second.end()) {
