@@ -108,10 +108,10 @@ struct CBalances
         return str;
     }
 
-    static CBalances Sum(std::vector<CTokenAmount> tokens) {
-        CBalances res{};
-        for (const auto& t : tokens) {
-            res.Add(CTokenAmount{t.nTokenId, t.nValue});
+    static CBalances Sum(std::vector<CTokenAmount> const & tokens) {
+        CBalances res;
+        for (const auto& token : tokens) {
+            res.Add(token);
         }
         return res;
     }
@@ -119,19 +119,24 @@ struct CBalances
     friend bool operator==(const CBalances& a, const CBalances& b) {
         return a.balances == b.balances;
     }
+
     friend bool operator!=(const CBalances& a, const CBalances& b) {
         return a.balances != b.balances;
     }
+
+    // NOTE: if some balance from b is hgher than a => a is less than b
     friend bool operator<(const CBalances& a, const CBalances& b) {
-        for (const auto& a_kv : a.balances) {
-            const auto b_value_it = b.balances.find(a_kv.first);
-            if (b_value_it != b.balances.end()) {
-                if (a_kv.second >= b_value_it->second) {
-                    return false;
-                }
+        for (const auto& b_kv : b.balances) {
+            const auto a_value_it = a.balances.find(b_kv.first);
+            CAmount a_value = 0;
+            if (a_value_it != a.balances.end()) {
+                a_value = a_value_it->second;
+            }
+            if (b_kv.second > a_value) {
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     ADD_SERIALIZE_METHODS;
