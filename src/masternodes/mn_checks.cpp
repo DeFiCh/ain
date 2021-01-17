@@ -960,8 +960,8 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
     auto const sumFrom = SumAllTransfers(msg.from);
     auto const sumTo = SumAllTransfers(msg.to);
 
-    if (sumFrom < sumTo) {
-        return Res::Err("%s: %s", base, "sum of inputs (from) < sum of outputs (to)");
+    if (sumFrom != sumTo) {
+        return Res::Err("%s: %s", base, "sum of inputs (from) != sum of outputs (to)");
     }
 
     // transfer
