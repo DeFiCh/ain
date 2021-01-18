@@ -111,6 +111,7 @@ static AccountSelectionMode ParseAccountSelectionParam(const std::string selecti
 
 static CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode) {
 
+    std::set<DCT_ID> tokenIds;
     std::vector<std::pair<CScript, CBalances>> foundAccountsBalances;
     // iterate at all accounts to finding all accounts with neccessaru token balances
     for (const auto& account : accounts) {
@@ -123,6 +124,7 @@ static CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const
             auto foundTokenAmount = accountBalances.find(balance.first);
             // account balance has neccessary token
             if (foundTokenAmount != accountBalances.end()) {
+                tokenIds.insert(foundTokenAmount->first);
                 // add token amount to selected balances from current account
                 selectedBalances.Add(CTokenAmount{foundTokenAmount->first, foundTokenAmount->second});
             }
@@ -133,29 +135,41 @@ static CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const
         }
     }
 
-    if (selectionMode != SelectionForward) {
-        // we need sort vector by ascending or descending sum of token amounts
-        std::sort(foundAccountsBalances.begin(), foundAccountsBalances.end(), [&](const std::pair<CScript, CBalances>& p1, const std::pair<CScript, CBalances>& p2) {
-            return (selectionMode == SelectionCrumbs) ?
-                    p1.second.GetAllTokensAmount() > p2.second.GetAllTokensAmount() :
-                    p1.second.GetAllTokensAmount() < p2.second.GetAllTokensAmount();
-        });
-    }
+    auto sortByTokenAmount = [selectionMode](const std::pair<CScript, CBalances>& p1,
+                                             const std::pair<CScript, CBalances>& p2,
+                                             const DCT_ID id) {
+        auto it1 = p1.second.balances.find(id);
+        auto it2 = p2.second.balances.find(id);
+        if (it1 != p1.second.balances.end() && it2 != p2.second.balances.end()) {
+            return selectionMode == SelectionCrumbs ? it1->second < it2->second : it1->second > it2->second;
+        } else {
+            return false; // should never happen
+        }
+    };
 
     CAccounts selectedAccountsBalances;
     CBalances residualBalances(targetBalances);
     // selecting accounts balances
-    for (const auto& accountBalances : foundAccountsBalances) {
-        // Substract residualBalances and selectedBalances with remainder.
-        // Substraction with remainder will remove tokenAmount from balances if remainder
-        // of token's amount is not zero (we got negative result of substraction)
-        CBalances finalBalances(accountBalances.second);
-        CBalances remainder = residualBalances.SubBalancesWithRemainder(finalBalances.balances);
-        // calculate final balances by substraction account balances with remainder
-        // it is necessary to get rid of excess
-        finalBalances.SubBalances(remainder.balances);
-        if (!finalBalances.balances.empty()) {
-            selectedAccountsBalances.emplace(accountBalances.first, finalBalances);
+    for (const auto tokenId : tokenIds) {
+        if (selectionMode != SelectionForward) {
+            std::sort(foundAccountsBalances.begin(), foundAccountsBalances.end(),
+                      std::bind(sortByTokenAmount, std::placeholders::_1, std::placeholders::_2, tokenId));
+        }
+        for (const auto& accountBalances : foundAccountsBalances) {
+            // Substract residualBalances and tokenBalance with remainder.
+            // Substraction with remainder will remove tokenAmount from balances if remainder
+            // of token's amount is not zero (we got negative result of substraction)
+            auto itTokenAmount = accountBalances.second.balances.find(tokenId);
+            if (itTokenAmount != accountBalances.second.balances.end()) {
+                CTokenAmount tokenBalance{itTokenAmount->first, itTokenAmount->second};
+                auto remainder = residualBalances.SubWithRemainder(tokenBalance);
+                // calculate final balances by substraction account balances with remainder
+                // it is necessary to get rid of excess
+                if (remainder != tokenBalance) {
+                    tokenBalance.Sub(remainder.nValue);
+                    selectedAccountsBalances[accountBalances.first].Add(tokenBalance);
+                }
+            }
         }
         // if residual balances is empty we found all neccessary token amounts and can stop selecting
         if (residualBalances.balances.empty()) {
@@ -164,7 +178,7 @@ static CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const
     }
 
     const auto selectedBalancesSum = SumAllTransfers(selectedAccountsBalances);
-    if (selectedBalancesSum < targetBalances) {
+    if (selectedBalancesSum != targetBalances) {
         // we have not enough tokens balance to transfer
         return {};
     }
@@ -3959,8 +3973,10 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     if (request.params[0].get_obj().empty()) { // autoselection
         CAccounts foundWalletAccounts = FindAccountsFromWallet(pwallet);
 
-        std::string selectionParam = request.params[2].isStr() ? request.params[2].get_str() : "pie";
-        AccountSelectionMode selectionMode = ParseAccountSelectionParam(selectionParam);
+        AccountSelectionMode selectionMode = SelectionPie;
+        if (request.params[2].isStr()) {
+            selectionMode = ParseAccountSelectionParam(request.params[2].get_str());
+        }
 
         msg.from = SelectAccountsByTargetBalances(foundWalletAccounts, sumTransfersTo, selectionMode);
 

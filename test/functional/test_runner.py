@@ -154,6 +154,7 @@ BASE_SCRIPTS = [
     'feature_poolpair.py',
     'feature_poolpair_liquidity.py',
     'feature_any_accounts_to_accounts.py',
+    'feature_sendtokenstoaddress.py',
     'feature_poolswap.py',
     'feature_poolswap_mechanism.py',
     'interface_http.py',

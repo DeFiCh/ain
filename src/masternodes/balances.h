@@ -88,14 +88,6 @@ struct CBalances
         return Res::Ok();
     }
 
-    CAmount GetAllTokensAmount() const {
-        CAmount sum = 0;
-        for (auto& balance : balances) {
-            sum += balance.second;
-        }
-        return sum;
-    }
-
     std::string ToString() const {
         std::string str;
         str.reserve(100);
