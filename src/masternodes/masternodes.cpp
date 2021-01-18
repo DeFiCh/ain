@@ -277,12 +277,16 @@ bool CMasternodesView::UnbanCriminal(const uint256 txid, std::vector<unsigned ch
 
 boost::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOperator() const
 {
-    CTxDestination dest = DecodeDestination(gArgs.GetArg("-masternode_operator", ""));
-    CKeyID const authAddress = dest.which() == 1 ? CKeyID(*boost::get<PKHash>(&dest)) : (dest.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&dest)) : CKeyID());
-    if (!authAddress.IsNull()) {
-        auto nodeId = GetMasternodeIdByOperator(authAddress);
-        if (nodeId)
-            return { std::make_pair(authAddress, *nodeId) };
+    auto const operators = gArgs.GetArgs("-masternode_operator");
+    for(auto const & key : operators) {
+        CTxDestination const dest = DecodeDestination(key);
+        CKeyID const authAddress = dest.which() == 1 ? CKeyID(*boost::get<PKHash>(&dest)) :
+                                   dest.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&dest)) : CKeyID();
+        if (!authAddress.IsNull()) {
+            if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
+                return std::make_pair(authAddress, *nodeId);
+            }
+        }
     }
     return {};
 }

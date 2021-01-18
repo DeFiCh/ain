@@ -624,7 +624,7 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
 }
 
 namespace pos {
-    Staker::Status Staker::stake(CChainParams chainparams, const ThreadStaker::Args& args) {
+    Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
             if(!g_connman)
                 throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
@@ -662,7 +662,7 @@ namespace pos {
         /// @todo is 'tip' can be changed here? is it possible to pull 'getTip()' and mnview access to the upper (calling 'stake()') block?
         uint32_t mintedBlocks(0);
         uint256 masternodeID{};
-        CScript defaultScript;
+        CScript scriptPubKey;
         {
             LOCK(cs_main);
             auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(args.operatorID);
@@ -680,7 +680,9 @@ namespace pos {
             mintedBlocks = nodePtr->mintedBlocks;
             if (args.coinbaseScript.empty()) {
                 // this is safe cause MN was found
-                defaultScript = GetScriptForDestination(nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress)));
+                scriptPubKey = GetScriptForDestination(nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress)));
+            } else {
+                scriptPubKey = args.coinbaseScript;
             }
         }
 
@@ -691,7 +693,7 @@ namespace pos {
                     LOCK(cs_main);
                     pcriminals->FetchMintedHeaders(masternodeID, mintedBlocks + 1, blockHeaders, fIsFakeNet);
                 }
-                for (std::pair <uint256, CBlockHeader> const & blockHeader : blockHeaders) {
+                for (auto const & blockHeader : blockHeaders) {
                     if (IsDoubleSignRestricted(blockHeader.second.height, tip->nHeight + (uint64_t)1)) {
                         potentialCriminalBlock = true;
                         return;
@@ -701,7 +703,7 @@ namespace pos {
             //
             // Create block template
             //
-            std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(args.coinbaseScript.empty() ? defaultScript : args.coinbaseScript));
+            std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
             if (!pblocktemplate.get()) {
                 throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
             }
@@ -762,7 +764,7 @@ namespace pos {
             minted = true;
         });
 
-        return minted ? Status::minted : (potentialCriminalBlock? Status::criminalWaiting : Status::stakeWaiting);
+        return minted ? Status::minted : potentialCriminalBlock ? Status::criminalWaiting : Status::stakeWaiting;
     }
 
     CBlockIndex* Staker::getTip() {
@@ -795,13 +797,17 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
         return args.nMint == -1 || nMinted < args.nMint;
     };
 
+    const auto operatorName = args.operatorID.GetHex();
+
+    LogPrintf("ThreadStaker (%s): started.\n", operatorName);
+
     while (true) {
         boost::this_thread::interruption_point();
 
         while (fImporting || fReindex) {
             boost::this_thread::interruption_point();
 
-            LogPrintf("ThreadStaker: reindex waiting\n");
+            LogPrintf("ThreadStaker (%s): waiting reindex...\n", operatorName);
 
             std::this_thread::sleep_for(std::chrono::milliseconds(900));
         }
@@ -809,25 +815,25 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
         try {
             Staker::Status status = staker.stake(chainparams, args);
             if (status == Staker::Status::error) {
-                LogPrintf("ThreadStaker terminated due to a staking error\n");
+                LogPrintf("ThreadStaker (%s): terminated due to a staking error!\n", operatorName);
                 return nMinted;
             }
             if (status == Staker::Status::minted) {
-                LogPrintf("ThreadStaker minted a block!\n");
+                LogPrintf("ThreadStaker (%s): minted a block!\n", operatorName);
                 nMinted++;
             }
             if (status == Staker::Status::initWaiting) {
-                LogPrintf("ThreadStaker: initial waiting\n");
+                LogPrintf("ThreadStaker (%s): waiting init...\n", operatorName);
             }
             if (status == Staker::Status::stakeWaiting) {
-                LogPrint(BCLog::STAKING, "Staked, but no kernel found yet\n");
+                LogPrint(BCLog::STAKING, "ThreadStaker (%s): Staked, but no kernel found yet.\n", operatorName);
             }
             if (status == Staker::Status::criminalWaiting) {
-                LogPrint(BCLog::STAKING, "Potential criminal block tried to create\n");
+                LogPrint(BCLog::STAKING, "ThreadStaker (%s): Potential criminal block tried to create.\n", operatorName);
             }
         }
         catch (const std::runtime_error &e) {
-            LogPrintf("ThreadStaker runtime error: %s\n", e.what());
+            LogPrintf("ThreadStaker (%s): runtime error: %s\n", e.what(), operatorName);
             return nMinted;
         }
 

@@ -243,7 +243,7 @@ namespace pos {
             minted,
         };
 
-        Staker::Status stake(CChainParams chainparams, const ThreadStaker::Args& args);
+        Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args);
     private:
         CBlockIndex* getTip();
         template <typename F>
