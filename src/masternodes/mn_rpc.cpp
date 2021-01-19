@@ -1773,12 +1773,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
     CBalances totalBalances;
-    CScript oldOwner;
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
-        if (oldOwner == owner) {
-            totalBalances.Add(balance);
-        } else if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
-            oldOwner = owner;
+        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
             totalBalances.Add(balance);
         }
         return true;
