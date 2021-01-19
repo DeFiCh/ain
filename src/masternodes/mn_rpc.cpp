@@ -2903,7 +2903,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
                "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                        {
                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO,
                                        "Address of the owner of tokenA."},
