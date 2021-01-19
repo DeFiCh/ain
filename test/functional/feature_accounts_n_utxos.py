@@ -51,28 +51,32 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         #========================
         # missing from (account)
         try:
-            self.nodes[0].accounttoaccount(self.nodes[0].getnewaddress("", "legacy"), {toGold: "100@" + symbolGOLD}, [])
+            self.nodes[0].accounttoaccount(self.nodes[0].getnewaddress("", "legacy"),
+                                           {toGold: "100@" + symbolGOLD, 'enable_external_dfi_token_tx': True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("not enough balance" in errorString)
 
         # missing from (account exist, but no tokens)
         try:
-            self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolSILVER}, [])
+            self.nodes[0].accounttoaccount(accountGold,
+                                           {toGold: "100@" + symbolSILVER, 'enable_external_dfi_token_tx': True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("not enough balance" in errorString)
 
         # missing amount
         try:
-            self.nodes[0].accounttoaccount(accountGold, {toGold: ""}, [])
+            self.nodes[0].accounttoaccount(accountGold,
+                                           {toGold: "", 'enable_external_dfi_token_tx': True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Invalid amount" in errorString)
 
         #invalid UTXOs
         try:
-            self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolGOLD}, [{"": 0}])
+            self.nodes[0].accounttoaccount(accountGold,
+                                           {toGold: "100@" + symbolGOLD, 'enable_external_dfi_token_tx': True}, [{"": 0}])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("JSON value is not a string as expected" in errorString)
@@ -85,7 +89,8 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert("Incorrect auth" in errorString)
 
         # transfer
-        self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolGOLD}, [])
+        self.nodes[0].accounttoaccount(accountGold,
+                                       {toGold: "100@" + symbolGOLD, 'enable_external_dfi_token_tx': True}, [])
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
@@ -95,7 +100,8 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], self.nodes[1].getaccount(toGold, {}, True)[idGold])
 
         # transfer between nodes
-        self.nodes[1].accounttoaccount(accountSilver, {toSilver: "100@" + symbolSILVER}, [])
+        self.nodes[1].accounttoaccount(accountSilver,
+                                       {toSilver: "100@" + symbolSILVER, 'enable_external_dfi_token_tx': True}, [])
         self.nodes[1].generate(1)
 
         assert_equal(self.nodes[1].getaccount(accountSilver, {}, True)[idSilver], initialSilver - 100)
@@ -114,14 +120,14 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         # utxostoaccount
         #========================
         try:
-            self.nodes[0].utxostoaccount({toGold: "100@" + symbolGOLD}, [])
+            self.nodes[0].utxostoaccount({toGold: "100@" + symbolGOLD, 'enable_external_dfi_token_tx': True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Insufficient funds" in errorString)
 
         # missing amount
         try:
-            self.nodes[0].utxostoaccount({toGold: ""}, [])
+            self.nodes[0].utxostoaccount({toGold: "", 'enable_external_dfi_token_tx': True}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Invalid amount" in errorString)

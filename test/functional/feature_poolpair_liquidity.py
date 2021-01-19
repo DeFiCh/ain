@@ -59,7 +59,8 @@ class PoolLiquidityTest (DefiTestFramework):
         poolOwner = self.nodes[0].getnewaddress("", "legacy")
 
         # transfer silver
-        self.nodes[1].accounttoaccount(accountSilver, {accountGold: "1000@" + symbolSILVER})
+        self.nodes[1].accounttoaccount(accountSilver, {accountGold: "1000@" + symbolSILVER,
+                                                       'enable_external_dfi_token_tx': True})
         self.nodes[1].generate(1)
         self.sync_all([self.nodes[0], self.nodes[1]])
 
@@ -155,7 +156,8 @@ class PoolLiquidityTest (DefiTestFramework):
         self.nodes[0].sendtoaddress(accountTest, 1)
 
         # transfer tokens
-        self.nodes[0].accounttoaccount(accountGold, {accountTest: ["500@" + symbolSILVER, "500@" + symbolGOLD]})
+        self.nodes[0].accounttoaccount(accountGold, {accountTest: ["500@" + symbolSILVER, "500@" + symbolGOLD],
+                                                     'enable_external_dfi_token_tx': True})
         self.nodes[0].generate(1)
         self.sync_all([self.nodes[0], self.nodes[3]])
 
@@ -251,14 +253,14 @@ class PoolLiquidityTest (DefiTestFramework):
         list_poolshares = self.nodes[0].listpoolshares()
         assert_equal(len(list_poolshares), 2)
 
-        self.nodes[0].accounttoaccount(accountGold, {accountSilver: "50@GS"})
+        self.nodes[0].accounttoaccount(accountGold, {accountSilver: "50@GS", 'enable_external_dfi_token_tx': True})
         self.nodes[0].generate(1)
 
         list_poolshares = self.nodes[0].listpoolshares()
         assert_equal(len(list_poolshares), 3)
 
         self.sync_blocks([self.nodes[0], self.nodes[1]])
-        self.nodes[1].accounttoaccount(accountSilver, {accountGold: "50@GS"})
+        self.nodes[1].accounttoaccount(accountSilver, {accountGold: "50@GS", 'enable_external_dfi_token_tx': True})
         self.nodes[1].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1]])
 

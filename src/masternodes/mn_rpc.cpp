@@ -486,6 +486,26 @@ static std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txV
     return result;
 }
 
+static CAccounts DecodeRecipientsDefaultInternal(CWallet* const pwallet, UniValue const& values) {
+    UniValue recipients(UniValue::VOBJ);
+    bool allowSendingToNotOwnAddresses = false;
+    for (const auto& key : values.getKeys()) {
+        if (key == "enable_external_dfi_token_tx") {
+            allowSendingToNotOwnAddresses = values[key].getBool();
+        } else {
+            recipients.pushKV(key, values[key]);
+        }
+    }
+    auto accounts = DecodeRecipients(pwallet->chain(), recipients);
+    if (!allowSendingToNotOwnAddresses) {
+        for (const auto& account : accounts) {
+            if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("The address (%s) is not your own address", ScriptToString(account.first)));
+            }
+        }
+    }
+    return accounts;
+}
 
 static CWallet* GetWallet(const JSONRPCRequest& request) {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -2208,6 +2228,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
                         {
                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
                                                                                  "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                            {"enable_external_dfi_token_tx", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "By default we don't allow sending tokens outside dfi addresses"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -2220,7 +2241,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
                                 },
                             },
                         },
-                    },    
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -2242,7 +2263,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
 
     // decode recipients
     CUtxosToAccountMessage msg{};
-    msg.to = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
+    msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[0].get_obj());
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -2302,6 +2323,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
                         {
                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
                                                                                      "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                            {"enable_external_dfi_token_tx", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "By default we don't allow sending tokens outside dfi addresses"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -2336,11 +2358,13 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
 
     // decode sender and recipients
     CAccountToAccountMessage msg{};
-    msg.from = DecodeScript(request.params[0].get_str());
-    msg.to = DecodeRecipients(pwallet->chain(), request.params[1].get_obj());
+    msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj());
+
     if (SumAllTransfers(msg.to).balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
+
+    msg.from = DecodeScript(request.params[0].get_str());
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -3933,6 +3957,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
                         {
                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address is the key, the value is amount in amount@token format. "
                                                                                      "If multiple tokens are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"},
+                            {"enable_external_dfi_token_tx", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "By default we don't allow sending tokens outside dfi addresses"},
                         },
                     },
                     {"selectionMode", RPCArg::Type::STR, /* default */ "pie", "If param \"from\" is empty this param indicates accounts autoselection mode."
@@ -3963,8 +3988,8 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VOBJ, UniValue::VSTR}, false);
 
     CAnyAccountsToAccountsMessage msg;
+    msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj());
 
-    msg.to = DecodeRecipients(pwallet->chain(), request.params[1].get_obj());
     const CBalances sumTransfersTo = SumAllTransfers(msg.to);
     if (sumTransfersTo.balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts in \"to\" param");
