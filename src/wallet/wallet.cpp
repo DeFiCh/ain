@@ -1818,6 +1818,7 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const in
         if (!AddKeyPubKeyWithDB(batch, key, pubkey)) {
             return false;
         }
+        NotifyOwnerChanged(GetScriptForDestination(PKHash(pubkey)));
         UpdateTimeFirstKey(timestamp);
     }
     return true;
