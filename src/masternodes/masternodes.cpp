@@ -20,6 +20,8 @@
 #include <functional>
 #include <unordered_map>
 
+#include <boost/signals2/signal.hpp>
+
 /// @attention make sure that it does not overlap with those in tokens.cpp !!!
 // Prefixes for the 'custom chainstate database' (customsc/)
 const unsigned char DB_MASTERNODES = 'M';     // main masternodes table
@@ -618,17 +620,30 @@ bool CRewardsHistoryStorage::Flush()
     return CCustomCSView::Flush();
 }
 
-isminetype IsMineCached(CWallet const & wallet, CScript const & script)
+struct CCacheInfo
 {
-    static std::unordered_map<std::string, std::map<CScript, isminetype>> mineCached;
+    std::map<CScript, isminetype> mineData;
+    std::array<boost::signals2::scoped_connection, 2> connects;
+};
+
+isminetype IsMineCached(CWallet & wallet, CScript const & script)
+{
+    static std::unordered_map<std::string, CCacheInfo> cache;
     const auto& walletFilePath = wallet.GetLocation().GetFilePath();
-    auto it = mineCached.find(walletFilePath);
-    if (it == mineCached.end()) {
-        it = mineCached.emplace(walletFilePath, std::map<CScript, isminetype>{}).first;
+    auto it = cache.find(walletFilePath);
+    if (it == cache.end()) {
+        it = cache.emplace(walletFilePath, CCacheInfo{{}, {
+            wallet.NotifyOwnerChanged.connect([walletFilePath](CScript const & owner) {
+                WITH_LOCK(cs_main, cache[walletFilePath].mineData.erase(owner));
+            }),
+            wallet.NotifyUnload.connect([walletFilePath]() {
+                WITH_LOCK(cs_main, cache.erase(walletFilePath));
+            }),
+        }}).first;
     }
-    auto mIt = it->second.find(script);
-    if (mIt == it->second.end()) {
-        mIt = it->second.emplace(script, ::IsMine(wallet, script)).first;
+    auto mIt = it->second.mineData.find(script);
+    if (mIt == it->second.mineData.end()) {
+        mIt = it->second.mineData.emplace(script, ::IsMine(wallet, script)).first;
     }
     return mIt->second;
 }

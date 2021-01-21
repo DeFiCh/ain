@@ -159,6 +159,7 @@ BASE_SCRIPTS = [
     'feature_poolswap_mechanism.py',
     'feature_prevent_bad_tx_propagation.py',
     'feature_masternode_operator.py',
+    'feature_mine_cached.py',
     'interface_http.py',
     'interface_rpc.py',
     'rpc_psbt.py',

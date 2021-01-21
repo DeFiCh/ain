@@ -1254,6 +1254,9 @@ public:
     /** Keypool has new keys */
     boost::signals2::signal<void ()> NotifyCanGetAddressesChanged;
 
+    /** Keypool owns new key */
+    boost::signals2::signal<void (const CScript& owner)> NotifyOwnerChanged;
+
     /**
      * Wallet status (encrypted, locked) changed.
      * Note: Called without locks held.
