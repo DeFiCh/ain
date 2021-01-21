@@ -1793,12 +1793,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
     CBalances totalBalances;
-    CScript oldOwner;
     pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
-        if (oldOwner == owner) {
-            totalBalances.Add(balance);
-        } else if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
-            oldOwner = owner;
+        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
             totalBalances.Add(balance);
         }
         return true;
@@ -2927,7 +2923,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
                "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                        {
                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO,
                                        "Address of the owner of tokenA."},
