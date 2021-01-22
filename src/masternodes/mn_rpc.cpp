@@ -3437,7 +3437,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         isMine = true;
     } else if (accounts != "all") {
         account = DecodeScript(accounts);
-        isMine = IsMineCached(*pwallet, account) == ISMINE_SPENDABLE;
+        isMine = IsMineCached(*pwallet, account) & ISMINE_ALL;
         if (acMineOnly && !isMine) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "account " + accounts + " is not mine, it's needed -acindex to find it");
         }
@@ -3643,7 +3643,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         isMine = true;
     } else if (accounts != "all") {
         owner = DecodeScript(accounts);
-        isMine = IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE;
+        isMine = IsMineCached(*pwallet, owner) & ISMINE_ALL;
         if (acMineOnly && !isMine) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "account " + accounts + " is not mine, it's needed -acindex to find it");
         }
