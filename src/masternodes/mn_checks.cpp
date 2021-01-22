@@ -223,13 +223,12 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
  */
 Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, UniValue *rpcInfo)
 {
-    const std::string base{"Creation of masternode"};
     // Check quick conditions first
     if (tx.vout.size() < 2 ||
         tx.vout[0].nValue < GetMnCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
         tx.vout[1].nValue != GetMnCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0}
         ) {
-        return Res::Err("%s: %s", base, "malformed tx vouts (wrong creation fee or collateral amount)");
+        return Res::Err("%s: %s", __func__, "malformed tx vouts (wrong creation fee or collateral amount)");
     }
 
     CMasternode node;
@@ -237,7 +236,7 @@ Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uin
     ss >> node.operatorType;
     ss >> node.operatorAuthAddress;
     if (!ss.empty()) {
-        return Res::Err("%s: deserialization failed: excess %d bytes", base,  ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__,  ss.size());
     }
 
     CTxDestination dest;
@@ -257,64 +256,61 @@ Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uin
     if (rpcInfo) {
         rpcInfo->pushKV("masternodeoperator", EncodeDestination(node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) :
                                                 CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress))));
-        return Res::Ok(base);
+        return Res::Ok();
     }
 
     auto res = mnview.CreateMasternode(tx.GetHash(), node);
     if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
+        return Res::Err("%s: %s", __func__, res.msg);
     }
 
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, const std::vector<unsigned char> & metadata, bool skipAuth, UniValue *rpcInfo)
 {
-    const std::string base{"Resigning of masternode"};
-
     if (metadata.size() != sizeof(uint256)) {
-        return Res::Err("%s: metadata must contain 32 bytes", base);
+        return Res::Err("%s: metadata must contain 32 bytes", __func__);
     }
     uint256 nodeId(metadata);
     auto const node = mnview.GetMasternode(nodeId);
     if (!node) {
-        return Res::Err("%s: node %s does not exist", base, nodeId.ToString());
+        return Res::Err("%s: node %s does not exist", __func__, nodeId.ToString());
     }
     if (!skipAuth && !HasCollateralAuth(tx, coins, nodeId)) {
-        return Res::Err("%s %s: %s", base, nodeId.ToString(), "tx must have at least one input from masternode owner");
+        return Res::Err("%s %s: %s", __func__, nodeId.ToString(), "tx must have at least one input from masternode owner");
     }
 
     // Return here to avoid state is not ENABLED error
     if (rpcInfo) {
         rpcInfo->pushKV("id", nodeId.GetHex());
-        return Res::Ok(base);
+        return Res::Ok();
     }
 
     auto res = mnview.ResignMasternode(nodeId, tx.GetHash(), height);
     if (!res.ok) {
-        return Res::Err("%s %s: %s", base, nodeId.ToString(), res.msg);
+        return Res::Err("%s %s: %s", __func__, nodeId.ToString(), res.msg);
     }
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
-    const std::string base{"Token creation"};
     // Check quick conditions first
     if (tx.vout.size() < 2 ||
         tx.vout[0].nValue < GetTokenCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
         tx.vout[1].nValue != GetTokenCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0}
         ) {
-        return Res::Err("%s: %s", base, "malformed tx vouts (wrong creation fee or collateral amount)");
+        return Res::Err("%s: %s", __func__, "malformed tx vouts (wrong creation fee or collateral amount)");
     }
 
     CTokenImplementation token;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> static_cast<CToken &>(token);
     if (!ss.empty()) {
-        return Res::Err("%s: deserialization failed: excess %d bytes", base,  ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
     token.symbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     token.name = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
@@ -325,12 +321,12 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     //check foundation auth
     if((token.IsDAT()) && !skipAuth && !HasFoundationAuth(tx, coins, consensusParams))
     {//no need to check Authority if we don't create isDAT
-        return Res::Err("%s: %s", base, "tx not from foundation member");
+        return Res::Err("%s: %s", __func__, "tx not from foundation member");
     }
 
     if ((int)height >= consensusParams.BayfrontHeight) { // formal compatibility if someone cheat and create LPS token on the pre-bayfront node
         if(token.IsPoolShare()) {
-            return Res::Err("%s: %s", base, "Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
+            return Res::Err("%s: %s", __func__, "Cant't manually create 'Liquidity Pool Share' token; use poolpair creation");
         }
     }
 
@@ -344,15 +340,15 @@ Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         rpcInfo->pushKV("tradeable", token.IsTradeable());
         rpcInfo->pushKV("finalized", token.IsFinalized());
 
-        return Res::Ok(base);
+        return Res::Ok();
     }
 
     auto res = mnview.CreateToken(token, (int)height < consensusParams.BayfrontHeight);
     if (!res.ok) {
-        return Res::Err("%s %s: %s", base, token.symbol, res.msg);
+        return Res::Err("%s %s: %s", __func__, token.symbol, res.msg);
     }
 
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 /// @deprecated version of updatetoken tx, prefer using UpdateTokenAny after "bayfront" fork
@@ -364,26 +360,24 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Err("Old-style updatetoken tx forbidden after Bayfront height");
     }
 
-    const std::string base{"Token DAT update"};
-
     uint256 tokenTx;
     bool isDAT;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> tokenTx;
     ss >> isDAT;
     if (!ss.empty()) {
-        return Res::Err("%s: deserialization failed: excess %d bytes", base, ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
 
     auto pair = mnview.GetTokenByCreationTx(tokenTx);
     if (!pair) {
-        return Res::Err("%s: token with creationTx %s does not exist", base, tokenTx.ToString());
+        return Res::Err("%s: token with creationTx %s does not exist", __func__, tokenTx.ToString());
     }
     CTokenImplementation const & token = pair->second;
 
     //check foundation auth
     if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
-        return Res::Err("%s: %s", base, "Is not a foundation owner");
+        return Res::Err("%s: %s", __func__, "Is not a foundation owner");
     }
 
     if(token.IsDAT() != isDAT && pair->first >= CTokensView::DCT_ID_START)
@@ -393,7 +387,7 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 
         auto res = mnview.UpdateToken(token.creationTx, newToken, true);
         if (!res.ok) {
-            return Res::Err("%s %s: %s", base, token.symbol, res.msg);
+            return Res::Err("%s %s: %s", __func__, token.symbol, res.msg);
         }
     }
 
@@ -402,7 +396,7 @@ Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         rpcInfo->pushKV("isDAT", token.IsDAT());
     }
 
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 
@@ -412,20 +406,18 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
         return Res::Err("Improved updatetoken tx before Bayfront height");
     }
 
-    const std::string base{"Token update"};
-
     uint256 tokenTx;
     CToken newToken;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> tokenTx;
     ss >> newToken;
     if (!ss.empty()) {
-        return Res::Err("%s: deserialization failed: excess %d bytes", base, ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
 
     auto pair = mnview.GetTokenByCreationTx(tokenTx);
     if (!pair) {
-        return Res::Err("%s: token with creationTx %s does not exist", base, tokenTx.ToString());
+        return Res::Err("%s: token with creationTx %s does not exist", __func__, tokenTx.ToString());
     }
     if (pair->first == DCT_ID{0}) {
         return Res::Err("Can't alter DFI token!"); // may be redundant cause DFI is 'finalized'
@@ -435,7 +427,7 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
 
     // need to check it exectly here cause lps has no collateral auth (that checked next)
     if (token.IsPoolShare())
-        return Res::Err("%s: token %s is the LPS token! Can't alter pool share's tokens!", base, tokenTx.ToString());
+        return Res::Err("%s: token %s is the LPS token! Can't alter pool share's tokens!", __func__, tokenTx.ToString());
 
     // check auth, depends from token's "origins"
     const Coin& auth = coins.AccessCoin(COutPoint(token.creationTx, 1)); // always n=1 output
@@ -443,10 +435,10 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
 
     if (!skipAuth) {
         if (isFoundersToken && !HasFoundationAuth(tx, coins, consensusParams)) {
-            return Res::Err("%s: %s", base, "tx not from foundation member");
+            return Res::Err("%s: %s", __func__, "tx not from foundation member");
         }
         else if (!HasCollateralAuth(tx, coins, token.creationTx)) {
-            return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
+            return Res::Err("%s: %s", __func__, "tx must have at least one input from token owner");
         }
 
         // Check for isDAT change in non-foundation token after set height
@@ -455,14 +447,14 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
             //check foundation auth
             if((newToken.IsDAT() != token.IsDAT()) && !HasFoundationAuth(tx, coins, consensusParams))
             {//no need to check Authority if we don't create isDAT
-                return Res::Err("%s: %s", base, "can't set isDAT to true, tx not from foundation member");
+                return Res::Err("%s: %s", __func__, "can't set isDAT to true, tx not from foundation member");
             }
         }
     }
 
     auto res = mnview.UpdateToken(token.creationTx, newToken, false);
     if (!res.ok) {
-        return Res::Err("%s %s: %s", base, token.symbol, res.msg);
+        return Res::Err("%s %s: %s", __func__, token.symbol, res.msg);
     }
 
     if (rpcInfo) {
@@ -474,20 +466,18 @@ Res ApplyUpdateTokenAnyTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
         rpcInfo->pushKV("finalized", newToken.IsDAT());
     }
 
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if((int)height < consensusParams.AMKHeight) { return Res::Err("Token tx before AMK height (block %d)", consensusParams.AMKHeight); }
 
-    const std::string base{"Token minting"};
-
     CBalances minted;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> minted;
     if (!ss.empty()) {
-        return Res::Err("MintToken tx deserialization failed: excess %d bytes", ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
 
     // check auth and increase balance of token's owner
@@ -501,7 +491,7 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
         auto tokenImpl = static_cast<CTokenImplementation const& >(*token);
 
         if (tokenImpl.destructionTx != uint256{}) {
-            return Res::Err("%s: token %s already destroyed at height %i by tx %s", base, tokenImpl.symbol, //  pre-bayfront throws but it affects only the message
+            return Res::Err("%s: token %s already destroyed at height %i by tx %s", __func__, tokenImpl.symbol, //  pre-bayfront throws but it affects only the message
                                          tokenImpl.destructionHeight, tokenImpl.destructionTx.GetHex());
         }
         const Coin& auth = coins.AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
@@ -509,18 +499,18 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
         // pre-bayfront logic:
         if ((int)height < consensusParams.BayfrontHeight) {
             if (tokenId < CTokensView::DCT_ID_START)
-                return Res::Err("%s: token %s is a 'stable coin', can't mint stable coin!", base, tokenId.ToString());
+                return Res::Err("%s: token %s is a 'stable coin', can't mint stable coin!", __func__, tokenId.ToString());
 
             if (!skipAuth && !HasAuth(tx, coins, auth.out.scriptPubKey)) {
-                return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
+                return Res::Err("%s: %s", __func__, "tx must have at least one input from token owner");
             }
         }
         else { // post-bayfront logic (changed for minting DAT tokens to be able)
             if (tokenId == DCT_ID{0})
-                return Res::Err("can't mint default DFI coin!", base, tokenId.ToString());
+                return Res::Err("can't mint default DFI coin!", __func__, tokenId.ToString());
 
             if (tokenImpl.IsPoolShare()) {
-                return Res::Err("can't mint LPS tokens!", base, tokenId.ToString());
+                return Res::Err("can't mint LPS tokens!", __func__, tokenId.ToString());
             }
             // may be different logic with LPS, so, dedicated check:
             if (!rpcInfo && !tokenImpl.IsMintable()) { // Skip on rpcInfo as we cannot reliably check whether mintable has been toggled historically
@@ -529,22 +519,22 @@ Res ApplyMintTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTra
 
             if (!skipAuth && !HasAuth(tx, coins, auth.out.scriptPubKey)) { // in the case of DAT, it's ok to do not check foundation auth cause exact DAT owner is foundation member himself
                 if (!tokenImpl.IsDAT()) {
-                    return Res::Err("%s: %s", base, "tx must have at least one input from token owner");
+                    return Res::Err("%s: %s", __func__, "tx must have at least one input from token owner");
                 } else if (!HasFoundationAuth(tx, coins, consensusParams)) { // Is a DAT, check founders auth
-                    return Res::Err("%s: %s", base, "token is DAT and tx not from foundation member");
+                    return Res::Err("%s: %s", __func__, "token is DAT and tx not from foundation member");
                 }
             }
         }
         auto mint = mnview.AddMintedTokens(tokenImpl.creationTx, kv.second, rpcInfo);
         if (!mint.ok) {
-            return Res::Err("%s %s: %s", base, tokenImpl.symbol, mint.msg);
+            return Res::Err("%s %s: %s", __func__, tokenImpl.symbol, mint.msg);
         }
         const auto res = mnview.AddBalance(auth.out.scriptPubKey, CTokenAmount{kv.first,kv.second});
         if (!res.ok) {
-            return Res::Err("%s: %s", base, res.msg);
+            return Res::Err("%s: %s", __func__, res.msg);
         }
     }
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
@@ -558,14 +548,12 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> msg;
     if (!ss.empty()) {
-        return Res::Err("Adding liquidity tx deserialization failed: excess %d bytes", ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
-
-    const auto base = strprintf("Adding liquidity %s", msg.ToString());
 
     CBalances sumTx = SumAllTransfers(msg.from);
     if (sumTx.balances.size() != 2) {
-        return Res::Err("%s: the pool pair requires two tokens", base);
+        return Res::Err("%s: the pool pair requires two tokens", __func__);
     }
 
     std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
@@ -573,24 +561,24 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
     // guaranteed by sumTx.balances.size() == 2
 //    if (amountA.first == amountB.first) {
-//        return Res::Err("%s: tokens IDs are the same", base);
+    //        return Res::Err("%s: tokens IDs are the same", __func__);
 //    }
 
     // checked internally too. remove here?
     if (amountA.second <= 0 || amountB.second <= 0) {
-        return Res::Err("%s: amount cannot be less than or equal to zero", base);
+        return Res::Err("%s: amount cannot be less than or equal to zero", __func__);
     }
 
     auto pair = mnview.GetPoolPair(amountA.first, amountB.first);
 
     if (!pair) {
-        return Res::Err("%s: there is no such pool pair", base);
+        return Res::Err("%s: there is no such pool pair", __func__);
     }
 
     if (!skipAuth) {
         for (const auto& kv : msg.from) {
             if (!HasAuth(tx, coins, kv.first)) {
-                return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+                return Res::Err("%s: %s", __func__, "tx must have at least one input from account owner");
             }
         }
     }
@@ -601,13 +589,13 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         rpcInfo->pushKV(std::to_string(amountB.first.v), ValueFromAmount(amountB.second));
         rpcInfo->pushKV("shareaddress", msg.shareAddress.GetHex());
 
-        return Res::Ok(base);
+        return Res::Ok();
     }
 
     for (const auto& kv : msg.from) {
         const auto res = mnview.SubBalances(kv.first, kv.second);
         if (!res.ok) {
-            return Res::Err("%s: %s", base, res.msg);
+            return Res::Err("%s: %s", __func__, res.msg);
         }
     }
 
@@ -623,20 +611,20 @@ Res ApplyAddPoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
         auto add = mnview.AddBalance(to, { lpTokenID, liqAmount });
         if (!add.ok) {
-            return Res::Err("%s: %s", base, add.msg);
+            return Res::Err("%s: %s", __func__, add.msg);
         }
 
         //insert update ByShare index
         const auto setShare = mnview.SetShare(lpTokenID, to);
         if (!setShare.ok) {
-            return Res::Err("%s: %s", base, setShare.msg);
+            return Res::Err("%s: %s", __func__, setShare.msg);
         }
 
         return Res::Ok();
     }, slippageProtection);
 
     if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
+        return Res::Err("%s: %s", __func__, res.msg);
     }
     return mnview.SetPoolPair(lpTokenID, pool);
 }
@@ -652,27 +640,25 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> msg;
     if (!ss.empty()) {
-        return Res::Err("Removing liquidity tx deserialization failed: excess %d bytes", ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
-
-    const auto base = strprintf("Removing liquidity %s", msg.ToString());
 
     CScript from = msg.from;
     CTokenAmount amount = msg.amount;
 
     // checked internally too. remove here?
     if (amount.nValue <= 0) {
-        return Res::Err("%s: amount cannot be less than or equal to zero", base);
+        return Res::Err("%s: amount cannot be less than or equal to zero", __func__);
     }
 
     auto pair = mnview.GetPoolPair(amount.nTokenId);
 
     if (!pair) {
-        return Res::Err("%s: there is no such pool pair", base);
+        return Res::Err("%s: there is no such pool pair", __func__);
     }
 
     if (!skipAuth && !HasAuth(tx, coins, from)) {
-        return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+        return Res::Err("%s: %s", __func__, "tx must have at least one input from account owner");
     }
 
     // Return here to avoid balance errors below.
@@ -680,7 +666,7 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
         rpcInfo->pushKV("from", msg.from.GetHex());
         rpcInfo->pushKV("amount", msg.amount.ToString());
 
-        return Res::Ok(base);
+        return Res::Ok();
     }
 
     CPoolPair & pool = pair.get();
@@ -689,13 +675,13 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
     {
         auto sub = mnview.SubBalance(from, amount);
         if (!sub.ok) {
-            return Res::Err("%s: %s", base, sub.msg);
+            return Res::Err("%s: %s", __func__, sub.msg);
         }
         if (mnview.GetBalance(from, amount.nTokenId).nValue == 0) {
             //delete ByShare index
             const auto delShare = mnview.DelShare(amount.nTokenId, from);
             if (!delShare.ok) {
-                return Res::Err("%s: %s", base, delShare.msg);
+                return Res::Err("%s: %s", __func__, delShare.msg);
             }
         }
     }
@@ -704,19 +690,19 @@ Res ApplyRemovePoolLiquidityTx(CCustomCSView & mnview, CCoinsViewCache const & c
 
         auto addA = mnview.AddBalance(to, { pool.idTokenA, amountA });
         if (!addA.ok) {
-            return Res::Err("%s: %s", base, addA.msg);
+            return Res::Err("%s: %s", __func__, addA.msg);
         }
 
         auto addB = mnview.AddBalance(to, { pool.idTokenB, amountB });
         if (!addB.ok) {
-            return Res::Err("%s: %s", base, addB.msg);
+            return Res::Err("%s: %s", __func__, addB.msg);
         }
 
         return Res::Ok();
     });
 
     if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
+        return Res::Err("%s: %s", __func__, res.msg);
     }
 
     return mnview.SetPoolPair(amount.nTokenId, pool);
@@ -732,18 +718,17 @@ Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint3
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> msg;
     if (!ss.empty()) {
-        return Res::Err("UtxosToAccount tx deserialization failed: excess %d bytes", ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
-    const auto base = strprintf("Transfer UtxosToAccount: %s", msg.ToString());
 
     // check enough tokens are "burnt"
     const auto burnt = BurntTokens(tx);
     CBalances mustBeBurnt = SumAllTransfers(msg.to);
     if (!burnt.ok) {
-        return Res::Err("%s: %s", base, burnt.msg);
+        return Res::Err("%s: %s", __func__, burnt.msg);
     }
     if (burnt.val->balances != mustBeBurnt.balances) {
-        return Res::Err("%s: transfer tokens mismatch burnt tokens: (%s) != (%s)", base, mustBeBurnt.ToString(), burnt.val->ToString());
+        return Res::Err("%s: transfer tokens mismatch burnt tokens: (%s) != (%s)", __func__, mustBeBurnt.ToString(), burnt.val->ToString());
     }
 
     // Create balances here and return to avoid balance errors below
@@ -752,14 +737,14 @@ Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint3
             rpcInfo->pushKV(kv.first.GetHex(), kv.second.ToString());
         }
 
-        return Res::Ok(base);
+        return Res::Ok();
     }
 
     // transfer
     for (const auto& kv : msg.to) {
         const auto res = mnview.AddBalances(kv.first, kv.second);
         if (!res.ok) {
-            return Res::Err("%s: %s", base, res.msg);
+            return Res::Err("%s: %s", __func__, res.msg);
         }
         for (const auto& balance : kv.second.balances) {
             auto token = mnview.GetToken(balance.first);
@@ -768,13 +753,13 @@ Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint3
                 if (bal.nValue == balance.second) {
                     const auto setShare = mnview.SetShare(balance.first, kv.first);
                     if (!setShare.ok) {
-                        return Res::Err("%s: %s", base, setShare.msg);
+                        return Res::Err("%s: %s", __func__, setShare.msg);
                     }
                 }
             }
         }
     }
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
@@ -786,13 +771,12 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> msg;
     if (!ss.empty()) {
-        return Res::Err("AccountToUtxos tx deserialization failed: excess %d bytes", ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
-    const auto base = strprintf("Transfer AccountToUtxos: %s", msg.ToString());
 
     // check auth
     if (!skipAuth && !HasAuth(tx, coins, msg.from)) {
-        return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+        return Res::Err("%s: %s", __func__, "tx must have at least one input from account owner");
     }
 
     // Return here to avoid balance errors below
@@ -805,16 +789,16 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
         }
         rpcInfo->pushKV("to", dest);
 
-        return Res::Ok(base);
+        return Res::Ok();
     }
 
     // check that all tokens are minted, and no excess tokens are minted
     const auto minted = MintedTokens(tx, msg.mintingOutputsStart);
     if (!minted.ok) {
-        return Res::Err("%s: %s", base, minted.msg);
+        return Res::Err("%s: %s", __func__, minted.msg);
     }
     if (msg.balances != *minted.val) {
-        return Res::Err("%s: amount of minted tokens in UTXOs and metadata do not match: (%s) != (%s)", base, minted.val->ToString(), msg.balances.ToString());
+        return Res::Err("%s: amount of minted tokens in UTXOs and metadata do not match: (%s) != (%s)", __func__, minted.val->ToString(), msg.balances.ToString());
     }
 
     // block for non-DFI transactions
@@ -828,7 +812,7 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     // transfer
     const auto res = mnview.SubBalances(msg.from, msg.balances);
     if (!res.ok) {
-        return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", base, res.msg);
+        return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", __func__, res.msg);
     }
 
     for (const auto& kv : msg.balances.balances) {
@@ -838,12 +822,12 @@ Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
             if (balance.nValue == 0) {
                 const auto delShare = mnview.DelShare(kv.first, msg.from);
                 if (!delShare.ok) {
-                    return Res::Err("%s: %s", base, delShare.msg);
+                    return Res::Err("%s: %s", __func__, delShare.msg);
                 }
             }
         }
     }
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
@@ -855,13 +839,12 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> msg;
     if (!ss.empty()) {
-        return Res::Err("AccountToAccount tx deserialization failed: excess %d bytes", ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
-    const auto base = strprintf("Transfer AccountToAccount: %s", msg.ToString());
 
     // check auth
     if (!skipAuth && !HasAuth(tx, coins, msg.from)) {
-        return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+        return Res::Err("%s: %s", __func__, "tx must have at least one input from account owner");
     }
 
     // Return here to avoid balance errors below.
@@ -874,13 +857,13 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         }
         rpcInfo->pushKV("to", dest);
 
-        return Res::Ok(base);
+        return Res::Ok();
     }
 
     // transfer
     auto res = mnview.SubBalances(msg.from, SumAllTransfers(msg.to));
     if (!res.ok) {
-        return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", base, res.msg);
+        return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", __func__, res.msg);
     }
 
     for (const auto& kv : SumAllTransfers(msg.to).balances) {
@@ -890,7 +873,7 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
             if (balance.nValue == 0) {
                 const auto delShare = mnview.DelShare(kv.first, msg.from);
                 if (!delShare.ok) {
-                    return Res::Err("%s: %s", base, delShare.msg);
+                    return Res::Err("%s: %s", __func__, delShare.msg);
                 }
             }
         }
@@ -899,7 +882,7 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     for (const auto& kv : msg.to) {
         const auto res = mnview.AddBalances(kv.first, kv.second);
         if (!res.ok) {
-            return Res::Err("%s: %s", base, res.msg);
+            return Res::Err("%s: %s", __func__, res.msg);
         }
         for (const auto& balance : kv.second.balances) {
             auto token = mnview.GetToken(balance.first);
@@ -908,13 +891,13 @@ Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coin
                 if (bal.nValue == balance.second) {
                     const auto setShare = mnview.SetShare(balance.first, kv.first);
                     if (!setShare.ok) {
-                        return Res::Err("%s: %s", base, setShare.msg);
+                        return Res::Err("%s: %s", __func__, setShare.msg);
                     }
                 }
             }
         }
     }
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
@@ -926,15 +909,14 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> msg;
     if (!ss.empty()) {
-        return Res::Err("AnyAccountsToAccounts tx deserialization failed: excess %d bytes", ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
-    const auto base = strprintf("Transfer AnyAccountsToAccounts: %s", msg.ToString());
 
     // check auth
     if (!skipAuth) {
         for (auto const & kv : msg.from) {
             if (!HasAuth(tx, coins, kv.first)) {
-                return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+                return Res::Err("%s: %s", __func__, "tx must have at least one input from account owner");
             }
         }
     }
@@ -953,7 +935,7 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
         }
         rpcInfo->pushKV("to", dest);
 
-        return Res::Ok(base);
+        return Res::Ok();
     }
 
     // compare
@@ -961,7 +943,7 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
     auto const sumTo = SumAllTransfers(msg.to);
 
     if (sumFrom != sumTo) {
-        return Res::Err("%s: %s", base, "sum of inputs (from) != sum of outputs (to)");
+        return Res::Err("%s: %s", __func__, "sum of inputs (from) != sum of outputs (to)");
     }
 
     // transfer
@@ -969,7 +951,7 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
     for (const auto& kv : msg.from) {
         const auto res = mnview.SubBalances(kv.first, kv.second);
         if (!res.ok) {
-            return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", base, res.msg);
+            return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, "%s: %s", __func__, res.msg);
         }
         // track pool shares
         for (const auto& balance : kv.second.balances) {
@@ -979,7 +961,7 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
                 if (bal.nValue == 0) {
                     const auto delShare = mnview.DelShare(balance.first, kv.first);
                     if (!delShare.ok) {
-                        return Res::Err("%s: %s", base, delShare.msg);
+                        return Res::Err("%s: %s", __func__, delShare.msg);
                     }
                 }
             }
@@ -990,7 +972,7 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
     for (const auto& kv : msg.to) {
         const auto res = mnview.AddBalances(kv.first, kv.second);
         if (!res.ok) {
-            return Res::Err("%s: %s", base, res.msg);
+            return Res::Err("%s: %s", __func__, res.msg);
         }
         // track pool shares
         for (const auto& balance : kv.second.balances) {
@@ -1000,13 +982,13 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
                 if (bal.nValue == balance.second) {
                     const auto setShare = mnview.SetShare(balance.first, kv.first);
                     if (!setShare.ok) {
-                        return Res::Err("%s: %s", base, setShare.msg);
+                        return Res::Err("%s: %s", __func__, setShare.msg);
                     }
                 }
             }
         }
     }
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
@@ -1014,8 +996,6 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     if ((int)height < consensusParams.BayfrontHeight) {
         return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
-
-    const std::string base{"PoolPair creation"};
 
     CPoolPairMessage poolPairMsg;
     std::string pairSymbol;
@@ -1030,15 +1010,15 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
     }
 
     if (!ss.empty()) {
-        return Res::Err("%s: deserialization failed: excess %d bytes", base,  ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
 
     //check foundation auth
     if(!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
-        return Res::Err("%s: %s", base, "tx not from foundation member");
+        return Res::Err("%s: %s", __func__, "tx not from foundation member");
     }
     if(poolPairMsg.commission < 0 || poolPairMsg.commission > COIN) {
-        return Res::Err("%s: %s", base, "wrong commission");
+        return Res::Err("%s: %s", __func__, "wrong commission");
     }
 
     /// @todo ownerAddress validity checked only in rpc. is it enough?
@@ -1050,12 +1030,12 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 
     auto tokenA = mnview.GetToken(poolPairMsg.idTokenA);
     if (!tokenA) {
-        return Res::Err("%s: token %s does not exist!", base, poolPairMsg.idTokenA.ToString());
+        return Res::Err("%s: token %s does not exist!", __func__, poolPairMsg.idTokenA.ToString());
     }
 
     auto tokenB = mnview.GetToken(poolPairMsg.idTokenB);
     if (!tokenB) {
-        return Res::Err("%s: token %s does not exist!", base, poolPairMsg.idTokenB.ToString());
+        return Res::Err("%s: token %s does not exist!", __func__, poolPairMsg.idTokenB.ToString());
     }
 
     if(pairSymbol.empty())
@@ -1101,23 +1081,23 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
             }
         }
 
-        return Res::Ok(base);
+        return Res::Ok();
     }
 
     auto res = mnview.CreateToken(token, false);
     if (!res.ok) {
-        return Res::Err("%s %s: %s", base, token.symbol, res.msg);
+        return Res::Err("%s %s: %s", __func__, token.symbol, res.msg);
     }
 
     //auto pairToken = mnview.GetToken(token.symbol);
     auto pairToken = mnview.GetTokenByCreationTx(token.creationTx);
     if (!pairToken) {
-        return Res::Err("%s: token %s does not exist!", base, token.symbol);
+        return Res::Err("%s: token %s does not exist!", __func__, token.symbol);
     }
 
     auto resPP = mnview.SetPoolPair(pairToken->first, poolPair);
     if (!resPP.ok) {
-        return Res::Err("%s %s: %s", base, pairSymbol, resPP.msg);
+        return Res::Err("%s %s: %s", __func__, pairSymbol, resPP.msg);
     }
 
     if (!rewards.balances.empty()) {
@@ -1127,7 +1107,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 
             auto token = pcustomcsview->GetToken(it->first);
             if (!token) {
-                return Res::Err("%s: reward token %d does not exist!", base, it->first.v);
+                return Res::Err("%s: reward token %d does not exist!", __func__, it->first.v);
             }
 
             if (it->second == 0) {
@@ -1139,11 +1119,11 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
 
         // Will only fail if pool was not actually created in SetPoolPair
         if (!resCR.ok) {
-            return Res::Err("%s %s: %s", base, pairSymbol, resCR.msg);
+            return Res::Err("%s %s: %s", __func__, pairSymbol, resCR.msg);
         }
     }
 
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
@@ -1151,8 +1131,6 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     if((int)height < consensusParams.BayfrontHeight) {
         return Res::Err("LP tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
-
-    const std::string base{"Pool update"};
 
     DCT_ID poolId;
     bool status;
@@ -1171,22 +1149,22 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     }
 
     if (!ss.empty()) {
-        return Res::Err("Pool Update: deserialization failed: excess %d bytes", ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
 
     auto pool = mnview.GetPoolPair(poolId);
     if (!pool) {
-        return Res::Err("%s: pool with poolId %s does not exist", base, poolId.ToString());
+        return Res::Err("%s: pool with poolId %s does not exist", __func__, poolId.ToString());
     }
 
     //check foundation auth
     if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
-        return Res::Err("%s: %s", base, "tx not from foundation member");
+        return Res::Err("%s: %s", __func__, "tx not from foundation member");
     }
 
     auto res = mnview.UpdatePoolPair(poolId, status, commission, ownerAddress);
     if (!res.ok) {
-        return Res::Err("%s %s: %s", base, poolId.ToString(), res.msg);
+        return Res::Err("%s %s: %s", __func__, poolId.ToString(), res.msg);
     }
 
     if (rpcInfo) {
@@ -1229,7 +1207,7 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
 
             auto token = pcustomcsview->GetToken(it->first);
             if (!token) {
-                return Res::Err("%s: reward token %d does not exist!", base, it->first.v);
+                return Res::Err("%s: reward token %d does not exist!", __func__, it->first.v);
             }
 
             if (it->second == 0) {
@@ -1241,11 +1219,11 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
 
         // Will only fail if pool was not actually created in SetPoolPair
         if (!resCR.ok) {
-            return Res::Err("%s %s: %s", base, poolId.ToString(), resCR.msg);
+            return Res::Err("%s %s: %s", __func__, poolId.ToString(), resCR.msg);
         }
     }
 
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
@@ -1258,29 +1236,27 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> poolSwapMsg;
     if (!ss.empty()) {
-        return Res::Err("PoolSwap: deserialization failed: excess %d bytes",  ss.size());
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
-
-    const std::string base{"PoolSwap creation: " + poolSwapMsg.ToString()};
 
     // check auth
     if (!skipAuth && !HasAuth(tx, coins, poolSwapMsg.from)) {
-        return Res::Err("%s: %s", base, "tx must have at least one input from account owner");
+        return Res::Err("%s: %s", __func__, "tx must have at least one input from account owner");
     }
 
 //    auto tokenFrom = mnview.GetToken(poolSwapMsg.idTokenFrom);
 //    if (!tokenFrom) {
-//        return Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenFrom.ToString());
+//        return Res::Err("%s: token %s does not exist!", __func__, poolSwapMsg.idTokenFrom.ToString());
 //    }
 
 //    auto tokenTo = mnview.GetToken(poolSwapMsg.idTokenTo);
 //    if (!tokenTo) {
-//        return Res::Err("%s: token %s does not exist!", base, poolSwapMsg.idTokenTo.ToString());
+//        return Res::Err("%s: token %s does not exist!", __func__, poolSwapMsg.idTokenTo.ToString());
 //    }
 
     auto poolPair = mnview.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
     if (!poolPair) {
-        return Res::Err("%s: can't find the poolpair!", base);
+        return Res::Err("%s: can't find the poolpair!", __func__);
     }
 
     // Return here to avoid balance errors below
@@ -1299,24 +1275,24 @@ Res ApplyPoolSwapTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const C
     const auto res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
         auto resPP = mnview.SetPoolPair(poolPair->first, pp);
         if (!resPP.ok) {
-            return Res::Err("%s: %s", base, resPP.msg);
+            return Res::Err("%s: %s", __func__, resPP.msg);
         }
 
         auto sub = mnview.SubBalance(poolSwapMsg.from, {poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom});
         if (!sub.ok) {
-            return Res::Err("%s: %s", base, sub.msg);
+            return Res::Err("%s: %s", __func__, sub.msg);
         }
 
         auto add = mnview.AddBalance(poolSwapMsg.to, tokenAmount);
         if (!add.ok) {
-            return Res::Err("%s: %s", base, add.msg);
+            return Res::Err("%s: %s", __func__, add.msg);
         }
 
         return Res::Ok();
     }, static_cast<int>(height) >= consensusParams.BayfrontGardensHeight);
 
     if (!res.ok) {
-        return Res::Err("%s: %s", base, res.msg);
+        return Res::Err("%s: %s", __func__, res.msg);
     }
 
     return Res::Ok();
@@ -1328,12 +1304,10 @@ Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, co
         return Res::Err("Governance tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
-    const std::string base{"Set governance variable"};
-
     //check foundation auth
     if(!skipAuth && !HasFoundationAuth(tx, coins, consensusParams))
     {
-        return Res::Err("%s: %s", base, "tx not from foundation member");
+        return Res::Err("%s: %s", __func__, "tx not from foundation member");
     }
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -1345,20 +1319,20 @@ Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, co
         names.insert(name);
         auto var = GovVariable::Create(name);
         if (!var)
-            return Res::Err("%s '%s': variable does not registered", base, name);
+            return Res::Err("%s '%s': variable does not registered", __func__, name);
         ss >> *var;
 
         Res result = var->Validate(mnview);
         if(!result.ok)
-            return Res::Err("%s '%s': %s", base, name, result.msg);
+            return Res::Err("%s '%s': %s", __func__, name, result.msg);
 
         Res res = var->Apply(mnview);
         if(!res.ok)
-            return Res::Err("%s '%s': %s", base, name, res.msg);
+            return Res::Err("%s '%s': %s", __func__, name, res.msg);
 
         auto add = mnview.SetVariable(*var);
         if (!add.ok)
-            return Res::Err("%s '%s': %s", base, name, add.msg);
+            return Res::Err("%s '%s': %s", __func__, name, add.msg);
     }
 
     if (rpcInfo) {
@@ -1369,10 +1343,10 @@ Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, co
     }
     //in this case it will throw (and cathced by outer method)
 //    if (!ss.empty()) {
-//        return Res::Err("%s: deserialization failed: excess %d bytes", base,  ss.size());
+//        return Res::Err("%s: deserialization failed: excess %d bytes", __func__,  ss.size());
 //    }
 
-    return Res::Ok(base);
+    return Res::Ok();
 }
 
 
