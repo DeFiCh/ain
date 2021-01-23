@@ -50,15 +50,5 @@ class IsMineCachedTest(DefiTestFramework):
 
         assert_raises_rpc_error(-5, None, self.nodes[0].sendtokenstoaddress, {}, to)
 
-        self.nodes[0].importprivkey(self.nodes[1].dumpprivkey(wallet1_addr1))
-
-        #self.nodes[0].sendtokenstoaddress({}, to)
-
-        self.nodes[0].unloadwallet('')
-        self.nodes[0].loadwallet('')
-
-        self.nodes[0].sendtokenstoaddress({}, to)
-
-
 if __name__ == '__main__':
     IsMineCachedTest().main()
