@@ -57,10 +57,10 @@ class PoolPairTest (DefiTestFramework):
         owner = self.nodes[0].getnewaddress("", "legacy")
 
         # 2 Transferring SILVER from N1 Account to N0 Account
-        self.nodes[1].accounttoaccount(accountSN1, {accountGN0: "1000@" + symbolSILVER, 'enable_external_dfi_token_tx': True})
+        self.nodes[1].accounttoaccount(accountSN1, {accountGN0: "1000@" + symbolSILVER})
         self.nodes[1].generate(1)
         # Transferring GOLD from N0 Account to N1 Account
-        self.nodes[0].accounttoaccount(accountGN0, {accountSN1: "200@" + symbolGOLD, 'enable_external_dfi_token_tx': True})
+        self.nodes[0].accounttoaccount(accountGN0, {accountSN1: "200@" + symbolGOLD})
         self.nodes[0].generate(1)
 
         silverCheckN0 = self.nodes[0].getaccount(accountGN0, {}, True)[idSilver]
