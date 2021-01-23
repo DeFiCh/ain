@@ -57,7 +57,6 @@ class SendTokensToAddressTest (DefiTestFramework):
         wallet1_addr2 = self.nodes[1].getnewaddress("", "legacy")
         to[wallet1_addr1] = ["10@" + token0_symbol, "20@" + token1_symbol]
         to[wallet1_addr2] = ["20@" + token0_symbol, "10@" + token1_symbol]
-        to['enable_external_dfi_token_tx'] = True
 
         self.nodes[0].sendtokenstoaddress({}, to, "forward")
 
@@ -76,7 +75,6 @@ class SendTokensToAddressTest (DefiTestFramework):
         to = {}
         wallet0_addr = self.nodes[0].getnewaddress("", "legacy")
         to[wallet0_addr] = ["15@" + token0_symbol, "15@" + token1_symbol]
-        to['enable_external_dfi_token_tx'] = True
 
         self.nodes[1].sendtokenstoaddress({}, to, "pie")
 
@@ -94,7 +92,6 @@ class SendTokensToAddressTest (DefiTestFramework):
 
         print("Test sendtokenstoaddress crumbs...")
         to[wallet0_addr] = ["6@" + token0_symbol, "7@" + token1_symbol]
-        to['enable_external_dfi_token_tx'] = True
 
         self.nodes[1].sendtokenstoaddress({}, to, "crumbs")
 
