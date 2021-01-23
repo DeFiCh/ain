@@ -1398,6 +1398,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
                     {"count", RPCArg::Type::NUM, /* default */ "10", "The number of transactions to return"},
                     {"skip", RPCArg::Type::NUM, /* default */ "0", "The number of transactions to skip"},
                     {"include_watchonly", RPCArg::Type::BOOL, /* default */ "true for watch-only wallets, otherwise false", "Include transactions to watch-only addresses (see 'importaddress')"},
+                    {"custom_tx", RPCArg::Type::BOOL, /* default */ "false for all transactions, otherwise only custom transactions", "Only list custom transactions"},
                 },
                 RPCResult{
             "[\n"
@@ -1465,6 +1466,10 @@ UniValue listtransactions(const JSONRPCRequest& request)
         filter |= ISMINE_WATCH_ONLY;
     }
 
+    bool custom_tx_only = false;
+    if (!request.params[4].isNull())
+        custom_tx_only = request.params[4].get_bool();
+
     if (nCount < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
     if (nFrom < 0)
@@ -1477,11 +1482,14 @@ UniValue listtransactions(const JSONRPCRequest& request)
         LOCK(pwallet->cs_wallet);
 
         const CWallet::TxItems & txOrdered = pwallet->wtxOrdered;
-
+        std::vector<unsigned char> metadata;
         // iterate backwards until we have nCount items to return:
         for (CWallet::TxItems::const_reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
         {
             CWalletTx *const pwtx = (*it).second;
+            if (custom_tx_only && GuessCustomTxType(*pwtx->tx, metadata) == CustomTxType::None) {
+                continue;
+            }
             ListTransactions(*locked_chain, pwallet, *pwtx, 0, true, ret, filter, filter_label);
             if ((int)ret.size() >= (nCount+nFrom)) break;
         }
