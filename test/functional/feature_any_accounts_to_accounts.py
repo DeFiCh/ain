@@ -124,8 +124,7 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
                     try:
                         token["wallet"].accounttoaccount(
                             token["collateralAddress"], # from
-                            {node1_wallet[i]["address"]: str(amount) + "@" + token["symbolId"],
-                             'enable_external_dfi_token_tx': True}) # to
+                            {node1_wallet[i]["address"]: str(amount) + "@" + token["symbolId"]}) # to
                         repeat = False
                     except JSONRPCException as e:
                         if ("Can't find any UTXO's for owner." in e.error["message"]):
@@ -162,7 +161,6 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
 
         to[wallet2_addr1] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"]]
         to[wallet2_addr2] = ["51@" + tokens[3]["symbolId"]] # we have only 50
-        to['enable_external_dfi_token_tx'] = True
 
         try:
             self.nodes[1].sendtokenstoaddress({}, to, "forward")
@@ -175,7 +173,6 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
         to = {}
         to[wallet2_addr1] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"]]
         to[wallet2_addr2] = ["20@" + tokens[2]["symbolId"], "20@" + tokens[3]["symbolId"]]
-        to['enable_external_dfi_token_tx'] = True
 
         self.nodes[1].sendtokenstoaddress({}, to)
 
@@ -223,7 +220,6 @@ class AnyAccountsToAccountsTest (DefiTestFramework):
         accsFrom[wallet2_addr2] = ["20@" + tokens[2]["symbolId"], "20@" + tokens[3]["symbolId"]]
         to = {}
         to[wallet1_change_addr] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"], "20@" + tokens[2]["symbolId"], "20@" + tokens[3]["symbolId"]]
-        to['enable_external_dfi_token_tx'] = True
 
         self.nodes[2].sendtokenstoaddress(accsFrom, to)
 
