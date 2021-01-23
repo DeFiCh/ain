@@ -488,7 +488,6 @@ static std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txV
 
 static CAccounts DecodeRecipientsDefaultInternal(CWallet* const pwallet, UniValue const& values) {
     UniValue recipients(UniValue::VOBJ);
-    bool allowSendingToNotOwnAddresses = false;
     for (const auto& key : values.getKeys()) {
         recipients.pushKV(key, values[key]);
     }
