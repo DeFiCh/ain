@@ -52,7 +52,7 @@ class IsMineCachedTest(DefiTestFramework):
 
         self.nodes[0].importprivkey(self.nodes[1].dumpprivkey(wallet1_addr1))
 
-        self.nodes[0].sendtokenstoaddress({}, to)
+        #self.nodes[0].sendtokenstoaddress({}, to)
 
         self.nodes[0].unloadwallet('')
         self.nodes[0].loadwallet('')
