@@ -569,7 +569,7 @@ bool CAccountsHistoryStorage::Flush()
         for (const auto& diff : diffs) {
             bool isMine = false;
             for (auto wallet : wallets) {
-                if ((isMine = IsMineCached(*wallet, diff.first) == ISMINE_SPENDABLE)) {
+                if ((isMine = IsMineCached(*wallet, diff.first) & ISMINE_ALL)) {
                     SetMineAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
                     break;
                 }
@@ -607,7 +607,7 @@ bool CRewardsHistoryStorage::Flush()
             bool isMine = false;
             const auto& pair = diff.first;
             for (auto wallet : wallets) {
-                if ((isMine = IsMineCached(*wallet, pair.first) == ISMINE_SPENDABLE)) {
+                if ((isMine = IsMineCached(*wallet, pair.first) & ISMINE_ALL)) {
                     SetMineRewardHistory({pair.first, height, pair.second}, diff.second);
                     break;
                 }
