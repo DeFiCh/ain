@@ -1398,7 +1398,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
                     {"count", RPCArg::Type::NUM, /* default */ "10", "The number of transactions to return"},
                     {"skip", RPCArg::Type::NUM, /* default */ "0", "The number of transactions to skip"},
                     {"include_watchonly", RPCArg::Type::BOOL, /* default */ "true for watch-only wallets, otherwise false", "Include transactions to watch-only addresses (see 'importaddress')"},
-                    {"exclude_custom_tx", RPCArg::Type::BOOL, /* default */ "true to exclude custom transactions, otherwise all transactions", "Exclude custom transactions"},
+                    {"exclude_custom_tx", RPCArg::Type::BOOL, /* default */ "false to include all transactions, otherwise exclude custom transactions", "Exclude custom transactions"},
                 },
                 RPCResult{
             "[\n"
@@ -1466,7 +1466,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
         filter |= ISMINE_WATCH_ONLY;
     }
 
-    bool exclude_custom_tx = true;
+    bool exclude_custom_tx = false;
     if (!request.params[4].isNull())
         exclude_custom_tx = request.params[4].get_bool();
 
