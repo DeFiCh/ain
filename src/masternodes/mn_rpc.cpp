@@ -494,7 +494,7 @@ static CAccounts DecodeRecipientsDefaultInternal(CWallet* const pwallet, UniValu
     }
     auto accounts = DecodeRecipients(pwallet->chain(), recipients);
     for (const auto& account : accounts) {
-        if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE && account.balances.find(DCT_ID{0}) != account.balances.end()) {
+        if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE && account.second.balances.find(DCT_ID{0}) != account.second.balances.end()) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("The address (%s) is not your own address", ScriptToString(account.first)));
         }
     }
