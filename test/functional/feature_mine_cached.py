@@ -46,7 +46,7 @@ class IsMineCachedTest(DefiTestFramework):
 
         to = {}
         wallet1_addr1 = self.nodes[1].getnewaddress("", "legacy")
-        to[wallet1_addr1] = ["10@" + token0_symbol]
+        to[wallet1_addr1] = ["10@" + token0_symbol, "10@0"]
 
         assert_raises_rpc_error(-5, None, self.nodes[0].sendtokenstoaddress, {}, to)
 
