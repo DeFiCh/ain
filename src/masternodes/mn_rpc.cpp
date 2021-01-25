@@ -45,38 +45,16 @@ extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in co
 
 extern UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet);
 
-static CAccounts FindAccountsFromWallet(CWallet* const pwallet, bool includeWatchOnly = false) {
-
-    // make request for getting all addresses from wallet
-    UniValue params(UniValue::VARR);
-    // min confirmations
-    params.push_back(UniValue(0));
-    // include empty addresses
-    params.push_back(UniValue(true));
-    // include watch only addresses
-    params.push_back(UniValue(includeWatchOnly));
-
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
-
-    UniValue addresses = ListReceived(*locked_chain, pwallet, params, false);
+static CAccounts GetAllMineAccounts(CWallet * const pwallet) {
 
     CAccounts walletAccounts;
-    {
-        LOCK(cs_main);
-        for (uint32_t i = 0; i < addresses.size(); i++) {
-            CScript ownerScript = DecodeScript(addresses[i]["address"].get_str());
-            CBalances accountBalances;
-            pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
-                if (owner != ownerScript)
-                    return false;
-                accountBalances.Add(balance);
-                return true;
-            }, BalanceKey{ownerScript, 0});
-            if (!accountBalances.balances.empty())
-                walletAccounts.emplace(ownerScript, accountBalances);
+
+    pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
+        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
+            walletAccounts[owner].Add(balance);
         }
-    }
+        return true;
+    });
 
     return walletAccounts;
 }
@@ -2043,12 +2021,13 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     // decode
     CLiquidityMessage msg{};
     if (request.params[0].get_obj().getKeys().size() == 1 &&
-            request.params[0].get_obj().getKeys()[0] == "*") { // auto-selection accounts from wallet
-        CAccounts foundWalletAccounts = FindAccountsFromWallet(pwallet);
+        request.params[0].get_obj().getKeys()[0] == "*") { // auto-selection accounts from wallet
+
+        CAccounts foundMineAccounts = GetAllMineAccounts(pwallet);
 
         CBalances sumTransfers = DecodeAmounts(pwallet->chain(), request.params[0].get_obj()["*"], "*");
 
-        msg.from = SelectAccountsByTargetBalances(foundWalletAccounts, sumTransfers, SelectionPie);
+        msg.from = SelectAccountsByTargetBalances(foundMineAccounts, sumTransfers, SelectionPie);
 
         if (msg.from.empty()) {
             throw JSONRPCError(RPC_INVALID_REQUEST,
@@ -3993,14 +3972,14 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     }
 
     if (request.params[0].get_obj().empty()) { // autoselection
-        CAccounts foundWalletAccounts = FindAccountsFromWallet(pwallet);
+        CAccounts foundMineAccounts = GetAllMineAccounts(pwallet);
 
         AccountSelectionMode selectionMode = SelectionPie;
         if (request.params[2].isStr()) {
             selectionMode = ParseAccountSelectionParam(request.params[2].get_str());
         }
 
-        msg.from = SelectAccountsByTargetBalances(foundWalletAccounts, sumTransfersTo, selectionMode);
+        msg.from = SelectAccountsByTargetBalances(foundMineAccounts, sumTransfersTo, selectionMode);
 
         if (msg.from.empty()) {
             throw JSONRPCError(RPC_INVALID_REQUEST,
