@@ -1835,7 +1835,7 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
         }
         poolObj.pushKV("tradeEnabled", pool.reserveA >= CPoolPair::SLOPE_SWAP_RATE && pool.reserveB >= CPoolPair::SLOPE_SWAP_RATE);
 
-        poolObj.pushKV("ownerAddress", pool.ownerAddress.GetHex()); /// @todo replace with ScriptPubKeyToUniv()
+        poolObj.pushKV("ownerAddress", ScriptToString(pool.ownerAddress));
 
         poolObj.pushKV("blockCommissionA", ValueFromAmount(pool.blockCommissionA));
         poolObj.pushKV("blockCommissionB", ValueFromAmount(pool.blockCommissionB));

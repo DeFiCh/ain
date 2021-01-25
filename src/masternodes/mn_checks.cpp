@@ -991,6 +991,8 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
     return Res::Ok();
 }
 
+extern std::string ScriptToString(CScript const& script);
+
 Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, const CTransaction &tx, uint32_t height, const std::vector<unsigned char> &metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
     if ((int)height < consensusParams.BayfrontHeight) {
@@ -1061,7 +1063,7 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         rpcInfo->pushKV("tokenB", tokenB->name);
         rpcInfo->pushKV("commission", ValueFromAmount(poolPairMsg.commission));
         rpcInfo->pushKV("status", poolPairMsg.status);
-        rpcInfo->pushKV("ownerAddress", poolPairMsg.ownerAddress.GetHex());
+        rpcInfo->pushKV("ownerAddress", ScriptToString(poolPairMsg.ownerAddress));
         rpcInfo->pushKV("isDAT", token.IsDAT());
         rpcInfo->pushKV("mineable", token.IsMintable());
         rpcInfo->pushKV("tradeable", token.IsTradeable());
@@ -1170,7 +1172,7 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
     if (rpcInfo) {
         rpcInfo->pushKV("commission", ValueFromAmount(commission));
         rpcInfo->pushKV("status", status);
-        rpcInfo->pushKV("ownerAddress", ownerAddress.GetHex());
+        rpcInfo->pushKV("ownerAddress", ScriptToString(ownerAddress));
 
         // Add rewards here before processing them below to avoid adding current rewards
         if (!rewards.balances.empty()) {

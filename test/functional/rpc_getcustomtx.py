@@ -232,7 +232,6 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
         blockhash = self.nodes[0].getblockhash(blockheight)
-        owner_scriptpubkey = self.nodes[0].getaddressinfo(pool_collateral)['scriptPubKey']
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(poolpair_tx)
@@ -245,7 +244,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['tokenB'], "gold")
         assert_equal(result['results']['commission'], Decimal("0.00100000"))
         assert_equal(result['results']['status'], True)
-        assert_equal(result['results']['ownerAddress'], owner_scriptpubkey)
+        assert_equal(result['results']['ownerAddress'], pool_collateral)
         assert_equal(result['results']['isDAT'], True)
         assert_equal(result['results']['mineable'], False)
         assert_equal(result['results']['tradeable'], True)
@@ -368,7 +367,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['valid'], True)
         assert_equal(result['results']['commission'], Decimal("0.10000000"))
         assert_equal(result['results']['status'], False)
-        assert_equal(result['results']['ownerAddress'], owner_scriptpubkey)
+        assert_equal(result['results']['ownerAddress'], pool_collateral)
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
