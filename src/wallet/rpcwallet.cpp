@@ -1398,6 +1398,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
                     {"count", RPCArg::Type::NUM, /* default */ "10", "The number of transactions to return"},
                     {"skip", RPCArg::Type::NUM, /* default */ "0", "The number of transactions to skip"},
                     {"include_watchonly", RPCArg::Type::BOOL, /* default */ "true for watch-only wallets, otherwise false", "Include transactions to watch-only addresses (see 'importaddress')"},
+                    {"exclude_custom_tx", RPCArg::Type::BOOL, /* default */ "false to include all transactions, otherwise exclude custom transactions", "Exclude custom transactions"},
                 },
                 RPCResult{
             "[\n"
@@ -1465,6 +1466,10 @@ UniValue listtransactions(const JSONRPCRequest& request)
         filter |= ISMINE_WATCH_ONLY;
     }
 
+    bool exclude_custom_tx = false;
+    if (!request.params[4].isNull())
+        exclude_custom_tx = request.params[4].get_bool();
+
     if (nCount < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
     if (nFrom < 0)
@@ -1477,11 +1482,14 @@ UniValue listtransactions(const JSONRPCRequest& request)
         LOCK(pwallet->cs_wallet);
 
         const CWallet::TxItems & txOrdered = pwallet->wtxOrdered;
-
+        std::vector<unsigned char> metadata;
         // iterate backwards until we have nCount items to return:
         for (CWallet::TxItems::const_reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
         {
             CWalletTx *const pwtx = (*it).second;
+            if (exclude_custom_tx && GuessCustomTxType(*pwtx->tx, metadata) != CustomTxType::None) {
+                continue;
+            }
             ListTransactions(*locked_chain, pwallet, *pwtx, 0, true, ret, filter, filter_label);
             if ((int)ret.size() >= (nCount+nFrom)) break;
         }
@@ -4243,7 +4251,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "listreceivedbyaddress",            &listreceivedbyaddress,         {"minconf","include_empty","include_watchonly","address_filter"} },
     { "wallet",             "listreceivedbylabel",              &listreceivedbylabel,           {"minconf","include_empty","include_watchonly"} },
     { "wallet",             "listsinceblock",                   &listsinceblock,                {"blockhash","target_confirmations","include_watchonly","include_removed"} },
-    { "wallet",             "listtransactions",                 &listtransactions,              {"label|dummy","count","skip","include_watchonly"} },
+    { "wallet",             "listtransactions",                 &listtransactions,              {"label|dummy","count","skip","include_watchonly","exclude_custom_tx"} },
     { "wallet",             "listunspent",                      &listunspent,                   {"minconf","maxconf","addresses","include_unsafe","query_options"} },
     { "wallet",             "listwalletdir",                    &listwalletdir,                 {} },
     { "wallet",             "listwallets",                      &listwallets,                   {} },
