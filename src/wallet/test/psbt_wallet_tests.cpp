@@ -23,13 +23,13 @@ BOOST_AUTO_TEST_CASE(psbt_updater_test)
     CTransactionRef prev_tx1;
     s_prev_tx1 >> prev_tx1;
     CWalletTx prev_wtx1(&m_wallet, prev_tx1);
-    m_wallet.mapWallet.emplace(prev_wtx1.GetHash(), std::move(prev_wtx1));
+    m_wallet.AddToWallet(prev_wtx1);
 
     CDataStream s_prev_tx2(ParseHex("0200000001aad73931018bd25f84ae400b68848be09db706eac2ac18298babee71ab656f8b0000000048473044022058f6fc7c6a33e1b31548d481c826c015bd30135aad42cd67790dab66d2ad243b02204a1ced2604c6735b6393e5b41691dd78b00f0c5942fb9f751856faa938157dba01feffffff0280f0fa020000000017a9140fb9463421696b82c833af241c78c17ddbde493487d0f20a270100000017a91429ca74f8a08f81999428185c97b5d852e4063f618765000000"), SER_NETWORK, PROTOCOL_VERSION);
     CTransactionRef prev_tx2;
     s_prev_tx2 >> prev_tx2;
     CWalletTx prev_wtx2(&m_wallet, prev_tx2);
-    m_wallet.mapWallet.emplace(prev_wtx2.GetHash(), std::move(prev_wtx2));
+    m_wallet.AddToWallet(prev_wtx2);
 
     // Add scripts
     CScript rs1;

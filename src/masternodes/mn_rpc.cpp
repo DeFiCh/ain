@@ -3264,10 +3264,10 @@ static void searchInWallet(CWallet const * pwallet,
 
     LOCK(pwallet->cs_wallet);
 
-    const auto& txOrdered = pwallet->wtxOrdered;
+    const auto& txOrdered = pwallet->mapWallet.get<ByOrder>();
 
     for (const auto& tx : txOrdered) {
-        auto pwtx = tx.second;
+        auto* pwtx = &tx;
 
         if (pwtx->IsCoinBase()) {
             continue;
@@ -4169,11 +4169,10 @@ static UniValue getcustomtx(const JSONRPCRequest& request)
     // Search wallet if available
     if (pwallet) {
         LOCK(pwallet->cs_wallet);
-        auto it = pwallet->mapWallet.find(hash);
-        if (it != pwallet->mapWallet.end())
+        if (auto wtx = pwallet->GetWalletTx(hash))
         {
-            tx = it->second.tx;
-            hashBlock = it->second.hashBlock;
+            tx = wtx->tx;
+            hashBlock = wtx->hashBlock;
         }
     }
 

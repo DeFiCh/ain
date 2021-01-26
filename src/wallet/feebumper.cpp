@@ -80,14 +80,13 @@ Result CreateTotalBumpTransaction(const CWallet* wallet, const uint256& txid, co
     auto locked_chain = wallet->chain().lock();
     LOCK(wallet->cs_wallet);
     errors.clear();
-    auto it = wallet->mapWallet.find(txid);
-    if (it == wallet->mapWallet.end()) {
+    const CWalletTx* wtx = wallet->GetWalletTx(txid);
+    if (!wtx) {
         errors.push_back("Invalid or non-wallet transaction id");
         return Result::INVALID_ADDRESS_OR_KEY;
     }
-    const CWalletTx& wtx = it->second;
 
-    Result result = PreconditionChecks(*locked_chain, wallet, wtx, errors);
+    Result result = PreconditionChecks(*locked_chain, wallet, *wtx, errors);
     if (result != Result::OK) {
         return result;
     }
@@ -95,8 +94,8 @@ Result CreateTotalBumpTransaction(const CWallet* wallet, const uint256& txid, co
     // figure out which output was change
     // if there was no change output or multiple change outputs, fail
     int nOutput = -1;
-    for (size_t i = 0; i < wtx.tx->vout.size(); ++i) {
-        if (wallet->IsChange(wtx.tx->vout[i])) {
+    for (size_t i = 0; i < wtx->tx->vout.size(); ++i) {
+        if (wallet->IsChange(wtx->tx->vout[i])) {
             if (nOutput != -1) {
                 errors.push_back("Transaction has multiple change outputs");
                 return Result::WALLET_ERROR;
@@ -110,15 +109,15 @@ Result CreateTotalBumpTransaction(const CWallet* wallet, const uint256& txid, co
     }
 
     // Calculate the expected size of the new transaction.
-    int64_t txSize = GetVirtualTransactionSize(*(wtx.tx));
-    const int64_t maxNewTxSize = CalculateMaximumSignedTxSize(*wtx.tx, wallet);
+    int64_t txSize = GetVirtualTransactionSize(*(wtx->tx));
+    const int64_t maxNewTxSize = CalculateMaximumSignedTxSize(*(wtx->tx), wallet);
     if (maxNewTxSize < 0) {
         errors.push_back("Transaction contains inputs that cannot be signed");
         return Result::INVALID_ADDRESS_OR_KEY;
     }
 
     // calculate the old fee and fee-rate
-    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[DCT_ID{0}] - GetNonMintedValueOut(*wtx.tx, DCT_ID{});
+    old_fee = wtx->GetDebit(ISMINE_SPENDABLE)[DCT_ID{0}] - GetNonMintedValueOut(*(wtx->tx), DCT_ID{});
     CFeeRate nOldFeeRate(old_fee, txSize);
     // The wallet uses a conservative WALLET_INCREMENTAL_RELAY_FEE value to
     // future proof against changes to network wide policy for incremental relay
@@ -171,7 +170,7 @@ Result CreateTotalBumpTransaction(const CWallet* wallet, const uint256& txid, co
     // If the output is not large enough to pay the fee, fail.
     CAmount nDelta = new_fee - old_fee;
     assert(nDelta > 0);
-    mtx = CMutableTransaction{*wtx.tx};
+    mtx = CMutableTransaction{*(wtx->tx)};
     CTxOut* poutput = &(mtx.vout[nOutput]);
     if (poutput->nValue < nDelta) {
         errors.push_back("Change output is too small to bump the fee");
@@ -206,21 +205,20 @@ Result CreateRateBumpTransaction(CWallet* wallet, const uint256& txid, const CCo
     auto locked_chain = wallet->chain().lock();
     LOCK(wallet->cs_wallet);
     errors.clear();
-    auto it = wallet->mapWallet.find(txid);
-    if (it == wallet->mapWallet.end()) {
+    const CWalletTx* wtx = wallet->GetWalletTx(txid);
+    if (!wtx) {
         errors.push_back("Invalid or non-wallet transaction id");
         return Result::INVALID_ADDRESS_OR_KEY;
     }
-    const CWalletTx& wtx = it->second;
 
-    Result result = PreconditionChecks(*locked_chain, wallet, wtx, errors);
+    Result result = PreconditionChecks(*locked_chain, wallet, *wtx, errors);
     if (result != Result::OK) {
         return result;
     }
 
     // Fill in recipients(and preserve a single change key if there is one)
     std::vector<CRecipient> recipients;
-    for (const auto& output : wtx.tx->vout) {
+    for (const auto& output : wtx->tx->vout) {
         if (!wallet->IsChange(output)) {
             CRecipient recipient = {output.scriptPubKey, output.nValue, output.nTokenId, false};
             recipients.push_back(recipient);
@@ -234,8 +232,8 @@ Result CreateRateBumpTransaction(CWallet* wallet, const uint256& txid, const CCo
     // Get the fee rate of the original transaction. This is calculated from
     // the tx fee/vsize, so it may have been rounded down. Add 1 satoshi to the
     // result.
-    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[DCT_ID{0}] - wtx.tx->GetValueOut();
-    int64_t txSize = GetVirtualTransactionSize(*(wtx.tx));
+    old_fee = wtx->GetDebit(ISMINE_SPENDABLE)[DCT_ID{0}] - wtx->tx->GetValueOut();
+    int64_t txSize = GetVirtualTransactionSize(*(wtx->tx));
     // Feerate of thing we are bumping
     CFeeRate feerate(old_fee, txSize);
     feerate += CFeeRate(1);
@@ -264,7 +262,7 @@ Result CreateRateBumpTransaction(CWallet* wallet, const uint256& txid, const CCo
     // A2 and A3 where A2 and A3 don't conflict (or alternatively bump A to A2 and A2
     // to A3 where A and A3 don't conflict). If both later get confirmed then the sender
     // has accidentally double paid.
-    for (const auto& inputs : wtx.tx->vin) {
+    for (const auto& inputs : wtx->tx->vin) {
         new_coin_control.Select(COutPoint(inputs.prevout));
     }
     new_coin_control.fAllowOtherInputs = true;
@@ -309,26 +307,25 @@ Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransacti
     if (!errors.empty()) {
         return Result::MISC_ERROR;
     }
-    auto it = txid.IsNull() ? wallet->mapWallet.end() : wallet->mapWallet.find(txid);
-    if (it == wallet->mapWallet.end()) {
+    const CWalletTx* oldWtx = wallet->GetWalletTx(txid);
+    if (!oldWtx) {
         errors.push_back("Invalid or non-wallet transaction id");
         return Result::MISC_ERROR;
     }
-    CWalletTx& oldWtx = it->second;
 
     // make sure the transaction still has no descendants and hasn't been mined in the meantime
-    Result result = PreconditionChecks(*locked_chain, wallet, oldWtx, errors);
+    Result result = PreconditionChecks(*locked_chain, wallet, *oldWtx, errors);
     if (result != Result::OK) {
         return result;
     }
 
     // commit/broadcast the tx
     CTransactionRef tx = MakeTransactionRef(std::move(mtx));
-    mapValue_t mapValue = oldWtx.mapValue;
-    mapValue["replaces_txid"] = oldWtx.GetHash().ToString();
+    mapValue_t mapValue = oldWtx->mapValue;
+    mapValue["replaces_txid"] = oldWtx->GetHash().ToString();
 
     CValidationState state;
-    if (!wallet->CommitTransaction(tx, std::move(mapValue), oldWtx.vOrderForm, state)) {
+    if (!wallet->CommitTransaction(tx, std::move(mapValue), oldWtx->vOrderForm, state)) {
         // NOTE: CommitTransaction never returns false, so this should never happen.
         errors.push_back(strprintf("The transaction was rejected: %s", FormatStateMessage(state)));
         return Result::WALLET_ERROR;
@@ -342,7 +339,7 @@ Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransacti
     }
 
     // mark the original tx as bumped
-    if (!wallet->MarkReplaced(oldWtx.GetHash(), bumped_txid)) {
+    if (!wallet->MarkReplaced(oldWtx->GetHash(), bumped_txid)) {
         // TODO: see if JSON-RPC has a standard way of returning a response
         // along with an exception. It would be good to return information about
         // wtxBumped to the caller even if marking the original transaction

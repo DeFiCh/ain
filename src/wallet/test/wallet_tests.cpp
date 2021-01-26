@@ -12,6 +12,7 @@
 #include <interfaces/chain.h>
 #include <policy/policy.h>
 #include <rpc/server.h>
+#include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
 #include <validation.h>
 #include <wallet/coincontrol.h>
@@ -30,6 +31,19 @@ static void AddKey(CWallet& wallet, const CKey& key)
 {
     LOCK(wallet.cs_wallet);
     wallet.AddKeyPubKey(key, key.GetPubKey());
+}
+
+static CMutableTransaction TestSimpleSpend(const CTransaction& from, uint32_t index, const CKey& key, const CScript& pubkey)
+{
+    CMutableTransaction mtx;
+    mtx.vout.push_back({from.vout[index].nValue - DEFAULT_TRANSACTION_MINFEE, pubkey});
+    mtx.vin.push_back({CTxIn{from.GetHash(), index}});
+    FillableSigningProvider keystore;
+    keystore.AddKey(key);
+    std::map<COutPoint, Coin> coins;
+    coins[mtx.vin[0].prevout].out = from.vout[index];
+    BOOST_CHECK(SignTransaction(mtx, {}, &keystore, coins, true, {})["complete"].getBool());
+    return mtx;
 }
 
 BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
@@ -292,7 +306,7 @@ static int64_t AddTx(CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64
         wallet.AddToWallet(wtx);
     }
     LOCK(wallet.cs_wallet);
-    return wallet.mapWallet.at(wtx.GetHash()).nTimeSmart;
+    return wallet.GetWalletTx(wtx.GetHash())->nTimeSmart;
 }
 
 // Simple test to verify assignment of CWalletTx::nSmartTime value. Could be
@@ -362,7 +376,7 @@ public:
         wallet.reset();
     }
 
-    CWalletTx& AddTx(CRecipient recipient)
+    void AddTx(CRecipient recipient)
     {
         uint256 masternodesID = testMasternodeKeys.begin()->first;
         CTransactionRef tx;
@@ -379,16 +393,18 @@ public:
         CMutableTransaction blocktx;
         {
             LOCK(wallet->cs_wallet);
-            blocktx = CMutableTransaction(*wallet->mapWallet.at(tx->GetHash()).tx);
+            blocktx = CMutableTransaction(*(wallet->GetWalletTx(tx->GetHash())->tx));
         }
         CreateAndProcessBlock({CMutableTransaction(blocktx)}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID);
 
         LOCK(cs_main);
         LOCK(wallet->cs_wallet);
-        auto it = wallet->mapWallet.find(tx->GetHash());
-        BOOST_CHECK(it != wallet->mapWallet.end());
-        it->second.SetMerkleBranch(::ChainActive().Tip()->GetBlockHash(), 1);
-        return it->second;
+        auto& byHash = wallet->mapWallet.get<ByHash>();
+        auto it = byHash.find(tx->GetHash());
+        BOOST_CHECK(it != byHash.end());
+        auto wtx = *it;
+        wtx.SetMerkleBranch(::ChainActive().Tip()->GetBlockHash(), 1);
+        byHash.replace(it, wtx);
     }
 
     std::unique_ptr<interfaces::Chain> m_chain = interfaces::MakeChain();
@@ -514,6 +530,38 @@ BOOST_FIXTURE_TEST_CASE(dummy_input_size_test, TestChain100Setup)
 {
     BOOST_CHECK_EQUAL(CalculateNestedKeyhashInputSize(false), DUMMY_NESTED_P2WPKH_INPUT_SIZE);
     BOOST_CHECK_EQUAL(CalculateNestedKeyhashInputSize(true), DUMMY_NESTED_P2WPKH_INPUT_SIZE);
+}
+
+BOOST_FIXTURE_TEST_CASE(ZapSelectTx, TestChain100Setup)
+{
+    auto chain = interfaces::MakeChain();
+    auto wallet = std::make_shared<CWallet>(chain.get(), WalletLocation(), WalletDatabase::CreateMock());
+    bool firstRun;
+    wallet->LoadWallet(firstRun);
+    wallet->handleNotifications();
+    AddKey(*wallet, coinbaseKey);
+
+    auto masternodesID = testMasternodeKeys.begin()->first;
+    auto script = GetScriptForRawPubKey(coinbaseKey.GetPubKey());
+    auto block_tx = TestSimpleSpend(*m_coinbase_txns[0], 0, coinbaseKey, script);
+    CreateAndProcessBlock({block_tx}, script, masternodesID);
+
+    wallet->BlockUntilSyncedToCurrentChain();
+
+    {
+        auto block_hash = block_tx.GetHash();
+        auto prev_hash = m_coinbase_txns[0]->GetHash();
+
+        LOCK(wallet->cs_wallet);
+        BOOST_CHECK(wallet->HasWalletSpend(prev_hash));
+        BOOST_CHECK_EQUAL(wallet->mapWallet.count(block_hash), 1u);
+
+        std::vector<uint256> vHashIn{ block_hash }, vHashOut;
+        BOOST_CHECK_EQUAL(wallet->ZapSelectTx(vHashIn, vHashOut), DBErrors::LOAD_OK);
+
+        BOOST_CHECK(!wallet->HasWalletSpend(prev_hash));
+        BOOST_CHECK_EQUAL(wallet->mapWallet.count(block_hash), 0u);
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -78,7 +78,7 @@ bool WalletBatch::WriteTx(const CWalletTx& wtx)
     return WriteIC(std::make_pair(DBKeys::TX, wtx.GetHash()), wtx);
 }
 
-bool WalletBatch::EraseTx(uint256 hash)
+bool WalletBatch::EraseTx(const uint256& hash)
 {
     return EraseIC(std::make_pair(DBKeys::TX, hash));
 }
@@ -208,11 +208,17 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         if (strType == DBKeys::NAME) {
             std::string strAddress;
             ssKey >> strAddress;
-            ssValue >> pwallet->mapAddressBook[DecodeDestination(strAddress)].name;
+            auto destination = DecodeDestination(strAddress);
+            if (IsValidDestination(destination)) {
+                ssValue >> pwallet->mapAddressBook[destination].name;
+            }
         } else if (strType == DBKeys::PURPOSE) {
             std::string strAddress;
             ssKey >> strAddress;
-            ssValue >> pwallet->mapAddressBook[DecodeDestination(strAddress)].purpose;
+            auto destination = DecodeDestination(strAddress);
+            if (IsValidDestination(destination)) {
+                ssValue >> pwallet->mapAddressBook[destination].purpose;
+            }
         } else if (strType == DBKeys::TX) {
             uint256 hash;
             ssKey >> hash;
@@ -521,7 +527,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
         pwallet->UpdateTimeFirstKey(1);
 
     for (const uint256& hash : wss.vWalletUpgrade)
-        WriteTx(pwallet->mapWallet.at(hash));
+        WriteTx(*pwallet->GetWalletTx(hash));
 
     // Rewrite encrypted wallets of versions 0.4.0 and 0.5.0rc:
     if (wss.fIsEncrypted && (last_client == 40000 || last_client == 50000))
@@ -619,7 +625,7 @@ DBErrors WalletBatch::ZapSelectTx(std::vector<uint256>& vTxHashIn, std::vector<u
     bool delerror = false;
     std::vector<uint256>::iterator it = vTxHashIn.begin();
     for (const uint256& hash : vTxHash) {
-        while (it < vTxHashIn.end() && (*it) < hash) {
+        while (it != vTxHashIn.end() && (*it) < hash) {
             it++;
         }
         if (it == vTxHashIn.end()) {

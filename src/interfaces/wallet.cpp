@@ -272,9 +272,8 @@ public:
     {
         auto locked_chain = m_wallet->chain().lock();
         LOCK(m_wallet->cs_wallet);
-        auto mi = m_wallet->mapWallet.find(txid);
-        if (mi != m_wallet->mapWallet.end()) {
-            return mi->second.tx;
+        if (auto wtx = m_wallet->GetWalletTx(txid)) {
+            return wtx->tx;
         }
         return {};
     }
@@ -282,9 +281,8 @@ public:
     {
         auto locked_chain = m_wallet->chain().lock();
         LOCK(m_wallet->cs_wallet);
-        auto mi = m_wallet->mapWallet.find(txid);
-        if (mi != m_wallet->mapWallet.end()) {
-            return MakeWalletTx(*locked_chain, *m_wallet, mi->second);
+        if (auto wtx = m_wallet->GetWalletTx(txid)) {
+            return MakeWalletTx(*locked_chain, *m_wallet, *wtx);
         }
         return {};
     }
@@ -294,8 +292,8 @@ public:
         LOCK(m_wallet->cs_wallet);
         std::vector<WalletTx> result;
         result.reserve(m_wallet->mapWallet.size());
-        for (const auto& entry : m_wallet->mapWallet) {
-            result.emplace_back(MakeWalletTx(*locked_chain, *m_wallet, entry.second));
+        for (const auto& wtx : m_wallet->mapWallet.get<ByHash>()) {
+            result.emplace_back(MakeWalletTx(*locked_chain, *m_wallet, wtx));
         }
         return result;
     }
@@ -312,8 +310,8 @@ public:
         if (!locked_wallet) {
             return false;
         }
-        auto mi = m_wallet->mapWallet.find(txid);
-        if (mi == m_wallet->mapWallet.end()) {
+        auto wtx = m_wallet->GetWalletTx(txid);
+        if (!wtx) {
             return false;
         }
         if (Optional<int> height = locked_chain->getHeight()) {
@@ -323,7 +321,7 @@ public:
             num_blocks = -1;
             block_time = -1;
         }
-        tx_status = MakeWalletTxStatus(*locked_chain, mi->second);
+        tx_status = MakeWalletTxStatus(*locked_chain, *wtx);
         return true;
     }
     WalletTx getWalletTxDetails(const uint256& txid,
@@ -334,13 +332,12 @@ public:
     {
         auto locked_chain = m_wallet->chain().lock();
         LOCK(m_wallet->cs_wallet);
-        auto mi = m_wallet->mapWallet.find(txid);
-        if (mi != m_wallet->mapWallet.end()) {
+        if (auto wtx = m_wallet->GetWalletTx(txid)) {
             num_blocks = locked_chain->getHeight().get_value_or(-1);
-            in_mempool = mi->second.InMempool();
-            order_form = mi->second.vOrderForm;
-            tx_status = MakeWalletTxStatus(*locked_chain, mi->second);
-            return MakeWalletTx(*locked_chain, *m_wallet, mi->second);
+            in_mempool = wtx->InMempool();
+            order_form = wtx->vOrderForm;
+            tx_status = MakeWalletTxStatus(*locked_chain, *wtx);
+            return MakeWalletTx(*locked_chain, *m_wallet, *wtx);
         }
         return {};
     }
@@ -422,11 +419,10 @@ public:
         result.reserve(outputs.size());
         for (const auto& output : outputs) {
             result.emplace_back();
-            auto it = m_wallet->mapWallet.find(output.hash);
-            if (it != m_wallet->mapWallet.end()) {
-                int depth = it->second.GetDepthInMainChain(*locked_chain);
+            if (auto wtx = m_wallet->GetWalletTx(output.hash)) {
+                int depth = wtx->GetDepthInMainChain(*locked_chain);
                 if (depth >= 0) {
-                    result.back() = MakeWalletTxOut(*locked_chain, *m_wallet, it->second, output.n, depth);
+                    result.back() = MakeWalletTxOut(*locked_chain, *m_wallet, *wtx, output.n, depth);
                 }
             }
         }
