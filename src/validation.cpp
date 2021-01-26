@@ -3865,15 +3865,14 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             if (pindex->nStatus & BLOCK_FAILED_MASK) {
                 if (pindex->nHeight == 597925) {
                     ResetBlockFailureFlags(pindex);
-                    auto pindex = ::ChainActive()[597915];
-                    pindex->nStatus |= BLOCK_FAILED_VALID;
-                    m_failed_blocks.insert(pindex);
+                    auto pindexInvalid = ::ChainActive()[597915];
+                    pindexInvalid->nStatus |= BLOCK_FAILED_VALID;
+                    m_failed_blocks.insert(pindexInvalid);
                     auto& chain = ::ChainstateActive();
-                    chain.setBlockIndexCandidates.erase(pindex);
-                    setDirtyBlockIndex.insert(pindex);
-                    InvalidChainFound(pindex);
-                }
-                if (pindex->nHeight == 597915) {
+                    chain.setBlockIndexCandidates.erase(pindexInvalid);
+                    setDirtyBlockIndex.insert(pindexInvalid);
+                    InvalidChainFound(pindexInvalid);
+                } else if (pindex->nHeight == 597915) {
                     ResetBlockFailureFlags(pindex);
                 }
                 return state.Invalid(ValidationInvalidReason::CACHED_INVALID, error("%s: block %s is marked invalid", __func__, hash.ToString()), 0, "duplicate");
