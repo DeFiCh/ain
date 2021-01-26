@@ -2965,6 +2965,18 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         InvalidChainFound(vpindexToConnect.front());
                     }
                     state = CValidationState();
+                    if (pindexConnect == pindexMostWork) {
+                        // NOTE: Invalidate blocks back to last checkpoint
+                        auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
+                        auto it = checkpoints.lower_bound(pindexConnect->nHeight);
+                        if (it != checkpoints.begin()) {
+                            auto index = LookupBlockIndex((--it)->second);
+                            if (InvalidateBlock(state, chainparams, index)) {
+                                state.Invalid(ValidationInvalidReason::NONE, true, UINT_MAX);
+                                fBlocksDisconnected = true;
+                            }
+                        }
+                    }
                     fInvalidFound = true;
                     fContinue = false;
                     break;
@@ -3178,6 +3190,14 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
                     // Wipe cache, we may need another branch now.
                     pindexMostWork = nullptr;
                 }
+
+                // Special case to catch checkpoint block invalidation
+                if (state.GetRejectCode() == UINT_MAX) {
+                    starting_tip = m_chain.Tip();
+                    state = CValidationState();
+                    continue;
+                }
+
                 pindexNewTip = m_chain.Tip();
 
                 for (const PerBlockConnectTrace& trace : connectTrace.GetBlocksConnected()) {
