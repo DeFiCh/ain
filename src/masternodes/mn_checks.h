@@ -54,10 +54,12 @@ enum class CustomTxType : unsigned char
     AnyAccountsToAccounts  = 'a',
     //set governance variable
     SetGovVariable       = 'G',
+    // Auto auth TX
+    AutoAuthPrep       = 'A',
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMNnpuslrUbBaG";
+    char const txtypes[] = "CRTMNnpuslrUbBaGA";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -83,6 +85,7 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
+        case CustomTxType::AutoAuthPrep:        return "AutoAuth";
         default:                                return "None";
     }
 }

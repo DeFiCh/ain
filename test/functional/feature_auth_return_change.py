@@ -30,8 +30,8 @@ class TokensAuthChange(DefiTestFramework):
         auth_tx = self.nodes[0].getrawtransaction(final_rawtx['vin'][0]['txid'], 1)
 
         # Auth TX outputs all belong to auth address
-        assert_equal(auth_tx['vout'][0]['scriptPubKey']['addresses'][0], owner)
-        assert_equal(len(auth_tx['vout']), 1)
+        assert_equal(auth_tx['vout'][1]['scriptPubKey']['addresses'][0], owner)
+        assert_equal(len(auth_tx['vout']), 2)
 
         # Two outputs, single input and change to auth address on final TX
         assert_equal(final_rawtx['vout'][1]['scriptPubKey']['addresses'][0], owner)

@@ -357,6 +357,14 @@ CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & a
     CMutableTransaction mtx(txVersion);
     CCoinControl coinControl;
 
+    // Encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AutoAuthPrep);
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+    mtx.vout.push_back(CTxOut(0, scriptMeta));
+
     // Only set change to auth on single auth TXs
     if (auths.size() == 1) {
 
@@ -368,11 +376,11 @@ CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & a
         mtx.vout.push_back(authOut);
         fund(mtx, pwallet, {}, &coinControl, true /*lockUnspents*/);
 
-        // Auth output and change
-        if (mtx.vout.size() == 2) {
-            mtx.vout[0].nValue += mtx.vout[1].nValue; // Combine values
-            mtx.vout[0].scriptPubKey = auth;
-            mtx.vout.erase(mtx.vout.begin() + 1); // Delete "change" output
+        // AutoAuthPrep, auth output and change
+        if (mtx.vout.size() == 3) {
+            mtx.vout[1].nValue += mtx.vout[2].nValue; // Combine values
+            mtx.vout[1].scriptPubKey = auth;
+            mtx.vout.erase(mtx.vout.begin() + 2); // Delete "change" output
         }
 
         return sign(mtx, pwallet, {});
@@ -4113,6 +4121,10 @@ static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomT
         case CustomTxType::AnyAccountsToAccounts:
             res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
             break;
+        case CustomTxType::AutoAuthPrep:
+            res.ok = true;
+            res.msg = "AutoAuth";
+            break;
         default:
             return false;
     }
@@ -4248,7 +4260,7 @@ static UniValue getcustomtx(const JSONRPCRequest& request)
         result.pushKV("valid", res.ok ? true : false);
     } else {
         auto undo = pcustomcsview->GetUndo(UndoKey{static_cast<uint32_t>(nHeight), hash});
-        result.pushKV("valid", undo ? true : false);
+        result.pushKV("valid", undo || res.msg == "AutoAuth" ? true : false);
     }
 
     if (!res.ok) {
