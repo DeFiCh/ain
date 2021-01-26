@@ -1159,9 +1159,9 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
         return Res::Err("%s: pool with poolId %s does not exist", __func__, poolId.ToString());
     }
 
-    //check foundation auth
-    if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
-        return Res::Err("%s: %s", __func__, "tx not from foundation member");
+    // check with the current pool owner address
+    if (!skipAuth && !HasAuth(tx, coins, pool.value().ownerAddress)) {
+        return Res::Err("%s: %s", __func__, "tx not from the current pool pair owner");
     }
 
     auto res = mnview.UpdatePoolPair(poolId, status, commission, ownerAddress);

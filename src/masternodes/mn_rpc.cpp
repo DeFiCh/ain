@@ -2749,6 +2749,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
 
     std::string const poolStr = trim_ws(metaObj["pool"].getValStr());
     DCT_ID poolId;
+    CScript owner;
     int targetHeight;
     {
         LOCK(cs_main);
@@ -2762,6 +2763,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
         }
         status = pool->status;
+        owner = pool.value().ownerAddress;
         targetHeight = ::ChainActive().Height() + 1;
     }
 
@@ -2788,7 +2790,8 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
+    auths.insert(owner);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
