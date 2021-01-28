@@ -2924,20 +2924,25 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
     // Disconnect active blocks which are no longer in the best chain.
     bool fBlocksDisconnected = false;
     DisconnectedBlockTransactions disconnectpool;
-    while (m_chain.Tip() && m_chain.Tip() != pindexFork) {
-        if (!DisconnectTip(state, chainparams, &disconnectpool)) {
-            // This is likely a fatal error, but keep the mempool consistent,
-            // just in case. Only remove from the mempool in this case.
-            UpdateMempoolForReorg(disconnectpool, false);
+    auto disconnectBlocksTo = [&](const CBlockIndex *pindex) -> bool {
+        while (m_chain.Tip() && m_chain.Tip() != pindex) {
+            if (!DisconnectTip(state, chainparams, &disconnectpool)) {
+                // This is likely a fatal error, but keep the mempool consistent,
+                // just in case. Only remove from the mempool in this case.
+                UpdateMempoolForReorg(disconnectpool, false);
 
-            // If we're unable to disconnect a block during normal operation,
-            // then that is a failure of our local system -- we should abort
-            // rather than stay on a less work chain.
-            AbortNode(state, "Failed to disconnect block; see debug.log for details");
-            return false;
+                // If we're unable to disconnect a block during normal operation,
+                // then that is a failure of our local system -- we should abort
+                // rather than stay on a less work chain.
+                return AbortNode(state, "Failed to disconnect block; see debug.log for details");
+            }
+            fBlocksDisconnected = true;
         }
-        fBlocksDisconnected = true;
-    }
+        return true;
+    };
+
+    if (!disconnectBlocksTo(pindexFork))
+        return false;
 
     // Build list of new blocks to connect.
     std::vector<CBlockIndex*> vpindexToConnect;
@@ -2969,11 +2974,10 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // NOTE: Invalidate blocks back to last checkpoint
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
                         auto it = checkpoints.lower_bound(pindexConnect->nHeight);
-                        if (it != checkpoints.begin()) {
-                            auto index = LookupBlockIndex((--it)->second);
-                            if (InvalidateBlock(state, chainparams, index)) {
-                                state.Invalid(ValidationInvalidReason::NONE, true, UINT_MAX);
-                                fBlocksDisconnected = true;
+                        if (it != checkpoints.begin() && (--it)->first > 0) { // it doesn't makes sense backward to genesis
+                            auto index = LookupBlockIndex(it->second);
+                            if (!disconnectBlocksTo(index)) {
+                                return false;
                             }
                         }
                     }
@@ -3190,13 +3194,6 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
                 if (fInvalidFound) {
                     // Wipe cache, we may need another branch now.
                     pindexMostWork = nullptr;
-                }
-
-                // Special case to catch checkpoint block invalidation
-                if (state.GetRejectCode() == UINT_MAX) {
-                    starting_tip = m_chain.Tip();
-                    state = CValidationState();
-                    continue;
                 }
 
                 pindexNewTip = m_chain.Tip();
