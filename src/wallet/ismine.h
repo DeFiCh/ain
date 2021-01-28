@@ -10,12 +10,13 @@
 
 #include <stdint.h>
 #include <bitset>
+#include <unordered_map>
 
 class CWallet;
 class CScript;
 
 /** IsMine() return codes */
-enum isminetype : unsigned int
+enum isminetype : uint8_t
 {
     ISMINE_NO         = 0,
     ISMINE_WATCH_ONLY = 1 << 0,
@@ -36,22 +37,23 @@ isminetype IsMine(const CWallet& wallet, const CTxDestination& dest);
  */
 struct CachableAmount
 {
-    // NO and ALL are never (supposed to be) cached
-    std::bitset<ISMINE_ENUM_ELEMENTS> m_cached;
-    TAmounts m_value[ISMINE_ENUM_ELEMENTS];
+    std::unordered_map<uint8_t, TAmounts> m_value;
+
     inline void Reset()
     {
-        m_cached.reset();
+        m_value.clear();
     }
-//    void Set(isminefilter filter, CAmount value)
-//    {
-//        m_cached.set(filter);
-//        m_value[filter] = value;
-//    }
+    bool IsSet(isminefilter filter) const
+    {
+        return m_value.count(filter) > 0;
+    }
+    const TAmounts& Get(isminefilter filter) const
+    {
+        return m_value.at(filter);
+    }
     void Set(isminefilter filter, TAmounts && amounts)
     {
-        m_cached.set(filter);
-        m_value[filter] = amounts;
+        m_value[filter] = std::move(amounts);
     }
 };
 

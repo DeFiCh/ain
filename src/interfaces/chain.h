@@ -30,7 +30,6 @@ struct FeeCalculation;
 namespace interfaces {
 
 class Handler;
-class Wallet;
 
 //! Interface giving clients (wallet processes, maybe other analysis tools in
 //! the future) ability to access to the chain state, receive notifications,
@@ -213,9 +212,6 @@ public:
 
     //! Send init error.
     virtual void initError(const std::string& message) = 0;
-
-    //! Send wallet load notification to the GUI.
-    virtual void loadWallet(std::unique_ptr<Wallet> wallet) = 0;
 
     //! Send progress indicator.
     virtual void showProgress(const std::string& title, int progress, bool resume_possible) = 0;

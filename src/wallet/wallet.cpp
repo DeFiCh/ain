@@ -11,7 +11,6 @@
 #include <consensus/validation.h>
 #include <fs.h>
 #include <interfaces/chain.h>
-#include <interfaces/wallet.h>
 #include <key.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
@@ -807,7 +806,6 @@ void CWallet::SyncMetaData(const COutPoint& outPoint)
         assert(copyFrom && "Oldest wallet transaction in range assumed to have been found.");
         mapWallet.modify(it, [copyFrom](CWalletTx& copyTo) {
             copyTo.mapValue = copyFrom->mapValue;
-            copyTo.vOrderForm = copyFrom->vOrderForm;
             // fTimeReceivedIsTxTime not copied on purpose
             // nTimeReceived not copied on purpose
             copyTo.nTimeSmart = copyFrom->nTimeSmart;
@@ -2221,11 +2219,10 @@ std::set<uint256> CWalletTx::GetConflicts() const
 TAmounts const & CWalletTx::GetCachableAmounts(AmountType type, const isminefilter& filter, bool recalculate) const
 {
     auto& amount = m_amounts[type];
-    if (recalculate || !amount.m_cached[filter]) {
-
+    if (recalculate || !amount.IsSet(filter)) {
         amount.Set(filter, type == DEBIT ? pwallet->GetDebit(*tx, filter) : pwallet->GetCredit(*tx, filter));
     }
-    return amount.m_value[filter];
+    return amount.Get(filter);
 }
 
 inline void Increment(TAmounts & accum, TAmounts const & amounts) {
@@ -2288,8 +2285,8 @@ TAmounts CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, bo
     if (IsImmatureCoinBase(locked_chain))
         return {};
 
-    if (fUseCache && allow_cache && m_amounts[AVAILABLE_CREDIT].m_cached[filter]) {
-        return m_amounts[AVAILABLE_CREDIT].m_value[filter];
+    if (fUseCache && allow_cache && m_amounts[AVAILABLE_CREDIT].IsSet(filter)) {
+        return m_amounts[AVAILABLE_CREDIT].Get(filter);
     }
 
     bool allow_used_addresses = (filter & ISMINE_USED) || !pwallet->IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE);
@@ -2316,7 +2313,7 @@ TAmounts CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, bo
 
     if (allow_cache) {
         m_amounts[AVAILABLE_CREDIT].Set(filter, std::move(nCredit));
-        return m_amounts[AVAILABLE_CREDIT].m_value[filter]; // additional access and return due to move/rvalue
+        return m_amounts[AVAILABLE_CREDIT].Get(filter); // additional access and return due to move/rvalue
     }
 
     return nCredit;
@@ -2334,11 +2331,7 @@ CAmount CWalletTx::GetImmatureWatchOnlyCredit(interfaces::Chain::Lock& locked_ch
 
 TAmounts CWalletTx::GetChange() const
 {
-    if (fChangeCached)
-        return nChangeCached;
-    nChangeCached = pwallet->GetChange(*tx);
-    fChangeCached = true;
-    return nChangeCached;
+    return pwallet->GetChange(*tx);
 }
 
 bool CWalletTx::InMempool() const
@@ -3445,7 +3438,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 /**
  * Call after CreateTransaction unless you want to abort
  */
-bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, CValidationState& state)
+bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, CValidationState& state)
 {
     {
         auto locked_chain = chain().lock();
@@ -3453,7 +3446,6 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::ve
 
         CWalletTx wtxNew(this, std::move(tx));
         wtxNew.mapValue = std::move(mapValue);
-        wtxNew.vOrderForm = std::move(orderForm);
         wtxNew.fTimeReceivedIsTxTime = true;
         wtxNew.fFromMe = true;
 
@@ -4733,7 +4725,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
                     const CWalletTx* copyFrom = &wtxOld;
                     mapWallet.modify(mi, [copyFrom, &batch](CWalletTx& copyTo) {
                         copyTo.mapValue = copyFrom->mapValue;
-                        copyTo.vOrderForm = copyFrom->vOrderForm;
                         copyTo.nTimeReceived = copyFrom->nTimeReceived;
                         copyTo.nTimeSmart = copyFrom->nTimeSmart;
                         copyTo.fFromMe = copyFrom->fFromMe;
@@ -4744,8 +4735,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain& chain,
             }
         }
     }
-
-    chain.loadWallet(interfaces::MakeWallet(walletInstance));
 
     // Register with the validation interface. It's ok to do this after rescan since we're still holding locked_chain.
     walletInstance->handleNotifications();

@@ -146,7 +146,6 @@ DEFI_CORE_H = \
   interfaces/chain.h \
   interfaces/handler.h \
   interfaces/node.h \
-  interfaces/wallet.h \
   key.h \
   key_io.h \
   dbwrapper.h \
@@ -435,7 +434,6 @@ endif
 libdefi_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(DEFI_INCLUDES)
 libdefi_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdefi_wallet_a_SOURCES = \
-  interfaces/wallet.cpp \
   wallet/coincontrol.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \

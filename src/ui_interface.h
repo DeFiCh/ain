@@ -106,9 +106,6 @@ public:
      */
     ADD_SIGNALS_DECL_WRAPPER(NotifyAlertChanged, void, );
 
-    /** A wallet has been loaded. */
-    ADD_SIGNALS_DECL_WRAPPER(LoadWallet, void, std::unique_ptr<interfaces::Wallet>& wallet);
-
     /**
      * Show progress e.g. for verifychain.
      * resume_possible indicates shutting down now will result in the current progress action resuming upon restart.

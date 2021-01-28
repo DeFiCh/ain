@@ -8,7 +8,6 @@
 #include <test/setup_common.h>
 
 #include <interfaces/chain.h>
-#include <interfaces/wallet.h>
 #include <wallet/wallet.h>
 
 #include <memory>

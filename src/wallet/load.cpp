@@ -9,6 +9,7 @@
 #include <scheduler.h>
 #include <util/system.h>
 #include <util/translation.h>
+#include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 
 bool VerifyWallets(interfaces::Chain& chain, const std::vector<std::string>& wallet_files)
@@ -111,3 +112,36 @@ void UnloadWallets()
         UnloadWallet(std::move(wallet));
     }
 }
+
+namespace interfaces {
+
+namespace {
+
+class WalletClientImpl : public ChainClient
+{
+public:
+    WalletClientImpl(Chain& chain, std::vector<std::string> wallet_filenames)
+        : m_chain(chain), m_wallet_filenames(std::move(wallet_filenames))
+    {
+    }
+    void registerRpcs() override { return RegisterWalletRPCCommands(m_chain, m_rpc_handlers); }
+    bool verify() override { return VerifyWallets(m_chain, m_wallet_filenames); }
+    bool load() override { return LoadWallets(m_chain, m_wallet_filenames); }
+    void start(CScheduler& scheduler) override { return StartWallets(scheduler); }
+    void flush() override { return FlushWallets(); }
+    void stop() override { return StopWallets(); }
+    ~WalletClientImpl() override { UnloadWallets(); }
+
+    Chain& m_chain;
+    std::vector<std::string> m_wallet_filenames;
+    std::vector<std::unique_ptr<Handler>> m_rpc_handlers;
+};
+
+} // namespace
+
+std::unique_ptr<ChainClient> MakeWalletClient(Chain& chain, std::vector<std::string> wallet_filenames)
+{
+    return MakeUnique<WalletClientImpl>(chain, std::move(wallet_filenames));
+}
+
+} // namespace interfaces
