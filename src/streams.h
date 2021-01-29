@@ -853,10 +853,13 @@ public:
     void FindByte(char ch) {
         while (true) {
             if (nReadPos == nSrcPos)
-                Fill();
-            if (vchBuf[nReadPos % vchBuf.size()] == ch)
-                break;
-            nReadPos++;
+                if (!Fill())
+                    throw std::ios_base::failure("CBufferedFile::FindByte: fail to read");
+                if (nReadPos >= vchBuf.size())
+                    throw std::ios_base::failure("CBufferedFile::FindByte: fail to find");
+                if (vchBuf[nReadPos] == ch)
+                    break;
+                nReadPos++;
         }
     }
 };
