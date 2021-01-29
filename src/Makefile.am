@@ -374,6 +374,7 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
+  masternodes/oraclesview.cpp \
   masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
   masternodes/undos.cpp \

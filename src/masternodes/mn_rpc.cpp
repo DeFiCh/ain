@@ -4040,6 +4040,136 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
 }
 
+UniValue setrawprice(const JSONRPCRequest &request) {
+    CWallet *const pwallet = GetWallet(request);
+
+//    RPCHelpMan{"setrawprice",
+//               "\nCreates (and submits to local node and network) a set raw price transaction.\n"
+//               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+//               HelpRequiringPassphrase(pwallet) + "\n",
+//               {
+//                       {"timestamp", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+//                        {
+//                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO,
+//                                 "The defi address(es) is the key(s), the value(s) is amount in amount@token format. "
+//                                 "You should provide exectly two types of tokens for pool's 'token A' and 'token B' in any combinations."
+//                                 "If multiple tokens from one address are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"
+//                                 "If \"from\" obj contain only one amount entry with address-key: \"*\" (star), it's means auto-selection accounts from wallet."},
+//                        },
+//                       },
+//                       {"shareAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
+//                        "The defi address for crediting tokens."},
+//                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+//                        "A json array of json objects",
+//                        {
+//                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+//                                 {
+//                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+//                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+//                                 },
+//                                },
+//                        },
+//                       },
+//               },
+//               RPCResult{
+//                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+//               },
+//               RPCExamples{
+//                       HelpExampleCli("addpoolliquidity",
+//                                      "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
+//                                      "share_address '[]'")
+//                       + HelpExampleCli("addpoolliquidity",
+//                                        "'{\"*\": [\"2.0@BTC\", \"3.0@ETH\"]}' "
+//                                        "share_address '[]'")
+//                       + HelpExampleRpc("addpoolliquidity",
+//                                        "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
+//                                        "share_address '[]'")
+//               },
+//    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM}, false);
+
+    // decode
+    CLiquidityMessage msg{};
+    if (request.params[0].get_obj().getKeys().size() == 1 &&
+        request.params[0].get_obj().getKeys()[0] == "*") { // auto-selection accounts from wallet
+        CAccounts foundWalletAccounts = FindAccountsFromWallet(pwallet);
+
+        CBalances sumTransfers = DecodeAmounts(pwallet->chain(), request.params[0].get_obj()["*"], "*");
+
+        msg.from = SelectAccountsByTargetBalances(foundWalletAccounts, sumTransfers, SelectionPie);
+
+        if (msg.from.empty()) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                               "Not enough balance on wallet accounts, call utxostoaccount to increase it.\n");
+        }
+    } else {
+        msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
+    }
+    msg.shareAddress = DecodeScript(request.params[1].get_str());
+
+    // encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AddPoolLiquidity)
+                   << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    // auth
+    std::set<CScript> auths;
+    for (const auto &kv : msg.from) {
+        auths.emplace(kv.first);
+    }
+    UniValue const &txInputs = request.params[2];
+    CTransactionRef optAuthTx;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to from address if there's only one auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    // fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto res = ApplyAddPoolLiquidityTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
+                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}),
+                                                 Params().GetConsensus());
+
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+
 static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)
 {
     std::vector<unsigned char> metadata;
@@ -4294,6 +4424,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
+    {"oracles",     "setrawprice",           &setrawprice,           {"timestamp", "feedname", "rawprice"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

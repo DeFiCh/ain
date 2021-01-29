@@ -246,6 +246,10 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "isappliedcustomtx", 1, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
+
+    {"setrawprice", 0, "timestamp"},
+    {"setrawprice", 1, "feedname"},
+    {"setrawprice", 2, "rawprice"},
 };
 // clang-format on
 

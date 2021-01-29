@@ -115,6 +115,11 @@ bool HasFoundationAuth(CTransaction const & tx, CCoinsViewCache const & coins, C
     return false;
 }
 
+bool HasOracleAuth(CTransaction const & tx, CCoinsViewCache const & coins, Consensus::Params const & consensusParams) {
+    // TODO (Integral Team Y) implement
+    return true;
+}
+
 Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CTransaction const & tx, Consensus::Params const & consensusParams, uint32_t height, uint32_t txn, bool isCheck, bool skipAuth)
 {
     Res res = Res::Ok();
@@ -187,6 +192,8 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::AnyAccountsToAccounts:
                 res = ApplyAnyAccountsToAccountsTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
                 break;
+            case CustomTxType::SetRawPrice:
+                res = ApplySetRawPriceTx(mnview, coins, tx, height, metadata, consensusParams);
             default:
                 return Res::Ok(); // not "custom" tx
         }
@@ -1451,4 +1458,55 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
         return txType == CustomTxType::CreateMasternode || txType == CustomTxType::CreateToken;
     }
     return false;
+}
+
+Res ApplySetRawPriceTx(CCustomCSView &mnview,
+                     CCoinsViewCache const &coins,
+                     CTransaction const &tx,
+                     uint32_t height,
+                     std::vector<unsigned char> const &metadata,
+                     Consensus::Params const &consensusParams,
+                     bool skipAuth,
+                     UniValue *rpcInfo) {
+    // do we need it in setrawprice?
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("SetRawPrice tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    }
+
+    constexpr auto base = "Set raw price";
+
+    //check foundation auth
+    if(!skipAuth && !HasOracleAuth(tx, coins, consensusParams))
+    {
+        return Res::Err("%s: %s", base, "tx not an oracle member");
+    }
+
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    std::vector<std::pair<std::string, CPriceFeed>> variables;
+    while(!ss.empty())
+    {
+        std::string name;
+        CPriceFeed priceFeed{};
+        ss >> name;
+        // check if variable name is allowed
+        if (!mnview.ExistPriceFeed(name)) {
+            return Res::Err("SetRawPrice: pricefeed %s is not registered", name);
+        }
+        ss >> priceFeed;
+
+        if (!mnview.SetPriceFeedValue(name, priceFeed.timestamp, priceFeed.value)) {
+            return Res::Err("SetRawPrice: failed to store price feed %s at timestamp %d, value %d",
+                            name, priceFeed.timestamp, priceFeed.value);
+        }
+    }
+
+    // TODO: need to understand what is going on here
+//    if (rpcInfo) {
+//        for (const auto& name : names) {
+//            auto var = mnview.GetVariable(name);
+//            rpcInfo->pushKV(var->GetName(), var->Export());
+//        }
+//    }
+
+    return Res::Ok(base);
 }
