@@ -384,6 +384,10 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
         RemoveWatchOnly(script);
     }
 
+    for (const auto& dest : GetAllDestinationsForKey(pubkey)) {
+        NotifyOwnerChanged(GetScriptForDestination(dest));
+    }
+
     if (!IsCrypted()) {
         return batch.WriteKey(pubkey,
                               secret.GetPrivKey(),
@@ -499,6 +503,11 @@ bool CWallet::AddCScriptWithDB(WalletBatch& batch, const CScript& redeemScript)
 {
     if (!FillableSigningProvider::AddCScript(redeemScript))
         return false;
+    if (redeemScript.IsPayToWitnessScriptHash()) {
+        NotifyOwnerChanged(GetScriptForWitness(redeemScript));
+    } else {
+        NotifyOwnerChanged(GetScriptForDestination(ScriptHash(redeemScript)));
+    }
     if (batch.WriteCScript(Hash160(redeemScript), redeemScript)) {
         UnsetWalletFlagWithDB(batch, WALLET_FLAG_BLANK_WALLET);
         return true;
@@ -532,6 +541,7 @@ bool CWallet::AddWatchOnlyInMem(const CScript &dest)
 {
     LOCK(cs_KeyStore);
     setWatchOnly.insert(dest);
+    NotifyOwnerChanged(dest);
     CPubKey pubKey;
     if (ExtractPubKey(dest, pubKey)) {
         mapWatchKeys[pubKey.GetID()] = pubKey;
@@ -546,7 +556,6 @@ bool CWallet::AddWatchOnlyWithDB(WalletBatch &batch, const CScript& dest)
         return false;
     const CKeyMetadata& meta = m_script_metadata[CScriptID(dest)];
     UpdateTimeFirstKey(meta.nCreateTime);
-    NotifyWatchonlyChanged(true);
     if (batch.WriteWatchOnly(dest, meta)) {
         UnsetWalletFlagWithDB(batch, WALLET_FLAG_BLANK_WALLET);
         return true;
@@ -578,6 +587,7 @@ bool CWallet::RemoveWatchOnly(const CScript &dest)
     {
         LOCK(cs_KeyStore);
         setWatchOnly.erase(dest);
+        NotifyOwnerChanged(dest);
         CPubKey pubKey;
         if (ExtractPubKey(dest, pubKey)) {
             mapWatchKeys.erase(pubKey.GetID());
@@ -586,8 +596,6 @@ bool CWallet::RemoveWatchOnly(const CScript &dest)
         // harmless (see comment in ImplicitlyLearnRelatedKeyScripts).
     }
 
-    if (!HaveWatchOnly())
-        NotifyWatchonlyChanged(false);
     if (!WalletBatch(*database).EraseWatchOnly(dest))
         return false;
 
@@ -948,7 +956,6 @@ bool CWallet::EncryptWallet(const SecureString& strWalletPassphrase)
         database->ReloadDbEnv();
 
     }
-    NotifyStatusChanged(this);
 
     return true;
 }
@@ -1051,8 +1058,6 @@ bool CWallet::MarkReplaced(const uint256& originalHash, const uint256& newHash)
         }
     });
 
-    NotifyTransactionChanged(this, originalHash, CT_UPDATED);
-
     return success;
 }
 
@@ -1063,7 +1068,7 @@ void CWallet::SetUsedDestinationState(const uint256& hash, unsigned int n, bool 
 
     CTxDestination dst;
     if (ExtractDestination(srctx->tx->vout[n].scriptPubKey, dst)) {
-        if (::IsMine(*this, dst)) {
+        if (::IsMineCached(*this, GetScriptForDestination(dst))) {
             LOCK(cs_wallet);
             if (used && !GetDestData(dst, "used", nullptr)) {
                 AddDestData(dst, "used", "p"); // p for "present", opposite of absent (null)
@@ -1077,7 +1082,7 @@ void CWallet::SetUsedDestinationState(const uint256& hash, unsigned int n, bool 
 bool CWallet::IsUsedDestination(const CTxDestination& dst) const
 {
     LOCK(cs_wallet);
-    return ::IsMine(*this, dst) && GetDestData(dst, "used", nullptr);
+    return ::IsMineCached(*this, GetScriptForDestination(dst)) && GetDestData(dst, "used", nullptr);
 }
 
 bool CWallet::IsUsedDestination(const uint256& hash, unsigned int n) const
@@ -1163,9 +1168,6 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose)
     wtx.MarkDirty();
 
     mapWallet.replace(ret.first, std::move(wtx));
-
-    // Notify UI of new or updated transaction
-    NotifyTransactionChanged(this, hash, fInsertedNew ? CT_NEW : CT_UPDATED);
 
 #if HAVE_SYSTEM
     // notify an external script when a wallet transaction comes in or is updated
@@ -1317,7 +1319,6 @@ bool CWallet::AbandonTransaction(interfaces::Chain::Lock& locked_chain, const ui
             wtx.setAbandoned();
             wtx.MarkDirty();
             batch.WriteTx(wtx);
-            NotifyTransactionChanged(this, wtx.GetHash(), CT_UPDATED);
             // Iterate over all its outputs, and mark transactions in the wallet that spend them abandoned too
             auto spendTx = mapTxSpends.find(now);
             if (spendTx != mapTxSpends.end()) {
@@ -1506,7 +1507,7 @@ CTokenAmount CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter) co
 
 isminetype CWallet::IsMine(const CTxOut& txout) const
 {
-    return ::IsMine(*this, txout.scriptPubKey);
+    return ::IsMineCached(*this, txout.scriptPubKey);
 }
 
 CTokenAmount CWallet::GetCredit(const CTxOut& txout, const isminefilter& filter) const
@@ -1530,7 +1531,7 @@ bool CWallet::IsChange(const CScript& script) const
     // a better way of identifying which outputs are 'the send' and which are
     // 'the change' will need to be implemented (maybe extend CWalletTx to remember
     // which output, if any, was change).
-    if (::IsMine(*this, script))
+    if (::IsMineCached(*this, script))
     {
         CTxDestination address;
         if (!ExtractDestination(script, address))
@@ -1668,7 +1669,6 @@ void CWallet::SetHDSeed(const CPubKey& seed)
     newHdChain.nVersion = CanSupportFeature(FEATURE_HD_SPLIT) ? CHDChain::VERSION_HD_CHAIN_SPLIT : CHDChain::VERSION_HD_BASE;
     newHdChain.seed_id = seed.GetID();
     SetHDChain(newHdChain, false);
-    NotifyCanGetAddressesChanged();
     UnsetWalletFlag(WALLET_FLAG_BLANK_WALLET);
 }
 
@@ -1831,7 +1831,6 @@ bool CWallet::ImportPrivKeys(const std::map<CKeyID, CKey>& privkey_map, const in
         if (!AddKeyPubKeyWithDB(batch, key, pubkey)) {
             return false;
         }
-        NotifyOwnerChanged(GetScriptForDestination(PKHash(pubkey)));
         UpdateTimeFirstKey(timestamp);
     }
     return true;
@@ -1863,7 +1862,6 @@ bool CWallet::ImportPubKeys(const std::vector<CKeyID>& ordered_pubkeys, const st
         // Add to keypool only works with pubkeys
         if (add_keypool) {
             AddKeypoolPubkeyWithDB(pubkey, internal, batch);
-            NotifyCanGetAddressesChanged();
         }
     }
     return true;
@@ -1873,7 +1871,7 @@ bool CWallet::ImportScriptPubKeys(const std::string& label, const std::set<CScri
 {
     WalletBatch batch(*database);
     for (const CScript& script : script_pub_keys) {
-        if (!have_solving_data || !::IsMine(*this, script)) { // Always call AddWatchOnly for non-solvable watch-only, so that watch timestamp gets updated
+        if (!have_solving_data || !::IsMineCached(*this, script)) { // Always call AddWatchOnly for non-solvable watch-only, so that watch timestamp gets updated
             if (!AddWatchOnlyWithDB(batch, script, timestamp)) {
                 return false;
             }
@@ -2055,7 +2053,6 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
     WalletLogPrintf("Rescan started from block %s...\n", start_block.ToString());
 
     fAbortRescan = false;
-    ShowProgress(strprintf("%s " + _("Rescanning...").translated, GetDisplayName()), 0); // show rescan progress in GUI as dialog or on splashscreen, if -rescan on startup
     uint256 tip_hash;
     // The way the 'block_height' is initialized is just a workaround for the gcc bug #47679 since version 4.6.0.
     Optional<int> block_height = MakeOptional(false, int());
@@ -2073,9 +2070,6 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
     double progress_current = progress_begin;
     while (block_height && !fAbortRescan && !chain().shutdownRequested()) {
         m_scanning_progress = (progress_current - progress_begin) / (progress_end - progress_begin);
-        if (*block_height % 100 == 0 && progress_end - progress_begin > 0.0) {
-            ShowProgress(strprintf("%s " + _("Rescanning...").translated, GetDisplayName()), std::max(1, std::min(99, (int)(m_scanning_progress * 100))));
-        }
         if (GetTime() >= nNow + 60) {
             nNow = GetTime();
             WalletLogPrintf("Still rescanning. At block %d. Progress=%f\n", *block_height, progress_current);
@@ -2130,7 +2124,6 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
             }
         }
     }
-    ShowProgress(strprintf("%s " + _("Rescanning...").translated, GetDisplayName()), 100); // hide progress dialog in GUI
     if (block_height && fAbortRescan) {
         WalletLogPrintf("Rescan aborted at block %d. Progress=%f\n", *block_height, progress_current);
         result.status = ScanResult::USER_ABORT;
@@ -3462,7 +3455,6 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, CValida
             if (it != mapWallet.end()) {
                 mapWallet.modify(it, [this](CWalletTx& wtx) {
                     wtx.BindWallet(this);
-                    NotifyTransactionChanged(this, wtx.GetHash(), CT_UPDATED);
                 });
             }
         }
@@ -3591,8 +3583,6 @@ bool CWallet::SetAddressBookWithDB(WalletBatch& batch, const CTxDestination& add
         if (!strPurpose.empty()) /* update purpose only if requested */
             mapAddressBook[address].purpose = strPurpose;
     }
-    NotifyAddressBookChanged(this, address, strName, ::IsMine(*this, address) != ISMINE_NO,
-                             strPurpose, (fUpdated ? CT_UPDATED : CT_NEW) );
     if (!strPurpose.empty() && !batch.WritePurpose(EncodeDestination(address), strPurpose))
         return false;
     return batch.WriteName(EncodeDestination(address), strName);
@@ -3617,8 +3607,6 @@ bool CWallet::DelAddressBook(const CTxDestination& address)
         }
         mapAddressBook.erase(address);
     }
-
-    NotifyAddressBookChanged(this, address, "", ::IsMine(*this, address) != ISMINE_NO, "", CT_DELETED);
 
     WalletBatch(*database).ErasePurpose(EncodeDestination(address));
     return WalletBatch(*database).EraseName(EncodeDestination(address));
@@ -3746,7 +3734,6 @@ bool CWallet::TopUpKeyPool(unsigned int kpSize)
             WalletLogPrintf("keypool added %d keys (%d internal), size=%u (%u internal)\n", missingInternal + missingExternal, missingInternal, setInternalKeyPool.size() + setExternalKeyPool.size() + set_pre_split_keypool.size(), setInternalKeyPool.size());
         }
     }
-    NotifyCanGetAddressesChanged();
     return true;
 }
 
@@ -3808,7 +3795,6 @@ bool CWallet::ReserveKeyFromKeyPool(int64_t& nIndex, CKeyPool& keypool, bool fRe
         m_pool_key_to_index.erase(keypool.vchPubKey.GetID());
         WalletLogPrintf("keypool reserve %d\n", nIndex);
     }
-    NotifyCanGetAddressesChanged();
     return true;
 }
 
@@ -3833,7 +3819,6 @@ void CWallet::ReturnKey(int64_t nIndex, bool fInternal, const CPubKey& pubkey)
             setExternalKeyPool.insert(nIndex);
         }
         m_pool_key_to_index[pubkey.GetID()] = nIndex;
-        NotifyCanGetAddressesChanged();
     }
     WalletLogPrintf("keypool return %d\n", nIndex);
 }
@@ -4926,7 +4911,6 @@ bool CWallet::Lock()
         vMasterKey.clear();
     }
 
-    NotifyStatusChanged(this);
     return true;
 }
 
@@ -4964,7 +4948,6 @@ bool CWallet::Unlock(const CKeyingMaterial& vMasterKeyIn, bool accept_no_keys)
         vMasterKey = vMasterKeyIn;
         fDecryptionThoroughlyChecked = true;
     }
-    NotifyStatusChanged(this);
     return true;
 }
 

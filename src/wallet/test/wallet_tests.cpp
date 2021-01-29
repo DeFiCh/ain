@@ -71,6 +71,7 @@ BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
         BOOST_CHECK(result.last_scanned_block.IsNull());
         BOOST_CHECK(!result.last_scanned_height);
         BOOST_CHECK_EQUAL(wallet.GetBalance().m_mine_immature, 0);
+        wallet.NotifyUnload();
     }
 
     // Verify ScanForWalletTransactions picks up transactions in both the old
@@ -86,6 +87,7 @@ BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
         BOOST_CHECK_EQUAL(result.last_scanned_block, newTip->GetBlockHash());
         BOOST_CHECK_EQUAL(*result.last_scanned_height, newTip->nHeight);
         BOOST_CHECK_EQUAL(wallet.GetBalance().m_mine_immature, 100 * COIN);
+        wallet.NotifyUnload();
     }
 
     // Prune the older block file.
@@ -105,6 +107,7 @@ BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
         BOOST_CHECK_EQUAL(result.last_scanned_block, newTip->GetBlockHash());
         BOOST_CHECK_EQUAL(*result.last_scanned_height, newTip->nHeight);
         BOOST_CHECK_EQUAL(wallet.GetBalance().m_mine_immature, 50 * COIN);
+        wallet.NotifyUnload();
     }
 
     // Prune the remaining block file.
@@ -123,6 +126,7 @@ BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
         BOOST_CHECK(result.last_scanned_block.IsNull());
         BOOST_CHECK(!result.last_scanned_height);
         BOOST_CHECK_EQUAL(wallet.GetBalance().m_mine_immature, 0);
+        wallet.NotifyUnload();
     }
 }
 
@@ -179,6 +183,7 @@ BOOST_FIXTURE_TEST_CASE(importmulti_rescan, TestChain100Setup)
                       "downloading and rescanning the relevant blocks (see -reindex and -rescan "
                       "options).\"}},{\"success\":true}]",
                               0, oldTip->GetBlockTimeMax(), TIMESTAMP_WINDOW));
+        wallet->NotifyUnload();
         RemoveWallet(wallet);
     }
 }
@@ -221,6 +226,7 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
         request.params.push_back(backup_file);
         AddWallet(wallet);
         ::dumpwallet(request);
+        wallet->NotifyUnload();
         RemoveWallet(wallet);
     }
 
@@ -234,7 +240,6 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
         request.params.push_back(backup_file);
         AddWallet(wallet);
         ::importwallet(request);
-        RemoveWallet(wallet);
 
         LOCK(wallet->cs_wallet);
         BOOST_CHECK_EQUAL(wallet->mapWallet.size(), 3U);
@@ -244,6 +249,8 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChain100Setup)
             bool expected = i >= 100;
             BOOST_CHECK_EQUAL(found, expected);
         }
+        wallet->NotifyUnload();
+        RemoveWallet(wallet);
     }
 
     SetMockTime(0);
@@ -278,6 +285,7 @@ BOOST_FIXTURE_TEST_CASE(coin_mark_dirty_immature_credit, TestChain100Setup)
     wtx.MarkDirty();
     wallet.AddKeyPubKey(coinbaseKey, coinbaseKey.GetPubKey());
     BOOST_CHECK_EQUAL(wtx.GetImmatureCredit(*locked_chain), 50*COIN);
+    wallet.NotifyUnload();
 }
 
 static int64_t AddTx(CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64_t blockTime)
@@ -373,6 +381,7 @@ public:
 
     ~ListCoinsTestingSetup()
     {
+        wallet->NotifyUnload();
         wallet.reset();
     }
 
@@ -562,6 +571,8 @@ BOOST_FIXTURE_TEST_CASE(ZapSelectTx, TestChain100Setup)
         BOOST_CHECK(!wallet->HasWalletSpend(prev_hash));
         BOOST_CHECK_EQUAL(wallet->mapWallet.count(block_hash), 0u);
     }
+
+    wallet->NotifyUnload();
 }
 
 BOOST_AUTO_TEST_SUITE_END()

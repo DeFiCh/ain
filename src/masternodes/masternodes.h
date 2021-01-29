@@ -245,9 +245,6 @@ public:
     bool Flush();
 };
 
-class CWallet;
-isminetype IsMineCached(CWallet & wallet, CScript const & script);
-
 /** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
 extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 extern std::unique_ptr<CCustomCSView> pcustomcsview;
