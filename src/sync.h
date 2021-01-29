@@ -8,6 +8,8 @@
 
 #include <threadsafety.h>
 
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <thread>
 #include <mutex>
@@ -316,6 +318,26 @@ struct SCOPED_LOCKABLE LockAssertion
 #endif
     }
     ~LockAssertion() UNLOCK_FUNCTION() {}
+};
+
+class CLockFreeGuard
+{
+    std::atomic_bool& lock;
+public:
+    CLockFreeGuard(std::atomic_bool& lock) : lock(lock)
+    {
+        bool desired = false;
+        while (!lock.compare_exchange_weak(desired, true,
+                                           std::memory_order_release,
+                                           std::memory_order_relaxed)) {
+            desired = false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
+    ~CLockFreeGuard()
+    {
+        lock.store(false, std::memory_order_release);
+    }
 };
 
 #endif // DEFI_SYNC_H
