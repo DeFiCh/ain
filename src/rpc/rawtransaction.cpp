@@ -1390,7 +1390,7 @@ UniValue createpsbt(const JSONRPCRequest& request)
     }
 
     // Serialize the PSBT
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION | rawTx.nVersion < CTransaction::TOKENS_MIN_VERSION ? SERIALIZE_TRANSACTION_NO_TOKENS : 0);
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION | (rawTx.nVersion < CTransaction::TOKENS_MIN_VERSION ? SERIALIZE_TRANSACTION_NO_TOKENS : 0));
     ssTx << psbtx;
 
     return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
