@@ -15,7 +15,7 @@
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <masternodes/poolpairs.h>
-#include <masternodes/oraclesview.h>
+#include <masternodes/oracles.h>
 #include <masternodes/gv.h>
 #include <uint256.h>
 #include <wallet/ismine.h>
@@ -179,7 +179,7 @@ public:
 };
 
 // TODO (IntegralTeam Y) implement and use proper price feed validator
-class CDummyPriceFeedValidator: public CPriceFeedValidator {
+class CDummyPriceFeedValidator: public CPriceFeedNameValidator {
 public:
     ~CDummyPriceFeedValidator() override = default;
 
@@ -202,20 +202,20 @@ class CCustomCSView
         , public CUndosView
         , public CPoolPairView
         , public CGovView
-        , public COraclesView
+        , public COracleView
 {
 public:
-    CCustomCSView(): COraclesView(std::make_shared<CDummyPriceFeedValidator>()) {}
+    CCustomCSView(): COracleView(std::make_shared<CDummyPriceFeedValidator>()) {}
 
     CCustomCSView(CStorageKV & st):
-        CStorageView(new CFlushableStorageKV(st)),
-        COraclesView(std::make_shared<CDummyPriceFeedValidator>())
+            CStorageView(new CFlushableStorageKV(st)),
+            COracleView(std::make_shared<CDummyPriceFeedValidator>())
     {}
 
     // cache-upon-a-cache (not a copy!) constructor
     CCustomCSView(CCustomCSView & other)
         : CStorageView(new CFlushableStorageKV(other.DB())),
-          COraclesView(std::make_shared<CDummyPriceFeedValidator>())
+          COracleView(std::make_shared<CDummyPriceFeedValidator>())
     {}
 
     // cause depends on current mns:

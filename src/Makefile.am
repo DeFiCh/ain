@@ -171,6 +171,7 @@ DEFI_CORE_H = \
   masternodes/poolpairs.h \
   masternodes/undo.h \
   masternodes/undos.h \
+  masternodes/oracles.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -374,7 +375,7 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
-  masternodes/oraclesview.cpp \
+  masternodes/oracles.cpp \
   masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
   masternodes/undos.cpp \
