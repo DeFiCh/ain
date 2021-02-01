@@ -3432,7 +3432,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     }
 
     std::set<uint256> txs;
-    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI");
+    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && CustomTxType::None == txType;
 
     auto hasToken = [&tokenFilter](TAmounts const & diffs) {
         for (auto const & diff : diffs) {
@@ -3581,6 +3581,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                        {
                             {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
                             {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by token"},
+                            {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by transaction type, supported letter from 'CRTMNnpuslrUbBG'"},
                        },
                    },
                },
@@ -3607,6 +3608,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
     bool noRewards = false;
     std::string tokenFilter;
+    auto txType = CustomTxType::None;
 
     if (request.params.size() > 1) {
         UniValue optionsObj = request.params[1].get_obj();
@@ -3614,12 +3616,20 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             {
                 {"no_rewards", UniValueType(UniValue::VBOOL)},
                 {"token", UniValueType(UniValue::VSTR)},
+                {"txtype", UniValueType(UniValue::VSTR)},
             }, true, true);
 
         noRewards = optionsObj["no_rewards"].getBool();
 
         if (!optionsObj["token"].isNull()) {
             tokenFilter = optionsObj["token"].get_str();
+        }
+
+        if (!optionsObj["txtype"].isNull()) {
+            const auto str = optionsObj["txtype"].get_str();
+            if (str.size() == 1) {
+                txType = CustomTxCodeToType(str[0]);
+            }
         }
     }
 
@@ -3639,7 +3649,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     }
 
     std::set<uint256> txs;
-    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI");
+    const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && CustomTxType::None == txType;
 
     auto hasToken = [&tokenFilter](TAmounts const & diffs) {
         for (auto const & diff : diffs) {
@@ -3664,6 +3674,10 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         }
 
         const auto& value = valueLazy.get();
+
+        if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
+            return true;
+        }
 
         if(!tokenFilter.empty() && !hasToken(value.diff)) {
             return true;
