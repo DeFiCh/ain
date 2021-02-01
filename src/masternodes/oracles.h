@@ -18,9 +18,13 @@
 #include <uint256.h>
 #include <univalue/include/univalue.h>
 
+using CTimeStamp = uint32_t;
 
-using CTokenPrices = std::map<DCT_ID, std::pair<CAmount, uint64_t>>;
+using CRawPrice = std::pair<CAmount, CTimeStamp>;
 
+using CTokenPrices = std::map<DCT_ID, CRawPrice>;
+
+using COracleId = uint256;
 
 struct CAppointOracleMessage {
     CScript oracleAddress;
@@ -34,9 +38,8 @@ struct CAppointOracleMessage {
     }
 };
 
-
 struct CRemoveOracleAppointMessage {
-    uint256 oracleId;
+    COracleId oracleId;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -45,9 +48,8 @@ struct CRemoveOracleAppointMessage {
     }
 };
 
-
 struct CUpdateOracleAppointMessage {
-    uint256 oracleId;
+    COracleId oracleId;
     CAppointOracleMessage newOracleAppoint;
 
     ADD_SERIALIZE_METHODS;
@@ -58,9 +60,8 @@ struct CUpdateOracleAppointMessage {
     }
 };
 
-
 struct CSetOracleDataMessage {
-    uint256 oracleId;
+    COracleId oracleId;
     CTokenPrices tokenPrices;
 
     ADD_SERIALIZE_METHODS;
@@ -70,7 +71,6 @@ struct CSetOracleDataMessage {
         READWRITE(tokenPrices);
     }
 };
-
 
 struct COracle : public CAppointOracleMessage {
     CTokenPrices tokenPrices;
@@ -90,49 +90,35 @@ struct COracle : public CAppointOracleMessage {
     }
 };
 
-
-class CPriceFeedNameValidator {
-public:
-    virtual ~CPriceFeedNameValidator() = default;
-
-    virtual bool IsValidPriceFeedName(const std::string& priceFeed) const = 0;
-};
-
-
-using CTimeStamp = uint32_t;
-
-
-struct CPriceFeed {
-    CTimeStamp timestamp{};
-    CAmount value{};
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(timestamp);
-        READWRITE(value);
-    }
-};
-
+//struct CPriceFeed {
+//    CTimeStamp timestamp{};
+//    CAmount value{};
+//
+//    ADD_SERIALIZE_METHODS;
+//
+//    template <typename Stream, typename Operation>
+//    inline void SerializationOp(Stream& s, Operation ser_action) {
+//        READWRITE(timestamp);
+//        READWRITE(value);
+//    }
+//};
 
 class COracleView: public virtual CStorageView {
 public:
-    explicit COracleView(std::shared_ptr<CPriceFeedNameValidator> priceFeedValidator);
-
     ~COracleView() override = default;
 
-    bool SetPriceFeedValue(const std::string& feedName, CTimeStamp timestamp, double rawPrice);
+    Res RegisterOracle(const COracle& oracle);
 
-    ResVal<CPriceFeed> GetPriceFeedValue(const std::string& feedName);
+    Res SetOracleData(COracleId oracleId, const CTokenPrices& tokenPrices);
 
-    /// check if price feed name exists
-    bool ExistPriceFeed(const std::string& feedName) const;
+    ResVal<CRawPrice> GetTokenRawPrice(DCT_ID tokenId, COracleId oracleId);
+
+    Res SetTokenRawPrice(COracleId oracleId, DCT_ID tokenId, CRawPrice rawPrice);
 
     struct ByName { static const unsigned char prefix; };
 
 private:
-    std::shared_ptr<CPriceFeedNameValidator> _validator;
+    bool isAllowedToken(DCT_ID tokenId, COracleId oracleId);
 };
 
 #endif

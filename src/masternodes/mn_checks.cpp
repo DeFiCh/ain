@@ -115,8 +115,14 @@ bool HasFoundationAuth(CTransaction const & tx, CCoinsViewCache const & coins, C
     return false;
 }
 
-bool HasOracleAuth(CTransaction const & tx, CCoinsViewCache const & coins, Consensus::Params const & consensusParams) {
+bool HasOracleAuth(
+        COracleId oracleId,
+        CTransaction const & tx,
+        CCoinsViewCache const & coins,
+        Consensus::Params const & consensusParams)
+{
     // TODO (Integral Team Y) implement
+    // check if oracle of specified id has authenticated this transaction
     return true;
 }
 
@@ -1475,38 +1481,20 @@ Res ApplySetRawPriceTx(CCustomCSView &mnview,
 
     constexpr auto base = "Set raw price";
 
-    //check foundation auth
-    if(!skipAuth && !HasOracleAuth(tx, coins, consensusParams))
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    CSetOracleDataMessage msg;
+    ss >> msg;
+
+    //check oracle auth
+    if(!skipAuth && !HasOracleAuth(msg.oracleId, tx, coins, consensusParams))
     {
         return Res::Err("%s: %s", base, "tx not an oracle member");
     }
 
-    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    std::vector<std::pair<std::string, CPriceFeed>> variables;
-    while(!ss.empty())
-    {
-        std::string name;
-        CPriceFeed priceFeed{};
-        ss >> name;
-        // check if variable name is allowed
-        if (!mnview.ExistPriceFeed(name)) {
-            return Res::Err("SetRawPrice: pricefeed %s is not registered", name);
-        }
-        ss >> priceFeed;
-
-        if (!mnview.SetPriceFeedValue(name, priceFeed.timestamp, priceFeed.value)) {
-            return Res::Err("SetRawPrice: failed to store price feed %s at timestamp %d, value %d",
-                            name, priceFeed.timestamp, priceFeed.value);
-        }
+    auto && res = mnview.SetOracleData(msg.oracleId, msg.tokenPrices);
+    if (!res.ok) {
+        return Res::Err("SetRawPrice: %s", res.msg);
     }
-
-    // TODO: need to understand what is going on here
-//    if (rpcInfo) {
-//        for (const auto& name : names) {
-//            auto var = mnview.GetVariable(name);
-//            rpcInfo->pushKV(var->GetName(), var->Export());
-//        }
-//    }
 
     return Res::Ok(base);
 }

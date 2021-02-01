@@ -178,16 +178,6 @@ public:
     struct BtcTx { static const unsigned char prefix; };
 };
 
-// TODO (IntegralTeam Y) implement and use proper price feed validator
-class CDummyPriceFeedValidator: public CPriceFeedNameValidator {
-public:
-    ~CDummyPriceFeedValidator() override = default;
-
-    bool IsValidPriceFeedName(const std::string& priceFeed) const override {
-        return true;
-    }
-};
-
 class CCustomCSView
         : public CMasternodesView
         , public CLastHeightView
@@ -205,17 +195,15 @@ class CCustomCSView
         , public COracleView
 {
 public:
-    CCustomCSView(): COracleView(std::make_shared<CDummyPriceFeedValidator>()) {}
+    CCustomCSView() {}
 
     CCustomCSView(CStorageKV & st):
-            CStorageView(new CFlushableStorageKV(st)),
-            COracleView(std::make_shared<CDummyPriceFeedValidator>())
+            CStorageView(new CFlushableStorageKV(st))
     {}
 
     // cache-upon-a-cache (not a copy!) constructor
     CCustomCSView(CCustomCSView & other)
-        : CStorageView(new CFlushableStorageKV(other.DB())),
-          COracleView(std::make_shared<CDummyPriceFeedValidator>())
+        : CStorageView(new CFlushableStorageKV(other.DB()))
     {}
 
     // cause depends on current mns:

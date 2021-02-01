@@ -4042,7 +4042,10 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
 UniValue setrawprice(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
+    //
 
+
+    {
 //    RPCHelpMan{"setrawprice",
 //               "\nCreates (and submits to local node and network) a set raw price transaction.\n"
 //               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
@@ -4086,6 +4089,7 @@ UniValue setrawprice(const JSONRPCRequest &request) {
 //                                        "share_address '[]'")
 //               },
 //    }.Check(request);
+    }
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -4094,59 +4098,48 @@ UniValue setrawprice(const JSONRPCRequest &request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM}, false);
+    auto balances = DecodeAmounts(pwallet->chain(), request.params[0], "");
+    UniValue const & txInputs = request.params[1];
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+//    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM}, false);
 
     // decode
-    CLiquidityMessage msg{};
-    if (request.params[0].get_obj().getKeys().size() == 1 &&
-        request.params[0].get_obj().getKeys()[0] == "*") { // auto-selection accounts from wallet
-        CAccounts foundWalletAccounts = FindAccountsFromWallet(pwallet);
-
-        CBalances sumTransfers = DecodeAmounts(pwallet->chain(), request.params[0].get_obj()["*"], "*");
-
-        msg.from = SelectAccountsByTargetBalances(foundWalletAccounts, sumTransfers, SelectionPie);
-
-        if (msg.from.empty()) {
-            throw JSONRPCError(RPC_INVALID_REQUEST,
-                               "Not enough balance on wallet accounts, call utxostoaccount to increase it.\n");
-        }
-    } else {
-        msg.from = DecodeRecipients(pwallet->chain(), request.params[0].get_obj());
-    }
-    msg.shareAddress = DecodeScript(request.params[1].get_str());
+    CSetOracleDataMessage msg{};
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::AddPoolLiquidity)
+    markedMetadata << static_cast<unsigned char>(CustomTxType::SetRawPrice)
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+//    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    // auth
+//    // auth
     std::set<CScript> auths;
-    for (const auto &kv : msg.from) {
-        auths.emplace(kv.first);
-    }
-    UniValue const &txInputs = request.params[2];
+//    for (const auto &kv : msg.from) {
+//        auths.emplace(kv.first);
+//    }
+//    UniValue const &txInputs = request.params[2];
     CTransactionRef optAuthTx;
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
 
     CCoinControl coinControl;
 
-    // Set change to from address if there's only one auth address
-    if (auths.size() == 1) {
-        CTxDestination dest;
-        ExtractDestination(*auths.cbegin(), dest);
-        if (IsValidDestination(dest)) {
-            coinControl.destChange = dest;
-        }
-    }
+//    // Set change to from address if there's only one auth address
+//    if (auths.size() == 1) {
+//        CTxDestination dest;
+//        ExtractDestination(*auths.cbegin(), dest);
+//        if (IsValidDestination(dest)) {
+//            coinControl.destChange = dest;
+//        }
+//    }
 
     // fund
     fund(rawTx, pwallet, optAuthTx, &coinControl);
@@ -4168,6 +4161,79 @@ UniValue setrawprice(const JSONRPCRequest &request) {
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
+
+//
+//    const auto txVersion = GetTransactionVersion(targetHeight);
+//    CMutableTransaction rawTx(txVersion);
+//    CTransactionRef optAuthTx;
+//    std::set<CScript> auths;
+//
+//    // auth
+//    {
+//        if (!txInputs.isNull() && !txInputs.empty()) {
+//            rawTx.vin = GetInputs(txInputs.get_array());            // separate call here to do not process the rest in "else"
+//        }
+//        else {
+//            bool needFoundersAuth = false;
+//            for (auto const & kv : minted.balances) {
+//
+//                CTokenImplementation tokenImpl;
+//                {
+//                    LOCK(cs_main);
+//                    auto token = pcustomcsview->GetToken(kv.first);
+//                    if (!token) {
+//                        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
+//                    }
+//
+//                    tokenImpl = static_cast<CTokenImplementation const& >(*token);
+//                    const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
+//                    if (tokenImpl.IsDAT()) {
+//                        needFoundersAuth = true;
+//                    }
+//                    auths.insert(authCoin.out.scriptPubKey);
+//                }
+//            }
+//            rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
+//        } // else
+//    }
+//
+//    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+//    metadata << static_cast<unsigned char>(CustomTxType::MintToken)
+//             << minted; /// @note here, that whole CBalances serialized!, not a 'minted.balances'!
+//
+//    CScript scriptMeta;
+//    scriptMeta << OP_RETURN << ToByteVector(metadata);
+//
+//    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+//
+//    CCoinControl coinControl;
+//
+//    // Set change to auth address if there's only one auth address
+//    if (auths.size() == 1) {
+//        CTxDestination dest;
+//        ExtractDestination(*auths.cbegin(), dest);
+//        if (IsValidDestination(dest)) {
+//            coinControl.destChange = dest;
+//        }
+//    }
+//
+//    // fund
+//    fund(rawTx, pwallet, optAuthTx, &coinControl);
+//
+//    // check execution
+//    {
+//        LOCK(cs_main);
+//        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+//        CCoinsViewCache view(&::ChainstateActive().CoinsTip());
+//        if (optAuthTx)
+//            AddCoins(view, *optAuthTx, targetHeight);
+//        const auto res = ApplyMintTokenTx(mnview_dummy, view, CTransaction(rawTx), targetHeight,
+//                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted }), Params().GetConsensus());
+//        if (!res.ok) {
+//            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+//        }
+//    }
+//    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 
 
 static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)
