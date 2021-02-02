@@ -198,8 +198,8 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::AnyAccountsToAccounts:
                 res = ApplyAnyAccountsToAccountsTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
                 break;
-            case CustomTxType::SetRawPrice:
-                res = ApplySetRawPriceTx(mnview, coins, tx, height, metadata, consensusParams);
+            case CustomTxType::SetOracleData:
+                res = ApplySetOracleDataTx(mnview, coins, tx, height, metadata, consensusParams);
             default:
                 return Res::Ok(); // not "custom" tx
         }
@@ -1466,35 +1466,48 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
     return false;
 }
 
-Res ApplySetRawPriceTx(CCustomCSView &mnview,
-                     CCoinsViewCache const &coins,
-                     CTransaction const &tx,
-                     uint32_t height,
-                     std::vector<unsigned char> const &metadata,
-                     Consensus::Params const &consensusParams,
-                     bool skipAuth,
-                     UniValue *rpcInfo) {
-    // do we need it in setrawprice?
+Res ApplySetOracleDataTx(CCustomCSView &mnview,
+                         CCoinsViewCache const &coins,
+                         CTransaction const &tx,
+                         uint32_t height,
+                         std::vector<unsigned char> const &metadata,
+                         Consensus::Params const &consensusParams,
+                         bool skipAuth,
+                         UniValue *rpcInfo) {
+    // do we need it in setoracledata?
     if ((int)height < consensusParams.BayfrontHeight) {
         return Res::Err("SetRawPrice tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
-    constexpr auto base = "Set raw price";
+    constexpr auto base = "Set oracle data";
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CSetOracleDataMessage msg;
     ss >> msg;
 
-    //check oracle auth
-    if(!skipAuth && !HasOracleAuth(msg.oracleId, tx, coins, consensusParams))
-    {
-        return Res::Err("%s: %s", base, "tx not an oracle member");
+    if (msg.oracleId.IsNull()) {
+        return Res::Err("failed to unserialize message");
     }
 
-    auto && res = mnview.SetOracleData(msg.oracleId, msg.tokenPrices);
+    auto&& oracleRes = mnview.GetOracleData(msg.oracleId);
+    if (!oracleRes.ok) {
+        return Res::Err("failed to retrieve oracle <%s> from database", msg.oracleId.GetHex());
+    }
+    auto&& auth = oracleRes.val->oracleAddress;
+
+    if(!skipAuth && !HasAuth(tx, coins, auth)) {
+        return Res::Err("%s: %s", base, "oracle authentication failed");
+    }
+
+    // TODO (IntegralTeam Y) check timestamp
+
+
+    auto && res = mnview.SetOracleData(msg.oracleId, msg.timestamp, msg.balances);
     if (!res.ok) {
         return Res::Err("SetRawPrice: %s", res.msg);
     }
+
+    // TODO (IntegralTeam Y) ignore rpcInfo for now, implement getting tx info later
 
     return Res::Ok(base);
 }

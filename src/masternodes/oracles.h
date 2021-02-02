@@ -18,22 +18,26 @@
 #include <uint256.h>
 #include <univalue/include/univalue.h>
 
-using CTimeStamp = uint32_t;
+using BTCTimeStamp = int64_t;
 
-using CRawPrice = std::pair<CAmount, CTimeStamp>;
+using CPricePoint = std::pair<CAmount, BTCTimeStamp>;
 
-using CTokenPrices = std::map<DCT_ID, CRawPrice>;
+using CTokenPrices = std::map<DCT_ID, CPricePoint>;
 
 using COracleId = uint256;
 
 struct CAppointOracleMessage {
+    COracleId oracleId;
     CScript oracleAddress;
-    std::vector<DCT_ID> availableTokens; // available tokens to price control
+    uint8_t weightage;
+    std::set<DCT_ID> availableTokens;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(oracleId);
         READWRITE(oracleAddress);
+        READWRITE(weightage);
         READWRITE(availableTokens);
     }
 };
@@ -62,63 +66,79 @@ struct CUpdateOracleAppointMessage {
 
 struct CSetOracleDataMessage {
     COracleId oracleId;
-    CTokenPrices tokenPrices;
+    BTCTimeStamp timestamp{};
+    CBalances balances;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(oracleId);
-        READWRITE(tokenPrices);
+        READWRITE(timestamp);
+        READWRITE(balances);
     }
 };
 
 struct COracle : public CAppointOracleMessage {
+
     CTokenPrices tokenPrices;
 
-    explicit COracle(CAppointOracleMessage const & msg = {}) :
-        CAppointOracleMessage(msg),
-        tokenPrices{} {}
+    explicit COracle(CAppointOracleMessage msg = {}) :
+        CAppointOracleMessage(std::move(msg)),
+        tokenPrices{} {
+    }
 
     virtual ~COracle() = default;
+
+    inline bool SupportsToken(const DCT_ID& tokenId) const {
+        return availableTokens.find(tokenId) != availableTokens.end();
+    }
+
+    Res SetTokenPrice(DCT_ID tokenId, CAmount amount, BTCTimeStamp timestamp) {
+        if (!SupportsToken(tokenId)) {
+            return Res::Err("token <%s> is not allowed", tokenId.ToString());
+        }
+
+        tokenPrices[tokenId] = std::make_pair(amount, timestamp);
+
+        return Res::Ok();
+    }
+
+    boost::optional<CPricePoint> GetTokenPrice(DCT_ID tokenId) const {
+        if (SupportsToken(tokenId) && tokenPrices.find(tokenId) != tokenPrices.end()) {
+            return tokenPrices.at(tokenId);
+        }
+
+        return {};
+    }
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(oracleId);
         READWRITE(oracleAddress);
         READWRITE(availableTokens);
+        READWRITE(weightage);
         READWRITE(tokenPrices);
     }
 };
-
-//struct CPriceFeed {
-//    CTimeStamp timestamp{};
-//    CAmount value{};
-//
-//    ADD_SERIALIZE_METHODS;
-//
-//    template <typename Stream, typename Operation>
-//    inline void SerializationOp(Stream& s, Operation ser_action) {
-//        READWRITE(timestamp);
-//        READWRITE(value);
-//    }
-//};
 
 class COracleView: public virtual CStorageView {
 public:
     ~COracleView() override = default;
 
-    Res RegisterOracle(const COracle& oracle);
+    /// register new oracle instance
+    Res AppointOracle(COracleId oracleId, const COracle& oracle);
 
-    Res SetOracleData(COracleId oracleId, const CTokenPrices& tokenPrices);
+    /// store registered oracle data
+    Res SetOracleData(COracleId oracleId, BTCTimeStamp timestamp, const CBalances& tokenPrices);
 
-    ResVal<CRawPrice> GetTokenRawPrice(DCT_ID tokenId, COracleId oracleId);
+    /// deserialize oracle instance from database
+    ResVal<COracle> GetOracleData(COracleId oracleId) const;
 
-    Res SetTokenRawPrice(COracleId oracleId, DCT_ID tokenId, CRawPrice rawPrice);
+    /// remove oracle instancefrom database
+    bool RemoveOracle(COracleId oracleId);
 
     struct ByName { static const unsigned char prefix; };
-
-private:
-    bool isAllowedToken(DCT_ID tokenId, COracleId oracleId);
 };
 
 #endif

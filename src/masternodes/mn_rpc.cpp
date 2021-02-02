@@ -4040,14 +4040,13 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
 }
 
-UniValue setrawprice(const JSONRPCRequest &request) {
+UniValue setoracledata(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
-    //
 
-
+    // TODO (IntegralTeam Y): add help
     {
-//    RPCHelpMan{"setrawprice",
-//               "\nCreates (and submits to local node and network) a set raw price transaction.\n"
+//    RPCHelpMan{"setoracledata",
+//               "\nCreates (and submits to local node and network) a set oracle data transaction.\n"
 //               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
 //               HelpRequiringPassphrase(pwallet) + "\n",
 //               {
@@ -4078,15 +4077,11 @@ UniValue setrawprice(const JSONRPCRequest &request) {
 //                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
 //               },
 //               RPCExamples{
-//                       HelpExampleCli("addpoolliquidity",
-//                                      "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
-//                                      "share_address '[]'")
-//                       + HelpExampleCli("addpoolliquidity",
-//                                        "'{\"*\": [\"2.0@BTC\", \"3.0@ETH\"]}' "
-//                                        "share_address '[]'")
-//                       + HelpExampleRpc("addpoolliquidity",
-//                                        "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
-//                                        "share_address '[]'")
+//                       + HelpExampleCli("setoracledata",
+//                                        "1612237937 '[{"BTC_USD_PRICE": “38293.12@BTC#1”, “1328.32@ETH#2”]}' ")
+//                       + HelpExampleRpc("setoracledata",
+//                                        "1612237637 '[{"BTC_USD_PRICE": “38293.12@BTC#1”, “1328.32@ETH#2”]}' "
+//                                        )
 //               },
 //    }.Check(request);
     }
@@ -4103,14 +4098,14 @@ UniValue setrawprice(const JSONRPCRequest &request) {
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
-//    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM}, false);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ}, false);
 
     // decode
     CSetOracleDataMessage msg{};
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::SetRawPrice)
+    markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData)
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
@@ -4132,15 +4127,6 @@ UniValue setrawprice(const JSONRPCRequest &request) {
 
     CCoinControl coinControl;
 
-//    // Set change to from address if there's only one auth address
-//    if (auths.size() == 1) {
-//        CTxDestination dest;
-//        ExtractDestination(*auths.cbegin(), dest);
-//        if (IsValidDestination(dest)) {
-//            coinControl.destChange = dest;
-//        }
-//    }
-
     // fund
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
@@ -4161,80 +4147,6 @@ UniValue setrawprice(const JSONRPCRequest &request) {
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
-
-//
-//    const auto txVersion = GetTransactionVersion(targetHeight);
-//    CMutableTransaction rawTx(txVersion);
-//    CTransactionRef optAuthTx;
-//    std::set<CScript> auths;
-//
-//    // auth
-//    {
-//        if (!txInputs.isNull() && !txInputs.empty()) {
-//            rawTx.vin = GetInputs(txInputs.get_array());            // separate call here to do not process the rest in "else"
-//        }
-//        else {
-//            bool needFoundersAuth = false;
-//            for (auto const & kv : minted.balances) {
-//
-//                CTokenImplementation tokenImpl;
-//                {
-//                    LOCK(cs_main);
-//                    auto token = pcustomcsview->GetToken(kv.first);
-//                    if (!token) {
-//                        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
-//                    }
-//
-//                    tokenImpl = static_cast<CTokenImplementation const& >(*token);
-//                    const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
-//                    if (tokenImpl.IsDAT()) {
-//                        needFoundersAuth = true;
-//                    }
-//                    auths.insert(authCoin.out.scriptPubKey);
-//                }
-//            }
-//            rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
-//        } // else
-//    }
-//
-//    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-//    metadata << static_cast<unsigned char>(CustomTxType::MintToken)
-//             << minted; /// @note here, that whole CBalances serialized!, not a 'minted.balances'!
-//
-//    CScript scriptMeta;
-//    scriptMeta << OP_RETURN << ToByteVector(metadata);
-//
-//    rawTx.vout.push_back(CTxOut(0, scriptMeta));
-//
-//    CCoinControl coinControl;
-//
-//    // Set change to auth address if there's only one auth address
-//    if (auths.size() == 1) {
-//        CTxDestination dest;
-//        ExtractDestination(*auths.cbegin(), dest);
-//        if (IsValidDestination(dest)) {
-//            coinControl.destChange = dest;
-//        }
-//    }
-//
-//    // fund
-//    fund(rawTx, pwallet, optAuthTx, &coinControl);
-//
-//    // check execution
-//    {
-//        LOCK(cs_main);
-//        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-//        CCoinsViewCache view(&::ChainstateActive().CoinsTip());
-//        if (optAuthTx)
-//            AddCoins(view, *optAuthTx, targetHeight);
-//        const auto res = ApplyMintTokenTx(mnview_dummy, view, CTransaction(rawTx), targetHeight,
-//                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted }), Params().GetConsensus());
-//        if (!res.ok) {
-//            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-//        }
-//    }
-//    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
-
 
 static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)
 {
@@ -4291,6 +4203,9 @@ static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomT
             break;
         case CustomTxType::AnyAccountsToAccounts:
             res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::SetOracleData:
+            res = ApplySetOracleDataTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
             break;
         default:
             return false;
@@ -4490,7 +4405,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
-    {"oracles",     "setrawprice",           &setrawprice,           {"timestamp", "feedname", "rawprice"}},
+    {"oracles",     "setoracledata",         &setoracledata,          {"timestamp", "prices"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

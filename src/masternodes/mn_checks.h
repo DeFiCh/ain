@@ -59,11 +59,10 @@ enum class CustomTxType : unsigned short
     RemoveOracleAppoint   = 201,
     UpdateOracleAppoint   = 202,
     SetOracleData         = 203,
-    SetRawPrice           = 204,
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    CustomTxType type = static_cast<CustomTxType>(ch);
+    auto type = static_cast<CustomTxType>(ch);
     switch(type) {
         case CustomTxType::CreateMasternode:
         case CustomTxType::ResignMasternode:
@@ -85,7 +84,6 @@ inline CustomTxType CustomTxCodeToType(unsigned char ch) {
         case CustomTxType::RemoveOracleAppoint:
         case CustomTxType::UpdateOracleAppoint:
         case CustomTxType::SetOracleData:
-        case CustomTxType::SetRawPrice:
             return type;
         default:
             return CustomTxType::None;
@@ -115,7 +113,6 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::RemoveOracleAppoint: return "RemoveOracleAppoint";
         case CustomTxType::UpdateOracleAppoint: return "UpdateOracleAppoint";
         case CustomTxType::SetOracleData:       return "SetOracleData";
-        case CustomTxType::SetRawPrice:         return "SetRawPrice";
         default:                                return "None";
     }
 }
@@ -163,7 +160,7 @@ Res ApplySetGovernanceTx(CCustomCSView & mnview, CCoinsViewCache const & coins, 
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 
-Res ApplySetRawPriceTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplySetOracleDataTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256 & txid);
 
