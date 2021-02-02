@@ -115,17 +115,6 @@ bool HasFoundationAuth(CTransaction const & tx, CCoinsViewCache const & coins, C
     return false;
 }
 
-bool HasOracleAuth(
-        COracleId oracleId,
-        CTransaction const & tx,
-        CCoinsViewCache const & coins,
-        Consensus::Params const & consensusParams)
-{
-    // TODO (Integral Team Y) implement
-    // check if oracle of specified id has authenticated this transaction
-    return true;
-}
-
 Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CTransaction const & tx, Consensus::Params const & consensusParams, uint32_t height, uint32_t txn, bool isCheck, bool skipAuth)
 {
     Res res = Res::Ok();
