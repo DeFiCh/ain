@@ -80,8 +80,8 @@ struct COracle : public CAppointOracleMessage {
 
     CTokenPrices tokenPrices;
 
-    explicit COracle(CAppointOracleMessage msg = {}) :
-        CAppointOracleMessage(std::move(msg)),
+    explicit COracle(CAppointOracleMessage const & msg = {}) :
+        CAppointOracleMessage(msg),
         tokenPrices{} {
     }
 
