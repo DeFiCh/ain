@@ -570,7 +570,7 @@ UniValue createmasternode(const JSONRPCRequest& request) {
     }
 
     rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(targetHeight), scriptMeta));
-    rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(), GetScriptForDestination(ownerDest)));
+    rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(targetHeight), GetScriptForDestination(ownerDest)));
 
     fund(rawTx, pwallet, {});
 

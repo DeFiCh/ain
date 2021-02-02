@@ -82,6 +82,7 @@ static CBlock CreateBlock(const CBlockIndex* prev,
 
     uint256 masternodeID = testMasternodeKeys.begin()->first;
     uint32_t mintedBlocks(0);
+    int64_t creationHeight;
     CKey minterKey;
     std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
     if (pos == testMasternodeKeys.end())
@@ -96,6 +97,7 @@ static CBlock CreateBlock(const CBlockIndex* prev,
             return {};
 
         mintedBlocks = nodePtr->mintedBlocks;
+        creationHeight = int64_t(nodePtr->creationHeight);
     }
 
     block.height = prev->nHeight + 1;
@@ -111,7 +113,7 @@ static CBlock CreateBlock(const CBlockIndex* prev,
     unsigned int extraNonce = 0;
     IncrementExtraNonce(&block, prev, extraNonce);
 
-    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, Params().GetConsensus(), masternodeID).hashOk) block.nTime++;
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, masternodeID, Params().GetConsensus()).hashOk) block.nTime++;
   //  while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())) ++block.nNonce;
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
     auto err = pos::SignPosBlock(pblock, minterKey);
