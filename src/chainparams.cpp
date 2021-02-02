@@ -152,6 +152,7 @@ public:
         consensus.mn.resignDelay = 60;
         consensus.mn.creationFee = 10 * COIN;
         consensus.mn.collateralAmount = 1000000 * COIN;
+        consensus.mn.collateralAmountDakota = 20000 * COIN;
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
@@ -327,6 +328,7 @@ public:
         consensus.mn.resignDelay = 60;
         consensus.mn.creationFee = 10 * COIN;
         consensus.mn.collateralAmount = 1000000 * COIN;
+        consensus.mn.collateralAmountDakota = 20000 * COIN;
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
@@ -468,6 +470,7 @@ public:
         consensus.mn.resignDelay = 60;
         consensus.mn.creationFee = 10 * COIN;
         consensus.mn.collateralAmount = 1000000 * COIN;
+        consensus.mn.collateralAmountDakota = 20000 * COIN;
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
@@ -603,6 +606,7 @@ public:
         consensus.mn.resignDelay = 10;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
+        consensus.mn.collateralAmountDakota = 2 * COIN;
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 8;
         consensus.mn.anchoringFrequency = 15;

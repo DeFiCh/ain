@@ -53,9 +53,14 @@ int GetMnHistoryFrame()
     return Params().GetConsensus().mn.historyFrame;
 }
 
-CAmount GetMnCollateralAmount()
+CAmount GetMnCollateralAmount(int height)
 {
-    return Params().GetConsensus().mn.collateralAmount;
+    auto& consensus = Params().GetConsensus();
+    if (height < consensus.DakotaHeight) {
+        return consensus.mn.collateralAmount;
+    } else {
+        return consensus.mn.collateralAmountDakota;
+    }
 }
 
 CAmount GetMnCreationFee(int)
