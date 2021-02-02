@@ -4061,8 +4061,8 @@ UniValue setoracledata(const JSONRPCRequest &request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                         HelpExampleCli("setoracledata", "1612237937 '{[“38293.12@BTC#1”, “1328.32@ETH#2”]}' ")
-                       + HelpExampleRpc("setoracledata", "1612237637 '{[“38293.12@BTC#1”, “1328.32@ETH#2”]}' ")
+                         HelpExampleCli("setoracledata", "1612237937 '[“38293.12@BTC#1”, “1328.32@ETH#2”]' ")
+                       + HelpExampleRpc("setoracledata", "1612237637 '[“38293.12@BTC#1”, “1328.32@ETH#2”]' ")
                },
     }.Check(request);
 
@@ -4084,9 +4084,9 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
     // TODO (IntegralTeam Y): need to get oracleId
     COracleId oracleId{};
-    BTCTimeStamp timestamp{};
+    int64_t timestamp{};
     try {
-        timestamp = static_cast<BTCTimeStamp>(timestampUni.get_int64());
+        timestamp = timestampUni.get_int64();
     } catch (...) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode timestamp");
     }

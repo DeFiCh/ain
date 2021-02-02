@@ -18,9 +18,7 @@
 #include <uint256.h>
 #include <univalue/include/univalue.h>
 
-using BTCTimeStamp = int64_t;
-
-using CPricePoint = std::pair<CAmount, BTCTimeStamp>;
+using CPricePoint = std::pair<CAmount, int64_t>;
 
 using CTokenPrices = std::map<DCT_ID, CPricePoint>;
 
@@ -66,7 +64,7 @@ struct CUpdateOracleAppointMessage {
 
 struct CSetOracleDataMessage {
     COracleId oracleId;
-    BTCTimeStamp timestamp;
+    int64_t timestamp;
     CBalances balances;
 
     ADD_SERIALIZE_METHODS;
@@ -93,7 +91,7 @@ struct COracle : public CAppointOracleMessage {
         return availableTokens.find(tokenId) != availableTokens.end();
     }
 
-    Res SetTokenPrice(DCT_ID tokenId, CAmount amount, BTCTimeStamp timestamp) {
+    Res SetTokenPrice(DCT_ID tokenId, CAmount amount, int64_t timestamp) {
         if (!SupportsToken(tokenId)) {
             return Res::Err("token <%s> is not allowed", tokenId.ToString());
         }
@@ -130,7 +128,7 @@ public:
     Res AppointOracle(COracleId oracleId, const COracle& oracle);
 
     /// store registered oracle data
-    Res SetOracleData(COracleId oracleId, BTCTimeStamp timestamp, const CBalances& tokenPrices);
+    Res SetOracleData(COracleId oracleId, int64_t timestamp, const CBalances& tokenPrices);
 
     /// deserialize oracle instance from database
     ResVal<COracle> GetOracleData(COracleId oracleId) const;

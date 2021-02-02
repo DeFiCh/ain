@@ -9,7 +9,7 @@ Res COracleView::AppointOracle(COracleId oracleId, const COracle& oracle) {
     return Res::Ok();
 }
 
-Res COracleView::SetOracleData(COracleId oracleId,  BTCTimeStamp timestamp, const CBalances& balances) {
+Res COracleView::SetOracleData(COracleId oracleId,  int64_t timestamp, const CBalances& balances) {
     COracle oracle{};
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("failed to read oracle %s from database", oracleId.GetHex());
