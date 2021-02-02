@@ -9,6 +9,7 @@
 #include <script/script.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>
+#include <sync.h>
 #include <wallet/wallet.h>
 
 typedef std::vector<unsigned char> valtype;
@@ -190,4 +191,42 @@ isminetype IsMine(const CWallet& keystore, const CTxDestination& dest)
 {
     CScript script = GetScriptForDestination(dest);
     return IsMine(keystore, script);
+}
+
+struct CCacheInfo
+{
+    std::map<CScript, isminetype> mineData;
+    std::array<boost::signals2::scoped_connection, 2> connects;
+};
+
+isminetype IsMineCached(const CWallet& keystore, CScript const & script)
+{
+    static std::atomic_bool cs_cache(false);
+    static std::unordered_map<const CWallet*, CCacheInfo> cache;
+    auto* wallet = &keystore;
+    CLockFreeGuard lock(cs_cache);
+    auto it = cache.find(wallet);
+    if (it == cache.end()) {
+        it = cache.emplace(wallet, CCacheInfo{{}, {
+            wallet->NotifyOwnerChanged.connect([wallet](CScript const & owner) {
+                CLockFreeGuard lock(cs_cache);
+                cache[wallet].mineData.erase(owner);
+            }),
+            wallet->NotifyUnload.connect([wallet]() {
+                CLockFreeGuard lock(cs_cache);
+                cache.erase(wallet);
+            }),
+        }}).first;
+    }
+    auto mIt = it->second.mineData.find(script);
+    if (mIt == it->second.mineData.end()) {
+        mIt = it->second.mineData.emplace(script, ::IsMine(keystore, script)).first;
+    }
+    return mIt->second;
+}
+
+isminetype IsMineCached(const CWallet& keystore, const CTxDestination& dest)
+{
+    CScript script = GetScriptForDestination(dest);
+    return IsMineCached(keystore, script);
 }

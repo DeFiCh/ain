@@ -12,7 +12,6 @@
 #include <init.h>
 #include <interfaces/chain.h>
 #include <interfaces/handler.h>
-#include <interfaces/wallet.h>
 #include <net.h>
 #include <net_processing.h>
 #include <netaddress.h>
@@ -234,30 +233,6 @@ public:
         LOCK(::cs_main);
         return ::ChainstateActive().CoinsTip().GetCoin(output, coin);
     }
-    std::string getWalletDir() override
-    {
-        return GetWalletDir().string();
-    }
-    std::vector<std::string> listWalletDir() override
-    {
-        std::vector<std::string> paths;
-        for (auto& path : ListWalletDir()) {
-            paths.push_back(path.string());
-        }
-        return paths;
-    }
-    std::vector<std::unique_ptr<Wallet>> getWallets() override
-    {
-        std::vector<std::unique_ptr<Wallet>> wallets;
-        for (const std::shared_ptr<CWallet>& wallet : GetWallets()) {
-            wallets.emplace_back(MakeWallet(wallet));
-        }
-        return wallets;
-    }
-    std::unique_ptr<Wallet> loadWallet(const std::string& name, std::string& error, std::string& warning) override
-    {
-        return MakeWallet(LoadWallet(*m_interfaces.chain, name, error, warning));
-    }
     std::unique_ptr<Handler> handleInitMessage(InitMessageFn fn) override
     {
         return MakeHandler(::uiInterface.InitMessage_connect(fn));
@@ -273,10 +248,6 @@ public:
     std::unique_ptr<Handler> handleShowProgress(ShowProgressFn fn) override
     {
         return MakeHandler(::uiInterface.ShowProgress_connect(fn));
-    }
-    std::unique_ptr<Handler> handleLoadWallet(LoadWalletFn fn) override
-    {
-        return MakeHandler(::uiInterface.LoadWallet_connect([fn](std::unique_ptr<Wallet>& wallet) { fn(std::move(wallet)); }));
     }
     std::unique_ptr<Handler> handleNotifyNumConnectionsChanged(NotifyNumConnectionsChangedFn fn) override
     {

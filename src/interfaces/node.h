@@ -186,20 +186,6 @@ public:
     //! Get unspent outputs associated with a transaction.
     virtual bool getUnspentOutput(const COutPoint& output, Coin& coin) = 0;
 
-    //! Return default wallet directory.
-    virtual std::string getWalletDir() = 0;
-
-    //! Return available wallets in wallet directory.
-    virtual std::vector<std::string> listWalletDir() = 0;
-
-    //! Return interfaces for accessing wallets (if any).
-    virtual std::vector<std::unique_ptr<Wallet>> getWallets() = 0;
-
-    //! Attempts to load a wallet from file or directory.
-    //! The loaded wallet is also notified to handlers previously registered
-    //! with handleLoadWallet.
-    virtual std::unique_ptr<Wallet> loadWallet(const std::string& name, std::string& error, std::string& warning) = 0;
-
     //! Register handler for init messages.
     using InitMessageFn = std::function<void(const std::string& message)>;
     virtual std::unique_ptr<Handler> handleInitMessage(InitMessageFn fn) = 0;
@@ -219,10 +205,6 @@ public:
     //! Register handler for progress messages.
     using ShowProgressFn = std::function<void(const std::string& title, int progress, bool resume_possible)>;
     virtual std::unique_ptr<Handler> handleShowProgress(ShowProgressFn fn) = 0;
-
-    //! Register handler for load wallet messages.
-    using LoadWalletFn = std::function<void(std::unique_ptr<Wallet> wallet)>;
-    virtual std::unique_ptr<Handler> handleLoadWallet(LoadWalletFn fn) = 0;
 
     //! Register handler for number of connections changed messages.
     using NotifyNumConnectionsChangedFn = std::function<void(int new_num_connections)>;

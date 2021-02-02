@@ -14,3 +14,8 @@ WalletTestingSetup::WalletTestingSetup(const std::string& chainName)
 
     m_chain_client->registerRpcs();
 }
+
+WalletTestingSetup::~WalletTestingSetup()
+{
+    m_wallet.NotifyUnload();
+}

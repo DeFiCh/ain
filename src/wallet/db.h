@@ -83,7 +83,7 @@ public:
     bool Open(bool retry);
     void Close();
     void Flush(bool fShutdown);
-    void CheckpointLSN(const std::string& strFile);
+    void CheckpointLSN(const std::string& strFile, bool lsnReset = true);
 
     void CloseDb(const std::string& strFile);
     void ReloadDbEnv();
@@ -115,13 +115,13 @@ class BerkeleyDatabase
     friend class BerkeleyBatch;
 public:
     /** Create dummy DB handle */
-    BerkeleyDatabase() : nUpdateCounter(0), nLastSeen(0), nLastFlushed(0), nLastWalletUpdate(0), env(nullptr)
+    BerkeleyDatabase() : nUpdateCounter(0), env(nullptr)
     {
     }
 
     /** Create DB handle to real database */
     BerkeleyDatabase(std::shared_ptr<BerkeleyEnvironment> env, std::string filename) :
-        nUpdateCounter(0), nLastSeen(0), nLastFlushed(0), nLastWalletUpdate(0), env(std::move(env)), strFile(std::move(filename))
+        nUpdateCounter(0), env(std::move(env)), strFile(std::move(filename))
     {
         auto inserted = this->env->m_databases.emplace(strFile, std::ref(*this));
         assert(inserted.second);
@@ -170,9 +170,6 @@ public:
     void ReloadDbEnv();
 
     std::atomic<unsigned int> nUpdateCounter;
-    unsigned int nLastSeen;
-    unsigned int nLastFlushed;
-    int64_t nLastWalletUpdate;
 
     /**
      * Pointer to shared database environment.
