@@ -265,7 +265,7 @@ void Shutdown(InitInterfaces& interfaces)
     // up with our current chain to avoid any strange pruning edge cases and make
     // next startup faster by avoiding rescan.
 
-    LogPrintf("spv: Releasing\n");
+    LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
     {
         LOCK(cs_main);
