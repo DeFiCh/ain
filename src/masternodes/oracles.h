@@ -66,7 +66,7 @@ struct CUpdateOracleAppointMessage {
 
 struct CSetOracleDataMessage {
     COracleId oracleId;
-    BTCTimeStamp timestamp{};
+    BTCTimeStamp timestamp;
     CBalances balances;
 
     ADD_SERIALIZE_METHODS;

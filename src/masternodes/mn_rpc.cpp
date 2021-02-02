@@ -4043,48 +4043,29 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 UniValue setoracledata(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
 
-    // TODO (IntegralTeam Y): add help
-    {
-//    RPCHelpMan{"setoracledata",
-//               "\nCreates (and submits to local node and network) a set oracle data transaction.\n"
-//               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
-//               HelpRequiringPassphrase(pwallet) + "\n",
-//               {
-//                       {"timestamp", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
-//                        {
-//                                {"address", RPCArg::Type::STR, RPCArg::Optional::NO,
-//                                 "The defi address(es) is the key(s), the value(s) is amount in amount@token format. "
-//                                 "You should provide exectly two types of tokens for pool's 'token A' and 'token B' in any combinations."
-//                                 "If multiple tokens from one address are to be transferred, specify an array [\"amount1@t1\", \"amount2@t2\"]"
-//                                 "If \"from\" obj contain only one amount entry with address-key: \"*\" (star), it's means auto-selection accounts from wallet."},
-//                        },
-//                       },
-//                       {"shareAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
-//                        "The defi address for crediting tokens."},
-//                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-//                        "A json array of json objects",
-//                        {
-//                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-//                                 {
-//                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-//                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-//                                 },
-//                                },
-//                        },
-//                       },
-//               },
-//               RPCResult{
-//                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
-//               },
-//               RPCExamples{
-//                       + HelpExampleCli("setoracledata",
-//                                        "1612237937 '[{"BTC_USD_PRICE": “38293.12@BTC#1”, “1328.32@ETH#2”]}' ")
-//                       + HelpExampleRpc("setoracledata",
-//                                        "1612237637 '[{"BTC_USD_PRICE": “38293.12@BTC#1”, “1328.32@ETH#2”]}' "
-//                                        )
-//               },
-//    }.Check(request);
-    }
+    // TODO (IntegralTeam Y): correct help
+    RPCHelpMan{"setoracledata",
+               "\nCreates (and submits to local node and network) a set oracle data transaction.\n"
+               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"timestamp", RPCArg::Type::NUM, RPCArg::Optional::NO, "balances timestamp",},
+                       {"prices", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "tokens raw prices:the array of price and token strings in price@token#number format. ",
+                        {
+                                {"", RPCArg::Type::STR, RPCArg::Optional::NO, ""}
+                            }
+                        },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                         HelpExampleCli("setoracledata", "1612237937 '{[“38293.12@BTC#1”, “1328.32@ETH#2”]}' ")
+                       + HelpExampleRpc("setoracledata", "1612237637 '{[“38293.12@BTC#1”, “1328.32@ETH#2”]}' ")
+               },
+    }.Check(request);
+
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -4093,39 +4074,52 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
-    auto balances = DecodeAmounts(pwallet->chain(), request.params[0], "");
-    UniValue const & txInputs = request.params[1];
+    // decode
+    UniValue const & timestampUni = request.params[0];
+    auto balances = DecodeAmounts(pwallet->chain(), request.params[1], "");
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ}, false);
 
-    // decode
-    CSetOracleDataMessage msg{};
+    // TODO (IntegralTeam Y): need to get oracleId
+    COracleId oracleId{};
+    BTCTimeStamp timestamp{};
+    try {
+        timestamp = static_cast<BTCTimeStamp>(timestampUni.get_int64());
+    } catch (...) {
+        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode timestamp");
+    }
+
+    CSetOracleDataMessage msg{oracleId, timestamp, balances};
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData)
                    << msg;
+
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-//    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
-    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+    rawTx.vout.emplace_back(0, scriptMeta);
 
-//    // auth
-    std::set<CScript> auths;
-//    for (const auto &kv : msg.from) {
-//        auths.emplace(kv.first);
-//    }
-//    UniValue const &txInputs = request.params[2];
+    UniValue const &txInputs = request.params[2];
     CTransactionRef optAuthTx;
+    std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
 
     CCoinControl coinControl;
+
+    // Set change to auth address if there's only one auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
 
     // fund
     fund(rawTx, pwallet, optAuthTx, &coinControl);
@@ -4137,9 +4131,13 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyAddPoolLiquidityTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}),
-                                                 Params().GetConsensus());
+        const auto res = ApplySetOracleDataTx(
+                mnview_dummy,
+                coinview,
+                CTransaction(rawTx),
+                targetHeight,
+                ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}),
+                Params().GetConsensus());
 
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
