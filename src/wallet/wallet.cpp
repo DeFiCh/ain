@@ -382,6 +382,8 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
     script = GetScriptForRawPubKey(pubkey);
     if (HaveWatchOnly(script)) {
         RemoveWatchOnly(script);
+    } else {
+        NotifyOwnerChanged(script);
     }
 
     for (const auto& dest : GetAllDestinationsForKey(pubkey)) {
