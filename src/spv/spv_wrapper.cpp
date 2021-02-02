@@ -51,89 +51,89 @@ bool const spv_cb_trace = false;
 void balanceChanged(void *info, uint64_t balance)
 {
     /// @attention called under spv manager lock!!!
-    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnBalanceChanged(balance);
-    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 void txAdded(void *info, BRTransaction *tx)
 {
     /// @attention called under spv manager lock!!!
-    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxAdded(tx);
-    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 void txUpdated(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
 {
     /// @attention called under spv manager lock!!!
-    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxUpdated(txHashes, txCount, blockHeight, timestamp);
-    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 void txDeleted(void *info, UInt256 txHash, int notifyUser, int recommendRescan)
 {
     /// @attention called under spv manager lock!!!
-    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxDeleted(txHash, notifyUser, recommendRescan);
-    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 
 /// spv peer manager's callbacks wrappers:
 void syncStarted(void *info)
 {
-    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "trying %s\n", __func__);
     LOCK(cs_spvcallback);
-    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStarted();
-    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 void syncStopped(void *info, int error)
 {
-    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "trying %s\n", __func__);
     LOCK(cs_spvcallback);
-    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStopped(error);
-    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 void txStatusUpdate(void *info)
 {
-    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "trying %s\n", __func__);
     LOCK(cs_spvcallback);
-    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxStatusUpdate();
-    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 void saveBlocks(void *info, int replace, BRMerkleBlock *blocks[], size_t blocksCount)
 {
     /// @attention called under spv manager lock!!!
-    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
 //    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSaveBlocks(replace, blocks, blocksCount);
-    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 void savePeers(void *info, int replace, const BRPeer peers[], size_t peersCount)
 {
-    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "trying %s\n", __func__);
     LOCK(cs_spvcallback);
-    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSavePeers(replace, peers, peersCount);
-    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 void threadCleanup(void *info)
 {
-    if (spv_cb_trace) LogPrintf("spv: trying %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "trying %s\n", __func__);
     LOCK(cs_spvcallback);
-    if (spv_cb_trace) LogPrintf("spv: enter %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnThreadCleanup();
-    if (spv_cb_trace) LogPrintf("spv: exit %s\n", __func__);
+    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 
 static void SetCheckpoints()
@@ -202,7 +202,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
     // (we need intermediate persistent storage for filename here)
     spv_internal_logfilename = (LogInstance().m_file_path.remove_filename() / "spv.log").string();
     spv_logfilename = spv_internal_logfilename.c_str();
-    LogPrintf("spv: internal logs set to %s\n", spv_logfilename);
+    LogPrint(BCLog::SPV, "internal logs set to %s\n", spv_logfilename);
     spv_log2console = 0;
     spv_mainnet = isMainnet ? 1 : 0;
 
@@ -211,7 +211,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
     std::vector<char> xpub_buf(BRBIP32SerializeMasterPubKey(NULL, 0, mpk));
     BRBIP32SerializeMasterPubKey(xpub_buf.data(), xpub_buf.size(), mpk);
-    LogPrintf("spv: debug xpub: %s\n", &xpub_buf[0]);
+    LogPrint(BCLog::SPV, "debug xpub: %s\n", &xpub_buf[0]);
 
     std::vector<BRTransaction *> txs;
     // load txs
@@ -222,11 +222,11 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
             tx->timestamp = rec.second.second;
             txs.push_back(tx);
 
-            LogPrintf("spv: load tx: %s, height: %d\n", to_uint256(tx->txHash).ToString(), tx->blockHeight);
+            LogPrint(BCLog::SPV, "load tx: %s, height: %d\n", to_uint256(tx->txHash).ToString(), tx->blockHeight);
 
             CAnchor anchor;
             if (IsAnchorTx(tx, anchor)) {
-                LogPrintf("spv: LOAD POSSIBLE ANCHOR TX, tx: %s, blockHash: %s, height: %d, btc height: %d\n", to_uint256(tx->txHash).ToString(), anchor.blockHash.ToString(), anchor.height, tx->blockHeight);
+                LogPrint(BCLog::SPV, "LOAD POSSIBLE ANCHOR TX, tx: %s, blockHash: %s, height: %d, btc height: %d\n", to_uint256(tx->txHash).ToString(), anchor.blockHash.ToString(), anchor.height, tx->blockHeight);
             }
         };
         // can't deduce lambda here:
@@ -235,7 +235,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
     wallet = BRWalletNew(txs.data(), txs.size(), mpk, 0);
     BRWalletSetCallbacks(wallet, this, balanceChanged, txAdded, txUpdated, txDeleted);
-    LogPrintf("spv: wallet created with first receive address: %s\n", BRWalletLegacyAddress(wallet).s);
+    LogPrint(BCLog::SPV, "wallet created with first receive address: %s\n", BRWalletLegacyAddress(wallet).s);
 
     std::vector<BRMerkleBlock *> blocks;
     // load blocks
@@ -302,10 +302,10 @@ bool CSpvWrapper::Rescan(int height)
         // relative height if negative
         height = std::max(0, static_cast<int>(curHeight) + height);
     }
-    LogPrintf("spv: trying to rescan from block %d, current block %u\n", height, curHeight);
+    LogPrint(BCLog::SPV, "trying to rescan from block %d, current block %u\n", height, curHeight);
     BRPeerManagerRescanFromBlockNumber(manager, static_cast<uint32_t>(height));
     curHeight = BRPeerManagerLastBlockHeight(manager);
-    LogPrintf("spv: actual new current block %u\n", curHeight);
+    LogPrint(BCLog::SPV, "actual new current block %u\n", curHeight);
 
     LOCK(cs_main);
     panchors->ActivateBestAnchor(true);
@@ -342,7 +342,7 @@ uint32_t CSpvWrapper::GetEstimatedBlockHeight() const
 void CSpvWrapper::OnBalanceChanged(uint64_t balance)
 {
     /// @attention called under spv manager lock!!!
-    LogPrintf("spv: balance changed: %lu\n", balance);
+    LogPrint(BCLog::SPV, "balance changed: %lu\n", balance);
 }
 
 std::vector<BRTransaction *> CSpvWrapper::GetWalletTxs() const
@@ -351,7 +351,7 @@ std::vector<BRTransaction *> CSpvWrapper::GetWalletTxs() const
     txs.resize(BRWalletTransactions(wallet, nullptr, 0));
     size_t count = BRWalletTransactions(wallet, txs.data(), txs.size());
 
-    LogPrintf("spv: wallet txs count: %lu\n", count);
+    LogPrint(BCLog::SPV, "wallet txs count: %lu\n", count);
 
     return txs;
 }
@@ -361,12 +361,12 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
     /// @attention called under spv manager lock!!!
     uint256 const txHash{to_uint256(tx->txHash)};
     WriteTx(tx);
-    LogPrintf("spv: tx added %s, at block %d, timestamp %d\n", txHash.ToString(), tx->blockHeight, tx->timestamp);
+    LogPrint(BCLog::SPV, "tx added %s, at block %d, timestamp %d\n", txHash.ToString(), tx->blockHeight, tx->timestamp);
 
     CAnchor anchor;
     if (IsAnchorTx(tx, anchor)) {
 
-        LogPrintf("spv: IsAnchorTx(): %s\n", txHash.ToString());
+        LogPrint(BCLog::SPV, "IsAnchorTx(): %s\n", txHash.ToString());
 
         LOCK(cs_main);
 
@@ -389,7 +389,7 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
     for (size_t i = 0; i < txCount; ++i) {
         uint256 const txHash{to_uint256(txHashes[i])};
         UpdateTx(txHash, blockHeight, timestamp);
-        LogPrintf("spv: tx updated, hash: %s, blockHeight: %d, timestamp: %d\n", txHash.ToString(), blockHeight, timestamp);
+        LogPrint(BCLog::SPV, "tx updated, hash: %s, blockHeight: %d, timestamp: %d\n", txHash.ToString(), blockHeight, timestamp);
 
         LOCK(cs_main);
 
@@ -414,23 +414,23 @@ void CSpvWrapper::OnTxDeleted(UInt256 txHash, int notifyUser, int recommendResca
     LOCK(cs_main);
     panchors->DeleteAnchorByBtcTx(hash);
 
-    LogPrintf("spv: tx deleted: %s; notifyUser: %d, recommendRescan: %d\n", hash.ToString(), notifyUser, recommendRescan);
+    LogPrint(BCLog::SPV, "tx deleted: %s; notifyUser: %d, recommendRescan: %d\n", hash.ToString(), notifyUser, recommendRescan);
 }
 
 void CSpvWrapper::OnSyncStarted()
 {
-    LogPrintf("spv: sync started!\n");
+    LogPrint(BCLog::SPV, "sync started!\n");
 }
 
 void CSpvWrapper::OnSyncStopped(int error)
 {
     initialSync = false;
-    LogPrintf("spv: sync stopped!\n");
+    LogPrint(BCLog::SPV, "sync stopped!\n");
 }
 
 void CSpvWrapper::OnTxStatusUpdate()
 {
-    LogPrintf("spv: tx status update\n");
+    LogPrint(BCLog::SPV, "tx status update\n");
     panchors->CheckActiveAnchor();
 }
 
@@ -439,12 +439,12 @@ void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blo
     /// @attention called under spv manager lock!!!
     if (replace)
     {
-        LogPrintf("spv: BLOCK: 'replace' requested, deleting...\n");
+        LogPrint(BCLog::SPV, "BLOCK: 'replace' requested, deleting...\n");
         DeleteTable<uint256>(DB_SPVBLOCKS);
     }
     for (size_t i = 0; i < blocksCount; ++i) {
         WriteBlock(blocks[i]);
-        LogPrintf("spv: BLOCK: %u, %s saved\n", blocks[i]->height, to_uint256(blocks[i]->blockHash).ToString());
+        LogPrint(BCLog::SPV, "BLOCK: %u, %s saved\n", blocks[i]->height, to_uint256(blocks[i]->blockHash).ToString());
     }
     CommitBatch();
 
@@ -506,7 +506,7 @@ void CSpvWrapper::WriteBlock(const BRMerkleBlock * block)
 
 void publishedTxCallback(void *info, int error)
 {
-    LogPrintf("spv: publishedTxCallback: %s\n", strerror(error));
+    LogPrint(BCLog::SPV, "publishedTxCallback: %s\n", strerror(error));
     if (info) {
         static_cast<std::promise<int> *>(info)->set_value(error);
     }
@@ -595,7 +595,7 @@ uint64_t EstimateAnchorCost(TBytes const & meta, uint64_t feerate)
     auto rawtx = CreateRawTx({dummyInput}, outputs);
     BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
     if (!tx) {
-        LogPrintf("spv: ***FAILED*** %s:\n", __func__);
+        LogPrint(BCLog::SPV, "***FAILED*** %s:\n", __func__);
         return 0;
     }
     uint64_t const minFee = BRTransactionStandardFee(tx) * feerate / TX_FEE_PER_KB;
@@ -619,7 +619,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
         // creating key(priv/pub) from WIF priv
         BRKey inputKey;
         if (!BRKeySetPrivKey(&inputKey, input.privkey_wif.c_str())) {
-            LogPrintf("spv: ***FAILED*** %s: Can't parse WIF privkey %s\n", __func__, input.privkey_wif);
+            LogPrint(BCLog::SPV, "***FAILED*** %s: Can't parse WIF privkey %s\n", __func__, input.privkey_wif);
             throw std::runtime_error("spv: Can't parse WIF privkey " + input.privkey_wif);
         }
         inputKeys.push_back(inputKey);
@@ -658,12 +658,12 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
     auto rawtx = CreateRawTx(inputs, outputs);
     BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
     if (!tx) {
-        LogPrintf("spv: ***FAILED*** %s: BRTransactionParse()\n", __func__);
+        LogPrint(BCLog::SPV, "***FAILED*** %s: BRTransactionParse()\n", __func__);
         throw std::runtime_error("spv: Can't parse created transaction");
     }
 
     if (tx->inCount != inputs.size() || tx->outCount != outputs.size()) {
-        LogPrintf("spv: ***FAILED*** %s: inputs: %lu(%lu) outputs %lu(%lu)\n", __func__, tx->inCount, inputs.size(), tx->outCount, outputs.size());
+        LogPrint(BCLog::SPV, "***FAILED*** %s: inputs: %lu(%lu) outputs %lu(%lu)\n", __func__, tx->inCount, inputs.size(), tx->outCount, outputs.size());
         BRTransactionFree(tx);
         throw std::runtime_error("spv: Can't parse created transaction (inputs/outputs), see log");
     }
@@ -673,7 +673,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
     uint64_t totalCost = consensus.spv.creationFee + (P2WSH_DUST * (metaScripts.size()-1)) + minFee;
 
     if (inputTotal < totalCost) {
-        LogPrintf("spv: ***FAILED*** %s: Not enough money to create anchor: %lu (need %lu)\n", __func__, inputTotal, totalCost);
+        LogPrint(BCLog::SPV, "***FAILED*** %s: Not enough money to create anchor: %lu (need %lu)\n", __func__, inputTotal, totalCost);
         BRTransactionFree(tx);
         throw std::runtime_error("Not enough money to create anchor: " + std::to_string(inputTotal) + " (need " + std::to_string(totalCost) + ")");
     }
@@ -686,7 +686,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
     else {
         totalCost = inputTotal;
     }
-    LogPrintf("spv: %s: total cost: %lu\n", __func__, totalCost);
+    LogPrint(BCLog::SPV, "%s: total cost: %lu\n", __func__, totalCost);
 
     BRTransactionSign(tx, 0, inputKeys.data(), inputKeys.size());
     {   // just check
@@ -697,7 +697,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
         BRKeyLegacyAddr(&inputKeys[0], addr2.s, sizeof(addr2));
 
         if (!BRTransactionIsSigned(tx) || !BRAddressEq(&addr1, &addr2)) {
-            LogPrintf("spv: ***FAILED*** %s: BRTransactionSign()\n", __func__);
+            LogPrint(BCLog::SPV, "***FAILED*** %s: BRTransactionSign()\n", __func__);
             BRTransactionFree(tx);
             throw std::runtime_error("spv: Can't sign transaction (wrong keys?)");
         }
@@ -749,14 +749,14 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
     }
 
     auto rawtx = CreateRawTx(inputs, outputs);
-    LogPrintf("spv: TXunsigned: %s\n", HexStr(rawtx));
+    LogPrint(BCLog::SPV, "TXunsigned: %s\n", HexStr(rawtx));
 
     BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
 
     if (! tx)
-        LogPrintf("spv: ***FAILED*** %s: BRTransactionParse(): tx->inCount: %lu tx->outCount %lu\n", __func__, tx ? tx->inCount : 0, tx ? tx->outCount: 0);
+        LogPrint(BCLog::SPV, "***FAILED*** %s: BRTransactionParse(): tx->inCount: %lu tx->outCount %lu\n", __func__, tx ? tx->inCount : 0, tx ? tx->outCount: 0);
     else {
-        LogPrintf("spv: ***OK*** %s: BRTransactionParse(): tx->inCount: %lu tx->outCount %lu\n", __func__, tx->inCount, tx->outCount);
+        LogPrint(BCLog::SPV, "***OK*** %s: BRTransactionParse(): tx->inCount: %lu tx->outCount %lu\n", __func__, tx->inCount, tx->outCount);
     }
 
     // output[n] (optional) - change
@@ -772,7 +772,7 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
         BRAddress addr;
         BRAddressFromScriptSig(addr.s, sizeof(addr), tx->inputs[0].signature, tx->inputs[0].sigLen);
         if (!BRTransactionIsSigned(tx) || !BRAddressEq(&address, &addr)) {
-            LogPrintf("spv: ***FAILED*** %s: BRTransactionSign()\n", __func__);
+            LogPrint(BCLog::SPV, "***FAILED*** %s: BRTransactionSign()\n", __func__);
             BRTransactionFree(tx);
             return {};
         }
@@ -780,7 +780,7 @@ TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmou
     TBytes signedTx(BRTransactionSerialize(tx, NULL, 0));
     BRTransactionSerialize(tx, signedTx.data(), signedTx.size());
 
-    LogPrintf("spv: TXsigned: %s\n", HexStr(signedTx));
+    LogPrint(BCLog::SPV, "TXsigned: %s\n", HexStr(signedTx));
     BRTransactionFree(tx);
 
     return signedTx;
@@ -869,7 +869,7 @@ bool IsAnchorTx(BRTransaction *tx, CAnchor & anchor)
     }
     for (size_t i = 2; i < tx->outCount && ss.size() < dataSize; ++i) {
         if (tx->outputs[i].scriptLen != 34 || tx->outputs[i].script[0] != OP_0 || tx->outputs[i].script[1] != 32) { // p2wsh script
-            LogPrintf("spv: not a p2wsh output #%d\n", i);
+            LogPrint(BCLog::SPV, "not a p2wsh output #%d\n", i);
             return false;
         }
         auto script = (const char*)(tx->outputs[i].script);
@@ -878,7 +878,7 @@ bool IsAnchorTx(BRTransaction *tx, CAnchor & anchor)
     try {
         ss >> anchor;
     } catch (std::ios_base::failure const & e) {
-        LogPrintf("spv: can't deserialize anchor from tx %s\n", to_uint256(tx->txHash).ToString());
+        LogPrint(BCLog::SPV, "can't deserialize anchor from tx %s\n", to_uint256(tx->txHash).ToString());
         return false;
     }
     return true;
