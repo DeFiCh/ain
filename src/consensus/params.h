@@ -114,6 +114,7 @@ struct Params {
     struct MnParams {
         CAmount creationFee;
         CAmount collateralAmount;
+        CAmount collateralAmountDakota;
         int activationDelay;
         int resignDelay; // same delay for criminal ban
         int historyFrame;
