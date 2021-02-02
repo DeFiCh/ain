@@ -3459,6 +3459,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return true;
         }
 
+        if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
+            return true;
+        }
+
         const auto & value = valueLazy.get();
 
         if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
@@ -3521,6 +3525,10 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             }
 
             if (shouldSkipBlock(key.blockHeight)) {
+                return true;
+            }
+
+            if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
                 return true;
             }
 
@@ -3663,6 +3671,10 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             return false;
         }
 
+        if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
+            return true;
+        }
+
         const auto& value = valueLazy.get();
 
         if(!tokenFilter.empty() && !hasToken(value.diff)) {
@@ -3713,6 +3725,10 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     auto shouldContinueToNextReward = [&](RewardHistoryKey const & key, CLazySerialize<RewardHistoryValue> valueLazy) -> bool {
         if (!owner.empty() && owner != key.owner) {
             return false;
+        }
+
+        if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
+            return true;
         }
 
         if(!tokenFilter.empty()) {
