@@ -152,6 +152,7 @@ BASE_SCRIPTS = [
     'wallet_watchonly.py',
     'wallet_watchonly.py --usecli',
     'feature_poolpair.py',
+    'feature_poolpair_fork.py',
     'feature_poolpair_liquidity.py',
     'feature_any_accounts_to_accounts.py',
     'feature_sendtokenstoaddress.py',
