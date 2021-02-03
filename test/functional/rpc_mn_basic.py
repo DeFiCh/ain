@@ -18,6 +18,9 @@ class MasternodesRpcBasicTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136'],
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136'],
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
@@ -59,8 +62,10 @@ class MasternodesRpcBasicTest (DefiTestFramework):
             errorString = e.error['message']
         assert("collateral-locked-in-mempool," in errorString)
 
+        balance_before_creation = self.nodes[0].getbalance()
         self.nodes[0].generate(1)
         # At this point, mn was created
+        assert_equal(balance_before_creation - 10 + 50, self.nodes[0].getbalance())
         assert_equal(self.nodes[0].listmasternodes({}, False)[idnode0], "PRE_ENABLED")
         assert_equal(self.nodes[0].getmasternode(idnode0)[idnode0]["state"], "PRE_ENABLED")
         self.nodes[0].generate(10)
@@ -135,6 +140,14 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         self.sync_blocks(self.nodes[0:3])
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
         assert_equal(self.nodes[0].getrawmempool(), [idnode0, fundingTx, resignTx])
+
+        collateral0 = self.nodes[0].getnewaddress("", "legacy")
+        self.nodes[0].createmasternode(collateral0)
+        balance_before_creation = self.nodes[0].getbalance()
+        self.nodes[0].generate(1)
+        # At this point, mn was created
+        assert_equal(self.nodes[0].getblockcount(), 136) # Dakota height
+        assert_equal(balance_before_creation - 2 + 50, self.nodes[0].getbalance())
 
 if __name__ == '__main__':
     MasternodesRpcBasicTest ().main ()
