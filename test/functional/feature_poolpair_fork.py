@@ -107,6 +107,10 @@ class PoolPairTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Error, there is already a poolpairwith same tokens, but different poolId" in errorString)
 
+        # Checking listpoolpairs
+        poolpairsn0 = self.nodes[0].listpoolpairs()
+        assert_equal(len(poolpairsn0), 1)
+
         collateral1 = self.nodes[2].getnewaddress("", "legacy")
         # Creating PoolPair from non Foundation member -> Before Dakota Fork should not allowed
         try:
@@ -162,10 +166,6 @@ class PoolPairTest (DefiTestFramework):
 
         poolpairsn0 = self.nodes[0].listpoolpairs()
         #print(poolpairsn0)
-
-        # Checking listpoolpairs
-        poolpairsn0 = self.nodes[0].listpoolpairs()
-        assert_equal(len(poolpairsn0), 2)
 
         poolpairsn2 = self.nodes[2].listpoolpairs()
         #print (poolpairsn2)
