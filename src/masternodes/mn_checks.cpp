@@ -1485,16 +1485,20 @@ Res ApplySetOracleDataTx(CCustomCSView &mnview,
     CSetOracleDataMessage msg;
     ss >> msg;
 
+    std::cout << "msg.timestamp = " << msg.timestamp << std::endl;
+    std::cout << "msg.oracleId = " << msg.oracleId.GetHex() << std::endl;
+    std::cout << "msg.balances = " << msg.balances.ToString() << std::endl;
+
     if (msg.oracleId.IsNull()) {
-        return Res::Err("failed to unserialize message");
+        return Res::Err("oracleId is Null");
     }
 
     auto&& oracleRes = mnview.GetOracleData(msg.oracleId);
     if (!oracleRes.ok) {
         return Res::Err("failed to retrieve oracle <%s> from database", msg.oracleId.GetHex());
     }
-    auto&& auth = oracleRes.val->oracleAddress;
 
+    auto&& auth = oracleRes.val->oracleAddress;
     if(!skipAuth && !HasAuth(tx, coins, auth)) {
         return Res::Err("%s: %s", base, "oracle authentication failed");
     }

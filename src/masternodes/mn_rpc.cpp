@@ -4043,29 +4043,24 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 UniValue setoracledata(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
 
-    // TODO (IntegralTeam Y): correct help
     RPCHelpMan{"setoracledata",
-               "\nCreates (and submits to local node and network) a set oracle data transaction.\n"
+               "\nCreates (and submits to local node and network) a `set oracle data transaction`.\n"
                "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"timestamp", RPCArg::Type::NUM, RPCArg::Optional::NO, "balances timestamp",},
-                       {"prices", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
-                        "tokens raw prices:the array of price and token strings in price@token#number format. ",
-                        {
-                                {"", RPCArg::Type::STR, RPCArg::Optional::NO, ""}
-                            }
+                       {"prices", RPCArg::Type::STR, RPCArg::Optional::NO,
+                        "tokens raw prices:the array of price and token strings in price@token#number_id format. ",
                         },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                         HelpExampleCli("setoracledata", "1612237937 '[“38293.12@BTC#1”, “1328.32@ETH#2”]' ")
-                       + HelpExampleRpc("setoracledata", "1612237637 '[“38293.12@BTC#1”, “1328.32@ETH#2”]' ")
+                         HelpExampleCli("setoracledata", "1612237937 '[“38293.12@BTC”, “1328.32@ETH”]' ")
+                       + HelpExampleRpc("setoracledata", "1612237637 '[“38293.12@BTC”, “1328.32@ETH”]' ")
                },
     }.Check(request);
-
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -4076,17 +4071,23 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
     // decode
     UniValue const & timestampUni = request.params[0];
-    auto balances = DecodeAmounts(pwallet->chain(), request.params[1], "");
+    UniValue prices{};
+    if (!prices.read(request.params[1].getValStr())) {
+        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode prices");
+    }
+    auto balances = DecodeAmounts(pwallet->chain(), prices, "");
+
+    std::cout << "balances = " << balances.ToString() << std::endl;
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ}, false);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, false);
 
     // TODO (IntegralTeam Y): need to get oracleId
     COracleId oracleId{};
     int64_t timestamp{};
     try {
-        timestamp = timestampUni.get_int64();
+        timestamp = std::stoll(timestampUni.getValStr());
     } catch (...) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode timestamp");
     }
@@ -4124,6 +4125,8 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     // fund
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
+    std::cout << "funded" << std::endl;
+
     // check execution
     {
         LOCK(cs_main);
@@ -4143,6 +4146,9 @@ UniValue setoracledata(const JSONRPCRequest &request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
+
+    std::cout << "before signsend" << std::endl;
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
@@ -4403,7 +4409,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
-    {"oracles",     "setoracledata",         &setoracledata,          {"timestamp", "prices"}},
+    {"oracles",     "setoracledata",         &setoracledata,         {"timestamp", "prices"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {
