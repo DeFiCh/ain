@@ -4097,9 +4097,13 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     std::for_each(tokens.begin(), tokens.end(), [&tokenSet](DCT_ID &it) {
         tokenSet.insert(it);
     });
+    CScript script{};
+    try {
+        script = ParseScript(address);
+    } catch(...) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse address");
+    }
 
-    std::vector<unsigned char> addressVector(address.cbegin(), address.cend());
-    CScript script(addressVector.cbegin(), addressVector.cend());
     CAppointOracleMessage msg{std::move(script), weightage, tokenSet};
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
