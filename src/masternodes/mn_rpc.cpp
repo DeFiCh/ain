@@ -2661,7 +2661,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
 
     if (targetHeight < Params().GetConsensus().DakotaHeight) {
         rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
-    }else {
+    } else {
         auths.insert(ownerAddress);
         rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
     }
@@ -2798,7 +2798,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     std::set<CScript> auths;
     if (targetHeight < Params().GetConsensus().DakotaHeight) {
         rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
-    }else {
+    } else {
         auths.insert(owner);
         rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
     }
