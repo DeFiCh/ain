@@ -6,6 +6,7 @@
 #define DEFI_MASTERNODES_ORACLES_H
 
 #include <string>
+#include <vector>
 
 #include <flushablestorage.h>
 
@@ -25,7 +26,6 @@ using CTokenPrices = std::map<DCT_ID, CPricePoint>;
 using COracleId = uint256;
 
 struct CAppointOracleMessage {
-    COracleId oracleId;
     CScript oracleAddress;
     uint8_t weightage;
     std::set<DCT_ID> availableTokens;
@@ -33,7 +33,6 @@ struct CAppointOracleMessage {
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(oracleId);
         READWRITE(oracleAddress);
         READWRITE(weightage);
         READWRITE(availableTokens);
@@ -41,7 +40,7 @@ struct CAppointOracleMessage {
 };
 
 struct CRemoveOracleAppointMessage {
-    COracleId oracleId;
+    COracleId oracleId{};
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -77,11 +76,12 @@ struct CSetOracleDataMessage {
 };
 
 struct COracle : public CAppointOracleMessage {
-
+    COracleId oracleId;
     CTokenPrices tokenPrices;
 
-    explicit COracle(CAppointOracleMessage const & msg = {}) :
+    explicit COracle(COracleId oracleId = {}, CAppointOracleMessage const & msg = {}) :
         CAppointOracleMessage(msg),
+        oracleId{oracleId},
         tokenPrices{} {
     }
 
@@ -91,23 +91,9 @@ struct COracle : public CAppointOracleMessage {
         return availableTokens.find(tokenId) != availableTokens.end();
     }
 
-    Res SetTokenPrice(DCT_ID tokenId, CAmount amount, int64_t timestamp) {
-        if (!SupportsToken(tokenId)) {
-            return Res::Err("token <%s> is not allowed", tokenId.ToString());
-        }
+    Res SetTokenPrice(DCT_ID tokenId, CAmount amount, int64_t timestamp);
 
-        tokenPrices[tokenId] = std::make_pair(amount, timestamp);
-
-        return Res::Ok();
-    }
-
-    boost::optional<CPricePoint> GetTokenPrice(DCT_ID tokenId) const {
-        if (SupportsToken(tokenId) && tokenPrices.find(tokenId) != tokenPrices.end()) {
-            return tokenPrices.at(tokenId);
-        }
-
-        return {};
-    }
+    boost::optional<CPricePoint> GetTokenPrice(DCT_ID tokenId) const;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -122,10 +108,18 @@ struct COracle : public CAppointOracleMessage {
 
 class COracleView: public virtual CStorageView {
 public:
+    COracleView();
+
     ~COracleView() override = default;
 
     /// register new oracle instance
     Res AppointOracle(COracleId oracleId, const COracle& oracle);
+
+    /// updates oracle info
+    Res UpdateOracle(COracleId oracleId, const COracle& oracle);
+
+    /// remove oracle instancefrom database
+    Res RemoveOracle(COracleId oracleId);
 
     /// store registered oracle data
     Res SetOracleData(COracleId oracleId, int64_t timestamp, const CBalances& tokenPrices);
@@ -133,10 +127,22 @@ public:
     /// deserialize oracle instance from database
     ResVal<COracle> GetOracleData(COracleId oracleId) const;
 
-    /// remove oracle instancefrom database
-    bool RemoveOracle(COracleId oracleId);
+    /// get collection of all oracle ids
+    std::vector<COracleId> GetAllOracleIds();
 
+private:
     struct ByName { static const unsigned char prefix; };
+    /// oracles list key
+    const std::string _allOraclesKey;
+
+    /// add oracle to the list
+    Res AddOracleId(COracleId oracleId);
+
+    /// remove oracle from the list
+    Res RemoveOracleId(COracleId oracleId);
+
+    /// update oracles colection
+    Res UpdateOraclesList(const std::vector<COracleId>& oraclesList);
 };
 
 #endif

@@ -38,6 +38,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/tokenizer.hpp>
 #include <rpc/rawtransaction_util.h>
 
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
@@ -4040,6 +4041,124 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
 }
 
+UniValue appointoracle(const JSONRPCRequest &request) {
+    CWallet *const pwallet = GetWallet(request);
+
+    RPCHelpMan{"appointoracle",
+               "\nCreates (and submits to local node and network) a `appoint oracle transaction`, \n"
+               "and saves oracle to database.\n"
+               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "oracle address",},
+                       {"allowedtokens", RPCArg::Type::STR, RPCArg::Optional::NO, "list of allowed tokens"},
+                       {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"}
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("appointoracle", "1612237937 '[“BTC#1”, “ETH#2”]' 20")
+                       + HelpExampleRpc("appointoracle", "1612237937 '[“BTC#1”, “ETH#2”]' 20")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    // decode
+    std::string address = request.params[0].getValStr();
+    UniValue allowedTokensStr{};
+    if (!allowedTokensStr.read(request.params[1].getValStr())) {
+        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to read allowed tokens");
+    }
+
+    auto tokens = DecodeTokens(pwallet->chain(), allowedTokensStr, "");
+
+    UniValue const & weightageUni = request.params[2];
+    int64_t weightage{};
+    try {
+        weightage = std::stoll(weightageUni.getValStr());
+    } catch (...) {
+        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode weightage");
+    }
+
+//    std::cout << "allowedTokens = " << allowedTokens << std::endl;
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, false);
+    // TODO (IntegralTeam Y): check if CScript is converted correctly
+    std::set<DCT_ID> tokenSet;
+    std::for_each(tokens.begin(), tokens.end(), [&tokenSet](DCT_ID &it) {
+        tokenSet.insert(it);
+    });
+
+    std::vector<unsigned char> addressVector(address.cbegin(), address.cend());
+    CScript script(addressVector.cbegin(), addressVector.cend());
+    CAppointOracleMessage msg{std::move(script), weightage, tokenSet};
+    // encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AppointOracle)
+                   << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    UniValue const &txInputs = request.params[2];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to auth address if there's only one auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    // fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    std::cout << "funded" << std::endl;
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto res = ApplyAppointOracleTx(
+                mnview_dummy,
+                coinview,
+                CTransaction(rawTx),
+                targetHeight,
+                ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}),
+                Params().GetConsensus());
+
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+
+    std::cout << "before signsend" << std::endl;
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 UniValue setoracledata(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
 
@@ -4409,6 +4528,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
+    {"oracles",     "appointoracle",         &appointoracle,         {"address", "allowedtokens"}},
     {"oracles",     "setoracledata",         &setoracledata,         {"timestamp", "prices"}},
 };
 

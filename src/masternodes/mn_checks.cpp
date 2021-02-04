@@ -189,6 +189,9 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 break;
             case CustomTxType::SetOracleData:
                 res = ApplySetOracleDataTx(mnview, coins, tx, height, metadata, consensusParams);
+            case CustomTxType::AppointOracle:
+                res = ApplyAppointOracleTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
+
             default:
                 return Res::Ok(); // not "custom" tx
         }
@@ -1455,6 +1458,39 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
     return false;
 }
 
+Res ApplyAppointOracleTx(
+        CCustomCSView & mnview,
+        CCoinsViewCache const & coins,
+        CTransaction const & tx,
+        uint32_t height,
+        std::vector<unsigned char> const & metadata,
+        Consensus::Params const & consensusParams,
+        bool skipAuth,
+        UniValue* rpcInfo) {
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("Appoint oracle tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    }
+
+    constexpr auto base = "Appoint oracle";
+
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    CAppointOracleMessage msg;
+    ss >> msg;
+
+//    std::cout << "msg.address = " << msg.oracleAddress << std::endl;
+//    std::cout << "msg.tokens = " << msg.availableTokens << std::endl;
+//    std::cout << "msg.weightage = " << msg.weightage << std::endl;
+
+    if(!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
+        return Res::Err("%s: %s", base, "foundation authentication failed");
+    }
+
+    // TODO (IntegralTeam Y): ignore rpcInfo for now, implement getting tx info later
+
+    const auto &oracleId = tx.GetHash();
+    return mnview.AppointOracle(oracleId, COracle(oracleId, msg));
+}
+
 Res ApplySetOracleDataTx(CCustomCSView &mnview,
                          CCoinsViewCache const &coins,
                          CTransaction const &tx,
@@ -1492,7 +1528,7 @@ Res ApplySetOracleDataTx(CCustomCSView &mnview,
         return Res::Err("%s: %s", base, "oracle authentication failed");
     }
 
-    // TODO (IntegralTeam Y) check timestamp
+    // TODO (IntegralTeam Y): check timestamp
 
 
     auto && res = mnview.SetOracleData(msg.oracleId, msg.timestamp, msg.balances);
@@ -1500,7 +1536,7 @@ Res ApplySetOracleDataTx(CCustomCSView &mnview,
         return Res::Err("SetRawPrice: %s", res.msg);
     }
 
-    // TODO (IntegralTeam Y) ignore rpcInfo for now, implement getting tx info later
+    // TODO (IntegralTeam Y): ignore rpcInfo for now, implement getting tx info later
 
     return Res::Ok(base);
 }
