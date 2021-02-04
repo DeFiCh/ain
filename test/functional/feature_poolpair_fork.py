@@ -10,9 +10,8 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
-    connect_nodes_bi
+    connect_nodes_bi, assert_raises_rpc_error
 
 class PoolPairTest (DefiTestFramework):
     def set_test_params(self):
@@ -26,7 +25,6 @@ class PoolPairTest (DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-dakotaheight=300'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-dakotaheight=300'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-dakotaheight=300']]
-
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -94,18 +92,16 @@ class PoolPairTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
         # Trying to create the same again and fail
-        try:
-            self.nodes[0].createpoolpair({
-            "tokenA": "PT",
-            "tokenB": "GOLD#128",
-            "comission": 0.001,
-            "status": True,
-            "ownerAddress": collateral0,
-            "pairSymbol": "PTGD"
-        }, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Error, there is already a poolpairwith same tokens, but different poolId" in errorString)
+        assert_raises_rpc_error(None, "Error, there is already a poolpairwith same tokens, but different poolId",
+            self.nodes[0].createpoolpair,
+            {
+                "tokenA": "PT",
+                "tokenB": "GOLD#128",
+                "comission": 0.001,
+                "status": True,
+                "ownerAddress": collateral0,
+                "pairSymbol": "PTGD"
+            }, [])
 
         # Checking listpoolpairs
         poolpairsn0 = self.nodes[0].listpoolpairs()
@@ -113,36 +109,32 @@ class PoolPairTest (DefiTestFramework):
 
         collateral1 = self.nodes[2].getnewaddress("", "legacy")
         # Creating PoolPair from non Foundation member -> Before Dakota Fork should not allowed
-        try:
-            self.nodes[2].createpoolpair({
-            "tokenA": "DFI",
-            "tokenB": "GOLD#128",
-            "comission": 0.001,
-            "status": True,
-            "ownerAddress": collateral1,
-            "pairSymbol": "DFIGOLD"
-        }, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Need foundation member authorization" in errorString)
+        assert_raises_rpc_error(None, "Need foundation member authorization",
+            self.nodes[2].createpoolpair,
+            {
+                "tokenA": "DFI",
+                "tokenB": "GOLD#128",
+                "comission": 0.001,
+                "status": True,
+                "ownerAddress": collateral1,
+                "pairSymbol": "DFIGOLD"
+            }, [])
 
         # generate blocks until pass dakota fork height 300
         self.nodes[2].generate(100)
         self.sync_blocks([self.nodes[0], self.nodes[2]])
 
         # Creating PoolPair from non Foundation member, but don't have the auth of the owner address, should fail
-        try:
-            self.nodes[2].createpoolpair({
-            "tokenA": "DFI",
-            "tokenB": "GOLD#128",
-            "comission": 0.001,
-            "status": True,
-            "ownerAddress": collateral0,
-            "pairSymbol": "DFIGOLD"
-        }, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Incorrect authorization for" in errorString)
+        assert_raises_rpc_error(None, "Incorrect authorization for",
+            self.nodes[2].createpoolpair,
+            {
+                "tokenA": "DFI",
+                "tokenB": "GOLD#128",
+                "comission": 0.001,
+                "status": True,
+                "ownerAddress": collateral0,
+                "pairSymbol": "DFIGOLD"
+            }, [])
 
         # Creating PoolPair from non Foundation member -> After Dakota Fork, should pass
         trPP = self.nodes[2].createpoolpair({
@@ -194,15 +186,13 @@ class PoolPairTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # update pool by non owner should not be allowed, even foundation member also cannot
-        try:
-            self.nodes[0].updatepoolpair({
-            "pool": "DFIGOLD",
-            "status": False,
-            "commission": 0.01
-        }, [])
-        except JSONRPCException as e:
-             errorString = e.error['message']
-        assert("Incorrect authorization for" in errorString)
+        assert_raises_rpc_error(None, "Incorrect authorization for",
+            self.nodes[0].updatepoolpair,
+            {
+                "pool": "DFIGOLD",
+                "status": False,
+                "commission": 0.01
+            }, [])
 
         # REVERTING:
         #========================
