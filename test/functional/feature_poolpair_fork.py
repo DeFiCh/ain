@@ -151,6 +151,7 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(len(decodeTx['vout']), 2)
 
         self.nodes[2].generate(1)
+        self.sync_blocks([self.nodes[0], self.nodes[2]])
 
         # Checking pool existence
         p0 = self.nodes[0].getpoolpair("PTGOLD")
