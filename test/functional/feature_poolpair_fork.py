@@ -66,16 +66,18 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(tokens['1']["symbol"], "PT")
 
         # 3 Trying to make regular token
-        self.nodes[0].generate(1)
-        createTokenTx = self.nodes[0].createtoken({
+        collateral1 = self.nodes[2].getnewaddress("", "legacy")
+        self.nodes[2].generate(1)
+        createTokenTx = self.nodes[2].createtoken({
             "symbol": "GOLD",
             "name": "shiny gold",
             "isDAT": False,
-            "collateralAddress": collateral0
+            "collateralAddress": collateral1
         })
-        self.nodes[0].generate(1)
+        self.nodes[2].generate(1)
         # Checks
-        tokens = self.nodes[0].listtokens()
+        tokens = self.nodes[2].listtokens()
+        print(tokens)
         assert_equal(len(tokens), 3)
         assert_equal(tokens['128']["symbol"], "GOLD")
         assert_equal(tokens['128']["creationTx"], createTokenTx)
@@ -134,6 +136,18 @@ class PoolPairTest (DefiTestFramework):
                 "status": True,
                 "ownerAddress": collateral0,
                 "pairSymbol": "DFIGOLD"
+            }, [])
+
+        # Creating PoolPair from non Foundation member, but don't have the auth of two tokens, should fail.
+        assert_raises_rpc_error(None, "Need authorization for token",
+            self.nodes[2].createpoolpair,
+            {
+                "tokenA": "DFI",
+                "tokenB": "PT",
+                "comission": 0.001,
+                "status": True,
+                "ownerAddress": collateral1,
+                "pairSymbol": "DFIPT"
             }, [])
 
         # Creating PoolPair from non Foundation member -> After Dakota Fork, should pass

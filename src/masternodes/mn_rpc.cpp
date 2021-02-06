@@ -494,6 +494,18 @@ static CWallet* GetWallet(const JSONRPCRequest& request) {
     return pwallet;
 }
 
+static bool hasTokenAuth(CTokenImplementation const& tokenImpl, CWallet* const pwallet) {
+    bool hasTokenAuth = false;
+
+    const Coin& authCoinB = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
+    CTxDestination ownerDest;
+    if (ExtractDestination(authCoinB.out.scriptPubKey, ownerDest)) {
+        const auto& ownerB = authCoinB.out.scriptPubKey;
+        hasTokenAuth = IsMineCached(*pwallet, ownerB) == ISMINE_SPENDABLE;
+    }
+    return hasTokenAuth;
+}
+
 /*
  *
  *  Issued by: any
@@ -2618,14 +2630,15 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
 
     int targetHeight;
     DCT_ID idtokenA, idtokenB;
+    std::unique_ptr<CToken> token, token2;
     {
         LOCK(cs_main);
 
-        auto token = pcustomcsview->GetTokenGuessId(tokenA, idtokenA);
+        token = pcustomcsview->GetTokenGuessId(tokenA, idtokenA);
         if (!token)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenA was not found");
 
-        auto token2 = pcustomcsview->GetTokenGuessId(tokenB, idtokenB);
+        token2 = pcustomcsview->GetTokenGuessId(tokenB, idtokenB);
         if (!token2)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenB was not found");
 
@@ -2662,6 +2675,14 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     if (targetHeight < Params().GetConsensus().DakotaHeight) {
         rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
     } else {
+        const bool hasTokenAuthA = hasTokenAuth(static_cast<CTokenImplementation const& >(*token), pwallet);
+        const bool hasTokenAuthB = hasTokenAuth(static_cast<CTokenImplementation const& >(*token2), pwallet);
+
+        if (!hasTokenAuthA && !hasTokenAuthB) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
+                strprintf("Need authorization for token %s or %s", token->symbol, token2->symbol));
+        }
+
         auths.insert(ownerAddress);
         rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
     }
