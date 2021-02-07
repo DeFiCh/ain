@@ -4117,7 +4117,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.emplace_back(0, scriptMeta);
 
-    UniValue const &txInputs = request.params[2];
+    UniValue const &txInputs = request.params[3];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
@@ -4146,6 +4146,104 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         if (optAuthTx)
             AddCoins(coinview, *optAuthTx, targetHeight);
         const auto res = ApplyAppointOracleTx(
+                mnview_dummy,
+                coinview,
+                CTransaction(rawTx),
+                targetHeight,
+                ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}),
+                Params().GetConsensus());
+
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+
+    std::cout << "before signsend" << std::endl;
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue removeoracle(const JSONRPCRequest& request) {
+    CWallet *const pwallet = GetWallet(request);
+
+    RPCHelpMan{"appointoracle",
+               "\nRemoves oracle appointment, \n"
+               "The only argument is oracleid hex value." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle id"},
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("removeoracle", "0xabcd1234ac1243578697085986498694")
+                       + HelpExampleRpc("removeoracle", "0xabcd1234ac1243578697085986498694")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    // decode
+    std::string oracleIdStr = request.params[0].getValStr();
+    auto oracleBytes = ParseHex(oracleIdStr);
+    CRemoveOracleAppointMessage msg{};
+    if (msg.oracleId.size() != oracleBytes.size()) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse oracle id");
+    }
+    std::copy_n(oracleBytes.begin(), oracleBytes.size(), msg.oracleId.begin());
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+
+
+    // encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AppointOracle)
+                   << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    UniValue const &txInputs = request.params[1];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to auth address if there's only one auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    // fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    std::cout << "funded" << std::endl;
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto res = ApplyRemoveOracleAppointTx(
                 mnview_dummy,
                 coinview,
                 CTransaction(rawTx),
@@ -4330,6 +4428,12 @@ static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomT
             break;
         case CustomTxType::AnyAccountsToAccounts:
             res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AppointOracle:
+            res = ApplyAppointOracleTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::RemoveOracleAppoint:
+            res = ApplyRemoveOracleAppointTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
             break;
         case CustomTxType::SetOracleData:
             res = ApplySetOracleDataTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
@@ -4533,6 +4637,7 @@ static const CRPCCommand commands[] =
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
     {"oracles",     "appointoracle",         &appointoracle,         {"address", "allowedtokens"}},
+    {"oracles",     "removeoracle",          &removeoracle,          {"oracleid"}},
     {"oracles",     "setoracledata",         &setoracledata,         {"timestamp", "prices"}},
 };
 

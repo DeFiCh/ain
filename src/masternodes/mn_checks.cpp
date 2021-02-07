@@ -1491,6 +1491,34 @@ Res ApplyAppointOracleTx(
     return mnview.AppointOracle(oracleId, COracle(oracleId, msg));
 }
 
+Res ApplyRemoveOracleAppointTx(
+        CCustomCSView & mnview,
+        CCoinsViewCache const & coins,
+        CTransaction const & tx,
+        uint32_t height,
+        std::vector<unsigned char> const & metadata,
+        Consensus::Params const & consensusParams,
+        bool skipAuth,
+        UniValue* rpcInfo) {
+    if ((int)height < consensusParams.BayfrontHeight) {
+        return Res::Err("Appoint oracle tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    }
+
+    constexpr auto base = "Reomve oracle appoint";
+
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    CRemoveOracleAppointMessage msg;
+    ss >> msg;
+
+    if(!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
+        return Res::Err("%s: %s", base, "foundation authentication failed");
+    }
+
+    // TODO (IntegralTeam Y): ignore rpcInfo for now, implement getting tx info later
+
+    return mnview.RemoveOracle(msg.oracleId);
+}
+
 Res ApplySetOracleDataTx(CCustomCSView &mnview,
                          CCoinsViewCache const &coins,
                          CTransaction const &tx,
