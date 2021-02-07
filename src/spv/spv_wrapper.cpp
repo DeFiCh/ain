@@ -36,7 +36,6 @@ using namespace std;
 
 // Prefixes to the masternodes database (masternodes/)
 static const char DB_SPVBLOCKS = 'B';     // spv "blocks" table
-static const char DB_SPVPEERS  = 'P';     // spv "peers" table
 static const char DB_SPVTXS    = 'T';     // spv "tx2msg" table
 
 uint64_t const DEFAULT_BTC_FEERATE = TX_FEE_PER_KB;
@@ -370,16 +369,21 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
 
         LOCK(cs_main);
 
-        if (ValidateAnchor(anchor, true)) {
-            LogPrintf("spv: valid anchor tx: %s\n", txHash.ToString());
+        bool pending{false};
+        if (ValidateAnchor(anchor, pending)) {
+            LogPrint(BCLog::SPV, "valid anchor tx: %s\n", txHash.ToString());
 
             if (panchors->AddAnchor(anchor, txHash, tx->blockHeight, false)) {
-                LogPrintf("spv: adding anchor %s\n", txHash.ToString());
+                LogPrint(BCLog::SPV, "adding anchor %s\n", txHash.ToString());
+            }
+        } else if (pending) {
+            if (panchors->AddToAnchorPending(anchor, txHash, tx->blockHeight)) {
+                LogPrint(BCLog::SPV, "adding anchor to pending %s\n", txHash.ToString());
             }
         }
     }
     else {
-        LogPrintf("spv: not an anchor tx %s\n", txHash.ToString());
+        LogPrint(BCLog::SPV, "not an anchor tx %s\n", txHash.ToString());
     }
 }
 
@@ -393,10 +397,17 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
 
         LOCK(cs_main);
 
-        // update index. no any checks nor validations
-        auto exist = panchors->GetAnchorByBtcTx(txHash);
-        if (exist) {
-            LogPrintf("spv: updating anchor %s\n", txHash.ToString());
+        CAnchorIndex::AnchorRec oldPending;
+        if (panchors->GetPendingByBtcTx(txHash, oldPending))
+        {
+            LogPrint(BCLog::SPV, "updating anchor pending %s\n", txHash.ToString());
+            if (panchors->AddToAnchorPending(oldPending.anchor, txHash, blockHeight, true)) {
+                LogPrintf("Anchor pending added/updated %s\n", txHash.ToString());
+            }
+        }
+        else if (auto exist = panchors->GetAnchorByBtcTx(txHash)) // update index. no any checks nor validations
+        {
+            LogPrint(BCLog::SPV, "updating anchor %s\n", txHash.ToString());
             CAnchor oldAnchor{exist->anchor};
             if (panchors->AddAnchor(oldAnchor, txHash, blockHeight, true)) {
                 LogPrintf("Anchor added/updated %s\n", txHash.ToString());
@@ -413,6 +424,7 @@ void CSpvWrapper::OnTxDeleted(UInt256 txHash, int notifyUser, int recommendResca
 
     LOCK(cs_main);
     panchors->DeleteAnchorByBtcTx(hash);
+    panchors->DeletePendingByBtcTx(hash);
 
     LogPrint(BCLog::SPV, "tx deleted: %s; notifyUser: %d, recommendRescan: %d\n", hash.ToString(), notifyUser, recommendRescan);
 }
@@ -449,7 +461,6 @@ void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blo
     CommitBatch();
 
     /// @attention don't call ANYTHING that could call back to spv here! cause OnSaveBlocks works under spv lock!!!
-//    CAnchorIndex::CheckActiveAnchor();
 }
 
 void CSpvWrapper::OnSavePeers(int replace, const BRPeer peers[], size_t peersCount)
@@ -487,6 +498,17 @@ void CSpvWrapper::UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t 
         txrec.second.second = timestamp;
         db->Write(key, txrec);
     }
+}
+
+uint32_t CSpvWrapper::ReadTxTimestamp(uint256 const & hash)
+{
+    std::pair<char, uint256> const key{std::make_pair(DB_SPVTXS, hash)};
+    std::pair<TBytes, std::pair<uint32_t, uint32_t> > txrec;
+    if (db->Read(key, txrec)) {
+        return txrec.second.second;
+    }
+
+    return 0;
 }
 
 void CSpvWrapper::EraseTx(uint256 const & hash)

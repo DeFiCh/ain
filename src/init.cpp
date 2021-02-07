@@ -28,6 +28,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/criminals.h>
+#include <masternodes/masternodes.h>
 #include <miner.h>
 #include <net.h>
 #include <net_permissions.h>
@@ -458,8 +459,7 @@ void SetupServerArgs()
     gArgs.AddArg("-dummypos", "Flag to skip PoS-related checks (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-txnotokens", "Flag to force old tx serialization (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-anchorquorum", "Min quorum size (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-anchorsbinding", "Strict binding of defi chain to btc anchors (default: true)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 1)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 0, unless masternode)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-fakespv", "Fake SPV for testing purposes (default: 0, regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-criminals", "punishment of criminal nodes (default: 0, regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_resync", "Flag to reset spv database and resync from zero block (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1606,11 +1606,12 @@ bool AppInitMain(InitInterfaces& interfaces)
                 panchorAwaitingConfirms.reset();
                 panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
                 panchors.reset();
-                /// @todo research best way of spv+anchors loading/update/regeneration
-                panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", false) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
+                // If users set masternode_operator set SPV default to enabled
+                bool anchorsEnabled{!gArgs.GetArgs("-masternode_operator").empty()};
+                panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", anchorsEnabled) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
                 // load anchors after spv due to spv (and spv height) not set before (no last height yet)
 
-                if (gArgs.GetBoolArg("-spv", false)) {
+                if (gArgs.GetBoolArg("-spv", anchorsEnabled)) {
                     spv::pspv.reset();
                     if (gArgs.GetBoolArg("-fakespv", false) && Params().NetworkIDString() == "regtest") {
                         spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();

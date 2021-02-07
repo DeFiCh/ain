@@ -17,6 +17,7 @@
 /// moved here (!!) due to strange linker errors under mac/win builds
 extern const std::vector<unsigned char> DfCriminalTxMarker;
 extern const std::vector<unsigned char> DfAnchorFinalizeTxMarker;
+extern const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus;
 
 class CTransaction;
 class CValidationState;
@@ -26,5 +27,6 @@ bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fChe
 /// moved here (!!) due to strange linker errors under mac/win builds
 bool IsCriminalProofTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata);
 
 #endif // DEFI_CONSENSUS_TX_CHECK_H

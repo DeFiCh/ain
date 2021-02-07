@@ -1327,7 +1327,7 @@ void RelayGetAnchorAuths(const uint256& lowHash, const uint256& highHash, CConnm
     connman.ForEachNode([&lowHash, &highHash, &connman](CNode* pnode)
     {
         const CNetMsgMaker msgMaker(pnode->GetSendVersion());
-        LogPrintf("send getauths: from hash: %s to hash: %s, peer=%d\n", lowHash.ToString(), highHash.ToString(), pnode->GetId());
+        LogPrint(BCLog::ANCHORING, "send getauths: from hash: %s to hash: %s, peer=%d\n", lowHash.ToString(), highHash.ToString(), pnode->GetId());
         connman.PushMessage(pnode, msgMaker.Make(NetMsgType::GETANCHORAUTHS, lowHash, highHash));
     });
 }
@@ -1339,10 +1339,10 @@ void RelayAnchorAuths(std::vector<CInv> const & vInv, CConnman& connman, CNode* 
         if (pnode != skipNode) {
             const CNetMsgMaker msgMaker(pnode->GetSendVersion());
             if (vInv.size() == 1) {
-                LogPrintf("send inv: auth, hash: %s, peer=%d\n", vInv[0].hash.ToString(), pnode->GetId());
+                LogPrint(BCLog::ANCHORING, "send inv: auth, hash: %s, peer=%d\n", vInv[0].hash.ToString(), pnode->GetId());
             }
             else {
-                LogPrintf("send invs: auths, count = %i, peer=%d\n", vInv.size(), pnode->GetId());
+                LogPrint(BCLog::ANCHORING, "send invs: auths, count = %i, peer=%d\n", vInv.size(), pnode->GetId());
             }
             connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, vInv));
         }
@@ -1368,7 +1368,7 @@ void RelayAnchorConfirm(const uint256& hash, CConnman& connman, CNode* skipNode)
     {
         if (pnode != skipNode) {
             const CNetMsgMaker msgMaker(pnode->GetSendVersion());
-            LogPrintf("AnchorConfirms::send inv: confirm message, hash: %s, peer=%d\n", inv.hash.ToString(), pnode->GetId());
+            LogPrint(BCLog::ANCHORING, "%s: inv: confirm message, hash: %s, peer=%d\n", __func__, inv.hash.ToString(), pnode->GetId());
             connman.PushMessage(pnode, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
 //           pnode->PushInventory(inv);
         }
@@ -1633,17 +1633,17 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
             it++;
 
             if (inv.type == MSG_ANCHOR_AUTH) {
-                LogPrintf("Searching anchorauth, hash: %s\n", inv.hash.ToString());
+                LogPrint(BCLog::ANCHORING, "Searching anchorauth, hash: %s\n", inv.hash.ToString());
                 CAnchorAuthMessage const * auth = panchorauths->GetAuth(inv.hash);
                 if (auth) {
-                    LogPrintf("PushMessage anchorauth, hash: %s\n", auth->GetHash().ToString());
+                    LogPrint(BCLog::ANCHORING, "PushMessage anchorauth, hash: %s\n", auth->GetHash().ToString());
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHORAUTH, *auth));
                 }
             }
             if (inv.type == MSG_ANCHOR_CONFIRM) {
                 CAnchorConfirmMessage const * message = panchorAwaitingConfirms->GetConfirm(inv.hash);
                 if (message) {
-                    LogPrintf("PushMessage anchorconfirm, hash: %s\n", message->GetHash().ToString());
+                    LogPrint(BCLog::ANCHORING, "PushMessage anchorconfirm, hash: %s\n", message->GetHash().ToString());
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::ANCHORCONFIRM, *message));
                 }
             }
@@ -2215,7 +2215,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             LOCK(cs_main);
             panchorAwaitingConfirms->ForEachConfirm([&connman, &msgMaker, &pfrom](const CAnchorConfirmMessage & confirm) {
                 CInv inv(MSG_ANCHOR_CONFIRM, confirm.GetHash());
-                LogPrintf("AnchorConfirms::send inv: confirm message for NEW PEER, hash: %s, peer=%d\n", inv.hash.ToString(), pfrom->GetId());
+                LogPrint(BCLog::ANCHORING, "%s: inv: confirm message for NEW PEER, hash: %s, peer=%d\n", __func__, inv.hash.ToString(), pfrom->GetId());
                 connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::INV, std::vector<CInv>{inv}));
             });
         }
@@ -2400,7 +2400,8 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
     }
 
     if (strCommand == NetMsgType::ANCHORAUTH) {
-        if (fImporting || fReindex) {
+        // Ignore until we have chain context to validate auth
+        if (fImporting || fReindex || ::ChainstateActive().IsInitialBlockDownload()) {
             LogPrint(BCLog::NET, "Ignoring anchorauth from peer=%d because node is in initial block download\n", pfrom->GetId());
             return true;
         }

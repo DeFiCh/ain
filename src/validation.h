@@ -680,10 +680,20 @@ public:
     //! if we pruned.
     void PruneAndFlush();
 
-    /// ! Refills block candidates from chain tips
-    void RefillCandidates();
-    void RollBackIfTipConflictsWithAnchors(CValidationState &state, const CChainParams& chainparams);
-
+    /**
+     * Make the best chain active, in multiple steps. The result is either failure
+     * or an activated best chain. pblock is either nullptr or a pointer to a block
+     * that is already loaded (to avoid loading it again from disk).
+     *
+     * ActivateBestChain is split into steps (see ActivateBestChainStep) so that
+     * we avoid holding cs_main for an extended period of time; the length of this
+     * call may be quite long during reindexing or a substantial reorg.
+     *
+     * May not be called with cs_main held. May not be called in a
+     * validationinterface callback.
+     *
+     * @returns true unless a system error occurred
+     */
     bool ActivateBestChain(CValidationState &state, const CChainParams& chainparams, std::shared_ptr<const CBlock> pblock) LOCKS_EXCLUDED(cs_main);
 
     bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, const CChainParams& chainparams, CBlockIndex** ppindex, bool fRequested, const FlatFilePos* dbp, bool* fNewBlock) EXCLUSIVE_LOCKS_REQUIRED(cs_main);

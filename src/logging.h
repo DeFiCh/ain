@@ -55,6 +55,7 @@ namespace BCLog {
         QT          = (1 << 19),
         LEVELDB     = (1 << 20),
         STAKING     = (1 << 21),
+        ANCHORING   = (1 << 22),
         SPV         = (1 << 23),
         ALL         = ~(uint32_t)0,
     };

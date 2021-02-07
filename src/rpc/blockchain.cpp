@@ -15,6 +15,7 @@
 #include <core_io.h>
 #include <hash.h>
 #include <index/blockfilterindex.h>
+#include <masternodes/masternodes.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -135,7 +136,15 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
 
     CKeyID minter;
     block.ExtractMinterKey(minter);
-    result.pushKV("minter", minter.ToString());
+    auto id = pcustomcsview->GetMasternodeIdByOperator(minter);
+    if (id) {
+        result.pushKV("masternode", id->ToString());
+        auto mn = pcustomcsview->GetMasternode(*id);
+        if (mn) {
+            auto dest = mn->operatorType == 1 ? CTxDestination(PKHash(minter)) : CTxDestination(WitnessV0KeyHash(minter));
+            result.pushKV("minter", EncodeDestination(dest));
+        }
+    }
     result.pushKV("mintedBlocks", blockindex->mintedBlocks);
     result.pushKV("stakeModifier", blockindex->stakeModifier.ToString());
 

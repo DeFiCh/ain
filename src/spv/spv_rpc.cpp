@@ -523,18 +523,80 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
         UniValue anchor(UniValue::VOBJ);
         anchor.pushKV("btcBlockHeight", static_cast<int>(rec.btcHeight));
         anchor.pushKV("btcTxHash", rec.txHash.ToString());
+        anchor.pushKV("previousAnchor", rec.anchor.previousAnchor.ToString());
         anchor.pushKV("defiBlockHeight", static_cast<int>(rec.anchor.height));
         anchor.pushKV("defiBlockHash", rec.anchor.blockHash.ToString());
         anchor.pushKV("rewardAddress", EncodeDestination(rewardDest));
         anchor.pushKV("confirmations", panchors->GetAnchorConfirmations(&rec));
+
+        // If post-fork show creation height
+        uint64_t anchorCreationHeight{0};
+        std::shared_ptr<std::vector<unsigned char>> prefix;
+        if (rec.anchor.nextTeam.size() == 1 && GetAnchorEmbeddedData(*rec.anchor.nextTeam.begin(), anchorCreationHeight, prefix)) {
+            anchor.pushKV("anchorCreationHeight", static_cast<int>(anchorCreationHeight));
+        }
+
+        anchor.pushKV("signatures", rec.anchor.sigs.size());
         bool const isActive = cur && cur->txHash == rec.txHash;
         anchor.pushKV("active", isActive);
         if (isActive) {
             cur = panchors->GetAnchorByBtcTx(cur->anchor.previousAnchor);
         }
+
         result.push_back(anchor);
         return true;
     });
+    return result;
+}
+
+
+UniValue spv_listanchorspending(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_listanchorspending",
+        "\nList pending anchors (if any). Pending anchors are waiting on\n"
+        "chain context to be fully validated, for example, anchors read\n"
+        "from SPV while the blockchain is still syncing.",
+        {},
+        RPCResult{
+            "\"array\"                  Returns array of pending anchors\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_listanchors", "") // list completely confirmed anchors not older than 1500000 height
+            + HelpExampleRpc("spv_listanchors", "")    // list anchors in mempool (or -1 -1 -1 0)
+        },
+    }.Check(request);
+
+    if (!spv::pspv)
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+
+    auto locked_chain = pwallet->chain().lock();
+
+    UniValue result(UniValue::VARR);
+    panchors->ForEachPending([&result](uint256 const &, CAnchorIndex::AnchorRec & rec) {
+
+        CTxDestination rewardDest = rec.anchor.rewardKeyType == 1 ? CTxDestination(PKHash(rec.anchor.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(rec.anchor.rewardKeyID));
+        UniValue anchor(UniValue::VOBJ);
+        anchor.pushKV("btcBlockHeight", static_cast<int>(rec.btcHeight));
+        anchor.pushKV("btcTxHash", rec.txHash.ToString());
+        anchor.pushKV("defiBlockHeight", static_cast<int>(rec.anchor.height));
+        anchor.pushKV("defiBlockHash", rec.anchor.blockHash.ToString());
+        anchor.pushKV("rewardAddress", EncodeDestination(rewardDest));
+        anchor.pushKV("confirmations", panchors->GetAnchorConfirmations(&rec));
+        anchor.pushKV("signatures", rec.anchor.sigs.size());
+
+        // If post-fork show creation height
+        uint64_t anchorCreationHeight{0};
+        std::shared_ptr<std::vector<unsigned char>> prefix;
+        if (rec.anchor.nextTeam.size() == 1 && GetAnchorEmbeddedData(*rec.anchor.nextTeam.begin(), anchorCreationHeight, prefix)) {
+            anchor.pushKV("anchorCreationHeight", static_cast<int>(anchorCreationHeight));
+        }
+
+        result.push_back(anchor);
+        return true;
+    });
+
     return result;
 }
 
@@ -560,7 +622,11 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
     UniValue result(UniValue::VARR);
     CAnchorAuthIndex::Auth const * prev = nullptr;
     std::vector<CKeyID> signers;
-    panchorauths->ForEachAnchorAuthByHeight([&result, &prev, &signers](const CAnchorAuthIndex::Auth & auth) {
+    std::vector<std::string> signatories;
+    const CKeyID* teamData{nullptr};
+    uint64_t anchorCreationHeight{0};
+
+    panchorauths->ForEachAnchorAuthByHeight([&](const CAnchorAuthIndex::Auth & auth) {
         if (!prev)
             prev = &auth;
 
@@ -569,14 +635,50 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
             UniValue item(UniValue::VOBJ);
             item.pushKV("blockHeight", static_cast<int>(prev->height));
             item.pushKV("blockHash", prev->blockHash.ToString());
+            if (anchorCreationHeight != 0) {
+                item.pushKV("creationHeight", static_cast<int>(anchorCreationHeight));
+            }
             item.pushKV("signers", (uint64_t)signers.size());
+
+            UniValue signees(UniValue::VARR);
+            for (const auto& sigs : signatories) {
+                signees.push_back(sigs);
+            }
+
+            if (!signees.empty()) {
+                item.pushKV("signees", signees);
+            }
+
             result.push_back(item);
 
             // clear
             signers.clear();
+            signatories.clear();
+            teamData = nullptr;
+            anchorCreationHeight = 0;
             prev = &auth;
         }
-        signers.push_back(auth.GetSigner());
+
+        auto hash160 = auth.GetSigner();
+        signers.push_back(hash160);
+
+        const auto id = pcustomcsview->GetMasternodeIdByOperator(auth.GetSigner());
+        if (id) {
+            const auto mn = pcustomcsview->GetMasternode(*id);
+            if (mn) {
+                auto dest = mn->operatorType == 1 ? CTxDestination(PKHash(hash160)) : CTxDestination(WitnessV0KeyHash(hash160));
+                signatories.push_back(EncodeDestination(dest));
+            }
+        }
+
+        if (!teamData && prev->nextTeam.size() == 1) {
+            // Team entry
+            teamData = &(*prev->nextTeam.begin());
+
+            std::shared_ptr<std::vector<unsigned char>> prefix;
+            GetAnchorEmbeddedData(*teamData, anchorCreationHeight, prefix);
+        }
+
         return true;
     });
 
@@ -585,7 +687,20 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
         UniValue item(UniValue::VOBJ);
         item.pushKV("blockHeight", static_cast<int>(prev->height));
         item.pushKV("blockHash", prev->blockHash.ToString());
+        if (anchorCreationHeight != 0) {
+            item.pushKV("creationHeight", static_cast<int>(anchorCreationHeight));
+        }
         item.pushKV("signers", (uint64_t)signers.size());
+
+        UniValue signees(UniValue::VARR);
+        for (const auto& sigs : signatories) {
+            signees.push_back(sigs);
+        }
+
+        if (!signees.empty()) {
+            item.pushKV("signees", signees);
+        }
+
         result.push_back(item);
     }
     return result;
@@ -622,8 +737,10 @@ UniValue spv_listanchorrewardconfirms(const JSONRPCRequest& request)
             // flush group
             CTxDestination rewardDest = prev->rewardKeyType == 1 ? CTxDestination(PKHash(prev->rewardKeyID)) : CTxDestination(WitnessV0KeyHash(prev->rewardKeyID));
             UniValue item(UniValue::VOBJ);
+            item.pushKV("btcTxHeight", static_cast<int>(prev->btcTxHeight));
             item.pushKV("btcTxHash", prev->btcTxHash.ToString());
             item.pushKV("anchorHeight", static_cast<int>(prev->anchorHeight));
+            item.pushKV("dfiBlockHash", prev->dfiBlockHash.ToString());
             item.pushKV("prevAnchorHeight", static_cast<int>(prev->prevAnchorHeight));
             item.pushKV("rewardAddress", EncodeDestination(rewardDest));
             item.pushKV("confirmSignHash", prev->GetSignHash().ToString());
@@ -642,8 +759,10 @@ UniValue spv_listanchorrewardconfirms(const JSONRPCRequest& request)
         // place last confirm's group
         CTxDestination rewardDest = prev->rewardKeyType == 1 ? CTxDestination(PKHash(prev->rewardKeyID)) : CTxDestination(WitnessV0KeyHash(prev->rewardKeyID));
         UniValue item(UniValue::VOBJ);
+        item.pushKV("btcTxHeight", static_cast<int>(prev->btcTxHeight));
         item.pushKV("btcTxHash", prev->btcTxHash.ToString());
         item.pushKV("anchorHeight", static_cast<int>(prev->anchorHeight));
+        item.pushKV("dfiBlockHash", prev->dfiBlockHash.ToString());
         item.pushKV("prevAnchorHeight", static_cast<int>(prev->prevAnchorHeight));
         item.pushKV("rewardAddress", EncodeDestination(rewardDest));
         item.pushKV("confirmSignHash", prev->GetSignHash().ToString());
@@ -681,6 +800,41 @@ UniValue spv_listanchorrewards(const JSONRPCRequest& request)
         result.push_back(item);
         return true;
     });
+
+    return result;
+}
+
+UniValue spv_listanchorsunrewarded(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_listanchorsunrewarded",
+               "\nList anchors that have yet to be paid\n",
+               {
+               },
+               RPCResult{
+                       "\"array\"                  Returns array of anchor rewards\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("spv_listanchorrewards", "")
+                       + HelpExampleRpc("spv_listanchorrewards", "")
+               },
+    }.Check(request);
+
+    auto locked_chain = pwallet->chain().lock();
+
+    UniValue result(UniValue::VARR);
+
+    CAnchorIndex::UnrewardedResult unrewarded = panchors->GetUnrewarded();
+    for (auto const & btcTxHash : unrewarded) {
+        auto rec = panchors->GetAnchorByTx(btcTxHash);
+        UniValue item(UniValue::VOBJ);
+        item.pushKV("dfiHeight", static_cast<int>(rec->anchor.height));
+        item.pushKV("dfiHash", rec->anchor.blockHash.ToString());
+        item.pushKV("btcHeight", static_cast<int>(rec->btcHeight));
+        item.pushKV("btcHash", btcTxHash.ToString());
+        result.push_back(item);
+    }
 
     return result;
 }
@@ -727,6 +881,8 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_listanchorauths",        &spv_listanchorauths,       { }  },
   { "spv",      "spv_listanchorrewardconfirms",     &spv_listanchorrewardconfirms,    { }  },
   { "spv",      "spv_listanchorrewards",      &spv_listanchorrewards,     { }  },
+  { "spv",      "spv_listanchorsunrewarded",  &spv_listanchorsunrewarded, { }  },
+  { "spv",      "spv_listanchorspending",     &spv_listanchorspending, { }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
 };
 
