@@ -27,6 +27,7 @@
 #include "BRSet.h"
 #include "BRArray.h"
 #include "BRInt.h"
+#include <shutdown.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
@@ -1661,6 +1662,10 @@ void BRPeerManagerConnect(BRPeerManager *manager)
     }
     
     while (array_count(manager->connectedPeers) < manager->maxConnectCount) {
+        // Break out of loop to allow shutdown.
+        if (ShutdownRequested()) {
+            break;
+        }
         time_t now = time(NULL);
 
         if (array_count(manager->peers) < manager->maxConnectCount ||

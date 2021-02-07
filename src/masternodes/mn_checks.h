@@ -132,6 +132,7 @@ Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const &
 Res ApplySetGovernanceTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256 & txid);
 

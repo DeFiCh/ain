@@ -10,6 +10,7 @@
 /// @todo refactor it to unify txs!!! (need to restart blockchain)
 const std::vector<unsigned char> DfCriminalTxMarker = {'D', 'f', 'C', 'r'};
 const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
+const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus = {'D', 'f', 'A', 'P'};
 
 bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
 {
@@ -49,7 +50,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     if (tx.IsCoinBase())
     {
         std::vector<unsigned char> dummy;
-        if (IsAnchorRewardTx(tx, dummy) || IsCriminalProofTx(tx, dummy))
+        if (IsAnchorRewardTx(tx, dummy) || IsCriminalProofTx(tx, dummy) || IsAnchorRewardTxPlus(tx, dummy))
             return true;
         if (tx.vin[0].scriptSig.size() < 2 || (tx.vin[0].scriptSig.size() > 100))
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-length");
@@ -107,6 +108,29 @@ bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & meta
         return false;
     }
     metadata.erase(metadata.begin(), metadata.begin() + DfAnchorFinalizeTxMarker.size());
+    return true;
+}
+
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata)
+{
+    if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
+        return false;
+    }
+    CScript const & memo = tx.vout[0].scriptPubKey;
+    CScript::const_iterator pc = memo.begin();
+    opcodetype opcode;
+    if (!memo.GetOp(pc, opcode) || opcode != OP_RETURN) {
+        return false;
+    }
+    if (!memo.GetOp(pc, opcode, metadata) ||
+        (opcode > OP_PUSHDATA1 &&
+         opcode != OP_PUSHDATA2 &&
+         opcode != OP_PUSHDATA4) ||
+        metadata.size() < DfAnchorFinalizeTxMarkerPlus.size() + 1 ||
+        memcmp(&metadata[0], &DfAnchorFinalizeTxMarkerPlus[0], DfAnchorFinalizeTxMarkerPlus.size()) != 0) {
+        return false;
+    }
+    metadata.erase(metadata.begin(), metadata.begin() + DfAnchorFinalizeTxMarkerPlus.size());
     return true;
 }
 

@@ -13,6 +13,7 @@
 #include <init.h>
 #include <masternodes/anchors.h>
 #include <masternodes/criminals.h>
+#include <masternodes/masternodes.h>
 #include <miner.h>
 #include <net.h>
 #include <noui.h>
