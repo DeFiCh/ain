@@ -2875,33 +2875,10 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage
             CAmount maxPrice = AmountFromValue(metadataObj["maxPrice"]);
             poolSwapMsg.maxPrice.integer = maxPrice / COIN;
             poolSwapMsg.maxPrice.fraction = maxPrice % COIN;
-        }
-        else {
-            // This is only for maxPrice calculation
-
-            auto poolPair = pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
-            if (!poolPair) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Can't find the poolpair " + tokenFrom + "-" + tokenTo);
-            }
-            CPoolPair const & pool = poolPair->second;
-            if (pool.totalLiquidity <= CPoolPair::MINIMUM_LIQUIDITY) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Pool is empty!");
-            }
-
-            auto resA = pool.reserveA;
-            auto resB = pool.reserveB;
-            if (poolSwapMsg.idTokenFrom != pool.idTokenA) {
-                std::swap(resA, resB);
-            }
-            arith_uint256 price256 = arith_uint256(resB) * CPoolPair::PRECISION / arith_uint256(resA);
-            price256 += price256 * 3 / 100; // +3%
-            // this should not happen IRL, but for sure:
-            if (price256 / CPoolPair::PRECISION > std::numeric_limits<int64_t>::max()) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Current price +3% overflow!");
-            }
-            auto priceInt = price256 / CPoolPair::PRECISION;
-            poolSwapMsg.maxPrice.integer = priceInt.GetLow64();
-            poolSwapMsg.maxPrice.fraction = (price256 - priceInt * CPoolPair::PRECISION).GetLow64(); // cause there is no operator "%"
+        } else {
+            // There is no maxPrice calculation anymore
+            poolSwapMsg.maxPrice.integer = INT64_MAX;
+            poolSwapMsg.maxPrice.fraction = INT64_MAX;
         }
     }
 }
