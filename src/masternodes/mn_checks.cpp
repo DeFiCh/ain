@@ -1016,18 +1016,10 @@ Res ApplyCreatePoolPairTx(CCustomCSView &mnview, const CCoinsViewCache &coins, c
         return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
 
-    if (height < consensusParams.DakotaHeight) {
-        //check foundation auth
-        if(!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
-            return Res::Err("%s: %s", __func__, "tx not from foundation member");
-        }
-    } else {
-        // check with the current pool owner address
-        if (!skipAuth && !HasAuth(tx, coins, poolPairMsg.ownerAddress)) {
-            return Res::Err("%s: %s", __func__, "tx not from the current pool pair owner");
-        }
+    //check foundation auth
+    if(!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
+        return Res::Err("%s: %s", __func__, "tx not from foundation member");
     }
-
     if(poolPairMsg.commission < 0 || poolPairMsg.commission > COIN) {
         return Res::Err("%s: %s", __func__, "wrong commission");
     }
@@ -1168,16 +1160,9 @@ Res ApplyUpdatePoolPairTx(CCustomCSView & mnview, CCoinsViewCache const & coins,
         return Res::Err("%s: pool with poolId %s does not exist", __func__, poolId.ToString());
     }
 
-    if (height < consensusParams.DakotaHeight) {
-        //check foundation auth
-        if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
-            return Res::Err("%s: %s", __func__, "tx not from foundation member");
-        }
-    } else {
-        // check with the current pool owner address
-        if (!skipAuth && !HasAuth(tx, coins, pool.value().ownerAddress)) {
-            return Res::Err("%s: %s", __func__, "tx not from the current pool pair owner");
-        }
+    //check foundation auth
+    if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
+        return Res::Err("%s: %s", __func__, "tx not from foundation member");
     }
 
     auto res = mnview.UpdatePoolPair(poolId, status, commission, ownerAddress);
