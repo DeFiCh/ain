@@ -14,8 +14,8 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, \
     connect_nodes_bi
 
-import calendar;
-import time;
+import calendar
+import time
 
 
 class OraclesTest (DefiTestFramework):
@@ -83,38 +83,40 @@ class OraclesTest (DefiTestFramework):
         assert_equal(tokens['128']["creationTx"], createTokenTx)
 
         #7 Create oracle node[1]
-        address = self.nodes[1].get_genesis_keys().ownerAuthAddress
+        oracleAddress = self.nodes[1].getnewaddress("", "legacy")
+        self.nodes[0].sendtoaddress(oracleAddress, 2)
+
         oracleId = ''
 
         try:
-            oracleId = self.nodes[0].appointoracle(address, '["PT", "GOLD#128"]', 10)
+            oracleId = self.nodes[0].appointoracle(oracleAddress, '["PT", "GOLD#128"]', 10)
         except JSONRPCException as e:
             print('failed to appoint oracle', e.error['message'])
+            assert(False)
 
         print("oracleId:", oracleId)
 
-        self.sync_blocks()
+        self.sync_all()
 
         timestamp = calendar.timegm(time.gmtime())
         oracleData = ''
+        # input('debug')
         try:
             oracleData = self.nodes[1].setoracledata(str(timestamp), '["10.1@PT", "5@GOLD#128"]')
         except JSONRPCException as e:
             print('failed to set oracle data', e.error['message'])
+            assert(False)
 
         print("oracle data:", oracleData)
 
-        # get oracle data success
-        self.sync_blocks()
-        print('oracle data returned:', self.nodes[2].getoracledata(oracleId))
+        # # remove oracle failure
+        # self.sync_blocks()
+        # print('oracle data returned:', self.nodes[3].removeoracle(oracleId))
+        #
+        # # remove oracle success
+        # self.sync_blocks()
+        # print('oracle data returned:', self.nodes[0].removeoracle(oracleId))
 
-        # remove oracle failure
-        self.sync_blocks()
-        print('oracle data returned:', self.nodes[3].removeoracle(oracleId))
-
-        # remove oracle success
-        self.sync_blocks()
-        print('oracle data returned:', self.nodes[0].removeoracle(oracleId))
 
 if __name__ == '__main__':
     OraclesTest().main()
