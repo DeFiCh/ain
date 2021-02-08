@@ -57,20 +57,23 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         return false;
     }
     uint256 masternodeID;
+    int64_t creationHeight;
     {
         // check that block minter exists and active at the height of the block
         AssertLockHeld(cs_main);
-        auto it = mnView->GetMasternodeIdByOperator(minter);
-
-        /// @todo check height of history frame here (future and past)
-        if (!it || !mnView->GetMasternode(*it)->IsActive(blockHeader.height))
-        {
+        auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(minter);
+        if (!optMasternodeID) {
             return false;
         }
-        masternodeID = *it;
+        masternodeID = *optMasternodeID;
+        auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
+        if (!nodePtr || !nodePtr->IsActive(blockHeader.height)) {
+            return false;
+        }
+        creationHeight = int64_t(nodePtr->creationHeight);
     }
     // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, (int64_t) blockHeader.GetBlockTime(), params, masternodeID).hashOk) {
+    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, (int64_t) blockHeader.GetBlockTime(), masternodeID, params).hashOk) {
         return false;
     }
 

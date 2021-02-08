@@ -226,7 +226,7 @@ Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uin
     // Check quick conditions first
     if (tx.vout.size() < 2 ||
         tx.vout[0].nValue < GetMnCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
-        tx.vout[1].nValue != GetMnCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0}
+        tx.vout[1].nValue != GetMnCollateralAmount(height) || tx.vout[1].nTokenId != DCT_ID{0}
         ) {
         return Res::Err("%s: %s", __func__, "malformed tx vouts (wrong creation fee or collateral amount)");
     }
@@ -254,6 +254,7 @@ Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uin
 
     // Return here to avoid addresses exit error
     if (rpcInfo) {
+        rpcInfo->pushKV("collateralamount", ValueFromAmount(GetMnCollateralAmount(height)));
         rpcInfo->pushKV("masternodeoperator", EncodeDestination(node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) :
                                                 CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress))));
         return Res::Ok();

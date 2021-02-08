@@ -659,6 +659,7 @@ namespace pos {
         /// @todo is 'tip' can be changed here? is it possible to pull 'getTip()' and mnview access to the upper (calling 'stake()') block?
         uint32_t mintedBlocks(0);
         uint256 masternodeID{};
+        int64_t creationHeight;
         CScript scriptPubKey;
         {
             LOCK(cs_main);
@@ -681,6 +682,7 @@ namespace pos {
             } else {
                 scriptPubKey = args.coinbaseScript;
             }
+            creationHeight = int64_t(nodePtr->creationHeight);
         }
 
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
@@ -720,7 +722,7 @@ namespace pos {
 
                 pblock->nTime = ((uint32_t)coinstakeTime - t);
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, chainparams.GetConsensus(), masternodeID).hashOk) {
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, masternodeID, chainparams.GetConsensus()).hashOk) {
                     LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                     found = true;
