@@ -4099,7 +4099,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     });
     CScript script{};
     try {
-        script = ParseScript(address);
+        script = DecodeScript(address);
     } catch(...) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse address");
     }
@@ -4120,7 +4120,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     UniValue const &txInputs = request.params[3];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
 
     CCoinControl coinControl;
 
