@@ -1477,18 +1477,14 @@ Res ApplyAppointOracleTx(
     CAppointOracleMessage msg;
     ss >> msg;
 
-//    std::cout << "msg.address = " << msg.oracleAddress << std::endl;
-//    std::cout << "msg.tokens = " << msg.availableTokens << std::endl;
-//    std::cout << "msg.weightage = " << msg.weightage << std::endl;
-
     if(!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
         return Res::Err("%s: %s", base, "foundation authentication failed");
     }
 
     // TODO (IntegralTeam Y): ignore rpcInfo for now, implement getting tx info later
 
-    const auto &oracleId = tx.GetHash();
-    return mnview.AppointOracle(oracleId, COracle(oracleId, msg));
+    COracleId oracleId{tx.GetHash()};
+    return mnview.AppointOracle(static_cast<COracleId>(oracleId), COracle(oracleId, msg));
 }
 
 Res ApplyRemoveOracleAppointTx(
@@ -1537,10 +1533,6 @@ Res ApplySetOracleDataTx(CCustomCSView &mnview,
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CSetOracleDataMessage msg;
     ss >> msg;
-
-    std::cout << "msg.timestamp = " << msg.timestamp << std::endl;
-    std::cout << "msg.oracleId = " << msg.oracleId.GetHex() << std::endl;
-    std::cout << "msg.balances = " << msg.balances.ToString() << std::endl;
 
     if (msg.oracleId.IsNull()) {
         return Res::Err("oracleId is Null");

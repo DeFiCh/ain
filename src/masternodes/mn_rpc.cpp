@@ -4052,7 +4052,17 @@ UniValue appointoracle(const JSONRPCRequest &request) {
                {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "oracle address",},
                        {"allowedtokens", RPCArg::Type::STR, RPCArg::Optional::NO, "list of allowed tokens"},
-                       {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"}
+                       {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                                   {
+                                           {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                                   {
+                                                           {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                                           {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                                   },
+                                           },
+                                   },
+                       },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -4080,19 +4090,22 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     auto tokens = DecodeTokens(pwallet->chain(), allowedTokensStr, "");
 
     UniValue const & weightageUni = request.params[2];
-    int64_t weightage{};
+    uint32_t weightage{};
     try {
-        weightage = std::stoll(weightageUni.getValStr());
+        weightage = std::stoul(weightageUni.getValStr());
     } catch (...) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode weightage");
     }
 
-//    std::cout << "allowedTokens = " << allowedTokens << std::endl;
+    if (weightage > std::numeric_limits<uint8_t>::max()) {
+        throw JSONRPCError(RPC_TRANSACTION_ERROR, "the weightage value is out of bounds");
+    }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, false);
-    // TODO (IntegralTeam Y): check if CScript is converted correctly
+    RPCTypeCheck(request.params,
+                 {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM}, false);
+
     std::set<DCT_ID> tokenSet;
     std::for_each(tokens.begin(), tokens.end(), [&tokenSet](DCT_ID &it) {
         tokenSet.insert(it);
@@ -4104,7 +4117,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse address");
     }
 
-    CAppointOracleMessage msg{std::move(script), weightage, tokenSet};
+    CAppointOracleMessage msg{std::move(script), static_cast<uint8_t>(weightage), std::move(tokenSet)};
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::AppointOracle)
@@ -4120,7 +4133,13 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     UniValue const &txInputs = request.params[3];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(
+            pwallet,
+            rawTx.nVersion,
+            auths,
+            true,
+            optAuthTx,
+            txInputs);
 
     CCoinControl coinControl;
 
@@ -4133,10 +4152,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         }
     }
 
-    // fund
     fund(rawTx, pwallet, optAuthTx, &coinControl);
-
-    std::cout << "funded" << std::endl;
 
     // check execution
     {
@@ -4158,20 +4174,28 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         }
     }
 
-    std::cout << "before signsend" << std::endl;
-
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue removeoracle(const JSONRPCRequest& request) {
     CWallet *const pwallet = GetWallet(request);
 
-    RPCHelpMan{"appointoracle",
+    RPCHelpMan{"removeoracle",
                "\nRemoves oracle appointment, \n"
                "The only argument is oracleid hex value." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle id"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -4191,12 +4215,10 @@ UniValue removeoracle(const JSONRPCRequest& request) {
 
     // decode
     std::string oracleIdStr = request.params[0].getValStr();
-    auto oracleBytes = ParseHex(oracleIdStr);
     CRemoveOracleAppointMessage msg{};
-    if (msg.oracleId.size() != oracleBytes.size()) {
+    if (!msg.oracleId.parseHex(oracleIdStr)) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse oracle id");
     }
-    std::copy_n(oracleBytes.begin(), oracleBytes.size(), msg.oracleId.begin());
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
@@ -4218,7 +4240,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     UniValue const &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
 
     CCoinControl coinControl;
 
@@ -4233,8 +4255,6 @@ UniValue removeoracle(const JSONRPCRequest& request) {
 
     // fund
     fund(rawTx, pwallet, optAuthTx, &coinControl);
-
-    std::cout << "funded" << std::endl;
 
     // check execution
     {
@@ -4256,8 +4276,6 @@ UniValue removeoracle(const JSONRPCRequest& request) {
         }
     }
 
-    std::cout << "before signsend" << std::endl;
-
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
@@ -4269,17 +4287,34 @@ UniValue setoracledata(const JSONRPCRequest &request) {
                "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
+                       {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle hex id",},
                        {"timestamp", RPCArg::Type::NUM, RPCArg::Optional::NO, "balances timestamp",},
                        {"prices", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "tokens raw prices:the array of price and token strings in price@token#number_id format. ",
                         },
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                         HelpExampleCli("setoracledata", "1612237937 '[“38293.12@BTC”, “1328.32@ETH”]' ")
-                       + HelpExampleRpc("setoracledata", "1612237637 '[“38293.12@BTC”, “1328.32@ETH”]' ")
+                         HelpExampleCli(
+                                 "setoracledata",
+                                 "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237937 '[“38293.12@BTC”, “1328.32@ETH”]' "
+                                 )
+                       + HelpExampleRpc(
+                               "setoracledata",
+                               "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237637 '[“38293.12@BTC”, “1328.32@ETH”]' "
+                               )
                },
     }.Check(request);
 
@@ -4290,22 +4325,14 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
-    // decode
-    UniValue const & timestampUni = request.params[0];
-    UniValue prices{};
-    if (!prices.read(request.params[1].getValStr())) {
-        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode prices");
-    }
-    auto balances = DecodeAmounts(pwallet->chain(), prices, "");
-
-    std::cout << "balances = " << balances.ToString() << std::endl;
-
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, false);
-
-    // TODO (IntegralTeam Y): need to get oracleId
+    // decode oracle id
+    UniValue const & oracleIdUni = request.params[0];
     COracleId oracleId{};
+    if (!oracleId.parseHex(oracleIdUni.getValStr())) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse oracle id");
+    }
+    // decode timestamp
+    UniValue const & timestampUni = request.params[1];
     int64_t timestamp{};
     try {
         timestamp = std::stoll(timestampUni.getValStr());
@@ -4313,7 +4340,20 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode timestamp");
     }
 
-    CSetOracleDataMessage msg{oracleId, timestamp, balances};
+    // decode prices
+    UniValue prices{};
+    if (!prices.read(request.params[2].getValStr())) {
+        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode prices");
+    }
+    auto balances = DecodeAmounts(pwallet->chain(), prices, "");
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    RPCTypeCheck(request.params,
+                 { UniValue::VSTR, UniValue::VNUM, UniValue::VSTR},
+                 false);
+
+    CSetOracleDataMessage msg{oracleId, timestamp, std::move(balances)};
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -4327,10 +4367,11 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.emplace_back(0, scriptMeta);
 
-    UniValue const &txInputs = request.params[2];
+    UniValue const &txInputs = request.params[3];
+
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     CCoinControl coinControl;
 
@@ -4343,10 +4384,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         }
     }
 
-    // fund
     fund(rawTx, pwallet, optAuthTx, &coinControl);
-
-    std::cout << "funded" << std::endl;
 
     // check execution
     {
@@ -4367,8 +4405,6 @@ UniValue setoracledata(const JSONRPCRequest &request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
     }
-
-    std::cout << "before signsend" << std::endl;
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }

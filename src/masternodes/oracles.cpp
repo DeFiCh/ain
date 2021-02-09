@@ -4,6 +4,17 @@
 
 const unsigned char COracleView::ByName::prefix = 'O'; // the big O for Oracles
 
+bool COracleId::parseHex(const std::string &str) {
+    auto oracleBytes = ParseHex(str);
+
+    if (size() != oracleBytes.size()) {
+        return false;
+    }
+
+    std::copy_n(oracleBytes.begin(), oracleBytes.size(), begin());
+    return true;
+}
+
 Res COracle::SetTokenPrice(DCT_ID tokenId, CAmount amount, int64_t timestamp) {
     if (!SupportsToken(tokenId)) {
         return Res::Err("token <%s> is not allowed", tokenId.ToString());
@@ -100,7 +111,7 @@ ResVal<COracle> COracleView::GetOracleData(COracleId oracleId) const {
 
 // ----- operations with oracle ids list -----
 
-std::vector<uint256> COracleView::GetAllOracleIds() {
+std::vector<COracleId> COracleView::GetAllOracleIds() {
     std::vector<COracleId> oracles;
     if (!ReadBy<ByName>(_allOraclesKey, oracles)) {
         return {};
@@ -133,8 +144,9 @@ Res COracleView::RemoveOracleId(COracleId oracleId) {
     return UpdateOraclesList(oracles);
 }
 
-Res COracleView::UpdateOraclesList(const std::vector<uint256>& oracles) {
+Res COracleView::UpdateOraclesList(const std::vector<COracleId>& oracles) {
     if (!WriteBy<ByName>(_allOraclesKey, oracles)) {
         return Res::Err("failed to save oracle ids list");
     }
+    return Res::Ok();
 }

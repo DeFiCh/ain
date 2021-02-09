@@ -23,7 +23,20 @@ using CPricePoint = std::pair<CAmount, int64_t>;
 
 using CTokenPrices = std::map<DCT_ID, CPricePoint>;
 
-using COracleId = uint256;
+class COracleId: public uint256 {
+public:
+    using uint256::uint256;
+
+    explicit COracleId(const uint256& rawId) {
+        std::copy_n(rawId.begin(), size(), begin());
+    }
+    /**
+     * @brief parse oracle id from hex string
+     * @param str value to parse
+     * @return true if provided argument is a valid 32 bytes hex string, false otherwise
+     */
+    bool parseHex(const std::string& str);
+};
 
 struct CAppointOracleMessage {
     CScript oracleAddress;

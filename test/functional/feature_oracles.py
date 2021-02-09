@@ -55,7 +55,7 @@ class OraclesTest (DefiTestFramework):
         })
 
         self.nodes[0].generate(1)
-        self.sync_blocks([self.nodes[0], self.nodes[2]])
+        self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
 
         # At this point, token was created
         tokens = self.nodes[0].listtokens()
@@ -84,28 +84,41 @@ class OraclesTest (DefiTestFramework):
 
         #7 Create oracle node[1]
         oracleAddress = self.nodes[1].getnewaddress("", "legacy")
-        self.nodes[0].sendtoaddress(oracleAddress, 2)
+        self.sync_all()
+        self.nodes[0].sendtoaddress(oracleAddress, 50)
+        self.sync_all()
 
         oracleId = ''
+
+        # input('debug')
 
         try:
             oracleId = self.nodes[0].appointoracle(oracleAddress, '["PT", "GOLD#128"]', 10)
         except JSONRPCException as e:
             print('failed to appoint oracle', e.error['message'])
-            assert(False)
+            raise
+        # decodedtx = self.nodes[0].getrawtransaction(oracleId, 1)
+        # for vin in decodedtx['vin']:
+        #     print(vin)
+        # print('oracle tx:', decodedtx)
 
-        print("oracleId:", oracleId)
+        try:
+            print("oracleId:", oracleId)
+        except JSONRPCException as e:
+            print(e.error['message'])
 
         self.sync_all()
+        print('node0', self.nodes[0].getbalances())
+        print('node1', self.nodes[1].getbalances())
 
         timestamp = calendar.timegm(time.gmtime())
         oracleData = ''
         # input('debug')
         try:
-            oracleData = self.nodes[1].setoracledata(str(timestamp), '["10.1@PT", "5@GOLD#128"]')
+            oracleData = self.nodes[1].setoracledata(oracleId, timestamp, '["10.1@PT", "5@GOLD#128"]')
         except JSONRPCException as e:
             print('failed to set oracle data', e.error['message'])
-            assert(False)
+            raise
 
         print("oracle data:", oracleData)
 
