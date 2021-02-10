@@ -77,7 +77,7 @@ static CBlock BuildBlockTestCase() {
     assert(!mutated);
     block.nTime = 0;
 
-    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, Params().GetConsensus(), masternodeID).hashOk) block.nTime++;
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, masternodeID, Params().GetConsensus())) block.nTime++;
   //  while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
 
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
@@ -356,7 +356,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
 //    block.stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
 //    block.nTime = 0;
 //
-//    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, Params().GetConsensus(), masternodeID).hashOk) block.nTime++;
+//    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, masternodeID, Params().GetConsensus())) block.nTime++;
 //
 //// while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
 //    std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));

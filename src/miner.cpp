@@ -633,23 +633,6 @@ namespace pos {
                 return Status::initWaiting;
         }
 
-        if (nLastSystemTime.time_since_epoch().count() != 0 && nLastSteadyTime.time_since_epoch().count() != 0) {
-            using namespace std::chrono;
-            const auto systemNow = system_clock::now();
-            const auto steadyNow = steady_clock::now();
-            const auto nSystemClockDifference = duration_cast<milliseconds>(systemNow - nLastSystemTime);
-            const auto nSteadyClockDifference = duration_cast<milliseconds>(steadyNow - nLastSteadyTime);
-
-            if(std::abs((nSystemClockDifference - nSteadyClockDifference).count()) > 1000) { //1s
-                //LogPrintf("*** System clock change detected. Staking will be paused until the clock is synced again.\n");
-                // TODO: call a NTP syncing routine
-                //return Status::initWaiting;
-            }
-        }
-
-        nLastSystemTime = std::chrono::system_clock::now();
-        nLastSteadyTime = std::chrono::steady_clock::now();
-
         bool minted = false;
         bool potentialCriminalBlock = false;
 
@@ -720,12 +703,14 @@ namespace pos {
 
                 pblock->nTime = ((uint32_t)coinstakeTime - t);
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, chainparams.GetConsensus(), masternodeID).hashOk) {
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, masternodeID, chainparams.GetConsensus())) {
                     LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                     found = true;
                     break;
                 }
+
+                boost::this_thread::yield(); // give a slot to other threads
             }
 
             if (!found) {

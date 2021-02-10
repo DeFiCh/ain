@@ -70,7 +70,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         masternodeID = *it;
     }
     // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, (int64_t) blockHeader.GetBlockTime(), params, masternodeID).hashOk) {
+    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, (int64_t) blockHeader.GetBlockTime(), masternodeID, params)) {
         return false;
     }
 
