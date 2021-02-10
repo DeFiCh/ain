@@ -25,11 +25,18 @@ using CTokenPrices = std::map<DCT_ID, CPricePoint>;
 
 class COracleId: public uint256 {
 public:
-    using uint256::uint256;
+    COracleId() {
+        std::fill_n(begin(), size(), 0);
+    }
 
     explicit COracleId(const uint256& rawId) {
         std::copy_n(rawId.begin(), size(), begin());
     }
+
+    COracleId(const COracleId& other) {
+        std::copy_n(other.begin(), size(), begin());
+    }
+
     /**
      * @brief parse oracle id from hex string
      * @param str value to parse

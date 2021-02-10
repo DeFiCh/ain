@@ -11,7 +11,7 @@ bool COracleId::parseHex(const std::string &str) {
         return false;
     }
 
-    std::copy_n(oracleBytes.begin(), oracleBytes.size(), begin());
+    std::copy_n(oracleBytes.rbegin(), oracleBytes.size(), begin());
     return true;
 }
 
@@ -61,7 +61,8 @@ Res COracleView::RemoveOracle(COracleId oracleId) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }
 
-    if (auto res = RemoveOracleId(oracleId); !res.ok) {
+    auto res = RemoveOracleId(oracleId);
+    if (!res.ok) {
         return res;
     }
 
