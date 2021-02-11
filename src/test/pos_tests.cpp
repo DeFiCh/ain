@@ -45,7 +45,7 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock, const uint
 //    do {
 //        time++;
 //        pblock->nTime = time;
-//    } while (!pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, Params().GetConsensus(), masternodeID).hashOk);
+//    } while (!pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, masternodeID, Params().GetConsensus()));
 
     BOOST_CHECK(!pos::SignPosBlock(pblock, minterKey));
 
@@ -61,10 +61,10 @@ BOOST_AUTO_TEST_CASE(calc_kernel)
                 pos::CalcKernelHash(stakeModifier, coinstakeTime, mnID, Params().GetConsensus()));
 
     uint32_t target = 0x1effffff;
-    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, coinstakeTime, Params().GetConsensus(), mnID).hashOk);
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, coinstakeTime, mnID, Params().GetConsensus()));
 
     uint32_t unattainableTarget = 0x00ffffff;
-    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, coinstakeTime, Params().GetConsensus(), mnID).hashOk);
+    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, coinstakeTime, mnID, Params().GetConsensus()));
 
 //    CKey key;
 //    key.MakeNewKey(true); // Need to use compressed keys in segwit or the signing will fail

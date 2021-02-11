@@ -229,9 +229,6 @@ namespace pos {
 
     class Staker {
     private:
-        std::chrono::system_clock::time_point nLastSystemTime;
-        std::chrono::steady_clock::time_point nLastSteadyTime;
-
         int64_t nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
 
     public:

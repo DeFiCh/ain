@@ -256,7 +256,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 //            pblock->mintedBlocks = mintedBlocks + 1;
 //            pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
 //
-//            while (!pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, chainparams.GetConsensus(), masternodeID).hashOk) pblock->nTime++;
+//            while (!pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, masternodeID, chainparams.GetConsensus())) pblock->nTime++;
 //            BOOST_CHECK(!pos::SignPosBlock(std::make_shared<CBlock>(*pblock), minterKey));
 //
 //            CMutableTransaction txCoinbase(*pblock->vtx[0]);

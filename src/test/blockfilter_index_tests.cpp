@@ -111,7 +111,7 @@ static CBlock CreateBlock(const CBlockIndex* prev,
     unsigned int extraNonce = 0;
     IncrementExtraNonce(&block, prev, extraNonce);
 
-    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, Params().GetConsensus(), masternodeID).hashOk) block.nTime++;
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, masternodeID, Params().GetConsensus())) block.nTime++;
   //  while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())) ++block.nNonce;
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
     auto err = pos::SignPosBlock(pblock, minterKey);
