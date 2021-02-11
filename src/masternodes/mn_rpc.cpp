@@ -36,15 +36,21 @@
 
 #include <stdexcept>
 
+#include <boost/algorithm/string/join.hpp>
+#include <boost/range/adaptor/transformed.hpp>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/tokenizer.hpp>
 #include <rpc/rawtransaction_util.h>
+#include <numeric>
 
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in core_io.h
 
 extern UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet);
+
+std::string GetOraclesList();
 
 static CAccounts FindAccountsFromWallet(CWallet* const pwallet, bool includeWatchOnly = false) {
 
@@ -4154,6 +4160,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
+    std::string oracles;
     // check execution
     {
         LOCK(cs_main);
@@ -4172,9 +4179,17 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
+
+        oracles = GetOraclesList();
     }
 
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+    auto txHash = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+
+    UniValue res(UniValue::VOBJ);
+    res.pushKV("oracleid", txHash);
+    res.pushKV("oracles", oracles);
+
+    return res.write();
 }
 
 UniValue removeoracle(const JSONRPCRequest& request) {
@@ -4407,6 +4422,46 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     }
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+std::string GetOraclesList() {
+    CCustomCSView mnview_wrapper(*pcustomcsview); // don't write into actual DB
+    auto oracles = mnview_wrapper.GetAllOracleIds();
+
+    auto list =  boost::algorithm::join(
+            oracles | boost::adaptors::transformed(
+                    [](const COracleId& x) -> std::string {
+                        return x.GetHex();
+                    }),
+                    ", ");
+    return "[" + list + "]";
+}
+
+UniValue listoracles(const JSONRPCRequest& request) {
+    CWallet *const pwallet = GetWallet(request);
+
+    RPCHelpMan{"listoracles",
+               "\nReturns list of oracle ids." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+               },
+               RPCResult{
+                       "\"hash\"                  (string) list of known oracle ids\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listoracles", "") + HelpExampleRpc("listoracles", "")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+    LOCK(cs_main);
+
+    return GetOraclesList();
 }
 
 static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)
@@ -4675,6 +4730,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "appointoracle",         &appointoracle,         {"address", "allowedtokens"}},
     {"oracles",     "removeoracle",          &removeoracle,          {"oracleid"}},
     {"oracles",     "setoracledata",         &setoracledata,         {"timestamp", "prices"}},
+    {"oracles",     "listoracles",         &listoracles,         {}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

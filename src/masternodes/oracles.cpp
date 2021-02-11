@@ -33,17 +33,27 @@ boost::optional<CPricePoint> COracle::GetTokenPrice(DCT_ID tokenId) const {
     return {};
 }
 
-COracleView::COracleView(): _allOraclesKey{"THELISTOFALLORACLESINTHEDATABASE"} {}
+COracleView::COracleView(): _allOraclesKey{"LISTOFALLORACLESINTHEDATABASE"} {}
 
-Res COracleView::AppointOracle(COracleId oracleId, const COracle& oracle) {
+Res COracleView::AppointOracle(const COracleId& oracleId, const COracle& oracle) {
     if (!WriteBy<ByName>(oracleId, oracle)) {
         return Res::Err("failed to appoint the new oracle <%s>", oracleId.GetHex());
     }
 
+    // check
+//    COracle oracle1{};
+//    if (!ReadBy<ByName>(oracleId, oracle1)) {
+//        return Res::Err("failed to read newly created oracle <%s> from database", oracleId.GetHex());
+//    }
+//
+//    if (oracle != oracle1) {
+//        return Res::Err("oracles don't match", oracleId.GetHex());
+//    }
+
     return AddOracleId(oracleId);
 }
 
-Res COracleView::UpdateOracle(COracleId oracleId, const COracle& oracle) {
+Res COracleView::UpdateOracle(const COracleId& oracleId, const COracle& oracle) {
     if (!ExistsBy<ByName>(oracleId)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }
@@ -56,7 +66,7 @@ Res COracleView::UpdateOracle(COracleId oracleId, const COracle& oracle) {
     return Res::Ok();
 }
 
-Res COracleView::RemoveOracle(COracleId oracleId) {
+Res COracleView::RemoveOracle(const COracleId& oracleId) {
     if (!ExistsBy<ByName>(oracleId)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }
@@ -74,7 +84,7 @@ Res COracleView::RemoveOracle(COracleId oracleId) {
     return Res::Ok();
 }
 
-Res COracleView::SetOracleData(COracleId oracleId,  int64_t timestamp, const CBalances& balances) {
+Res COracleView::SetOracleData(const COracleId& oracleId,  int64_t timestamp, const CBalances& balances) {
     COracle oracle{};
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("failed to read oracle %s from database", oracleId.GetHex());
@@ -101,7 +111,7 @@ Res COracleView::SetOracleData(COracleId oracleId,  int64_t timestamp, const CBa
     return Res::Ok();
 }
 
-ResVal<COracle> COracleView::GetOracleData(COracleId oracleId) const {
+ResVal<COracle> COracleView::GetOracleData(const COracleId& oracleId) const {
     COracle oracle{};
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
@@ -120,7 +130,7 @@ std::vector<COracleId> COracleView::GetAllOracleIds() {
     return oracles;
 }
 
-Res COracleView::AddOracleId(COracleId oracleId) {
+Res COracleView::AddOracleId(const COracleId& oracleId) {
     auto oracles = GetAllOracleIds();
     if (std::find(oracles.begin(), oracles.end(), oracleId) != std::end(oracles)) {
         return Res::Err("cannot add oracle id <%s> already exists", oracleId.GetHex());
@@ -134,7 +144,7 @@ Res COracleView::AddOracleId(COracleId oracleId) {
     return Res::Ok();
 }
 
-Res COracleView::RemoveOracleId(COracleId oracleId) {
+Res COracleView::RemoveOracleId(const COracleId& oracleId) {
     auto oracles = GetAllOracleIds();
     auto it = std::find(oracles.begin(), oracles.end(), oracleId);
     if (it == std::end(oracles)) {

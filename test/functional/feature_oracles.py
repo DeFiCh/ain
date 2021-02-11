@@ -16,6 +16,7 @@ from test_framework.util import assert_equal, \
 
 import calendar
 import time
+import json
 
 
 class OraclesTest (DefiTestFramework):
@@ -35,7 +36,7 @@ class OraclesTest (DefiTestFramework):
         assert_equal(len(self.nodes[0].listtokens()), 1)    # only one token == DFI
 
         self.nodes[0].generate(100)
-        self.sync_all()
+        self.sync_all([self.nodes[0], self.nodes[1]])
 
         # # Stop node #3 for future revert
         # self.stop_node(3)
@@ -81,38 +82,64 @@ class OraclesTest (DefiTestFramework):
         assert_equal(len(tokens), 3)
         assert_equal(tokens['128']["symbol"], "GOLD")
         assert_equal(tokens['128']["creationTx"], createTokenTx)
-        self.sync_all()
+        self.sync_all([self.nodes[0], self.nodes[1]])
         #7 Create oracle node[1]
         oracleAddress = self.nodes[1].getnewaddress("", "legacy")
         self.nodes[0].sendtoaddress(oracleAddress, 50)
 
-        self.sync_blocks()
         self.nodes[0].generate(100)
-        self.sync_blocks()
-        oracle_id = ''
+        self.sync_all([self.nodes[0], self.nodes[1]])
+        oracle_res = ''
 
         input('debug')
 
         try:
-            oracle_id = self.nodes[0].appointoracle(oracleAddress, '["PT", "GOLD#128"]', 10)
+            oracle_res = self.nodes[0].appointoracle(oracleAddress, '["PT", "GOLD#128"]', 10)
         except JSONRPCException as e:
             print('failed to appoint oracle', e.error['message'])
             raise
-        # decodedtx = self.nodes[0].getrawtransaction(oracle_id, 1)
-        # for vin in decodedtx['vin']:
-        #     print(vin)
-        # print('oracle tx:', decodedtx)
 
         input("debug")
 
         try:
-            print("oracle_id:", oracle_id)
+            print("oracle_res:", oracle_res)
         except JSONRPCException as e:
             print(e.error['message'])
 
-        self.sync_all()
+        # self.sync_all([self.nodes[0], self.nodes[1]])
+        #
+        # self.nodes[0].generate(100)
+
+        self.sync_all([self.nodes[0], self.nodes[1]])
+
+        print('node0 oracles:', self.nodes[0].listoracles())
+        print('node1 oracles:', self.nodes[1].listoracles())
+
         print('node0 balances', self.nodes[0].getbalances())
         print('node1 balances', self.nodes[1].getbalances())
+
+        input("debug")
+
+        oracle_id = json.loads(oracle_res)['oracleid']
+        print('oracleid', oracle_id)
+        decodedtx = self.nodes[0].getrawtransaction(oracle_id, 1)
+        print('node0 raw oracle tx:', decodedtx)
+        for vin in decodedtx['vin']:
+            print(vin)
+        print('node1 raw oracle tx:', self.nodes[1].getrawtransaction(oracle_id, 1))
+
+        print('node0 oracles:', self.nodes[0].listoracles())
+        print('node1 oracles:', self.nodes[1].listoracles())
+
+
+        input("debug")
+
+        # decodedtx = self.nodes[1].getrawtransaction(oracle_id, 1)
+        # print('node1 raw oracle tx:', decodedtx)
+        #
+        # for vin in decodedtx['vin']:
+        #     print(vin)
+        # print('oracle tx:', decodedtx)
 
         timestamp = calendar.timegm(time.gmtime())
         oracle_data = ''

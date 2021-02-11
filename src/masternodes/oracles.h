@@ -37,12 +37,22 @@ public:
         std::copy_n(other.begin(), size(), begin());
     }
 
+    explicit COracleId(const std::vector<unsigned char>& rawData):
+        uint256(rawData)
+        {}
+
     /**
      * @brief parse oracle id from hex string
      * @param str value to parse
      * @return true if provided argument is a valid 32 bytes hex string, false otherwise
      */
     bool parseHex(const std::string& str);
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(uint256, *this);
+    }
 };
 
 struct CAppointOracleMessage {
@@ -111,6 +121,14 @@ struct COracle : public CAppointOracleMessage {
         return availableTokens.find(tokenId) != availableTokens.end();
     }
 
+    bool operator==(const COracle& other) const {
+        return oracleId == other.oracleId && tokenPrices == other.tokenPrices;
+    }
+
+    bool operator!=(const COracle& other) const {
+        return !(*this == other);
+    }
+
     Res SetTokenPrice(DCT_ID tokenId, CAmount amount, int64_t timestamp);
 
     boost::optional<CPricePoint> GetTokenPrice(DCT_ID tokenId) const;
@@ -133,19 +151,19 @@ public:
     ~COracleView() override = default;
 
     /// register new oracle instance
-    Res AppointOracle(COracleId oracleId, const COracle& oracle);
+    Res AppointOracle(const COracleId& oracleId, const COracle& oracle);
 
     /// updates oracle info
-    Res UpdateOracle(COracleId oracleId, const COracle& oracle);
+    Res UpdateOracle(const COracleId& oracleId, const COracle& oracle);
 
     /// remove oracle instancefrom database
-    Res RemoveOracle(COracleId oracleId);
+    Res RemoveOracle(const COracleId& oracleId);
 
     /// store registered oracle data
-    Res SetOracleData(COracleId oracleId, int64_t timestamp, const CBalances& tokenPrices);
+    Res SetOracleData(const COracleId& oracleId, int64_t timestamp, const CBalances& tokenPrices);
 
     /// deserialize oracle instance from database
-    ResVal<COracle> GetOracleData(COracleId oracleId) const;
+    ResVal<COracle> GetOracleData(const COracleId& oracleId) const;
 
     /// get collection of all oracle ids
     std::vector<COracleId> GetAllOracleIds();
@@ -156,10 +174,10 @@ private:
     const std::string _allOraclesKey;
 
     /// add oracle to the list
-    Res AddOracleId(COracleId oracleId);
+    Res AddOracleId(const COracleId& oracleId);
 
     /// remove oracle from the list
-    Res RemoveOracleId(COracleId oracleId);
+    Res RemoveOracleId(const COracleId& oracleId);
 
     /// update oracles colection
     Res UpdateOraclesList(const std::vector<COracleId>& oraclesList);
