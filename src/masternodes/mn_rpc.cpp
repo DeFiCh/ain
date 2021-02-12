@@ -4088,11 +4088,17 @@ UniValue appointoracle(const JSONRPCRequest &request) {
 
     // decode
     std::string address = request.params[0].getValStr();
+    CScript script{};
+    try {
+        script = DecodeScript(address);
+    } catch(...) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse address");
+    }
+
     UniValue allowedTokensStr{};
     if (!allowedTokensStr.read(request.params[1].getValStr())) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to read allowed tokens");
     }
-
     auto tokens = DecodeTokens(pwallet->chain(), allowedTokensStr, "");
 
     UniValue const & weightageUni = request.params[2];
@@ -4116,12 +4122,6 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     std::for_each(tokens.begin(), tokens.end(), [&tokenSet](DCT_ID &it) {
         tokenSet.insert(it);
     });
-    CScript script{};
-    try {
-        script = DecodeScript(address);
-    } catch(...) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse address");
-    }
 
     CAppointOracleMessage msg{std::move(script), static_cast<uint8_t>(weightage), std::move(tokenSet)};
     // encode

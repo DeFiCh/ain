@@ -146,7 +146,8 @@ struct COracle : public CAppointOracleMessage {
 
 class COracleView: public virtual CStorageView {
 public:
-    COracleView();
+    COracleView():
+    _allOraclesKey{"7cb9109f1f4b17b91e7eefad33e8d795"} {}
 
     ~COracleView() override = default;
 

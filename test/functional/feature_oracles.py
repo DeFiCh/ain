@@ -36,7 +36,7 @@ class OraclesTest (DefiTestFramework):
         assert_equal(len(self.nodes[0].listtokens()), 1)    # only one token == DFI
 
         self.nodes[0].generate(100)
-        self.sync_all([self.nodes[0], self.nodes[1]])
+        self.sync_all([self.nodes[0], self.nodes[2]])
 
         # # Stop node #3 for future revert
         # self.stop_node(3)
@@ -56,7 +56,7 @@ class OraclesTest (DefiTestFramework):
         })
 
         self.nodes[0].generate(1)
-        self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
+        self.sync_blocks([self.nodes[0], self.nodes[2], self.nodes[2]])
 
         # At this point, token was created
         tokens = self.nodes[0].listtokens()
@@ -82,13 +82,14 @@ class OraclesTest (DefiTestFramework):
         assert_equal(len(tokens), 3)
         assert_equal(tokens['128']["symbol"], "GOLD")
         assert_equal(tokens['128']["creationTx"], createTokenTx)
-        self.sync_all([self.nodes[0], self.nodes[1]])
+        self.sync_all([self.nodes[0], self.nodes[2]])
         #7 Create oracle node[1]
-        oracleAddress = self.nodes[1].getnewaddress("", "legacy")
+        oracleAddress = self.nodes[2].getnewaddress("", "legacy")
+        print('address', oracleAddress)
         self.nodes[0].sendtoaddress(oracleAddress, 50)
 
         self.nodes[0].generate(100)
-        self.sync_all([self.nodes[0], self.nodes[1]])
+        self.sync_all([self.nodes[0], self.nodes[2]])
         oracle_res = ''
 
         input('debug')
@@ -99,53 +100,45 @@ class OraclesTest (DefiTestFramework):
             print('failed to appoint oracle', e.error['message'])
             raise
 
+        self.nodes[0].generate(1)
+        self.sync_all([self.nodes[0], self.nodes[2]])
+
         input("debug")
 
         try:
             print("oracle_res:", oracle_res)
+            print('node0 oracles:', self.nodes[0].listoracles())
         except JSONRPCException as e:
             print(e.error['message'])
 
-        # self.sync_all([self.nodes[0], self.nodes[1]])
-        #
-        # self.nodes[0].generate(100)
-
-        self.sync_all([self.nodes[0], self.nodes[1]])
+        self.sync_all([self.nodes[0], self.nodes[2]])
 
         print('node0 oracles:', self.nodes[0].listoracles())
-        print('node1 oracles:', self.nodes[1].listoracles())
+        print('node2 oracles:', self.nodes[2].listoracles())
 
         print('node0 balances', self.nodes[0].getbalances())
-        print('node1 balances', self.nodes[1].getbalances())
+        print('node2 balances', self.nodes[2].getbalances())
 
         input("debug")
 
         oracle_id = json.loads(oracle_res)['oracleid']
         print('oracleid', oracle_id)
-        decodedtx = self.nodes[0].getrawtransaction(oracle_id, 1)
-        print('node0 raw oracle tx:', decodedtx)
-        for vin in decodedtx['vin']:
-            print(vin)
-        print('node1 raw oracle tx:', self.nodes[1].getrawtransaction(oracle_id, 1))
-
-        print('node0 oracles:', self.nodes[0].listoracles())
-        print('node1 oracles:', self.nodes[1].listoracles())
-
-
-        input("debug")
-
-        # decodedtx = self.nodes[1].getrawtransaction(oracle_id, 1)
-        # print('node1 raw oracle tx:', decodedtx)
-        #
+        # decodedtx = self.nodes[0].getrawtransaction(oracle_id, 1)
+        # print('node0 raw oracle tx:', decodedtx)
         # for vin in decodedtx['vin']:
         #     print(vin)
-        # print('oracle tx:', decodedtx)
+        # print('node2 raw oracle tx:', self.nodes[2].getrawtransaction(oracle_id, 1))
+
+        print('node0 oracles:', self.nodes[0].listoracles())
+        print('node2 oracles:', self.nodes[2].listoracles())
+
+        input("debug")
 
         timestamp = calendar.timegm(time.gmtime())
         oracle_data = ''
         input('debug')
         try:
-            oracle_data = self.nodes[1].setoracledata(oracle_id, timestamp, '["10.1@PT", "5@GOLD#128"]')
+            oracle_data = self.nodes[2].setoracledata(oracle_id, timestamp, '["10.1@PT", "5@GOLD#128"]')
         except JSONRPCException as e:
             print('failed to set oracle data', e.error['message'])
             raise

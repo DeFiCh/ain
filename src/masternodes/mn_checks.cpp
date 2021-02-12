@@ -189,8 +189,10 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 break;
             case CustomTxType::SetOracleData:
                 res = ApplySetOracleDataTx(mnview, coins, tx, height, metadata, consensusParams);
+                break;
             case CustomTxType::AppointOracle:
                 res = ApplyAppointOracleTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
+                break;
 
             default:
                 return Res::Ok(); // not "custom" tx
