@@ -94,10 +94,10 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestin
     return {};
 }
 
-bool CAnchor::CheckAuthSigs(CTeam const & team, bool newAnchorType = true) const
+bool CAnchor::CheckAuthSigs(CTeam const & team) const
 {
-    // Sigs must meet quorum size. Old anchors did not check quorum!
-    if (newAnchorType && sigs.size() < GetMinAnchorQuorum(team)) {
+    // Sigs must meet quorum size.
+    if (sigs.size() < GetMinAnchorQuorum(team)) {
         return error("%s: Anchor auth team quorum not met. Min quorum: %d sigs size %d", __func__, GetMinAnchorQuorum(team), sigs.size());
     }
 
@@ -302,7 +302,7 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest) co
                 it0Copy = it0;
                 for (uint32_t i{0}; i < quorum && it0Copy != it1; ++i, ++it0Copy) {
                     // ValidateAuth called here performs extra checks with SPV enabled.
-                    if (ValidateAuth(*it0)) {
+                    if (ValidateAuth(*it0Copy)) {
                         ++validCount;
                     }
                 }
@@ -782,7 +782,12 @@ bool ValidateAnchor(const CAnchor & anchor, bool& pending)
     }
 
     // Check sig size to avoid storing bogus anchors with large number of sigs
-    if (anchor.nextTeam.size() == 1 && anchor.sigs.size() <= static_cast<size_t>(Params().GetConsensus().mn.anchoringTeamSize))
+    if (anchor.nextTeam.size() != 1) {
+        return error("%s: Incorrect anchor team size. Found: %d",
+                     __func__, anchor.nextTeam.size());
+    }
+
+    if (anchor.sigs.size() <= static_cast<size_t>(Params().GetConsensus().mn.anchoringTeamSize))
     {
         // Team entry
         const CKeyID& teamData = *anchor.nextTeam.begin();
@@ -800,24 +805,10 @@ bool ValidateAnchor(const CAnchor & anchor, bool& pending)
                 return error("%s: Post fork acnhor created before fork height. Anchor %ld fork %d",
                              __func__, anchorCreationHeight, Params().GetConsensus().DakotaHeight);
             }
-
-            return false;
         }
     }
 
-    // 3. Check sigs
-    // current team for THIS message extracted from PREV anchor message, overwise "genesis" team
-    CAnchorData::CTeam curTeam = panchors->GetNextTeam(anchor.previousAnchor);
-
-    if (curTeam.empty()) {
-        return error("%s: Team empty for anchor, not able to validate sigs. Height %d sigs size %d", __func__, anchor.height, anchor.sigs.size());
-    }
-
-    if (!anchor.CheckAuthSigs(curTeam, false)) {
-        return error("%s: Message auth sigs does not match team. BTC block hash %s", __func__, anchor.blockHash.ToString());
-    }
-
-    return true;
+    return false;
 }
 
 bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBlock, uint64_t &anchorCreationHeight)

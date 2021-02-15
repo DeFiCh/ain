@@ -492,7 +492,7 @@ void CSpvWrapper::WriteTx(const BRTransaction *tx)
 void CSpvWrapper::UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t timestamp)
 {
     std::pair<char, uint256> const key{std::make_pair(DB_SPVTXS, hash)};
-    std::pair<TBytes, std::pair<uint32_t, uint32_t> > txrec;
+    db_tx_rec txrec;
     if (db->Read(key, txrec)) {
         txrec.second.first = blockHeight;
         txrec.second.second = timestamp;
@@ -503,7 +503,7 @@ void CSpvWrapper::UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t 
 uint32_t CSpvWrapper::ReadTxTimestamp(uint256 const & hash)
 {
     std::pair<char, uint256> const key{std::make_pair(DB_SPVTXS, hash)};
-    std::pair<TBytes, std::pair<uint32_t, uint32_t> > txrec;
+    db_tx_rec txrec;
     if (db->Read(key, txrec)) {
         return txrec.second.second;
     }
@@ -843,8 +843,12 @@ void CFakeSpvWrapper::OnSendRawTx(BRTransaction *tx, std::promise<int> * promise
 
     /// @todo lock cs_main? or assert unlocked?
     LogPrintf("fakespv: adding anchor tx %s\n", to_uint256(tx->txHash).ToString());
+
+    // Use realistic time
+    tx->timestamp = GetTime();
+
     OnTxAdded(tx);
-    OnTxUpdated(&tx->txHash, 1, lastBlockHeight, 666);
+    OnTxUpdated(&tx->txHash, 1, lastBlockHeight, GetTime() + 1000);
 
     if (promise)
         promise->set_value(0);

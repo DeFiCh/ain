@@ -1421,9 +1421,6 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     }
     mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
 
-    // Store reward data for RPC info
-    mnview.AddAnchorConfirmData(CAnchorConfirmDataPlus{finMsg});
-
     return { finMsg.btcTxHash, Res::Ok() };
 }
 

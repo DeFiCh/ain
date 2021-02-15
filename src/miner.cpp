@@ -190,13 +190,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         mTx.vout[0].scriptPubKey =  CScript() << OP_RETURN << ToByteVector(metadata);
         mTx.vout[0].nValue = 0;
         mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-
-        if (nHeight >= chainparams.GetConsensus().AMKHeight) {
-            mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
-        }
-        else {
-            mTx.vout[1].nValue = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, chainparams.GetConsensus());
-        }
+        mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
 
         auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
         if (!rewardTx) {

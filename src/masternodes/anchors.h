@@ -120,7 +120,7 @@ public:
     {}
 
     static CAnchor Create(std::vector<CAnchorAuthMessage> const & auths, CTxDestination const & rewardDest);
-    bool CheckAuthSigs(CTeam const & team, bool newAnchorType) const;
+    bool CheckAuthSigs(CTeam const & team) const;
 
     ADD_SERIALIZE_METHODS;
 
