@@ -811,5 +811,6 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 }
 
 Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int height, CAmount nFees, const Consensus::Params& consensus);
+void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height);
 
 #endif // DEFI_VALIDATION_H

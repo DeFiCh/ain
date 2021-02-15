@@ -1618,6 +1618,9 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
     mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
 
+    // Undo community balance increments
+    ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
+
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = *(block.vtx[i]);
@@ -1910,6 +1913,20 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 
     return Res::Ok();
 }
+
+
+void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
+{
+    CAmount blockReward = GetBlockSubsidy(height, Params().GetConsensus());
+
+    if (height >= Params().GetConsensus().AMKHeight) {
+        for (auto kv : Params().GetConsensus().nonUtxoBlockSubsidies) {
+            CAmount subsidy = blockReward * kv.second / COIN;
+            mnview.SubCommunityBalance(kv.first, subsidy);
+        }
+    }
+}
+
 
 
 static int64_t nTimeCheck = 0;
