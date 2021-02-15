@@ -51,7 +51,7 @@ Res CPoolPairView::SetPoolPair(DCT_ID const & poolId, CPoolPair const & pool)
     return Res::Err("Error: Couldn't create/update pool pair.");
 }
 
-Res CPoolPairView::UpdatePoolPair(DCT_ID const & poolId, bool & status, CAmount const & commission, CScript const & ownerAddress)
+Res CPoolPairView::UpdatePoolPair(DCT_ID const & poolId, bool status, CAmount const & commission, CScript const & ownerAddress)
 {
     auto poolPair = GetPoolPair(poolId);
     if (!poolPair) {

@@ -113,7 +113,7 @@ public:
 
     // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
     // otherwise, 'AddLiquidity' should be () external to 'CPairPool' (i.e. CPoolPairView::AddLiquidity(TAmount a,b etc) with internal lookup of pool by TAmount a,b)
-    Res AddLiquidity(CAmount amountA, CAmount amountB, CScript const & shareAddress, std::function<Res(CScript const & to, CAmount liqAmount)> onMint, bool slippageProtection = false) {
+    Res AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(CAmount liqAmount)> onMint, bool slippageProtection = false) {
         // instead of assertion due to tests
         if (amountA <= 0 || amountB <= 0) {
             return Res::Err("amounts should be positive");
@@ -159,7 +159,7 @@ public:
             return Res::Err("overflow when adding to reserves");
         }
 
-        return onMint(shareAddress, liquidity);
+        return onMint(liquidity);
     }
 
     Res RemoveLiquidity(CScript const & address, CAmount const & liqAmount, std::function<Res(CScript to, CAmount amountA, CAmount amountB)> onReclaim) {
@@ -250,7 +250,7 @@ class CPoolPairView : public virtual CStorageView
 {
 public:
     Res SetPoolPair(const DCT_ID &poolId, CPoolPair const & pool);
-    Res UpdatePoolPair(DCT_ID const & poolId, bool & status, CAmount const & commission, CScript const & ownerAddress);
+    Res UpdatePoolPair(DCT_ID const & poolId, bool status, CAmount const & commission, CScript const & ownerAddress);
 
     Res SetPoolCustomReward(const DCT_ID &poolId, CBalances &rewards);
     boost::optional<CBalances> GetPoolCustomReward(const DCT_ID &poolId);
@@ -328,10 +328,10 @@ public:
                         feeA = pool.blockCommissionA * liqWeight / PRECISION;
                         feeB = pool.blockCommissionB * liqWeight / PRECISION;
                     }
-                    if (onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Commission), {pool.idTokenA, feeA}).ok) {
+                    if (onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Commission), {pool.idTokenA, feeA})) {
                         distributedFeeA += feeA;
                     }
-                    if (onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Commission), {pool.idTokenB, feeB}).ok) {
+                    if (onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Commission), {pool.idTokenB, feeB})) {
                         distributedFeeB += feeB;
                     }
                 }
@@ -343,7 +343,7 @@ public:
                         providerReward = poolReward * liqWeight / PRECISION;
                     }
                     if (providerReward) {
-                        if (onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}).ok) {
+                        if (onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward})) {
                             totalDistributed += providerReward;
                         }
                     }
@@ -363,13 +363,15 @@ public:
                 return true;
             }, PoolShareKey{poolId, CScript{}});
 
-            pool.blockCommissionA -= distributedFeeA;
-            pool.blockCommissionB -= distributedFeeB;
-            pool.swapEvent = false;
+            if (pool.swapEvent) {
+                pool.blockCommissionA -= distributedFeeA;
+                pool.blockCommissionB -= distributedFeeB;
+                pool.swapEvent = false;
 
-            auto res = SetPoolPair(poolId, pool);
-            if (!res.ok) {
-                LogPrintf("Pool rewards: can't update pool (id=%s) state: %s\n", poolId.ToString(), res.msg);
+                auto res = SetPoolPair(poolId, pool);
+                if (!res.ok) {
+                    LogPrintf("Pool rewards: can't update pool (id=%s) state: %s\n", poolId.ToString(), res.msg);
+                }
             }
             return true;
         });

@@ -147,10 +147,10 @@ public:
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront);
     bool RevertCreateToken(uint256 const & txid);   /// @deprecated used only by tests. rewrite tests
-    Res UpdateToken(uint256 const & tokenTx, CToken & newToken, bool isPreBayfront);
+    Res UpdateToken(uint256 const & tokenTx, CToken const & newToken, bool isPreBayfront);
 
     Res BayfrontFlagsCleanup();
-    Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount, UniValue *rpcInfo = nullptr);
+    Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
 
     // tags
     struct ID { static const unsigned char prefix; };

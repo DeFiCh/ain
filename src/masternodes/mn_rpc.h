@@ -73,6 +73,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion,
 std::string ScriptToString(CScript const& script);
 CAccounts GetAllMineAccounts(CWallet* const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode);
+void execTestTx(const CTransaction& tx, uint32_t height, const std::vector<unsigned char>& metadata, CCustomTxMessage txMessage, const CCoinsViewCache& coins = g_chainstate->CoinsTip());
 CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t &blocks, std::vector<unsigned char>& image);
 
 #endif // DEFI_MASTERNODES_MN_RPC_H

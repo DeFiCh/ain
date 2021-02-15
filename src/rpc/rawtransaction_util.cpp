@@ -25,13 +25,6 @@
 
 #include <string>
 
-std::function<void(int, std::string)> JSONRPCErrorThrower(const std::string& prefix) {
-    return [=](int code, const std::string& msg) {
-        throw JSONRPCError(code, prefix + ": " + msg);
-    };
-}
-
-
 std::pair<std::string, std::string> SplitAmount(std::string const & output)
 {
     const unsigned char TOKEN_SPLITTER = '@';
@@ -58,7 +51,7 @@ ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain, std::stri
 {
     const auto parsed = ParseTokenAmount(tokenAmount);
     if (!parsed.ok) {
-        return {parsed.res()};
+        return parsed;
     }
     DCT_ID tokenId;
     try {
@@ -106,7 +99,9 @@ CTokenAmount DecodeAmount(interfaces::Chain const & chain, UniValue const& amoun
     } else { // only 1 amount
         strAmount = amountUni.get_str();
     }
-    return GuessTokenAmount(chain, strAmount).ValOrException(JSONRPCErrorThrower(name));
+    return GuessTokenAmount(chain, strAmount).ValOrException([name](int code, const std::string& msg) -> UniValue {
+        return JSONRPCError(code, name + ": " + msg);
+    });
 }
 
 CBalances DecodeAmounts(interfaces::Chain const & chain, UniValue const& amountsUni, std::string const& name)

@@ -44,7 +44,7 @@ class TokensForkTest (DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Token tx before AMK" in errorString)
+        assert("before AMK height" in errorString)
 
         self.nodes[0].generate(1)
         # Before fork, create should fail, so now only have default token
@@ -119,7 +119,7 @@ class TokensForkTest (DefiTestFramework):
             assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Token tx before AMK" in errorString)
+        assert("before AMK height" in errorString)
 
 
 

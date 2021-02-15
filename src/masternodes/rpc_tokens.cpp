@@ -1,73 +1,6 @@
 #include <masternodes/mn_rpc.h>
 #include <index/txindex.h>
 
-static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)
-{
-    std::vector<unsigned char> metadata;
-    guess = GuessCustomTxType(*tx, metadata);
-    CCustomCSView mnview_dummy(*pcustomcsview);
-
-    switch (guess)
-    {
-        case CustomTxType::CreateMasternode:
-            res = ApplyCreateMasternodeTx(mnview_dummy, *tx, nHeight, uint64_t{0}, metadata, &txResults);
-            break;
-        case CustomTxType::ResignMasternode:
-            res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
-            break;
-        case CustomTxType::CreateToken:
-            res = ApplyCreateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::UpdateToken:
-            res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::UpdateTokenAny:
-            res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::MintToken:
-            res = ApplyMintTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::CreatePoolPair:
-            res = ApplyCreatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::UpdatePoolPair:
-            res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::PoolSwap:
-            res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::AddPoolLiquidity:
-            res = ApplyAddPoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::RemovePoolLiquidity:
-            res = ApplyRemovePoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::UtxosToAccount:
-            res = ApplyUtxosToAccountTx(mnview_dummy, *tx, nHeight, metadata, Params().GetConsensus(), &txResults);
-            break;
-        case CustomTxType::AccountToUtxos:
-            res = ApplyAccountToUtxosTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::AccountToAccount:
-            res = ApplyAccountToAccountTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::SetGovVariable:
-            res = ApplySetGovernanceTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::AnyAccountsToAccounts:
-            res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::AutoAuthPrep:
-            res.ok = true;
-            res.msg = "AutoAuth";
-            break;
-        default:
-            return false;
-    }
-
-    return true;
-}
-
 UniValue createtoken(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -198,15 +131,11 @@ UniValue createtoken(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyCreateTokenTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, token}), Params().GetConsensus());
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, token});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateTokenMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -395,22 +324,16 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        Res res{};
+            AddCoins(coins, *optAuthTx, targetHeight);
+        CCustomTxMessage txMessage = CUpdateTokenMessage{};
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, static_cast<CToken>(tokenImpl)});
         if (targetHeight < Params().GetConsensus().BayfrontHeight) {
-            res = ApplyUpdateTokenTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                          ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, metaObj["isDAT"].getBool()}), Params().GetConsensus());
+            txMessage = CUpdateTokenPreAMKMessage{};
+            metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, metaObj["isDAT"].getBool()});
         }
-        else {
-            res = ApplyUpdateTokenAnyTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                          ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, static_cast<CToken>(tokenImpl)}), Params().GetConsensus());
-        }
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, txMessage, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -655,7 +578,8 @@ UniValue getcustomtx(const JSONRPCRequest& request)
             return "Coinbase transaction. Not a custom transaction.";
         }
 
-        if (!GetCustomTXInfo(nHeight, tx, guess, res, txResults)) {
+        res = RpcInfo(*tx, nHeight, guess, txResults);
+        if (guess == CustomTxType::None) {
             return "Not a custom transaction";
         }
 
@@ -668,10 +592,10 @@ UniValue getcustomtx(const JSONRPCRequest& request)
 
     result.pushKV("type", ToString(guess));
     if (!actualHeight) {
-        result.pushKV("valid", res.ok ? true : false);
+        result.pushKV("valid", res.ok);
     } else {
         auto undo = pcustomcsview->GetUndo(UndoKey{static_cast<uint32_t>(nHeight), hash});
-        result.pushKV("valid", undo || res.msg == "AutoAuth" ? true : false);
+        result.pushKV("valid", undo || guess == CustomTxType::AutoAuthPrep);
     }
 
     if (!res.ok) {
@@ -802,15 +726,11 @@ UniValue minttokens(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache view(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(view, *optAuthTx, targetHeight);
-        const auto res = ApplyMintTokenTx(mnview_dummy, view, CTransaction(rawTx), targetHeight,
-                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted }), Params().GetConsensus());
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted });
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CMintTokensMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
