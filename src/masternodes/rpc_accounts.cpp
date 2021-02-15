@@ -557,12 +557,8 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyUtxosToAccountTx(mnview_dummy, CTransaction(rawTx), targetHeight,
-                                               ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CUtxosToAccountMessage{});
     }
 
     return signsend(rawTx, pwallet, {})->GetHash().GetHex();
@@ -658,21 +654,11 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyAccountToAccountTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                               ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
-        if (!res.ok) {
-            /// @todo unlock
-            if (res.code == CustomTxErrCodes::NotEnoughBalance) {
-                throw JSONRPCError(RPC_INVALID_REQUEST,
-                                   "Execution test failed: not enough balance on owner's account, call utxostoaccount to increase it.\n" +
-                                   res.msg);
-            }
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CAccountToAccountMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -786,20 +772,11 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyAccountToUtxosTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
-        if (!res.ok) {
-            if (res.code == CustomTxErrCodes::NotEnoughBalance) {
-                throw JSONRPCError(RPC_INVALID_REQUEST,
-                                   "Execution test failed: not enough balance on owner's account, call utxostoaccount to increase it.\n" +
-                                   res.msg);
-            }
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CAccountToUtxosMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -1390,22 +1367,12 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyAnyAccountsToAccountsTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                               ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
-        if (!res.ok) {
-            if (res.code == CustomTxErrCodes::NotEnoughBalance) {
-                throw JSONRPCError(RPC_INVALID_REQUEST,
-                                   "Execution test failed: not enough balance on owner's account, call utxostoaccount to increase it.\n" +
-                                   res.msg);
-            }
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CAnyAccountsToAccountsMessage{}, coins);
     }
-
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 
 }

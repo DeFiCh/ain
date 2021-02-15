@@ -54,15 +54,15 @@ Res AddPoolLiquidity(CCustomCSView &mnview, DCT_ID idPool, CAmount amountA, CAmo
     auto optPool = mnview.GetPoolPair(idPool);
     BOOST_REQUIRE(optPool);
 
-    const auto res = optPool->AddLiquidity(amountA, amountB, shareAddress, [&] /*onMint*/(CScript const & to, CAmount liqAmount) -> Res {
+    const auto res = optPool->AddLiquidity(amountA, amountB, [&] /*onMint*/(CAmount liqAmount) -> Res {
         BOOST_CHECK(liqAmount > 0);
 
-        auto add = mnview.AddBalance(to, { idPool, liqAmount });
+        auto add = mnview.AddBalance(shareAddress, { idPool, liqAmount });
         if (!add.ok) {
             return add;
         }
         //insert update ByShare index
-        const auto setShare = mnview.SetShare(idPool, to);
+        const auto setShare = mnview.SetShare(idPool, shareAddress);
         if (!setShare.ok) {
             return setShare;
         }
@@ -76,7 +76,7 @@ BOOST_FIXTURE_TEST_SUITE(liquidity_tests, TestingSetup)
 
 BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
 {
-    auto FAIL_onMint = [](const CScript &, CAmount)-> Res { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
+    auto FAIL_onMint = [](CAmount)-> Res { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
     auto FAIL_onSwap = [](const CTokenAmount &)-> Res { BOOST_REQUIRE(false); return Res::Err("it should not happen"); };
 
     CCustomCSView mnview(*pcustomcsview);
@@ -89,19 +89,19 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     Res res{};
     { // basic fails
         CPoolPair pool = *optPool;
-        res = pool.AddLiquidity(-1, 1000, {}, FAIL_onMint);
+        res = pool.AddLiquidity(-1, 1000, FAIL_onMint);
         BOOST_CHECK(!res.ok && res.msg == "amounts should be positive");
-        res = pool.AddLiquidity(0, 1000, {}, FAIL_onMint);
+        res = pool.AddLiquidity(0, 1000, FAIL_onMint);
         BOOST_CHECK(!res.ok && res.msg == "amounts should be positive");
-        res = pool.AddLiquidity(1, 1000, {}, FAIL_onMint);
+        res = pool.AddLiquidity(1, 1000, FAIL_onMint);
         BOOST_CHECK(!res.ok && res.msg == "liquidity too low");
-        res = pool.AddLiquidity(10, 100000, {}, FAIL_onMint);
+        res = pool.AddLiquidity(10, 100000, FAIL_onMint);
         BOOST_CHECK(!res.ok && res.msg == "liquidity too low"); // median == MINIMUM_LIQUIDITY
     }
 
     { // amounts a bit larger MINIMUM_LIQUIDITY
         CPoolPair pool = *optPool;
-        res = pool.AddLiquidity(11, 100000, {}, [](const CScript &, CAmount liq)-> Res {
+        res = pool.AddLiquidity(11, 100000, [](CAmount liq)-> Res {
             BOOST_CHECK(liq == 48); // sqrt (11*100000) - MINIMUM_LIQUIDITY
             return Res::Ok();
         });
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
 
     {   // one limit
         CPoolPair pool = *optPool;
-        res = pool.AddLiquidity(std::numeric_limits<CAmount>::max(), 1, {}, [](const CScript &, CAmount liq)-> Res {
+        res = pool.AddLiquidity(std::numeric_limits<CAmount>::max(), 1, [](CAmount liq)-> Res {
             BOOST_CHECK(liq == 3036999499); // == sqrt(limit)-MINIMUM_LIQUIDITY
             return Res::Ok();
         });
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         BOOST_CHECK(pool.totalLiquidity == 3036999499 + CPoolPair::MINIMUM_LIQUIDITY);
 
         // plus 1
-        res = pool.AddLiquidity(1, 1, {}, FAIL_onMint);
+        res = pool.AddLiquidity(1, 1, FAIL_onMint);
         BOOST_CHECK(!res.ok && res.msg == "amounts too low, zero liquidity");
 
         // we can't swap forward even 1 satoshi
@@ -138,7 +138,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
 
     {   // two limits
         CPoolPair pool = *optPool;
-        res = pool.AddLiquidity(std::numeric_limits<CAmount>::max(), std::numeric_limits<CAmount>::max(), {}, [](const CScript &, CAmount liq)-> Res {
+        res = pool.AddLiquidity(std::numeric_limits<CAmount>::max(), std::numeric_limits<CAmount>::max(), [](CAmount liq)-> Res {
             BOOST_CHECK(liq == std::numeric_limits<CAmount>::max() - CPoolPair::MINIMUM_LIQUIDITY);
             return Res::Ok();
         });
@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
         BOOST_CHECK(pool.reserveB == std::numeric_limits<CAmount>::max());
         BOOST_CHECK(pool.totalLiquidity == std::numeric_limits<CAmount>::max());
 
-        res = pool.AddLiquidity(1, 1, {}, FAIL_onMint);
+        res = pool.AddLiquidity(1, 1, FAIL_onMint);
         BOOST_CHECK(!res.ok && res.msg.find("can't add") != res.msg.npos); // in fact we got liquidity overflows
 
         // thats all, we can't do anything here until removing
@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     // it works extremely bad on low reserves, but it's okay, just bad trade.
     {
         CPoolPair pool = *optPool;
-        res = pool.AddLiquidity(1001, 1001, {}, [](const CScript &, CAmount liq)-> Res {
+        res = pool.AddLiquidity(1001, 1001, [](CAmount liq)-> Res {
             BOOST_CHECK(liq == 1001 - CPoolPair::MINIMUM_LIQUIDITY);
             return Res::Ok();
         });
@@ -174,7 +174,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     // trying to swap moooore than reserved (sliding), but on "resonable" reserves
     {
         CPoolPair pool = *optPool;
-        res = pool.AddLiquidity(COIN, COIN, {}, [](const CScript &, CAmount liq)-> Res {
+        res = pool.AddLiquidity(COIN, COIN, [](CAmount liq)-> Res {
             return Res::Ok();
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     {
 //        printf("2 COIN (1:1000)\n");
         CPoolPair pool = *optPool;
-        res = pool.AddLiquidity(COIN, 1000*COIN, {}, [](const CScript &, CAmount liq)-> Res {
+        res = pool.AddLiquidity(COIN, 1000*COIN, [](CAmount liq)-> Res {
             return Res::Ok();
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, 2*COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
@@ -206,7 +206,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     {
 //        printf("1 COIN (1:1000)\n");
         CPoolPair pool = *optPool;
-        res = pool.AddLiquidity(COIN, 1000*COIN, {}, [](const CScript &, CAmount liq)-> Res {
+        res = pool.AddLiquidity(COIN, 1000*COIN, [](CAmount liq)-> Res {
             return Res::Ok();
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, COIN}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{
@@ -221,7 +221,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
     {
 //        printf("COIN/1000 (1:1000) (no slope due to commission)\n");
         CPoolPair pool = *optPool;
-        res = pool.AddLiquidity(COIN, 1000*COIN, {}, [](const CScript &, CAmount liq)-> Res {
+        res = pool.AddLiquidity(COIN, 1000*COIN, [](CAmount liq)-> Res {
             return Res::Ok();
         });
         res = pool.Swap(CTokenAmount{pool.idTokenA, COIN/1000}, PoolPrice{std::numeric_limits<CAmount>::max(), 0}, [&] (CTokenAmount const &ta) -> Res{

@@ -374,8 +374,9 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
-  masternodes/rpc_masternodes.cpp \
   masternodes/rpc_accounts.cpp \
+  masternodes/rpc_customtx.cpp \
+  masternodes/rpc_masternodes.cpp \
   masternodes/rpc_tokens.cpp \
   masternodes/rpc_poolpair.cpp \
   masternodes/tokens.cpp \

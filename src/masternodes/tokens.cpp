@@ -186,7 +186,7 @@ bool CTokensView::RevertCreateToken(const uint256 & txid)
     return true;
 }
 
-Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isPreBayfront)
+Res CTokensView::UpdateToken(const uint256 &tokenTx, const CToken& newToken, bool isPreBayfront)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
@@ -266,7 +266,7 @@ Res CTokensView::BayfrontFlagsCleanup()
     return Res::Ok();
 }
 
-Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount, UniValue* rpcInfo)
+Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
@@ -279,11 +279,6 @@ Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount,
         return Res::Err("overflow when adding to minted");
     }
     tokenImpl.minted = *resMinted.val;
-
-    // Transaction info for getcustomtx RPC call
-    if (rpcInfo) {
-        rpcInfo->pushKV(std::to_string(pair->first.v), ValueFromAmount(amount));
-    }
 
     WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
     return Res::Ok();

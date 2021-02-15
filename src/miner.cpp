@@ -460,6 +460,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
     // Copy of the view
     CCustomCSView view(*pcustomcsview);
+    CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
 
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
@@ -569,12 +570,14 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                 continue;
             }
 
+            AddCoins(coins, tx, nHeight);
+
             std::vector<unsigned char> metadata;
             CustomTxType txType = GuessCustomTxType(tx, metadata);
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                auto res = ApplyCustomTx(view, ::ChainstateActive().CoinsTip(), tx, chainparams.GetConsensus(), nHeight, uint64_t{0}, 0, false, true);
+                auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight);
 
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
