@@ -38,16 +38,6 @@ Res COracleView::AppointOracle(const COracleId& oracleId, const COracle& oracle)
         return Res::Err("failed to appoint the new oracle <%s>", oracleId.GetHex());
     }
 
-    // check
-    COracle oracle1{};
-    if (!ReadBy<ByName>(oracleId, oracle1)) {
-        return Res::Err("failed to read newly created oracle <%s> from database", oracleId.GetHex());
-    }
-
-    if (oracle != oracle1) {
-        return Res::Err("oracles don't match", oracleId.GetHex());
-    }
-
     return AddOracleId(oracleId);
 }
 
@@ -135,23 +125,7 @@ Res COracleView::AddOracleId(const COracleId& oracleId) {
     }
     oracles.push_back(oracleId);
 
-    if (!WriteBy<ByName>(_allOraclesKey, oracles)) {
-        return Res::Err("failed to save oracle ids list");
-    }
-
-    std::vector<COracleId> ora1{};
-    std::set<COracleId> ora2{};
-    if (!ReadBy<ByName>(_allOraclesKey, ora1)) {
-        return Res::Err("failed to save oracle ids list");
-    }
-
-    if (!ReadBy<ByName>(_allOraclesKey, ora2)) {
-        return Res::Err("failed to save oracle ids list");
-    }
-
-
-
-    return Res::Ok();
+    return UpdateOraclesList(oracles);
 }
 
 Res COracleView::RemoveOracleId(const COracleId& oracleId) {

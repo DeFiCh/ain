@@ -72,12 +72,6 @@ BOOST_FIXTURE_TEST_SUITE(oracle_tests, OraclesTestingSetup)
         std::cin.get();
         std::vector<unsigned char> tmp{'a', 'b', 'c'};
         CScript oracleAddress1{tmp.begin(), tmp.end()};
-//        try {
-//            oracleAddress = DecodeScript(address);
-//        } catch (const UniValue& error) {
-//            std::cerr << error.write(1, 1) << std::endl;
-//            BOOST_ASSERT_MSG(false, "failed to decode address");
-//        }
         uint8_t weightage = 15;
         std::set<DCT_ID> availableTokens = {{1}, {2}};
         CAppointOracleMessage msg{oracleAddress1, weightage, availableTokens};
@@ -91,6 +85,8 @@ BOOST_FIXTURE_TEST_SUITE(oracle_tests, OraclesTestingSetup)
         BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
 
         auto allOracleIds = mnview.GetAllOracleIds();
+        BOOST_ASSERT_MSG((allOracleIds == std::vector<COracleId>{oracleId1, oracleId2}),
+                "wrong list of oracles");
 
         std::cout << "all oracles = " << JoinOracles(allOracleIds) << std::endl;
     }

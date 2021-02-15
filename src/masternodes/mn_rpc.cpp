@@ -50,7 +50,7 @@ extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in co
 
 extern UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet);
 
-std::string GetOraclesList();
+UniValue GetOraclesList();
 
 static CAccounts FindAccountsFromWallet(CWallet* const pwallet, bool includeWatchOnly = false) {
 
@@ -4179,17 +4179,160 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
-
-        oracles = GetOraclesList();
     }
 
-    auto txHash = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
 
-    UniValue res(UniValue::VOBJ);
-    res.pushKV("oracleid", txHash);
-    res.pushKV("oracles", oracles);
+UniValue updateoracle(const JSONRPCRequest& request) {
+    CWallet *const pwallet = GetWallet(request);
 
-    return res.write();
+    RPCHelpMan{"appointoracle",
+               "\nCreates (and submits to local node and network) a `appoint oracle transaction`, \n"
+               "and saves oracle to database.\n"
+               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle id"},
+                       {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "oracle address",},
+                       {"allowedtokens", RPCArg::Type::STR, RPCArg::Optional::NO, "list of allowed tokens"},
+                       {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("updateoracle", "1612237937 '[“BTC#1”, “ETH#2”]' 20")
+                       + HelpExampleRpc("updateoracle", "1058f5054f76b12f379211de703a2f5f4ce66a65112efd2c6774013c16868097 1612237937 '[“BTC#1”, “ETH#2”]' 20")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    // decode oracleid
+    COracleId oracleId{};
+    if (!oracleId.parseHex(request.params[0].getValStr())) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse oracle id");
+    }
+
+    // decode address
+    std::string address = request.params[1].getValStr();
+    CScript script{};
+    try {
+        script = DecodeScript(address);
+    } catch(...) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse address");
+    }
+
+    // decode allowed token list
+    UniValue allowedTokensStr{};
+    if (!allowedTokensStr.read(request.params[2].getValStr())) {
+        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to read allowed tokens");
+    }
+    auto tokens = DecodeTokens(pwallet->chain(), allowedTokensStr, "");
+
+    // decode weightage
+    UniValue const & weightageUni = request.params[3];
+    uint32_t weightage{};
+    try {
+        weightage = std::stoul(weightageUni.getValStr());
+    } catch (...) {
+        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode weightage");
+    }
+
+    if (weightage > std::numeric_limits<uint8_t>::max()) {
+        throw JSONRPCError(RPC_TRANSACTION_ERROR, "the weightage value is out of bounds");
+    }
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    RPCTypeCheck(request.params,
+                 {UniValue::VSTR, UniValue::VSTR, UniValue::VSTR, UniValue::VNUM},
+                 false);
+
+    std::set<DCT_ID> tokenSet;
+    std::for_each(tokens.begin(), tokens.end(), [&tokenSet](DCT_ID &it) {
+        tokenSet.insert(it);
+    });
+
+    CUpdateOracleAppointMessage msg{
+        oracleId,
+        CAppointOracleMessage{std::move(script), static_cast<uint8_t>(weightage), std::move(tokenSet)}
+    };
+
+    // encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::UpdateOracleAppoint)
+                   << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    UniValue const &txInputs = request.params[4];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(
+            pwallet,
+            rawTx.nVersion,
+            auths,
+            true,
+            optAuthTx,
+            txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to auth address if there's only one auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    std::string oracles;
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto res = ApplyUpdateOracleAppointTx(
+                mnview_dummy,
+                coinview,
+                CTransaction(rawTx),
+                targetHeight,
+                ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}),
+                Params().GetConsensus());
+
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue removeoracle(const JSONRPCRequest& request) {
@@ -4239,10 +4382,9 @@ UniValue removeoracle(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
 
-
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::AppointOracle)
+    markedMetadata << static_cast<unsigned char>(CustomTxType::RemoveOracleAppoint)
                    << msg;
 
     CScript scriptMeta;
@@ -4274,16 +4416,17 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCustomCSView databaseView(*pcustomcsview); // don't write into actual DB
+        CCoinsViewCache coinView(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
+            AddCoins(coinView, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
         const auto res = ApplyRemoveOracleAppointTx(
-                mnview_dummy,
-                coinview,
+                databaseView,
+                coinView,
                 CTransaction(rawTx),
                 targetHeight,
-                ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}),
+                metadata,
                 Params().GetConsensus());
 
         if (!res.ok) {
@@ -4341,28 +4484,23 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode oracle id
-    UniValue const & oracleIdUni = request.params[0];
     COracleId oracleId{};
-    if (!oracleId.parseHex(oracleIdUni.getValStr())) {
+    if (!oracleId.parseHex(request.params[0].getValStr())) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse oracle id");
     }
     // decode timestamp
-    UniValue const & timestampUni = request.params[1];
     int64_t timestamp{};
     try {
-        timestamp = std::stoll(timestampUni.getValStr());
+        timestamp = std::stoll(request.params[1].getValStr());
     } catch (...) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode timestamp");
     }
-
     // decode prices
     UniValue prices{};
     if (!prices.read(request.params[2].getValStr())) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode prices");
     }
     auto balances = DecodeAmounts(pwallet->chain(), prices, "");
-
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     RPCTypeCheck(request.params,
                  { UniValue::VSTR, UniValue::VNUM, UniValue::VSTR},
@@ -4378,6 +4516,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.emplace_back(0, scriptMeta);
@@ -4424,17 +4563,16 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-std::string GetOraclesList() {
+UniValue GetOraclesList() {
     CCustomCSView mnview_wrapper(*pcustomcsview); // don't write into actual DB
     auto oracles = mnview_wrapper.GetAllOracleIds();
 
-    auto list =  boost::algorithm::join(
-            oracles | boost::adaptors::transformed(
-                    [](const COracleId& x) -> std::string {
-                        return x.GetHex();
-                    }),
-                    ", ");
-    return "[" + list + "]";
+    UniValue value(UniValue::VARR);
+    for (auto &&v: oracles) {
+        value.push_back(v.GetHex());
+    }
+
+    return value;
 }
 
 UniValue listoracles(const JSONRPCRequest& request) {
@@ -4729,8 +4867,9 @@ static const CRPCCommand commands[] =
     {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
     {"oracles",     "appointoracle",         &appointoracle,         {"address", "allowedtokens"}},
     {"oracles",     "removeoracle",          &removeoracle,          {"oracleid"}},
+    {"oracles",     "updateoracle",          &updateoracle,          {"oracleid", "address", "allowedtokens"}},
     {"oracles",     "setoracledata",         &setoracledata,         {"timestamp", "prices"}},
-    {"oracles",     "listoracles",         &listoracles,         {}},
+    {"oracles",     "listoracles",           &listoracles,            {}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

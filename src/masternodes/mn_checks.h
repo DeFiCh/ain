@@ -59,6 +59,7 @@ enum class CustomTxType : unsigned short
     RemoveOracleAppoint   = 201,
     UpdateOracleAppoint   = 202,
     SetOracleData         = 203,
+    ListOracles           = 204,
 //    ListLatestRawPrices   = 204,
 //    GetTokenPrice         = 205,
 //    LisTokentPrices       = 206,
@@ -165,6 +166,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
 
 Res ApplyAppointOracleTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 Res ApplyRemoveOracleAppointTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata,Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplyUpdateOracleAppointTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 Res ApplySetOracleDataTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256 & txid);
