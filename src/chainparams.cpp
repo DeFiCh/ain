@@ -614,10 +614,10 @@ public:
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.collateralAmountDakota = 2 * COIN;
         consensus.mn.historyFrame = 300;
-        consensus.mn.anchoringTeamSize = 8;
+        consensus.mn.anchoringTeamSize = 3;
         consensus.mn.anchoringFrequency = 15;
 
-        consensus.mn.anchoringTimeDepth = 0; // Any depth
+        consensus.mn.anchoringTimeDepth = 3 * 60 * 60;
         consensus.mn.anchoringTeamChange = 15; // Number of blocks
 
         consensus.token.creationFee = 1 * COIN;
@@ -629,7 +629,7 @@ public:
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
-        consensus.spv.minConfirmations = 1;
+        consensus.spv.minConfirmations = 6;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 50);       // 0.1 per block
