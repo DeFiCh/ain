@@ -108,31 +108,8 @@ class AnchorsTest (DefiTestFramework):
 
         self.check_rpc_fails()
 
-        estimated = self.nodes[0].spv_estimateanchorcost()
-        assert_equal(self.nodes[0].spv_estimateanchorcost(2000), estimated+662)
-        assert_equal(self.nodes[0].spv_estimateanchorcost(2500), estimated+662+331)
-
-        print ("Node0: Setting anchor")
-        self.nodes[0].spv_setlastheight(1)
-        txinfo = self.nodes[0].spv_createanchor([{
-            'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
-            'vout': 3,
-            'amount': 2262303,
-            'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"}],
-            "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
-
-        self.nodes[0].spv_setlastheight(10)
-        assert_equal(txinfo['defiHash'], self.nodes[0].getblockhash(15))
-        assert_equal(txinfo['defiHeight'], 15)
-        assert_equal(txinfo['cost'], estimated)
-
-        print ("Anc 0: ", self.nodes[0].spv_listanchors())
-        anc0 = self.nodes[0].spv_listanchors()
-        assert_equal(anc0[0]['btcTxHash'], txinfo['txHash'])
-        assert_equal(anc0[0]['defiBlockHash'], txinfo['defiHash'])
-        assert_equal(anc0[0]['defiBlockHeight'], txinfo['defiHeight'])
-        assert_equal(anc0[0]['confirmations'], 10)
-        assert_equal(anc0[0]['active'], True)
+        # This test only checks spv_createanchor failures. New anchor checks are handled
+        # by feature_anchor_rewards.py and feature_anchor_dakota.py.
 
 if __name__ == '__main__':
     AnchorsTest ().main ()
