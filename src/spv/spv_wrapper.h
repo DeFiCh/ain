@@ -107,6 +107,9 @@ public:
     void OnSavePeers(int replace, const BRPeer peers[], size_t peersCount);
     void OnThreadCleanup();
 
+    // Get time stamp of Bitcoin TX
+    uint32_t ReadTxTimestamp(uint256 const & hash);
+
 private:
     virtual void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise);
 

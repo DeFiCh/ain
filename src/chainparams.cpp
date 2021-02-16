@@ -156,7 +156,9 @@ public:
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
-        consensus.mn.anchoringLag = 15;
+
+        consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
+        consensus.mn.anchoringTeamChange = 120; // Number of blocks
 
         consensus.token.creationFee = 100 * COIN;
         consensus.token.collateralAmount = 1 * COIN;
@@ -332,7 +334,9 @@ public:
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
-        consensus.mn.anchoringLag = 15;
+
+        consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
+        consensus.mn.anchoringTeamChange = 120; // Number of blocks
 
         consensus.token.creationFee = 100 * COIN;
         consensus.token.collateralAmount = 1 * COIN;
@@ -474,7 +478,9 @@ public:
         consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
-        consensus.mn.anchoringLag = 15;
+
+        consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
+        consensus.mn.anchoringTeamChange = 120; // Number of blocks
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY"; /// @note devnet matter
@@ -608,9 +614,11 @@ public:
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.collateralAmountDakota = 2 * COIN;
         consensus.mn.historyFrame = 300;
-        consensus.mn.anchoringTeamSize = 8;
+        consensus.mn.anchoringTeamSize = 3;
         consensus.mn.anchoringFrequency = 15;
-        consensus.mn.anchoringLag = 15;
+
+        consensus.mn.anchoringTimeDepth = 3 * 60 * 60;
+        consensus.mn.anchoringTeamChange = 15; // Number of blocks
 
         consensus.token.creationFee = 1 * COIN;
         consensus.token.collateralAmount = 10 * COIN;
@@ -621,7 +629,7 @@ public:
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
-        consensus.spv.minConfirmations = 1;
+        consensus.spv.minConfirmations = 6;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 50);       // 0.1 per block

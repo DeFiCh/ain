@@ -16,7 +16,9 @@
 #include <primitives/transaction.h>
 #include <txmempool.h>
 #include <streams.h>
-#include <univalue/include/univalue.h>
+#include <validation.h>
+
+#include <univalue.h>
 
 #include <algorithm>
 #include <sstream>
@@ -1355,6 +1357,10 @@ Res ApplySetGovernanceTx(CCustomCSView &mnview, const CCoinsViewCache &coins, co
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
+    if (height >= consensusParams.DakotaHeight) {
+        return Res::Err("Old anchor TX type after Dakota fork. Height %d", height);
+    }
+
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CAnchorFinalizationMessage finMsg;
     ss >> finMsg;
@@ -1414,6 +1420,75 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
         mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
     }
     mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
+
+    return { finMsg.btcTxHash, Res::Ok() };
+}
+
+
+ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
+{
+    if (height < consensusParams.DakotaHeight) {
+        return Res::Err("New anchor TX type before Dakota fork. Height %d", height);
+    }
+
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    CAnchorFinalizationMessagePlus finMsg;
+    ss >> finMsg;
+
+    auto rewardTx = mnview.GetRewardForAnchor(finMsg.btcTxHash);
+    if (rewardTx) {
+        return Res::ErrDbg("bad-ar-exists", "reward for anchor %s already exists (tx: %s)",
+                           finMsg.btcTxHash.ToString(), (*rewardTx).ToString());
+    }
+
+    // Miner used confirm team at chain height when creating this TX, this is height - 1.
+    if (!finMsg.CheckConfirmSigs(height - 1)) {
+        return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
+    }
+
+    auto team = pcustomcsview->GetConfirmTeam(height - 1);
+    if (!team) {
+        return Res::ErrDbg("bad-ar-team", "could not get confirm team for height: %d", height - 1);
+    }
+
+    if (finMsg.sigs.size() < GetMinAnchorQuorum(*team)) {
+        return Res::ErrDbg("bad-ar-sigs-quorum", "anchor sigs (%d) < min quorum (%) ",
+                           finMsg.sigs.size(), GetMinAnchorQuorum(*team));
+    }
+
+    // Make sure anchor block height and hash exist in chain.
+    CBlockIndex* anchorIndex = ::ChainActive()[finMsg.anchorHeight];
+    if (!anchorIndex) {
+        return Res::ErrDbg("bad-ar-height", "Active chain does not contain block height %d. Chain height %d",
+                           finMsg.anchorHeight, ::ChainActive().Height());
+    }
+
+    if (anchorIndex->GetBlockHash() != finMsg.dfiBlockHash) {
+        return Res::ErrDbg("bad-ar-hash", "Anchor and blockchain mismatch at height %d. Expected %s found %s",
+                           finMsg.anchorHeight, anchorIndex->GetBlockHash().ToString(), finMsg.dfiBlockHash.ToString());
+    }
+
+    // check reward sum
+    auto const cbValues = tx.GetValuesOut();
+    if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
+        return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be paid in DFI only");
+
+    auto const anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
+    if (cbValues.begin()->second != anchorReward) {
+        return Res::ErrDbg("bad-ar-amount", "anchor pays wrong amount (actual=%d vs expected=%d)",
+                           cbValues.begin()->second, anchorReward);
+    }
+
+    CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
+    if (tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
+        return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
+    }
+
+    mnview.SetCommunityBalance(CommunityAccountType::AnchorReward, 0); // just reset
+    mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
+
+    // Store reward data for RPC info
+    mnview.AddAnchorConfirmData(CAnchorConfirmDataPlus{finMsg});
 
     return { finMsg.btcTxHash, Res::Ok() };
 }
