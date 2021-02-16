@@ -33,7 +33,17 @@ boost::optional<CPricePoint> COracle::GetTokenPrice(DCT_ID tokenId) const {
     return {};
 }
 
-Res COracleView::AppointOracle(const COracleId& oracleId, const COracle& oracle) {
+CurrencyId GetCurrencyByName(const std::string &name) {
+    if (name == "USD") {
+        return CurrencyId::USD;
+    } else if (name == "EUR") {
+        return CurrencyId::EUR;
+    }
+
+    return CurrencyId::UNKNOWN;
+}
+
+Res COracleView::AppointOracle(const COracleId &oracleId, const COracle &oracle) {
     if (!WriteBy<ByName>(oracleId, oracle)) {
         return Res::Err("failed to appoint the new oracle <%s>", oracleId.GetHex());
     }
@@ -41,7 +51,7 @@ Res COracleView::AppointOracle(const COracleId& oracleId, const COracle& oracle)
     return AddOracleId(oracleId);
 }
 
-Res COracleView::UpdateOracle(const COracleId& oracleId, const COracle& oracle) {
+Res COracleView::UpdateOracle(const COracleId &oracleId, const COracle &oracle) {
     if (!ExistsBy<ByName>(oracleId)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }
@@ -54,7 +64,7 @@ Res COracleView::UpdateOracle(const COracleId& oracleId, const COracle& oracle) 
     return Res::Ok();
 }
 
-Res COracleView::RemoveOracle(const COracleId& oracleId) {
+Res COracleView::RemoveOracle(const COracleId &oracleId) {
     if (!ExistsBy<ByName>(oracleId)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }
@@ -72,7 +82,7 @@ Res COracleView::RemoveOracle(const COracleId& oracleId) {
     return Res::Ok();
 }
 
-Res COracleView::SetOracleData(const COracleId& oracleId,  int64_t timestamp, const CBalances& balances) {
+Res COracleView::SetOracleData(const COracleId &oracleId, int64_t timestamp, const CBalances &balances) {
     COracle oracle{};
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("failed to read oracle %s from database", oracleId.GetHex());
@@ -99,7 +109,7 @@ Res COracleView::SetOracleData(const COracleId& oracleId,  int64_t timestamp, co
     return Res::Ok();
 }
 
-ResVal<COracle> COracleView::GetOracleData(const COracleId& oracleId) const {
+ResVal<COracle> COracleView::GetOracleData(const COracleId &oracleId) const {
     COracle oracle{};
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
@@ -118,7 +128,7 @@ std::vector<COracleId> COracleView::GetAllOracleIds() {
     return oracles;
 }
 
-Res COracleView::AddOracleId(const COracleId& oracleId) {
+Res COracleView::AddOracleId(const COracleId &oracleId) {
     auto oracles = GetAllOracleIds();
     if (std::find(oracles.begin(), oracles.end(), oracleId) != std::end(oracles)) {
         return Res::Err("cannot add oracle id <%s> already exists", oracleId.GetHex());
@@ -128,7 +138,7 @@ Res COracleView::AddOracleId(const COracleId& oracleId) {
     return UpdateOraclesList(oracles);
 }
 
-Res COracleView::RemoveOracleId(const COracleId& oracleId) {
+Res COracleView::RemoveOracleId(const COracleId &oracleId) {
     auto oracles = GetAllOracleIds();
     auto it = std::find(oracles.begin(), oracles.end(), oracleId);
     if (it == std::end(oracles)) {
@@ -139,7 +149,7 @@ Res COracleView::RemoveOracleId(const COracleId& oracleId) {
     return UpdateOraclesList(oracles);
 }
 
-Res COracleView::UpdateOraclesList(const std::vector<COracleId>& oracles) {
+Res COracleView::UpdateOraclesList(const std::vector<COracleId> &oracles) {
     if (!WriteBy<ByName>(_allOraclesKey, oracles)) {
         return Res::Err("failed to save oracle ids list");
     }

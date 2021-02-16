@@ -117,7 +117,7 @@ class OraclesTest (DefiTestFramework):
         print('oracleid2', oracle_id2)
         print('decodedtx2', self.nodes[0].getrawtransaction(oracle_id2, 1))
 
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(10)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
         try:
@@ -148,14 +148,26 @@ class OraclesTest (DefiTestFramework):
             print('failed to set oracle data', e.error['message'])
             raise
 
-        self.nodes[1].generate(1)
+        self.nodes[2].generate(10)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
         try:
-            self.nodes[0].updateoracle(oracle_id2, oracle_address2, timestamp, '["PT"]', 15)
+            self.nodes[0].updateoracle(oracle_id1, oracle_address1, '["PT", "GOLD#128"]', 15)
         except JSONRPCException as e:
             print('failed to update oracle', e.error['message'])
             raise
+
+        self.nodes[2].generate(10)
+        self.sync_all([self.nodes[0], self.nodes[2]])
+
+        input("debug")
+        try:
+            print('PT prices', self.nodes[2].listlatestprices('{"currency": "USD", "token": "PT"}'))
+            print('GOLD prices', self.nodes[2].listlatestprices('{"currency": "USD", "token": "GOLD#128"}'))
+        except JSONRPCException as e:
+            print('failed to list prices', e.error['message'])
+        except Exception as e:
+            print(str(e))
 
         # # remove oracle failure
         # self.sync_blocks()

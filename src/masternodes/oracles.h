@@ -105,6 +105,45 @@ struct CSetOracleDataMessage {
     }
 };
 
+/// Currency ids
+enum class CurrencyId: uint8_t {
+    UNKNOWN = 0,
+    USD,
+    EUR,
+};
+
+/// Decode currency id by name
+CurrencyId GetCurrencyByName(const std::string& name);
+
+/// Oracle states
+enum class OracleState: uint8_t {
+    EXPIRED,
+    ALIVE,
+};
+
+/// the listlatestprices result array item
+struct CPriceItem {
+    DCT_ID token;           /// token name
+    COracleId oracleId;     /// oracleid
+    uint64_t timestamp;     /// timestamp
+    CurrencyId currency;     /// currency name
+    uint8_t weightage;      /// oracle weightage
+    OracleState state;      /// oracle state: is alive or expired
+};
+
+/// names of oracle json fields
+struct OracleFields {
+    static constexpr auto Currency = "currency";
+    static constexpr auto Token = "token";
+    static constexpr auto OracleId = "oracleid";
+    static constexpr auto Timestamp = "timestamp";
+    static constexpr auto Weightage = "weightage";
+    static constexpr auto State = "state";
+    static constexpr auto Alive = "alive";
+    static constexpr auto Expired = "expired";
+};
+
+/// Oracle representation
 struct COracle : public CAppointOracleMessage {
     COracleId oracleId;
     CTokenPrices tokenPrices;
@@ -144,6 +183,7 @@ struct COracle : public CAppointOracleMessage {
     }
 };
 
+/// View for managing oracles and their data
 class COracleView: public virtual CStorageView {
 public:
     COracleView():
