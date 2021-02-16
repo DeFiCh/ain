@@ -12,21 +12,28 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal
 
+import time
 
 class AnchorsAuthsPruningTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.extra_args = [
-            [ "-dummypos=1", "-spv=1", "-fakespv=1", "-clarkequayheight=0"],
+            [ "-dummypos=1", "-spv=1", "-fakespv=1", '-amkheight=0', "-dakotaheight=1"],
         ]
         self.setup_clean_chain = True
 
+    def genmocktime(self, time, intervals):
+        for i in range(intervals):
+            self.nodes[0].set_mocktime(time + (i * 60 * 60))
+            self.nodes[0].generate(5)
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
 
-        self.nodes[0].generate(60)
+        self.genmocktime(int(time.time()), 12)
+
         assert_equal(len(self.nodes[0].spv_listanchors()), 0)
+
         # Checking starting set
         assert_equal(len(self.nodes[0].spv_listanchorauths()), 3) # 15,30,45
 
@@ -44,7 +51,7 @@ class AnchorsAuthsPruningTest (DefiTestFramework):
 
         # Still the same
         assert_equal(len(self.nodes[0].spv_listanchorauths()), 3) # 15,30,45
-        self.nodes[0].generate(30)
+        self.genmocktime(int(time.time() + (12 * 60 * 60)), 6)
         # Couple of auths added
         assert_equal(len(self.nodes[0].spv_listanchorauths()), 5) # + 60,75
 
