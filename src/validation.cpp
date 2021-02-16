@@ -1990,7 +1990,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             pcustomcsview->CreateDFIToken();
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
+                if (!res.ok) {
+                    return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
+                                 __func__, block.vtx[i]->GetHash().ToString(), res.msg);
+                }
                 AddCoins(view, *block.vtx[i], 0);
             }
         }
