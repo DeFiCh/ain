@@ -140,7 +140,8 @@ struct OracleFields {
     static constexpr auto Timestamp = "timestamp";
     static constexpr auto Weightage = "weightage";
     static constexpr auto State = "state";
-    static constexpr auto Alive = "alive";
+    static constexpr auto Price = "rawprice";
+    static constexpr auto Alive = "live";
     static constexpr auto Expired = "expired";
 };
 

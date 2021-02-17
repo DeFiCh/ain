@@ -109,6 +109,15 @@ inline ResVal<CAmount> SafeMultiply(CAmount _a, uint64_t w) {
     return {static_cast<CAmount>(res), Res::Ok()};
 }
 
+inline std::string amountToString(CAmount price) {
+    const bool sign = price < 0;
+    const int64_t n_abs = std::abs(price);
+    const int64_t quotient = n_abs / COIN;
+    const int64_t remainder = n_abs % COIN;
+
+    return strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder);
+}
+
 struct CTokenAmount { // simple std::pair is less informative
     DCT_ID nTokenId;
     CAmount nValue;

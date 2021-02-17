@@ -164,10 +164,14 @@ class OraclesTest (DefiTestFramework):
         try:
             print('PT prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "PT"}'))
             print('GOLD prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "GOLD#128"}'))
+            print('get aggregated price PT', self.nodes[2].getprice('{"currency": "USD", "token": "PT"}'))
+            print('get aggregated price GOLD', self.nodes[2].getprice('{"currency": "USD", "token": "GOLD#128"}'))
         except JSONRPCException as e:
             print('failed to list prices', e.error['message'])
         except Exception as e:
             print(str(e))
+
+        print('tokens', self.nodes[2].listtokens())
 
         # # remove oracle failure
         # self.sync_blocks()
