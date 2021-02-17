@@ -12,7 +12,7 @@
 #include <boost/test/unit_test.hpp>
 #include <vector>
 
-BOOST_FIXTURE_TEST_SUITE(mempool_tests, TestingSetup)
+BOOST_FIXTURE_TEST_SUITE(mempool_tests, BasicTestingSetup)
 
 static constexpr auto REMOVAL_REASON_DUMMY = MemPoolRemovalReason::REPLACED;
 

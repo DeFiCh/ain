@@ -90,8 +90,10 @@ inline std::string ToString(CustomTxType type) {
     }
 }
 
-inline bool NotAllowedToFail(CustomTxType txType) {
-    return txType == CustomTxType::MintToken || txType == CustomTxType::AccountToUtxos;
+// it's disabled after Dakota height
+inline bool NotAllowedToFail(CustomTxType txType, int height) {
+    return (height < Params().GetConsensus().DakotaHeight
+        && (txType == CustomTxType::MintToken || txType == CustomTxType::AccountToUtxos));
 }
 
 template<typename Stream>

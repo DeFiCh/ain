@@ -29,26 +29,23 @@ class IsMineCachedTest(DefiTestFramework):
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
-        print("Generating initial chain...")
-        tokens = [
-            {
-                "wallet": self.nodes[0],
-                "symbol": "GOLD",
-                "name": "shiny gold",
-                "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress,
-                "amount": 30
-            },
-        ]
-        # inside this function "tokenId" and "symbolId" will be assigned for each token obj
-        self.setup_tokens(tokens)
+        self.nodes[0].generate(101)
+        self.sync_all()
 
-        token0_symbol = tokens[0]["symbolId"]
+        wallet0_addr = self.nodes[0].getnewaddress("", "legacy")
+        self.nodes[0].utxostoaccount({wallet0_addr: "10@0"})
+        self.nodes[0].generate(1)
+        self.sync_all()
 
         to = {}
-        wallet1_addr1 = self.nodes[1].getnewaddress("", "legacy")
-        to[wallet1_addr1] = ["10@" + token0_symbol, "10@0"]
+        wallet1_addr = self.nodes[1].getnewaddress("", "legacy")
+        to[wallet1_addr] = ["10@0"]
 
         assert_raises_rpc_error(-5, None, self.nodes[0].sendtokenstoaddress, {}, to)
+
+        self.nodes[0].importprivkey(self.nodes[1].dumpprivkey(wallet1_addr))
+
+        self.nodes[0].sendtokenstoaddress({}, to)
 
 if __name__ == '__main__':
     IsMineCachedTest().main()

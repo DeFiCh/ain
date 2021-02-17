@@ -97,7 +97,8 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # Funding auth address and successful resign
         fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
         self.nodes[0].generate(1)
-        resignTx = self.nodes[0].resignmasternode(idnode0)
+        # resignTx
+        self.nodes[0].resignmasternode(idnode0)
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "PRE_RESIGNED")
         self.nodes[0].generate(10)
@@ -129,7 +130,8 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # print ("ResignTx", resignTx)
         # print ("FundingTx", fundingTx)
         # print ("SpendTx", sendedTxHash)
-        assert_equal(self.nodes[0].getrawmempool(), [fundingTx, resignTx])
+        # resignTx is removed for a block
+        assert_equal(self.nodes[0].getrawmempool(), [fundingTx])
         assert_equal(self.nodes[0].listmasternodes()[idnode0]['state'], "ENABLED")
 
         # Revert creation!
@@ -139,7 +141,8 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 2)
         self.sync_blocks(self.nodes[0:3])
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
-        assert_equal(self.nodes[0].getrawmempool(), [idnode0, fundingTx, resignTx])
+        # fundingTx is removed for a block
+        assert_equal(self.nodes[0].getrawmempool(), [idnode0])
 
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].createmasternode(collateral0)

@@ -609,7 +609,10 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         for (const auto& e : mempool.mapTx.get<entry_time>()) {
             const auto& tx = e.GetTx();
             auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
-            assert(res.ok || !(res.code & CustomTxErrCodes::Fatal)); // inconsistent mempool
+            // we don't need contract anynore furthermore transition to new hardfork will broke it
+            if (height < chainparams.GetConsensus().DakotaHeight) {
+                assert(res.ok || !(res.code & CustomTxErrCodes::Fatal));
+            }
         }
 
         CAmount nFees = 0;
@@ -617,15 +620,18 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
-        // NOTE Consensus::CheckTxInputs will check for NotAllowToFail
-        std::vector<unsigned char> metadata;
-        const auto txType = GuessCustomTxType(tx, metadata);
+        if (nAbsurdFee && nFees > nAbsurdFee) {
+            return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_HIGHFEE, "absurdly-high-fee", strprintf("%d > %d", nFees, nAbsurdFee));
+        }
 
-        if (!NotAllowedToFail(txType)) {
-            auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
-            if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
-                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
-            }
+        // let make sure we have needed coins
+        if (view.GetValueIn(tx) < nFees) {
+            return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
+        }
+
+        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
+        if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
+            return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
 
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -687,11 +693,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         if (!bypass_limits && nModifiedFees < ::minRelayTxFee.GetFee(nSize)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INSUFFICIENTFEE, "min relay fee not met", strprintf("%d < %d", nModifiedFees, ::minRelayTxFee.GetFee(nSize)));
         }
-
-        if (nAbsurdFee && nFees > nAbsurdFee)
-            return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false,
-                REJECT_HIGHFEE, "absurdly-high-fee",
-                strprintf("%d > %d", nFees, nAbsurdFee));
 
         // Calculate in-mempool ancestors, up to a limit.
         CTxMemPool::setEntries setAncestors;
