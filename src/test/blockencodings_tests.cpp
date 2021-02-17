@@ -39,6 +39,7 @@ static CBlock BuildBlockTestCase() {
 
     uint256 masternodeID = testMasternodeKeys.begin()->first;
     uint32_t mintedBlocks(0);
+    int64_t creationHeight;
     CKey minterKey;
     std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
     if (pos == testMasternodeKeys.end())
@@ -55,6 +56,7 @@ static CBlock BuildBlockTestCase() {
             return {};
 
         mintedBlocks = nodePtr->mintedBlocks;
+        creationHeight = int64_t(nodePtr->creationHeight);
     }
 
     block.height = tip->nHeight + 1;
@@ -77,7 +79,7 @@ static CBlock BuildBlockTestCase() {
     assert(!mutated);
     block.nTime = 0;
 
-    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, masternodeID, Params().GetConsensus())) block.nTime++;
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, masternodeID, Params().GetConsensus())) block.nTime++;
   //  while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
 
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
@@ -335,6 +337,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
 //
 //    uint256 masternodeID = testMasternodeKeys.begin()->first;
 //    uint32_t mintedBlocks(0);
+//    int64_t creationHeight;
 //    CKey minterKey;
 //    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
 //    BOOST_CHECK(pos != testMasternodeKeys.end());
@@ -349,6 +352,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
 //        BOOST_CHECK(nodePtr && nodePtr->IsActive(tip->height));
 //
 //        mintedBlocks = nodePtr->mintedBlocks;
+//        creationHeight = int64_t(nodePtr->creationHeight);
 //    }
 //
 //    block.height = tip->nHeight + 1;
@@ -356,7 +360,7 @@ BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
 //    block.stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
 //    block.nTime = 0;
 //
-//    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits,  (int64_t) block.nTime, masternodeID, Params().GetConsensus())) block.nTime++;
+//    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, masternodeID, Params().GetConsensus())) block.nTime++;
 //
 //// while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
 //    std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));

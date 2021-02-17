@@ -151,18 +151,33 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     const auto txVersion = GetTransactionVersion(nHeight);
 
-    auto currentTeam = pcustomcsview->GetCurrentTeam();
-    auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
-    if (confirms.size() > 0) { // quorum or zero
+    CTeamView::CTeam currentTeam;
+    if (const auto team = pcustomcsview->GetConfirmTeam(pindexPrev->nHeight)) {
+        currentTeam = *team;
+    }
 
-        CAnchorFinalizationMessage finMsg{confirms[0]};
-        finMsg.nextTeam = pcustomcsview->CalcNextTeam(pindexPrev->stakeModifier);
-        finMsg.currentTeam = currentTeam;
+    auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
+
+    bool createAnchorReward{false};
+
+    // No new anchors until we hit fork height, no new confirms should be found before fork.
+    if (pindexPrev->nHeight >= chainparams.GetConsensus().DakotaHeight && confirms.size() > 0) {
+
+        // Make sure anchor block height and hash exist in chain.
+        CBlockIndex* anchorIndex = ::ChainActive()[confirms[0].anchorHeight];
+        if (anchorIndex && anchorIndex->GetBlockHash() == confirms[0].dfiBlockHash) {
+            createAnchorReward = true;
+        }
+    }
+
+    if (createAnchorReward) {
+        CAnchorFinalizationMessagePlus finMsg{confirms[0]};
+
         for (auto const & msg : confirms) {
             finMsg.sigs.push_back(msg.signature);
         }
 
-        CDataStream metadata(DfAnchorFinalizeTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+        CDataStream metadata(DfAnchorFinalizeTxMarkerPlus, SER_NETWORK, PROTOCOL_VERSION);
         metadata << finMsg;
 
         CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
@@ -172,27 +187,17 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         mTx.vin[0].prevout.SetNull();
         mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
         mTx.vout.resize(2);
-        mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+        mTx.vout[0].scriptPubKey =  CScript() << OP_RETURN << ToByteVector(metadata);
         mTx.vout[0].nValue = 0;
         mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-
-        if (nHeight >= chainparams.GetConsensus().AMKHeight) {
-            mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(CommunityAccountType::AnchorReward); // do not reset it, so it will occure on connectblock
-        }
-        else { // pre-AMK logic:
-            mTx.vout[1].nValue = GetAnchorSubsidy(finMsg.anchorHeight, finMsg.prevAnchorHeight, chainparams.GetConsensus());
-        }
+        mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
 
         auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
         if (!rewardTx) {
-            LogPrintf("AnchorConfirms::CreateNewBlock(): create finalization tx: %s block: %d\n", mTx.GetHash().GetHex(), nHeight);
             pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
             pblocktemplate->vTxFees.push_back(0);
             pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
         }
-
-        // DO NOT erase votes here! they'll be cleaned after block connection (ONLY!)
-//        panchorAwaitingConfirms->EraseAnchor(confirmsForAnchor.first);
     }
 
     CTransactionRef criminalTx = nullptr;
@@ -257,7 +262,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             coinbaseTx.vout[1].nValue = blockReward * chainparams.GetConsensus().foundationShareDFIP1 / COIN; // the main difference is that new FS is a %% from "base" block reward and no fees involved
             coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
 
-            LogPrintf("CreateNewBlock(): post AMK logic, foundation share %d\n", coinbaseTx.vout[1].nValue);
+            LogPrint(BCLog::STAKING, "%s: post AMK logic, foundation share %d\n", __func__, coinbaseTx.vout[1].nValue);
         }
     }
     else { // pre-AMK logic:
@@ -270,7 +275,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 coinbaseTx.vout[1].nValue = foundationsReward - pcustomcsview->GetFoundationsDebt();
                 coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
 
-                LogPrintf("CreateNewBlock(): pre AMK logic, foundation share %d\n", coinbaseTx.vout[1].nValue);
+                LogPrint(BCLog::STAKING, "%s: pre AMK logic, foundation share %d\n", __func__, coinbaseTx.vout[1].nValue);
             } else {
                 pcustomcsview->SetFoundationsDebt(pcustomcsview->GetFoundationsDebt() - foundationsReward);
             }
@@ -282,7 +287,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;
 
-    LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
+    LogPrint(BCLog::STAKING, "CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
@@ -642,6 +647,7 @@ namespace pos {
         /// @todo is 'tip' can be changed here? is it possible to pull 'getTip()' and mnview access to the upper (calling 'stake()') block?
         uint32_t mintedBlocks(0);
         uint256 masternodeID{};
+        int64_t creationHeight;
         CScript scriptPubKey;
         {
             LOCK(cs_main);
@@ -664,6 +670,7 @@ namespace pos {
             } else {
                 scriptPubKey = args.coinbaseScript;
             }
+            creationHeight = int64_t(nodePtr->creationHeight);
         }
 
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
@@ -703,7 +710,7 @@ namespace pos {
 
                 pblock->nTime = ((uint32_t)coinstakeTime - t);
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits,  (int64_t) pblock->nTime, masternodeID, chainparams.GetConsensus())) {
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, masternodeID, chainparams.GetConsensus())) {
                     LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                     found = true;

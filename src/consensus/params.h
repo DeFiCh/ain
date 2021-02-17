@@ -78,6 +78,8 @@ struct Params {
     int BayfrontGardensHeight;
     /** Third major fork. */
     int ClarkeQuayHeight;
+    /** Fourth major fork **/
+    int DakotaHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
 
@@ -112,12 +114,15 @@ struct Params {
     struct MnParams {
         CAmount creationFee;
         CAmount collateralAmount;
+        CAmount collateralAmountDakota;
         int activationDelay;
         int resignDelay; // same delay for criminal ban
         int historyFrame;
         int anchoringTeamSize;
         int anchoringFrequency; // create every Nth block
-        int anchoringLag;       // older than Tip() by
+
+        int anchoringTimeDepth; // Min age of anchored blocks
+        int anchoringTeamChange; // How many blocks before team is changed
     };
     MnParams mn;
 

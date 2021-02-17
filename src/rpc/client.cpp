@@ -178,6 +178,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "resignmasternode", 1, "inputs" },
     { "listmasternodes", 0, "pagination" },
     { "listmasternodes", 1, "verbose" },
+    { "getmasternodeblocks", 0, "identifier"},
+    { "getmasternodeblocks", 1, "depth"},
     { "createtoken", 0, "metadata" },
     { "createtoken", 1, "inputs"},
     { "updatetoken", 1, "metadata"},
@@ -247,6 +249,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "isappliedcustomtx", 1, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
+    { "getanchorteams", 0, "blockHeight" },
 };
 // clang-format on
 

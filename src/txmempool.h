@@ -595,8 +595,8 @@ public:
 
     /** Affect CreateNewBlock prioritisation of transactions */
     void PrioritiseTransaction(const uint256& hash, const CAmount& nFeeDelta);
-    void ApplyDelta(const uint256 hash, CAmount &nFeeDelta) const;
-    void ClearPrioritisation(const uint256 hash);
+    void ApplyDelta(const uint256& hash, CAmount &nFeeDelta) const;
+    void ClearPrioritisation(const uint256& hash);
 
     /** Get the transaction in the pool that spends the same prevout */
     const CTransaction* GetConflictTx(const COutPoint& prevout) const EXCLUSIVE_LOCKS_REQUIRED(cs);
@@ -614,7 +614,7 @@ public:
      *  Set updateDescendants to true when removing a tx that was in a block, so
      *  that any in-mempool descendants have their ancestor state updated.
      */
-    void RemoveStaged(setEntries& stage, bool updateDescendants, MemPoolRemovalReason reason) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    void RemoveStaged(const setEntries& stage, bool updateDescendants, MemPoolRemovalReason reason) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /** When adding transactions from a disconnected block back to the mempool,
      *  new mempool entries may have children in the mempool (which is generally

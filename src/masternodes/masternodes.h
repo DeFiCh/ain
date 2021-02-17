@@ -11,6 +11,7 @@
 #include <serialize.h>
 #include <masternodes/accounts.h>
 #include <masternodes/accountshistory.h>
+#include <masternodes/anchors.h>
 #include <masternodes/incentivefunding.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
@@ -27,18 +28,17 @@
 
 #include <boost/optional.hpp>
 
+class CBlockIndex;
 class CTransaction;
-class CAnchor;
-
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
 int GetMnActivationDelay();
 int GetMnResignDelay();
 int GetMnHistoryFrame();
-CAmount GetMnCollateralAmount();
-CAmount GetMnCreationFee(int height);
 CAmount GetTokenCollateralAmount();
+CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
+CAmount GetMnCollateralAmount(int height);
 
 class CMasternode
 {
@@ -129,6 +129,9 @@ public:
     boost::optional<std::pair<CKeyID, uint256>> AmIOperator() const;
     boost::optional<std::pair<CKeyID, uint256>> AmIOwner() const;
 
+    // Multiple operator support
+    std::set<std::pair<CKeyID, uint256>> GetOperatorsMulti() const;
+
     Res CreateMasternode(uint256 const & nodeId, CMasternode const & node);
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
 //    void UnCreateMasternode(uint256 const & nodeId);
@@ -157,9 +160,17 @@ public:
 class CTeamView : public virtual CStorageView
 {
 public:
-    using CTeam = std::set<CKeyID>;
+    using CTeam = CAnchorData::CTeam;
+
     void SetTeam(CTeam const & newTeam);
+    void SetAnchorTeams(CTeam const & authTeam, CTeam const & confirmTeam, const int height);
+
     CTeam GetCurrentTeam() const;
+    boost::optional<CTeam> GetAuthTeam(int height) const;
+    boost::optional<CTeam> GetConfirmTeam(int height) const;
+
+    struct AuthTeam { static const unsigned char prefix; };
+    struct ConfirmTeam { static const unsigned char prefix; };
 };
 
 class CAnchorRewardsView : public virtual CStorageView
@@ -173,6 +184,20 @@ public:
     void AddRewardForAnchor(AnchorTxHash const &btcTxHash, RewardTxHash const & rewardTxHash);
     void RemoveRewardForAnchor(AnchorTxHash const &btcTxHash);
     void ForEachAnchorReward(std::function<bool(AnchorTxHash const &, CLazySerialize<RewardTxHash>)> callback);
+
+    struct BtcTx { static const unsigned char prefix; };
+};
+
+class CAnchorConfirmsView : public virtual CStorageView
+{
+public:
+    using AnchorTxHash = uint256;
+
+    std::vector<CAnchorConfirmDataPlus> GetAnchorConfirmData();
+
+    void AddAnchorConfirmData(const CAnchorConfirmDataPlus& data);
+    void EraseAnchorConfirmData(const uint256 btcTxHash);
+    void ForEachAnchorConfirmData(std::function<bool(const AnchorTxHash &, CLazySerialize<CAnchorConfirmDataPlus>)> callback);
 
     struct BtcTx { static const unsigned char prefix; };
 };
@@ -191,6 +216,7 @@ class CCustomCSView
         , public CUndosView
         , public CPoolPairView
         , public CGovView
+        , public CAnchorConfirmsView
 {
 public:
     CCustomCSView() = default;
@@ -206,8 +232,11 @@ public:
     // cause depends on current mns:
     CTeamView::CTeam CalcNextTeam(uint256 const & stakeModifier);
 
+    // Generate auth and custom anchor teams based on current block
+    void CalcAnchoringTeams(uint256 const & stakeModifier, const CBlockIndex *pindexNew);
+
     /// @todo newbase move to networking?
-    void CreateAndRelayConfirmMessageIfNeed(const CAnchor & anchor, const uint256 & btcTxHash);
+    void CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::AnchorRec* anchor, const uint256 & btcTxHash, const CKey &masternodeKey);
 
     // simplified version of undo, without any unnecessary undo data
     void OnUndoTx(uint256 const & txid, uint32_t height);
@@ -244,6 +273,8 @@ public:
     Res AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount);
     bool Flush();
 };
+
+std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team);
 
 /** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
 extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;

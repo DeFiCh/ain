@@ -25,11 +25,11 @@ namespace pos {
 
 /// Calculate PoS kernel hash
     uint256
-    CalcKernelHash(const uint256& stakeModifier, int64_t coinstakeTime, const uint256& masternodeID, const Consensus::Params& params);
+    CalcKernelHash(const uint256& stakeModifier, int64_t height, int64_t coinstakeTime, const uint256& masternodeID, const Consensus::Params& params);
 
 /// Check whether stake kernel meets hash target
     bool
-    CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t coinstakeTime, const uint256& masternodeID, const Consensus::Params& params);
+    CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t height, int64_t coinstakeTime, const uint256& masternodeID, const Consensus::Params& params);
 
 /// Stake Modifier (hash modifier of proof-of-stake)
     uint256 ComputeStakeModifier(const uint256& prevStakeModifier, const CKeyID& key);

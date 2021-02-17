@@ -76,7 +76,6 @@ EXTENDED_SCRIPTS = [
     'wallet_hd.py',     # moved to ext due to heavy load for trevis
     'mempool_accept.py',# moved to ext due to heavy load for trevis
     'wallet_backup.py', # moved to ext due to heavy load for trevis
-    'feature_anchorauths.py',         # moved due to tooo early IBD exit in regtests
 ]
 
 BASE_SCRIPTS = [
@@ -117,9 +116,11 @@ BASE_SCRIPTS = [
     'feature_fee_estimation.py',
     'feature_dip1.py',
     'feature_anchors.py',
+    'feature_anchorauths.py',
     'feature_anchor_rewards.py',
     'feature_anchorauths_pruning.py',
     'feature_autoauth.py',
+    'feature_communitybalance_reorg.py',
     'feature_auth_return_change.py',
     'feature_criminals.py',
     'feature_setgov.py',
@@ -160,6 +161,7 @@ BASE_SCRIPTS = [
     'feature_prevent_bad_tx_propagation.py',
     'feature_masternode_operator.py',
     'feature_mine_cached.py',
+    'feature_mempool_dakota.py',
     'interface_http.py',
     'interface_rpc.py',
     'rpc_psbt.py',

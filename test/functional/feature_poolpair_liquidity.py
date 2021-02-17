@@ -358,7 +358,7 @@ class PoolLiquidityTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
-        assert_equal(len(self.nodes[0].getrawmempool()), 13) # 13 txs
+        # assert_equal(len(self.nodes[0].getrawmempool()), 13) # removed txs for block
 
 
 if __name__ == '__main__':
