@@ -17,6 +17,7 @@ setup_vars() {
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
     EXTRA_BUILD_OPTS=${EXTRA_BUILD_OPTS:-}
+    EXTRA_MAKE_ARGS=${EXTRA_MAKE_ARGS:-}
 
     # shellcheck disable=SC2206
     # This intentionally word-splits the array as env arg can only be strings.
@@ -74,6 +75,7 @@ help() {
 build() {
     local target=${1:-"x86_64-pc-linux-gnu"}
     local extra_build_opts=${EXTRA_BUILD_OPTS:-}
+    local extra_make_args=${EXTRA_MAKE_ARGS:-}
 
     echo "> build: ${target}"
     pushd ./depends >/dev/null
@@ -83,7 +85,7 @@ build() {
     ./autogen.sh
     # XREF: #make-configure
     ./configure --prefix="$(pwd)/depends/${target}" ${extra_build_opts}
-    make
+    make $extra_make_args
 }
 
 deploy() {
