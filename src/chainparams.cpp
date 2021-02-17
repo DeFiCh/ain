@@ -119,7 +119,7 @@ public:
         consensus.BayfrontMarinaHeight = 465150;
         consensus.BayfrontGardensHeight = 488300;
         consensus.ClarkeQuayHeight = 595738;
-        consensus.DakotaHeight = std::numeric_limits<int>::max();
+        consensus.DakotaHeight = 682080; // 28th February 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -297,7 +297,7 @@ public:
         consensus.BayfrontMarinaHeight = 90470;
         consensus.BayfrontGardensHeight = 101342;
         consensus.ClarkeQuayHeight = 155000;
-        consensus.DakotaHeight = std::numeric_limits<int>::max();
+        consensus.DakotaHeight = 220680;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
