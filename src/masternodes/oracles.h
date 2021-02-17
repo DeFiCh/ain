@@ -121,14 +121,15 @@ enum class OracleState: uint8_t {
     ALIVE,
 };
 
-/// the listlatestprices result array item
+/// the listlatestrawprices result array item
 struct CPriceItem {
-    DCT_ID token;           /// token name
-    COracleId oracleId;     /// oracleid
-    uint64_t timestamp;     /// timestamp
-    CurrencyId currency;     /// currency name
-    uint8_t weightage;      /// oracle weightage
-    OracleState state;      /// oracle state: is alive or expired
+    DCT_ID token;           //!< token name
+    COracleId oracleId;     //!< oracleid
+    int64_t timestamp;     //!< timestamp
+    CurrencyId currency;    //!< currency id
+    CAmount price;          //!< token raw price nominated in specified currency
+    uint8_t weightage;      //!< oracle weightage
+    OracleState state;      //!< oracle state: is live or expired
 };
 
 /// names of oracle json fields
@@ -148,7 +149,7 @@ struct COracle : public CAppointOracleMessage {
     COracleId oracleId;
     CTokenPrices tokenPrices;
 
-    explicit COracle(COracleId oracleId = {}, CAppointOracleMessage const & msg = {}) :
+    explicit COracle(const COracleId& oracleId = {}, CAppointOracleMessage const & msg = {}) :
         CAppointOracleMessage(msg),
         oracleId{oracleId},
         tokenPrices{} {

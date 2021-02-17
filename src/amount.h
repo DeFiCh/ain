@@ -95,6 +95,20 @@ inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
     return {(CAmount) sum, Res::Ok()};
 }
 
+inline ResVal<CAmount> SafeMultiply(CAmount _a, uint64_t w) {
+    if (_a < 0) {
+        return Res::Err("negative amount");
+    }
+
+    auto a = static_cast<uint64_t>(_a);
+    uint64_t res = a * w;
+    if (res / w != a || res > std::numeric_limits<int64_t>::max()) {
+        return Res::Err("overflow");
+    }
+
+    return {static_cast<CAmount>(res), Res::Ok()};
+}
+
 struct CTokenAmount { // simple std::pair is less informative
     DCT_ID nTokenId;
     CAmount nValue;

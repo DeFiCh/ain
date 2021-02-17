@@ -162,8 +162,8 @@ class OraclesTest (DefiTestFramework):
 
         input("debug")
         try:
-            print('PT prices', self.nodes[2].listlatestprices('{"currency": "USD", "token": "PT"}'))
-            print('GOLD prices', self.nodes[2].listlatestprices('{"currency": "USD", "token": "GOLD#128"}'))
+            print('PT prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "PT"}'))
+            print('GOLD prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "GOLD#128"}'))
         except JSONRPCException as e:
             print('failed to list prices', e.error['message'])
         except Exception as e:
