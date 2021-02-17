@@ -119,7 +119,7 @@ public:
         consensus.BayfrontMarinaHeight = 465150;
         consensus.BayfrontGardensHeight = 488300;
         consensus.ClarkeQuayHeight = 595738;
-        consensus.DakotaHeight = 682080; // 28th February 2021
+        consensus.DakotaHeight = 678000; // 1st March 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
