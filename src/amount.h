@@ -16,6 +16,67 @@
 /** Amount in satoshis (Can be negative) */
 typedef int64_t CAmount;
 
+struct CURRENCY_ID {
+    enum class CurrencyId: uint32_t {
+        UNKNOWN = 0,
+        USD,
+        EUR,
+    };
+
+    uint32_t v;
+    static constexpr auto CURRENCY_USD = "USD";
+    static constexpr auto CURRENCY_EUR = "EUR";
+    static constexpr auto CURRENCY_UNKNOWN = "UNKNOWN";
+
+    static CURRENCY_ID USD() {
+        return CURRENCY_ID{CurrencyId::USD};
+    };
+
+    static CURRENCY_ID EUR() {
+        return CURRENCY_ID{CurrencyId::EUR};
+    };
+
+    explicit CURRENCY_ID(CurrencyId id) : v{static_cast<uint32_t>(id)} {}
+
+    std::string ToString() const {
+        switch (v) {
+            case static_cast<uint32_t>(CurrencyId::USD):
+                return CURRENCY_USD;
+            case static_cast<uint32_t>(CurrencyId::EUR):
+                return CURRENCY_EUR;
+            case static_cast<uint32_t>(CurrencyId::UNKNOWN):
+                break;
+        }
+        return CURRENCY_UNKNOWN;
+    }
+
+    static CURRENCY_ID FromString(const std::string &name) {
+        if (name == CURRENCY_USD) {
+            return CURRENCY_ID(CurrencyId::USD);
+        }
+        if (name == CURRENCY_EUR) {
+            return CURRENCY_ID(CurrencyId::EUR);
+        }
+
+        return CURRENCY_ID(CurrencyId::UNKNOWN);
+    }
+
+    bool IsValid() const {
+        return v != static_cast<uint32_t>(CurrencyId::UNKNOWN);
+    }
+
+    bool operator<(const CURRENCY_ID& other) const {
+        return v < other.v;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(v);
+    }
+};
+
 // Defi Custom Token ID
 struct DCT_ID {
     uint32_t v;
@@ -107,15 +168,6 @@ inline ResVal<CAmount> SafeMultiply(CAmount _a, uint64_t w) {
     }
 
     return {static_cast<CAmount>(res), Res::Ok()};
-}
-
-inline std::string amountToString(CAmount price) {
-    const bool sign = price < 0;
-    const int64_t n_abs = std::abs(price);
-    const int64_t quotient = n_abs / COIN;
-    const int64_t remainder = n_abs % COIN;
-
-    return strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder);
 }
 
 struct CTokenAmount { // simple std::pair is less informative

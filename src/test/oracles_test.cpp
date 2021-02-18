@@ -13,7 +13,7 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 
-struct OraclesTestingSetup: public TestingSetup {
+struct OraclesTestingSetup : public TestingSetup {
     const std::string data1 =
             "\x9c\x52\x4a\xdb\xcf\x56\x11\x12\x2b\x29\x12\x5e\x5d\x35\xd2\xd2"
             "\x22\x81\xaa\xb5\x33\xf0\x08\x32\xd5\x56\xb1\xf9\xea\xe5\x1d\x7d";
@@ -26,10 +26,11 @@ struct OraclesTestingSetup: public TestingSetup {
     const std::vector<unsigned char> rawVector1{data1.begin(), data1.end()};
     const std::vector<unsigned char> rawVector2{data2.begin(), data2.end()};
     const std::string address1 = "mhWzxsS5aDfmNY2EpPuM2xQZx7Ju3yjkQ4";
-    std::string JoinOracles(const std::vector<COracleId>& oracles) {
-        auto list =  boost::algorithm::join(
+
+    std::string JoinOracles(const std::vector<COracleId> &oracles) {
+        auto list = boost::algorithm::join(
                 oracles | boost::adaptors::transformed(
-                        [](const COracleId& x) -> std::string {
+                        [](const COracleId &x) -> std::string {
                             return x.GetHex();
                         }),
                 ", ");
@@ -73,7 +74,9 @@ BOOST_FIXTURE_TEST_SUITE(oracle_tests, OraclesTestingSetup)
         std::vector<unsigned char> tmp{'a', 'b', 'c'};
         CScript oracleAddress1{tmp.begin(), tmp.end()};
         uint8_t weightage = 15;
-        std::set<DCT_ID> availableTokens = {{1}, {2}};
+        std::set<std::pair<DCT_ID, CurrencyId>> availableTokens =
+                {{{1}, CurrencyId::USD},
+                 {{2}, CurrencyId::USD}};
         CAppointOracleMessage msg{oracleAddress1, weightage, availableTokens};
         COracle oracle{oracleId1, msg};
         std::cerr << "testpoint\n";
@@ -86,7 +89,7 @@ BOOST_FIXTURE_TEST_SUITE(oracle_tests, OraclesTestingSetup)
 
         auto allOracleIds = mnview.GetAllOracleIds();
         BOOST_ASSERT_MSG((allOracleIds == std::vector<COracleId>{oracleId1, oracleId2}),
-                "wrong list of oracles");
+                         "wrong list of oracles");
 
         std::cout << "all oracles = " << JoinOracles(allOracleIds) << std::endl;
     }

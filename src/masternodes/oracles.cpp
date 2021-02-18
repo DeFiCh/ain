@@ -15,32 +15,31 @@ bool COracleId::parseHex(const std::string &str) {
     return true;
 }
 
-Res COracle::SetTokenPrice(DCT_ID tokenId, CAmount amount, int64_t timestamp) {
-    if (!SupportsToken(tokenId)) {
-        return Res::Err("token <%s> is not allowed", tokenId.ToString());
+Res COracle::SetTokenPrice(DCT_ID tokenId, CURRENCY_ID currencyId, CAmount amount, int64_t timestamp) {
+    if (!SupportsPair(tokenId, currencyId) {
+        return Res::Err("token <%s> - currency <%s>  is not allowed", tokenId.ToString(), currencyId.ToString());
     }
 
-    tokenPrices[tokenId] = std::make_pair(amount, timestamp);
+    tokenPrices[tokenId][currencyId] = std::make_pair(amount, timestamp);
 
     return Res::Ok();
 }
 
-boost::optional<CPricePoint> COracle::GetTokenPrice(DCT_ID tokenId) const {
-    if (SupportsToken(tokenId) && tokenPrices.find(tokenId) != tokenPrices.end()) {
-        return tokenPrices.at(tokenId);
+boost::optional<CPricePoint> COracle::GetTokenPrice(DCT_ID tokenId, CurrencyId currencyId) const {
+    if (!SupportsPair(tokenId, currencyId)) {
+        return {};
     }
 
-    return {};
-}
-
-CurrencyId GetCurrencyByName(const std::string &name) {
-    if (name == "USD") {
-        return CurrencyId::USD;
-    } else if (name == "EUR") {
-        return CurrencyId::EUR;
+    if (tokenPrices.find(tokenId) == tokenPrices.end()) {
+        return {};
     }
 
-    return CurrencyId::UNKNOWN;
+    auto &map = tokenPrices.at(tokenId);
+    if (map.find(currencyId) == map.end()) {
+        return {};
+    }
+
+    return map.at(currencyId);
 }
 
 Res COracleView::AppointOracle(const COracleId &oracleId, const COracle &oracle) {
@@ -82,24 +81,32 @@ Res COracleView::RemoveOracle(const COracleId &oracleId) {
     return Res::Ok();
 }
 
-Res COracleView::SetOracleData(const COracleId &oracleId, int64_t timestamp, const CBalances &balances) {
+Res COracleView::SetOracleData(const COracleId &oracleId, int64_t timestamp, const CTokenPrices &tokenPrices) {
     COracle oracle{};
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("failed to read oracle %s from database", oracleId.GetHex());
     }
 
-    auto &balanceMap = balances.balances; // DCT_ID -> CAmount
+//    auto &balanceMap = tokenPrices; // DCT_ID -> CAmount
 
-    for (auto &it: balanceMap) {
-        const auto &tokenId = it.first;
-        if (!oracle.SupportsToken(tokenId)) {
-            return Res::Err(
-                    "oracle <%s> is not allowed to present token <%s> price",
-                    oracle.oracleId.GetHex(),
-                    it.first.ToString());
+    for (auto &itToken: tokenPrices) {
+
+        const auto& tokenId = itToken.first;
+        const auto& map = itToken.second; // map: currencyId -> CAmount
+
+        for (auto& itCurrency: map) {
+            auto &currencyId = itCurrency.first;
+            if (!oracle.SupportsPair(tokenId, currencyId)) {
+                return Res::Err(
+                        "oracle <%s> doesn't support token <%s> - currency <%s> price",
+                        oracle.oracleId.GetHex(),
+                        itToken.first.ToString());
+            }
+            oracle.SetTokenPrice(tokenId, itCurrency.first, itCurrency.second, timestamp);
         }
 
-        oracle.SetTokenPrice(tokenId, it.second, timestamp);
+        // TODO (IntegralTeam): use currencies
+
     }
 
     if (!WriteBy<ByName>(oracleId, oracle)) {

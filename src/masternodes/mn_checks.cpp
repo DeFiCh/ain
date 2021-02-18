@@ -1531,7 +1531,7 @@ Res ApplyUpdateOracleAppointTx(CCustomCSView &mnview,
                                bool skipAuth,
                                UniValue *rpcInfo) {
     if ((int) height < consensusParams.BayfrontHeight) {
-        return Res::Err("Uopdate oracle appoint tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+        return Res::Err("Update oracle appoint tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
     constexpr auto base = "Update oracle appoint";
@@ -1611,10 +1611,7 @@ Res ApplySetOracleDataTx(CCustomCSView &mnview,
         return Res::Err("%s: %s", base, "oracle authentication failed");
     }
 
-    // TODO (IntegralTeam): check timestamp
-
-
-    auto &&res = mnview.SetOracleData(msg.oracleId, msg.timestamp, msg.balances);
+    auto &&res = mnview.SetOracleData(msg.oracleId, msg.timestamp, msg.tokenPrices);
     if (!res.ok) {
         return Res::Err("SetRawPrice: %s", res.msg);
     }
