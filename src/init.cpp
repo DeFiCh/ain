@@ -392,6 +392,7 @@ void SetupServerArgs()
     gArgs.AddArg("-blocksonly", strprintf("Whether to reject transactions from network peers. Transactions from the wallet, RPC and relay whitelisted inbound peers are not affected. (default: %u)", DEFAULT_BLOCKSONLY), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-conf=<file>", strprintf("Specify configuration file. Relative paths will be prefixed by datadir location. (default: %s)", DEFI_CONF_FILENAME), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-datadir=<dir>", "Specify data directory", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-enhancedcs=<dir>", "Specify enhancedcs directory inside <datadir>, defaults to <datadir>/enhancedcs", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dbbatchsize", strprintf("Maximum database write batch size in bytes (default: %u)", nDefaultDbBatchSize), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dbcache=<n>", strprintf("Maximum database cache size <n> MiB (%d to %d, default: %d). In addition, unused mempool memory is shared for this cache (see -maxmempool).", nMinDbCache, nMaxDbCache, nDefaultDbCache), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-debuglogfile=<file>", strprintf("Specify location of debug log file. Relative paths will be prefixed by a net-specific datadir location. (-nodebuglogfile to disable; default: %s)", DEFAULT_DEBUGLOGFILE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1591,7 +1592,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcriminals = MakeUnique<CCriminalsView>(GetDataDir() / "criminals", nDefaultDbCache << 20, false, fReset || fReindexChainState);
 
                 pcustomcsDB.reset();
-                pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nDefaultDbCache << 20, false, fReset || fReindexChainState);
+                pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / gArgs.GetArg("-enhancedcs", "enhancedcs"), nDefaultDbCache << 20, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
                 pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
                 if (!fReset && (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX) || gArgs.GetBoolArg("-acindex-mineonly", DEFAULT_ACINDEX_MINEONLY))) {
