@@ -19,6 +19,7 @@ class TokensCustomPoolReward(DefiTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(102)
+        self.sync_blocks()
         num_tokens = len(self.nodes[0].listtokens())
 
         # collateral addresses
@@ -32,6 +33,7 @@ class TokensCustomPoolReward(DefiTestFramework):
             "collateralAddress": collateral_a
         })
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Create token
         self.nodes[0].createtoken({
@@ -40,6 +42,7 @@ class TokensCustomPoolReward(DefiTestFramework):
             "collateralAddress": collateral_b
         })
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Get token ID
         list_tokens = self.nodes[0].listtokens()
@@ -103,6 +106,7 @@ class TokensCustomPoolReward(DefiTestFramework):
             "customRewards": ["1@" + token_a, "1@" + token_b]
         })
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check that customReards shows up in getcustomtx
         result = self.nodes[0].getcustomtx(poolpair_tx)
@@ -119,10 +123,12 @@ class TokensCustomPoolReward(DefiTestFramework):
             "*": ["1@" + token_a, "1@" + token_b]
         }, provider)
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Provide pool reward for token a
         self.nodes[0].accounttoaccount(collateral_a, {pool_collateral: "1@" + token_a})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # token a reward should be added to provider
         assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '0.99999000@GOLD#128'])
@@ -130,6 +136,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Make sure amount reduced from token a
         assert_equal(self.nodes[1].getaccount(pool_collateral), ['0.00001000@GOLD#128'])
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # token a amount should be static as not enough funds to pay
         assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '0.99999000@GOLD#128'])
@@ -137,6 +144,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Provide pool reward for token b
         self.nodes[0].accounttoaccount(collateral_b, {pool_collateral: "1@" + token_b})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # token b reward should be added to provider but token a same as before
         assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '0.99999000@GOLD#128', '0.99999000@SILVER#129'])
@@ -144,6 +152,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Make sure amount reduced from token a
         assert_equal(self.nodes[1].getaccount(pool_collateral), ['0.00001000@GOLD#128', '0.00001000@SILVER#129'])
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # token a and b amount should be static as not enough funds to pay
         assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '0.99999000@GOLD#128', '0.99999000@SILVER#129'])
@@ -173,6 +182,7 @@ class TokensCustomPoolReward(DefiTestFramework):
 
         # Generate 9 more blocks and trigger potential payouts
         self.nodes[1].generate(9)
+        self.sync_blocks()
 
         # token a and b rewards should be added to provider
         assert_equal(self.nodes[1].getaccount(provider), ['0.99999000@SILVGOLD', '10.99989000@GOLD#128', '10.99989000@SILVER#129'])
@@ -186,12 +196,14 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Top up of token a to test poolpair output
         self.nodes[0].accounttoaccount(collateral_a, {pool_collateral: "10@" + token_a})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check only token a reward shows
         assert_equal(self.nodes[0].getpoolpair(1)['1']['customRewards'], ['1.00000000@128'])
 
         # Generate another block and trigger potential payout
         self.nodes[0].generate(9)
+        self.sync_blocks()
 
         # custom rewards should not show up yet without balance
         assert('customRewards' not in self.nodes[0].getpoolpair(1)['1'])
@@ -199,12 +211,14 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Top up of token b to test poolpair output
         self.nodes[0].accounttoaccount(collateral_b, {pool_collateral: "10@" + token_b})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check only token a reward shows
         assert_equal(self.nodes[0].getpoolpair(1)['1']['customRewards'], ['1.00000000@129'])
 
         # Generate another block and trigger potential payout
         self.nodes[0].generate(9)
+        self.sync_blocks()
 
         # custom rewards should not show up yet without balance
         assert('customRewards' not in self.nodes[0].getpoolpair(1)['1'])
@@ -218,6 +232,7 @@ class TokensCustomPoolReward(DefiTestFramework):
             "collateralAddress": collateral_c
         })
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Get token ID
         list_tokens = self.nodes[0].listtokens()
@@ -231,10 +246,12 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Mint some tokens
         self.nodes[0].minttokens(["100000@" + token_c])
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Top up of token c to test poolpair output before adding it to he pool
         self.nodes[0].accounttoaccount(collateral_c, {pool_collateral: "10@" + token_c})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Fail on zero amount token reward
         try:
@@ -255,6 +272,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Replace tokens with token c
         updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1", "customRewards": ["1@" + token_c]})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check that customReards shows up in getcustomtx
         result = self.nodes[0].getcustomtx(updatepoolpair_tx)
@@ -268,6 +286,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Provide pool reward for token a, should not show as it wasd removed
         self.nodes[0].accounttoaccount(collateral_a, {pool_collateral: "10@" + token_a})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check for new block reward and payout
         assert_equal(self.nodes[1].getpoolpair(1)['1']['customRewards'], ['1.00000000@130'])
@@ -277,6 +296,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Add back token a
         updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1", "customRewards": ["1@" + token_a, "1@" + token_c]})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check that customReards shows up in getcustomtx
         result = self.nodes[0].getcustomtx(updatepoolpair_tx)
@@ -290,6 +310,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Provide pool reward for token b, should not show as it was removed
         self.nodes[0].accounttoaccount(collateral_b, {pool_collateral: "10@" + token_b})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check for new block reward and payout
         assert_equal(self.nodes[1].getpoolpair(1)['1']['customRewards'], ['1.00000000@128', '1.00000000@130'])
@@ -299,6 +320,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Add back token b
         updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1", "customRewards": ["1@" + token_a, "1@" + token_b, "1@" + token_c]})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check that customReards shows up in getcustomtx
         result = self.nodes[0].getcustomtx(updatepoolpair_tx)
@@ -312,6 +334,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Do nothing
         updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1"})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check that customReards shows up in getcustomtx
         result = self.nodes[0].getcustomtx(updatepoolpair_tx)
@@ -325,6 +348,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Wipe all rewards
         updatepoolpair_tx = self.nodes[0].updatepoolpair({"pool": "1", "customRewards": []})
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check TX shows rewards present and empty and balances should be unchanged
         result = self.nodes[0].getcustomtx(updatepoolpair_tx)

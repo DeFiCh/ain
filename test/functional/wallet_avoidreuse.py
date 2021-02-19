@@ -87,8 +87,10 @@ class AvoidReuseTest(DefiTestFramework):
         self.nodes[0].generate(110)
         self.sync_all()
         reset_balance(self.nodes[1], self.nodes[0].getnewaddress())
+        self.sync_all()
         self.test_fund_send_fund_senddirty()
         reset_balance(self.nodes[1], self.nodes[0].getnewaddress())
+        self.sync_all()
         self.test_fund_send_fund_send()
 
     def test_persistence(self):
