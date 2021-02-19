@@ -1420,7 +1420,6 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     else {
         mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
     }
-    mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
 
     return { finMsg.btcTxHash, Res::Ok() };
 }
