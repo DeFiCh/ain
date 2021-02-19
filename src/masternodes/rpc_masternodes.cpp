@@ -31,6 +31,12 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
     return ret;
 }
 
+CAmount EstimateMnCreationFee(int targetHeight) {
+    // Current height + (1 day blocks) to avoid rejection;
+    targetHeight += (60 * 60 / Params().GetConsensus().pos.nTargetSpacing);
+    return GetMnCreationFee(targetHeight);
+}
+
 /*
  *
  *  Issued by: any

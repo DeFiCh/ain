@@ -3,26 +3,10 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/mn_rpc.h>
-
-#include <consensus/validation.h>
-#include <net.h>
-#include <policy/policy.h>
 #include <policy/settings.h>
-#include <script/script_error.h>
-#include <script/sign.h>
-#include <script/standard.h>
-#include <util/validation.h>
-#include <version.h>
-
-#include <stdexcept>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/assign/list_of.hpp>
 
 extern bool EnsureWalletIsAvailable(bool avoidException); // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction& tx, std::string const& strHexTx); // in core_io.h
-
-extern UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet);
 
 CAccounts GetAllMineAccounts(CWallet * const pwallet) {
 
@@ -216,12 +200,6 @@ int chainHeight(interfaces::Chain::Lock& locked_chain)
     if (auto height = locked_chain.getHeight())
         return *height;
     return 0;
-}
-
-CAmount EstimateMnCreationFee(int targetHeight) {
-    // Current height + (1 day blocks) to avoid rejection;
-    targetHeight += (60 * 60 / Params().GetConsensus().pos.nTargetSpacing);
-    return GetMnCreationFee(targetHeight);
 }
 
 std::vector<CTxIn> GetInputs(UniValue const& inputs) {

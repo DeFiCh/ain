@@ -5,25 +5,19 @@
 #include <validation.h>
 #include <core_io.h>
 
-#include <masternodes/anchors.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/criminals.h>
 #include <masternodes/mn_checks.h>
 
-#include <rpc/client.h>
 #include <rpc/server.h>
-#include <rpc/protocol.h>
 #include <rpc/util.h>
 #include <rpc/rawtransaction_util.h>
 
 //#ifdef ENABLE_WALLET
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
-#include <wallet/ismine.h>
 #include <wallet/rpcwallet.h>
-#include <wallet/wallet.h>
 //#endif
-
 
 typedef enum {
     // selecting accounts without sorting
@@ -68,7 +62,6 @@ struct LockedCoinsScopedGuard
 
 // common functions
 int chainHeight(interfaces::Chain::Lock& locked_chain);
-CAmount EstimateMnCreationFee(int targetHeight);
 std::vector<CTxIn> GetInputs(UniValue const& inputs);
 CMutableTransaction fund(CMutableTransaction & mtx, CWallet* const pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr, bool lockUnspents = false);
 CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx);
