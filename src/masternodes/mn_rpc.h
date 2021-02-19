@@ -1,17 +1,20 @@
-#include <univalue.h>
+#ifndef DEFI_MASTERNODES_MN_RPC_H
+#define DEFI_MASTERNODES_MN_RPC_H
+
 #include <arith_uint256.h>
+#include <univalue.h>
 
 #include <chainparams.h>
-#include <validation.h>
 #include <core_io.h>
+#include <validation.h>
 
-#include <masternodes/masternodes.h>
 #include <masternodes/criminals.h>
+#include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 
+#include <rpc/rawtransaction_util.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
-#include <rpc/rawtransaction_util.h>
 
 //#ifdef ENABLE_WALLET
 #include <wallet/coincontrol.h>
@@ -33,10 +36,9 @@ typedef enum {
 } AccountSelectionMode;
 
 // Special guarding object. Should be created before the first use of funding (straight or by GetAuthInputsSmart())
-struct LockedCoinsScopedGuard
-    {
-        CWallet * const pwallet;
-        std::set<COutPoint> lockedCoinsBackup;
+struct LockedCoinsScopedGuard {
+    CWallet* const pwallet;
+    std::set<COutPoint> lockedCoinsBackup;
 
     LockedCoinsScopedGuard(CWallet* const pwl) : pwallet(pwl)
     {
@@ -49,11 +51,10 @@ struct LockedCoinsScopedGuard
         LOCK(pwallet->cs_wallet);
         if (lockedCoinsBackup.empty()) {
             pwallet->UnlockAllCoins();
-        }
-        else {
+        } else {
             std::vector<COutPoint> diff;
             std::set_difference(pwallet->setLockedCoins.begin(), pwallet->setLockedCoins.end(), lockedCoinsBackup.begin(), lockedCoinsBackup.end(), std::back_inserter(diff));
-            for (auto const & coin : diff) {
+            for (auto const& coin : diff) {
                 pwallet->UnlockCoin(coin);
             }
         }
@@ -63,14 +64,14 @@ struct LockedCoinsScopedGuard
 // common functions
 int chainHeight(interfaces::Chain::Lock& locked_chain);
 std::vector<CTxIn> GetInputs(UniValue const& inputs);
-CMutableTransaction fund(CMutableTransaction & mtx, CWallet* const pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr, bool lockUnspents = false);
+CMutableTransaction fund(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr, bool lockUnspents = false);
 CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx);
 CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx);
-CTransactionRef signsend(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx/* = {}*/);
+CTransactionRef signsend(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx /* = {}*/);
 CWallet* GetWallet(const JSONRPCRequest& request);
-std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs);
+std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef& optAuthTx, UniValue const& explicitInputs);
 std::string ScriptToString(CScript const& script);
-CAccounts GetAllMineAccounts(CWallet * const pwallet);
+CAccounts GetAllMineAccounts(CWallet* const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode);
 
 // masternode rpcs
@@ -113,3 +114,5 @@ UniValue updatepoolpair(const JSONRPCRequest& request);
 UniValue poolswap(const JSONRPCRequest& request);
 UniValue listpoolshares(const JSONRPCRequest& request);
 UniValue testpoolswap(const JSONRPCRequest& request);
+
+#endif // DEFI_MASTERNODES_MN_RPC_H
