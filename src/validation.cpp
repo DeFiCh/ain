@@ -2928,6 +2928,8 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
     DisconnectedBlockTransactions disconnectpool;
     auto disconnectBlocksTo = [&](const CBlockIndex *pindex) -> bool {
         while (m_chain.Tip() && m_chain.Tip() != pindex) {
+            boost::this_thread::interruption_point();
+
             if (!DisconnectTip(state, chainparams, &disconnectpool)) {
                 // This is likely a fatal error, but keep the mempool consistent,
                 // just in case. Only remove from the mempool in this case.
@@ -2939,6 +2941,9 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                 return AbortNode(state, "Failed to disconnect block; see debug.log for details");
             }
             fBlocksDisconnected = true;
+
+            if (ShutdownRequested())
+                break;
         }
         return true;
     };
