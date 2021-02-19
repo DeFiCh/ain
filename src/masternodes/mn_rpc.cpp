@@ -4118,10 +4118,10 @@ UniValue appointoracle(const JSONRPCRequest &request) {
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
-    std::set<std::pair<DCT_ID, CURRENCY_ID>> allowedPairs;
+    std::set<TokenCurrencyPair> allowedPairs;
     std::for_each(tokens.begin(), tokens.end(), [&allowedPairs](DCT_ID &it) {
-        // TODO (IntegralTeam): implement, for now use USD
-        allowedPairs.insert(std::make_pair(it, CURRENCY_ID::USD()));
+        // TODO (IntegralTeam): implement json data parsing, for now use USD
+        allowedPairs.insert(TokenCurrencyPair{it, CURRENCY_ID::USD()});
     });
 
     CAppointOracleMessage msg{std::move(script), static_cast<uint8_t>(weightage), std::move(allowedPairs)};
@@ -4265,10 +4265,10 @@ UniValue updateoracle(const JSONRPCRequest& request) {
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
-    std::set<std::pair<DCT_ID, CURRENCY_ID>> allowedPairs;
+    std::set<TokenCurrencyPair> allowedPairs;
     std::for_each(tokens.begin(), tokens.end(), [&allowedPairs](DCT_ID &it) {
         // TODO (IntegralTeam): implement, for now use USD
-        allowedPairs.insert(std::make_pair(it, CURRENCY_ID::USD()));
+        allowedPairs.insert(TokenCurrencyPair{it, CURRENCY_ID::USD()});
     });
 
     CUpdateOracleAppointMessage msg{
@@ -4611,36 +4611,56 @@ class TokenPriceIterator {
 public:
     TokenPriceIterator(
             std::reference_wrapper<CCustomCSView> view,
-            std::reference_wrapper<interfaces::Chain> chain):
-    _view{view}, _chain{chain} {
+            std::reference_wrapper<interfaces::Chain> chain) :
+            _view{view}, _chain{chain} {
     }
 
-    using Visitor = std::function<void(DCT_ID, const COracleId&, int64_t timeStamp, CURRENCY_ID, CAmount, uint8_t weightage, OracleState)>;
+    using Visitor = std::function<void(const COracleId &, DCT_ID, CURRENCY_ID, int64_t timeStamp, CAmount,
+                                       uint8_t weightage, OracleState)>;
 
-    void ForEach(const Visitor& visitor, const std::string& token = {}, const std::string& currency = {}){
+    void ForEach(const Visitor &visitor,
+                 const boost::optional<DCT_ID> &tokenId = boost::none,
+                 const boost::optional<CURRENCY_ID> &currencyId = boost::none) {
+
         auto lock = _chain.get().lock();
+
+        const auto oracleIds = _view.get().GetAllOracleIds();
+        if (oracleIds.empty())
+            return;
+
         auto optHeight = lock->getHeight();
         int lastHeight = optHeight.is_initialized() ? *optHeight : 0;
         auto currentBlockTime = lock->getBlockTime(lastHeight);
-
-        // get and check token
-        DCT_ID tokenId{};
-        auto tokenPtr = _chain.get().existTokenGuessId(token, tokenId);
-        if (!tokenPtr) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, Res::Err("Invalid Defi token: %s", token).msg);
-        }
-
-        auto currencyId = CURRENCY_ID::FromString(currency);
-        if (!currencyId.IsValid()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("Currency %s is not supported", currency).msg);
-        }
 
         auto CheckIfAlive = [currentBlockTime] (uint64_t time) -> bool  {
             constexpr uint64_t SECONDS_PER_HOUR = 3600u;
             return (std::abs(static_cast<int64_t>(time) - currentBlockTime) /  SECONDS_PER_HOUR) < 1;
         };
 
-        const auto oracleIds = _view.get().GetAllOracleIds();
+        auto processToken = [&currencyId, &CheckIfAlive, &visitor] (
+                const COracle& oracle, DCT_ID tokenId,
+                const std::map<CURRENCY_ID, CPricePoint>& map) {
+
+            if (currencyId.is_initialized()) {
+                const auto& currencyIterator = map.find(*currencyId);
+                if (currencyIterator == map.end())
+                    return;
+
+                const CPricePoint &pricePoint = currencyIterator->second;
+                auto oracleTime = pricePoint.second;
+
+                visitor(oracle.oracleId, tokenId, *currencyId, oracleTime, pricePoint.first, oracle.weightage,
+                        CheckIfAlive(oracleTime) ? OracleState::ALIVE : OracleState::EXPIRED);
+            } else {
+                for (const auto &currencyIterator: map) {
+                    const auto &pricePoint = currencyIterator.second;
+                    auto oracleTime = pricePoint.second;
+
+                    visitor(oracle.oracleId, tokenId, *currencyId, oracleTime, pricePoint.first, oracle.weightage,
+                            CheckIfAlive(oracleTime) ? OracleState::ALIVE : OracleState::EXPIRED);
+                }
+            }
+        };
 
         for (auto &id: oracleIds) {
             auto oracleRes = _view.get().GetOracleData(id);
@@ -4651,20 +4671,21 @@ public:
             auto &oracle = *oracleRes.val;
             auto &pricesMap = oracle.tokenPrices;
 
-            auto key = std::make_pair(tokenId, currencyId);
-            if (!token.empty() &&
-                pricesMap.find(key) == pricesMap.end()) {
-                continue;
+            if (tokenId.is_initialized()) {
+                const auto &tokenIterator = pricesMap.find(*tokenId);
+                if (tokenIterator == pricesMap.end())
+                    continue;
+
+                processToken(oracle, tokenIterator->first, tokenIterator->second);
+
+            } else {
+                for (auto& pair: pricesMap) {
+                    processToken(oracle, pair.first, pair.second);
+                }
             }
-
-            int64_t oracleTime = pricesMap[key].second;
-            auto tokenPrice = pricesMap[key].first;
-            bool isAlive = CheckIfAlive(oracleTime);
-            OracleState oracleState = isAlive ? OracleState::ALIVE : OracleState::EXPIRED;
-
-            visitor(tokenId, id, oracleTime, currencyId, tokenPrice, oracle.weightage, oracleState);
         }
     }
+
 private:
     std::reference_wrapper<CCustomCSView> _view;
     std::reference_wrapper<interfaces::Chain> _chain;
@@ -4677,7 +4698,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                "\nReturns latest raw price updates through all the oracles for specified token and currency , \n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"request", RPCArg::Type::STR, RPCArg::Optional::NO,
+                       {"request", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                         "request in json-form, containing currency and token names"},
                },
                RPCResult{
@@ -4692,17 +4713,22 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+    bool useAllFeeds = false;
+    bool useCurrencyFilter = false;
+    bool useTokenFilter = false;
+    UniValue data{UniValue::VOBJ};
 
-    UniValue data{};
-    if (!data.read(request.params[0].getValStr())) {
+    if (request.params.empty()) {
+        useAllFeeds = true;
+    } else if (!data.read(request.params[0].getValStr())) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "failed to read input json");
     }
 
     if (!data.exists(OracleFields::Currency)) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "currency name not specified");
+        useCurrencyFilter = true;
     }
     if (!data.exists(OracleFields::Token)) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "token name not specified");
+        useTokenFilter = true;
     }
 
     const auto &currency = data[OracleFields::Currency].getValStr();
@@ -4716,35 +4742,52 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     auto &chain = pwallet->chain();
     auto lock = chain.lock();
 
+    // get and check token
+    DCT_ID tokenId{};
+    if (useTokenFilter) {
+        auto tokenPtr = chain.existTokenGuessId(token, tokenId);
+        if (!tokenPtr) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, Res::Err("Invalid Defi token: %s", token).msg);
+        }
+    }
+
+    CURRENCY_ID currencyId = CURRENCY_ID::INVALID();
+    if (useCurrencyFilter) {
+        currencyId = CURRENCY_ID::FromString(currency);
+        if (!currencyId.IsValid()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("Currency %s is not supported", currency).msg);
+        }
+    }
+
     auto iterator = TokenPriceIterator(mnview_wrapper, chain);
     UniValue res(UniValue::VARR);
     iterator.ForEach(
             [&res, currency, token](
-                    DCT_ID tokenId,
                     const COracleId &oracleId,
+                    DCT_ID tokenId,
+                    CURRENCY_ID currencyId,
                     int64_t oracleTime,
-                    CurrencyId currencyId,
                     CAmount rawPrice,
                     uint8_t weightage,
                     OracleState oracleState) {
                 UniValue value{UniValue::VOBJ};
                 value.pushKV(OracleFields::Currency, currency);
+                // TODO (IntegralTeam): add token formatting
                 value.pushKV(OracleFields::Token, token);
                 value.pushKV(OracleFields::OracleId, oracleId.GetHex());
                 value.pushKV(OracleFields::Weightage, weightage);
                 value.pushKV(OracleFields::Timestamp, oracleTime);
-                value.pushKV(OracleFields::Price, rawPrice);
+                value.pushKV(OracleFields::Price, ValueFromAmount(rawPrice));
 
                 auto state = oracleState == OracleState::ALIVE ? OracleFields::Alive : OracleFields::Expired;
                 value.pushKV(OracleFields::State, state);
                 res.push_back(value);
-            }, token, currency);
+            }, tokenId, currencyId);
 
     return res;
 }
 
 UniValue getprice(const JSONRPCRequest& request) {
-
     CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"getprice",
@@ -4790,22 +4833,34 @@ UniValue getprice(const JSONRPCRequest& request) {
     auto &chain = pwallet->chain();
     auto lock = chain.lock();
 
+    DCT_ID tokenId{};
+    auto tokenPtr = chain.existTokenGuessId(token, tokenId);
+    if (!tokenPtr) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, Res::Err("Invalid Defi token: %s", token).msg);
+    }
+
+    CURRENCY_ID currencyId = CURRENCY_ID::INVALID();
+    currencyId = CURRENCY_ID::FromString(currency);
+    if (!currencyId.IsValid()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("Currency %s is not supported", currency).msg);
+    }
+
     auto iterator = TokenPriceIterator(mnview_wrapper, chain);
     CAmount weightedSum{0};
     uint32_t sumWeights{0};
     uint32_t numLiveOracles{0};
     iterator.ForEach(
             [&weightedSum, &sumWeights, &numLiveOracles](
-                    DCT_ID tokenId,
                     const COracleId &oracleId,
+                    DCT_ID tokenId,
+                    CURRENCY_ID currencyId,
                     int64_t oracleTime,
-                    CurrencyId currencyId,
                     CAmount rawPrice,
                     uint8_t weightage,
-                    OracleState state) {
+                    OracleState oracleState) {
                 uint32_t sumWeight{0};
                 CAmount sumAmount{0};
-                if (state == OracleState::ALIVE) {
+                if (oracleState == OracleState::ALIVE) {
                     sumWeights += static_cast<uint32_t>(weightage);
                     ++numLiveOracles;
 
@@ -4820,7 +4875,7 @@ UniValue getprice(const JSONRPCRequest& request) {
                     weightedSum = *addResult.val;
                 }
             },
-            token, currency);
+            tokenId, currencyId);
 
     if (numLiveOracles == 0) {
         throw JSONRPCError(RPC_MISC_ERROR, "no live oracles for specified request");
@@ -4840,7 +4895,6 @@ UniValue getprice(const JSONRPCRequest& request) {
 UniValue listprices(const JSONRPCRequest& request) {
     return {};
 }
-
 
 static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)
 {

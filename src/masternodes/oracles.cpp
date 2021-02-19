@@ -16,7 +16,7 @@ bool COracleId::parseHex(const std::string &str) {
 }
 
 Res COracle::SetTokenPrice(DCT_ID tokenId, CURRENCY_ID currencyId, CAmount amount, int64_t timestamp) {
-    if (!SupportsPair(tokenId, currencyId) {
+    if (!SupportsPair(tokenId, currencyId)) {
         return Res::Err("token <%s> - currency <%s>  is not allowed", tokenId.ToString(), currencyId.ToString());
     }
 
@@ -25,7 +25,7 @@ Res COracle::SetTokenPrice(DCT_ID tokenId, CURRENCY_ID currencyId, CAmount amoun
     return Res::Ok();
 }
 
-boost::optional<CPricePoint> COracle::GetTokenPrice(DCT_ID tokenId, CurrencyId currencyId) const {
+boost::optional<CPricePoint> COracle::GetTokenPrice(DCT_ID tokenId, CURRENCY_ID currencyId) const {
     if (!SupportsPair(tokenId, currencyId)) {
         return {};
     }
@@ -87,10 +87,7 @@ Res COracleView::SetOracleData(const COracleId &oracleId, int64_t timestamp, con
         return Res::Err("failed to read oracle %s from database", oracleId.GetHex());
     }
 
-//    auto &balanceMap = tokenPrices; // DCT_ID -> CAmount
-
     for (auto &itToken: tokenPrices) {
-
         const auto& tokenId = itToken.first;
         const auto& map = itToken.second; // map: currencyId -> CAmount
 
@@ -104,9 +101,6 @@ Res COracleView::SetOracleData(const COracleId &oracleId, int64_t timestamp, con
             }
             oracle.SetTokenPrice(tokenId, itCurrency.first, itCurrency.second, timestamp);
         }
-
-        // TODO (IntegralTeam): use currencies
-
     }
 
     if (!WriteBy<ByName>(oracleId, oracle)) {

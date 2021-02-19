@@ -59,10 +59,6 @@ enum class CustomTxType : unsigned short
     RemoveOracleAppoint   = 201,
     UpdateOracleAppoint   = 202,
     SetOracleData         = 203,
-    ListOracles           = 204,
-//    ListLatestRawPrices   = 204,
-//    GetTokenPrice         = 205,
-//    LisTokentPrices       = 206,
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {

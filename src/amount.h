@@ -36,7 +36,13 @@ struct CURRENCY_ID {
         return CURRENCY_ID{CurrencyId::EUR};
     };
 
+    static CURRENCY_ID INVALID() {
+        return CURRENCY_ID{CurrencyId::UNKNOWN};
+    }
+
     explicit CURRENCY_ID(CurrencyId id) : v{static_cast<uint32_t>(id)} {}
+
+    CURRENCY_ID() : v{static_cast<uint32_t>(CurrencyId::UNKNOWN)} {}
 
     std::string ToString() const {
         switch (v) {
@@ -67,6 +73,14 @@ struct CURRENCY_ID {
 
     bool operator<(const CURRENCY_ID& other) const {
         return v < other.v;
+    }
+
+    inline bool operator==(const CURRENCY_ID& other) const {
+        return v == other.v;
+    }
+
+    inline bool operator!=(const CURRENCY_ID& other) const {
+        return v != other.v;
     }
 
     ADD_SERIALIZE_METHODS;

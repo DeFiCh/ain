@@ -74,9 +74,9 @@ BOOST_FIXTURE_TEST_SUITE(oracle_tests, OraclesTestingSetup)
         std::vector<unsigned char> tmp{'a', 'b', 'c'};
         CScript oracleAddress1{tmp.begin(), tmp.end()};
         uint8_t weightage = 15;
-        std::set<std::pair<DCT_ID, CurrencyId>> availableTokens =
-                {{{1}, CurrencyId::USD},
-                 {{2}, CurrencyId::USD}};
+        std::set<TokenCurrencyPair> availableTokens =
+                {{{1}, CURRENCY_ID::USD()},
+                 {{2}, CURRENCY_ID::USD()}};
         CAppointOracleMessage msg{oracleAddress1, weightage, availableTokens};
         COracle oracle{oracleId1, msg};
         std::cerr << "testpoint\n";

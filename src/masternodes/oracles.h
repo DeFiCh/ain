@@ -57,10 +57,38 @@ public:
     }
 };
 
+struct TokenCurrencyPair {
+    DCT_ID tid{};
+    CURRENCY_ID cid{};
+
+    TokenCurrencyPair() = default;
+    TokenCurrencyPair(DCT_ID _tid, CURRENCY_ID _cid): tid{_tid}, cid{_cid} {}
+
+    bool operator==(const TokenCurrencyPair &o) const {
+        return tid == o.tid && cid == o.cid;
+    }
+
+    bool operator!=(const TokenCurrencyPair &o) const {
+        return tid != o.tid || cid != o.cid;
+    }
+
+    bool operator<(const TokenCurrencyPair &o) const {
+        return tid == o.tid ? cid < o.cid : tid < o.tid;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template<typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(tid);
+        READWRITE(cid);
+    }
+};
+
 struct CAppointOracleMessage {
     CScript oracleAddress;
     uint8_t weightage;
-    std::set<std::pair<DCT_ID, CURRENCY_ID>> availablePairs;
+    std::set<TokenCurrencyPair> availablePairs;
 
     ADD_SERIALIZE_METHODS;
 
@@ -145,8 +173,8 @@ struct COracle : public CAppointOracleMessage {
 
     virtual ~COracle() = default;
 
-    inline bool SupportsPair(DCT_ID token, CURRENCY_ID currency) const {
-        return availablePairs.find(std::make_pair(token, currency)) != availablePairs.end();
+    bool SupportsPair(DCT_ID token, CURRENCY_ID currency) const {
+        return availablePairs.find(TokenCurrencyPair{token, currency}) != availablePairs.end();
     }
 
     bool operator==(const COracle &other) const {
