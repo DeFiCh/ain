@@ -156,10 +156,12 @@ class OraclesTest (DefiTestFramework):
         self.nodes[2].generate(1)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
-        input("debug")
+        # input("debug")
         try:
             print('PT prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "PT"}'))
             print('GOLD prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "GOLD#128"}'))
+            print('all feeds', self.nodes[2].listlatestrawprices())
+            # print('all prices', self.nodes[2].listlatestrawprices())
             print('get aggregated price PT', self.nodes[2].getprice('{"currency": "USD", "token": "PT"}'))
             print('get aggregated price GOLD', self.nodes[2].getprice('{"currency": "USD", "token": "GOLD#128"}'))
         except JSONRPCException as e:
