@@ -5,6 +5,7 @@
 #include <masternodes/masternodes.h>
 #include <masternodes/criminals.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/tokenpriceiterator.h>
 
 #include <arith_uint256.h>
 #include <chainparams.h>
@@ -2214,7 +2215,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
                                 },
                             },
                         },
-                    },    
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -2417,7 +2418,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
                                 },
                             },
                         },
-                    },   
+                    },
                 },
                 RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -4451,8 +4452,9 @@ UniValue setoracledata(const JSONRPCRequest &request) {
                        {"timestamp", RPCArg::Type::NUM, RPCArg::Optional::NO, "balances timestamp",},
                        {"prices", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "tokens raw prices:the array of price and token strings in price@token#number_id format. ",
-                        },
-                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                       },
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
                         {
                                 {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                                  {
@@ -4467,19 +4469,19 @@ UniValue setoracledata(const JSONRPCRequest &request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                         HelpExampleCli(
-                                 "setoracledata",
-                                 "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237937 '[“38293.12@BTC”, “1328.32@ETH”]' "
-                                 )
+                       HelpExampleCli(
+                               "setoracledata",
+                               "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237937 '[“38293.12@BTC”, “1328.32@ETH”]' "
+                       )
                        + HelpExampleRpc(
                                "setoracledata",
                                "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237637 '[“38293.12@BTC”, “1328.32@ETH”]' "
-                               )
+                       )
                },
     }.Check(request);
 
     RPCTypeCheck(request.params,
-                 { UniValue::VSTR, UniValue::VNUM, UniValue::VSTR},
+                 {UniValue::VSTR, UniValue::VNUM, UniValue::VSTR},
                  false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
@@ -4502,56 +4504,107 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode timestamp");
     }
     // decode prices
-    UniValue prices{};
+//    auto prices = request.params[2];
+//    return prices.getValStr();
+    UniValue prices{UniValue::VARR};
     if (!prices.read(request.params[2].getValStr())) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode prices");
     }
-//    auto balances = DecodeAmounts(pwallet->chain(), prices, "");
 
-    // TODO (IntegralTeam): implement
-    CTokenPrices tokenPrices{};
-
-    CSetOracleDataMessage msg{oracleId, timestamp, std::move(tokenPrices)};
-
-    // encode
-    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData)
-                   << msg;
-
-    CScript scriptMeta;
-    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
-
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-    const auto txVersion = GetTransactionVersion(targetHeight);
-    CMutableTransaction rawTx(txVersion);
-    rawTx.vout.emplace_back(0, scriptMeta);
-
-    UniValue const &txInputs = request.params[3];
-
-    CTransactionRef optAuthTx;
-    std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
-
-    CCoinControl coinControl;
-
-    // Set change to auth address if there's only one auth address
-    if (auths.size() == 1) {
-        CTxDestination dest;
-        ExtractDestination(*auths.cbegin(), dest);
-        if (IsValidDestination(dest)) {
-            coinControl.destChange = dest;
-        }
+    if (!prices.isArray()) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "data is not array");
     }
 
-    fund(rawTx, pwallet, optAuthTx, &coinControl);
+    CMutableTransaction rawTx{};
+    CTransactionRef optAuthTx;
 
     // check execution
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
+
+        auto &chain = pwallet->chain();
+        auto lock = chain.lock();
+
+        auto parseDataItem = [&chain](const UniValue &uni) -> std::pair<CURRENCY_ID, CTokenAmount> {
+            if (!uni.exists(oraclefields::Currency)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
+            }
+            if (!uni.exists(oraclefields::TokenAmount)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::TokenAmount).msg);
+            }
+
+            auto currencyString = uni[oraclefields::Currency].getValStr();
+            auto currency = CURRENCY_ID::FromString(currencyString);
+            if (!currency.IsValid()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   Res::Err("%s <%s> is not supported", oraclefields::Currency, currencyString).msg);
+            }
+
+            auto amountUni = uni[oraclefields::TokenAmount].getValStr();
+            auto tokenAmount = DecodeAmount(chain, amountUni, "");
+
+            return std::make_pair(currency, tokenAmount);
+
+        };
+
+        CTokenPrices tokenPrices{};
+
+        for (const auto &priceUni : prices.get_array().getValues()) {
+            CURRENCY_ID cid{};
+            CTokenAmount tokenAmount{};
+            std::tie(cid, tokenAmount) = parseDataItem(priceUni);
+            tokenPrices[tokenAmount.nTokenId][cid] = tokenAmount.nValue;
+        }
+
+        CSetOracleDataMessage msg{oracleId, timestamp, std::move(tokenPrices)};
+
+        // encode
+        CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+        markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData)
+                       << msg;
+
+        CScript scriptMeta;
+        scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+        int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+        const auto txVersion = GetTransactionVersion(targetHeight);
+        rawTx = CMutableTransaction(txVersion);
+        rawTx.vout.emplace_back(0, scriptMeta);
+
+        UniValue const &txInputs = request.params[3];
+
+        std::set<CScript> auths;
+
+        auto oracleRes = mnview_dummy.GetOracleData(oracleId);
+        if (!oracleRes.ok) {
+            throw JSONRPCError(RPC_DATABASE_ERROR,
+                               Res::Err("failed to get oracle data for id <%s> : %s", oracleId.GetHex(),
+                                        oracleRes.msg).msg);
+        }
+
+        auths.insert({oracleRes.val->oracleAddress});
+
+        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
+        CCoinControl coinControl;
+
+        // Set change to auth address if there's only one auth address
+        if (auths.size() == 1) {
+            CTxDestination dest;
+            ExtractDestination(*auths.cbegin(), dest);
+            if (IsValidDestination(dest)) {
+                coinControl.destChange = dest;
+            }
+        }
+
+        fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+        if (nullptr != optAuthTx) {
             AddCoins(coinview, *optAuthTx, targetHeight);
+        }
+
         const auto res = ApplySetOracleDataTx(
                 mnview_dummy,
                 coinview,
@@ -4607,90 +4660,6 @@ UniValue listoracles(const JSONRPCRequest& request) {
     return GetOracleIdList();
 }
 
-class TokenPriceIterator {
-public:
-    TokenPriceIterator(
-            std::reference_wrapper<CCustomCSView> view,
-            std::reference_wrapper<interfaces::Chain> chain) :
-            _view{view}, _chain{chain} {
-    }
-
-    using Visitor = std::function<void(const COracleId &, DCT_ID, CURRENCY_ID, int64_t timeStamp, CAmount,
-                                       uint8_t weightage, OracleState)>;
-
-    void ForEach(const Visitor &visitor,
-                 const boost::optional<DCT_ID> &tokenId = boost::none,
-                 const boost::optional<CURRENCY_ID> &currencyId = boost::none) {
-
-        auto lock = _chain.get().lock();
-
-        const auto oracleIds = _view.get().GetAllOracleIds();
-        if (oracleIds.empty())
-            return;
-
-        auto optHeight = lock->getHeight();
-        int lastHeight = optHeight.is_initialized() ? *optHeight : 0;
-        auto currentBlockTime = lock->getBlockTime(lastHeight);
-
-        auto CheckIfAlive = [currentBlockTime] (uint64_t time) -> bool  {
-            constexpr uint64_t SECONDS_PER_HOUR = 3600u;
-            return (std::abs(static_cast<int64_t>(time) - currentBlockTime) /  SECONDS_PER_HOUR) < 1;
-        };
-
-        auto processToken = [&currencyId, &CheckIfAlive, &visitor] (
-                const COracle& oracle, DCT_ID tokenId,
-                const std::map<CURRENCY_ID, CPricePoint>& map) {
-
-            if (currencyId.is_initialized()) {
-                const auto& currencyIterator = map.find(*currencyId);
-                if (currencyIterator == map.end())
-                    return;
-
-                const CPricePoint &pricePoint = currencyIterator->second;
-                auto oracleTime = pricePoint.second;
-
-                visitor(oracle.oracleId, tokenId, *currencyId, oracleTime, pricePoint.first, oracle.weightage,
-                        CheckIfAlive(oracleTime) ? OracleState::ALIVE : OracleState::EXPIRED);
-            } else {
-                for (const auto &currencyIterator: map) {
-                    const auto &pricePoint = currencyIterator.second;
-                    auto oracleTime = pricePoint.second;
-
-                    visitor(oracle.oracleId, tokenId, *currencyId, oracleTime, pricePoint.first, oracle.weightage,
-                            CheckIfAlive(oracleTime) ? OracleState::ALIVE : OracleState::EXPIRED);
-                }
-            }
-        };
-
-        for (auto &id: oracleIds) {
-            auto oracleRes = _view.get().GetOracleData(id);
-            if (!oracleRes.ok) {
-                throw JSONRPCError(RPC_DATABASE_ERROR, "failed to get oracle: " + id.GetHex());
-            }
-
-            auto &oracle = *oracleRes.val;
-            auto &pricesMap = oracle.tokenPrices;
-
-            if (tokenId.is_initialized()) {
-                const auto &tokenIterator = pricesMap.find(*tokenId);
-                if (tokenIterator == pricesMap.end())
-                    continue;
-
-                processToken(oracle, tokenIterator->first, tokenIterator->second);
-
-            } else {
-                for (auto& pair: pricesMap) {
-                    processToken(oracle, pair.first, pair.second);
-                }
-            }
-        }
-    }
-
-private:
-    std::reference_wrapper<CCustomCSView> _view;
-    std::reference_wrapper<interfaces::Chain> _chain;
-};
-
 UniValue listlatestrawprices(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
 
@@ -4714,8 +4683,6 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
     bool useAllFeeds = false;
-    bool useCurrencyFilter = false;
-    bool useTokenFilter = false;
     UniValue data{UniValue::VOBJ};
 
     if (request.params.empty()) {
@@ -4724,45 +4691,43 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "failed to read input json");
     }
 
-    if (!data.exists(OracleFields::Currency)) {
-        useCurrencyFilter = true;
-    }
-    if (!data.exists(OracleFields::Token)) {
-        useTokenFilter = true;
-    }
-
-    const auto &currency = data[OracleFields::Currency].getValStr();
-    const auto &token = data[OracleFields::Token].getValStr();
-
     LOCK(cs_main);
 
     CCustomCSView mnview_wrapper(*pcustomcsview);
+
     const auto oracleIds = mnview_wrapper.GetAllOracleIds();
 
     auto &chain = pwallet->chain();
     auto lock = chain.lock();
 
-    // get and check token
-    DCT_ID tokenId{};
-    if (useTokenFilter) {
+    boost::optional<TokenCurrencyPair> optParams{};
+    if (!useAllFeeds) {
+        const auto &currency = data[oraclefields::Currency].getValStr();
+        const auto &token = data[oraclefields::Token].getValStr();
+
+        // get and check token
+        DCT_ID tokenId{};
         auto tokenPtr = chain.existTokenGuessId(token, tokenId);
         if (!tokenPtr) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, Res::Err("Invalid Defi token: %s", token).msg);
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, Res::Err("Invalid Defi token: <%s>", token).msg);
         }
-    }
 
-    CURRENCY_ID currencyId = CURRENCY_ID::INVALID();
-    if (useCurrencyFilter) {
-        currencyId = CURRENCY_ID::FromString(currency);
+        CURRENCY_ID currencyId = CURRENCY_ID::FromString(currency);
         if (!currencyId.IsValid()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("Currency %s is not supported", currency).msg);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("Currency <%s> is not supported", currency).msg);
         }
+
+        optParams = TokenCurrencyPair{tokenId, currencyId};
     }
 
-    auto iterator = TokenPriceIterator(mnview_wrapper, chain);
+    auto optHeight = lock->getHeight();
+    int lastHeight = optHeight.is_initialized() ? *optHeight : 0;
+    auto lastBlockTime = lock->getBlockTime(lastHeight);
+
+    auto iterator = TokenPriceIterator(mnview_wrapper, chain, lastBlockTime);
     UniValue res(UniValue::VARR);
     iterator.ForEach(
-            [&res, currency, token](
+            [&res](
                     const COracleId &oracleId,
                     DCT_ID tokenId,
                     CURRENCY_ID currencyId,
@@ -4771,23 +4736,23 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                     uint8_t weightage,
                     OracleState oracleState) {
                 UniValue value{UniValue::VOBJ};
-                value.pushKV(OracleFields::Currency, currency);
+                value.pushKV(oraclefields::Currency, currencyId.ToString());
                 // TODO (IntegralTeam): add token formatting
-                value.pushKV(OracleFields::Token, token);
-                value.pushKV(OracleFields::OracleId, oracleId.GetHex());
-                value.pushKV(OracleFields::Weightage, weightage);
-                value.pushKV(OracleFields::Timestamp, oracleTime);
-                value.pushKV(OracleFields::Price, ValueFromAmount(rawPrice));
+                value.pushKV(oraclefields::Token, tokenId.ToString());
+                value.pushKV(oraclefields::OracleId, oracleId.GetHex());
+                value.pushKV(oraclefields::Weightage, weightage);
+                value.pushKV(oraclefields::Timestamp, oracleTime);
+                value.pushKV(oraclefields::Price, ValueFromAmount(rawPrice));
 
-                auto state = oracleState == OracleState::ALIVE ? OracleFields::Alive : OracleFields::Expired;
-                value.pushKV(OracleFields::State, state);
+                auto state = oracleState == OracleState::ALIVE ? oraclefields::Alive : oraclefields::Expired;
+                value.pushKV(oraclefields::State, state);
                 res.push_back(value);
-            }, tokenId, currencyId);
+            }, optParams);
 
     return res;
 }
 
-UniValue getprice(const JSONRPCRequest& request) {
+UniValue getprice(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"getprice",
@@ -4808,7 +4773,7 @@ UniValue getprice(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, { UniValue::VSTR }, false);
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
 
 
     UniValue data{};
@@ -4816,15 +4781,15 @@ UniValue getprice(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "failed to read input json");
     }
 
-    if (!data.exists(OracleFields::Currency)) {
+    if (!data.exists(oraclefields::Currency)) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "currency name not specified");
     }
-    if (!data.exists(OracleFields::Token)) {
+    if (!data.exists(oraclefields::Token)) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "token name not specified");
     }
 
-    const auto& currency = data[OracleFields::Currency].getValStr();
-    const auto& token = data[OracleFields::Token].getValStr();
+    const auto &currency = data[oraclefields::Currency].getValStr();
+    const auto &token = data[oraclefields::Token].getValStr();
 
     LOCK(cs_main);
 
@@ -4845,7 +4810,11 @@ UniValue getprice(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("Currency %s is not supported", currency).msg);
     }
 
-    auto iterator = TokenPriceIterator(mnview_wrapper, chain);
+    auto optHeight = lock->getHeight();
+    int lastHeight = optHeight.is_initialized() ? *optHeight : 0;
+    auto lastBlockTime = lock->getBlockTime(lastHeight);
+
+    auto iterator = TokenPriceIterator(mnview_wrapper, chain, lastBlockTime);
     CAmount weightedSum{0};
     uint32_t sumWeights{0};
     uint32_t numLiveOracles{0};
@@ -4875,7 +4844,7 @@ UniValue getprice(const JSONRPCRequest& request) {
                     weightedSum = *addResult.val;
                 }
             },
-            tokenId, currencyId);
+            TokenCurrencyPair{tokenId, currencyId});
 
     if (numLiveOracles == 0) {
         throw JSONRPCError(RPC_MISC_ERROR, "no live oracles for specified request");
@@ -5164,9 +5133,9 @@ static const CRPCCommand commands[] =
     {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "allowedtokens"}},
     {"oracles",     "setoracledata",         &setoracledata,          {"timestamp", "prices"}},
     {"oracles",     "listoracles",           &listoracles,                 {}},
-    {"oracles",                   "listlatestrawprices",   &listlatestrawprices,    {"request"}},
-    {"oracles",                   "getprice",              &getprice,    {"request"}},
-    {"oracles",                   "listprices",            &listprices,    {}},
+    {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request"}},
+    {"oracles",     "getprice",              &getprice,               {"request"}},
+    {"oracles",     "listprices",            &listprices,                   {}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

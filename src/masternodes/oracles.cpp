@@ -97,7 +97,8 @@ Res COracleView::SetOracleData(const COracleId &oracleId, int64_t timestamp, con
                 return Res::Err(
                         "oracle <%s> doesn't support token <%s> - currency <%s> price",
                         oracle.oracleId.GetHex(),
-                        itToken.first.ToString());
+                        itToken.first.ToString(),
+                        currencyId.ToString());
             }
             oracle.SetTokenPrice(tokenId, itCurrency.first, itCurrency.second, timestamp);
         }

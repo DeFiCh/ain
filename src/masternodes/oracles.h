@@ -146,18 +146,17 @@ enum class OracleState : uint8_t {
 };
 
 /// names of oracle json fields
-struct OracleFields {
-    static constexpr auto Currency = "currency";
-    static constexpr auto Token = "token";
-    static constexpr auto OracleId = "oracleid";
-    static constexpr auto Timestamp = "timestamp";
-    static constexpr auto Weightage = "weightage";
-    static constexpr auto State = "state";
-    static constexpr auto Price = "rawprice";
-    static constexpr auto Alive = "live";
-    static constexpr auto Expired = "expired";
-    static constexpr auto USD = "USD";
-    static constexpr auto EUR = "EUR";
+namespace oraclefields {
+    constexpr auto Currency = "currency";
+    constexpr auto Token = "token";
+    constexpr auto OracleId = "oracleid";
+    constexpr auto Timestamp = "timestamp";
+    constexpr auto Weightage = "weightage";
+    constexpr auto State = "state";
+    constexpr auto Price = "rawprice";
+    constexpr auto Alive = "live";
+    constexpr auto Expired = "expired";
+    constexpr auto TokenAmount = "tokenAmount";
 };
 
 /// Oracle representation

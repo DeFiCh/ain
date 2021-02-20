@@ -379,6 +379,8 @@ libdefi_server_a_SOURCES = \
   masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
   masternodes/undos.cpp \
+  masternodes/tokenpriceiterator.h \
+  masternodes/tokenpriceiterator.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \

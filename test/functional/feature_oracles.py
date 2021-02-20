@@ -109,7 +109,6 @@ class OraclesTest (DefiTestFramework):
             print('failed to appoint oracle', e.error['message'])
             raise
 
-
         # oracle_id1 = json.loads(oracle_res)['oracleid']
 
         print('oracleid1', oracle_id1)
@@ -120,14 +119,6 @@ class OraclesTest (DefiTestFramework):
         self.nodes[0].generate(10)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
-        try:
-            print("oracle_id1:", oracle_id1)
-            print('node0 oracles:', self.nodes[0].listoracles())
-        except JSONRPCException as e:
-            print(e.error['message'])
-
-        self.sync_all([self.nodes[0], self.nodes[2]])
-
         print('node0 oracles:', self.nodes[0].listoracles())
         print('node2 oracles:', self.nodes[2].listoracles())
 
@@ -136,19 +127,24 @@ class OraclesTest (DefiTestFramework):
 
         timestamp = calendar.timegm(time.gmtime())
 
+        # input("debug set oracle data")
         try:
-            self.nodes[2].setoracledata(oracle_id1, timestamp, '["10.1@PT", "5@GOLD#128"]')
+            self.nodes[2].setoracledata(
+                oracle_id1,
+                timestamp,
+                '[{"currency": "USD", "tokenAmount": "10.1@PT"}, {"currency": "USD", "tokenAmount": "5@GOLD#128"}]'
+            )
         except JSONRPCException as e:
             print('failed to set oracle data', e.error['message'])
             raise
 
         try:
-            self.nodes[2].setoracledata(oracle_id2, timestamp, '["5@GOLD#128"]')
+            self.nodes[2].setoracledata(oracle_id2, timestamp, '[{"currency": "USD", "tokenAmount": "6@GOLD#128"}]')
         except JSONRPCException as e:
             print('failed to set oracle data', e.error['message'])
             raise
 
-        self.nodes[2].generate(10)
+        self.nodes[2].generate(1)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
         try:
@@ -157,7 +153,7 @@ class OraclesTest (DefiTestFramework):
             print('failed to update oracle', e.error['message'])
             raise
 
-        self.nodes[2].generate(10)
+        self.nodes[2].generate(1)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
         input("debug")
@@ -171,7 +167,6 @@ class OraclesTest (DefiTestFramework):
         except Exception as e:
             print(str(e))
 
-        print('tokens', self.nodes[2].listtokens())
 
         # # remove oracle failure
         # self.sync_blocks()

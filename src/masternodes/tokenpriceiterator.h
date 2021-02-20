@@ -1,0 +1,51 @@
+// Copyright (c) 2020 DeFi Blockchain Developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#ifndef AIN_MASTERNODES_TOKENPRICEITERATOR_H
+#define AIN_MASTERNODES_TOKENPRICEITERATOR_H
+
+#include <functional>
+
+#include <interfaces/chain.h>
+#include <masternodes/oracles.h>
+
+class CCustomCSView;
+
+class TokenPriceIterator
+{
+public:
+    TokenPriceIterator(
+        std::reference_wrapper<CCustomCSView> view,
+        std::reference_wrapper<interfaces::Chain> chain,
+        int64_t lastBlockTime) : _view{view}, _chain{chain}, _lastBlockTime{lastBlockTime}
+    {
+    }
+
+    // clang-format off
+    /// visitor signature
+    using Visitor = std::function<void(
+            const COracleId &   // oracle id
+            , DCT_ID            // token id
+            , CURRENCY_ID       // currency id
+            , int64_t timeStamp // oracle timestamp
+            , CAmount           // token raw price
+            , uint8_t weightage // oracle weightage
+            , OracleState       // oracle state: live or expired
+            )>;
+    // clang-format on
+
+    /// @brief Iterate through all oracles and their data and visit each data item
+    /// @param tokenId if initialized, only tokens of specified id will be visited
+    /// @param currencyId if initialized, only specified currency will be considered
+    void ForEach(const Visitor& visitor,
+        boost::optional<TokenCurrencyPair> filter = boost::none);
+
+private:
+    std::reference_wrapper<CCustomCSView> _view;
+    std::reference_wrapper<interfaces::Chain> _chain;
+    int64_t _lastBlockTime;
+};
+
+
+#endif // AIN_MASTERNODES_TOKENPRICEITERATOR_H
