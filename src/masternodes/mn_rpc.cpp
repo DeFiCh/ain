@@ -4775,7 +4775,6 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
 
-
     UniValue data{};
     if (!data.read(request.params[0].getValStr())) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "failed to read input json");
@@ -4816,7 +4815,7 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     auto iterator = TokenPriceIterator(mnview_wrapper, chain, lastBlockTime);
     CAmount weightedSum{0};
-    uint32_t sumWeights{0};
+    uint64_t sumWeights{0};
     uint32_t numLiveOracles{0};
     iterator.ForEach(
             [&weightedSum, &sumWeights, &numLiveOracles](
@@ -4827,17 +4826,15 @@ UniValue getprice(const JSONRPCRequest &request) {
                     CAmount rawPrice,
                     uint8_t weightage,
                     OracleState oracleState) {
-                uint32_t sumWeight{0};
-                CAmount sumAmount{0};
                 if (oracleState == OracleState::ALIVE) {
-                    sumWeights += static_cast<uint32_t>(weightage);
+                    sumWeights += static_cast<uint64_t>(weightage);
                     ++numLiveOracles;
 
-                    auto mulResult = SafeMultiply(rawPrice, weightage);
+                    auto mulResult = SafeMultiply(rawPrice, static_cast<uint64_t>(weightage));
                     if (!mulResult.ok) {
                         throw JSONRPCError(RPC_INVALID_PARAMETER, mulResult.msg);
                     }
-                    auto addResult = SafeAdd(sumAmount, *mulResult.val);
+                    auto addResult = SafeAdd(weightedSum, *mulResult.val);
                     if (!addResult.ok) {
                         throw JSONRPCError(RPC_INVALID_PARAMETER, addResult.msg);
                     }
@@ -4854,7 +4851,7 @@ UniValue getprice(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_MISC_ERROR, "all live oracles which meet specified request, have zero weight");
     }
 
-    CAmount aggregatedPrice = weightedSum / static_cast<CAmount>(sumWeights);
+    CAmount aggregatedPrice = weightedSum / sumWeights;
 
     UniValue result = ValueFromAmount(aggregatedPrice);
 
