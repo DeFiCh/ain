@@ -153,10 +153,14 @@ namespace oraclefields {
     constexpr auto Timestamp = "timestamp";
     constexpr auto Weightage = "weightage";
     constexpr auto State = "state";
-    constexpr auto Price = "rawprice";
+    constexpr auto RawPrice = "rawprice";
+    constexpr auto AggregatedPrice = "price";
     constexpr auto Alive = "live";
     constexpr auto Expired = "expired";
     constexpr auto TokenAmount = "tokenAmount";
+    constexpr auto ValidityFlag = "ok";
+    constexpr auto FlagIsValid = "true";
+    constexpr auto FlagIsError = "false";
 };
 
 /// Oracle representation
@@ -224,7 +228,9 @@ public:
     ResVal<COracle> GetOracleData(const COracleId &oracleId) const;
 
     /// get collection of all oracle ids
-    std::vector<COracleId> GetAllOracleIds();
+    std::vector<COracleId> GetAllOracleIds() const;
+
+    ResVal<std::set<TokenCurrencyPair>> GetAllTokenCurrencyPairs() const;
 
 private:
     struct ByName {

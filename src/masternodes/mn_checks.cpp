@@ -1563,7 +1563,7 @@ Res ApplyRemoveOracleAppointTx(
         return Res::Err("Appoint oracle tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
-    constexpr auto base = "Reomve oracle appoint";
+    constexpr auto base = "Remove oracle appoint";
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CRemoveOracleAppointMessage msg;

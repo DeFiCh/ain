@@ -4724,7 +4724,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     int lastHeight = optHeight.is_initialized() ? *optHeight : 0;
     auto lastBlockTime = lock->getBlockTime(lastHeight);
 
-    auto iterator = TokenPriceIterator(mnview_wrapper, chain, lastBlockTime);
+    auto iterator = TokenPriceIterator(mnview_wrapper, lastBlockTime);
     UniValue res(UniValue::VARR);
     iterator.ForEach(
             [&res](
@@ -4742,7 +4742,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                 value.pushKV(oraclefields::OracleId, oracleId.GetHex());
                 value.pushKV(oraclefields::Weightage, weightage);
                 value.pushKV(oraclefields::Timestamp, oracleTime);
-                value.pushKV(oraclefields::Price, ValueFromAmount(rawPrice));
+                value.pushKV(oraclefields::RawPrice, ValueFromAmount(rawPrice));
 
                 auto state = oracleState == OracleState::ALIVE ? oraclefields::Alive : oraclefields::Expired;
                 value.pushKV(oraclefields::State, state);
@@ -4752,12 +4752,85 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     return res;
 }
 
+UniValue GetSingleAggregatedPrice(DCT_ID tid, CURRENCY_ID cid, const COracleView& view, int64_t lastBlockTime) {
+    auto iterator = TokenPriceIterator(view, lastBlockTime);
+    CAmount weightedSum{0};
+    uint64_t sumWeights{0};
+    uint32_t numLiveOracles{0};
+    iterator.ForEach(
+            [&weightedSum, &sumWeights, &numLiveOracles](
+                    const COracleId &oracleId,
+                    DCT_ID tokenId,
+                    CURRENCY_ID currencyId,
+                    int64_t oracleTime,
+                    CAmount rawPrice,
+                    uint8_t weightage,
+                    OracleState oracleState) {
+                if (oracleState == OracleState::ALIVE) {
+                    sumWeights += static_cast<uint64_t>(weightage);
+                    ++numLiveOracles;
+
+                    auto mulResult = SafeMultiply(rawPrice, static_cast<uint64_t>(weightage));
+                    if (!mulResult.ok) {
+                        throw JSONRPCError(RPC_INVALID_PARAMETER, mulResult.msg);
+                    }
+                    auto addResult = SafeAdd(weightedSum, *mulResult.val);
+                    if (!addResult.ok) {
+                        throw JSONRPCError(RPC_INVALID_PARAMETER, addResult.msg);
+                    }
+                    weightedSum = *addResult.val;
+                }
+            },
+            TokenCurrencyPair{tid, cid});
+
+    if (numLiveOracles == 0) {
+        throw JSONRPCError(RPC_MISC_ERROR, "no live oracles for specified request");
+    }
+
+    if (sumWeights == 0) {
+        throw JSONRPCError(RPC_MISC_ERROR, "all live oracles which meet specified request, have zero weight");
+    }
+
+    CAmount aggregatedPrice = weightedSum / sumWeights;
+
+    UniValue result = ValueFromAmount(aggregatedPrice);
+
+    return result;
+}
+
+UniValue GetAllAggregatedPrices(const COracleView& view, int64_t lastBlockTime) {
+    auto pairsRes = view.GetAllTokenCurrencyPairs();
+    if (!pairsRes.ok) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, pairsRes.msg);
+    }
+    auto &set = *pairsRes.val;
+
+    UniValue result(UniValue::VARR);
+    for (auto &pair : set) {
+        UniValue item{UniValue::VOBJ};
+        item.pushKV(oraclefields::Token, pair.tid.ToString());
+        item.pushKV(oraclefields::Currency, pair.cid.ToString());
+
+        try {
+            auto price = GetSingleAggregatedPrice(pair.tid, pair.cid, view, lastBlockTime);
+            item.pushKV(oraclefields::AggregatedPrice, price);
+            item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsValid);
+        } catch (UniValue &err) {
+            item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsError);
+        }
+
+        result.push_back(item);
+    }
+
+    return result;
+}
+
 UniValue getprice(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"getprice",
                "\nCalculates aggregated price, \n"
-               "The only argument is oracleid hex value." +
+               "The only argument is a json-form request containing token and currency names." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"request", RPCArg::Type::STR, RPCArg::Optional::NO,
@@ -4792,7 +4865,7 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     LOCK(cs_main);
 
-    CCustomCSView mnview_wrapper(*pcustomcsview);
+    CCustomCSView view(*pcustomcsview);
 
     auto &chain = pwallet->chain();
     auto lock = chain.lock();
@@ -4813,7 +4886,7 @@ UniValue getprice(const JSONRPCRequest &request) {
     int lastHeight = optHeight.is_initialized() ? *optHeight : 0;
     auto lastBlockTime = lock->getBlockTime(lastHeight);
 
-    auto iterator = TokenPriceIterator(mnview_wrapper, chain, lastBlockTime);
+    auto iterator = TokenPriceIterator(view, lastBlockTime);
     CAmount weightedSum{0};
     uint64_t sumWeights{0};
     uint32_t numLiveOracles{0};
@@ -4859,7 +4932,73 @@ UniValue getprice(const JSONRPCRequest &request) {
 }
 
 UniValue listprices(const JSONRPCRequest& request) {
-    return {};
+    CWallet *const pwallet = GetWallet(request);
+
+    RPCHelpMan{"listprices",
+               "\nCalculates aggregated prices for all supported pairs (token, currency), \n"
+               "Takes no arguments." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {},
+               RPCResult{
+                       "\"json\"                  (string) array containing json-objects having following fields:\n"
+                       "                  `token` - token name,\n"
+                       "                  `currency` - currency name,\n"
+                       "                  `price` - aggregated price value,\n"
+                       "                  `ok` - validity flag,\n"
+                       "                  `msg` - optional - if ok is `false`, contains reason\n"
+                       "                   possible reasons for a price result to be invalid:"
+                       "                   1. if there are no live oracles which meet specified request.\n"
+                       "                   2. Sum of the weight of live oracles is zero.\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getprice", R"(getprice '{"currency": "USD", "token": "BTC#1"}')")
+                       + HelpExampleRpc("getprice", R"(getprice '{"currency": "USD", "token": "BTC#1"}')")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+
+    UniValue data{};
+    if (!data.read(request.params[0].getValStr())) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to read input json");
+    }
+
+    if (!data.exists(oraclefields::Currency)) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "currency name not specified");
+    }
+    if (!data.exists(oraclefields::Token)) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "token name not specified");
+    }
+
+    const auto &currency = data[oraclefields::Currency].getValStr();
+    const auto &token = data[oraclefields::Token].getValStr();
+
+    LOCK(cs_main);
+
+    CCustomCSView view(*pcustomcsview);
+
+    auto &chain = pwallet->chain();
+    auto lock = chain.lock();
+
+    DCT_ID tokenId{};
+    auto tokenPtr = chain.existTokenGuessId(token, tokenId);
+    if (!tokenPtr) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, Res::Err("Invalid Defi token: %s", token).msg);
+    }
+
+    CURRENCY_ID currencyId = CURRENCY_ID::INVALID();
+    currencyId = CURRENCY_ID::FromString(currency);
+    if (!currencyId.IsValid()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("Currency %s is not supported", currency).msg);
+    }
+
+    auto optHeight = lock->getHeight();
+    int lastHeight = optHeight.is_initialized() ? *optHeight : 0;
+    auto lastBlockTime = lock->getBlockTime(lastHeight);
+
+    UniValue prices = GetAllAggregatedPrices(view, lastBlockTime);
+
+    return prices;
 }
 
 static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)

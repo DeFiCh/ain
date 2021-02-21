@@ -122,12 +122,29 @@ ResVal<COracle> COracleView::GetOracleData(const COracleId &oracleId) const {
 
 // ----- operations with oracle ids list -----
 
-std::vector<COracleId> COracleView::GetAllOracleIds() {
+std::vector<COracleId> COracleView::GetAllOracleIds() const {
     std::vector<COracleId> oracles;
     if (!ReadBy<ByName>(_allOraclesKey, oracles)) {
         return {};
     }
     return oracles;
+}
+
+ResVal<std::set<TokenCurrencyPair>> COracleView::GetAllTokenCurrencyPairs() const {
+    auto oracleIds = GetAllOracleIds();
+
+    std::set<TokenCurrencyPair> result;
+
+    for (auto &oracleId: oracleIds) {
+        auto oracleRes = GetOracleData(oracleId);
+        if (!oracleRes.ok) {
+            return Res::Err("failed to get data for oracle id <%s>", oracleRes.msg);
+        }
+        auto&oracle = *oracleRes.val;
+        result.insert(oracle.availablePairs.begin(), oracle.availablePairs.end());
+    }
+
+    return {result, Res::Ok()};
 }
 
 Res COracleView::AddOracleId(const COracleId &oracleId) {

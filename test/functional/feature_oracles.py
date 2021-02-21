@@ -109,8 +109,6 @@ class OraclesTest (DefiTestFramework):
             print('failed to appoint oracle', e.error['message'])
             raise
 
-        # oracle_id1 = json.loads(oracle_res)['oracleid']
-
         print('oracleid1', oracle_id1)
         print('decodedtx', self.nodes[0].getrawtransaction(oracle_id1, 1))
         print('oracleid2', oracle_id2)
@@ -161,7 +159,7 @@ class OraclesTest (DefiTestFramework):
             print('PT prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "PT"}'))
             print('GOLD prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "GOLD#128"}'))
             print('all feeds', self.nodes[2].listlatestrawprices())
-            # print('all prices', self.nodes[2].listlatestrawprices())
+
             print('get aggregated price PT', self.nodes[2].getprice('{"currency": "USD", "token": "PT"}'))
             print('get aggregated price GOLD', self.nodes[2].getprice('{"currency": "USD", "token": "GOLD#128"}'))
         except JSONRPCException as e:
@@ -169,6 +167,10 @@ class OraclesTest (DefiTestFramework):
         except Exception as e:
             print(str(e))
 
+        try:
+            print('PT for EUR', self.nodes[2].getprice('{"currency":"EUR", "token":"PT"}'))
+        except JSONRPCException as e:
+            print('failed to calculate aggregated price PT in EU', e.error['message'])
 
         # # remove oracle failure
         # self.sync_blocks()

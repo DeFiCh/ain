@@ -16,9 +16,8 @@ class TokenPriceIterator
 {
 public:
     TokenPriceIterator(
-        std::reference_wrapper<CCustomCSView> view,
-        std::reference_wrapper<interfaces::Chain> chain,
-        int64_t lastBlockTime) : _view{view}, _chain{chain}, _lastBlockTime{lastBlockTime}
+        std::reference_wrapper<const COracleView> view,
+        int64_t lastBlockTime) : _view{view}, _lastBlockTime{lastBlockTime}
     {
     }
 
@@ -42,8 +41,7 @@ public:
         boost::optional<TokenCurrencyPair> filter = boost::none);
 
 private:
-    std::reference_wrapper<CCustomCSView> _view;
-    std::reference_wrapper<interfaces::Chain> _chain;
+    std::reference_wrapper<const COracleView> _view;
     int64_t _lastBlockTime;
 };
 
