@@ -7,7 +7,6 @@
 
 #include <functional>
 
-#include <interfaces/chain.h>
 #include <masternodes/oracles.h>
 
 class CCustomCSView;
@@ -23,7 +22,7 @@ public:
 
     // clang-format off
     /// visitor signature
-    using Visitor = std::function<void(
+    using Visitor = std::function<Res(
             const COracleId &   // oracle id
             , DCT_ID            // token id
             , CURRENCY_ID       // currency id
@@ -37,7 +36,7 @@ public:
     /// @brief Iterate through all oracles and their data and visit each data item
     /// @param tokenId if initialized, only tokens of specified id will be visited
     /// @param currencyId if initialized, only specified currency will be considered
-    void ForEach(const Visitor& visitor,
+    Res ForEach(const Visitor& visitor,
         boost::optional<TokenCurrencyPair> filter = boost::none);
 
 private:

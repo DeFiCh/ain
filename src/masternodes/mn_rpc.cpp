@@ -4504,8 +4504,6 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode timestamp");
     }
     // decode prices
-//    auto prices = request.params[2];
-//    return prices.getValStr();
     UniValue prices{UniValue::VARR};
     if (!prices.read(request.params[2].getValStr())) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode prices");
@@ -4621,19 +4619,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue GetOracleIdList() {
-    CCustomCSView mnview_wrapper(*pcustomcsview); // don't write into actual DB
-    auto oracles = mnview_wrapper.GetAllOracleIds();
-
-    UniValue value(UniValue::VARR);
-    for (auto &v: oracles) {
-        value.push_back(v.GetHex());
-    }
-
-    return value;
-}
-
-UniValue listoracles(const JSONRPCRequest& request) {
+UniValue listoracles(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"listoracles",
@@ -4653,11 +4639,19 @@ UniValue listoracles(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
                            "Cannot create transactions while still in Initial Block Download");
     }
+
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
     LOCK(cs_main);
 
-    return GetOracleIdList();
+    CCustomCSView view(*pcustomcsview); // don't write into actual DB
+    auto oracles = view.GetAllOracleIds();
+
+    UniValue value(UniValue::VARR);
+    for (auto &v: oracles)
+        value.push_back(v.GetHex());
+
+    return value;
 }
 
 UniValue listlatestrawprices(const JSONRPCRequest &request) {
@@ -4734,7 +4728,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                     int64_t oracleTime,
                     CAmount rawPrice,
                     uint8_t weightage,
-                    OracleState oracleState) {
+                    OracleState oracleState) -> Res {
                 UniValue value{UniValue::VOBJ};
                 value.pushKV(oraclefields::Currency, currencyId.ToString());
                 // TODO (IntegralTeam): add token formatting
@@ -4747,82 +4741,10 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                 auto state = oracleState == OracleState::ALIVE ? oraclefields::Alive : oraclefields::Expired;
                 value.pushKV(oraclefields::State, state);
                 res.push_back(value);
+                return Res::Ok();
             }, optParams);
 
     return res;
-}
-
-UniValue GetSingleAggregatedPrice(DCT_ID tid, CURRENCY_ID cid, const COracleView& view, int64_t lastBlockTime) {
-    auto iterator = TokenPriceIterator(view, lastBlockTime);
-    CAmount weightedSum{0};
-    uint64_t sumWeights{0};
-    uint32_t numLiveOracles{0};
-    iterator.ForEach(
-            [&weightedSum, &sumWeights, &numLiveOracles](
-                    const COracleId &oracleId,
-                    DCT_ID tokenId,
-                    CURRENCY_ID currencyId,
-                    int64_t oracleTime,
-                    CAmount rawPrice,
-                    uint8_t weightage,
-                    OracleState oracleState) {
-                if (oracleState == OracleState::ALIVE) {
-                    sumWeights += static_cast<uint64_t>(weightage);
-                    ++numLiveOracles;
-
-                    auto mulResult = SafeMultiply(rawPrice, static_cast<uint64_t>(weightage));
-                    if (!mulResult.ok) {
-                        throw JSONRPCError(RPC_INVALID_PARAMETER, mulResult.msg);
-                    }
-                    auto addResult = SafeAdd(weightedSum, *mulResult.val);
-                    if (!addResult.ok) {
-                        throw JSONRPCError(RPC_INVALID_PARAMETER, addResult.msg);
-                    }
-                    weightedSum = *addResult.val;
-                }
-            },
-            TokenCurrencyPair{tid, cid});
-
-    if (numLiveOracles == 0) {
-        throw JSONRPCError(RPC_MISC_ERROR, "no live oracles for specified request");
-    }
-
-    if (sumWeights == 0) {
-        throw JSONRPCError(RPC_MISC_ERROR, "all live oracles which meet specified request, have zero weight");
-    }
-
-    CAmount aggregatedPrice = weightedSum / sumWeights;
-
-    UniValue result = ValueFromAmount(aggregatedPrice);
-
-    return result;
-}
-
-UniValue GetAllAggregatedPrices(const COracleView& view, int64_t lastBlockTime) {
-    auto pairsRes = view.GetAllTokenCurrencyPairs();
-    if (!pairsRes.ok) {
-        throw JSONRPCError(RPC_DATABASE_ERROR, pairsRes.msg);
-    }
-    auto &set = *pairsRes.val;
-
-    UniValue result(UniValue::VARR);
-    for (auto &pair : set) {
-        UniValue item{UniValue::VOBJ};
-        item.pushKV(oraclefields::Token, pair.tid.ToString());
-        item.pushKV(oraclefields::Currency, pair.cid.ToString());
-
-        try {
-            auto price = GetSingleAggregatedPrice(pair.tid, pair.cid, view, lastBlockTime);
-            item.pushKV(oraclefields::AggregatedPrice, price);
-            item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsValid);
-        } catch (UniValue &err) {
-            item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsError);
-        }
-
-        result.push_back(item);
-    }
-
-    return result;
 }
 
 UniValue getprice(const JSONRPCRequest &request) {
@@ -4886,50 +4808,48 @@ UniValue getprice(const JSONRPCRequest &request) {
     int lastHeight = optHeight.is_initialized() ? *optHeight : 0;
     auto lastBlockTime = lock->getBlockTime(lastHeight);
 
-    auto iterator = TokenPriceIterator(view, lastBlockTime);
-    CAmount weightedSum{0};
-    uint64_t sumWeights{0};
-    uint32_t numLiveOracles{0};
-    iterator.ForEach(
-            [&weightedSum, &sumWeights, &numLiveOracles](
-                    const COracleId &oracleId,
-                    DCT_ID tokenId,
-                    CURRENCY_ID currencyId,
-                    int64_t oracleTime,
-                    CAmount rawPrice,
-                    uint8_t weightage,
-                    OracleState oracleState) {
-                if (oracleState == OracleState::ALIVE) {
-                    sumWeights += static_cast<uint64_t>(weightage);
-                    ++numLiveOracles;
-
-                    auto mulResult = SafeMultiply(rawPrice, static_cast<uint64_t>(weightage));
-                    if (!mulResult.ok) {
-                        throw JSONRPCError(RPC_INVALID_PARAMETER, mulResult.msg);
-                    }
-                    auto addResult = SafeAdd(weightedSum, *mulResult.val);
-                    if (!addResult.ok) {
-                        throw JSONRPCError(RPC_INVALID_PARAMETER, addResult.msg);
-                    }
-                    weightedSum = *addResult.val;
-                }
-            },
-            TokenCurrencyPair{tokenId, currencyId});
-
-    if (numLiveOracles == 0) {
-        throw JSONRPCError(RPC_MISC_ERROR, "no live oracles for specified request");
+    auto result = view.GetSingleAggregatedPrice(tokenId, currencyId, lastBlockTime);
+    if (!result.ok) {
+        throw JSONRPCError(result.code, result.msg);
     }
 
-    if (sumWeights == 0) {
-        throw JSONRPCError(RPC_MISC_ERROR, "all live oracles which meet specified request, have zero weight");
-    }
+    UniValue price = ValueFromAmount(*result.val);
 
-    CAmount aggregatedPrice = weightedSum / sumWeights;
-
-    UniValue result = ValueFromAmount(aggregatedPrice);
-
-    return result;
+    return price;
 }
+
+namespace {
+    UniValue GetAllAggregatedPrices(const COracleView &view, int64_t lastBlockTime) {
+        auto pairsRes = view.GetAllTokenCurrencyPairs();
+        if (!pairsRes.ok) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, pairsRes.msg);
+        }
+        auto &set = *pairsRes.val;
+
+        UniValue result(UniValue::VARR);
+        for (auto &pair : set) {
+            UniValue item{UniValue::VOBJ};
+            item.pushKV(oraclefields::Token, pair.tid.ToString());
+            item.pushKV(oraclefields::Currency, pair.cid.ToString());
+
+            try {
+                auto priceRes = view.GetSingleAggregatedPrice(pair.tid, pair.cid, lastBlockTime);
+                if (!priceRes.ok) {
+                    throw JSONRPCError(priceRes.code, priceRes.msg);
+                }
+                auto price = ValueFromAmount(*priceRes.val);
+                item.pushKV(oraclefields::AggregatedPrice, price);
+                item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsValid);
+            } catch (UniValue &err) {
+                item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsError);
+            }
+
+            result.push_back(item);
+        }
+
+        return result;
+    }
+} // namespace
 
 UniValue listprices(const JSONRPCRequest& request) {
     CWallet *const pwallet = GetWallet(request);
@@ -4996,9 +4916,9 @@ UniValue listprices(const JSONRPCRequest& request) {
     int lastHeight = optHeight.is_initialized() ? *optHeight : 0;
     auto lastBlockTime = lock->getBlockTime(lastHeight);
 
-    UniValue prices = GetAllAggregatedPrices(view, lastBlockTime);
+    UniValue result = GetAllAggregatedPrices(view, lastBlockTime);
 
-    return prices;
+    return result;
 }
 
 static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)

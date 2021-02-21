@@ -2,18 +2,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <masternodes/masternodes.h>
 #include <masternodes/tokenpriceiterator.h>
 
-#include <rpc/protocol.h>
-#include <rpc/request.h>
-
-void TokenPriceIterator::ForEach(const Visitor& visitor,
+Res TokenPriceIterator::ForEach(const Visitor& visitor,
     boost::optional<TokenCurrencyPair> filter)
 {
     const auto oracleIds = _view.get().GetAllOracleIds();
     if (oracleIds.empty())
-        return;
+        return Res::Ok();
 
     auto CheckIfAlive = [this](uint64_t time) -> bool {
         constexpr uint64_t SECONDS_PER_HOUR = 3600u;
@@ -23,7 +19,7 @@ void TokenPriceIterator::ForEach(const Visitor& visitor,
     for (auto& oracleId : oracleIds) {
         auto oracleRes = _view.get().GetOracleData(oracleId);
         if (!oracleRes.ok) {
-            throw JSONRPCError(RPC_DATABASE_ERROR, "failed to get oracle: " + oracleId.GetHex());
+            return {false, oracleRes.msg, oracleRes.code};
         }
 
         auto& oracle = *oracleRes.val;
@@ -38,8 +34,10 @@ void TokenPriceIterator::ForEach(const Visitor& visitor,
                     auto& pricePoint = map.at(fixedCid);
                     auto amount = pricePoint.first;
                     auto timestamp = pricePoint.second;
-                    visitor(oracle.oracleId, fixedTid, fixedCid, timestamp, amount, oracle.weightage,
+                    auto res = visitor(oracle.oracleId, fixedTid, fixedCid, timestamp, amount, oracle.weightage,
                         CheckIfAlive(timestamp) ? OracleState::ALIVE : OracleState::EXPIRED);
+                    if (!res.ok)
+                        return res;
                 }
             }
         } else {
@@ -51,10 +49,14 @@ void TokenPriceIterator::ForEach(const Visitor& visitor,
                     auto pricePoint = cPair.second;
                     CAmount amount = pricePoint.first;
                     int64_t timestamp = pricePoint.second;
-                    visitor(oracle.oracleId, tid, cid, timestamp, amount, oracle.weightage,
+                    auto res = visitor(oracle.oracleId, tid, cid, timestamp, amount, oracle.weightage,
                         CheckIfAlive(timestamp) ? OracleState::ALIVE : OracleState::EXPIRED);
+                    if (!res.ok)
+                        return res;
                 }
             }
         }
     }
+
+    return Res::Ok();
 }

@@ -154,7 +154,6 @@ class OraclesTest (DefiTestFramework):
         self.nodes[2].generate(1)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
-        # input("debug")
         try:
             print('PT prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "PT"}'))
             print('GOLD prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "GOLD#128"}'))
