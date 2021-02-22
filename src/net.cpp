@@ -567,16 +567,21 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes, bool& complete
         // get current incomplete message, or create a new one
         if (vRecvMsg.empty() ||
             vRecvMsg.back().complete())
-            vRecvMsg.push_back(CNetMessage(Params().MessageStart(), SER_NETWORK, INIT_PROTO_VERSION));
+            vRecvMsg.push_back(CNetMessage(Params().MessageStartPostAMK(), SER_NETWORK, INIT_PROTO_VERSION));
 
         CNetMessage& msg = vRecvMsg.back();
 
         // absorb network data
         int handled;
-        if (!msg.in_data)
+        if (!msg.in_data) {
             handled = msg.readHeader(pch, nBytes);
-        else
+            // NOTE: for compatibility with current working nodes, remove after Dakota
+            if (memcmp(msg.hdr.pchMessageStart, Params().MessageStart(), CMessageHeader::MESSAGE_START_SIZE) == 0) {
+                memcpy(msg.hdr.pchMessageStart, Params().MessageStartPostAMK(), CMessageHeader::MESSAGE_START_SIZE);
+            }
+        } else {
             handled = msg.readData(pch, nBytes);
+        }
 
         if (handled < 0)
             return false;
@@ -2668,7 +2673,7 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
     std::vector<unsigned char> serializedHeader;
     serializedHeader.reserve(CMessageHeader::HEADER_SIZE);
     uint256 hash = Hash(msg.data.data(), msg.data.data() + nMessageSize);
-    CMessageHeader hdr(Params().MessageStart(), msg.command.c_str(), nMessageSize);
+    CMessageHeader hdr(Params().MessageStartPostAMK(), msg.command.c_str(), nMessageSize);
     memcpy(hdr.pchChecksum, hash.begin(), CMessageHeader::CHECKSUM_SIZE);
 
     CVectorWriter{SER_NETWORK, INIT_PROTO_VERSION, serializedHeader, 0, hdr};
