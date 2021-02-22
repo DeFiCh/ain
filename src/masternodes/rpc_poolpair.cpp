@@ -1046,3 +1046,23 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
 
     return ret;
 }
+
+static const CRPCCommand commands[] =
+{ 
+//  category        name                     actor (function)        params
+//  -------------   -----------------------  ---------------------   ----------
+    {"poolpair",    "listpoolpairs",         &listpoolpairs,         {"pagination", "verbose"}},
+    {"poolpair",    "getpoolpair",           &getpoolpair,           {"key", "verbose" }},
+    {"poolpair",    "addpoolliquidity",      &addpoolliquidity,      {"from", "shareAddress", "inputs"}},
+    {"poolpair",    "removepoolliquidity",   &removepoolliquidity,   {"from", "amount", "inputs"}},
+    {"poolpair",    "createpoolpair",        &createpoolpair,        {"metadata", "inputs"}},
+    {"poolpair",    "updatepoolpair",        &updatepoolpair,        {"metadata", "inputs"}},
+    {"poolpair",    "poolswap",              &poolswap,              {"metadata", "inputs"}},
+    {"poolpair",    "listpoolshares",        &listpoolshares,        {"pagination", "verbose", "is_mine_only"}},
+    {"poolpair",    "testpoolswap",          &testpoolswap,          {"metadata"}},
+};
+
+void RegisterPoolpairRPCCommands(CRPCTable& tableRPC) {
+    for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
+        tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
+}

@@ -74,45 +74,4 @@ std::string ScriptToString(CScript const& script);
 CAccounts GetAllMineAccounts(CWallet* const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalances& targetBalances, AccountSelectionMode selectionMode);
 
-// masternode rpcs
-UniValue createmasternode(const JSONRPCRequest& request);
-UniValue resignmasternode(const JSONRPCRequest& request);
-UniValue listmasternodes(const JSONRPCRequest& request);
-UniValue getmasternode(const JSONRPCRequest& request);
-UniValue getmasternodeblocks(const JSONRPCRequest& request);
-UniValue listcriminalproofs(const JSONRPCRequest& request);
-UniValue getanchorteams(const JSONRPCRequest& request);
-UniValue listanchors(const JSONRPCRequest& request);
-
-// tokens rpcs
-UniValue createtoken(const JSONRPCRequest& request);
-UniValue updatetoken(const JSONRPCRequest& request);
-UniValue listtokens(const JSONRPCRequest& request);
-UniValue gettoken(const JSONRPCRequest& request);
-UniValue getcustomtx(const JSONRPCRequest& request);
-UniValue minttokens(const JSONRPCRequest& request);
-
-// accounts rpcs
-UniValue listaccounts(const JSONRPCRequest& request);
-UniValue getaccount(const JSONRPCRequest& request);
-UniValue gettokenbalances(const JSONRPCRequest& request);
-UniValue utxostoaccount(const JSONRPCRequest& request);
-UniValue accounttoaccount(const JSONRPCRequest& request);
-UniValue accounttoutxos(const JSONRPCRequest& request);
-UniValue listaccounthistory(const JSONRPCRequest& request);
-UniValue accounthistorycount(const JSONRPCRequest& request);
-UniValue listcommunitybalances(const JSONRPCRequest& request);
-UniValue sendtokenstoaddress(const JSONRPCRequest& request);
-
-// poolpair rpcs
-UniValue listpoolpairs(const JSONRPCRequest& request);
-UniValue getpoolpair(const JSONRPCRequest& request);
-UniValue addpoolliquidity(const JSONRPCRequest& request);
-UniValue removepoolliquidity(const JSONRPCRequest& request);
-UniValue createpoolpair(const JSONRPCRequest& request);
-UniValue updatepoolpair(const JSONRPCRequest& request);
-UniValue poolswap(const JSONRPCRequest& request);
-UniValue listpoolshares(const JSONRPCRequest& request);
-UniValue testpoolswap(const JSONRPCRequest& request);
-
 #endif // DEFI_MASTERNODES_MN_RPC_H

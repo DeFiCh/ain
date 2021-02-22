@@ -631,3 +631,22 @@ UniValue listanchors(const JSONRPCRequest& request)
 
     return result;
 }
+
+static const CRPCCommand commands[] =
+{ 
+//  category        name                     actor (function)        params
+//  --------------- ----------------------   ---------------------   ----------
+    {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},
+    {"masternodes", "resignmasternode",      &resignmasternode,      {"mn_id", "inputs"}},
+    {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
+    {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
+    {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},
+    {"masternodes", "listcriminalproofs",    &listcriminalproofs,    {}},
+    {"masternodes", "getanchorteams",        &getanchorteams,        {"blockHeight"}},
+    {"masternodes", "listanchors",           &listanchors,           {}},
+};
+
+void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {
+    for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
+        tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
+}

@@ -814,3 +814,20 @@ UniValue minttokens(const JSONRPCRequest& request) {
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
+
+static const CRPCCommand commands[] =
+{ 
+//  category        name                     actor (function)        params
+//  -------------   ---------------------    --------------------    ----------
+    {"tokens",      "createtoken",           &createtoken,           {"metadata", "inputs"}},
+    {"tokens",      "updatetoken",           &updatetoken,           {"token", "metadata", "inputs"}},
+    {"tokens",      "listtokens",            &listtokens,            {"pagination", "verbose"}},
+    {"tokens",      "gettoken",              &gettoken,              {"key" }},
+    {"tokens",      "getcustomtx",           &getcustomtx,           {"txid", "blockhash"}},
+    {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
+};
+
+void RegisterTokensRPCCommands(CRPCTable& tableRPC) {
+    for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
+        tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
+}

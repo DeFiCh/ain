@@ -538,48 +538,15 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
 }
 
 static const CRPCCommand commands[] =
-{ //  category      name                  actor (function)     params
-  //  ----------------- ------------------------    -----------------------     ----------
-
-    {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},
-    {"masternodes", "resignmasternode",      &resignmasternode,      {"mn_id", "inputs"}},
-    {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
-    {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
-    {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},
-    {"masternodes", "listcriminalproofs",    &listcriminalproofs,    {}},
-    {"masternodes", "getanchorteams",        &getanchorteams,        {"blockHeight"}},
-    {"masternodes", "listanchors",           &listanchors,           {}},
-    {"tokens",      "createtoken",           &createtoken,           {"metadata", "inputs"}},
-    {"tokens",      "updatetoken",           &updatetoken,           {"token", "metadata", "inputs"}},
-    {"tokens",      "listtokens",            &listtokens,            {"pagination", "verbose"}},
-    {"tokens",      "gettoken",              &gettoken,              {"key" }},
-    {"tokens",      "getcustomtx",           &getcustomtx,           {"txid", "blockhash"}},
-    {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
-    {"accounts",    "listaccounts",          &listaccounts,          {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
-    {"accounts",    "getaccount",            &getaccount,            {"owner", "pagination", "indexed_amounts"}},
-    {"accounts",    "gettokenbalances",      &gettokenbalances,      {"pagination", "indexed_amounts", "symbol_lookup"}},
-    {"accounts",    "utxostoaccount",        &utxostoaccount,        {"amounts", "inputs"}},
-    {"accounts",    "accounttoaccount",      &accounttoaccount,      {"from", "to", "inputs"}},
-    {"accounts",    "accounttoutxos",        &accounttoutxos,        {"from", "to", "inputs"}},
-    {"accounts",    "listaccounthistory",    &listaccounthistory,    {"owner", "options"}},
-    {"accounts",    "accounthistorycount",   &accounthistorycount,   {"owner", "options"}},
-    {"accounts",    "listcommunitybalances", &listcommunitybalances, {}},
-    {"accounts",    "sendtokenstoaddress",   &sendtokenstoaddress,   {"from", "to", "selectionMode"}},
-    {"poolpair",    "listpoolpairs",         &listpoolpairs,         {"pagination", "verbose"}},
-    {"poolpair",    "getpoolpair",           &getpoolpair,           {"key", "verbose" }},
-    {"poolpair",    "addpoolliquidity",      &addpoolliquidity,      {"from", "shareAddress", "inputs"}},
-    {"poolpair",    "removepoolliquidity",   &removepoolliquidity,   {"from", "amount", "inputs"}},
-    {"poolpair",    "createpoolpair",        &createpoolpair,        {"metadata", "inputs"}},
-    {"poolpair",    "updatepoolpair",        &updatepoolpair,        {"metadata", "inputs"}},
-    {"poolpair",    "poolswap",              &poolswap,              {"metadata", "inputs"}},
-    {"poolpair",    "listpoolshares",        &listpoolshares,        {"pagination", "verbose", "is_mine_only"}},
-    {"poolpair",    "testpoolswap",          &testpoolswap,          {"metadata"}},
+{
+//  category        name                     actor (function)        params
+//  --------------  ----------------------   --------------------    ----------,
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
 };
 
-void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {
+void RegisterMNBlockchainRPCCommands(CRPCTable& tableRPC) {
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
         tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
 }
