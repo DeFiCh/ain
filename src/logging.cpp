@@ -153,6 +153,7 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::STAKING, "staking"},
     {BCLog::ANCHORING, "anchoring"},
     {BCLog::SPV, "spv"},
+    {BCLog::SPV_NET, "spv_net"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };

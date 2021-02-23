@@ -29,7 +29,9 @@
 #include "BRAddress.h"
 #include "BRBIP32Sequence.h"
 #include "BRInt.h"
-#include <string.h>
+
+#include <string>
+#include <vector>
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,7 +62,7 @@ typedef struct BRWalletStruct BRWallet;
 
 // allocates and populates a BRWallet struct that must be freed by calling BRWalletFree()
 // forkId is 0 for bitcoin, 0x40 for b-cash
-BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId);
+BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId, std::vector<UInt160> userAddresses);
 
 // not thread-safe, set callbacks once after BRWalletNew(), before calling other BRWallet functions
 // info is a void pointer that will be passed along with each callback call
@@ -83,6 +85,12 @@ void BRWalletSetCallbacks(BRWallet *wallet, void *info,
 // addrs may be NULL to only generate addresses for BRWalletContainsAddress()
 // returns the number addresses written to addrs
 size_t BRWalletUnusedAddrs(BRWallet *wallet, BRAddress addrs[], uint32_t gapLimit, uint32_t internal);
+
+// Add Bitcoin public key to SPV wallet from DeFi public key
+bool BRWalletAddAddr(BRWallet *wallet, const uint8_t &pubKey, const size_t pkLen, BRAddress& addr);
+
+// Add previously created Bitcoin addresses from DeFi address book
+void BRWalletAddUserAddresses(BRWallet *wallet, std::vector<UInt160> userAddresses);
 
 // returns the first unused external address (bech32 pay-to-witness-pubkey-hash)
 BRAddress BRWalletReceiveAddress(BRWallet *wallet);
