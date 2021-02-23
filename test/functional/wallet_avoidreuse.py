@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2018 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test the avoid_reuse and setwalletflag features."""
 
 from test_framework.test_framework import DefiTestFramework
@@ -87,8 +87,10 @@ class AvoidReuseTest(DefiTestFramework):
         self.nodes[0].generate(110)
         self.sync_all()
         reset_balance(self.nodes[1], self.nodes[0].getnewaddress())
+        self.sync_all()
         self.test_fund_send_fund_senddirty()
         reset_balance(self.nodes[1], self.nodes[0].getnewaddress())
+        self.sync_all()
         self.test_fund_send_fund_send()
 
     def test_persistence(self):
