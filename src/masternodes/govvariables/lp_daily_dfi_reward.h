@@ -25,6 +25,7 @@ public:
     static constexpr char const * TypeName() { return "LP_DAILY_DFI_REWARD"; }
     static GovVariable * Create() { return new LP_DAILY_DFI_REWARD(); }
 
+    ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 
     template <typename Stream, typename Operation>

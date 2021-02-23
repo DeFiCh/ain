@@ -25,6 +25,7 @@ public:
     static constexpr char const * TypeName() { return "LP_SPLITS"; }
     static GovVariable * Create() { return new LP_SPLITS(); }
 
+    ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 
     template <typename Stream, typename Operation>
