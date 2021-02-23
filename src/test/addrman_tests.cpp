@@ -1,6 +1,6 @@
 // Copyright (c) 2012-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 #include <addrman.h>
 #include <test/setup_common.h>
 #include <string>
@@ -424,7 +424,7 @@ BOOST_AUTO_TEST_CASE(caddrinfo_get_tried_bucket)
     uint256 nKey1 = (uint256)(CHashWriter(SER_GETHASH, 0) << 1).GetHash();
     uint256 nKey2 = (uint256)(CHashWriter(SER_GETHASH, 0) << 2).GetHash();
 
-    // TODO (pvl): Verify hash again. Changed from 17 to 77 after port change 
+    // TODO (pvl): Verify hash again. Changed from 17 to 77 after port change
     BOOST_CHECK_EQUAL(info1.GetTriedBucket(nKey1), 77);
 
     // Test: Make sure key actually randomizes bucket placement. A fail on

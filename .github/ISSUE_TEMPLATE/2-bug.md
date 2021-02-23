@@ -1,22 +1,29 @@
-<!-- This issue tracker is only for technical issues related to the DeFi Blockchain.
+---
+name: Bug report
+about: Report a bug encountered with using DeFiChain
+labels: kind/bug
+---
 
+<!-- 
+This issue tracker is only for technical issues related to the DeFi Blockchain.
+Please use this template while reporting a bug and provide as much info as possible.
 If the node is "stuck" during sync or giving "block checksum mismatch" errors, please ensure your hardware is stable by running memtest and observe CPU temperature with a load-test tool such as linpack before creating an issue!
 
-For reporting security issues, please email us at engineering@defichain.io with you detailed instructions, as below.
- -->
+If the matter is security related, please disclose it privately via security@defichain.com
+-->
 
-<!-- Describe the issue -->
-<!--- What behavior did you expect? -->
+#### What happened:
 
-<!--- What was the actual behavior (provide screenshots if the issue is GUI-related)? -->
+#### What you expected to happen:
 
-<!--- How reliably can you reproduce the issue, what are the steps to do so? -->
+#### How to reproduce it (as minimally and precisely as possible):
+<!-- How reliably can you reproduce the issue, what are the steps to do so? -->
 
-<!-- What version of DeFi Blockchain are you using, where did you get it (website, self-compiled, etc)? -->
-
+#### What are your environment parameters:
 <!-- What type of machine are you observing the error on (OS/CPU and disk type)? -->
-
 <!-- For the GUI-related issue on Linux provide names and versions of a distro, a desktop environment and a graphical shell (if relevant). -->
 
+#### Anything else we need to know?:
 <!-- Any extra information that might be useful in the debugging process. -->
 <!--- This is normally the contents of a `debug.log` or `config.log` file. Raw text or a link to a pastebin type site are preferred. -->
+

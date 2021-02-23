@@ -2,7 +2,7 @@
 /**********************************************************************
  * Copyright (c) 2014 Wladimir J. van der Laan                        *
  * Distributed under the MIT software license, see the accompanying   *
- * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
+ * file LICENSE or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 /*
 ARM implementation of field_10x26 inner loops.
@@ -10,7 +10,7 @@ ARM implementation of field_10x26 inner loops.
 Note:
 
 - To avoid unnecessary loads and make use of available registers, two
-  'passes' have every time been interleaved, with the odd passes accumulating c' and d' 
+  'passes' have every time been interleaved, with the odd passes accumulating c' and d'
   which will be added to c and d respectively in the even passes
 
 */
@@ -108,7 +108,7 @@ secp256k1_fe_mul_inner:
 
 	bic	r0, r5, field_not_M 		@ t9 = d & M
 	str     r0, [sp, #4 + 4*9]
-	mov	r5, r5, lsr #26     		@ d >>= 26 
+	mov	r5, r5, lsr #26     		@ d >>= 26
 	orr	r5, r5, r6, asl #6
 	mov     r6, r6, lsr #26
 
@@ -498,7 +498,7 @@ secp256k1_fe_mul_inner:
 	mov	r5, r5, lsr #26     		@ d >>= 26
 	orr	r5, r5, r6, asl #6
 	mov     r6, r6, lsr #26
-	
+
 	movw    r14, field_R1 >> 4   		@ d += c * (R1 >> 4) + t1 (64x64 multiply+add)
 	umull	r1, r2, r3, r14       		@ tmp = c.lo * (R1 >> 4)
 	adds	r5, r5, r8	    		@ d.lo += t1
@@ -576,7 +576,7 @@ secp256k1_fe_sqr_inner:
 
 	bic	r0, r5, field_not_M 		@ t9 = d & M
 	str     r0, [sp, #4 + 9*4]
-	mov	r5, r5, lsr #26     		@ d >>= 26 
+	mov	r5, r5, lsr #26     		@ d >>= 26
 	orr	r5, r5, r6, asl #6
 	mov     r6, r6, lsr #26
 
@@ -896,7 +896,7 @@ secp256k1_fe_sqr_inner:
 	mov	r5, r5, lsr #26     		@ d >>= 26
 	orr	r5, r5, r6, asl #6
 	mov     r6, r6, lsr #26
-	
+
 	movw    r14, field_R1 >> 4   		@ d += c * (R1 >> 4) + t1 (64x64 multiply+add)
 	umull	r1, r2, r3, r14       		@ tmp = c.lo * (R1 >> 4)
 	adds	r5, r5, r8	    		@ d.lo += t1

@@ -1,6 +1,6 @@
-// Copyright (c) 2019 DeFi Blockchain Developers
+// Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <base58.h>
 #include <chainparams.h>
@@ -190,7 +190,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 and 2 must be non-null");
     }
-    
+
     const UniValue inputs = request.params[0].get_array();
     if (inputs.empty())
     {
