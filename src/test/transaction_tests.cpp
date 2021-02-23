@@ -1,6 +1,6 @@
 // Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <test/data/tx_invalid.json.h>
 #include <test/data/tx_valid.json.h>

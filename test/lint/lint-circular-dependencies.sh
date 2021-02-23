@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2018 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 #
 # Check for circular dependencies
 

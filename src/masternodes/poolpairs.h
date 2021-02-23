@@ -1,6 +1,6 @@
 // Copyright (c) 2020 The DeFi Foundation
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef DEFI_MASTERNODES_POOLPAIRS_H
 #define DEFI_MASTERNODES_POOLPAIRS_H
@@ -270,7 +270,6 @@ public:
         return Res::Ok();
     }
 
-    /// @attention it throws (at least for debug), cause errors are critical!
     CAmount DistributeRewards(CAmount yieldFarming, std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, std::function<Res(CScript const & to, CScript const & from, DCT_ID poolID, uint8_t type, CTokenAmount amount)> onTransfer, int nHeight = 0) {
 
         bool newRewardCalc = nHeight >= Params().GetConsensus().BayfrontGardensHeight;
@@ -321,18 +320,20 @@ public:
 
                 // distribute trading fees
                 if (pool.swapEvent) {
-                    CAmount feeA = static_cast<CAmount>((arith_uint256(pool.blockCommissionA) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
-                    if (!newRewardCalc) {
+                    CAmount feeA, feeB;
+                    if (newRewardCalc) {
+                        feeA = static_cast<CAmount>((arith_uint256(pool.blockCommissionA) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
+                        feeB = static_cast<CAmount>((arith_uint256(pool.blockCommissionB) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
+                    } else {
                         feeA = pool.blockCommissionA * liqWeight / PRECISION;
-                    }
-                    distributedFeeA += feeA;
-                    onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Commission), {pool.idTokenA, feeA}); //can throw
-                    CAmount feeB = static_cast<CAmount>((arith_uint256(pool.blockCommissionB) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
-                    if (!newRewardCalc) {
                         feeB = pool.blockCommissionB * liqWeight / PRECISION;
                     }
-                    distributedFeeB += feeB;
-                    onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Commission), {pool.idTokenB, feeB}); //can throw
+                    if (onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Commission), {pool.idTokenA, feeA}).ok) {
+                        distributedFeeA += feeA;
+                    }
+                    if (onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Commission), {pool.idTokenB, feeB}).ok) {
+                        distributedFeeB += feeB;
+                    }
                 }
 
                 // distribute yield farming
@@ -342,18 +343,19 @@ public:
                         providerReward = poolReward * liqWeight / PRECISION;
                     }
                     if (providerReward) {
-                        onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}); //can throw
-                        totalDistributed += providerReward;
+                        if (onTransfer(provider, CScript(), poolId, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}).ok) {
+                            totalDistributed += providerReward;
+                        }
                     }
                 }
 
                 // Distribute custom rewards
                 if (payCustomRewards) {
-                    for (const auto reward : rewards->balances) {
+                    for (const auto& reward : rewards->balances) {
                         CAmount providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
 
                         if (providerReward) {
-                            onTransfer(provider, pool.ownerAddress, poolId, uint8_t(RewardType::Rewards), {reward.first, providerReward}); //can throw
+                            onTransfer(provider, pool.ownerAddress, poolId, uint8_t(RewardType::Rewards), {reward.first, providerReward});
                         }
                     }
                 }
@@ -366,8 +368,9 @@ public:
             pool.swapEvent = false;
 
             auto res = SetPoolPair(poolId, pool);
-            if (!res.ok)
-                throw std::runtime_error(strprintf("Pool rewards: can't update pool (id=%s) state: %s", poolId.ToString(), res.msg));
+            if (!res.ok) {
+                LogPrintf("Pool rewards: can't update pool (id=%s) state: %s\n", poolId.ToString(), res.msg);
+            }
             return true;
         });
         return totalDistributed;

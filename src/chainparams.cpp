@@ -1,7 +1,7 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
 
@@ -178,10 +178,10 @@ public:
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
-         */        
+         */
         pchMessageStart[0] = 0xf9;
-        pchMessageStart[1] = 0xbe;	        
-        pchMessageStart[2] = 0xb4;	        
+        pchMessageStart[1] = 0xbe;
+        pchMessageStart[2] = 0xb4;
         pchMessageStart[3] = 0xd9;
         pchMessageStartPostAMK[0] = 0xe2;
         pchMessageStartPostAMK[1] = 0xaa;
@@ -356,7 +356,7 @@ public:
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
         pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x09;
         pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x07;
-        
+
         nDefaultPort = 18555;
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;
