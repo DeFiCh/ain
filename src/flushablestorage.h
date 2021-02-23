@@ -18,15 +18,16 @@ using MapKV = std::map<TBytes, Optional<TBytes>>;
 
 template<typename T>
 static TBytes DbTypeToBytes(const T& value) {
-    CDataStream stream(SER_DISK, CLIENT_VERSION);
+    TBytes bytes;
+    CVectorWriter stream(SER_DISK, CLIENT_VERSION, bytes, 0);
     stream << value;
-    return TBytes(stream.begin(), stream.end());
+    return bytes;
 }
 
 template<typename T>
 static bool BytesToDbType(const TBytes& bytes, T& value) {
     try {
-        CDataStream stream(bytes, SER_DISK, CLIENT_VERSION);
+        VectorReader stream(SER_DISK, CLIENT_VERSION, bytes, 0);
         stream >> value;
 //        assert(stream.size() == 0); // will fail with partial key matching
     }
@@ -66,15 +67,13 @@ struct RawTBytes {
     std::reference_wrapper<T> ref;
 
     template<typename Stream>
-    void Serialize(Stream& os) const
-    {
+    void Serialize(Stream& os) const {
         auto& val = ref.get();
         os.write((char*)val.data(), val.size());
     }
 
     template<typename Stream>
-    void Unserialize(Stream& is)
-    {
+    void Unserialize(Stream& is) {
         auto& val = ref.get();
         val.resize(is.size());
         is.read((char*)val.data(), is.size());
@@ -82,8 +81,7 @@ struct RawTBytes {
 };
 
 template<typename T>
-inline RawTBytes<T> refTBytes(T& val)
-{
+inline RawTBytes<T> refTBytes(T& val) {
     return RawTBytes<T>{val};
 }
 
@@ -298,8 +296,7 @@ private:
 };
 
 template<typename T>
-class CLazySerialize
-{
+class CLazySerialize {
     Optional<T> value;
     CStorageKVIterator& it;
 
@@ -307,13 +304,11 @@ public:
     CLazySerialize(const CLazySerialize&) = default;
     explicit CLazySerialize(CStorageKVIterator& it) : it(it) {}
 
-    operator T()
-    {
+    operator T() {
         return get();
     }
 
-    const T& get()
-    {
+    const T& get() {
         if (!value) {
             value = T{};
             BytesToDbType(it.Value(), *value);

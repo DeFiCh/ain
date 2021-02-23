@@ -28,6 +28,9 @@ public:
     virtual Res Validate(CCustomCSView const &mnview) const = 0;
     virtual Res Apply(CCustomCSView &mnview) = 0;
 
+    virtual void Serialize(CVectorWriter& s) const = 0;
+    virtual void Unserialize(VectorReader& s) = 0;
+
     virtual void Serialize(CDataStream& s) const = 0;
     virtual void Unserialize(CDataStream& s) = 0;
 };
