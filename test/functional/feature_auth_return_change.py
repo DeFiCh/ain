@@ -2,7 +2,7 @@
 # Copyright (c) 2014-2019 The Bitcoin Core developers
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test auth single input and return change to auth sender"""
 
 from test_framework.test_framework import DefiTestFramework

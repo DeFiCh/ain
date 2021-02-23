@@ -1,6 +1,6 @@
 // Copyright (c) 2020 The DeFi Foundation
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef DEFI_MASTERNODES_TOKENS_H
 #define DEFI_MASTERNODES_TOKENS_H
