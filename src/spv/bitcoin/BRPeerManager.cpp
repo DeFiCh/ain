@@ -27,6 +27,7 @@
 #include "BRSet.h"
 #include "BRArray.h"
 #include "BRInt.h"
+#include <logging.h>
 #include <shutdown.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -314,7 +315,7 @@ static void _BRPeerManagerLoadBloomFilter(BRPeerManager *manager, BRPeer *peer)
     txCount = BRWalletTxUnconfirmedBefore(manager->wallet, transactions, txCount, blockHeight);
     filter = BRBloomFilterNew(manager->fpRate, addrsCount + utxosCount + txCount + 100, (uint32_t)BRPeerHash(peer),
                               BLOOM_UPDATE_ALL); // BUG: XXX txCount not the same as number of spent wallet outputs
-    
+
     for (size_t i = 0; i < addrsCount; i++) { // add addresses to watch for tx receiveing money to the wallet
         UInt160 hash = UINT160_ZERO;
         
@@ -965,7 +966,7 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
     size_t relayCount = 0;
     
     manager->lock.lock();
-    peer_log(peer, "relayed tx: %s", u256hex(tx->txHash).c_str());
+    LogPrint(BCLog::SPV_NET, "Peer: %s relayed tx: %s\n", BRPeerHostString(peer), u256hex(tx->txHash));
     
     UInt256 hash = tx->txHash;
     for (size_t i = array_count(manager->publishedTx); i > 0; i--) { // see if tx is in list of published tx
@@ -1052,7 +1053,7 @@ static void _peerHasTx(void *info, UInt256 txHash)
     
     manager->lock.lock();
     tx = BRWalletTransactionForHash(manager->wallet, txHash);
-    peer_log(peer, "has tx: %s", u256hex(txHash).c_str());
+    LogPrint(BCLog::SPV_NET, "Peer: %s has tx: %s\n", BRPeerHostString(peer), u256hex(txHash));
 
     for (size_t i = array_count(manager->publishedTx); i > 0; i--) { // see if tx is in list of published tx
         if (UInt256Eq(manager->publishedTxHashes[i - 1], txHash)) {

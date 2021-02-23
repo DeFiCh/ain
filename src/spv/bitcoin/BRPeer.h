@@ -33,7 +33,6 @@
 #include <inttypes.h>
 #include <boost/thread.hpp>
 
-//#ifndef __cplusplus
 /// define logs
 #define console_peer_log(peer, ...) { \
     if (spv_log2console) { \
@@ -86,10 +85,6 @@
 extern char const * spv_logfilename;
 extern int spv_log2console;
 extern boost::mutex log_mutex;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #ifndef INET6_ADDRSTRLEN // defined in netinet/in.h
 #define INET6_ADDRSTRLEN 46
@@ -221,6 +216,7 @@ void BRPeerSetNeedsFilterUpdate(BRPeer *peer, int needsFilterUpdate);
 // display name of peer address
 const char *BRPeerHost(BRPeer *peer);
 void BRPeerHostSafe(BRPeer const *peer, char *host);
+std::string BRPeerHostString(BRPeer *peer);
 
 // connected peer version number
 uint32_t BRPeerVersion(BRPeer *peer);
@@ -272,10 +268,5 @@ inline static int BRPeerEq(const void *peer, const void *otherPeer)
 
 // frees memory allocated for peer
 void BRPeerFree(BRPeer *peer);
-
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // BRPeer_h

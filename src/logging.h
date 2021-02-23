@@ -57,6 +57,7 @@ namespace BCLog {
         STAKING     = (1 << 21),
         ANCHORING   = (1 << 22),
         SPV         = (1 << 23),
+        SPV_NET     = (1 << 24),
         ALL         = ~(uint32_t)0,
     };
 

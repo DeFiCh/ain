@@ -37,7 +37,9 @@ typedef struct BRTransactionStruct BRTransaction;
 typedef struct BRPeerStruct BRPeer;
 
 class CAnchor;
+class CPubKey;
 class CScript;
+class CWallet;
 
 namespace spv
 {
@@ -109,6 +111,11 @@ public:
 
     // Get time stamp of Bitcoin TX
     uint32_t ReadTxTimestamp(uint256 const & hash);
+
+    // Bitcoin Address calls
+    std::string AddBitcoinAddress(const CPubKey &new_key);
+    std::string DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress);
+    uint64_t GetBitcoinBalance();
 
 private:
     virtual void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise);

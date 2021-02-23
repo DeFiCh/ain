@@ -26,6 +26,9 @@
 #include "BRSet.h"
 #include "BRAddress.h"
 #include "BRArray.h"
+
+#include <logging.h>
+
 #include <stdlib.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -153,7 +156,7 @@ static int _BRWalletContainsTx(BRWallet *wallet, const BRTransaction *tx)
 {
     int r = 0;
     const uint8_t *pkh;
-    
+
     for (size_t i = 0; ! r && i < tx->outCount; i++) {
         pkh = BRScriptPKH(tx->outputs[i].script, tx->outputs[i].scriptLen);
         if (pkh && BRSetContains(wallet->allPKH, pkh)) r = 1;
@@ -270,7 +273,7 @@ static void _BRWalletUpdateBalance(BRWallet *wallet)
 
 // allocates and populates a BRWallet struct which must be freed by calling BRWalletFree()
 // forkId is 0 for bitcoin, 0x40 for b-cash
-BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId)
+BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId, std::vector<UInt160> userAddresses)
 {
     BRWallet *wallet = NULL;
     BRTransaction *tx;
@@ -305,9 +308,13 @@ BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPub
             if (pkh) BRSetAdd(wallet->usedPKH, (void *)pkh);
         }
     }
-    
+
     BRWalletUnusedAddrs(wallet, NULL, SEQUENCE_GAP_LIMIT_EXTERNAL, SEQUENCE_EXTERNAL_CHAIN);
     BRWalletUnusedAddrs(wallet, NULL, SEQUENCE_GAP_LIMIT_INTERNAL, SEQUENCE_INTERNAL_CHAIN);
+
+    if (!userAddresses.empty()) {
+        BRWalletAddUserAddresses(wallet, userAddresses);
+    }
 
     _BRWalletUpdateBalance(wallet);
 
@@ -315,7 +322,7 @@ BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPub
         BRWalletFree(wallet);
         wallet = NULL;
     }
-    
+
     return wallet;
 }
 
@@ -361,7 +368,7 @@ size_t BRWalletUnusedAddrs(BRWallet *wallet, BRAddress addrs[], uint32_t gapLimi
     assert(chain != NULL);
     origChain = chain;
     i = count = startCount = array_count(chain);
-    
+
     // keep only the trailing contiguous block of addresses with no transactions
     while (i > 0 && ! BRSetContains(wallet->usedPKH, &chain[i - 1])) i--;
     
@@ -381,7 +388,7 @@ size_t BRWalletUnusedAddrs(BRWallet *wallet, BRAddress addrs[], uint32_t gapLimi
             _BRWalletAddressFromHash160(wallet, addrs[j].s, sizeof(*addrs), chain[i + j]);
         }
     }
-    
+
     // was chain moved to a new memory location?
     if (chain == origChain) {
         for (i = startCount; i < count; i++) {
@@ -405,6 +412,81 @@ size_t BRWalletUnusedAddrs(BRWallet *wallet, BRAddress addrs[], uint32_t gapLimi
 
     wallet->lock.unlock();
     return j;
+}
+
+bool BRWalletAddAddr(BRWallet *wallet, const uint8_t& pubKey, const size_t pkLen, BRAddress &addr)
+{
+    assert(wallet != nullptr);
+    wallet->lock.lock();
+
+    UInt160* chain = wallet->externalChain;
+    assert(chain != nullptr);
+    UInt160 *origChain = chain;
+
+    BRKey key;
+    if (!BRKeySetPubKey(&key, &pubKey, pkLen)) {
+        return false;
+    }
+
+    size_t count = array_count(chain);
+    auto hash = BRKeyHash160(&key);
+    array_add(chain, hash);
+
+    _BRWalletAddressFromHash160(wallet, addr.s, sizeof(addr), hash);
+
+    // was chain moved to a new memory location?
+    if (chain == origChain)
+    {
+        BRSetAdd(wallet->allPKH, &chain[count]);
+    }
+    else
+    {
+        wallet->externalChain = chain;
+
+        BRSetClear(wallet->allPKH); // clear and rebuild allAddrs
+
+        for (size_t i = array_count(wallet->internalChain); i > 0; --i) {
+            BRSetAdd(wallet->allPKH, &wallet->internalChain[i - 1]);
+        }
+
+        for (size_t i = array_count(wallet->externalChain); i > 0; --i) {
+            BRSetAdd(wallet->allPKH, &wallet->externalChain[i - 1]);
+        }
+    }
+
+    wallet->lock.unlock();
+    return true;
+}
+
+void BRWalletAddUserAddresses(BRWallet *wallet, std::vector<UInt160> userAddresses) {
+    UInt160* chain = wallet->externalChain;
+    UInt160 *origChain = chain;
+
+    for (const auto& address : userAddresses) {
+        array_add(chain, address);
+    }
+
+    size_t count = array_count(chain);
+
+    // was chain moved to a new memory location?
+    if (chain == origChain)
+    {
+        BRSetAdd(wallet->allPKH, &chain[count - 1]);
+    }
+    else
+    {
+        wallet->externalChain = chain;
+
+        BRSetClear(wallet->allPKH); // clear and rebuild allAddrs
+
+        for (size_t i = array_count(wallet->internalChain); i > 0; --i) {
+            BRSetAdd(wallet->allPKH, &wallet->internalChain[i - 1]);
+        }
+
+        for (size_t i = array_count(wallet->externalChain); i > 0; --i) {
+            BRSetAdd(wallet->allPKH, &wallet->externalChain[i - 1]);
+        }
+    }
 }
 
 // current wallet balance, not including transactions known to be invalid

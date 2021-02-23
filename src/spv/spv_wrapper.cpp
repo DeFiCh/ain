@@ -7,6 +7,11 @@
 #include <chainparams.h>
 
 #include <masternodes/anchors.h>
+#include <rpc/protocol.h>
+#include <rpc/request.h>
+#include <sync.h>
+#include <util/strencodings.h>
+#include <wallet/wallet.h>
 
 #include <spv/support/BRKey.h>
 #include <spv/support/BRAddress.h>
@@ -15,10 +20,8 @@
 #include <spv/bitcoin/BRPeerManager.h>
 #include <spv/bitcoin/BRChainParams.h>
 #include <spv/bcash/BRBCashParams.h>
+#include <spv/support/BRSet.h>
 
-#include <sync.h>
-
-#include <util/strencodings.h>
 #include <string.h>
 #include <inttypes.h>
 //#include <errno.h>
@@ -44,95 +47,75 @@ uint256 to_uint256(const UInt256 & i) {
     return uint256(TBytes(&i.u8[0], &i.u8[32]));
 }
 
-bool const spv_cb_trace = false;
-
 /// spv wallet manager's callbacks wrappers:
 void balanceChanged(void *info, uint64_t balance)
 {
     /// @attention called under spv manager lock!!!
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnBalanceChanged(balance);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
+
 void txAdded(void *info, BRTransaction *tx)
 {
     /// @attention called under spv manager lock!!!
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxAdded(tx);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
+
 void txUpdated(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
 {
     /// @attention called under spv manager lock!!!
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxUpdated(txHashes, txCount, blockHeight, timestamp);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
+
 void txDeleted(void *info, UInt256 txHash, int notifyUser, int recommendRescan)
 {
     /// @attention called under spv manager lock!!!
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxDeleted(txHash, notifyUser, recommendRescan);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 
 /// spv peer manager's callbacks wrappers:
 void syncStarted(void *info)
 {
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "trying %s\n", __func__);
     LOCK(cs_spvcallback);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStarted();
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
+
 void syncStopped(void *info, int error)
 {
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "trying %s\n", __func__);
     LOCK(cs_spvcallback);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSyncStopped(error);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
+
 void txStatusUpdate(void *info)
 {
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "trying %s\n", __func__);
     LOCK(cs_spvcallback);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnTxStatusUpdate();
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
+
 void saveBlocks(void *info, int replace, BRMerkleBlock *blocks[], size_t blocksCount)
 {
     /// @attention called under spv manager lock!!!
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
 //    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSaveBlocks(replace, blocks, blocksCount);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 void savePeers(void *info, int replace, const BRPeer peers[], size_t peersCount)
 {
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "trying %s\n", __func__);
     LOCK(cs_spvcallback);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSavePeers(replace, peers, peersCount);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
+
 void threadCleanup(void *info)
 {
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "trying %s\n", __func__);
     LOCK(cs_spvcallback);
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "enter %s\n", __func__);
     if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnThreadCleanup();
-    if (spv_cb_trace) LogPrint(BCLog::SPV, "exit %s\n", __func__);
 }
 
 static void SetCheckpoints()
@@ -192,6 +175,15 @@ static void SetCheckpoints()
     /// @attention don't forget to increase both 'n' in BRTestNetCheckpoints[n]
 }
 
+static inline void UInt160Convert(uint160& hash160, UInt160& u)
+{
+    int i{0};
+    for (auto it = hash160.begin(); it != hash160.end(); ++it) {
+        u.u8[i] = *it;
+        ++i;
+    }
+}
+
 CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool fWipe)
     : db(new CDBWrapper(GetDataDir() / (isMainnet ?  "spv" : "spv_testnet"), nCacheSize, fMemory, fWipe))
 {
@@ -232,7 +224,28 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
         IterateTable(DB_SPVTXS, onLoadTx);
     }
 
-    wallet = BRWalletNew(txs.data(), txs.size(), mpk, 0);
+    std::vector<UInt160> userAddresses;
+    const auto wallets = GetWallets();
+    for (const auto& wallet : wallets) {
+        for (const auto& entry : wallet->mapAddressBook) {
+            if (entry.second.purpose == "spv") {
+                uint160 userHash;
+                if (entry.first.which() == 1) {
+                    userHash = *boost::get<PKHash>(&entry.first);
+                } else if (entry.first.which() == 4) {
+                    userHash = *boost::get<WitnessV0KeyHash>(&entry.first);
+                } else {
+                    continue;
+                }
+
+                UInt160 spvHash;
+                UInt160Convert(userHash, spvHash);
+                userAddresses.push_back(spvHash);
+            }
+        }
+    }
+
+    wallet = BRWalletNew(txs.data(), txs.size(), mpk, 0, userAddresses);
     BRWalletSetCallbacks(wallet, this, balanceChanged, txAdded, txUpdated, txDeleted);
     LogPrint(BCLog::SPV, "wallet created with first receive address: %s\n", BRWalletLegacyAddress(wallet).s);
 
@@ -511,6 +524,38 @@ void CSpvWrapper::WriteBlock(const BRMerkleBlock * block)
     BRMerkleBlockSerialize(block, buf.data(), blockSize);
 
     BatchWrite(make_pair(DB_SPVBLOCKS, to_uint256(block->blockHash)), make_pair(buf, block->height));
+}
+
+std::string CSpvWrapper::AddBitcoinAddress(const CPubKey& new_key)
+{
+    BRAddress addr = BR_ADDRESS_NONE;
+    if (!BRWalletAddAddr(wallet, *new_key.data(), new_key.size(), addr)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unable to add Bitcoin address");
+    }
+
+    return addr.s;
+}
+
+std::string CSpvWrapper::DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress)
+{
+    CKeyID keyid;
+    if (!BRAddressHash160(keyid.begin(), strAddress.c_str())) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+    }
+
+    LogPrint(BCLog::SPV, "%s: CKeyID: %s\n", __func__, HexStr(keyid));
+
+    CKey vchSecret;
+    if (!pwallet->GetKey(keyid, vchSecret)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Private key for address " + strAddress + " is not known");
+    }
+
+    return EncodeSecret(vchSecret);
+}
+
+uint64_t CSpvWrapper::GetBitcoinBalance()
+{
+    return BRWalletBalance(wallet);
 }
 
 void publishedTxCallback(void *info, int error)

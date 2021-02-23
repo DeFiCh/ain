@@ -864,6 +864,91 @@ UniValue spv_setlastheight(const JSONRPCRequest& request)
     return UniValue();
 }
 
+UniValue spv_getnewaddress(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_getnewaddress",
+        "\nCreates and adds a Bitcoin address to the SPV wallet\n",
+        {
+        },
+        RPCResult{
+            "\"none\"                  Returns nothing\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_getnewaddress", "")
+            + HelpExampleRpc("spv_getnewaddress", "")
+        },
+    }.Check(request);
+
+    if (!spv::pspv) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    LOCK(pwallet->cs_wallet);
+
+    pwallet->TopUpKeyPool();
+
+    // Generate a new key that is added to wallet
+    CPubKey new_key;
+    if (!pwallet->GetKeyFromPool(new_key)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        return false;
+    }
+
+    auto newAddress = spv::pspv->AddBitcoinAddress(new_key);
+    if (!newAddress.empty()) {
+        auto dest = GetDestinationForKey(new_key, OutputType::BECH32);
+        pwallet->SetAddressBook(dest, "", "spv");
+    }
+
+    return newAddress;
+}
+
+UniValue spv_dumpprivkey(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_dumpprivkey",
+        "\nReveals the private key corresponding to 'address'.\n",
+        {
+            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The BTC address for the private key"},
+        },
+        RPCResult{
+            "\"key\"                (string) The private key\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_dumpprivkey", "\"myaddress\"")
+            + HelpExampleRpc("spv_dumpprivkey", "\"myaddress\"")
+        },
+    }.Check(request);
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    std::string strAddress = request.params[0].get_str();
+
+    return spv::pspv->DumpBitcoinPrivKey(pwallet, strAddress);
+}
+
+UniValue spv_getbalance(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_getbalance",
+        "\nReturns the Bitcoin balance of the SPV wallet\n",
+        {
+        },
+        RPCResult{
+        "amount                 (numeric) The total amount in BTC received in the SPV wallet.\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_getbalance", "")
+            + HelpExampleRpc("spv_getbalance", "")
+        },
+    }.Check(request);
+
+    return ValueFromAmount(spv::pspv->GetBitcoinBalance());
+}
+
 
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
@@ -881,7 +966,10 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_listanchorrewardconfirms",     &spv_listanchorrewardconfirms,    { }  },
   { "spv",      "spv_listanchorrewards",      &spv_listanchorrewards,     { }  },
   { "spv",      "spv_listanchorsunrewarded",  &spv_listanchorsunrewarded, { }  },
-  { "spv",      "spv_listanchorspending",     &spv_listanchorspending, { }  },
+  { "spv",      "spv_listanchorspending",     &spv_listanchorspending,    { }  },
+  { "spv",      "spv_getnewaddress",          &spv_getnewaddress,         { }  },
+  { "spv",      "spv_dumpprivkey",            &spv_dumpprivkey,           { }  },
+  { "spv",      "spv_getbalance",             &spv_getbalance,            { }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
 };
 
