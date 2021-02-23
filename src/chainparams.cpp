@@ -1,7 +1,7 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
 
@@ -178,10 +178,10 @@ public:
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
-         */        
+         */
         pchMessageStart[0] = 0xf9;
-        pchMessageStart[1] = 0xbe;	        
-        pchMessageStart[2] = 0xb4;	        
+        pchMessageStart[1] = 0xbe;
+        pchMessageStart[2] = 0xb4;
         pchMessageStart[3] = 0xd9;
         pchMessageStartPostAMK[0] = 0xe2;
         pchMessageStartPostAMK[1] = 0xaa;
@@ -266,6 +266,8 @@ public:
                 {500000, uint256S("6a5b285bc68362deb66148069f55f82c02974056e73f5cc96971f7661ecd5880")},
                 {550000, uint256S("3f9aab70727d3cc76a3d406f520a71ccc6095aeea2d185e489f563320d429d5b")},
                 {597925, uint256S("0ff2aa3749300e3d0b5bc8d48f9d699bc42e222fe718dc011b33913127087c6d")},
+                {600000, uint256S("79ddf4537e40cb59335a0551e5edc7bd396e6949aa2864c3200ca66f9c455405")},
+                {650000, uint256S("f18d64dd75c53590e833d3068132a65644963d5c5aebb4c73d42cbde8dc28d68")},
             }
         };
 
@@ -356,7 +358,7 @@ public:
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
         pchMessageStartPostAMK[2] = pchMessageStart[2] = 0x09;
         pchMessageStartPostAMK[3] = pchMessageStart[3] = 0x07;
-        
+
         nDefaultPort = 18555;
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 30;

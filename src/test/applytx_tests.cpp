@@ -1,6 +1,6 @@
-// Copyright (c) 2020 DeFi Blockchain Developers
+// Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
 #include <masternodes/masternodes.h>
