@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2017-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test defi-cli"""
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_process_error, get_auth_cookie

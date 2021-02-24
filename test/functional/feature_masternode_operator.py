@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2021 The DeFi Blockchain developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (

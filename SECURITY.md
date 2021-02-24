@@ -1,22 +1,12 @@
-# Security Policy
+# DeFiChain Security Policy
 
-> NOTE: This section is a work in progress for DeFi Blockchain, and may not be applicable at it's current state.
+If you’ve found a vulnerability, please submit it privately via `security@defichain.com`.
 
-## Supported Versions
+## DeFiChain Testnet Bounty Program
 
-See our website for versions of DeFi Blockchain that are currently supported with
-security updates: https://bitcoincore.org/en/lifecycle/#schedule
+> `defid -testnet`
 
-## Reporting a Vulnerability
+We offer a bug bounty of up to **$50,000 USD** worth of DFI for [DeFiCh/ain](https://github.com/defich/ain) critical
+vulnerabilities. You must be able to provide significant information for reproducing and fixing the issue.
 
-To report security issues send an email to security@bitcoincore.org (not for support).
-
-The following keys may be used to communicate sensitive information to developers:
-
-| Name | Fingerprint |
-|------|-------------|
-| Wladimir van der Laan | 71A3 B167 3540 5025 D447  E8F2 7481 0B01 2346 C9A6 |
-| Jonas Schnelli | 32EE 5C4C 3FA1 5CCA DB46  ABE5 29D4 BCB6 416F 53EC |
-| Pieter Wuille | 133E AC17 9436 F14A 5CF1  B794 860F EB80 4E66 9320 |
-
-You can import a key by running the following command with that individual’s fingerprint: `gpg --recv-keys "<fingerprint>"` Ensure that you put quotes around fingerprints containing spaces.
+Only [official releases](https://github.com/DeFiCh/ain/releases), master branch development code are not included.

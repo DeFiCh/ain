@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2017-2018 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Check RPC argument consistency."""
 
 from collections import defaultdict
@@ -19,6 +19,10 @@ SOURCES = [
     "src/rpc/rawtransaction.cpp",
     "src/wallet/rpcwallet.cpp",
     "src/masternodes/mn_rpc.cpp",
+    "src/masternodes/rpc_masternodes.cpp",
+    "src/masternodes/rpc_accounts.cpp",
+    "src/masternodes/rpc_tokens.cpp",
+    "src/masternodes/rpc_poolpair.cpp",
     "src/spv/spv_rpc.cpp",
 ]
 # Source file (relative to root) containing conversion mapping
