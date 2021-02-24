@@ -24,7 +24,6 @@ class CriminalsTest (DefiTestFramework):
             [ "-dummypos=0", "-criminals=0"],
             [ "-dummypos=0", "-criminals=1"],
             [ "-dummypos=0", "-criminals=0"],
-            # [ "-dummypos=1", "-spv=1", "-fakespv=1", "-txindex=1", "-anchorquorum=2"],
         ]
         self.setup_clean_chain = True
 

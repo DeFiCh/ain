@@ -18,7 +18,7 @@ class AnchorsAuthsPruningTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.extra_args = [
-            [ "-dummypos=1", "-spv=1", "-fakespv=1", '-amkheight=0', "-dakotaheight=1"],
+            [ "-dummypos=1", "-spv=1", '-amkheight=0', "-dakotaheight=1"],
         ]
         self.setup_clean_chain = True
 

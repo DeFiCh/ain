@@ -19,9 +19,9 @@ class AnchorAuthsTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.extra_args = [
-            [ "-dummypos=1", "-spv=1", "-fakespv=1", "-clarkequayheight=0"],
-            [ "-dummypos=1", "-spv=1", "-fakespv=1", "-clarkequayheight=0"],
-            [ "-dummypos=1", "-spv=1", "-fakespv=1", "-clarkequayheight=0"],
+            [ "-dummypos=1", "-spv=1", "-clarkequayheight=0"],
+            [ "-dummypos=1", "-spv=1", "-clarkequayheight=0"],
+            [ "-dummypos=1", "-spv=1", "-clarkequayheight=0"],
         ]
         self.setup_clean_chain = True
 
