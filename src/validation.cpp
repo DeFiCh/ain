@@ -3879,7 +3879,7 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
 
                 auto state = pcustomcsview->GetMasternode(nodeId)->GetState(block.height);
                 if (state != CMasternode::PRE_BANNED && state != CMasternode::BANNED) { // deny check & addition if masternode was already punished
-                    for (std::pair <uint256, CBlockHeader> const & blockHeader : blockHeaders) {
+                    for (auto const & blockHeader : blockHeaders) {
                         if (IsDoubleSignRestricted(block.height, blockHeader.second.height)) { // we already have equal minters and even mintedBlocks counter
                             // this is the ONLY place
                             pcriminals->AddCriminalProof(nodeId, block, blockHeader.second);

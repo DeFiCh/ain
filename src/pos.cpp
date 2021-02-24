@@ -77,19 +77,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         return false;
     }
 
-    {
-        AssertLockHeld(cs_main);
-        uint32_t const mintedBlocksMaxDiff = static_cast<uint64_t>(mnView->GetLastHeight()) > blockHeader.height ? mnView->GetLastHeight() - blockHeader.height : blockHeader.height - mnView->GetLastHeight();
-        // minter exists and active at the height of the block - it was checked before
-        uint32_t const mintedBlocks = mnView->GetMasternode(masternodeID)->mintedBlocks;
-        uint32_t const mintedBlocksDiff = mintedBlocks > blockHeader.mintedBlocks ? mintedBlocks - blockHeader.mintedBlocks : blockHeader.mintedBlocks - mintedBlocks;
-
-        /// @todo this is not so trivial as it seems! do we need an additional check?
-//        if (mintedBlocksDiff > mintedBlocksMaxDiff)
-//        {
-//            return false;
-//        }
-    }
+    /// @todo Make sure none mint a big amount of continuous blocks
 
     return CheckHeaderSignature(blockHeader);
 }

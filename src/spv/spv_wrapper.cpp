@@ -215,7 +215,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
     std::vector<BRTransaction *> txs;
     // load txs
     {
-        std::function<void (uint256 const &, db_tx_rec &)> onLoadTx = [&txs, this] (uint256 const & hash, db_tx_rec & rec) {
+        std::function<void (uint256 const &, db_tx_rec &)> onLoadTx = [&txs] (uint256 const & hash, db_tx_rec & rec) {
             BRTransaction *tx = BRTransactionParse(rec.first.data(), rec.first.size());
             tx->blockHeight = rec.second.first;
             tx->timestamp = rec.second.second;

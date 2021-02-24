@@ -146,7 +146,7 @@ BOOST_AUTO_TEST_CASE(contextual_check_pos)
 
     BOOST_CHECK(pos::ContextualCheckProofOfStake((CBlockHeader)Params().GenesisBlock(), Params().GetConsensus(), pcustomcsview.get()));
 
-    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+//    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
     uint64_t height = 0;
     uint64_t mintedBlocks = 1;
     std::shared_ptr<CBlock> block = Block(Params().GenesisBlock().GetHash(), height, mintedBlocks);
@@ -187,8 +187,6 @@ BOOST_AUTO_TEST_CASE(sign_pos_block)
     uint64_t mintedBlocks = 1;
     std::shared_ptr<CBlock> block = Block(prev_hash, height, mintedBlocks);
 
-    static uint64_t time = Params().GenesisBlock().nTime;
-
     block->stakeModifier = pos::ComputeStakeModifier(prev_hash, minterKey.GetPubKey().GetID());
 
     block->hashMerkleRoot = BlockMerkleRoot(*block);
@@ -199,7 +197,7 @@ BOOST_AUTO_TEST_CASE(sign_pos_block)
 
     BOOST_CHECK(!pos::CheckProofOfStake(*(CBlockHeader*)block.get(), ::ChainActive().Tip(), Params().GetConsensus(), pcustomcsview.get()));
 
-    uint256 prevStakeModifier = Params().GenesisBlock().stakeModifier;
+//    uint256 prevStakeModifier = Params().GenesisBlock().stakeModifier;
 //    std::shared_ptr<CBlock> correctBlock = FinalizeBlock(
 //            Block(Params().GenesisBlock().GetHash(), 1, 1),
 //            masternodeID,

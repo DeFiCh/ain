@@ -19,6 +19,7 @@
 
 BOOST_AUTO_TEST_SUITE(blockfilter_index_tests)
 
+/*
 static bool ComputeFilter(BlockFilterType filter_type, const CBlockIndex* block_index,
                           BlockFilter& filter)
 {
@@ -140,7 +141,7 @@ static bool BuildChain(const CBlockIndex* pindex, const CScript& coinbase_script
 
     return true;
 }
-
+*/
 BOOST_FIXTURE_TEST_CASE(blockfilter_index_initial_sync, TestChain100Setup)
 {
 //    BlockFilterIndex filter_index(BlockFilterType::BASIC, 1 << 20, true); // TODO: (temp) !!!

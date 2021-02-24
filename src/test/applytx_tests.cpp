@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE(neg_token_amounts)
     }
 
     { // it is possible to create neg TokenAmount, but can't manipulate with it
-        CTokenAmount val{0, -100};
+        CTokenAmount val{DCT_ID{0}, -100};
         auto res = val.Add(100);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.msg, "negative amount");
@@ -51,19 +51,19 @@ BOOST_AUTO_TEST_CASE(neg_token_balances)
     DCT_ID const DFI{0};
     {
         // Initial value
-        auto dfi100 = CTokenAmount{0, 100};
+        auto dfi100 = CTokenAmount{DCT_ID{0}, 100};
         auto res = mnview.AddBalance(owner, dfi100);
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
 
         // Fail to add negative
-        res = mnview.AddBalance(owner, CTokenAmount{0, -100});
+        res = mnview.AddBalance(owner, CTokenAmount{DCT_ID{0}, -100});
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.msg, "negative amount: -100");
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
 
         // Fail to sub negative
-        res = mnview.SubBalance(owner, CTokenAmount{0, -100});
+        res = mnview.SubBalance(owner, CTokenAmount{DCT_ID{0}, -100});
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.msg, "negative amount: -100");
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
@@ -96,7 +96,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
     coinview.AddCoin(auth_out, Coin(CTxOut(1, owner, DFI), 1, false), false);
 
     // Initial value
-    auto dfi100 = CTokenAmount{0, 100};
+    auto dfi100 = CTokenAmount{DCT_ID{0}, 100};
     auto res = mnview.AddBalance(owner, dfi100);
     BOOST_CHECK(res.ok);
     BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);

@@ -1100,8 +1100,6 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose)
 
     WalletBatch batch(*database, "r+", fFlushOnClose);
 
-    const uint256& hash = wtxIn.GetHash();
-
     if (IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE)) {
         // Mark used destinations
         for (const CTxIn& txin : wtxIn.tx->vin) {
@@ -5085,7 +5083,7 @@ CKey GetWalletsKey(const CKeyID & keyid)
 {
     std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
     CKey key{};
-    for (auto const wallet : wallets) {
+    for (auto wallet : wallets) {
         if (wallet->GetKey(keyid, key)) {
             break;
         }
