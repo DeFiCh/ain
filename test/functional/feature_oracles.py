@@ -98,13 +98,15 @@ class OraclesTest (DefiTestFramework):
         oracle_id1 = ''
 
         try:
-            oracle_id1 = self.nodes[0].appointoracle(oracle_address1, '["PT", "GOLD#128"]', 10)
+            oracle1_pairs = '[{"currency": "USD", "token": "PT"}, {"currency": "USD", "token": "GOLD#128"}]'
+            oracle_id1 = self.nodes[0].appointoracle(oracle_address1, oracle1_pairs, 10)
         except JSONRPCException as e:
             print('failed to appoint oracle', e.error['message'])
             raise
 
         try:
-            oracle_id2 = self.nodes[0].appointoracle(oracle_address2, '["GOLD#128"]', 15)
+            oracle2_pairs = '[{"currency": "EUR", "token": "PT"}, {"currency": "EUR", "token": "GOLD#128"}]'
+            oracle_id2 = self.nodes[0].appointoracle(oracle_address2, oracle2_pairs, 15)
         except JSONRPCException as e:
             print('failed to appoint oracle', e.error['message'])
             raise
@@ -137,7 +139,9 @@ class OraclesTest (DefiTestFramework):
             raise
 
         try:
-            self.nodes[2].setoracledata(oracle_id2, timestamp, '[{"currency": "USD", "tokenAmount": "6@GOLD#128"}]')
+            self.nodes[2].setoracledata(oracle_id2, timestamp,
+                                        '[{"currency": "EUR", "tokenAmount": "9@PT"},'
+                                        ' {"currency": "EUR", "tokenAmount": "5@GOLD#128"}]')
         except JSONRPCException as e:
             print('failed to set oracle data', e.error['message'])
             raise
@@ -146,13 +150,26 @@ class OraclesTest (DefiTestFramework):
         self.sync_all([self.nodes[0], self.nodes[2]])
 
         try:
-            self.nodes[0].updateoracle(oracle_id1, oracle_address1, '["PT", "GOLD#128"]', 15)
+            feeds = '[{"currency": "USD", "token": "PT"}, ' \
+                    '{"currency": "USD", "token": "GOLD#128"}, ' \
+                    '{"currency": "EUR", "token": "GOLD#128"}]'
+            self.nodes[0].updateoracle(oracle_id1, oracle_address1, feeds, 15)
         except JSONRPCException as e:
             print('failed to update oracle', e.error['message'])
             raise
 
-        self.nodes[2].generate(1)
+        self.nodes[2].generate(2)
         self.sync_all([self.nodes[0], self.nodes[2]])
+
+        try:
+            self.nodes[2].setoracledata(oracle_id2, timestamp, '[{"currency": "EUR", "tokenAmount": "9@PT"}]')
+            self.nodes[2].setoracledata(oracle_id1, timestamp,
+                                        '[{"currency": "USD", "tokenAmount": "10.5@PT"},'
+                                        ' {"currency": "USD", "tokenAmount": "7@GOLD#128"},'
+                                        ' {"currency": "EUR", "tokenAmount": "5@GOLD#128"}]')
+        except JSONRPCException as e:
+            print('failed to set oracle data', e.error['message'])
+            raise
 
         try:
             print('PT prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "PT"}'))
@@ -170,6 +187,27 @@ class OraclesTest (DefiTestFramework):
             print('PT for EUR', self.nodes[2].getprice('{"currency":"EUR", "token":"PT"}'))
         except JSONRPCException as e:
             print('failed to calculate aggregated price PT in EU', e.error['message'])
+
+        # input('debug')
+        try:
+            print('oracle', oracle_id1, 'will be removed')
+            self.nodes[0].removeoracle(oracle_id1)
+        except JSONRPCException as e:
+            print('failed to remove oracle', oracle_id1, e.error['message'])
+            raise
+
+        self.nodes[0].generate(10)
+        self.sync_all([self.nodes[0], self.nodes[2]])
+
+        try:
+            print('oracle', oracle_id1, 'will be removed')
+            self.nodes[0].removeoracle(oracle_id1)
+        except JSONRPCException as e:
+            print('failed to remove oracle', oracle_id1, e.error['message'])
+            raise
+
+        print('node 0 oracles: ', self.nodes[0].listoracles())
+        print('node 2 oracles: ', self.nodes[2].listoracles())
 
         # # remove oracle failure
         # self.sync_blocks()

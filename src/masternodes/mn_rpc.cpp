@@ -4049,6 +4049,56 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
 }
 
+namespace {
+    TokenCurrencyPair DecodeSingleTokenCurrencyPair(const UniValue& uni, interfaces::Chain& chain) {
+        if (!uni.exists(oraclefields::Currency)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
+        }
+        if (!uni.exists(oraclefields::Token)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Token).msg);
+        }
+
+        auto currencyString = uni[oraclefields::Currency].getValStr();
+        auto cid = CURRENCY_ID::FromString(currencyString);
+        if (!cid.IsValid()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                               Res::Err("%s <%s> is not supported", oraclefields::Currency, currencyString).msg);
+        }
+
+        auto tokenStr = uni[oraclefields::Token].getValStr();
+        DCT_ID tid{};
+
+        std::unique_ptr<CToken> tokenPtr = chain.existTokenGuessId(tokenStr, tid);
+        if (!tokenPtr) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, Res::Err("Invalid Defi token: %s", tokenStr).msg);
+        }
+
+        return {tid, cid};
+    }
+
+    std::set<TokenCurrencyPair> DecodeTokenCurrencyPairs(const std::string& data, interfaces::Chain& chain) {
+        UniValue array{UniValue::VARR};
+        if (!array.read(data)) {
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode token-currency pairs");
+        }
+
+        if (!array.isArray()) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "data is not array");
+        }
+
+        std::set<TokenCurrencyPair> pairs{};
+
+        for (const auto &pairUni : array.get_array().getValues()) {
+            CURRENCY_ID cid{};
+            DCT_ID tid{};
+            auto p = DecodeSingleTokenCurrencyPair(pairUni, chain);
+            pairs.insert(p);
+        }
+
+        return pairs;
+    }
+}
+
 UniValue appointoracle(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
 
@@ -4059,7 +4109,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "oracle address",},
-                       {"allowedtokens", RPCArg::Type::STR, RPCArg::Optional::NO, "list of allowed tokens"},
+                       {"pricefeeds", RPCArg::Type::STR, RPCArg::Optional::NO, "list of allowed token-currency pairs"},
                        {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                                    {
@@ -4076,8 +4126,12 @@ UniValue appointoracle(const JSONRPCRequest &request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("appointoracle", "1612237937 '[“BTC#1”, “ETH#2”]' 20")
-                       + HelpExampleRpc("appointoracle", "1612237937 '[“BTC#1”, “ETH#2”]' 20")
+                       HelpExampleCli(
+                               "appointoracle",
+                               R"(mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC#1"}, {"currency": "EUR", "token":"ETH#2"]}' 20)")
+                       + HelpExampleRpc(
+                               "appointoracle",
+                               R"(mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC#1"}, {"currency": "EUR", "token":"ETH#2"]}' 20)")
                },
     }.Check(request);
 
@@ -4100,11 +4154,8 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse address");
     }
 
-    UniValue allowedTokensStr{};
-    if (!allowedTokensStr.read(request.params[1].getValStr())) {
-        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to read allowed tokens");
-    }
-    auto tokens = DecodeTokens(pwallet->chain(), allowedTokensStr, "");
+    std::string allowedPairsStr = request.params[1].getValStr();
+    auto allowedPairs = DecodeTokenCurrencyPairs(allowedPairsStr, pwallet->chain());
 
     uint32_t weightage{};
     try {
@@ -4118,12 +4169,6 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-
-    std::set<TokenCurrencyPair> allowedPairs;
-    std::for_each(tokens.begin(), tokens.end(), [&allowedPairs](DCT_ID &it) {
-        // TODO (IntegralTeam): implement json data parsing, for now use USD
-        allowedPairs.insert(TokenCurrencyPair{it, CURRENCY_ID::USD()});
-    });
 
     CAppointOracleMessage msg{std::move(script), static_cast<uint8_t>(weightage), std::move(allowedPairs)};
     // encode
@@ -4197,7 +4242,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
                {
                        {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle id"},
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "oracle address",},
-                       {"allowedtokens", RPCArg::Type::STR, RPCArg::Optional::NO, "list of allowed tokens"},
+                       {"pricefeeds", RPCArg::Type::STR, RPCArg::Optional::NO, "list of allowed token-currency pairs"},
                        {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                         {
@@ -4214,8 +4259,12 @@ UniValue updateoracle(const JSONRPCRequest& request) {
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                       HelpExampleCli("updateoracle", "1612237937 '[“BTC#1”, “ETH#2”]' 20")
-                       + HelpExampleRpc("updateoracle", "1058f5054f76b12f379211de703a2f5f4ce66a65112efd2c6774013c16868097 1612237937 '[“BTC#1”, “ETH#2”]' 20")
+                       HelpExampleCli(
+                               "updateoracle",
+                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC#1"}, {"currency": "EUR", "token":"ETH#2"]}' 20)")
+                       + HelpExampleRpc(
+                               "updateoracle",
+                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC#1"}, {"currency": "EUR", "token":"ETH#2"]}' 20)")
                },
     }.Check(request);
 
@@ -4245,12 +4294,9 @@ UniValue updateoracle(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse address");
     }
 
-    // decode allowed token list
-    UniValue allowedTokensStr{};
-    if (!allowedTokensStr.read(request.params[2].getValStr())) {
-        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to read allowed tokens");
-    }
-    auto tokens = DecodeTokens(pwallet->chain(), allowedTokensStr, "");
+    // decode allowed token-currency pairs
+    std::string allowedPairsStr = request.params[2].getValStr();
+    auto allowedPairs = DecodeTokenCurrencyPairs(allowedPairsStr, pwallet->chain());
 
     // decode weightage
     uint32_t weightage{};
@@ -4265,12 +4311,6 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-
-    std::set<TokenCurrencyPair> allowedPairs;
-    std::for_each(tokens.begin(), tokens.end(), [&allowedPairs](DCT_ID &it) {
-        // TODO (IntegralTeam): implement, for now use USD
-        allowedPairs.insert(TokenCurrencyPair{it, CURRENCY_ID::USD()});
-    });
 
     CUpdateOracleAppointMessage msg{
         oracleId,
@@ -4544,7 +4584,6 @@ UniValue setoracledata(const JSONRPCRequest &request) {
             auto tokenAmount = DecodeAmount(chain, amountUni, "");
 
             return std::make_pair(currency, tokenAmount);
-
         };
 
         CTokenPrices tokenPrices{};

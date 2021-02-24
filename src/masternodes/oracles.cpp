@@ -89,12 +89,12 @@ Res COracleView::RemoveOracle(const COracleId& oracleId)
 
     auto res = RemoveOracleId(oracleId);
     if (!res.ok) {
-        return res;
+        return Res::Err("failed to remove oracle id <%s> from list: %s", oracleId.GetHex(), res.msg);
     }
 
     // remove oracle
     if (!EraseBy<ByName>(oracleId)) {
-        return Res::Err("failed to remove oracle id <%s> from list", oracleId.GetHex());
+        return Res::Err("failed to remove oracle <%s>", oracleId.GetHex());
     }
 
     return Res::Ok();

@@ -69,8 +69,6 @@ BOOST_FIXTURE_TEST_SUITE(oracle_tests, OraclesTestingSetup)
 
         BOOST_ASSERT_MSG(oracleId1 != oracleId2, "bad test data");
 
-        std::cout << "press enter" << std::endl;
-        std::cin.get();
         std::vector<unsigned char> tmp{'a', 'b', 'c'};
         CScript oracleAddress1{tmp.begin(), tmp.end()};
         uint8_t weightage = 15;
@@ -79,7 +77,7 @@ BOOST_FIXTURE_TEST_SUITE(oracle_tests, OraclesTestingSetup)
                  {{2}, CURRENCY_ID::USD()}};
         CAppointOracleMessage msg{oracleAddress1, weightage, availableTokens};
         COracle oracle{oracleId1, msg};
-        std::cerr << "testpoint\n";
+
         CCustomCSView mnview(*pcustomcsview);
         auto res = mnview.AppointOracle(oracleId1, oracle);
         BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
@@ -90,8 +88,42 @@ BOOST_FIXTURE_TEST_SUITE(oracle_tests, OraclesTestingSetup)
         auto allOracleIds = mnview.GetAllOracleIds();
         BOOST_ASSERT_MSG((allOracleIds == std::vector<COracleId>{oracleId1, oracleId2}),
                          "wrong list of oracles");
+    }
 
-        std::cout << "all oracles = " << JoinOracles(allOracleIds) << std::endl;
+    BOOST_AUTO_TEST_CASE(remove_oracle_test) {
+
+        COracleId oracleId1{rawVector1};
+        COracleId oracleId2{rawVector2};
+        uint8_t weightage = 15;
+        std::vector<unsigned char> tmp{'a', 'b', 'c'};
+        CScript oracleAddress1{tmp.begin(), tmp.end()};
+        std::set<TokenCurrencyPair> availableTokens =
+                {{{1}, CURRENCY_ID::USD()},
+                 {{2}, CURRENCY_ID::USD()}};
+        CAppointOracleMessage msg{oracleAddress1, weightage, availableTokens};
+        COracle oracle1{oracleId1, msg};
+
+        CCustomCSView mnview(*pcustomcsview);
+        auto res = mnview.AppointOracle(oracleId1, oracle1);
+        BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
+
+        res = mnview.AppointOracle(oracleId2, oracle1);
+        BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
+
+        auto allOracleIds = mnview.GetAllOracleIds();
+        BOOST_ASSERT_MSG((allOracleIds == std::vector<COracleId>{oracleId1, oracleId2}),
+                         "wrong list of oracles");
+
+        auto res1 = mnview.RemoveOracle(oracleId1);
+        BOOST_ASSERT_MSG(res1.ok, "failed to remove oracle");
+        allOracleIds = mnview.GetAllOracleIds();
+        BOOST_ASSERT_MSG((allOracleIds == std::vector<COracleId>{oracleId2}),
+                         "wrong list of oracles");
+
+        auto res2 = mnview.RemoveOracle(oracleId2);
+        BOOST_ASSERT_MSG(res2.ok, "failed to remove oracle");
+        allOracleIds = mnview.GetAllOracleIds();
+        BOOST_ASSERT_MSG((allOracleIds.empty()),"wrong list of oracles");
     }
 
 BOOST_AUTO_TEST_SUITE_END()
