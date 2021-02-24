@@ -368,22 +368,9 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
         LogPrint(BCLog::SPV, "IsAnchorTx(): %s\n", txHash.ToString());
 
         LOCK(cs_main);
-
-        bool pending{false};
-        if (ValidateAnchor(anchor, pending)) {
-            LogPrint(BCLog::SPV, "valid anchor tx: %s\n", txHash.ToString());
-
-            if (panchors->AddAnchor(anchor, txHash, tx->blockHeight, false)) {
-                LogPrint(BCLog::SPV, "adding anchor %s\n", txHash.ToString());
-            }
-        } else if (pending) {
-            if (panchors->AddToAnchorPending(anchor, txHash, tx->blockHeight)) {
-                LogPrint(BCLog::SPV, "adding anchor to pending %s\n", txHash.ToString());
-            }
+        if (ValidateAnchor(anchor) && panchors->AddToAnchorPending(anchor, txHash, tx->blockHeight)) {
+            LogPrint(BCLog::SPV, "adding anchor to pending %s\n", txHash.ToString());
         }
-    }
-    else {
-        LogPrint(BCLog::SPV, "not an anchor tx %s\n", txHash.ToString());
     }
 }
 
