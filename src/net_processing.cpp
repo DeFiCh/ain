@@ -2421,7 +2421,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 return false;
             }
 
-            LogPrintf("Got anchor auth, hash %s, blockheight: %d\n", auth.GetHash().ToString(), auth.height);
+            LogPrint(BCLog::ANCHORING, "Got anchor auth, hash %s, blockheight: %d\n", auth.GetHash().ToString(), auth.height);
 
             // if valid, add and rebroadcast
             if (panchorauths->ValidateAuth(auth)) {
@@ -2445,7 +2445,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         LOCK(cs_main);
 
         if (!panchorAwaitingConfirms->GetConfirm(confirmMessage.GetHash())) {
-            LogPrintf("Got anchor confirm, hash %s, Anchor Message hash: %d\n", confirmMessage.GetHash().ToString(), confirmMessage.btcTxHash.ToString());
+            LogPrint(BCLog::ANCHORING, "Got anchor confirm, hash %s, Anchor Message hash: %d\n", confirmMessage.GetHash().ToString(), confirmMessage.btcTxHash.ToString());
             // if valid, AND UNIQUE AGAINST VOTER (this is encapsulated in the index itself) - add and rebroadcast
             if (panchorAwaitingConfirms->Validate(confirmMessage) && panchorAwaitingConfirms->Add(confirmMessage)) {
                 RelayAnchorConfirm(confirmMessage.GetHash(), *connman, pfrom);
