@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Setting up a masternode on DefiChain allows you to participate in the consensus protocol and receive staking awards. One thing to note is that in order to set up a masternode, you must have a minimum of 1 million DFI tokens.
+Setting up a masternode on DefiChain allows you to participate in the consensus protocol and receive staking awards. One thing to note is that in order to set up a masternode, you must have a minimum of 20,000 DFI.
 
 > NOTE: This how-to expects some basic familiarity with the Linux terminal
 
@@ -18,9 +18,9 @@ The first step is to download the binaries. Here are links to binaries for Windo
 
 [Downloads](https://defichain.com/downloads/)
 
-Following that we can extract the tar file by running:
+Following that we can extract the tar file by running (Replace 1.x.x with your version number):
 ```
-tar -xvzf defichain-1.3.1-x86_64-pc-linux-gnu.tar.gz
+tar -xvzf defichain-1.x.x-x86_64-pc-linux-gnu.tar.gz
 ```
 
 ### Step 2 - Copy binaries to user directory
@@ -33,7 +33,7 @@ mkdir ~/.defi
 
 Now copy the binaries by running:
 ```
-cp ./defichain-1.3.1/bin/* ~/.defi
+cp ./defichain-1.x.x/bin/* ~/.defi
 ```
 
 ### Step 3 - Setting up crontab to keep our node running in the background
@@ -50,7 +50,7 @@ into the file and hit `Ctrl-X` then enter to save the file.
 
 ### Step 4 - Setting up owner address with sufficient funds
 
-In order to run a masternode, you must own at least 1 million DFI tokens. Let's set up an address with sufficient funds to use as an owner. Masternodes currently only support legacy addresses, so create a masternode address using:
+In order to run a masternode, you must own at least 20,000 DFI. Let's set up an address with sufficient funds to use as an owner. Masternodes currently only support legacy addresses, so create a masternode address using:
 
 ```
 ~/.defi/defi-cli getnewaddress "<label>" legacy
