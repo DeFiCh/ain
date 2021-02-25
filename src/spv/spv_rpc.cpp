@@ -577,6 +577,7 @@ UniValue spv_listanchorspending(const JSONRPCRequest& request)
         UniValue anchor(UniValue::VOBJ);
         anchor.pushKV("btcBlockHeight", static_cast<int>(rec.btcHeight));
         anchor.pushKV("btcTxHash", rec.txHash.ToString());
+        anchor.pushKV("previousAnchor", rec.anchor.previousAnchor.ToString());
         anchor.pushKV("defiBlockHeight", static_cast<int>(rec.anchor.height));
         anchor.pushKV("defiBlockHash", rec.anchor.blockHash.ToString());
         anchor.pushKV("rewardAddress", EncodeDestination(rewardDest));
