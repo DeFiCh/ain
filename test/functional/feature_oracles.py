@@ -84,12 +84,14 @@ class OraclesTest (DefiTestFramework):
         assert_equal(tokens['128']["symbol"], "GOLD")
         assert_equal(tokens['128']["creationTx"], createTokenTx)
         self.sync_all([self.nodes[0], self.nodes[2]])
-        #7 Create oracle node[1]
+
+        #7 Create oracle node[2]
         oracle_address1 = self.nodes[2].getnewaddress("", "legacy")
         oracle_address2 = self.nodes[2].getnewaddress("", "legacy")
 
         print('address1', oracle_address1)
         print('address2', oracle_address2)
+
         self.nodes[0].sendtoaddress(oracle_address1, 50)
         self.nodes[0].sendtoaddress(oracle_address2, 50)
 
@@ -112,9 +114,9 @@ class OraclesTest (DefiTestFramework):
             raise
 
         print('oracleid1', oracle_id1)
-        print('decodedtx', self.nodes[0].getrawtransaction(oracle_id1, 1))
+        print('decodedtx', self.nodes[0].getrawtransaction(oracle_id1['txid'], 1))
         print('oracleid2', oracle_id2)
-        print('decodedtx2', self.nodes[0].getrawtransaction(oracle_id2, 1))
+        print('decodedtx2', self.nodes[0].getrawtransaction(oracle_id1['txid'], 1))
 
         self.nodes[0].generate(10)
         self.sync_all([self.nodes[0], self.nodes[2]])
@@ -128,9 +130,11 @@ class OraclesTest (DefiTestFramework):
         timestamp = calendar.timegm(time.gmtime())
 
         # input("debug set oracle data")
+        print('check if appoint oracle1 is applied on node 0:', self.nodes[0].isappliedcustomtx(oracle_id1['txid'], oracle_id1['height']))
+
         try:
             self.nodes[2].setoracledata(
-                oracle_id1,
+                oracle_id1['txid'],
                 timestamp,
                 '[{"currency": "USD", "tokenAmount": "10.1@PT"}, {"currency": "USD", "tokenAmount": "5@GOLD#128"}]'
             )
@@ -138,38 +142,50 @@ class OraclesTest (DefiTestFramework):
             print('failed to set oracle data', e.error['message'])
             raise
 
-        try:
-            self.nodes[2].setoracledata(oracle_id2, timestamp,
-                                        '[{"currency": "EUR", "tokenAmount": "9@PT"},'
-                                        ' {"currency": "EUR", "tokenAmount": "5@GOLD#128"}]')
-        except JSONRPCException as e:
-            print('failed to set oracle data', e.error['message'])
-            raise
-
         self.nodes[2].generate(1)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
+        update_oracle_res = ''
         try:
             feeds = '[{"currency": "USD", "token": "PT"}, ' \
+                    '{"currency": "EUR", "token": "PT"}, ' \
                     '{"currency": "USD", "token": "GOLD#128"}, ' \
                     '{"currency": "EUR", "token": "GOLD#128"}]'
-            self.nodes[0].updateoracle(oracle_id1, oracle_address1, feeds, 15)
+            update_oracle_res = self.nodes[0].updateoracle(oracle_id1['txid'], oracle_address1, feeds, 15)
         except JSONRPCException as e:
             print('failed to update oracle', e.error['message'])
             raise
 
-        self.nodes[2].generate(2)
+        print(update_oracle_res)
+        print('decoded update oracle tx', self.nodes[0].getrawtransaction(update_oracle_res['txid'], 2))
+
+        self.nodes[0].generate(10)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
+        print('check if update oracle1 is applied on node 0:',
+              self.nodes[0].isappliedcustomtx(update_oracle_res['txid'], update_oracle_res['height']))
+        print('check if update oracle1 is applied on node 2:',
+              self.nodes[2].isappliedcustomtx(update_oracle_res['txid'], update_oracle_res['height']))
+
         try:
-            self.nodes[2].setoracledata(oracle_id2, timestamp, '[{"currency": "EUR", "tokenAmount": "9@PT"}]')
-            self.nodes[2].setoracledata(oracle_id1, timestamp,
+            self.nodes[2].setoracledata(oracle_id1['txid'], timestamp, '[{"currency": "EUR", "tokenAmount": "9@PT"}]')
+            self.nodes[2].setoracledata(oracle_id1['txid'], timestamp,
                                         '[{"currency": "USD", "tokenAmount": "10.5@PT"},'
                                         ' {"currency": "USD", "tokenAmount": "7@GOLD#128"},'
                                         ' {"currency": "EUR", "tokenAmount": "5@GOLD#128"}]')
         except JSONRPCException as e:
             print('failed to set oracle data', e.error['message'])
             raise
+
+        try:
+            self.nodes[2].setoracledata(
+                oracle_id1['txid'], timestamp,
+                '[{"currency": "EUR", "tokenAmount": "9@PT"},'
+                ' {"currency": "EUR", "tokenAmount": "5@GOLD#128"}]')
+        except JSONRPCException as e:
+            print('failed to set oracle data', e.error['message'])
+            raise
+
 
         try:
             print('PT prices', self.nodes[2].listlatestrawprices('{"currency": "USD", "token": "PT"}'))
@@ -188,34 +204,37 @@ class OraclesTest (DefiTestFramework):
         except JSONRPCException as e:
             print('failed to calculate aggregated price PT in EU', e.error['message'])
 
+        remove_oracle_txid = ''
         # input('debug')
         try:
-            print('oracle', oracle_id1, 'will be removed')
-            self.nodes[0].removeoracle(oracle_id1)
+            print('oracle', oracle_id1['txid'], 'will be removed')
+            remove_oracle_txid = self.nodes[0].removeoracle(oracle_id1['txid'])
         except JSONRPCException as e:
-            print('failed to remove oracle', oracle_id1, e.error['message'])
+            print('failed to remove oracle', oracle_id1['txid'], e.error['message'])
             raise
 
-        self.nodes[0].generate(10)
+        self.nodes[0].generate(1)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
-        try:
-            print('oracle', oracle_id1, 'will be removed')
-            self.nodes[0].removeoracle(oracle_id1)
-        except JSONRPCException as e:
-            print('failed to remove oracle', oracle_id1, e.error['message'])
-            raise
+        print('check if remove oracle applied on node 2:', self.nodes[2].isappliedcustomtx(remove_oracle_txid))
+
+        # try:
+        #     print('oracle', oracle_id1['txid'], 'will be removed')
+        #     self.nodes[0].removeoracle(oracle_id1['txid'])
+        # except JSONRPCException as e:
+        #     print('failed to remove oracle', oracle_id1['txid'], e.error['message'])
+        #     raise
 
         print('node 0 oracles: ', self.nodes[0].listoracles())
         print('node 2 oracles: ', self.nodes[2].listoracles())
 
         # # remove oracle failure
         # self.sync_blocks()
-        # print('oracle data returned:', self.nodes[3].removeoracle(oracle_id1))
+        # print('oracle data returned:', self.nodes[3].removeoracle(oracle_id1['txid']))
         #
         # # remove oracle success
         # self.sync_blocks()
-        # print('oracle data returned:', self.nodes[0].removeoracle(oracle_id1))
+        # print('oracle data returned:', self.nodes[0].removeoracle(oracle_id1['txid']))
 
 
 if __name__ == '__main__':

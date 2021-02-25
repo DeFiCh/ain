@@ -4211,12 +4211,12 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coinview, *optAuthTx, targetHeight);
         const auto res = ApplyAppointOracleTx(
-                mnview_dummy,
+                mnview,
                 coinview,
                 CTransaction(rawTx),
                 targetHeight,
@@ -4228,7 +4228,13 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         }
     }
 
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+    auto txid = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+
+    UniValue result{UniValue::VOBJ};
+    result.pushKV("txid", txid);
+    result.pushKV("height", targetHeight);
+
+    return result;
 }
 
 UniValue updateoracle(const JSONRPCRequest& request) {
@@ -4357,12 +4363,19 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
+        // check if tx is valid
+        auto oracles = mnview.GetAllOracleIds();
+        if (std::find(oracles.begin(), oracles.end(), msg.oracleId) == std::end(oracles)) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                               Res::Err("Oracle <%s> doesn't exist\n", msg.oracleId.GetHex()).msg);
+        }
+
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coinview, *optAuthTx, targetHeight);
         const auto res = ApplyUpdateOracleAppointTx(
-                mnview_dummy,
+                mnview,
                 coinview,
                 CTransaction(rawTx),
                 targetHeight,
@@ -4374,7 +4387,13 @@ UniValue updateoracle(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+    auto txid = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+
+    UniValue result{UniValue::VOBJ};
+    result.pushKV("txid", txid);
+    result.pushKV("height", targetHeight);
+
+    return result;
 }
 
 UniValue removeoracle(const JSONRPCRequest& request) {
@@ -4459,13 +4478,20 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView databaseView(*pcustomcsview); // don't write into actual DB
+        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
+        // check if tx is valid
+        auto oracles = mnview.GetAllOracleIds();
+        if (std::find(oracles.begin(), oracles.end(), msg.oracleId) == std::end(oracles)) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                               Res::Err("Oracle <%s> doesn't exist\n", msg.oracleId.GetHex()).msg);
+        }
+
         CCoinsViewCache coinView(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coinView, *optAuthTx, targetHeight);
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
         const auto res = ApplyRemoveOracleAppointTx(
-                databaseView,
+                mnview,
                 coinView,
                 CTransaction(rawTx),
                 targetHeight,
@@ -4477,7 +4503,13 @@ UniValue removeoracle(const JSONRPCRequest& request) {
         }
     }
 
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+    auto txid = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+
+    UniValue result{UniValue::VOBJ};
+    result.pushKV("txid", txid);
+    result.pushKV("height", targetHeight);
+
+    return result;
 }
 
 UniValue setoracledata(const JSONRPCRequest &request) {
@@ -4559,7 +4591,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
 
         auto &chain = pwallet->chain();
@@ -4597,6 +4629,27 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
         CSetOracleDataMessage msg{oracleId, timestamp, std::move(tokenPrices)};
 
+        // check if tx parameters are valid
+
+        auto oracleRes = mnview.GetOracleData(oracleId);
+        if (!oracleRes.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, oracleRes.msg);
+        }
+
+        auto &oracle = *oracleRes.val;
+        for (auto &tpair: msg.tokenPrices) {
+            DCT_ID tid = tpair.first;
+            for (auto &cpair: tpair.second) {
+                CURRENCY_ID cid = cpair.first;
+                if (!oracle.SupportsPair(tid, cid)) {
+                    throw JSONRPCError(RPC_INVALID_REQUEST,
+                                       Res::Err("token-currency pair <%s>:<%s> is not supported",
+                                                tid.ToString(),
+                                                cid.ToString()).msg);
+                }
+            }
+        }
+
         // encode
         CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
         markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData)
@@ -4614,7 +4667,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
         std::set<CScript> auths;
 
-        auto oracleRes = mnview_dummy.GetOracleData(oracleId);
+        auto oracleRes = mnview.GetOracleData(oracleId);
         if (!oracleRes.ok) {
             throw JSONRPCError(RPC_DATABASE_ERROR,
                                Res::Err("failed to get oracle data for id <%s> : %s", oracleId.GetHex(),
@@ -4643,7 +4696,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         }
 
         const auto res = ApplySetOracleDataTx(
-                mnview_dummy,
+                mnview,
                 coinview,
                 CTransaction(rawTx),
                 targetHeight,
