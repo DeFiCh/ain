@@ -520,12 +520,6 @@ void CAnchorIndex::CheckPendingAnchors()
 
     ForEachPending([this, &deletePending](uint256 const &, AnchorRec & rec) {
 
-        // Skip check if anchor not in chain
-        CBlockIndex* anchorIndex = ::ChainActive()[rec.anchor.height];
-        if (!anchorIndex) {
-            return;
-        }
-
         CBlockIndex anchorBlock;
         uint64_t anchorCreationHeight;
         if (!ContextualValidateAnchor(rec.anchor, anchorBlock, anchorCreationHeight)) {
@@ -765,21 +759,9 @@ bool CAnchorIndex::DbErase(uint256 const & hash)
 }
 
 /// Validates all except tx confirmations
-bool ValidateAnchor(const CAnchor & anchor, bool& pending)
+bool ValidateAnchor(const CAnchor & anchor)
 {
     AssertLockHeld(cs_main);
-
-    // 1. Check heights and prevs
-    if (!anchor.previousAnchor.IsNull()) {
-        auto prev = panchors->GetAnchorByTx(anchor.previousAnchor);
-        if (!prev) {
-            return error("%s: Previous anchor %s specified, but does not exist.", __func__, anchor.previousAnchor.ToString());
-        }
-
-        if (anchor.height <= prev->anchor.height) {
-            return error("%s: Anchor blockHeight should be higher than previousAnchor height! %d > %d", __func__, anchor.height, prev->anchor.height);
-        }
-    }
 
     // Check sig size to avoid storing bogus anchors with large number of sigs
     if (anchor.nextTeam.size() != 1) {
@@ -800,9 +782,9 @@ bool ValidateAnchor(const CAnchor & anchor, bool& pending)
         {
             // Make sure anchor created after fork.
             if (anchorCreationHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaHeight)) {
-                pending = true;
+                return true;
             } else {
-                return error("%s: Post fork acnhor created before fork height. Anchor %ld fork %d",
+                return error("%s: Post fork anchor created before fork height. Anchor %ld fork %d",
                              __func__, anchorCreationHeight, Params().GetConsensus().DakotaHeight);
             }
         }
@@ -815,9 +797,34 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
 {
     AssertLockHeld(cs_main);
 
+    // Validate previous anchor
+    if (!anchor.previousAnchor.IsNull())
+    {
+        auto prev = panchors->GetAnchorByTx(anchor.previousAnchor);
+        CAnchorIndex::AnchorRec pending;
+        if (!prev)
+        {
+            // Check pending anchors
+            if (!panchors->GetPendingByBtcTx(anchor.previousAnchor, pending))
+            {
+                return error("%s: Previous anchor %s specified, but does not exist.",
+                             __func__, anchor.previousAnchor.ToString());
+            }
+        }
+        else if ((prev && anchor.height <= prev->anchor.height) || // Check height in accepted anchor
+                 (!pending.txHash.IsNull() && anchor.height <= pending.anchor.height)) // Check height in pending anchor
+        {
+            return error("%s: Anchor blockHeight should be higher than previousAnchor height! %d > %d",
+                         __func__, anchor.height, prev->anchor.height);
+        }
+    }
+
     CBlockIndex* anchorIndex = ::ChainActive()[anchor.height];
     if (!anchorIndex) {
-        return error("%s: Active chain does not contain block height %d!", __func__, anchor.height);
+        // Set to max to be used to avoid deleting pending anchor.
+        anchorCreationHeight = std::numeric_limits<uint64_t>::max();
+
+        return error("%s: Active chain does not yet contain block height %d!", __func__, anchor.height);
     }
 
     if (anchorIndex->GetBlockHash() != anchor.blockHash) {
