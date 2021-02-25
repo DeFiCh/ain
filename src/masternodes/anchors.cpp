@@ -984,24 +984,32 @@ bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessa
 
     CKeyID signer = confirmMessage.GetSigner();
     if (signer.IsNull()) {
-        LogPrintf("%s: Warning! Signature incorrect. btcTxHash: %s confirmMessageHash: %s Key: %s\n", __func__, confirmMessage.btcTxHash.ToString(), confirmMessage.GetHash().ToString(), signer.ToString());
+        LogPrint(BCLog::ANCHORING, "%s: Warning! Signature incorrect. btcTxHash: %s confirmMessageHash: %s Key: %s\n",
+                 __func__, confirmMessage.btcTxHash.ToString(), confirmMessage.GetHash().ToString(), signer.ToString());
         return false;
     }
 
     auto it = pcustomcsview->GetMasternodeIdByOperator(signer);
     if (!it || !pcustomcsview->GetMasternode(*it)->IsActive()) {
-        LogPrintf("%s: Warning! Masternode with operator key %s does not exist or not active!\n", __func__, signer.ToString());
+        LogPrint(BCLog::ANCHORING, "%s: Warning! Masternode with operator key %s does not exist or not active!\n", __func__, signer.ToString());
         return false;
     }
 
     CBlockIndex* anchorIndex = ::ChainActive()[confirmMessage.anchorHeight];
     if (!anchorIndex) {
-        return error("%s: Active chain does not contain block height %d!", __func__, confirmMessage.anchorHeight);
+        LogPrint(BCLog::ANCHORING, "%s: Active chain does not contain block height %d\n", __func__, confirmMessage.anchorHeight);
+        return false;
     }
 
     if (anchorIndex->GetBlockHash() != confirmMessage.dfiBlockHash) {
-        return error("%s: Anchor and blockchain mismatch at height %d. Expected %s found %s",
-                     __func__, confirmMessage.anchorHeight, anchorIndex->GetBlockHash().ToString(), confirmMessage.dfiBlockHash.ToString());
+        LogPrint(BCLog::ANCHORING, "%s: Anchor and blockchain mismatch at height %d. Expected %s found %s\n",
+                 __func__, confirmMessage.anchorHeight, anchorIndex->GetBlockHash().ToString(), confirmMessage.dfiBlockHash.ToString());
+        return false;
+    }
+
+    if (auto reward = pcustomcsview->GetRewardForAnchor(confirmMessage.btcTxHash)) {
+        LogPrint(BCLog::ANCHORING, "%s: Anchor already paid. DeFi Transaction: %s\n", __func__, reward->ToString());
+        return false;
     }
 
     return true;

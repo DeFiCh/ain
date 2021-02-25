@@ -2658,7 +2658,9 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
                 panchorAwaitingConfirms->Add(confirm);
             }
             // we do not clear ALL votes (even they are stale) for the case of rapid tip changing. At least, they'll be deleted after their rewards
-            panchorAwaitingConfirms->ReVote();
+            if (!IsInitialBlockDownload()) {
+                panchorAwaitingConfirms->ReVote();
+            }
         }
         for (auto const & cr : disconnectedCriminals) {
             pcriminals->AddCriminalProof(cr.first, cr.second.blockHeader, cr.second.conflictBlockHeader);
@@ -2808,7 +2810,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             for (auto const & btcTxHash : rewardedAnchors) {
                 panchorAwaitingConfirms->EraseAnchor(btcTxHash);
             }
-            panchorAwaitingConfirms->ReVote();
+            if (!IsInitialBlockDownload()) {
+                panchorAwaitingConfirms->ReVote();
+            }
         }
         for (auto const & nodeId : bannedCriminals) {
             pcriminals->RemoveCriminalProofs(nodeId);
