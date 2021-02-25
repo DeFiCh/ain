@@ -1,6 +1,6 @@
-// Copyright (c) 2019 DeFi Blockchain Developers
+// Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/anchors.h>
 #include <masternodes/balances.h>
@@ -1420,7 +1420,6 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     else {
         mnview.SetFoundationsDebt(mnview.GetFoundationsDebt() + tx.GetValueOut());
     }
-    mnview.AddRewardForAnchor(finMsg.btcTxHash, tx.GetHash());
 
     return { finMsg.btcTxHash, Res::Ok() };
 }

@@ -1,7 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <validation.h>
 
@@ -2347,7 +2347,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 //        cache.CallYourInterblockProcessingsHere();
 
         // distribute pool incentive rewards and trading fees:
-        /// @attention it throws (at least for debug), cause errors are critical!
         {
             std::shared_ptr<LP_DAILY_DFI_REWARD> var = std::dynamic_pointer_cast<LP_DAILY_DFI_REWARD>(cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName()));
             CAmount poolsBlockReward = std::min(
@@ -2363,20 +2362,23 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     if (from != CScript()) {
                         auto res = cache.SubBalance(from, amount);
                         if (!res.ok) {
-                            throw std::runtime_error(strprintf("Custom pool rewards: can't update balance of %s: %s, Block %ld (%s)", to.GetHex(), res.msg, block.height, block.GetHash().ToString()));
+                            LogPrintf("Custom pool rewards: can't update balance of %s: %s, Block %ld (%s)\n", to.GetHex(), res.msg, block.height, block.GetHash().ToString());
+                            return res; // no funds, no rewards
                         }
                     }
                     auto res = cache.AddBalance(to, poolID, type, amount);
-                    if (!res.ok)
-                        throw std::runtime_error(strprintf("Pool rewards: can't update balance of %s: %s, Block %ld (%s)", to.GetHex(), res.msg, block.height, block.GetHash().ToString()));
+                    if (!res.ok) {
+                        LogPrintf("Pool rewards: can't update balance of %s: %s, Block %ld (%s)\n", to.GetHex(), res.msg, block.height, block.GetHash().ToString());
+                    }
                     return res;
                 },
                 pindex->nHeight
             );
 
             auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);
-            if (!res.ok)
+            if (!res.ok) {
                 LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, block.height, block.GetHash().ToString());
+            }
         }
         // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
         if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
@@ -2928,6 +2930,8 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
     DisconnectedBlockTransactions disconnectpool;
     auto disconnectBlocksTo = [&](const CBlockIndex *pindex) -> bool {
         while (m_chain.Tip() && m_chain.Tip() != pindex) {
+            boost::this_thread::interruption_point();
+
             if (!DisconnectTip(state, chainparams, &disconnectpool)) {
                 // This is likely a fatal error, but keep the mempool consistent,
                 // just in case. Only remove from the mempool in this case.
@@ -2939,6 +2943,9 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                 return AbortNode(state, "Failed to disconnect block; see debug.log for details");
             }
             fBlocksDisconnected = true;
+
+            if (ShutdownRequested())
+                break;
         }
         return true;
     };

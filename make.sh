@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2020 DeFi Blockchain Developers
+# Copyright (c) DeFi Blockchain Developers
 # Maker script
 
 # shellcheck disable=SC2155
@@ -17,6 +17,7 @@ setup_vars() {
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
     EXTRA_BUILD_OPTS=${EXTRA_BUILD_OPTS:-}
+    EXTRA_MAKE_ARGS=${EXTRA_MAKE_ARGS:-}
 
     # shellcheck disable=SC2206
     # This intentionally word-splits the array as env arg can only be strings.
@@ -74,6 +75,7 @@ help() {
 build() {
     local target=${1:-"x86_64-pc-linux-gnu"}
     local extra_build_opts=${EXTRA_BUILD_OPTS:-}
+    local extra_make_args=${EXTRA_MAKE_ARGS:-}
 
     echo "> build: ${target}"
     pushd ./depends >/dev/null
@@ -83,7 +85,7 @@ build() {
     ./autogen.sh
     # XREF: #make-configure
     ./configure --prefix="$(pwd)/depends/${target}" ${extra_build_opts}
-    make
+    make $extra_make_args
 }
 
 deploy() {
@@ -98,7 +100,7 @@ deploy() {
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_path
     versioned_release_path="$(readlink -m "${release_dir}/${versioned_name}")"
-    
+
     echo "> deploy into: ${release_dir} from ${versioned_release_path}"
 
     pushd "${release_dir}" >/dev/null
@@ -214,7 +216,7 @@ docker_deploy() {
 
         rm -rf "${versioned_release_dir}" && mkdir -p "${versioned_release_dir}"
 
-        local cid 
+        local cid
         cid=$(docker create "${img}")
         local e=0
 
@@ -336,7 +338,7 @@ pkg_ensure_mac_sdk() {
     pushd ./depends/SDKs >/dev/null
     if [[ ! -d "$sdk_name" ]]; then
         if [[ ! -f "${pkg}" ]]; then
-            wget https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.11.sdk.tar.xz 
+            wget https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.11.sdk.tar.xz
         fi
         tar -xvf "${pkg}"
     fi

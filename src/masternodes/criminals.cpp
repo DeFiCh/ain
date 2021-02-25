@@ -1,6 +1,6 @@
 // Copyright (c) 2019 DeFi Foundation
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/criminals.h>
 #include <masternodes/masternodes.h>

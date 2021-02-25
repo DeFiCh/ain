@@ -1,6 +1,6 @@
-// Copyright (c) 2019 DeFi Blockchain Developers
+// Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <base58.h>
 #include <chainparams.h>
@@ -152,10 +152,10 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
                 {
                     {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
-                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id of the bitcoin UTXO to spend"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output index to spend in UTXO"},
                             {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "Amount of output in satoshis"},
-                            {"privkey", RPCArg::Type::STR, RPCArg::Optional::NO, "WIF private key for signing this output"},
+                            {"privkey", RPCArg::Type::STR, RPCArg::Optional::NO, "WIF private key of bitcoin for signing this output"},
                         },
                     },
                 },
@@ -190,7 +190,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 and 2 must be non-null");
     }
-    
+
     const UniValue inputs = request.params[0].get_array();
     if (inputs.empty())
     {
@@ -287,12 +287,7 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
             "\"txHex\"                  (string) The hex-encoded raw transaction with signature(s)\n"
         },
         RPCExamples{
-            HelpExampleCli("spv_createanchortemplate", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0,\\\"amount\\\":10000,\\\"privkey\\\":\\\"WIFprivkey\\\"}]\" "
-                                            "\\\"rewardAddress\\\""
-                                            )
-            + HelpExampleRpc("spv_createanchortemplate", "\"[{\\\"txid\\\":\\\"id\\\",\\\"vout\\\":0,\\\"amount\\\":10000,\\\"privkey\\\":\\\"WIFprivkey\\\"}]\" "
-                                                 "\\\"rewardAddress\\\""
-                                                 )
+            HelpExampleCli("spv_createanchortemplate",  "\\\"rewardAddress\\\"")
         },
     }.Check(request);
 
