@@ -126,4 +126,43 @@ BOOST_FIXTURE_TEST_SUITE(oracle_tests, OraclesTestingSetup)
         BOOST_ASSERT_MSG((allOracleIds.empty()),"wrong list of oracles");
     }
 
+    BOOST_AUTO_TEST_CASE(update_oracle_test) {
+
+        COracleId oracleId1{rawVector1};
+        COracleId oracleId2{rawVector2};
+        uint8_t weightage = 15;
+        std::vector<unsigned char> tmp{'a', 'b', 'c'};
+        CScript oracleAddress1{tmp.begin(), tmp.end()};
+        std::set<TokenCurrencyPair> availableTokens =
+                {{{1}, CURRENCY_ID::USD()},
+                 {{2}, CURRENCY_ID::USD()}};
+        CAppointOracleMessage msg1{oracleAddress1, weightage, availableTokens};
+        COracle oracle1{oracleId1, msg1};
+
+        uint8_t weightage2 = weightage + 2;
+        auto availableTokens2 = availableTokens;
+        availableTokens.insert({{1}, CURRENCY_ID::EUR()});
+        CAppointOracleMessage msg2{oracleAddress1, weightage2, availableTokens};
+        COracle oracle2{oracleId1, msg2};
+
+        CCustomCSView mnview(*pcustomcsview);
+        auto res = mnview.AppointOracle(oracleId1, oracle1);
+        BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
+
+        auto allOracleIds = mnview.GetAllOracleIds();
+        BOOST_ASSERT_MSG((allOracleIds == std::vector<COracleId>{oracleId1}),
+                         "wrong list of oracles");
+
+        res = mnview.UpdateOracle(oracleId1, oracle2);
+        BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
+
+        allOracleIds = mnview.GetAllOracleIds();
+        BOOST_ASSERT_MSG((allOracleIds == std::vector<COracleId>{oracleId1}),
+                         "wrong list of oracles");
+
+        auto dataRes = mnview.GetOracleData(oracleId1);
+        BOOST_ASSERT_MSG(dataRes.ok, dataRes.msg.c_str());
+        BOOST_ASSERT_MSG(oracle2 == *dataRes.val, "stored oracle is not correct");
+    }
+
 BOOST_AUTO_TEST_SUITE_END()

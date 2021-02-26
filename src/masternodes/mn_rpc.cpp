@@ -4240,9 +4240,9 @@ UniValue appointoracle(const JSONRPCRequest &request) {
 UniValue updateoracle(const JSONRPCRequest& request) {
     CWallet *const pwallet = GetWallet(request);
 
-    RPCHelpMan{"appointoracle",
-               "\nCreates (and submits to local node and network) a `appoint oracle transaction`, \n"
-               "and saves oracle to database.\n"
+    RPCHelpMan{"updateoracle",
+               "\nCreates (and submits to local node and network) a `update oracle transaction`, \n"
+               "and saves oracle updates to database.\n"
                "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -4666,14 +4666,6 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         UniValue const &txInputs = request.params[3];
 
         std::set<CScript> auths;
-
-        auto oracleRes = mnview.GetOracleData(oracleId);
-        if (!oracleRes.ok) {
-            throw JSONRPCError(RPC_DATABASE_ERROR,
-                               Res::Err("failed to get oracle data for id <%s> : %s", oracleId.GetHex(),
-                                        oracleRes.msg).msg);
-        }
-
         auths.insert({oracleRes.val->oracleAddress});
 
         rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);

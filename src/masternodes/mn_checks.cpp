@@ -19,8 +19,6 @@
 #include <univalue/include/univalue.h>
 
 #include <algorithm>
-#include <sstream>
-#include <cstring>
 
 using namespace std;
 
@@ -1519,7 +1517,7 @@ Res ApplyAppointOracleTx(
     // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
 
     COracleId oracleId{tx.GetHash()};
-    return mnview.AppointOracle(static_cast<COracleId>(oracleId), COracle(oracleId, msg));
+    return mnview.AppointOracle(oracleId, COracle(oracleId, msg));
 }
 
 Res ApplyUpdateOracleAppointTx(CCustomCSView &mnview,
@@ -1546,8 +1544,9 @@ Res ApplyUpdateOracleAppointTx(CCustomCSView &mnview,
 
     // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
 
-    COracleId oracleId{tx.GetHash()};
-    return mnview.UpdateOracle(static_cast<COracleId>(msg.oracleId), COracle(msg.oracleId, msg.newOracleAppoint));
+    Res res = mnview.UpdateOracle(msg.oracleId, COracle(msg.oracleId, msg.newOracleAppoint));
+
+    return res;
 }
 
 Res ApplyRemoveOracleAppointTx(
