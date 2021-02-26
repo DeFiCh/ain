@@ -576,6 +576,50 @@ UniValue getanchorteams(const JSONRPCRequest& request)
 }
 
 
+UniValue getactivemasternodecount(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"getactivemasternodecount",
+               "\nReturn number of unique masternodes in the last specified number of blocks\n",
+               {
+                    {"blockCount", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The number of blocks to check for unique masternodes. (Default: 20160)"}
+               },
+               RPCResult{
+                       "n    (numeric) Number of unique masternodes seen\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getactivemasternodecount", "20160")
+                       + HelpExampleRpc("getactivemasternodecount", "20160")
+               },
+    }.Check(request);
+
+    const CBlockIndex* pindex{nullptr};
+    {
+        LOCK(cs_main);
+        pindex = ::ChainActive().Tip();
+    }
+
+    int blockSample{7 * 2880}; // One week
+    if (!request.params[0].isNull()) {
+        blockSample = request.params[0].get_int();
+    }
+
+    std::set<uint256> masternodes;
+
+    // Get active MNs from last week's worth of blocks
+    for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
+        CKeyID minter;
+        if (pindex->GetBlockHeader().ExtractMinterKey(minter)) {
+            LOCK(cs_main);
+            auto id = pcustomcsview->GetMasternodeIdByOperator(minter);
+            if (id) {
+                masternodes.insert(*id);
+            }
+        }
+    }
+
+    return static_cast<uint64_t>(masternodes.size());
+}
+
 UniValue listanchors(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
@@ -643,6 +687,7 @@ static const CRPCCommand commands[] =
     {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},
     {"masternodes", "listcriminalproofs",    &listcriminalproofs,    {}},
     {"masternodes", "getanchorteams",        &getanchorteams,        {"blockHeight"}},
+    {"masternodes", "getactivemasternodecount",  &getactivemasternodecount,  {"blockCount"}},
     {"masternodes", "listanchors",           &listanchors,           {}},
 };
 

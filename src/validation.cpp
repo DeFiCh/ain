@@ -2810,9 +2810,6 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             for (auto const & btcTxHash : rewardedAnchors) {
                 panchorAwaitingConfirms->EraseAnchor(btcTxHash);
             }
-            if (!IsInitialBlockDownload()) {
-                panchorAwaitingConfirms->ReVote();
-            }
         }
         for (auto const & nodeId : bannedCriminals) {
             pcriminals->RemoveCriminalProofs(nodeId);
@@ -2836,6 +2833,14 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     if (pindexNew->nHeight >= Params().GetConsensus().DakotaHeight &&
             pindexNew->nHeight % Params().GetConsensus().mn.anchoringTeamChange == 0) {
         pcustomcsview->CalcAnchoringTeams(blockConnecting.stakeModifier, pindexNew);
+
+        // Delete old and now invalid anchor confirms
+        panchorAwaitingConfirms->Clear();
+
+        // Revote to pay any unrewarded anchor confirms
+        if (!IsInitialBlockDownload()) {
+            panchorAwaitingConfirms->ReVote();
+        }
     }
 
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
