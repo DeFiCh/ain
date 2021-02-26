@@ -18,6 +18,9 @@
 #include <streams.h>
 #include <univalue/include/univalue.h>
 
+#include <boost/algorithm/string/join.hpp>
+#include <boost/range/adaptor/transformed.hpp>
+
 #include <algorithm>
 
 using namespace std;
@@ -177,11 +180,17 @@ Res ApplyCustomTx(CCustomCSView &base_mnview, CCoinsViewCache const &coins, CTra
             case CustomTxType::AnyAccountsToAccounts:
                 res = ApplyAnyAccountsToAccountsTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
                 break;
-            case CustomTxType::SetOracleData:
-                res = ApplySetOracleDataTx(mnview, coins, tx, height, metadata, consensusParams);
-                break;
             case CustomTxType::AppointOracle:
                 res = ApplyAppointOracleTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
+                break;
+            case CustomTxType::UpdateOracleAppoint:
+                res = ApplyUpdateOracleAppointTx(mnview, coins, tx, height, metadata, consensusParams);
+                break;
+            case CustomTxType::RemoveOracleAppoint:
+                res = ApplyRemoveOracleAppointTx(mnview, coins, tx, height, metadata, consensusParams);
+                break;
+            case CustomTxType::SetOracleData:
+                res = ApplySetOracleDataTx(mnview, coins, tx, height, metadata, consensusParams);
                 break;
 
             default:

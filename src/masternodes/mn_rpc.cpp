@@ -4228,11 +4228,8 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         }
     }
 
-    auto txid = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 
-    UniValue result{UniValue::VOBJ};
-    result.pushKV("txid", txid);
-    result.pushKV("height", targetHeight);
+    UniValue result = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 
     return result;
 }
@@ -4346,7 +4343,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
             optAuthTx,
             txInputs);
 
-    CCoinControl coinControl;
+    CCoinControl coinControl;//    std::string oracles;
 
     // Set change to auth address if there's only one auth address
     if (auths.size() == 1) {
@@ -4359,7 +4356,6 @@ UniValue updateoracle(const JSONRPCRequest& request) {
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
-    std::string oracles;
     // check execution
     {
         LOCK(cs_main);
@@ -4387,11 +4383,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
         }
     }
 
-    auto txid = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
-
-    UniValue result{UniValue::VOBJ};
-    result.pushKV("txid", txid);
-    result.pushKV("height", targetHeight);
+    UniValue result = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 
     return result;
 }
@@ -4503,11 +4495,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
         }
     }
 
-    auto txid = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
-
-    UniValue result{UniValue::VOBJ};
-    result.pushKV("txid", txid);
-    result.pushKV("height", targetHeight);
+    UniValue result = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 
     return result;
 }
@@ -4700,7 +4688,9 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         }
     }
 
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+    UniValue result = signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+
+    return result;
 }
 
 UniValue getpricefeeds(const JSONRPCRequest& request) {
@@ -4866,9 +4856,9 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     auto lastBlockTime = lock->getBlockTime(lastHeight);
 
     auto iterator = TokenPriceIterator(mnview_wrapper, lastBlockTime);
-    UniValue res(UniValue::VARR);
+    UniValue result(UniValue::VARR);
     iterator.ForEach(
-            [&res](
+            [&result](
                     const COracleId &oracleId,
                     DCT_ID tokenId,
                     CURRENCY_ID currencyId,
@@ -4887,11 +4877,11 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
 
                 auto state = oracleState == OracleState::ALIVE ? oraclefields::Alive : oraclefields::Expired;
                 value.pushKV(oraclefields::State, state);
-                res.push_back(value);
+                result.push_back(value);
                 return Res::Ok();
             }, optParams);
 
-    return res;
+    return result;
 }
 
 UniValue getprice(const JSONRPCRequest &request) {
@@ -5129,6 +5119,9 @@ static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomT
             break;
         case CustomTxType::RemoveOracleAppoint:
             res = ApplyRemoveOracleAppointTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdateOracleAppoint:
+            res = ApplyUpdateOracleAppointTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
             break;
         case CustomTxType::SetOracleData:
             res = ApplySetOracleDataTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
