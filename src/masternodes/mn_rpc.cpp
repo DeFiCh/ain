@@ -4756,16 +4756,11 @@ UniValue getpricefeeds(const JSONRPCRequest& request) {
     auto& oracle = *oracleRes.val;
 
     UniValue result{UniValue::VARR};
-    for (auto &tpair: oracle.tokenPrices ) {
-        auto tid = tpair.first;
-        auto &map = tpair.second;
-        for (auto &cpair: map) {
-            auto cid = cpair.first;
-            UniValue pair(UniValue::VOBJ);
-            pair.pushKV(oraclefields::Token, tid.ToString());
-            pair.pushKV(oraclefields::Currency, cid.ToString());
-            result.push_back(pair);
-        }
+    for (auto &p: oracle.availablePairs ) {
+        UniValue pair(UniValue::VOBJ);
+        pair.pushKV(oraclefields::Token, p.tid.ToString());
+        pair.pushKV(oraclefields::Currency, p.cid.ToString());
+        result.push_back(pair);
     }
 
     return result;

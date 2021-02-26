@@ -122,6 +122,9 @@ class OraclesTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_all([self.nodes[0], self.nodes[2]])
 
+        print('oracle1 feeds: ', self.nodes[0].getpricefeeds(oracle_id1['txid']))
+        print('oracle2 feeds: ', self.nodes[0].getpricefeeds(oracle_id2['txid']))
+
         # feeds = '[{"currency": "USD", "token": "PT"}, ' \
         #         '{"currency": "EUR", "token": "PT"}, {"currency": "EUR", "token": "GOLD#128"}, ' \
         #         '{"currency": "USD", "token": "GOLD#128"}]'
