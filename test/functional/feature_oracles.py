@@ -141,6 +141,7 @@ class OraclesTest (DefiTestFramework):
         # input("debug set oracle data")
         print('check if appoint oracle1 is applied on node 0:', self.nodes[0].isappliedcustomtx(oracle_id1['txid'], oracle_id1['height']))
         print('check if appoint oracle1 is applied on node 0:', self.nodes[2].isappliedcustomtx(oracle_id1['txid'], oracle_id1['height']))
+        print('masternodes:', self.nodes[0].listmasternodes())
 
         try:
             self.nodes[2].setoracledata(
@@ -169,8 +170,11 @@ class OraclesTest (DefiTestFramework):
         print(update_oracle_res)
         print('decoded update oracle tx', self.nodes[0].getrawtransaction(update_oracle_res['txid'], 1))
 
-        # self.nodes[0].generate(1)
+        self.nodes[0].generate(1)
         self.sync_all([self.nodes[0], self.nodes[2]])
+
+        print('oracle1 feeds: ', self.nodes[0].getpricefeeds(oracle_id1['txid']))
+
         input("debug")
 
         print('check if update oracle1 is applied on node 0:',

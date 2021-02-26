@@ -4703,6 +4703,74 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue getpricefeeds(const JSONRPCRequest& request) {
+    CWallet *const pwallet = GetWallet(request);
+
+    RPCHelpMan{"setoracledata",
+               "\nCreates (and submits to local node and network) a `set oracle data transaction`.\n"
+               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle hex id",},
+               },
+               RPCResult{
+                       "\"json\"                  (string) list of all supported feeds\n"
+               },
+               RPCExamples{
+                       HelpExampleCli(
+                               "getpricefeeds", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf")
+                       + HelpExampleRpc(
+                               "getpricefeeds", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf"
+                       )
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    // decode oracle id
+    COracleId oracleId{};
+    if (!oracleId.parseHex(request.params[0].getValStr())) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse oracle id");
+    }
+
+    LOCK(cs_main);
+    CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
+    CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+
+    auto &chain = pwallet->chain();
+    auto lock = chain.lock();
+
+    auto oracleRes = mnview.GetOracleData(oracleId);
+    if (!oracleRes.ok) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, oracleRes.msg);
+    }
+
+    auto& oracle = *oracleRes.val;
+
+    UniValue result{UniValue::VARR};
+    for (auto &tpair: oracle.tokenPrices ) {
+        auto tid = tpair.first;
+        auto &map = tpair.second;
+        for (auto &cpair: map) {
+            auto cid = cpair.first;
+            UniValue pair(UniValue::VOBJ);
+            pair.pushKV(oraclefields::Token, tid.ToString());
+            pair.pushKV(oraclefields::Currency, cid.ToString());
+            result.push_back(pair);
+        }
+    }
+
+    return result;
+}
+
 UniValue listoracles(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
 
@@ -5272,6 +5340,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "removeoracle",          &removeoracle,           {"oracleid"}},
     {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "allowedtokens"}},
     {"oracles",     "setoracledata",         &setoracledata,          {"timestamp", "prices"}},
+    {"oracles",     "getpricefeeds",         &getpricefeeds,          {"oracleid"}},
     {"oracles",     "listoracles",           &listoracles,                 {}},
     {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request"}},
     {"oracles",     "getprice",              &getprice,               {"request"}},
