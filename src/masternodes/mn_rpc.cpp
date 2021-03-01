@@ -4097,6 +4097,22 @@ namespace {
 
         return pairs;
     }
+
+    ResVal<std::string> FormatToken(const CCustomCSView& tokensView, DCT_ID tid) {
+        auto tokenPtr = tokensView.GetToken(tid);
+        if (!tokenPtr) {
+            return Res::Err("token %s doesn't exist", tid.ToString());
+        }
+
+        std::string value;
+        if (tokenPtr->IsDAT()) {
+            value = tokenPtr->symbol;
+        } else {
+            value = tokenPtr->symbol + "#" + tid.ToString();
+        }
+
+        return {value, Res::Ok()};
+    }
 }
 
 UniValue appointoracle(const JSONRPCRequest &request) {
@@ -4748,7 +4764,11 @@ UniValue getpricefeeds(const JSONRPCRequest& request) {
     UniValue result{UniValue::VARR};
     for (auto &p: oracle.availablePairs ) {
         UniValue pair(UniValue::VOBJ);
-        pair.pushKV(oraclefields::Token, p.tid.ToString());
+        auto tokenRes = FormatToken(mnview, p.tid);
+        if (!tokenRes.ok) {
+            throw JSONRPCError(tokenRes.code, tokenRes.msg);
+        }
+        pair.pushKV(oraclefields::Token, *tokenRes.val);
         pair.pushKV(oraclefields::Currency, p.cid.ToString());
         result.push_back(pair);
     }
@@ -4824,9 +4844,9 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
 
     LOCK(cs_main);
 
-    CCustomCSView mnview_wrapper(*pcustomcsview);
+    CCustomCSView mnview(*pcustomcsview);
 
-    const auto oracleIds = mnview_wrapper.GetAllOracleIds();
+    const auto oracleIds = mnview.GetAllOracleIds();
 
     auto &chain = pwallet->chain();
     auto lock = chain.lock();
@@ -4855,10 +4875,10 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     int lastHeight = optHeight.is_initialized() ? *optHeight : 0;
     auto lastBlockTime = lock->getBlockTime(lastHeight);
 
-    auto iterator = TokenPriceIterator(mnview_wrapper, lastBlockTime);
+    auto iterator = TokenPriceIterator(mnview, lastBlockTime);
     UniValue result(UniValue::VARR);
     iterator.ForEach(
-            [&result](
+            [&result, &mnview](
                     const COracleId &oracleId,
                     DCT_ID tokenId,
                     CURRENCY_ID currencyId,
@@ -4868,8 +4888,11 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                     OracleState oracleState) -> Res {
                 UniValue value{UniValue::VOBJ};
                 value.pushKV(oraclefields::Currency, currencyId.ToString());
-                // TODO (IntegralTeam): add token formatting
-                value.pushKV(oraclefields::Token, tokenId.ToString());
+                auto tokenRes = FormatToken(mnview, tokenId);
+                if (!tokenRes.ok) {
+                    return tokenRes;
+                }
+                value.pushKV(oraclefields::Token, *tokenRes.val);
                 value.pushKV(oraclefields::OracleId, oracleId.GetHex());
                 value.pushKV(oraclefields::Weightage, weightage);
                 value.pushKV(oraclefields::Timestamp, oracleTime);
@@ -4956,7 +4979,7 @@ UniValue getprice(const JSONRPCRequest &request) {
 }
 
 namespace {
-    UniValue GetAllAggregatedPrices(const COracleView &view, int64_t lastBlockTime) {
+    UniValue GetAllAggregatedPrices(const CCustomCSView &view, int64_t lastBlockTime) {
         auto pairsRes = view.GetAllTokenCurrencyPairs();
         if (!pairsRes.ok) {
             throw JSONRPCError(RPC_DATABASE_ERROR, pairsRes.msg);
@@ -4966,7 +4989,11 @@ namespace {
         UniValue result(UniValue::VARR);
         for (auto &pair : set) {
             UniValue item{UniValue::VOBJ};
-            item.pushKV(oraclefields::Token, pair.tid.ToString());
+            auto tokenRes = FormatToken(view, pair.tid);
+            if (!tokenRes.ok) {
+                throw JSONRPCError(tokenRes.code, tokenRes.msg);
+            }
+            item.pushKV(oraclefields::Token, *tokenRes.val);
             item.pushKV(oraclefields::Currency, pair.cid.ToString());
 
             try {
