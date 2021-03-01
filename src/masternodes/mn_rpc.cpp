@@ -5035,27 +5035,12 @@ UniValue listprices(const JSONRPCRequest& request) {
                        "                   2. Sum of the weight of live oracles is zero.\n"
                },
                RPCExamples{
-                       HelpExampleCli("getprice", R"(getprice '{"currency": "USD", "token": "BTC#1"}')")
-                       + HelpExampleRpc("getprice", R"(getprice '{"currency": "USD", "token": "BTC#1"}')")
+                       HelpExampleCli("listprices", "listprices")
+                       + HelpExampleRpc("listprices", "listprices")
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
-
-    UniValue data{};
-    if (!data.read(request.params[0].getValStr())) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to read input json");
-    }
-
-    if (!data.exists(oraclefields::Currency)) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "currency name not specified");
-    }
-    if (!data.exists(oraclefields::Token)) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "token name not specified");
-    }
-
-    const auto &currency = data[oraclefields::Currency].getValStr();
-    const auto &token = data[oraclefields::Token].getValStr();
+    RPCTypeCheck(request.params, {}, false);
 
     LOCK(cs_main);
 
@@ -5063,18 +5048,6 @@ UniValue listprices(const JSONRPCRequest& request) {
 
     auto &chain = pwallet->chain();
     auto lock = chain.lock();
-
-    DCT_ID tokenId{};
-    auto tokenPtr = chain.existTokenGuessId(token, tokenId);
-    if (!tokenPtr) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, Res::Err("Invalid Defi token: %s", token).msg);
-    }
-
-    CURRENCY_ID currencyId = CURRENCY_ID::INVALID();
-    currencyId = CURRENCY_ID::FromString(currency);
-    if (!currencyId.IsValid()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("Currency %s is not supported", currency).msg);
-    }
 
     auto optHeight = lock->getHeight();
     int lastHeight = optHeight.is_initialized() ? *optHeight : 0;

@@ -169,8 +169,8 @@ constexpr auto Alive = "live";
 constexpr auto Expired = "expired";
 constexpr auto TokenAmount = "tokenAmount";
 constexpr auto ValidityFlag = "ok";
-constexpr auto FlagIsValid = "true";
-constexpr auto FlagIsError = "false";
+constexpr auto FlagIsValid = true;
+constexpr auto FlagIsError = false;
 }; // namespace oraclefields
 
 /// Oracle representation
