@@ -1935,7 +1935,6 @@ bool AppInitMain(InitInterfaces& interfaces)
             operatorsSet.insert(op);
 
             pos::ThreadStaker::Args stakerParams;
-            auto& minterKey = stakerParams.minterKey;
             auto& operatorId = stakerParams.operatorID;
             auto& coinbaseScript = stakerParams.coinbaseScript;
 
@@ -1950,14 +1949,14 @@ bool AppInitMain(InitInterfaces& interfaces)
 
             bool found = false;
             for (auto wallet : wallets) {
-                if (wallet->GetKey(operatorId, minterKey)) {
+                if (::IsMine(*wallet, destination)) {
                     found = true;
                     break;
                 }
             }
 
             if (!found) {
-                LogPrintf("Error: masternode operator (%s) private key not found\n", op);
+                LogPrintf("Error: masternode operator (%s) private key is not owned by the wallet\n", op);
                 continue;
             }
 
