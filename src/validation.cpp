@@ -2496,7 +2496,7 @@ bool CChainState::FlushStateToDisk(
             nLastWrite = nNow;
         }
         static const size_t memoryCacheSizeMax = gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX) ? (nDefaultDbCache << 16) : (nDefaultDbCache << 10);
-        bool fMemoryCacheLarge = fDoFullFlush || (mode == FlushStateMode::PERIODIC && pcustomcsview->SizeEstimate() > memoryCacheSizeMax);
+        bool fMemoryCacheLarge = fDoFullFlush || (mode == FlushStateMode::IF_NEEDED && pcustomcsview->SizeEstimate() > memoryCacheSizeMax);
         // Flush best chain related state. This can only be done if the blocks / block index write was also done.
         if (fMemoryCacheLarge && !CoinsTip().GetBestBlock().IsNull()) {
             // Flush view first to estimate size on disk later
