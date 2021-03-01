@@ -989,6 +989,18 @@ bool CAnchorAwaitingConfirms::Validate(CAnchorConfirmMessage const &confirmMessa
         return false;
     }
 
+    const auto height = ::ChainActive().Height();
+    const auto team = pcustomcsview->GetConfirmTeam(height);
+    if (!team) {
+        LogPrint(BCLog::ANCHORING, "%s: Unable to get team for current height %d\n", __func__, height);
+        return false;
+    }
+
+    if (!team->count(signer)) {
+        LogPrint(BCLog::ANCHORING, "%s: Signer not part of current anchor confirm team\n", __func__);
+        return false;
+    }
+
     auto it = pcustomcsview->GetMasternodeIdByOperator(signer);
     if (!it || !pcustomcsview->GetMasternode(*it)->IsActive()) {
         LogPrint(BCLog::ANCHORING, "%s: Warning! Masternode with operator key %s does not exist or not active!\n", __func__, signer.ToString());
