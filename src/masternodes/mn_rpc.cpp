@@ -4617,7 +4617,15 @@ UniValue setoracledata(const JSONRPCRequest &request) {
             }
 
             auto amountUni = uni[oraclefields::TokenAmount].getValStr();
-            auto tokenAmount = DecodeAmount(chain, amountUni, "");
+            CTokenAmount tokenAmount{};
+            try {
+                // TODO: remove workaround when (if) the underlying problem is fixed
+                // the problem is that thrown exception has code 0, which is not correct
+                // fixing it in-place potentially can ruin some tests, so just a workaround for now
+                tokenAmount = DecodeAmount(chain, amountUni, "");
+            } catch (const UniValue& error) {
+                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, error["message"].get_str());
+            }
 
             return std::make_pair(currency, tokenAmount);
         };

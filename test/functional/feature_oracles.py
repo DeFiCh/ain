@@ -91,9 +91,14 @@ class OraclesTest (DefiTestFramework):
     def list_tokens(self):
         return self.nodes[1].listtokens()
 
+    @staticmethod
+    def format_name(k, v):
+        return '{}#{}'.format(v['symbol'], k) if not v['isDAT'] else v['symbol']
+
     def get_token_names(self):
         tokens = self.list_tokens()
-        return ['{}#{}'.format(val['symbol'], key) for key, val in tokens.items()]
+
+        return [self.format_name(key, val) for key, val in tokens.items()]
 
     @staticmethod
     def cmp_price_feed(x):
@@ -101,6 +106,7 @@ class OraclesTest (DefiTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(200)
+        print('synchronize')
         self.sync_all()
 
         # === stop node #3 for future revert ===
@@ -112,10 +118,10 @@ class OraclesTest (DefiTestFramework):
         print('we will read data on node[1] - user node, since reading data requires no founder or oracle rights')
 
         assert_equal(len(self.list_tokens()), 1)    # only one token == DFI
-        print('currently we have following tokens: {}', self.get_token_names())
+        print('currently we have following tokens:', self.get_token_names())
         print('create tokens PT#1 and GOLD#128')
         self.create_tokens()
-        print('now we have tokens following tokens:', self.get_token_names())
+        print('now we have following tokens:', self.get_token_names())
 
         # === create oracle addresses ===
         print('create oracle addresses:')
@@ -139,6 +145,7 @@ class OraclesTest (DefiTestFramework):
         self.nodes[0].sendtoaddress(oracle_address1, 50)
         self.nodes[0].sendtoaddress(oracle_address2, 50)
 
+        print('synchronize')
         self.nodes[0].generate(1)
         self.sync_all([self.nodes[0], self.nodes[1], self.nodes[2]])
 
@@ -153,29 +160,32 @@ class OraclesTest (DefiTestFramework):
         assert(send_money_tx1['amount'] == decimal.Decimal(50))
         assert(send_money_tx2['amount'] == decimal.Decimal(50))
 
-        print('currently we have no oracles')
         print('oracles:', self.nodes[1].listoracles())
+        print('currently we have no oracles')
 
         # === appoint oracles ===
         price_feeds1 = '[{"currency": "USD", "token": "GOLD#128"}, {"currency": "USD", "token": "PT#129"}]'
-        print('appoint oracle1, its allowed token-currency pairs are:', price_feeds1)
+        print('appoint oracle1')
+        print('appointoracle', oracle_address1, price_feeds1, 10)
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
 
+        print('synchronize')
         self.nodes[0].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[2]])
 
         all_oracles = self.nodes[1].listoracles()
         print('we have created oracle1, so now we have 1 oracle')
-        print('all oracles:', all_oracles)
-        print('listoracles')
-        assert_equal(self.nodes[1].listoracles(), [oracle_id1])
+        print('all oracles:\n',
+              'listoracles\n',
+              all_oracles)
         assert_equal(all_oracles, [oracle_id1])
 
         price_feeds2 = '[{"currency": "EUR", "token": "PT#129"}, {"currency": "EUR", "token": "GOLD#128"}]'
-        print('appoint oracle2, its allowed token-currency pairs are:', price_feeds2)
-        print('appointoracle', oracle_address2, price_feeds2, 15)
+        print('appoint oracle2\n',
+              'appointoracle', oracle_address2, price_feeds2, 15)
         oracle_id2 = self.nodes[0].appointoracle(oracle_address2, price_feeds2, 15)
 
+        print('synchronize')
         self.nodes[0].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
 
@@ -189,13 +199,11 @@ class OraclesTest (DefiTestFramework):
         print('oracleid1 is', oracle_id1)
         print('oracleid2 is', oracle_id2)
 
-        print('node2 oracles:', all_oracles)
-
-        print('oracle1 feeds: \n',
+        print('get oracle1 feeds: \n',
               'getpricefeeds', oracle_id1, '\n',
               self.nodes[1].getpricefeeds(oracle_id1))
 
-        print('oracle2 feeds: ',
+        print('get oracle2 feeds: \n',
               'getpricefeeds', oracle_id2, '\n',
               self.nodes[1].getpricefeeds(oracle_id2))
 
@@ -204,6 +212,7 @@ class OraclesTest (DefiTestFramework):
         print('removeoracle', oracle_id2)
         self.nodes[0].removeoracle(oracle_id2)
 
+        print('synchronize')
         self.nodes[0].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
 
@@ -228,10 +237,11 @@ class OraclesTest (DefiTestFramework):
         oracle_id2 = self.nodes[0].appointoracle(oracle_address2, price_feeds2, 15)
         print('new oracle_id2 is', oracle_id2)
 
+        print('synchronize')
         self.nodes[0].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
 
-        print('check that price feeds are set correctly')
+        # === check that price feeds are set correctly ===
         assert_equal(json.loads(price_feeds1), self.nodes[1].getpricefeeds(oracle_id1))
         assert_equal(json.loads(price_feeds2), self.nodes[1].getpricefeeds(oracle_id2))
 
@@ -253,13 +263,12 @@ class OraclesTest (DefiTestFramework):
 
         # === set oracle data, simple case ===
         print('set oracle data for oracle1')
-        oracle1_prices = '['\
-                         '{"currency": "USD", "tokenAmount": "10.1@PT#129"}, '\
-                         '{"currency": "USD", "tokenAmount": "5@GOLD#128"}'\
-                         ']'
+        oracle1_prices = '[{"currency": "USD", "tokenAmount": "10.1@PT#129"}, '\
+                         '{"currency": "USD", "tokenAmount": "5@GOLD#128"}]'
         print('setoracledata', oracle_id1, timestamp, oracle1_prices)
         self.nodes[2].setoracledata(oracle_id1, timestamp, oracle1_prices)
 
+        print('synchronize')
         self.nodes[2].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
 
@@ -293,6 +302,7 @@ class OraclesTest (DefiTestFramework):
         print('updateoracle', oracle_id1, oracle_address1, price_feeds1, 15)
         self.nodes[0].updateoracle(oracle_id1, oracle_address1, price_feeds1, 15)
 
+        print('synchronize')
         self.nodes[0].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
 
@@ -332,6 +342,7 @@ class OraclesTest (DefiTestFramework):
         print('setoracledata', oracle_id2, timestamp, oracle2_prices)
         self.nodes[2].setoracledata(oracle_id2, timestamp, oracle2_prices)
 
+        print('synchronize')
         self.nodes[2].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
 
@@ -366,6 +377,7 @@ class OraclesTest (DefiTestFramework):
 
         self.nodes[0].updateoracle(oracle_id2, oracle_address2, price_feeds2, 25)
 
+        print('synchronize')
         self.nodes[0].generate(1)
         self.sync_all([self.nodes[0], self.nodes[1], self.nodes[2]])
 
@@ -374,19 +386,25 @@ class OraclesTest (DefiTestFramework):
                                 self.nodes[1].getprice, '{"currency": "EUR", "token": "PT#129"}')
 
         print('set missing data\n',
-              'setoracledata {"currency":"USD", "tokenAmount":"10@GOLD#128"}\n',
+              'setoracledata ',
+              '[{"currency":"USD", "tokenAmount":"10@GOLD#128"}, {"currency":"EUR", "tokenAmount":"7@PT#129"}]', '\n',
               self.nodes[2].setoracledata(oracle_id2, timestamp,
                                           '[{"currency":"USD", "tokenAmount":"10@GOLD#128"},'
                                           '{"currency":"EUR", "tokenAmount":"7@PT#129"}]'))
 
         print('set oracle1 data\n',
-              'setoracledata',
+              'setoracledata', oracle_id1, timestamp,
+              '[{"currency":"USD", "tokenAmount":"11@GOLD#128"},'
+              '{"currency":"EUR", "tokenAmount":"8@PT#129"},'
+              '{"currency":"EUR", "tokenAmount":"10@GOLD#128"},'
+              '{"currency":"USD", "tokenAmount":"7@PT#129"}]', '\n',
               self.nodes[2].setoracledata(oracle_id1, timestamp,
                                           '[{"currency":"USD", "tokenAmount":"11@GOLD#128"},'
                                           '{"currency":"EUR", "tokenAmount":"8@PT#129"},'
                                           '{"currency":"EUR", "tokenAmount":"10@GOLD#128"},'
                                           '{"currency":"USD", "tokenAmount":"7@PT#129"}]'))
 
+        print('synchronize')
         self.nodes[2].generate(1)
         self.sync_all([self.nodes[0], self.nodes[1], self.nodes[2]])
 
@@ -418,11 +436,61 @@ class OraclesTest (DefiTestFramework):
               'listprices\n',
               self.nodes[1].listprices())
 
-        # === check for unexpected currency ===
-        # TODO: JPY
+        # === check expired price feed ===
+        # print('check price feed expiration')
+        # self.nodes[2].setoracledata()
+
+
+        # check for unsupported currency failure
+        assert_raises_rpc_error(-8, 'Currency {} is not supported'.format('JPY'),
+                                self.nodes[1].getprice, '{"currency":"JPY", "token":"PT#129"}')
+
+        assert_raises_rpc_error(-8, 'Currency <{}> is not supported'.format('JPY'),
+                                self.nodes[1].listlatestrawprices, '{"currency":"JPY", "token":"PT#129"}')
+
+        assert_raises_rpc_error(-8, 'currency <{}> is not supported'.format('JPY'),
+                                self.nodes[0].appointoracle,
+                                oracle_address2, '[{"currency":"JPY", "token":"PT#129"}]', 15)
+
+        assert_raises_rpc_error(-8, 'currency <{}> is not supported'.format('JPY'),
+                                self.nodes[0].updateoracle,
+                                oracle_id2, oracle_address2, '[{"currency":"JPY", "token":"PT#129"}]', 15)
+
+        assert_raises_rpc_error(-8, 'currency <{}> is not supported'.format('JPY'),
+                                self.nodes[0].setoracledata,
+                                oracle_id2, timestamp, '[{"currency":"JPY", "tokenAmount":"10@PT#129"}]')
 
         # === check for unexpected token ===
-        # TODO: DOGE
+        assert_raises_rpc_error(-22, 'Invalid Defi token: {}'.format('DOGE#130'),
+                                self.nodes[1].getprice, '{"currency":"USD", "token":"DOGE#130"}')
+
+        assert_raises_rpc_error(-22, 'Invalid Defi token: <{}>'.format('DOGE#130'),
+                                self.nodes[1].listlatestrawprices, '{"currency":"USD", "token":"DOGE#130"}')
+
+        assert_raises_rpc_error(-22, 'Invalid Defi token: {}'.format('DOGE#130'),
+                                self.nodes[0].appointoracle,
+                                oracle_address2, '[{"currency":"USD", "token":"DOGE#130"}]', 15)
+
+        assert_raises_rpc_error(-22, 'Invalid Defi token: {}'.format('DOGE#130'),
+                                self.nodes[0].updateoracle,
+                                oracle_id2, oracle_address2, '[{"currency":"USD", "token":"DOGE#130"}]', 15)
+
+        assert_raises_rpc_error(-22, 'Invalid Defi token: {}'.format('DOGE#130'),
+                                self.nodes[0].setoracledata,
+                                oracle_id2, timestamp, '[{"currency":"USD", "tokenAmount":"10@DOGE#130"}]')
+
+        # === check for invalid oracle id
+
+        assert_raises_rpc_error(-20, 'oracle <{}> not found'.format(invalid_oracle_id),
+                                self.nodes[1].getpricefeeds, invalid_oracle_id)
+
+        assert_raises_rpc_error(-32600, 'Oracle <{}> doesn\'t exist'.format(invalid_oracle_id),
+                                self.nodes[0].updateoracle,
+                                invalid_oracle_id, oracle_address2, '[{"currency":"USD", "token":"PT#129"}]', 15)
+
+        assert_raises_rpc_error(-32600, 'oracle <{}> not found'.format(invalid_oracle_id),
+                                self.nodes[0].setoracledata,
+                                invalid_oracle_id, timestamp, '[{"currency":"USD", "tokenAmount":"10@PT#129"}]')
 
         print('all oracles now will be removed')
         print('removeoracle', oracle_id1)
@@ -430,10 +498,11 @@ class OraclesTest (DefiTestFramework):
         self.nodes[0].removeoracle(oracle_id1)
         self.nodes[0].removeoracle(oracle_id2)
 
+        print('synchronize')
         self.nodes[0].generate(1)
         self.sync_all([self.nodes[0], self.nodes[1], self.nodes[2]])
 
-        print('all oracles now: ',
+        print('all oracles now: \n',
               'listoracles\n',
               self.nodes[1].listoracles())
 
