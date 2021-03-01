@@ -249,6 +249,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
     { "getanchorteams", 0, "blockHeight" },
+    { "getactivemasternodecount", 0, "blockCount" },
 };
 // clang-format on
 
