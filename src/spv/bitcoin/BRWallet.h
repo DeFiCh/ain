@@ -31,7 +31,7 @@
 #include "BRInt.h"
 
 #include <string>
-#include <vector>
+#include <set>
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,7 +62,8 @@ typedef struct BRWalletStruct BRWallet;
 
 // allocates and populates a BRWallet struct that must be freed by calling BRWalletFree()
 // forkId is 0 for bitcoin, 0x40 for b-cash
-BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId, std::vector<UInt160> userAddresses);
+BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId,
+                      std::set<UInt160, decltype(&UInt160Compare)>&& userAddresses);
 
 // not thread-safe, set callbacks once after BRWalletNew(), before calling other BRWallet functions
 // info is a void pointer that will be passed along with each callback call
@@ -90,7 +91,7 @@ size_t BRWalletUnusedAddrs(BRWallet *wallet, BRAddress addrs[], uint32_t gapLimi
 bool BRWalletAddAddr(BRWallet *wallet, const uint8_t &pubKey, const size_t pkLen, BRAddress& addr);
 
 // Add previously created Bitcoin addresses from DeFi address book
-void BRWalletAddUserAddresses(BRWallet *wallet, std::vector<UInt160> userAddresses);
+void BRWalletAddUserAddresses(BRWallet *wallet);
 
 // returns the first unused external address (bech32 pay-to-witness-pubkey-hash)
 BRAddress BRWalletReceiveAddress(BRWallet *wallet);
