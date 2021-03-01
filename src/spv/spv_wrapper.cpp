@@ -175,15 +175,6 @@ static void SetCheckpoints()
     /// @attention don't forget to increase both 'n' in BRTestNetCheckpoints[n]
 }
 
-static inline void UInt160Convert(uint160& hash160, UInt160& u)
-{
-    int i{0};
-    for (auto it = hash160.begin(); it != hash160.end(); ++it) {
-        u.u8[i] = *it;
-        ++i;
-    }
-}
-
 CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool fWipe)
     : db(new CDBWrapper(GetDataDir() / (isMainnet ?  "spv" : "spv_testnet"), nCacheSize, fMemory, fWipe))
 {
@@ -224,7 +215,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
         IterateTable(DB_SPVTXS, onLoadTx);
     }
 
-    std::vector<UInt160> userAddresses;
+    std::set<UInt160, decltype(&UInt160Compare)> userAddresses(UInt160Compare);
     const auto wallets = GetWallets();
     for (const auto& wallet : wallets) {
         for (const auto& entry : wallet->mapAddressBook) {
@@ -239,13 +230,13 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
                 }
 
                 UInt160 spvHash;
-                UInt160Convert(userHash, spvHash);
-                userAddresses.push_back(spvHash);
+                UInt160Convert(userHash.begin(), spvHash);
+                userAddresses.insert(spvHash);
             }
         }
     }
 
-    wallet = BRWalletNew(txs.data(), txs.size(), mpk, 0, userAddresses);
+    wallet = BRWalletNew(txs.data(), txs.size(), mpk, 0, std::move(userAddresses));
     BRWalletSetCallbacks(wallet, this, balanceChanged, txAdded, txUpdated, txDeleted);
     LogPrint(BCLog::SPV, "wallet created with first receive address: %s\n", BRWalletLegacyAddress(wallet).s);
 
@@ -532,6 +523,8 @@ std::string CSpvWrapper::AddBitcoinAddress(const CPubKey& new_key)
     if (!BRWalletAddAddr(wallet, *new_key.data(), new_key.size(), addr)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unable to add Bitcoin address");
     }
+
+    BRPeerManagerRebuildBloomFilter(manager);
 
     return addr.s;
 }

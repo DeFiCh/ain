@@ -639,6 +639,27 @@ static void _BRPeerManagerLoadMempools(BRPeerManager *manager)
     }
 }
 
+void BRPeerManagerRebuildBloomFilter(BRPeerManager *manager)
+{
+    // after syncing, load filters and get mempools from other peers
+    for (size_t i = array_count(manager->connectedPeers); i > 0; i--) {
+        BRPeer *peer = manager->connectedPeers[i - 1];
+        BRPeerCallbackInfo *info;
+
+        if (BRPeerConnectStatus(peer) != BRPeerStatusConnected) {
+            continue;
+        }
+
+        info = (BRPeerCallbackInfo *)calloc(1, sizeof(*info));
+        assert(info != NULL);
+        info->peer = peer;
+        info->manager = manager;
+
+        _BRPeerManagerLoadBloomFilter(manager, peer);
+        BRPeerSendPing(peer, info, _loadBloomFilterDone);
+    }
+}
+
 static void _normalizePeersArray(BRPeer * peersArray)
 {
     qsort(peersArray, array_count(peersArray), sizeof(*peersArray), _peerDuplicatesCompare);

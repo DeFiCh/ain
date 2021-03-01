@@ -124,6 +124,9 @@ void BRPeerManagerFree(BRPeerManager *manager);
 // forced cancel pending callbacks for published txs (need for releasing spv module)
 void BRPeerManagerCancelPendingTxs(BRPeerManager *manager);
 
+// Rebuild and resend the bloom filter
+void BRPeerManagerRebuildBloomFilter(BRPeerManager *manager);
+
 #ifdef __cplusplus
 }
 #endif
