@@ -82,6 +82,7 @@ inline CustomTxType CustomTxCodeToType(unsigned char ch) {
         case CustomTxType::AccountToAccount:
         case CustomTxType::AnyAccountsToAccounts:
         case CustomTxType::SetGovVariable:
+        case CustomTxType::AutoAuthPrep:
         case CustomTxType::AppointOracle:
         case CustomTxType::RemoveOracleAppoint:
         case CustomTxType::UpdateOracleAppoint:

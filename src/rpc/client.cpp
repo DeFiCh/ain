@@ -63,6 +63,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listtransactions", 1, "count" },
     { "listtransactions", 2, "skip" },
     { "listtransactions", 3, "include_watchonly" },
+    { "listtransactions", 4, "exclude_custom_tx" },
     { "walletpassphrase", 1, "timeout" },
     { "getblocktemplate", 0, "template_request" },
     { "listsinceblock", 1, "target_confirmations" },
@@ -177,6 +178,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "resignmasternode", 1, "inputs" },
     { "listmasternodes", 0, "pagination" },
     { "listmasternodes", 1, "verbose" },
+    { "getmasternodeblocks", 0, "identifier"},
+    { "getmasternodeblocks", 1, "depth"},
     { "createtoken", 0, "metadata" },
     { "createtoken", 1, "inputs"},
     { "updatetoken", 1, "metadata"},
@@ -214,7 +217,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "spv_createanchor", 0, "inputs" },
     { "spv_createanchor", 2, "send" },
     { "spv_createanchor", 3, "feerate" },
-    { "spv_createanchortemplate", 0, "rewardAddress" },
     { "spv_estimateanchorcost", 0, "feerate" },
     { "spv_rescan", 0, "height" },
     { "spv_gettxconfirmations", 0, "txhash" },
@@ -246,6 +248,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "isappliedcustomtx", 1, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
+    { "getanchorteams", 0, "blockHeight" },
+    { "getactivemasternodecount", 0, "blockCount" },
 };
 // clang-format on
 

@@ -46,10 +46,8 @@ ResVal<std::pair<CAmount, std::string>> ParseTokenAmount(std::string const & tok
     const auto strs = SplitAmount(tokenAmount);
 
     CAmount amount{0};
-    if (!ParseFixedPoint(strs.first, 8, &amount)) {
-        std::cout << "invalid value to parse " << strs.first << std::endl;
+    if (!ParseFixedPoint(strs.first, 8, &amount))
         return Res::ErrCode(RPC_TYPE_ERROR, "Invalid amount");
-    }
     if (amount <= 0) {
         return Res::ErrCode(RPC_TYPE_ERROR, "Amount out of range"); // keep it for tests compatibility
     }
@@ -102,7 +100,6 @@ CTokenAmount DecodeAmount(interfaces::Chain const & chain, UniValue const& amoun
     // decode amounts
     std::string strAmount;
     if (amountUni.isArray()) { // * amounts
-        std::cout << "amount is array" << std::endl;
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, name + ": expected single amount");
     } else if (amountUni.isNum()) { // legacy format for '0' token
         strAmount = amountUni.getValStr() + "@" + DCT_ID{0}.ToString();

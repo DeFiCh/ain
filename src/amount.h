@@ -177,7 +177,8 @@ inline ResVal<CAmount> SafeMultiply(CAmount _a, uint64_t w) {
 
     auto a = static_cast<uint64_t>(_a);
     uint64_t res = a * w;
-    if (res / w != a || res > std::numeric_limits<int64_t>::max()) {
+    constexpr uint64_t int64Max = std::numeric_limits<int64_t>::max();
+    if (res / w != a || res > static_cast<uint64_t>(int64Max)) {
         return Res::Err("overflow");
     }
 

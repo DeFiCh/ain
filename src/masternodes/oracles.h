@@ -1,6 +1,6 @@
-// Copyright (c) 2021 The DeFi Foundation
+// Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef DEFI_MASTERNODES_ORACLES_H
 #define DEFI_MASTERNODES_ORACLES_H

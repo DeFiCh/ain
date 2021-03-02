@@ -221,12 +221,11 @@ class CCustomCSView
         , public CAnchorConfirmsView
 {
 public:
-    CCustomCSView() {}
+    CCustomCSView() = default;
 
-    CCustomCSView(CStorageKV & st):
-            CStorageView(new CFlushableStorageKV(st))
+    CCustomCSView(CStorageKV & st)
+        : CStorageView(new CFlushableStorageKV(st))
     {}
-
     // cache-upon-a-cache (not a copy!) constructor
     CCustomCSView(CCustomCSView & other)
         : CStorageView(new CFlushableStorageKV(other.DB()))
