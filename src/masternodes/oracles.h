@@ -230,7 +230,7 @@ public:
     Res AppointOracle(const COracleId& oracleId, const COracle& oracle);
 
     /// updates oracle info
-    Res UpdateOracle(const COracleId& oracleId, const COracle& oracle);
+    Res UpdateOracle(const COracleId& oracleId, const COracle& newOracle);
 
     /// remove oracle instancefrom database
     Res RemoveOracle(const COracleId& oracleId);

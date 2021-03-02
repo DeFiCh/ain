@@ -67,11 +67,35 @@ Res COracleView::AppointOracle(const COracleId& oracleId, const COracle& oracle)
     return AddOracleId(oracleId);
 }
 
-Res COracleView::UpdateOracle(const COracleId& oracleId, const COracle& oracle)
+Res COracleView::UpdateOracle(const COracleId& oracleId, const COracle& newOracle)
 {
     if (!ExistsBy<ByName>(oracleId)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }
+
+    COracle oracle{};
+    if (!ReadBy<ByName>(oracleId, oracle)) {
+        return Res::Err("oracle <%s> not found", oracleId.GetHex());
+    }
+
+    oracle.weightage = newOracle.weightage;
+    oracle.oracleAddress = newOracle.oracleAddress;
+
+    CTokenPricePoints allowedPrices{};
+    for (auto &tmap: oracle.tokenPrices) {
+        auto tid = tmap.first;
+        auto &cmap = tmap.second;
+        for (auto &cpair:cmap) {
+            auto cid = cpair.first;
+            if (newOracle.availablePairs.count({tid, cid}) == 0)
+                continue;
+
+            allowedPrices[tid][cid] = cpair.second;
+        }
+    }
+
+    oracle.tokenPrices = std::move(allowedPrices);
+    oracle.availablePairs = newOracle.availablePairs;
 
     // no need to update oracles list
     if (!WriteBy<ByName>(oracleId, oracle)) {
