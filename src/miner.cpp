@@ -803,7 +803,7 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
         if (found) {
             break;
         }
-        static uint64_t time = 0;
+        static std::atomic<uint64_t> time{0};
         if (GetSystemTimeInSeconds() - time > 120) {
             LogPrintf("ThreadStaker (%s): unlock wallet to start minting...\n", operatorName);
             time = GetSystemTimeInSeconds();
