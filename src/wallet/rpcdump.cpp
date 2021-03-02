@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chain.h>
 #include <core_io.h>
@@ -1221,7 +1221,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
 
         // Check whether we have any work to do
         for (const CScript& script : script_pub_keys) {
-            if (::IsMine(*pwallet, script) & ISMINE_SPENDABLE) {
+            if (::IsMineCached(*pwallet, script) & ISMINE_SPENDABLE) {
                 throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this address or script (\"" + HexStr(script.begin(), script.end()) + "\")");
             }
         }

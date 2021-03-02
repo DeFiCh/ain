@@ -1,7 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <txmempool.h>
 
@@ -556,69 +556,58 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
 void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight)
 {
     AssertLockHeld(cs);
-    std::vector<const CTxMemPoolEntry*> entries;
-    for (const auto& tx : vtx)
-    {
-        uint256 hash = tx->GetHash();
 
-        indexed_transaction_set::iterator i = mapTx.find(hash);
-        if (i != mapTx.end())
-            entries.push_back(&*i);
+    setEntries staged;
+    std::vector<const CTxMemPoolEntry*> entries;
+    for (const auto& tx : vtx) {
+        auto it = mapTx.find(tx->GetHash());
+        if (it != mapTx.end()) {
+            staged.insert(it);
+            entries.push_back(&*it);
+        }
     }
     // Before the txs in the new block have been removed from the mempool, update policy estimates
     if (minerPolicyEstimator) {minerPolicyEstimator->processBlock(nBlockHeight, entries);}
-    for (const auto& tx : vtx)
-    {
-        txiter it = mapTx.find(tx->GetHash());
-        if (it != mapTx.end()) {
-            setEntries stage;
-            stage.insert(it);
-            RemoveStaged(stage, true, MemPoolRemovalReason::BLOCK);
-        }
-        removeConflicts(*tx);
-        ClearPrioritisation(tx->GetHash());
+
+    for (auto& it : staged) {
+        auto& tx = it->GetTx();
+        removeConflicts(tx);
+        ClearPrioritisation(tx.GetHash());
     }
 
-    bool accountConflict{false};
+    RemoveStaged(staged, true, MemPoolRemovalReason::BLOCK);
 
-    // Check if any custom TXs are in mempool with conflict
-    for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); ++it) {
-        std::vector<unsigned char> metadata;
-        CustomTxType txType = GuessCustomTxType(it->GetTx(), metadata);
-        if (NotAllowedToFail(txType)) {
-            auto res = ApplyCustomTx(*pcustomcsview, g_chainstate->CoinsTip(), it->GetTx(), Params().GetConsensus(), nBlockHeight, 0, true);
-            if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
-                accountConflict = true;
-                break;
-            }
-        }
-    }
-
-    // Account conflict, check entire mempool
-    if (accountConflict) {
-        std::set<CTransactionRef> txsToRemove;
-        CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(&::ChainstateActive().CoinsTip()));
+    if (pcustomcsview) { // can happen in tests
+        // check entire mempool
         CAmount txfee = 0;
+        CCustomCSView viewDuplicate(*pcustomcsview);
+        CCoinsViewCache mempoolDuplicate(&::ChainstateActive().CoinsTip());
 
+        setEntries staged;
         // Check custom TX consensus types are now not in conflict with account layer
-        for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); ++it) {
+        auto& txsByEntryTime = mapTx.get<entry_time>();
+        for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
             CValidationState state;
-            if (!Consensus::CheckTxInputs(it->GetTx(), state, mempoolDuplicate, pcustomcsview.get(), nBlockHeight, txfee, Params())) {
-                LogPrintf("%s: Remove conflicting TX: %s\n", __func__, it->GetTx().GetHash().GetHex());
-                txsToRemove.insert(it->GetSharedTx());
+            const auto& tx = it->GetTx();
+            if (!Consensus::CheckTxInputs(tx, state, mempoolDuplicate, &viewDuplicate, nBlockHeight, txfee, Params())) {
+                LogPrintf("%s: Remove conflicting TX: %s\n", __func__, tx.GetHash().GetHex());
+                staged.insert(mapTx.project<0>(it));
+                continue;
+            }
+            auto res = ApplyCustomTx(viewDuplicate, mempoolDuplicate, tx, Params().GetConsensus(), nBlockHeight, 0, false);
+            if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
+                LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
+                staged.insert(mapTx.project<0>(it));
             }
         }
 
-        for (auto& tx : txsToRemove) {
-            txiter it = mapTx.find(tx->GetHash());
-            if (it != mapTx.end()) {
-                setEntries stage;
-                stage.insert(it);
-                RemoveStaged(stage, true, MemPoolRemovalReason::CONFLICT);
-            }
-            removeConflicts(*tx);
-            ClearPrioritisation(tx->GetHash());
+        for (auto& it : staged) {
+            auto& tx = it->GetTx();
+            removeConflicts(tx);
+            ClearPrioritisation(tx.GetHash());
         }
+
+        RemoveStaged(staged, true, MemPoolRemovalReason::BLOCK);
     }
 
     lastRollingFeeUpdate = GetTime();
@@ -893,7 +882,7 @@ void CTxMemPool::PrioritiseTransaction(const uint256& hash, const CAmount& nFeeD
     LogPrintf("PrioritiseTransaction: %s feerate += %s\n", hash.ToString(), FormatMoney(nFeeDelta));
 }
 
-void CTxMemPool::ApplyDelta(const uint256 hash, CAmount &nFeeDelta) const
+void CTxMemPool::ApplyDelta(const uint256& hash, CAmount &nFeeDelta) const
 {
     LOCK(cs);
     std::map<uint256, CAmount>::const_iterator pos = mapDeltas.find(hash);
@@ -903,7 +892,7 @@ void CTxMemPool::ApplyDelta(const uint256 hash, CAmount &nFeeDelta) const
     nFeeDelta += delta;
 }
 
-void CTxMemPool::ClearPrioritisation(const uint256 hash)
+void CTxMemPool::ClearPrioritisation(const uint256& hash)
 {
     LOCK(cs);
     mapDeltas.erase(hash);
@@ -964,7 +953,7 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
     return memusage::MallocUsage(sizeof(CTxMemPoolEntry) + 12 * sizeof(void*)) * mapTx.size() + memusage::DynamicUsage(mapNextTx) + memusage::DynamicUsage(mapDeltas) + memusage::DynamicUsage(mapLinks) + memusage::DynamicUsage(vTxHashes) + cachedInnerUsage;
 }
 
-void CTxMemPool::RemoveStaged(setEntries &stage, bool updateDescendants, MemPoolRemovalReason reason) {
+void CTxMemPool::RemoveStaged(const setEntries &stage, bool updateDescendants, MemPoolRemovalReason reason) {
     AssertLockHeld(cs);
     UpdateForRemoveFromMempool(stage, updateDescendants);
     for (txiter it : stage) {

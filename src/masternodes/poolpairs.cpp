@@ -1,6 +1,6 @@
 // Copyright (c) 2020 The DeFi Foundation
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <arith_uint256.h>
 #include <masternodes/poolpairs.h>
@@ -117,7 +117,7 @@ boost::optional<CBalances> CPoolPairView::GetPoolCustomReward(const DCT_ID &pool
     return ReadBy<Reward, CBalances>(WrapVarInt(poolID.v));
 }
 
-Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer, bool postBayfrontGardens) {
+Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer, int height) {
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB) {
         throw std::runtime_error("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
     }
@@ -128,19 +128,19 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
         return Res::Err("Pool trading is turned off!");
 
     bool const forward = in.nTokenId == idTokenA;
+    auto& reserveF = forward ? reserveA : reserveB;
+    auto& reserveT = forward ? reserveB : reserveA;
 
     // it is important that reserves are at least SLOPE_SWAP_RATE (1000) to be able to slide, otherwise it can lead to underflow
     if (reserveA < SLOPE_SWAP_RATE || reserveB < SLOPE_SWAP_RATE)
         return Res::Err("Lack of liquidity.");
 
-    auto const aReserveA = arith_uint256(reserveA);
-    auto const aReserveB = arith_uint256(reserveB);
-
-    arith_uint256 maxPrice256 = arith_uint256(maxPrice.integer) * PRECISION + maxPrice.fraction;
-    arith_uint256 priceAB = (aReserveA * PRECISION / aReserveB);
-    arith_uint256 priceBA = (aReserveB * PRECISION / aReserveA);
-    arith_uint256 curPrice = forward ? priceBA : priceAB;
-    if (curPrice > maxPrice256)
+    auto const maxPrice256 = arith_uint256(maxPrice.integer) * PRECISION + maxPrice.fraction;
+    // NOTE it has a bug prior Dakota hardfork
+    auto const price = height < Params().GetConsensus().DakotaHeight
+                              ? arith_uint256(reserveT) * PRECISION / reserveF
+                              : arith_uint256(reserveF) * PRECISION / reserveT;
+    if (price > maxPrice256)
         return Res::Err("Price is higher than indicated.");
 
     // claim trading fee
@@ -149,20 +149,16 @@ Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<R
         in.nValue -= tradeFee;
         if (forward) {
             blockCommissionA += tradeFee;
-        }
-        else {
+        } else {
             blockCommissionB += tradeFee;
         }
     }
-    auto checkRes = forward ? SafeAdd(reserveA, in.nValue) : SafeAdd(reserveB, in.nValue);
+    auto checkRes = SafeAdd(reserveF, in.nValue);
     if (!checkRes.ok) {
         return Res::Err("Swapping will lead to pool's reserve overflow");
     }
 
-    CAmount result = forward ? slopeSwap(in.nValue, reserveA, reserveB, postBayfrontGardens) : slopeSwap(in.nValue, reserveB, reserveA, postBayfrontGardens);
-//    CAmount realPrice = (arith_uint256(result) * aPRECISION / arith_uint256(in.nValue)).GetLow64(); /// @todo check overflow
-//    if (realPrice > maxPrice)
-//        return Res::Err("Price higher than indicated.");
+    CAmount result = slopeSwap(in.nValue, reserveF, reserveT, height >= Params().GetConsensus().BayfrontGardensHeight);
 
     swapEvent = true; // (!!!)
 

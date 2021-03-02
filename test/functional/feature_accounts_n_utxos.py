@@ -2,7 +2,7 @@
 # Copyright (c) 2014-2019 The Bitcoin Core developers
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test token's RPC.
 
 - verify basic accounts operation
@@ -51,28 +51,32 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         #========================
         # missing from (account)
         try:
-            self.nodes[0].accounttoaccount(self.nodes[0].getnewaddress("", "legacy"), {toGold: "100@" + symbolGOLD}, [])
+            self.nodes[0].accounttoaccount(self.nodes[0].getnewaddress("", "legacy"),
+                                           {toGold: "100@" + symbolGOLD}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("not enough balance" in errorString)
 
         # missing from (account exist, but no tokens)
         try:
-            self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolSILVER}, [])
+            self.nodes[0].accounttoaccount(accountGold,
+                                           {toGold: "100@" + symbolSILVER}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("not enough balance" in errorString)
 
         # missing amount
         try:
-            self.nodes[0].accounttoaccount(accountGold, {toGold: ""}, [])
+            self.nodes[0].accounttoaccount(accountGold,
+                                           {toGold: ""}, [])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Invalid amount" in errorString)
 
         #invalid UTXOs
         try:
-            self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolGOLD}, [{"": 0}])
+            self.nodes[0].accounttoaccount(accountGold,
+                                           {toGold: "100@" + symbolGOLD}, [{"": 0}])
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("JSON value is not a string as expected" in errorString)
@@ -85,7 +89,8 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert("Incorrect auth" in errorString)
 
         # transfer
-        self.nodes[0].accounttoaccount(accountGold, {toGold: "100@" + symbolGOLD}, [])
+        self.nodes[0].accounttoaccount(accountGold,
+                                       {toGold: "100@" + symbolGOLD}, [])
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
@@ -95,7 +100,8 @@ class AccountsAndUTXOsTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(toGold, {}, True)[idGold], self.nodes[1].getaccount(toGold, {}, True)[idGold])
 
         # transfer between nodes
-        self.nodes[1].accounttoaccount(accountSilver, {toSilver: "100@" + symbolSILVER}, [])
+        self.nodes[1].accounttoaccount(accountSilver,
+                                       {toSilver: "100@" + symbolSILVER}, [])
         self.nodes[1].generate(1)
 
         assert_equal(self.nodes[1].getaccount(accountSilver, {}, True)[idSilver], initialSilver - 100)

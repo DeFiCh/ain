@@ -1,7 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <protocol.h>
 
@@ -43,7 +43,7 @@ const char *CMPCTBLOCK="cmpctblock";
 const char *GETBLOCKTXN="getblocktxn";
 const char *BLOCKTXN="blocktxn";
 const char *ANCHORAUTH="anchorauth";
-const char *ANCHORCONFIRM="anchorcnf";
+const char *ANCHORCONFIRM="anchorconf"; // Renamed from anchorcnf for Dakota fork, new message type. Old type ignored.
 } // namespace NetMsgType
 
 /** All known message types. Keep this in the same order as the list of

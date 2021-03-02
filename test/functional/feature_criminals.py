@@ -2,7 +2,7 @@
 # Copyright (c) 2014-2019 The Bitcoin Core developers
 # Copyright (c) DeFi Foundation
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test the masternodes RPC.
 
 - test for criminality of masternodes
@@ -24,7 +24,6 @@ class CriminalsTest (DefiTestFramework):
             [ "-dummypos=0", "-criminals=0"],
             [ "-dummypos=0", "-criminals=1"],
             [ "-dummypos=0", "-criminals=0"],
-            # [ "-dummypos=1", "-spv=1", "-fakespv=1", "-txindex=1", "-anchorquorum=2"],
         ]
         self.setup_clean_chain = True
 

@@ -2,7 +2,7 @@
 # Copyright (c) 2014-2019 The Bitcoin Core developers
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test pool's RPC.
 
 - verify basic accounts operation
@@ -358,7 +358,7 @@ class PoolLiquidityTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
         assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
 
-        assert_equal(len(self.nodes[0].getrawmempool()), 13) # 13 txs
+        # assert_equal(len(self.nodes[0].getrawmempool()), 13) # removed txs for block
 
 
 if __name__ == '__main__':

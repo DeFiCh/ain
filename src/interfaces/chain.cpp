@@ -1,13 +1,12 @@
 // Copyright (c) 2018-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <interfaces/chain.h>
 
 #include <chain.h>
 #include <chainparams.h>
 #include <interfaces/handler.h>
-#include <interfaces/wallet.h>
 #include <masternodes/masternodes.h>
 #include <net.h>
 #include <net_processing.h>
@@ -356,7 +355,6 @@ public:
     void initMessage(const std::string& message) override { ::uiInterface.InitMessage(message); }
     void initWarning(const std::string& message) override { InitWarning(message); }
     void initError(const std::string& message) override { InitError(message); }
-    void loadWallet(std::unique_ptr<Wallet> wallet) override { ::uiInterface.LoadWallet(wallet); }
     void showProgress(const std::string& title, int progress, bool resume_possible) override
     {
         ::uiInterface.ShowProgress(title, progress, resume_possible);

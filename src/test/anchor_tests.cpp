@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     BOOST_CHECK(panchors->ActivateBestAnchor(true) == false);
     BOOST_CHECK(panchors->GetActiveAnchor() == nullptr);
 
-    fspv->lastBlockHeight = 1; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
+    fspv->lastBlockHeight = 6; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
 
     // confirmed, active
     BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
@@ -106,7 +106,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     BOOST_REQUIRE(top == nullptr);
 
     // revert to prev state, activate again
-    fspv->lastBlockHeight = 1; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
+    fspv->lastBlockHeight = 6; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
     BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     // Stage 2. Next btc height (btc height = 2)
     // creating anc with old (wrong, empty) prev
-    fspv->lastBlockHeight = 2; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
+    fspv->lastBlockHeight = 12; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
     {
         CAnchorAuthMessage auth({uint256(), 45, uint256S("def45a"), team0});
         CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
@@ -141,14 +141,14 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     BOOST_CHECK(top->anchor.previousAnchor == uint256S("bb1"));
 
     // decrease btc height, fall to prev state (we already did that, but with empty top)
-    fspv->lastBlockHeight = 1; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
+    fspv->lastBlockHeight = 6; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
     BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);
     BOOST_CHECK(top->txHash == uint256S("bb1"));
 
     // advance to btc height = 2 again
-    fspv->lastBlockHeight = 2; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
+    fspv->lastBlockHeight = 12; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
     BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
     top = panchors->GetActiveAnchor();
     BOOST_REQUIRE(top != nullptr);

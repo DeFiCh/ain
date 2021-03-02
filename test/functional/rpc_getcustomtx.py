@@ -2,7 +2,7 @@
 # Copyright (c) 2014-2019 The Bitcoin Core developers
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test getcustomtx RPC."""
 
 from test_framework.test_framework import DefiTestFramework
@@ -15,12 +15,13 @@ class TokensRPCGetCustomTX(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'], # Wallet TXs
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-txindex=1'], # Transaction index
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50']] # Will not find historical TXs
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120'], # Wallet TXs
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-txindex=1'], # Transaction index
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120']] # Will not find historical TXs
 
     def run_test(self):
         self.nodes[0].generate(101)
+        self.sync_all()
         num_tokens = len(self.nodes[0].listtokens())
 
         # collateral address
@@ -33,6 +34,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             "collateralAddress": collateral_a
         })
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Make sure there's an extra token
         assert_equal(len(self.nodes[0].listtokens()), num_tokens + 1)
@@ -64,6 +66,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Mint some tokens
         minttx = self.nodes[0].minttokens(["300@" + token_a])
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of mint tx
         blockheight = self.nodes[0].getblockcount()
@@ -115,6 +118,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Update token
         updatetx = self.nodes[0].updatetoken(token_a, {"symbol":"SILVER","name":"silver","mintable":False,"tradeable":False})
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
@@ -144,6 +148,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         collateral = self.nodes[0].getnewaddress("", "legacy")
         mn_txid = self.nodes[0].createmasternode(collateral)
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Make sure new MN was successfully created
         assert_equal(len(self.nodes[0].listmasternodes()), num_mns + 1)
@@ -156,6 +161,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         result = self.nodes[1].getcustomtx(mn_txid)
         assert_equal(result['type'], "CreateMasternode")
         assert_equal(result['valid'], True)
+        assert_equal(result['results']['collateralamount'], Decimal("10.00000000"))
         assert_equal(result['results']['masternodeoperator'], collateral)
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
@@ -164,6 +170,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test resign MN call
         resign_tx = self.nodes[0].resignmasternode(mn_txid)
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Check MN in PRE_RESIGNED state
         assert_equal(self.nodes[0].listmasternodes()[mn_txid]['state'], "PRE_RESIGNED")
@@ -194,6 +201,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             "collateralAddress": collateral_b
         })
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get token ID
         list_tokens = self.nodes[0].listtokens()
@@ -204,6 +212,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Mint some tokens for use later
         self.nodes[0].minttokens(["300@" + token_b])
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Make sure there's an extra token
         assert_equal(len(self.nodes[0].listtokens()), num_tokens + 1)
@@ -219,11 +228,11 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             "pairSymbol": "SILVGOLD"
         })
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
         blockhash = self.nodes[0].getblockhash(blockheight)
-        owner_scriptpubkey = self.nodes[0].getaddressinfo(pool_collateral)['scriptPubKey']
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(poolpair_tx)
@@ -236,7 +245,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['tokenB'], "gold")
         assert_equal(result['results']['commission'], Decimal("0.00100000"))
         assert_equal(result['results']['status'], True)
-        assert_equal(result['results']['ownerAddress'], owner_scriptpubkey)
+        assert_equal(result['results']['ownerAddress'], pool_collateral)
         assert_equal(result['results']['isDAT'], True)
         assert_equal(result['results']['mineable'], False)
         assert_equal(result['results']['tradeable'], True)
@@ -273,6 +282,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             collateral_a: ['100@' + token_a, '100@' + token_b]
             }, pool_share)
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
@@ -299,6 +309,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             "maxPrice": 2
         })
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
@@ -321,6 +332,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test remove liquidity TX
         remove_liquidity_tx = self.nodes[0].removepoolliquidity(pool_share, "25@1")
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
@@ -344,6 +356,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             "ownerAddress": pool_collateral
         })
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
@@ -355,7 +368,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['valid'], True)
         assert_equal(result['results']['commission'], Decimal("0.10000000"))
         assert_equal(result['results']['status'], False)
-        assert_equal(result['results']['ownerAddress'], owner_scriptpubkey)
+        assert_equal(result['results']['ownerAddress'], pool_collateral)
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
@@ -363,6 +376,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test UTXOs to account TX
         utxostoaccount_tx = self.nodes[0].utxostoaccount({collateral_a: "1@0"})
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
@@ -380,6 +394,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test account to UTXOs TX
         accountoutxos_tx = self.nodes[0].accounttoutxos(collateral_a, {collateral_b: "1@0"})
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
@@ -399,9 +414,11 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test send tokens to address TX
         self.nodes[0].utxostoaccount({collateral_a: "1@0"})
         self.nodes[0].generate(1)
+        self.sync_all()
 
         tokenstoaddress_tx = self.nodes[0].sendtokenstoaddress({collateral_a:"1@0"}, {collateral_b:"1@0"})
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
@@ -422,6 +439,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test setgox TX
         setgov_tx = self.nodes[0].setgov({ "LP_DAILY_DFI_REWARD": 35})
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Get block hash and height of update tx
         blockheight = self.nodes[0].getblockcount()
@@ -433,6 +451,26 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['valid'], True)
         assert_equal(list(result['results'].keys())[0], "LP_DAILY_DFI_REWARD")
         assert_equal(list(result['results'].values())[0], Decimal("35.00000000"))
+        assert_equal(result['blockHeight'], blockheight)
+        assert_equal(result['blockhash'], blockhash)
+        assert_equal(result['confirmations'], 1)
+
+        collateral = self.nodes[0].getnewaddress("", "legacy")
+        mn_txid = self.nodes[0].createmasternode(collateral)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # Get block hash and height of update tx
+        blockheight = self.nodes[0].getblockcount()
+        assert_equal(120, blockheight) # Dakota height
+        blockhash = self.nodes[0].getblockhash(blockheight)
+
+        # Get custom TX
+        result = self.nodes[1].getcustomtx(mn_txid)
+        assert_equal(result['type'], "CreateMasternode")
+        assert_equal(result['valid'], True)
+        assert_equal(result['results']['collateralamount'], Decimal("2.00000000"))
+        assert_equal(result['results']['masternodeoperator'], collateral)
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)

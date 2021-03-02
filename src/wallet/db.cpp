@@ -1,7 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <wallet/db.h>
 
@@ -506,10 +506,10 @@ bool BerkeleyEnvironment::Salvage(const std::string& strFile, bool fAggressive, 
 }
 
 
-void BerkeleyEnvironment::CheckpointLSN(const std::string& strFile)
+void BerkeleyEnvironment::CheckpointLSN(const std::string& strFile, bool lsnReset)
 {
     dbenv->txn_checkpoint(0, 0, 0);
-    if (fMockDb)
+    if (fMockDb || !lsnReset)
         return;
     dbenv->lsn_reset(strFile.c_str(), 0);
 }
@@ -596,6 +596,7 @@ BerkeleyBatch::BerkeleyBatch(BerkeleyDatabase& database, const char* pszMode, bo
 
 void BerkeleyBatch::Flush()
 {
+    LOCK(cs_db);
     if (activeTxn)
         return;
 
@@ -604,7 +605,7 @@ void BerkeleyBatch::Flush()
     if (fReadOnly)
         nMinutes = 1;
 
-    if (env) { // env is nullptr for dummy databases (i.e. in tests). Don't actually flush if env is nullptr so we don't segfault
+    if (env && env->dbenv) { // env is nullptr for dummy databases (i.e. in tests). Don't actually flush if env is nullptr so we don't segfault
         env->dbenv->txn_checkpoint(nMinutes ? gArgs.GetArg("-dblogsize", DEFAULT_WALLET_DBLOGSIZE) * 1024 : 0, nMinutes, 0);
     }
 }
@@ -835,9 +836,10 @@ bool BerkeleyBatch::PeriodicFlush(BerkeleyDatabase& database)
 
                 // Flush wallet file so it's self contained
                 env->CloseDb(strFile);
-                env->CheckpointLSN(strFile);
+                // don't call lsn_reset at periodic time
+                // it causes performace issues on big wallets
+                env->CheckpointLSN(strFile, /* lsnReset */ false);
 
-                env->mapFileUseCount.erase(mi++);
                 LogPrint(BCLog::DB, "Flushed %s %dms\n", strFile, GetTimeMillis() - nStart);
                 ret = true;
             }

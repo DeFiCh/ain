@@ -1,6 +1,6 @@
 // Copyright (c) 2016 Jeremy Rubin
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef DEFI_CUCKOOCACHE_H
 #define DEFI_CUCKOOCACHE_H

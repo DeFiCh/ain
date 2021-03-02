@@ -1,7 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #if defined(HAVE_CONFIG_H)
 #include <config/defi-config.h>
@@ -28,6 +28,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/criminals.h>
+#include <masternodes/masternodes.h>
 #include <miner.h>
 #include <net.h>
 #include <net_permissions.h>
@@ -265,7 +266,7 @@ void Shutdown(InitInterfaces& interfaces)
     // up with our current chain to avoid any strange pruning edge cases and make
     // next startup faster by avoiding rescan.
 
-    LogPrintf("spv: Releasing\n");
+    LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
     {
         LOCK(cs_main);
@@ -458,17 +459,15 @@ void SetupServerArgs()
     gArgs.AddArg("-dummypos", "Flag to skip PoS-related checks (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-txnotokens", "Flag to force old tx serialization (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-anchorquorum", "Min quorum size (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-anchorsbinding", "Strict binding of defi chain to btc anchors (default: true)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 1)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-fakespv", "Fake SPV for testing purposes (default: 0, regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 0, unless masternode)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-criminals", "punishment of criminal nodes (default: 0, regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_resync", "Flag to reset spv database and resync from zero block (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-spv_testnet", "Flag to use bitcoin testnet instead of main (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_rescan", "Block height to rescan from (default: 0 = off)", ArgsManager::ALLOW_INT, OptionsCategory::OPTIONS);
     gArgs.AddArg("-amkheight", "AMK fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-bayfrontheight", "Bayfront fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-bayfrontgardensheight", "Bayfront Gardens fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-clarkequayheight", "ClarkeQuay fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-dakotaheight", "Dakota fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1605,16 +1604,19 @@ bool AppInitMain(InitInterfaces& interfaces)
                 panchorAwaitingConfirms.reset();
                 panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
                 panchors.reset();
-                /// @todo research best way of spv+anchors loading/update/regeneration
-                panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", false) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
+                // If users set masternode_operator set SPV default to enabled
+                bool anchorsEnabled{!gArgs.GetArgs("-masternode_operator").empty()};
+                panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", anchorsEnabled) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
                 // load anchors after spv due to spv (and spv height) not set before (no last height yet)
 
-                if (gArgs.GetBoolArg("-spv", false)) {
+                if (gArgs.GetBoolArg("-spv", anchorsEnabled)) {
                     spv::pspv.reset();
-                    if (gArgs.GetBoolArg("-fakespv", false) && Params().NetworkIDString() == "regtest") {
+                    if (Params().NetworkIDString() == "regtest") {
                         spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
+                    } else if (Params().NetworkIDString() == "test") {
+                        spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
                     } else {
-                        spv::pspv = MakeUnique<spv::CSpvWrapper>(!gArgs.GetBoolArg("-spv_testnet", false), nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
+                        spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
                     }
                 }
                 panchors->Load();
@@ -1915,73 +1917,88 @@ bool AppInitMain(InitInterfaces& interfaces)
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
         LOCK(cs_main);
 
-        CTxDestination destination = DecodeDestination(gArgs.GetArg("-masternode_operator", ""));
-
-        CKeyID const operatorId = destination.which() == 1 ? CKeyID(*boost::get<PKHash>(&destination)) :
-                                  (destination.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID());
-        if (operatorId.IsNull()) {
-            LogPrintf("Error: wrong (or empty) masternode_operator address (%s)\n", gArgs.GetArg("-masternode_operator", "").c_str());
-            return false;
+        auto wallets = GetWallets();
+        if (wallets.size() == 0) {
+            LogPrintf("Warning! wallets not found\n");
+            return true;
         }
-        {
-            pos::ThreadStaker::Args stakerParams{};
-            {
-                std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-                if (wallets.size() == 0) {
-                    LogPrintf("Warning! wallets not found\n");
-                    return true;
-                }
-                std::shared_ptr<CWallet> defaultWallet = wallets[0];
 
-                CKey minterKey;
-                bool found =false;
-                for (auto&& wallet : wallets) {
-                    if (wallet->GetKey(operatorId, minterKey)) {
-                        found = true;
-                        break;
-                    }
+        std::set<std::string> operatorsSet;
+        bool atLeastOneRunningOperator = false;
+        auto const operators = gArgs.GetArgs("-masternode_operator");
+
+        for (auto const & op : operators) {
+            // do not process duplicate operator option
+            if (operatorsSet.count(op)) {
+                continue;
+            }
+            operatorsSet.insert(op);
+
+            pos::ThreadStaker::Args stakerParams;
+            auto& operatorId = stakerParams.operatorID;
+            auto& coinbaseScript = stakerParams.coinbaseScript;
+
+            CTxDestination destination = DecodeDestination(op);
+            operatorId = destination.which() == 1 ? CKeyID(*boost::get<PKHash>(&destination)) :
+                         destination.which() == 4 ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID();
+
+            if (operatorId.IsNull()) {
+                LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
+                continue;
+            }
+
+            bool found = false;
+            for (auto wallet : wallets) {
+                if (::IsMine(*wallet, destination)) {
+                    found = true;
+                    break;
                 }
-                if (!found) {
-                    LogPrintf("Error: masternode operator private key not found\n");
-                    return false;
-                }
-                
+            }
+
+            if (!found) {
+                LogPrintf("Error: masternode operator (%s) private key is not owned by the wallet\n", op);
+                continue;
+            }
+
+            auto const rewardAddressStr = gArgs.GetArg("-rewardaddress", "");
+            CTxDestination const rewardAddress = rewardAddressStr.empty() ? CNoDestination{} :
+                                                    DecodeDestination(rewardAddressStr, chainparams);
+            if (IsValidDestination(rewardAddress)) {
+                coinbaseScript = GetScriptForDestination(rewardAddress);
+                LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", rewardAddressStr);
+            } else {
                 // determine coinbase script for minting thread
                 CTxDestination ownerDest;
                 auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
                 if (optMasternodeID) {
                     auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
                     assert(nodePtr); // this should not happen if MN was found by operator's id
-                    ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+                    ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
+                                                CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
                 }
-
-                CTxDestination const rewardAddress = DecodeDestination(gArgs.GetArg("-rewardaddress", ""), Params());
-                if (IsValidDestination(rewardAddress)) {
-                    LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", gArgs.GetArg("-rewardaddress", "").c_str());
-                    stakerParams.coinbaseScript = GetScriptForDestination(rewardAddress);
-                }
-                else if (IsValidDestination(ownerDest)) {
-                    LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest).c_str());
-                    stakerParams.coinbaseScript = GetScriptForDestination(ownerDest);
-                }
-                else {
+                if (IsValidDestination(ownerDest)) {
+                    coinbaseScript = GetScriptForDestination(ownerDest);
+                    LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
+                } else {
                     LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
                 }
-
-                stakerParams.minterKey = minterKey;
-                stakerParams.operatorID = operatorId;
             }
 
-            // Mint proof-of-stake blocks in background
-            threadGroup.create_thread([=]() {
-                TraceThread("CoinStaker", [=]() {
-                    // Fill Staker Args
+            atLeastOneRunningOperator = true;
 
+            // Mint proof-of-stake blocks in background
+            threadGroup.create_thread(
+                std::bind(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
                     // Run ThreadStaker
-                    pos::ThreadStaker threadStaker{};
-                    threadStaker(stakerParams, chainparams);
-                });
-            });
+                    pos::ThreadStaker threadStaker;
+                    threadStaker(std::move(stakerParams), std::move(chainparams));
+                }
+            ));
+        }
+
+        if (!atLeastOneRunningOperator) {
+            LogPrintf("Error: there is no valid masternode_operator\n");
+            return false;
         }
     }
 

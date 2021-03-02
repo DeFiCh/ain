@@ -1,7 +1,7 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
 #include <chain.h>
@@ -1390,7 +1390,7 @@ UniValue createpsbt(const JSONRPCRequest& request)
     }
 
     // Serialize the PSBT
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION | rawTx.nVersion < CTransaction::TOKENS_MIN_VERSION ? SERIALIZE_TRANSACTION_NO_TOKENS : 0);
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION | (rawTx.nVersion < CTransaction::TOKENS_MIN_VERSION ? SERIALIZE_TRANSACTION_NO_TOKENS : 0));
     ssTx << psbtx;
 
     return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());

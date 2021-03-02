@@ -2,7 +2,7 @@
 # Copyright (c) 2014-2019 The Bitcoin Core developers
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test token's RPC.
 
 - verify basic token's creation, destruction, revert, collateral locking
@@ -11,8 +11,11 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, \
-    connect_nodes_bi
+from test_framework.util import (
+    assert_equal,
+    connect_nodes_bi,
+    assert_raises_rpc_error,
+)
 
 from decimal import Decimal
 
@@ -24,10 +27,10 @@ class PoolPairTest (DefiTestFramework):
         # node2: Non Foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-acindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-acindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-acindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160', '-acindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160',],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=0', '-dakotaheight=160',]]
 
 
     def run_test(self):
@@ -89,17 +92,14 @@ class PoolPairTest (DefiTestFramework):
         assert_equal(pool[idGS]['idTokenB'], idSilver)
 
         # Fail swap: lack of liquidity
-        try:
-            self.nodes[0].poolswap({
+        assert_raises_rpc_error(-32600, "Lack of liquidity", self.nodes[0].poolswap, {
                 "from": accountGN0,
                 "tokenFrom": symbolSILVER,
                 "amountFrom": 10,
                 "to": accountSN1,
                 "tokenTo": symbolGOLD,
-            }, [])
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Pool is empty!" in errorString)
+            }
+        )
 
         #list_pool = self.nodes[0].listpoolpairs()
         #print (list_pool)
@@ -248,6 +248,48 @@ class PoolPairTest (DefiTestFramework):
         print("mine@0, depth=3:", self.nodes[0].listaccounthistory("mine", {"depth":3}))
         print("mine@0, height=158 depth=2:", self.nodes[0].listaccounthistory("mine", {"maxBlockHeight":158, "depth":2}))
         print("all@0, height=158 depth=2:", self.nodes[0].listaccounthistory("all", {"maxBlockHeight":158, "depth":2}))
+
+        # activate max price protection
+        maxPrice = self.nodes[0].listpoolpairs()['1']['reserveB/reserveA']
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolSILVER,
+            "amountFrom": 200,
+            "to": accountGN0,
+            "tokenTo": symbolGOLD,
+            "maxPrice": maxPrice,
+        })
+        assert_raises_rpc_error(-26, 'Price is higher than indicated',
+                                self.nodes[0].poolswap, {
+                                    "from": accountGN0,
+                                    "tokenFrom": symbolSILVER,
+                                    "amountFrom": 200,
+                                    "to": accountGN0,
+                                    "tokenTo": symbolGOLD,
+                                    "maxPrice": maxPrice,
+                                }
+        )
+        self.nodes[0].generate(1)
+
+        maxPrice = self.nodes[0].listpoolpairs()['1']['reserveB/reserveA']
+        # exchange tokens each other should work
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolSILVER,
+            "amountFrom": 200,
+            "to": accountGN0,
+            "tokenTo": symbolGOLD,
+            "maxPrice": maxPrice,
+        })
+        self.nodes[0].poolswap({
+            "from": accountGN0,
+            "tokenFrom": symbolGOLD,
+            "amountFrom": 200,
+            "to": accountGN0,
+            "tokenTo": symbolSILVER,
+            "maxPrice": maxPrice,
+        })
+        self.nodes[0].generate(1)
 
         # REVERTING:
         #========================

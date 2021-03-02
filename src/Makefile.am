@@ -1,6 +1,6 @@
 # Copyright (c) 2013-2016 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 DIST_SUBDIRS = secp256k1 univalue
 
@@ -171,7 +171,6 @@ DEFI_CORE_H = \
   masternodes/poolpairs.h \
   masternodes/undo.h \
   masternodes/undos.h \
-  masternodes/oracles.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -375,12 +374,9 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
-  masternodes/oracles.cpp \
   masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
   masternodes/undos.cpp \
-  masternodes/tokenpriceiterator.h \
-  masternodes/tokenpriceiterator.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \

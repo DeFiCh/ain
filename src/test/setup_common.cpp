@@ -1,6 +1,6 @@
 // Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <test/setup_common.h>
 
@@ -13,6 +13,7 @@
 #include <init.h>
 #include <masternodes/anchors.h>
 #include <masternodes/criminals.h>
+#include <masternodes/masternodes.h>
 #include <miner.h>
 #include <net.h>
 #include <noui.h>
@@ -76,7 +77,6 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
                                            DecodeSecret("cPGEaz8AGiM71NGMRybbCqFNRcuUhg3uGvyY4TFE1BZC26EW2PkC")};
 
     gArgs.ForceSetArg("-masternode_operator", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ"); // matches with [1] masternode from regtest chainparams (and with testMasternodeKeys.begin())
-    gArgs.ForceSetArg("-spv_testnet", "1");
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = true;
     fCriminals = true;
     fIsFakeNet = true;

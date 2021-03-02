@@ -1,6 +1,6 @@
 // Copyright (c) 2016-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <wallet/test/wallet_test_fixture.h>
 
@@ -13,4 +13,9 @@ WalletTestingSetup::WalletTestingSetup(const std::string& chainName)
     m_wallet.handleNotifications();
 
     m_chain_client->registerRpcs();
+}
+
+WalletTestingSetup::~WalletTestingSetup()
+{
+    m_wallet.NotifyUnload();
 }

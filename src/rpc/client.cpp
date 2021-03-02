@@ -1,7 +1,7 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <rpc/client.h>
 #include <rpc/protocol.h>
@@ -246,10 +246,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "isappliedcustomtx", 1, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },
     { "sendtokenstoaddress", 1, "to" },
-
-    {"setrawprice", 0, "timestamp"},
-    {"setrawprice", 1, "feedname"},
-    {"setrawprice", 2, "rawprice"},
 };
 // clang-format on
 

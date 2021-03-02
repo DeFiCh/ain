@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <wallet/psbtwallet.h>
 
@@ -25,12 +25,10 @@ TransactionError FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& ps
         // If we have no utxo, grab it from the wallet.
         if (!input.non_witness_utxo && input.witness_utxo.IsNull()) {
             const uint256& txhash = txin.prevout.hash;
-            const auto it = pwallet->mapWallet.find(txhash);
-            if (it != pwallet->mapWallet.end()) {
-                const CWalletTx& wtx = it->second;
+            if (auto wtx = pwallet->GetWalletTx(txhash)) {
                 // We only need the non_witness_utxo, which is a superset of the witness_utxo.
                 //   The signing code will switch to the smaller witness_utxo if this is ok.
-                input.non_witness_utxo = wtx.tx;
+                input.non_witness_utxo = wtx->tx;
             }
         }
 

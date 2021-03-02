@@ -2,7 +2,7 @@
 # Copyright (c) 2014-2019 The Bitcoin Core developers
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test auth single input and return change to auth sender"""
 
 from test_framework.test_framework import DefiTestFramework
@@ -30,8 +30,8 @@ class TokensAuthChange(DefiTestFramework):
         auth_tx = self.nodes[0].getrawtransaction(final_rawtx['vin'][0]['txid'], 1)
 
         # Auth TX outputs all belong to auth address
-        assert_equal(auth_tx['vout'][0]['scriptPubKey']['addresses'][0], owner)
-        assert_equal(len(auth_tx['vout']), 1)
+        assert_equal(auth_tx['vout'][1]['scriptPubKey']['addresses'][0], owner)
+        assert_equal(len(auth_tx['vout']), 2)
 
         # Two outputs, single input and change to auth address on final TX
         assert_equal(final_rawtx['vout'][1]['scriptPubKey']['addresses'][0], owner)

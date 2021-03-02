@@ -1,6 +1,6 @@
-// Copyright (c) 2019 DeFi Blockchain Developers
+// Copyright (c) DeFi Blockchain Developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef DEFI_SPV_SPV_WRAPPER_H
 #define DEFI_SPV_SPV_WRAPPER_H
@@ -106,6 +106,9 @@ public:
     void OnSaveBlocks(int replace, BRMerkleBlock *blocks[], size_t blocksCount);
     void OnSavePeers(int replace, const BRPeer peers[], size_t peersCount);
     void OnThreadCleanup();
+
+    // Get time stamp of Bitcoin TX
+    uint32_t ReadTxTimestamp(uint256 const & hash);
 
 private:
     virtual void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise);

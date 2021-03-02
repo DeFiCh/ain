@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2016-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test the bumpfee RPC.
 
 Verifies that the bumpfee RPC creates replacement transactions successfully when
@@ -305,7 +305,10 @@ def test_unconfirmed_not_spendable(rbf_node, rbf_node_address):
 
     # Call abandon to make sure the wallet doesn't attempt to resubmit
     # the bump tx and hope the wallet does not rebroadcast before we call.
-    rbf_node.abandontransaction(bumpid)
+    try:
+        rbf_node.abandontransaction(bumpid)
+    except:
+        pass # make sure test not fail due to missing tx
     assert bumpid not in rbf_node.getrawmempool()
     assert rbfid in rbf_node.getrawmempool()
 

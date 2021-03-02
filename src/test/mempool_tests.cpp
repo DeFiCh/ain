@@ -1,6 +1,6 @@
 // Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <policy/policy.h>
 #include <txmempool.h>
@@ -12,7 +12,7 @@
 #include <boost/test/unit_test.hpp>
 #include <vector>
 
-BOOST_FIXTURE_TEST_SUITE(mempool_tests, TestingSetup)
+BOOST_FIXTURE_TEST_SUITE(mempool_tests, BasicTestingSetup)
 
 static constexpr auto REMOVAL_REASON_DUMMY = MemPoolRemovalReason::REPLACED;
 

@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef DEFI_RPC_REGISTER_H
 #define DEFI_RPC_REGISTER_H
@@ -21,6 +21,14 @@ void RegisterMiningRPCCommands(CRPCTable &tableRPC);
 void RegisterRawTransactionRPCCommands(CRPCTable &tableRPC);
 /** Register masternodes RPC commands */
 void RegisterMasternodesRPCCommands(CRPCTable &tableRPC);
+/** Register accounts RPC commands */
+void RegisterAccountsRPCCommands(CRPCTable &tableRPC);
+/** Register tokens RPC commands */
+void RegisterTokensRPCCommands(CRPCTable &tableRPC);
+/** Register poolpair RPC commands */
+void RegisterPoolpairRPCCommands(CRPCTable &tableRPC);
+/** Register blockchain masternode RPC commands */
+void RegisterMNBlockchainRPCCommands(CRPCTable &tableRPC);
 /** Register SPV (anchoring) RPC commands */
 void RegisterSpvRPCCommands(CRPCTable &tableRPC);
 
@@ -32,6 +40,10 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
     RegisterMiningRPCCommands(t);
     RegisterRawTransactionRPCCommands(t);
     RegisterMasternodesRPCCommands(t);
+    RegisterAccountsRPCCommands(t);
+    RegisterTokensRPCCommands(t);
+    RegisterPoolpairRPCCommands(t);
+    RegisterMNBlockchainRPCCommands(t);
     RegisterSpvRPCCommands(t);
 }
 

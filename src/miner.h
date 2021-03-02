@@ -1,7 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef DEFI_MINER_H
 #define DEFI_MINER_H
@@ -229,9 +229,6 @@ namespace pos {
 
     class Staker {
     private:
-        std::chrono::system_clock::time_point nLastSystemTime;
-        std::chrono::steady_clock::time_point nLastSteadyTime;
-
         int64_t nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
 
     public:
@@ -243,7 +240,7 @@ namespace pos {
             minted,
         };
 
-        Staker::Status stake(CChainParams chainparams, const ThreadStaker::Args& args);
+        Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args);
     private:
         CBlockIndex* getTip();
         template <typename F>

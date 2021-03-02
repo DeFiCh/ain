@@ -1,6 +1,6 @@
 // Copyright (c) 2017-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <consensus/tx_verify.h>
 
@@ -220,7 +220,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     std::vector<unsigned char> dummy;
     const auto txType = GuessCustomTxType(tx, dummy);
 
-    if (NotAllowedToFail(txType)) {
+    if (NotAllowedToFail(txType, nSpendHeight)) {
         auto res = ApplyCustomTx(const_cast<CCustomCSView&>(*mnview), inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, true); // note for 'isCheck == true' here; 'zero' for txn is dummy value
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);

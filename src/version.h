@@ -1,6 +1,6 @@
 // Copyright (c) 2012-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef DEFI_VERSION_H
 #define DEFI_VERSION_H
@@ -18,7 +18,7 @@ static const int INIT_PROTO_VERSION = 209;
 static const int GETHEADERS_VERSION = 31800;
 
 //! disconnect from peers older than this proto version
-static const int MIN_PEER_PROTO_VERSION = GETHEADERS_VERSION;
+static const int MIN_PEER_PROTO_VERSION = 70016;
 
 //! nTime field added to CAddress, starting with this version;
 //! if possible, avoid requesting addresses nodes older than this

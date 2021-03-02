@@ -1,7 +1,7 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <amount.h>
 #include <consensus/validation.h>
@@ -320,7 +320,7 @@ static UniValue setlabel(const JSONRPCRequest& request)
 
     std::string label = LabelFromValue(request.params[1]);
 
-    if (IsMine(*pwallet, dest)) {
+    if (IsMineCached(*pwallet, dest)) {
         pwallet->SetAddressBook(dest, label, "receive");
     } else {
         pwallet->SetAddressBook(dest, label, "send");
@@ -358,7 +358,7 @@ static CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet 
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -629,7 +629,7 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Defi address");
     }
     CScript scriptPubKey = GetScriptForDestination(dest);
-    if (!IsMine(*pwallet, scriptPubKey)) {
+    if (!IsMineCached(*pwallet, scriptPubKey)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Address not found in wallet");
     }
 
@@ -640,8 +640,7 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
 
     // Tally
     CAmount nAmount = 0;
-    for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
-        const CWalletTx& wtx = pairWtx.second;
+    for (const auto& wtx : pwallet->mapWallet.get<ByHash>()) {
         if (wtx.IsCoinBase() || !locked_chain->checkFinalTx(*wtx.tx)) {
             continue;
         }
@@ -704,8 +703,7 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
 
     // Tally
     CAmount nAmount = 0;
-    for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
-        const CWalletTx& wtx = pairWtx.second;
+    for (const auto& wtx : pwallet->mapWallet.get<ByHash>()) {
         if (wtx.IsCoinBase() || !locked_chain->checkFinalTx(*wtx.tx)) {
             continue;
         }
@@ -713,7 +711,7 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
         for (const CTxOut& txout : wtx.tx->vout)
         {
             CTxDestination address;
-            if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwallet, address) && setAddress.count(address)) {
+            if (ExtractDestination(txout.scriptPubKey, address) && IsMineCached(*pwallet, address) && setAddress.count(address)) {
                 if (wtx.GetDepthInMainChain(*locked_chain) >= nMinDepth)
                     nAmount += txout.nValue;
             }
@@ -949,7 +947,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), state)) {
         strFailReason = strprintf("Transaction commit failed:: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -1075,8 +1073,7 @@ UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwa
 
     // Tally
     std::map<CTxDestination, tallyitem> mapTally;
-    for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
-        const CWalletTx& wtx = pairWtx.second;
+    for (const auto& wtx : pwallet->mapWallet.get<ByHash>()) {
 
         if (wtx.IsCoinBase() || !locked_chain.checkFinalTx(*wtx.tx)) {
             continue;
@@ -1096,7 +1093,7 @@ UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwa
                 continue;
             }
 
-            isminefilter mine = IsMine(*pwallet, address);
+            isminefilter mine = IsMineCached(*pwallet, address);
             if(!(mine & filter))
                 continue;
 
@@ -1320,7 +1317,7 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
         for (const COutputEntry& s : listSent)
         {
             UniValue entry(UniValue::VOBJ);
-            if (involvesWatchonly || (::IsMine(*pwallet, s.destination) & ISMINE_WATCH_ONLY)) {
+            if (involvesWatchonly || (::IsMineCached(*pwallet, s.destination) & ISMINE_WATCH_ONLY)) {
                 entry.pushKV("involvesWatchonly", true);
             }
             MaybePushAddress(entry, s.destination);
@@ -1351,7 +1348,7 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
                 continue;
             }
             UniValue entry(UniValue::VOBJ);
-            if (involvesWatchonly || (::IsMine(*pwallet, r.destination) & ISMINE_WATCH_ONLY)) {
+            if (involvesWatchonly || (::IsMineCached(*pwallet, r.destination) & ISMINE_WATCH_ONLY)) {
                 entry.pushKV("involvesWatchonly", true);
             }
             MaybePushAddress(entry, r.destination);
@@ -1398,6 +1395,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
                     {"count", RPCArg::Type::NUM, /* default */ "10", "The number of transactions to return"},
                     {"skip", RPCArg::Type::NUM, /* default */ "0", "The number of transactions to skip"},
                     {"include_watchonly", RPCArg::Type::BOOL, /* default */ "true for watch-only wallets, otherwise false", "Include transactions to watch-only addresses (see 'importaddress')"},
+                    {"exclude_custom_tx", RPCArg::Type::BOOL, /* default */ "false to include all transactions, otherwise exclude custom transactions", "Exclude custom transactions"},
                 },
                 RPCResult{
             "[\n"
@@ -1465,6 +1463,10 @@ UniValue listtransactions(const JSONRPCRequest& request)
         filter |= ISMINE_WATCH_ONLY;
     }
 
+    bool exclude_custom_tx = false;
+    if (!request.params[4].isNull())
+        exclude_custom_tx = request.params[4].get_bool();
+
     if (nCount < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
     if (nFrom < 0)
@@ -1476,13 +1478,16 @@ UniValue listtransactions(const JSONRPCRequest& request)
         auto locked_chain = pwallet->chain().lock();
         LOCK(pwallet->cs_wallet);
 
-        const CWallet::TxItems & txOrdered = pwallet->wtxOrdered;
-
+        const auto & txOrdered = pwallet->mapWallet.get<ByOrder>();
+        std::vector<unsigned char> metadata;
         // iterate backwards until we have nCount items to return:
-        for (CWallet::TxItems::const_reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+        for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
         {
-            CWalletTx *const pwtx = (*it).second;
-            ListTransactions(*locked_chain, pwallet, *pwtx, 0, true, ret, filter, filter_label);
+            const auto& pwtx = *it;
+            if (exclude_custom_tx && GuessCustomTxType(*pwtx.tx, metadata) != CustomTxType::None) {
+                continue;
+            }
+            ListTransactions(*locked_chain, pwallet, pwtx, 0, true, ret, filter, filter_label);
             if ((int)ret.size() >= (nCount+nFrom)) break;
         }
     }
@@ -1617,9 +1622,7 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
 
     UniValue transactions(UniValue::VARR);
 
-    for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
-        CWalletTx tx = pairWtx.second;
-
+    for (const auto& tx : pwallet->mapWallet.get<ByHash>()) {
         if (depth == -1 || tx.GetDepthInMainChain(*locked_chain) < depth) {
             ListTransactions(*locked_chain, pwallet, tx, 0, true, transactions, filter, nullptr /* filter_label */);
         }
@@ -1634,11 +1637,10 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
         }
         for (const CTransactionRef& tx : block.vtx) {
-            auto it = pwallet->mapWallet.find(tx->GetHash());
-            if (it != pwallet->mapWallet.end()) {
+            if (auto wtx = pwallet->GetWalletTx(tx->GetHash())) {
                 // We want all transactions regardless of confirmation count to appear here,
                 // even negative confirmation ones, hence the big negative.
-                ListTransactions(*locked_chain, pwallet, it->second, -100000000, true, removed, filter, nullptr /* filter_label */);
+                ListTransactions(*locked_chain, pwallet, *wtx, -100000000, true, removed, filter, nullptr /* filter_label */);
             }
         }
         blockId = block.hashPrevBlock;
@@ -1730,29 +1732,28 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     }
 
     UniValue entry(UniValue::VOBJ);
-    auto it = pwallet->mapWallet.find(hash);
-    if (it == pwallet->mapWallet.end()) {
+    const CWalletTx* wtx = pwallet->GetWalletTx(hash);
+    if (!wtx) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
     }
-    const CWalletTx& wtx = it->second;
 
     /// @todo tokens: id == 0??
-    CAmount nCredit = wtx.GetCredit(*locked_chain, filter)[DCT_ID{0}]; /// @todo tokens: extend?
-    CAmount nDebit = wtx.GetDebit(filter)[DCT_ID{0}];                  /// @todo tokens: extend?
+    CAmount nCredit = wtx->GetCredit(*locked_chain, filter)[DCT_ID{0}]; /// @todo tokens: extend?
+    CAmount nDebit = wtx->GetDebit(filter)[DCT_ID{0}];                  /// @todo tokens: extend?
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? GetNonMintedValueOut(*wtx.tx, DCT_ID{}) - nDebit : 0);
+    CAmount nFee = (wtx->IsFromMe(filter) ? GetNonMintedValueOut(*(wtx->tx), DCT_ID{}) - nDebit : 0);
 
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
-    if (wtx.IsFromMe(filter))
+    if (wtx->IsFromMe(filter))
         entry.pushKV("fee", ValueFromAmount(nFee));
 
-    WalletTxToJSON(pwallet->chain(), *locked_chain, wtx, entry);
+    WalletTxToJSON(pwallet->chain(), *locked_chain, *wtx, entry);
 
     UniValue details(UniValue::VARR);
-    ListTransactions(*locked_chain, pwallet, wtx, 0, false, details, filter, nullptr /* filter_label */);
+    ListTransactions(*locked_chain, pwallet, *wtx, 0, false, details, filter, nullptr /* filter_label */);
     entry.pushKV("details", details);
 
-    std::string strHex = EncodeHexTx(*wtx.tx, pwallet->chain().rpcSerializationFlags());
+    std::string strHex = EncodeHexTx(*(wtx->tx), pwallet->chain().rpcSerializationFlags());
     entry.pushKV("hex", strHex);
 
     return entry;
@@ -2215,14 +2216,12 @@ static UniValue lockunspent(const JSONRPCRequest& request)
 
         const COutPoint outpt(txid, nOutput);
 
-        const auto it = pwallet->mapWallet.find(outpt.hash);
-        if (it == pwallet->mapWallet.end()) {
+        const CWalletTx* trans = pwallet->GetWalletTx(outpt.hash);
+        if (!trans) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, unknown transaction");
         }
 
-        const CWalletTx& trans = it->second;
-
-        if (outpt.n >= trans.tx->vout.size()) {
+        if (outpt.n >= trans->tx->vout.size()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout index out of bounds");
         }
 
@@ -3764,7 +3763,7 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     CScript scriptPubKey = GetScriptForDestination(dest);
     ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
-    isminetype mine = IsMine(*pwallet, dest);
+    isminetype mine = IsMineCached(*pwallet, dest);
     ret.pushKV("ismine", bool(mine & ISMINE_SPENDABLE));
     bool solvable = IsSolvable(*pwallet, scriptPubKey);
     ret.pushKV("solvable", solvable);
@@ -4243,7 +4242,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "listreceivedbyaddress",            &listreceivedbyaddress,         {"minconf","include_empty","include_watchonly","address_filter"} },
     { "wallet",             "listreceivedbylabel",              &listreceivedbylabel,           {"minconf","include_empty","include_watchonly"} },
     { "wallet",             "listsinceblock",                   &listsinceblock,                {"blockhash","target_confirmations","include_watchonly","include_removed"} },
-    { "wallet",             "listtransactions",                 &listtransactions,              {"label|dummy","count","skip","include_watchonly"} },
+    { "wallet",             "listtransactions",                 &listtransactions,              {"label|dummy","count","skip","include_watchonly","exclude_custom_tx"} },
     { "wallet",             "listunspent",                      &listunspent,                   {"minconf","maxconf","addresses","include_unsafe","query_options"} },
     { "wallet",             "listwalletdir",                    &listwalletdir,                 {} },
     { "wallet",             "listwallets",                      &listwallets,                   {} },
