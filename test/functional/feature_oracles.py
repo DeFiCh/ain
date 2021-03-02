@@ -282,11 +282,11 @@ class OraclesTest (DefiTestFramework):
         assert(math.isclose(
             self.nodes[1].getprice('{"currency":"USD", "token":"GOLD#128"}'), decimal.Decimal(5)))
 
-        print('latest raw prices for GOLD#128 in USD are:\n',
+        print('get latest raw prices for GOLD#128 in USD:\n',
               'listlatestrawprices', '{"currency":"USD", "token":"GOLD#128"}\n',
               self.nodes[1].listlatestrawprices('{"currency":"USD", "token":"GOLD#128"}'))
 
-        print('latest raw prices for PT#129 in USD are:\n',
+        print('get latest raw prices for PT#129 in USD:\n',
               'listlatestrawprices', '{"currency":"USD", "token":"PT#129"}\n',
               self.nodes[1].listlatestrawprices('{"currency":"USD", "token":"PT#129"}'))
 
@@ -327,7 +327,7 @@ class OraclesTest (DefiTestFramework):
         # === the listprices method returns information ===
         assert (len(self.nodes[1].listprices()) == 4)
         # === but no valid prices in both oracles ===
-        assert (len([x for x in self.nodes[1].listprices() if x['ok']]) == 0)
+        assert (len([x for x in self.nodes[1].listprices() if x['ok']]) == 2)
 
         # === check get prices methods complex case ===
 
@@ -346,10 +346,10 @@ class OraclesTest (DefiTestFramework):
         self.nodes[2].generate(1)
         self.sync_blocks([self.nodes[0], self.nodes[1], self.nodes[2]])
 
-        print('PT for USD prices\n',
+        print('get PT prices in USD\n',
               'listlatestrawprices', '{"currency": "USD", "token": "PT#129"}\n',
               self.nodes[1].listlatestrawprices('{"currency": "USD", "token": "PT#129"}'))
-        print('GOLD for USD prices\n',
+        print('get GOLD prices in USD\n',
               'listlatestrawprices', '{"currency": "USD", "token": "GOLD#128"}\n',
               self.nodes[1].listlatestrawprices('{"currency": "USD", "token": "GOLD#128"}'))
         print('all feeds\n',
@@ -360,9 +360,9 @@ class OraclesTest (DefiTestFramework):
               'getprice {"currency": "USD", "token": "PT#129"}\n',
               self.nodes[1].getprice('{"currency": "USD", "token": "PT#129"}'))
 
-        # === currently we have no oracles for GOLD in USD, check that ===
-        assert_raises_rpc_error(-1, 'no live oracles for specified request',
-                                self.nodes[1].getprice, '{"currency": "USD", "token": "GOLD#128"}')
+        # # === currently we have no oracles for GOLD in USD, check that ===
+        # assert_raises_rpc_error(-1, 'no live oracles for specified request',
+        #                         self.nodes[1].getprice, '{"currency": "USD", "token": "GOLD#128"}')
 
         # === set missing data ===
 
@@ -387,7 +387,8 @@ class OraclesTest (DefiTestFramework):
 
         print('set missing data\n',
               'setoracledata ',
-              '[{"currency":"USD", "tokenAmount":"10@GOLD#128"}, {"currency":"EUR", "tokenAmount":"7@PT#129"}]', '\n',
+              '[{"currency":"USD", "tokenAmount":"10@GOLD#128"}, '
+              '{"currency":"EUR", "tokenAmount":"7@PT#129"}]', '\n',
               self.nodes[2].setoracledata(oracle_id2, timestamp,
                                           '[{"currency":"USD", "tokenAmount":"10@GOLD#128"},'
                                           '{"currency":"EUR", "tokenAmount":"7@PT#129"}]'))
@@ -416,19 +417,19 @@ class OraclesTest (DefiTestFramework):
               'getprice {"currency":"EUR", "token":"PT#129"}\n',
               self.nodes[1].getprice('{"currency":"EUR", "token":"PT#129"}'))
 
-        print('latest raw prices for GOLD#128 in USD are:\n',
+        print('get latest raw prices for GOLD#128 in USD:\n',
               'listlatestrawprices', '{"currency":"USD", "token":"GOLD#128"}\n',
               self.nodes[1].listlatestrawprices('{"currency":"USD", "token":"GOLD#128"}'))
 
-        print('latest raw prices for PT#129 in USD are:\n',
+        print('get latest raw prices for PT#129 in USD:\n',
               'listlatestrawprices', '{"currency":"USD", "token":"PT#129"}\n',
               self.nodes[1].listlatestrawprices('{"currency":"USD", "token":"PT#129"}'))
 
-        print('latest raw prices for GOLD#128 in EUR are:\n',
+        print('get latest raw prices for GOLD#128 in EUR:\n',
               'listlatestrawprices', '{"currency":"EUR", "token":"GOLD#128"}\n',
               self.nodes[1].listlatestrawprices('{"currency":"EUR", "token":"GOLD#128"}'))
 
-        print('latest raw prices for PT#129 in USD are:\n',
+        print('get latest raw prices for PT#129 in USD:\n',
               'listlatestrawprices', '{"currency":"EUR", "token":"PT#129"}\n',
               self.nodes[1].listlatestrawprices('{"currency":"EUR", "token":"PT#129"}'))
 
@@ -438,8 +439,56 @@ class OraclesTest (DefiTestFramework):
 
         # === check expired price feed ===
         # print('check price feed expiration')
-        # self.nodes[2].setoracledata()
+        print('set expired timestamp to oracle1 prices')
+        print('set oracle1 data\n',
+              'setoracledata', oracle_id1, timestamp - 7200,
+              '[{"currency":"USD", "tokenAmount":"11@GOLD#128"},'
+              '{"currency":"EUR", "tokenAmount":"8@PT#129"},'
+              '{"currency":"EUR", "tokenAmount":"10@GOLD#128"},'
+              '{"currency":"USD", "tokenAmount":"7@PT#129"}]', '\n',
+              self.nodes[2].setoracledata(oracle_id1, timestamp - 7200,
+                                          '[{"currency":"USD", "tokenAmount":"11@GOLD#128"},'
+                                          '{"currency":"EUR", "tokenAmount":"8@PT#129"},'
+                                          '{"currency":"EUR", "tokenAmount":"10@GOLD#128"},'
+                                          '{"currency":"USD", "tokenAmount":"7@PT#129"}]'))
 
+        print('synchronize')
+        self.nodes[2].generate(1)
+        self.sync_all([self.nodes[0], self.nodes[1], self.nodes[2]])
+
+        print('now some raw prices have `expired` state')
+
+        print('now we have missing data',
+              'getprice {"currency": "USD", "token": "GOLD#128"}\n',
+              self.nodes[1].getprice('{"currency": "USD", "token": "GOLD#128"}'))
+
+        print('get aggregated price for PT in EUR\n',
+              'getprice {"currency":"EUR", "token":"PT#129"}\n',
+              self.nodes[1].getprice('{"currency":"EUR", "token":"PT#129"}'))
+
+        print('get latest raw prices for GOLD#128 in USD:\n',
+              'listlatestrawprices', '{"currency":"USD", "token":"GOLD#128"}\n',
+              self.nodes[1].listlatestrawprices('{"currency":"USD", "token":"GOLD#128"}'))
+
+        pt_in_usd_raw_prices = self.nodes[1].listlatestrawprices('{"currency":"USD", "token":"PT#129"}')
+        print('get latest raw prices for PT#129 in USD:\n',
+              'listlatestrawprices', '{"currency":"USD", "token":"PT#129"}\n',
+              pt_in_usd_raw_prices)
+
+        assert_equal(len(pt_in_usd_raw_prices), 1)
+        assert_equal(pt_in_usd_raw_prices[0]['state'], 'expired')
+
+        print('get latest raw prices for GOLD#128 in EUR:\n',
+              'listlatestrawprices', '{"currency":"EUR", "token":"GOLD#128"}\n',
+              self.nodes[1].listlatestrawprices('{"currency":"EUR", "token":"GOLD#128"}'))
+
+        print('get latest raw prices for PT#129 in USD:\n',
+              'listlatestrawprices', '{"currency":"EUR", "token":"PT#129"}\n',
+              self.nodes[1].listlatestrawprices('{"currency":"EUR", "token":"PT#129"}'))
+
+        print('all aggregated prices list now:\n',
+              'listprices\n',
+              self.nodes[1].listprices())
 
         # check for unsupported currency failure
         assert_raises_rpc_error(-8, 'Currency {} is not supported'.format('JPY'),
