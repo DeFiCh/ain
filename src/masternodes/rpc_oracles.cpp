@@ -364,7 +364,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"removeoracle",
-               "\nRemoves oracle appointment, \n"
+               "\nRemoves oracle, \n"
                "The only argument is oracleid hex value." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -673,24 +673,86 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     return result;
 }
 
-UniValue getpricefeeds(const JSONRPCRequest& request) {
+namespace {
+    UniValue PriceFeedToJSON(CCustomCSView& view, const TokenCurrencyPair& priceFeed) {
+        UniValue pair(UniValue::VOBJ);
+        auto tokenRes = FormatToken(view, priceFeed.tid);
+        if (!tokenRes.ok) {
+            throw JSONRPCError(tokenRes.code, tokenRes.msg);
+        }
+        pair.pushKV(oraclefields::Token, *tokenRes.val);
+        pair.pushKV(oraclefields::Currency, priceFeed.cid.ToString());
+        return pair;
+    }
+
+    std::string AmountToString(CAmount amount) {
+        const bool sign = amount < 0;
+        const int64_t n_abs = (sign ? -amount : amount);
+        const int64_t quotient = n_abs / COIN;
+        const int64_t remainder = n_abs % COIN;
+        return strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder);
+    }
+
+    UniValue OracleToJSON(CCustomCSView& view, const COracle& oracle) {
+        UniValue result{UniValue::VOBJ};
+        result.pushKV(oraclefields::Weightage, oracle.weightage);
+        result.pushKV(oraclefields::OracleId, oracle.oracleId.GetHex());
+        result.pushKV(oraclefields::OracleAddress, oracle.oracleAddress.GetHex());
+
+        UniValue priceFeeds{UniValue::VARR};
+        std::for_each(oracle.availablePairs.begin(), oracle.availablePairs.end(),
+                      [&priceFeeds, &view](const TokenCurrencyPair& feed) {
+            priceFeeds.push_back(PriceFeedToJSON(view, feed));
+        });
+
+        result.pushKV(oraclefields::PriceFeeds, priceFeeds);
+
+        UniValue tokenPrices{UniValue::VARR};
+        for (auto& tp: oracle.tokenPrices) {
+            auto tid = tp.first;
+            const auto& map = tp.second;
+            for (const auto& cp: map) {
+                auto cid = cp.first;
+                const auto &pricePoint = cp.second;
+                const auto& amount = pricePoint.first;
+                uint64_t timestamp = pricePoint.second;
+
+                UniValue item{UniValue::VOBJ};
+                auto resval = FormatToken(view, tid);
+                if (!resval.ok) {
+                    throw JSONRPCError(resval.code, resval.msg);
+                }
+                item.pushKV(oraclefields::Token, *resval.val);
+                item.pushKV(oraclefields::Currency, cid.ToString());
+                item.pushKV(oraclefields::Amount, AmountToString(amount));
+                item.pushKV(oraclefields::Timestamp, timestamp);
+                tokenPrices.push_back(item);
+            }
+        }
+
+        result.pushKV(oraclefields::TokenPrices, tokenPrices);
+
+        return result;
+    }
+}
+
+UniValue getoracledata(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
 
-    RPCHelpMan{"setoracledata",
-               "\nCreates (and submits to local node and network) a `set oracle data transaction`.\n"
-               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+    RPCHelpMan{"getoracledata",
+               "\nReturns oracle data in json form.\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle hex id",},
                },
                RPCResult{
-                       "\"json\"                  (string) list of all supported feeds\n"
+                       "\"json\"                  (string) oracle data in json form\n"
                },
                RPCExamples{
                        HelpExampleCli(
-                               "getpricefeeds", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf")
+                               "getoracledata", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf")
                        + HelpExampleRpc(
-                               "getpricefeeds", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf"
+                               "getoracledata", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf"
                        )
                },
     }.Check(request);
@@ -725,17 +787,7 @@ UniValue getpricefeeds(const JSONRPCRequest& request) {
 
     auto& oracle = *oracleRes.val;
 
-    UniValue result{UniValue::VARR};
-    for (auto &p: oracle.availablePairs ) {
-        UniValue pair(UniValue::VOBJ);
-        auto tokenRes = FormatToken(mnview, p.tid);
-        if (!tokenRes.ok) {
-            throw JSONRPCError(tokenRes.code, tokenRes.msg);
-        }
-        pair.pushKV(oraclefields::Token, *tokenRes.val);
-        pair.pushKV(oraclefields::Currency, p.cid.ToString());
-        result.push_back(pair);
-    }
+    UniValue result = OracleToJSON(mnview, oracle);
 
     return result;
 }
@@ -1030,7 +1082,7 @@ static const CRPCCommand commands[] =
                 {"oracles",     "removeoracle",          &removeoracle,           {"oracleid"}},
                 {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "allowedtokens"}},
                 {"oracles",     "setoracledata",         &setoracledata,          {"timestamp", "prices"}},
-                {"oracles",     "getpricefeeds",         &getpricefeeds,          {"oracleid"}},
+                {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
                 {"oracles",     "listoracles",           &listoracles,                 {}},
                 {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request"}},
                 {"oracles",     "getprice",              &getprice,               {"request"}},

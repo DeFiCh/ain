@@ -168,9 +168,14 @@ constexpr auto AggregatedPrice = "price";
 constexpr auto Alive = "live";
 constexpr auto Expired = "expired";
 constexpr auto TokenAmount = "tokenAmount";
+constexpr auto Amount = "amount";
 constexpr auto ValidityFlag = "ok";
 constexpr auto FlagIsValid = true;
 constexpr auto FlagIsError = false;
+constexpr auto PriceFeeds = "priceFeeds";
+constexpr auto OracleAddress = "address";
+constexpr auto TokenPrices = "tokenPrices";
+
 }; // namespace oraclefields
 
 /// Oracle representation
