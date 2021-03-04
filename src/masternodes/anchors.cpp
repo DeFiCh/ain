@@ -136,18 +136,21 @@ bool CAnchorAuthIndex::ValidateAuth(const CAnchorAuthIndex::Auth & auth) const
             auto prev = panchors->GetAnchorByTx(auth.previousAnchor);
 
             if (!prev) {
-                return error("%s: Got anchor auth, hash %s, blockheight: %d, but can't find previousAnchor %s", __func__, auth.GetHash().ToString(), auth.height, auth.previousAnchor.ToString());
+                LogPrint(BCLog::ANCHORING, "%s: Got anchor auth, hash %s, blockheight: %d, but can't find previousAnchor %s\n", __func__, auth.GetHash().ToString(), auth.height, auth.previousAnchor.ToString());
+                return false;
             }
 
             if (auth.height <= prev->anchor.height) {
-                return error("%s: Auth blockHeight should be higher than previousAnchor height! %d > %d !", __func__, auth.height, prev->anchor.height);
+                LogPrint(BCLog::ANCHORING, "%s: Auth blockHeight should be higher than previousAnchor height! %d > %d\n", __func__, auth.height, prev->anchor.height);
+                return false;
             }
         }
 
         auto const * topAnchor = panchors->GetActiveAnchor();
         if (topAnchor) {
             if (auth.height <= topAnchor->anchor.height) {
-                return error("%s: Auth blockHeight should be higher than top anchor height! %d > %d !", __func__, auth.height, topAnchor->anchor.height);
+                LogPrint(BCLog::ANCHORING, "%s: Auth blockHeight should be higher than top anchor height! %d > %d\n", __func__, auth.height, topAnchor->anchor.height);
+                return false;
             }
 
             // Add extra checks to make sure we are forming an anchor chain
@@ -155,12 +158,14 @@ bool CAnchorAuthIndex::ValidateAuth(const CAnchorAuthIndex::Auth & auth) const
             {
                 // Top anchor should chain from previous anchor if it exists
                 if (auth.previousAnchor.IsNull()) {
-                    return error("%s: anchor does not have previous anchor set to top anchor", __func__);
+                    LogPrint(BCLog::ANCHORING, "%s: anchor does not have previous anchor set to top anchor\n", __func__);
+                    return false;
                 }
 
                 // Previous anchor should link to top anchor
                 if (auth.previousAnchor != topAnchor->txHash) {
-                    return error("%s: anchor previousAnchor does not match top anchor", __func__);
+                    LogPrint(BCLog::ANCHORING, "%s: anchor previousAnchor does not match top anchor\n", __func__);
+                    return false;
                 }
             }
         }
@@ -169,7 +174,8 @@ bool CAnchorAuthIndex::ValidateAuth(const CAnchorAuthIndex::Auth & auth) const
     // 2. chain context:
     CBlockIndex* block = ::ChainActive()[auth.height];
     if (block == nullptr) {
-        return error("%s: Can't get block from anchor height: %d", __func__, auth.height);
+        LogPrint(BCLog::ANCHORING, "%s: Can't get block from anchor height: %d\n", __func__, auth.height);
+        return false;
     }
 
     // 3. Full anchor validation and team context
@@ -190,23 +196,27 @@ bool CAnchorAuthIndex::ValidateAuth(const CAnchorAuthIndex::Auth & auth) const
         team = panchors->GetNextTeam(auth.previousAnchor);
 
         if (auth.nextTeam != pcustomcsview->CalcNextTeam(block->stakeModifier)) {
-            return error("%s: Wrong nextTeam for auth %s", __func__, auth.GetHash().ToString());
+            LogPrint(BCLog::ANCHORING, "%s: Wrong nextTeam for auth %s\n", __func__, auth.GetHash().ToString());
+            return false;
         }
     }
 
     if (team.empty()) {
-        return error("%s: Can't get team for previousAnchor tx %s", __func__, auth.previousAnchor.ToString());
+        LogPrint(BCLog::ANCHORING, "%s: Can't get team for previousAnchor tx %s\n", __func__, auth.previousAnchor.ToString());
+        return false;
     }
 
     // 4. Signatures
 
     CPubKey pubKey;
     if (!auth.GetPubKey(pubKey)) {
-        return error("%s: Can't recover pubkey from sig, auth: %s", __func__, auth.GetHash().ToString());
+        LogPrint(BCLog::ANCHORING, "%s: Can't recover pubkey from sig, auth: %s\n", __func__, auth.GetHash().ToString());
+        return false;;
     }
     const CKeyID masternodeKey{pubKey.GetID()};
     if (team.find(masternodeKey) == team.end()) {
-        return error("%s: Recovered keyID %s is not a current team member", __func__, masternodeKey.ToString());
+        LogPrint(BCLog::ANCHORING, "%s: Recovered keyID %s is not a current team member\n", __func__, masternodeKey.ToString());
+        return false;
     }
 
     return true;

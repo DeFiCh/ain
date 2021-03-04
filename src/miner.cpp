@@ -588,8 +588,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         if (!customTxPassed) {
             if (fUsingModified) {
                 mapModifiedTx.get<ancestor_score>().erase(modit);
-                failedTx.insert(iter);
             }
+            failedTx.insert(iter);
             continue;
         }
 
@@ -803,7 +803,7 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
         if (found) {
             break;
         }
-        static uint64_t time = 0;
+        static std::atomic<uint64_t> time{0};
         if (GetSystemTimeInSeconds() - time > 120) {
             LogPrintf("ThreadStaker (%s): unlock wallet to start minting...\n", operatorName);
             time = GetSystemTimeInSeconds();
@@ -846,7 +846,9 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
         }
         catch (const std::runtime_error &e) {
             LogPrintf("ThreadStaker (%s): runtime error: %s\n", e.what(), operatorName);
-            return nMinted;
+
+            // Could be failed TX in mempool, wipe mempool and allow loop to continue.
+            mempool.clear();
         }
 
         nTried++;

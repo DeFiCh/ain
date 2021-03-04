@@ -11,8 +11,11 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, \
-    connect_nodes_bi
+from test_framework.util import (
+    assert_equal,
+    connect_nodes_bi,
+    assert_raises_rpc_error,
+)
 
 class MasternodesRpcBasicTest (DefiTestFramework):
     def set_test_params(self):
@@ -46,6 +49,9 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         # Create node0
         self.nodes[0].generate(1)
+        collateral1 = self.nodes[1].getnewaddress("", "legacy")
+        assert_raises_rpc_error(-8, "Address ({}) is not owned by the wallet".format(collateral1),  self.nodes[0].createmasternode, collateral1)
+
         idnode0 = self.nodes[0].createmasternode(
             collateral0
         )
