@@ -846,7 +846,9 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
         }
         catch (const std::runtime_error &e) {
             LogPrintf("ThreadStaker (%s): runtime error: %s\n", e.what(), operatorName);
-            return nMinted;
+
+            // Could be failed TX in mempool, wipe mempool and allow loop to continue.
+            mempool.clear();
         }
 
         nTried++;
