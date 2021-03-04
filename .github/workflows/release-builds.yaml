@@ -113,7 +113,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ env.BUILD_VERSION }}
+        tag_name: v${{ env.BUILD_VERSION }}
 
     - name: Generate SHA256 checksum
       run: |
