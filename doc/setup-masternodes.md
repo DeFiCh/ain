@@ -82,6 +82,7 @@ We're almost done, in order for the master node to operate correctly, we must ma
 
 ```
 gen=1
+spv=1
 masternode_operator=OPERATOR_ADDRESS
 masternode_owner=OWNER_ADDRESS
 ```
@@ -127,6 +128,7 @@ In this case `OWNER_ADDRESS` should be the address of the owner node you have se
 
 ```
 gen=1
+spv=1
 masternode_operator=OPERATOR_ADDRESS
 ```
 
