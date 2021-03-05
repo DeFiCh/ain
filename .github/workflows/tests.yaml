@@ -43,7 +43,7 @@ jobs:
     # The following scripts must be run in the same step as they reference Bash functions from
     # previous scripts, which are difficult to expose globally in Github workflows
     
-    - name: Test
+    - name: Tests
       run: |
           set -o errexit; source ./ci/test/03_before_install.sh
           set -o errexit; source ./ci/test/04_install.sh
