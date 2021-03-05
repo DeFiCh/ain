@@ -15,7 +15,7 @@ Res LP_SPLITS::Import(const UniValue & val) {
     for (const std::string& key : val.getKeys()) {
         const auto id = DCT_ID::FromString(key);
         if (!id.ok) {
-            return Res::Err(id.msg);
+            return id;
         }
         splits.emplace(*id.val, AmountFromValue(val[key]));//todo: AmountFromValue
     }
@@ -49,7 +49,7 @@ Res LP_SPLITS::Validate(const CCustomCSView & mnview) const {
     return Res::Ok();
 }
 
-Res LP_SPLITS::Apply(CCustomCSView & mnview) {
+Res LP_SPLITS::Apply(CCustomCSView & mnview, uint32_t height) {
     mnview.ForEachPoolPair([&] (const DCT_ID poolId, CPoolPair pool) {
         // we ought to reset previous value:
         pool.rewardPct = 0;
@@ -58,7 +58,7 @@ Res LP_SPLITS::Apply(CCustomCSView & mnview) {
             pool.rewardPct = it->second;
         }
 
-        mnview.SetPoolPair(poolId, pool);
+        mnview.SetPoolPair(poolId, height, pool);
         return true;
     });
     return Res::Ok();

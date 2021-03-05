@@ -24,8 +24,8 @@ struct ByPairKey {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(VARINT(idTokenA.v));
-        READWRITE(VARINT(idTokenB.v));
+        READWRITE(idTokenA);
+        READWRITE(idTokenB);
     }
 };
 
@@ -56,10 +56,10 @@ struct CPoolSwapMessage {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(from);
-        READWRITE(VARINT(idTokenFrom.v));
+        READWRITE(idTokenFrom);
         READWRITE(amountFrom);
         READWRITE(to);
-        READWRITE(VARINT(idTokenTo.v));
+        READWRITE(idTokenTo);
         READWRITE(maxPrice);
     }
 };
@@ -74,8 +74,8 @@ struct CPoolPairMessage {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(VARINT(idTokenA.v));
-        READWRITE(VARINT(idTokenB.v));
+        READWRITE(idTokenA);
+        READWRITE(idTokenB);
         READWRITE(commission);
         READWRITE(ownerAddress);
         READWRITE(status);
@@ -162,7 +162,7 @@ public:
         return onMint(liquidity);
     }
 
-    Res RemoveLiquidity(CScript const & address, CAmount const & liqAmount, std::function<Res(CScript to, CAmount amountA, CAmount amountB)> onReclaim) {
+    Res RemoveLiquidity(CAmount const & liqAmount, std::function<Res(CAmount amountA, CAmount amountB)> onReclaim) {
         // instead of assertion due to tests
         // IRL it can't be more than "total-1000", and was checked indirectly by balances before. but for tests and incapsulation:
         if (liqAmount <= 0 || liqAmount >= totalLiquidity) {
@@ -177,7 +177,7 @@ public:
         reserveB -= resAmountB;
         totalLiquidity -= liqAmount;
 
-        return onReclaim(address, resAmountA, resAmountB);
+        return onReclaim(resAmountA, resAmountB);
     }
 
     Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer, int height = INT_MAX);
@@ -226,8 +226,28 @@ struct PoolShareKey {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(WrapBigEndian(poolID.v));
+        READWRITE(poolID);
         READWRITE(owner);
+    }
+};
+
+struct PoolRewardKey {
+    DCT_ID poolID;
+    uint32_t height;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(poolID);
+
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(height));
+            height = ~height;
+        } else {
+            uint32_t height_ = ~height;
+            READWRITE(WrapBigEndian(height_));
+        }
     }
 };
 
@@ -249,24 +269,36 @@ inline std::string RewardToString(RewardType type)
 class CPoolPairView : public virtual CStorageView
 {
 public:
-    Res SetPoolPair(const DCT_ID &poolId, CPoolPair const & pool);
-    Res UpdatePoolPair(DCT_ID const & poolId, bool status, CAmount const & commission, CScript const & ownerAddress);
+    Res SetPoolPair(const DCT_ID &poolId, uint32_t height, CPoolPair const & pool);
+    Res UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool status, CAmount const & commission, CScript const & ownerAddress);
 
-    Res SetPoolCustomReward(const DCT_ID &poolId, CBalances &rewards);
+    Res SetPoolCustomReward(const DCT_ID &poolId, uint32_t height, const CBalances &rewards);
     boost::optional<CBalances> GetPoolCustomReward(const DCT_ID &poolId);
 
     boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
     boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 
     void ForEachPoolPair(std::function<bool(DCT_ID const &, CLazySerialize<CPoolPair>)> callback, DCT_ID const & start = DCT_ID{0});
-    void ForEachPoolShare(std::function<bool(DCT_ID const &, CScript const &)> callback, PoolShareKey const &startKey = {}) const;
+    void ForEachPoolShare(std::function<bool(DCT_ID const &, CScript const &, uint32_t)> callback, PoolShareKey const &startKey = {});
 
-    Res SetShare(DCT_ID const & poolId, CScript const & provider) {
-        WriteBy<ByShare>(PoolShareKey{poolId, provider}, '\0');
+    Res SetShare(DCT_ID const & poolId, CScript const & provider, uint32_t height) {
+        WriteBy<ByShare>(PoolShareKey{poolId, provider}, height);
         return Res::Ok();
     }
+
     Res DelShare(DCT_ID const & poolId, CScript const & provider) {
         EraseBy<ByShare>(PoolShareKey{poolId, provider});
+        return Res::Ok();
+    }
+
+    boost::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider) {
+        return ReadBy<ByShare, uint32_t>(PoolShareKey{poolId, provider});
+    }
+
+    void CalculatePoolRewards(DCT_ID const & poolId, CAmount liquidity, uint32_t begin, uint32_t end, std::function<void(CScript const &, uint8_t, CTokenAmount, uint32_t, uint32_t)> onReward);
+
+    Res SetDailyReward(uint32_t height, CAmount reward) {
+        WriteBy<ByDailyReward>(PoolRewardKey{{}, height}, reward);
         return Res::Ok();
     }
 
@@ -309,7 +341,7 @@ public:
                 return true; // no events, skip to the next pool
             }
 
-            ForEachPoolShare([&] (DCT_ID const & currentId, CScript const & provider) {
+            ForEachPoolShare([&] (DCT_ID const & currentId, CScript const & provider, uint32_t height) {
                 if (currentId != poolId) {
                     return false; // stop
                 }
@@ -368,7 +400,7 @@ public:
                 pool.blockCommissionB -= distributedFeeB;
                 pool.swapEvent = false;
 
-                auto res = SetPoolPair(poolId, pool);
+                auto res = SetPoolPair(poolId, UINT_MAX, pool);
                 if (!res.ok) {
                     LogPrintf("Pool rewards: can't update pool (id=%s) state: %s\n", poolId.ToString(), res.msg);
                 }
@@ -378,12 +410,13 @@ public:
         return totalDistributed;
     }
 
-
     // tags
     struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair
     struct ByPair { static const unsigned char prefix; }; // tokenA+tokenB -> lsTokenID
     struct ByShare { static const unsigned char prefix; }; // lsTokenID+accountID -> {}
     struct Reward { static const unsigned char prefix; }; // lsTokenID -> CBalances
+    struct ByDailyReward { static const unsigned char prefix; };
+    struct ByPoolHeight { static const unsigned char prefix; };
 };
 
 struct CLiquidityMessage {

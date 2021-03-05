@@ -94,7 +94,6 @@ struct CAccountToUtxosMessage;
 struct CAccountToAccountMessage;
 struct CAnchorFinalizationMessage;
 struct CAnyAccountsToAccountsMessage;
-struct CBalances;
 struct CLiquidityMessage;
 struct CPoolSwapMessage;
 struct CRemoveLiquidityMessage;
@@ -212,6 +211,7 @@ Res RpcInfo(const CTransaction& tx, uint32_t height, CustomTxType& type, UniValu
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage);
 Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time = 0, uint32_t txn = 0);
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time = 0);
+Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height);
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 

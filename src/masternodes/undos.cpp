@@ -7,7 +7,7 @@
 /// @attention make sure that it does not overlap with those in masternodes.cpp/tokens.cpp/undos.cpp/accounts.cpp !!!
 const unsigned char CUndosView::ByUndoKey::prefix = 'u';
 
-void CUndosView::ForEachUndo(std::function<bool(UndoKey, CLazySerialize<CUndo>)> callback, UndoKey const & start) const
+void CUndosView::ForEachUndo(std::function<bool(UndoKey, CLazySerialize<CUndo>)> callback, UndoKey const & start)
 {
     ForEach<ByUndoKey, UndoKey, CUndo>(callback, start);
 }

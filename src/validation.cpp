@@ -2359,7 +2359,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     { // old data pruning and other (some processing made for the whole block)
         // make all changes to the new cache/snapshot to make it possible to take a diff later:
-        CRewardsHistoryStorage cache(mnview, static_cast<uint32_t>(pindex->nHeight));
+        CCustomCSView cache(mnview);
 
 //        cache.CallYourInterblockProcessingsHere();
 
@@ -2383,7 +2383,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                             return res; // no funds, no rewards
                         }
                     }
-                    auto res = cache.AddBalance(to, poolID, type, amount);
+                    auto res = cache.AddBalance(to, amount);
                     if (!res.ok) {
                         LogPrintf("Pool rewards: can't update balance of %s: %s, Block %ld (%s)\n", to.GetHex(), res.msg, block.height, block.GetHash().ToString());
                     }

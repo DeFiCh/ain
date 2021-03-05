@@ -14,9 +14,15 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
 
     CAccounts walletAccounts;
 
-    pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
-        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
-            walletAccounts[owner].Add(balance);
+    CCustomCSView mnview(*pcustomcsview);
+    auto targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    mnview.ForEachAccount([&](CScript const & account) {
+        if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
+            mnview.CalculateOwnerRewards(account, targetHeight);
+            mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+                return account == owner && walletAccounts[owner].Add(balance);
+            }, {account, DCT_ID{}});
         }
         return true;
     });

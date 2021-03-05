@@ -70,7 +70,7 @@ struct DCT_ID {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(v);
+        READWRITE(VARINT(v));
     }
 };
 
@@ -162,7 +162,7 @@ struct CTokenAmount { // simple std::pair is less informative
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(VARINT(nTokenId.v));
+        READWRITE(nTokenId);
         READWRITE(nValue);
     }
 

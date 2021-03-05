@@ -28,7 +28,7 @@ Res CCommunityBalancesView::SetCommunityBalance(CommunityAccountType account, CA
     return Res::Ok();
 }
 
-void CCommunityBalancesView::ForEachCommunityBalance(std::function<bool (CommunityAccountType, CLazySerialize<CAmount>)> callback) const
+void CCommunityBalancesView::ForEachCommunityBalance(std::function<bool (CommunityAccountType, CLazySerialize<CAmount>)> callback)
 {
     ForEach<ById, unsigned char, CAmount>([&callback] (unsigned char const & key, CLazySerialize<CAmount> val) {
         return callback(CommunityAccountCodeToType(key), val);
