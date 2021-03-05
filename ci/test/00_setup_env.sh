@@ -9,11 +9,9 @@ export LC_ALL=C.UTF-8
 echo "Setting default values in env"
 
 BASE_ROOT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../ >/dev/null 2>&1 && pwd )
-export BASE_ROOT_DIR
 
-# The number of parallel jobs to pass down to make and test_runner.py
+export BASE_ROOT_DIR
 export MAKEJOBS=${MAKEJOBS:--j4}
-# A folder for the ci system to put temporary files (ccache, datadirs for tests, ...)
 export BASE_SCRATCH_DIR=${BASE_SCRATCH_DIR:-$BASE_ROOT_DIR/ci/scratch/}
 export HOST=${HOST:-x86_64-unknown-linux-gnu}
 export RUN_UNIT_TESTS=${RUN_UNIT_TESTS:-true}
@@ -34,6 +32,30 @@ export GOAL=${GOAL:-install}
 export DIR_QA_ASSETS=${DIR_QA_ASSETS:-${BASE_BUILD_DIR}/qa-assets}
 export PATH=${BASE_ROOT_DIR}/ci/retry:$PATH
 export CI_RETRY_EXE=${CI_RETRY_EXE:retry}
+
+# This is required so Github actions can see the env vars in the next step
+echo "BASE_ROOT_DIR=${BASE_ROOT_DIR}" >> $GITHUB_ENV
+echo "MAKEJOBS=${MAKEJOBS}" >> $GITHUB_ENV
+echo "BASE_SCRATCH_DIR=${BASE_SCRATCH_DIR}" >> $GITHUB_ENV
+echo "HOST=${HOST}" >> $GITHUB_ENV
+echo "RUN_UNIT_TESTS=${RUN_UNIT_TESTS}" >> $GITHUB_ENV
+echo "RUN_FUNCTIONAL_TESTS=${RUN_FUNCTIONAL_TESTS}" >> $GITHUB_ENV
+echo "RUN_FUZZ_TESTS=${RUN_FUZZ_TESTS}" >> $GITHUB_ENV
+echo "DOCKER_NAME_TAG=${DOCKER_NAME_TAG}" >> $GITHUB_ENV
+echo "BOOST_TEST_RANDOM=${BOOST_TEST_RANDOM}" >> $GITHUB_ENV
+echo "CCACHE_SIZE=${CCACHE_SIZE}" >> $GITHUB_ENV
+echo "CCACHE_TEMPDIR=${CCACHE_TEMPDIR}" >> $GITHUB_ENV
+echo "CCACHE_COMPRESS=${CCACHE_COMPRESS}" >> $GITHUB_ENV
+echo "CCACHE_DIR=${CCACHE_DIR}" >> $GITHUB_ENV
+echo "BASE_BUILD_DIR=${BASE_BUILD_DIR}" >> $GITHUB_ENV
+echo "BASE_OUTDIR=${BASE_OUTDIR}" >> $GITHUB_ENV
+echo "SDK_URL=${SDK_URL}" >> $GITHUB_ENV
+echo "WINEDEBUG=${WINEDEBUG}" >> $GITHUB_ENV
+echo "DOCKER_PACKAGES=${DOCKER_PACKAGES}" >> $GITHUB_ENV
+echo "GOAL=${GOAL}" >> $GITHUB_ENV
+echo "DIR_QA_ASSETS=${DIR_QA_ASSETS}" >> $GITHUB_ENV
+echo "PATH=${PATH}" >> $GITHUB_ENV
+echo "CI_RETRY_EXE=${CI_RETRY_EXE}" >> $GITHUB_ENV
 
 echo "Setting specific values in env"
 if [ -n "${FILE_ENV}" ]; then
