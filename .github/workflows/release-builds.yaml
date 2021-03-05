@@ -129,7 +129,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.get_release_by_tag.outputs.release.data.upload_url }}
+        upload_url: ${{ steps.get_release_by_tag.outputs.upload_url }}
         asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
         asset_content_type: application/gzip
@@ -139,7 +139,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.get_release_by_tag.outputs.release.data.upload_url }}
+        upload_url: ${{ steps.get_release_by_tag.outputs.upload_url }}
         asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz.SHA256
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz.SHA256
         asset_content_type: text/plain
@@ -149,7 +149,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.get_release_by_tag.outputs.release.data.upload_url }}
+        upload_url: ${{ steps.get_release_by_tag.outputs.upload_url }}
         asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip
         asset_content_type: application/zip
@@ -159,7 +159,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.get_release_by_tag.outputs.release.data.upload_url }}
+        upload_url: ${{ steps.get_release_by_tag.outputs.upload_url }}
         asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip.SHA256
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.zip.SHA256
         asset_content_type: text/plain
@@ -169,7 +169,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.get_release_by_tag.outputs.release.data.upload_url }}
+        upload_url: ${{ steps.get_release_by_tag.outputs.upload_url }}
         asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
         asset_content_type: application/gzip
@@ -179,7 +179,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.get_release_by_tag.outputs.release.data.upload_url }}
+        upload_url: ${{ steps.get_release_by_tag.outputs.upload_url }}
         asset_path: ./defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz.SHA256
         asset_name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz.SHA256
         asset_content_type: text/plain
