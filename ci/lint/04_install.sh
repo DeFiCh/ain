@@ -6,6 +6,8 @@
 
 export LC_ALL=C
 
+PATH=$PATH:~/.local/bin
+
 curl -fsSL -o- https://bootstrap.pypa.io/3.5/get-pip.py | python3
 pip3 install codespell==1.15.0
 pip3 install flake8==3.5.0
