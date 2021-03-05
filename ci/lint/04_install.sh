@@ -6,7 +6,7 @@
 
 export LC_ALL=C
 
-pip3 install -U pip setuptools
+curl -fsSL -o- https://bootstrap.pypa.io/3.5/get-pip.py | python3
 pip3 install codespell==1.15.0
 pip3 install flake8==3.5.0
 pip3 install vulture==0.29
