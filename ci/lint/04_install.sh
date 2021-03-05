@@ -6,9 +6,9 @@
 
 export LC_ALL=C
 
-travis_retry pip3 install codespell==1.15.0
-travis_retry pip3 install flake8==3.5.0
-travis_retry pip3 install vulture==0.29
+pip3 install codespell==1.15.0
+pip3 install flake8==3.5.0
+pip3 install vulture==0.29
 
 SHELLCHECK_VERSION=v0.7.1
 curl -L -s "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" | tar --xz -xf - --directory /tmp/
