@@ -1,3 +1,5 @@
+name: Dev Build
+
 on:
   push:
     tags:
