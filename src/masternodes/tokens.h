@@ -146,7 +146,7 @@ public:
 
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(CTokenImpl const & token, bool isPreBayfront);
-    bool RevertCreateToken(uint256 const & txid);   /// @deprecated used only by tests. rewrite tests
+    Res RevertCreateToken(uint256 const & txid);
     Res UpdateToken(uint256 const & tokenTx, CToken const & newToken, bool isPreBayfront);
 
     Res BayfrontFlagsCleanup();
@@ -161,10 +161,8 @@ public:
 private:
     // have to incapsulate "last token id" related methods here
     DCT_ID IncrementLastDctId();
-    DCT_ID DecrementLastDctId(); /// @deprecated used only by "revert*". rewrite tests
+    DCT_ID DecrementLastDctId();
     boost::optional<DCT_ID> ReadLastDctId() const;
 };
-
-
 
 #endif // DEFI_MASTERNODES_TOKENS_H

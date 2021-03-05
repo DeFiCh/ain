@@ -52,60 +52,17 @@ struct AccountHistoryValue {
     }
 };
 
-struct RewardHistoryKey {
-    CScript owner;
-    uint32_t blockHeight;
-    uint8_t category;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(owner);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(blockHeight));
-            blockHeight = ~blockHeight;
-        }
-        else {
-            uint32_t blockHeight_ = ~blockHeight;
-            READWRITE(WrapBigEndian(blockHeight_));
-        }
-
-        READWRITE(category);
-    }
-};
-
-using RewardHistoryValue = std::map<DCT_ID, TAmounts>;
-
 class CAccountsHistoryView : public virtual CStorageView
 {
 public:
-    Res SetMineAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
-    Res SetAllAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
-    void ForEachMineAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {}) const;
-    void ForEachAllAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {}) const;
+    Res SetAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
+    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {});
 
     // tags
-    struct ByMineAccountHistoryKey { static const unsigned char prefix; };
-    struct ByAllAccountHistoryKey { static const unsigned char prefix; };
+    struct ByAccountHistoryKey { static const unsigned char prefix; };
 };
 
-class CRewardsHistoryView : public virtual CStorageView
-{
-public:
-    Res SetMineRewardHistory(RewardHistoryKey const & key, RewardHistoryValue const & value);
-    Res SetAllRewardHistory(RewardHistoryKey const & key, RewardHistoryValue const & value);
-    void ForEachMineRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start = {}) const;
-    void ForEachAllRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start = {}) const;
-
-    // tags
-    struct ByMineRewardHistoryKey { static const unsigned char prefix; };
-    struct ByAllRewardHistoryKey { static const unsigned char prefix; };
-};
-
-static constexpr bool DEFAULT_ACINDEX = false;
-static constexpr bool DEFAULT_ACINDEX_MINEONLY = true;
+static constexpr bool DEFAULT_ACINDEX = true;
 
 class CCustomCSView;
 bool shouldMigrateOldRewardHistory(CCustomCSView & view);

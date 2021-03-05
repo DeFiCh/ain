@@ -298,22 +298,85 @@ private:
 template<typename T>
 class CLazySerialize {
     Optional<T> value;
-    CStorageKVIterator& it;
+    std::unique_ptr<CStorageKVIterator>& it;
 
 public:
     CLazySerialize(const CLazySerialize&) = default;
-    explicit CLazySerialize(CStorageKVIterator& it) : it(it) {}
+    explicit CLazySerialize(std::unique_ptr<CStorageKVIterator>& it) : it(it) {}
 
-    operator T() {
+    operator T() & {
         return get();
     }
-
+    operator T() && {
+        get();
+        return std::move(*value);
+    }
     const T& get() {
         if (!value) {
             value = T{};
-            BytesToDbType(it.Value(), *value);
+            BytesToDbType(it->Value(), *value);
         }
         return *value;
+    }
+};
+
+template<typename By, typename KeyType>
+class CStorageIteratorWrapper {
+    bool valid = false;
+    std::pair<uint8_t, KeyType> key;
+    std::unique_ptr<CStorageKVIterator> it;
+
+    void UpdateValidity() {
+        valid = it->Valid() && BytesToDbType(it->Key(), key) && key.first == By::prefix;
+    }
+
+    struct Resolver {
+        std::unique_ptr<CStorageKVIterator>& it;
+
+        template<typename T>
+        inline operator CLazySerialize<T>() {
+            return CLazySerialize<T>{it};
+        }
+        template<typename T>
+        inline T as() {
+            return CLazySerialize<T>{it};
+        }
+        template<typename T>
+        inline operator T() {
+            return as<T>();
+        }
+    };
+
+public:
+    CStorageIteratorWrapper(CStorageIteratorWrapper&&) = default;
+    CStorageIteratorWrapper(std::unique_ptr<CStorageKVIterator> it) : it(std::move(it)) {}
+
+    CStorageIteratorWrapper& operator=(CStorageIteratorWrapper&& other) {
+        valid = other.valid;
+        it = std::move(other.it);
+        key = std::move(other.key);
+        return *this;
+    }
+    bool Valid() {
+        return valid;
+    }
+    const KeyType& Key() {
+        assert(Valid());
+        return key.second;
+    }
+    Resolver Value() {
+        assert(Valid());
+        return Resolver{it};
+    }
+    void Next() {
+        assert(Valid());
+        it->Next();
+        UpdateValidity();
+    }
+    void Seek(const KeyType& newKey) {
+        key = std::make_pair(By::prefix, newKey);
+        it->Seek(DbTypeToBytes(key));
+        UpdateValidity();
     }
 };
 
@@ -371,20 +434,21 @@ public:
             return {result};
         return {};
     }
-
+    template<typename By, typename KeyType>
+    CStorageIteratorWrapper<By, KeyType> LowerBound(KeyType const & key) {
+        CStorageIteratorWrapper<By, KeyType> it{DB().NewIterator()};
+        it.Seek(key);
+        return it;
+    }
     template<typename By, typename KeyType, typename ValueType>
-    bool ForEach(std::function<bool(KeyType const &, CLazySerialize<ValueType>)> callback, KeyType const & start = KeyType()) const {
-        auto& self = const_cast<CStorageView&>(*this);
-        auto key = std::make_pair(By::prefix, start);
-
-        auto it = self.DB().NewIterator();
-        for(it->Seek(DbTypeToBytes(key)); it->Valid() && BytesToDbType(it->Key(), key) && key.first == By::prefix; it->Next()) {
+    void ForEach(std::function<bool(KeyType const &, CLazySerialize<ValueType>)> callback, KeyType const & start = {}) {
+        for(auto it = LowerBound<By>(start); it.Valid(); it.Next()) {
             boost::this_thread::interruption_point();
 
-            if (!callback(key.second, CLazySerialize<ValueType>(*it)))
+            if (!callback(it.Key(), it.Value())) {
                 break;
+            }
         }
-        return true;
     }
 
     bool Flush() { return DB().Flush(); }

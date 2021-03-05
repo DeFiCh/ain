@@ -416,25 +416,29 @@ void CMasternodesView::ForEachMinterNode(std::function<bool(MNBlockTimeKey const
     ForEach<Staker, MNBlockTimeKey, int64_t>(callback, start);
 }
 
-//void CMasternodesView::UnCreateMasternode(const uint256 & nodeId)
-//{
-//    auto node = GetMasternode(nodeId);
-//    if (node) {
-//        EraseBy<ID>(nodeId);
-//        EraseBy<Operator>(node->operatorAuthAddress);
-//        EraseBy<Owner>(node->ownerAuthAddress);
-//    }
-//}
+Res CMasternodesView::UnCreateMasternode(const uint256 & nodeId)
+{
+    auto node = GetMasternode(nodeId);
+    if (node) {
+        EraseBy<ID>(nodeId);
+        EraseBy<Operator>(node->operatorAuthAddress);
+        EraseBy<Owner>(node->ownerAuthAddress);
+        return Res::Ok();
+    }
+    return Res::Err("No such masternode %s", nodeId.GetHex());
+}
 
-//void CMasternodesView::UnResignMasternode(const uint256 & nodeId, const uint256 & resignTx)
-//{
-//    auto node = GetMasternode(nodeId);
-//    if (node && node->resignTx == resignTx) {
-//        node->resignHeight = -1;
-//        node->resignTx = {};
-//        WriteBy<ID>(nodeId, *node);
-//    }
-//}
+Res CMasternodesView::UnResignMasternode(const uint256 & nodeId, const uint256 & resignTx)
+{
+    auto node = GetMasternode(nodeId);
+    if (node && node->resignTx == resignTx) {
+        node->resignHeight = -1;
+        node->resignTx = {};
+        WriteBy<ID>(nodeId, *node);
+        return Res::Ok();
+    }
+    return Res::Err("No such masternode %s, resignTx: %s", nodeId.GetHex(), resignTx.GetHex());
+}
 
 /*
  *  CLastHeightView
@@ -721,17 +725,50 @@ bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
     return !pair || pair->second.destructionTx != uint256{} || pair->second.IsPoolShare();
 }
 
-enum accountHistoryType {
-    None = 0,
-    MineOnly,
-    Full,
-};
+bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t targetHeight)
+{
+    auto balanceHeight = GetBalancesHeight(owner);
+    if (balanceHeight >= targetHeight) {
+        return false;
+    }
+    ForEachPoolPair([&] (DCT_ID const & poolId, CLazySerialize<CPoolPair>) {
+        auto height = GetShare(poolId, owner);
+        if (!height || *height >= targetHeight) {
+            return true; // no share or target height is before a pool share' one
+        }
+        auto beginHeight = std::max(*height, balanceHeight);
+        CalculatePoolRewards(poolId, GetBalance(owner, poolId).nValue, beginHeight, targetHeight,
+            [&](CScript const & from, uint8_t type, CTokenAmount amount, uint32_t begin, uint32_t end) {
+                amount.nValue *= (end - begin);
+                if (!from.empty()) {
+                    auto res = SubBalance(from, amount);
+                    if (!res) {
+                        LogPrintf("Custom pool rewards: can't subtract balance of %s: %s, height %ld\n", from.GetHex(), res.msg, targetHeight);
+                        return; // no funds, no rewards
+                    }
+                } else if (type != uint8_t(RewardType::Commission)) {
+                    auto res = SubCommunityBalance(CommunityAccountType::IncentiveFunding, amount.nValue);
+                    if (!res) {
+                        LogPrintf("Pool rewards: can't subtract community balance: %s, height %ld\n", res.msg, targetHeight);
+                        return;
+                    }
+                }
+                auto res = AddBalance(owner, amount);
+                if (!res) {
+                    LogPrintf("Pool rewards: can't update balance of %s: %s, height %ld\n", owner.GetHex(), res.msg, targetHeight);
+                }
+            }
+        );
+        return true;
+    });
+
+    return UpdateBalancesHeight(owner, targetHeight);
+}
 
 CAccountsHistoryStorage::CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type)
     : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height), txn(txn), txid(txid), type(type)
 {
-    acindex = gArgs.GetBoolArg("-acindex-mineonly", DEFAULT_ACINDEX_MINEONLY) ? accountHistoryType::MineOnly :
-              gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX) ? accountHistoryType::Full : accountHistoryType::None;
+    acindex = gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX);
 }
 
 Res CAccountsHistoryStorage::AddBalance(CScript const & owner, CTokenAmount amount)
@@ -755,56 +792,8 @@ Res CAccountsHistoryStorage::SubBalance(CScript const & owner, CTokenAmount amou
 bool CAccountsHistoryStorage::Flush()
 {
     if (acindex) {
-        auto wallets = GetWallets();
         for (const auto& diff : diffs) {
-            bool isMine = false;
-            for (auto wallet : wallets) {
-                if ((isMine = IsMineCached(*wallet, diff.first) & ISMINE_ALL)) {
-                    SetMineAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
-                    break;
-                }
-            }
-            if (!isMine && acindex == accountHistoryType::Full) {
-                SetAllAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
-            }
-        }
-    }
-    return CCustomCSView::Flush();
-}
-
-CRewardsHistoryStorage::CRewardsHistoryStorage(CCustomCSView & storage, uint32_t height)
-    : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height)
-{
-    acindex = gArgs.GetBoolArg("-acindex-mineonly", DEFAULT_ACINDEX_MINEONLY) ? accountHistoryType::MineOnly :
-              gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX) ? accountHistoryType::Full : accountHistoryType::None;
-}
-
-Res CRewardsHistoryStorage::AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount)
-{
-    auto res = CCustomCSView::AddBalance(owner, amount);
-    if (acindex && res.ok && amount.nValue > 0) {
-        auto& map = diffs[std::make_pair(owner, type)];
-        map[poolID][amount.nTokenId] += amount.nValue;
-    }
-    return res;
-}
-
-bool CRewardsHistoryStorage::Flush()
-{
-    if (acindex) {
-        auto wallets = GetWallets();
-        for (const auto& diff : diffs) {
-            bool isMine = false;
-            const auto& pair = diff.first;
-            for (auto wallet : wallets) {
-                if ((isMine = IsMineCached(*wallet, pair.first) & ISMINE_ALL)) {
-                    SetMineRewardHistory({pair.first, height, pair.second}, diff.second);
-                    break;
-                }
-            }
-            if (!isMine && acindex == accountHistoryType::Full) {
-                SetAllRewardHistory({pair.first, height, pair.second}, diff.second);
-            }
+            SetAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
         }
     }
     return CCustomCSView::Flush();

@@ -155,8 +155,8 @@ public:
 
     Res CreateMasternode(uint256 const & nodeId, CMasternode const & node);
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
-//    void UnCreateMasternode(uint256 const & nodeId);
-//    void UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
+    Res UnCreateMasternode(uint256 const & nodeId);
+    Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
 
     void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
     boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter);
@@ -241,7 +241,6 @@ class CCustomCSView
         , public CTokensView
         , public CAccountsView
         , public CAccountsHistoryView
-        , public CRewardsHistoryView
         , public CCommunityBalancesView
         , public CUndosView
         , public CPoolPairView
@@ -273,6 +272,8 @@ public:
 
     bool CanSpend(const uint256 & txId, int height) const;
 
+    bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
+
     CStorageKV& GetRaw() {
         return DB();
     }
@@ -280,7 +281,7 @@ public:
 
 class CAccountsHistoryStorage : public CCustomCSView
 {
-    int acindex;
+    bool acindex;
     const uint32_t height;
     const uint32_t txn;
     const uint256 txid;
@@ -290,18 +291,6 @@ public:
     CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type);
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    bool Flush();
-};
-
-class CRewardsHistoryStorage : public CCustomCSView
-{
-    int acindex;
-    const uint32_t height;
-    std::map<std::pair<CScript, uint8_t>, std::map<DCT_ID, TAmounts>> diffs;
-    using CCustomCSView::AddBalance;
-public:
-    CRewardsHistoryStorage(CCustomCSView & storage, uint32_t height);
-    Res AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount);
     bool Flush();
 };
 

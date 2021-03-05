@@ -135,27 +135,24 @@ struct CBalances
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(balances);
+        static_assert(std::is_same<decltype(balances), std::map<DCT_ID, CAmount>>::value, "Following code is invalid");
+        std::map<uint32_t, CAmount> serializedBalances;
         if (ser_action.ForRead()) {
+            READWRITE(serializedBalances);
+            balances.clear();
             // check that no zero values are written
-            const size_t sizeOriginal = balances.size();
-            TrimZeros();
-            const size_t sizeStripped = balances.size();
-            if (sizeOriginal != sizeStripped) {
-                throw std::ios_base::failure("non-canonical balances (zero amount)");
+            for (auto it = serializedBalances.begin(); it != serializedBalances.end(); /* advance */) {
+                if (it->second == 0) {
+                    throw std::ios_base::failure("non-canonical balances (zero amount)");
+                }
+                balances.emplace(DCT_ID{it->first}, it->second);
+                serializedBalances.erase(it++);
             }
-        }
-    }
-
-private:
-    // TrimZeros is private because balances cannot have zeros normally
-    void TrimZeros() {
-        for (auto it = balances.begin(); it != balances.end(); /* no advance */) {
-            if (it->second == 0) {
-                it = balances.erase(it);
+        } else {
+            for (const auto& it : balances) {
+                serializedBalances.emplace(it.first.v, it.second);
             }
-            else
-                it++;
+            READWRITE(serializedBalances);
         }
     }
 };

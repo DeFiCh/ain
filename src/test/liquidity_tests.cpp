@@ -1,5 +1,6 @@
 #include <chainparams.h>
 #include <masternodes/masternodes.h>
+#include <masternodes/poolpairs.h>
 #include <validation.h>
 
 #include <test/setup_common.h>
@@ -44,7 +45,7 @@ std::tuple<DCT_ID, DCT_ID, DCT_ID> CreatePoolNTokens(CCustomCSView &mnview, std:
         pool.commission = 1000000; // 1%
     //    poolMsg.ownerAddress = CScript();
         pool.status = true;
-        BOOST_REQUIRE(mnview.SetPoolPair(idPool, pool).ok);
+        BOOST_REQUIRE(mnview.SetPoolPair(idPool, 1, pool).ok);
     }
     return std::tuple<DCT_ID, DCT_ID, DCT_ID>(idA, idB, idPool); // ! simple initialization list (as "{a,b,c}")  doesn't work here under ubuntu 16.04 - due to older gcc?
 }
@@ -62,14 +63,14 @@ Res AddPoolLiquidity(CCustomCSView &mnview, DCT_ID idPool, CAmount amountA, CAmo
             return add;
         }
         //insert update ByShare index
-        const auto setShare = mnview.SetShare(idPool, shareAddress);
+        const auto setShare = mnview.SetShare(idPool, shareAddress, 1);
         if (!setShare.ok) {
             return setShare;
         }
         return Res::Ok();
     });
     BOOST_REQUIRE(res.ok);
-    return mnview.SetPoolPair(idPool, *optPool);
+    return mnview.SetPoolPair(idPool, 1, *optPool);
 }
 
 BOOST_FIXTURE_TEST_SUITE(liquidity_tests, TestingSetup)
@@ -244,7 +245,7 @@ void SetPoolRewardPct(CCustomCSView & mnview, DCT_ID idPool, CAmount pct)
     auto optPool = mnview.GetPoolPair(idPool);
     BOOST_REQUIRE(optPool);
     optPool->rewardPct = pct;
-    mnview.SetPoolPair(idPool, *optPool);
+    mnview.SetPoolPair(idPool, 1, *optPool);
 }
 
 void SetPoolTradeFees(CCustomCSView & mnview, DCT_ID idPool, CAmount A, CAmount B)
@@ -254,7 +255,7 @@ void SetPoolTradeFees(CCustomCSView & mnview, DCT_ID idPool, CAmount A, CAmount 
     optPool->blockCommissionA = A;
     optPool->blockCommissionB = B;
     optPool->swapEvent = true;
-    mnview.SetPoolPair(idPool, *optPool);
+    mnview.SetPoolPair(idPool, 1, *optPool);
 }
 
 BOOST_AUTO_TEST_CASE(math_rewards)
@@ -328,7 +329,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
         // check it
         auto rwd25 = 25 * COIN / ProvidersCount;
         auto rwd50 = 50 * COIN / ProvidersCount;
-        cache.ForEachPoolShare([&] (DCT_ID const & id, CScript const & owner) {
+        cache.ForEachPoolShare([&] (DCT_ID const & id, CScript const & owner, uint32_t) {
 //            if (id == RWD25/* || id == RWD50*/)
 //                printf("owner = %s: %s,\n", owner.GetHex().c_str(), cache.GetBalance(owner, DCT_ID{0}).ToString().c_str());
 
@@ -352,7 +353,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
         {
             DCT_ID idPool = DCT_ID{1};
             auto optPool = cache.GetPoolPair(idPool);
-            cache.ForEachPoolShare([&] (DCT_ID const & id, CScript const & owner) {
+            cache.ForEachPoolShare([&] (DCT_ID const & id, CScript const & owner, uint32_t) {
                 if (id != idPool)
                     return false;
 
@@ -368,5 +369,142 @@ BOOST_AUTO_TEST_CASE(math_rewards)
     }
 }
 
+BOOST_AUTO_TEST_CASE(owner_rewards)
+{
+    CCustomCSView mnview(*pcustomcsview);
+
+    constexpr const int PoolCount = 10;
+    CScript shareAddress[PoolCount];
+
+    // create pools
+    for (int i = 0; i < PoolCount; ++i) {
+        DCT_ID idA, idB, idPool;
+        std::tie(idA, idB, idPool) = CreatePoolNTokens(mnview, "A"+std::to_string(i), "B"+std::to_string(i));
+        shareAddress[i] = CScript(idPool.v * PoolCount + i);
+        auto optPool = mnview.GetPoolPair(idPool);
+        BOOST_REQUIRE(optPool);
+    }
+
+    // create shares
+    mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CLazySerialize<CPoolPair>) {
+        for (int i = 0; i < PoolCount; ++i) {
+            Res res = AddPoolLiquidity(mnview, idPool, idPool.v*COIN, idPool.v*COIN, shareAddress[i]);
+            BOOST_CHECK(res.ok);
+        }
+        return true;
+    });
+
+    mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
+        pool.rewardPct = COIN/(idPool.v + 1);
+        pool.blockCommissionA = idPool.v * COIN;
+        pool.blockCommissionB = idPool.v * COIN * 2;
+        pool.swapEvent = true;
+        pool.ownerAddress = shareAddress[0];
+        mnview.SetPoolPair(idPool, 1, pool);
+        mnview.SetPoolCustomReward(idPool, 1, {TAmounts{{idPool, COIN}}});
+        return true;
+    });
+
+    mnview.SetDailyReward(3, COIN);
+
+    auto oldRewardCalculation = [](CAmount liquidity, const CPoolPair& pool) -> CAmount {
+        constexpr const uint32_t PRECISION = 10000;
+        int32_t liqWeight = liquidity * PRECISION / pool.totalLiquidity;
+        return COIN / 2880 * pool.rewardPct / COIN * liqWeight / PRECISION;
+    };
+
+    auto oldCommissionCalculation = [](CAmount liquidity, const CPoolPair& pool) -> std::pair<CAmount, CAmount> {
+        constexpr const uint32_t PRECISION = 10000;
+        int32_t liqWeight = liquidity * PRECISION / pool.totalLiquidity;
+        auto feeA = pool.blockCommissionA * liqWeight / PRECISION;
+        auto feeB = pool.blockCommissionB * liqWeight / PRECISION;
+        return std::make_pair(feeA, feeB);
+    };
+
+    mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
+        auto liquidity = mnview.GetBalance(shareAddress[0], idPool).nValue;
+        mnview.CalculatePoolRewards(idPool, liquidity, 1, 10,
+            [&](CScript const &, uint8_t type, CTokenAmount amount, uint32_t begin, uint32_t end) {
+                switch(type) {
+                case int(RewardType::Rewards):
+                    BOOST_CHECK_EQUAL(begin, 3);
+                    BOOST_CHECK_EQUAL(end, 10);
+                    BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(liquidity, pool));
+                    break;
+                case int(RewardType::Commission):
+                    BOOST_CHECK_EQUAL(begin, 1);
+                    BOOST_CHECK_EQUAL(end, 2);
+                    if (amount.nTokenId == pool.idTokenA) {
+                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(liquidity, pool).first);
+                    } else {
+                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(liquidity, pool).second);
+                    }
+                    break;
+                }
+            }
+        );
+        return true;
+    });
+
+    // new calculation
+    const_cast<int&>(Params().GetConsensus().BayfrontGardensHeight) = 6;
+    // custom rewards
+    const_cast<int&>(Params().GetConsensus().ClarkeQuayHeight) = 7;
+
+    auto newRewardCalculation = [](CAmount liquidity, const CPoolPair& pool) -> CAmount {
+        return COIN / 2880 * pool.rewardPct / COIN * liquidity / pool.totalLiquidity;
+    };
+
+    auto newCommissionCalculation = [](CAmount liquidity, const CPoolPair& pool) -> std::pair<CAmount, CAmount> {
+        auto feeA = pool.blockCommissionA * liquidity / pool.totalLiquidity;
+        auto feeB = pool.blockCommissionB * liquidity / pool.totalLiquidity;
+        return std::make_pair(feeA, feeB);
+    };
+
+    mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
+        pool.swapEvent = true;
+        pool.ownerAddress = shareAddress[1];
+        mnview.SetPoolPair(idPool, 8, pool);
+        return false;
+    });
+
+    mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
+        auto liquidity = mnview.GetBalance(shareAddress[0], idPool).nValue;
+        mnview.CalculatePoolRewards(idPool, liquidity, 1, 10,
+            [&](CScript const & from, uint8_t type, CTokenAmount amount, uint32_t begin, uint32_t end) {
+                if (begin >= Params().GetConsensus().BayfrontGardensHeight) {
+                    if (!from.empty()) {
+                        if (begin >= 8) {
+                            BOOST_CHECK(from == shareAddress[1]);
+                        } else {
+                            BOOST_CHECK(from == shareAddress[0]);
+                        }
+                        auto rewards = mnview.GetPoolCustomReward(idPool);
+                        BOOST_REQUIRE(rewards);
+                        for (const auto& reward : rewards->balances) {
+                            auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
+                            BOOST_CHECK_EQUAL(amount.nValue, providerReward);
+                        }
+                    } else if (type == int(RewardType::Rewards)) {
+                        BOOST_CHECK_EQUAL(amount.nValue, newRewardCalculation(liquidity, pool));
+                    } else if (amount.nTokenId == pool.idTokenA) {
+                        BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(liquidity, pool).first);
+                    } else {
+                        BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(liquidity, pool).second);
+                    }
+                } else {
+                    if (type == int(RewardType::Rewards)) {
+                        BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(liquidity, pool));
+                    } else if (amount.nTokenId == pool.idTokenA) {
+                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(liquidity, pool).first);
+                    } else {
+                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(liquidity, pool).second);
+                    }
+                }
+            }
+        );
+        return false;
+    });
+}
 
 BOOST_AUTO_TEST_SUITE_END()

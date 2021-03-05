@@ -20,7 +20,7 @@ public:
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
-    Res Apply(CCustomCSView &mnview) override;
+    Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
     static constexpr char const * TypeName() { return "LP_DAILY_DFI_REWARD"; }
     static GovVariable * Create() { return new LP_DAILY_DFI_REWARD(); }

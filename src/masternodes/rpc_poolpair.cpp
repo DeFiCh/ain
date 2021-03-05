@@ -917,7 +917,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
         CPoolPair pp = poolPair->second;
         res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
-            auto resPP = mnview_dummy.SetPoolPair(poolPair->first, pp);
+            auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
             if (!resPP.ok) {
                 return Res::Err("%s: %s", base, resPP.msg);
             }
@@ -1004,7 +1004,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
 //    startKey.owner = CScript(0);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachPoolShare([&](DCT_ID const & poolId, CScript const & provider) {
+    pcustomcsview->ForEachPoolShare([&](DCT_ID const & poolId, CScript const & provider, uint32_t) {
         const CTokenAmount tokenAmount = pcustomcsview->GetBalance(provider, poolId);
         if(tokenAmount.nValue) {
             const auto poolPair = pcustomcsview->GetPoolPair(poolId);

@@ -418,7 +418,6 @@ void SetupServerArgs()
 #endif
     gArgs.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-acindex", strprintf("Maintain a full account history index, tracking all accounts balances changes. Used by the listaccounthistory and accounthistorycount rpc calls (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-acindex-mineonly", strprintf("Maintain a mine only account history index, tracking mine accounts balances changes. Used by the listaccounthistory and accounthistorycount rpc calls (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blockfilterindex=<type>",
                  strprintf("Maintain an index of compact filters by block (default: %s, values: %s).", DEFAULT_BLOCKFILTERINDEX, ListBlockFilterTypes()) +
                  " If <type> is not supplied or if <type> = 1, indexes for all known types are enabled.",
@@ -1506,11 +1505,6 @@ bool AppInitMain(InitInterfaces& interfaces)
     LogPrintf("* Using %.1f MiB for chain state database\n", nCoinDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)\n", nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
 
-    if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX) && gArgs.GetBoolArg("-acindex-mineonly", DEFAULT_ACINDEX_MINEONLY)) {
-        LogPrintf("Warning -acindex and -acindex-mineonly are set, -acindex will be used\n");
-        gArgs.ForceSetArg("-acindex-mineonly", "0");
-    }
-
     bool fLoaded = false;
     while (!fLoaded && !ShutdownRequested()) {
         bool fReset = fReindex;
@@ -1595,7 +1589,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
                 pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
-                if (!fReset && (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX) || gArgs.GetBoolArg("-acindex-mineonly", DEFAULT_ACINDEX_MINEONLY))) {
+                if (!fReset && gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
                     if (shouldMigrateOldRewardHistory(*pcustomcsview)) {
                         strLoadError = _("Account history needs rebuild").translated;
                         break;
