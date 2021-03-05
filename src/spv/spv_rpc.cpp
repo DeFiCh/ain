@@ -631,6 +631,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
         if (prev->GetSignHash() != auth.GetSignHash()) {
             // flush group
             UniValue item(UniValue::VOBJ);
+            item.pushKV("previousAnchor", prev->previousAnchor.ToString());
             item.pushKV("blockHeight", static_cast<int>(prev->height));
             item.pushKV("blockHash", prev->blockHash.ToString());
             if (anchorCreationHeight != 0) {
@@ -683,6 +684,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
     if (prev) {
         // place last auth group
         UniValue item(UniValue::VOBJ);
+        item.pushKV("previousAnchor", prev->previousAnchor.ToString());
         item.pushKV("blockHeight", static_cast<int>(prev->height));
         item.pushKV("blockHash", prev->blockHash.ToString());
         if (anchorCreationHeight != 0) {
@@ -827,6 +829,7 @@ UniValue spv_listanchorsunrewarded(const JSONRPCRequest& request)
     for (auto const & btcTxHash : unrewarded) {
         auto rec = panchors->GetAnchorByTx(btcTxHash);
         UniValue item(UniValue::VOBJ);
+        item.pushKV("previousAnchor", rec->anchor.previousAnchor.ToString());
         item.pushKV("dfiHeight", static_cast<int>(rec->anchor.height));
         item.pushKV("dfiHash", rec->anchor.blockHash.ToString());
         item.pushKV("btcHeight", static_cast<int>(rec->btcHeight));
