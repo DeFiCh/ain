@@ -6,6 +6,7 @@
 
 export LC_ALL=C
 
+pip3 install -U pip setuptools
 pip3 install codespell==1.15.0
 pip3 install flake8==3.5.0
 pip3 install vulture==0.29

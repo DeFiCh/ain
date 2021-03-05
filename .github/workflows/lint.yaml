@@ -18,7 +18,7 @@ on:
       
 jobs:
   unit_tests:
-    name: Unit Tests
+    name: Lint
     # We use a matrix since it's easier to migrate upwards, add new
     # test on multiple, then remove old without creating friction.
     runs-on: ${{ matrix.os }}
@@ -42,11 +42,15 @@ jobs:
     
     # The following scripts must be run in the same step as they reference Bash functions from
     # previous scripts, which are difficult to expose globally in Github workflows
-    
-    - name: Tests
+
+    - name: Lint
       run: |
-          set -o errexit; source ./ci/test/03_before_install.sh
-          set -o errexit; source ./ci/test/04_install.sh
-          set -o errexit; source ./ci/test/05_before_script.sh
-          set -o errexit; source ./ci/test/06_script_a.sh
-          set -o errexit; source ./ci/test/06_script_b.sh
+          set -o errexit; source ./ci/lint/04_install.sh
+          set -o errexit; source ./ci/lint/05_before_script.sh
+          set -o errexit; source ./ci/lint/06_script.sh
+
+    - name: Extended Lint
+      run: |
+          set -o errexit; source ./ci/extended_lint/04_install.sh
+          set -o errexit; source ./ci/lint/05_before_script.sh
+          set -o errexit; source ./ci/extended_lint/06_script.sh
