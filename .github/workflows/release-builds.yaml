@@ -1,3 +1,5 @@
+name: Release Build
+
 on:
   release:
     types: [published]
