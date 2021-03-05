@@ -7,7 +7,7 @@
 export LC_ALL=C.UTF-8
 
 mkdir -p "${BASE_SCRATCH_DIR}"
-ccache echo "Creating ccache dir if it didn't already exist"
+#ccache echo "Creating ccache dir if it didn't already exist"
 
 if [ ! -d ${DIR_QA_ASSETS} ]; then
   git clone https://github.com/bitcoin-core/qa-assets ${DIR_QA_ASSETS}
