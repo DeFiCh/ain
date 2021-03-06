@@ -1078,7 +1078,7 @@ static const CRPCCommand commands[] =
         {
 //  category        name                     actor (function)        params
 //  -------------   ---------------------    --------------------    ----------
-                {"oracles",     "appointoracle",         &appointoracle,          {"address", "allowedtokens"}},
+                {"oracles",     "appointoracle",         &appointoracle,          {"address", "pricefeeds", "weightage"}},
                 {"oracles",     "removeoracle",          &removeoracle,           {"oracleid"}},
                 {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "allowedtokens"}},
                 {"oracles",     "setoracledata",         &setoracledata,          {"timestamp", "prices"}},
