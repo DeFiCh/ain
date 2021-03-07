@@ -20,9 +20,10 @@
 
 #include <univalue.h>
 
+#include <boost/algorithm/string/join.hpp>
+#include <boost/range/adaptor/transformed.hpp>
+
 #include <algorithm>
-#include <sstream>
-#include <cstring>
 
 using namespace std;
 
@@ -189,6 +190,19 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::AnyAccountsToAccounts:
                 res = ApplyAnyAccountsToAccountsTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
                 break;
+            case CustomTxType::AppointOracle:
+                res = ApplyAppointOracleTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
+                break;
+            case CustomTxType::UpdateOracleAppoint:
+                res = ApplyUpdateOracleAppointTx(mnview, coins, tx, height, metadata, consensusParams);
+                break;
+            case CustomTxType::RemoveOracleAppoint:
+                res = ApplyRemoveOracleAppointTx(mnview, coins, tx, height, metadata, consensusParams);
+                break;
+            case CustomTxType::SetOracleData:
+                res = ApplySetOracleDataTx(mnview, coins, tx, height, metadata, consensusParams);
+                break;
+
             default:
                 return Res::Ok(); // not "custom" tx
         }
@@ -1490,12 +1504,11 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
     // Store reward data for RPC info
     mnview.AddAnchorConfirmData(CAnchorConfirmDataPlus{finMsg});
 
-    return { finMsg.btcTxHash, Res::Ok() };
+    return {finMsg.btcTxHash, Res::Ok()};
 }
 
 
-bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
-{
+bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid) {
     CTransactionRef ptx = pool.get(txid);
     std::vector<unsigned char> dummy;
     if (ptx) {
@@ -1503,4 +1516,133 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
         return txType == CustomTxType::CreateMasternode || txType == CustomTxType::CreateToken;
     }
     return false;
+}
+
+Res ApplyAppointOracleTx(
+        CCustomCSView &mnview,
+        CCoinsViewCache const &coins,
+        CTransaction const &tx,
+        uint32_t height,
+        std::vector<unsigned char> const &metadata,
+        Consensus::Params const &consensusParams,
+        bool skipAuth,
+        UniValue *rpcInfo) {
+    if ((int) height < consensusParams.BayfrontHeight) {
+        return Res::Err("Appoint oracle tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    }
+
+    constexpr auto base = "Appoint oracle";
+
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    CAppointOracleMessage msg;
+    ss >> msg;
+
+    if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
+        return Res::Err("%s: %s", base, "foundation authentication failed");
+    }
+
+    // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
+
+    COracleId oracleId{tx.GetHash()};
+    return mnview.AppointOracle(oracleId, COracle(oracleId, msg));
+}
+
+Res ApplyUpdateOracleAppointTx(CCustomCSView &mnview,
+                               CCoinsViewCache const &coins,
+                               CTransaction const &tx,
+                               uint32_t height,
+                               std::vector<unsigned char> const &metadata,
+                               Consensus::Params const &consensusParams,
+                               bool skipAuth,
+                               UniValue *rpcInfo) {
+    if ((int) height < consensusParams.BayfrontHeight) {
+        return Res::Err("Update oracle appoint tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    }
+
+    constexpr auto base = "Update oracle appoint";
+
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    CUpdateOracleAppointMessage msg;
+    ss >> msg;
+
+    if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
+        return Res::Err("%s: %s", base, "foundation authentication failed");
+    }
+
+    // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
+
+    Res res = mnview.UpdateOracle(msg.oracleId, COracle(msg.oracleId, msg.newOracleAppoint));
+
+    return res;
+}
+
+Res ApplyRemoveOracleAppointTx(
+        CCustomCSView &mnview,
+        CCoinsViewCache const &coins,
+        CTransaction const &tx,
+        uint32_t height,
+        std::vector<unsigned char> const &metadata,
+        Consensus::Params const &consensusParams,
+        bool skipAuth,
+        UniValue *rpcInfo) {
+    if ((int) height < consensusParams.BayfrontHeight) {
+        return Res::Err("Appoint oracle tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    }
+
+    constexpr auto base = "Remove oracle appoint";
+
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    CRemoveOracleAppointMessage msg;
+    ss >> msg;
+
+    if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
+        return Res::Err("%s: %s", base, "foundation authentication failed");
+    }
+
+    // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
+
+    return mnview.RemoveOracle(msg.oracleId);
+}
+
+Res ApplySetOracleDataTx(CCustomCSView &mnview,
+                         CCoinsViewCache const &coins,
+                         CTransaction const &tx,
+                         uint32_t height,
+                         std::vector<unsigned char> const &metadata,
+                         Consensus::Params const &consensusParams,
+                         bool skipAuth,
+                         UniValue *rpcInfo) {
+    // do we need it in setoracledata?
+    if ((int) height < consensusParams.BayfrontHeight) {
+        return Res::Err("SetRawPrice tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    }
+
+    constexpr auto base = "Set oracle data";
+
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    CSetOracleDataMessage msg;
+    ss >> msg;
+
+    if (msg.oracleId.IsNull()) {
+        return Res::Err("oracleId is Null");
+    }
+
+    auto &&oracleRes = mnview.GetOracleData(msg.oracleId);
+    if (!oracleRes.ok) {
+        return Res::Err("failed to retrieve oracle <%s> from database", msg.oracleId.GetHex());
+    }
+
+    auto &&auth = oracleRes.val->oracleAddress;
+    if (!skipAuth && !HasAuth(tx, coins, auth)) {
+        return Res::Err("%s: %s", base, "oracle authentication failed");
+    }
+
+    auto &&res = mnview.SetOracleData(msg.oracleId, msg.timestamp, msg.tokenPrices);
+    if (!res.ok) {
+        return Res::Err("SetRawPrice: %s", res.msg);
+    }
+
+    // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
+
+    return Res::Ok(base);
 }

@@ -123,6 +123,24 @@ CBalances DecodeAmounts(interfaces::Chain const & chain, UniValue const& amounts
     return amounts;
 }
 
+std::vector<DCT_ID> DecodeTokens(interfaces::Chain const & chain, UniValue& tokensUni, std::string const& name)
+{
+    std::vector<DCT_ID> tokens;
+    if (tokensUni.isArray()) {
+        for (const auto &uni : tokensUni.get_array().getValues()) {
+            DCT_ID tokenId{};
+            const std::string& uniStr = uni.getValStr();
+            std::unique_ptr<CToken> token = chain.existTokenGuessId(uniStr, tokenId);
+            if (!token) {
+                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, name + ": " + Res::Err("Invalid Defi token: %s", uniStr).msg);
+            }
+            tokens.push_back(tokenId);
+        }
+    }
+
+    return tokens;
+}
+
 // decodes recipients from formats:
 // "addr": 123.0,
 // "addr": "123.0@0",

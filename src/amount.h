@@ -16,6 +16,81 @@
 /** Amount in satoshis (Can be negative) */
 typedef int64_t CAmount;
 
+struct CURRENCY_ID {
+    enum class CurrencyId: uint32_t {
+        UNKNOWN = 0,
+        USD,
+        EUR,
+    };
+
+    uint32_t v;
+    static constexpr auto CURRENCY_USD = "USD";
+    static constexpr auto CURRENCY_EUR = "EUR";
+    static constexpr auto CURRENCY_UNKNOWN = "UNKNOWN";
+
+    static CURRENCY_ID USD() {
+        return CURRENCY_ID{CurrencyId::USD};
+    };
+
+    static CURRENCY_ID EUR() {
+        return CURRENCY_ID{CurrencyId::EUR};
+    };
+
+    static CURRENCY_ID INVALID() {
+        return CURRENCY_ID{CurrencyId::UNKNOWN};
+    }
+
+    explicit CURRENCY_ID(CurrencyId id) : v{static_cast<uint32_t>(id)} {}
+
+    CURRENCY_ID() : v{static_cast<uint32_t>(CurrencyId::UNKNOWN)} {}
+
+    std::string ToString() const {
+        switch (v) {
+            case static_cast<uint32_t>(CurrencyId::USD):
+                return CURRENCY_USD;
+            case static_cast<uint32_t>(CurrencyId::EUR):
+                return CURRENCY_EUR;
+            case static_cast<uint32_t>(CurrencyId::UNKNOWN):
+                break;
+        }
+        return CURRENCY_UNKNOWN;
+    }
+
+    static CURRENCY_ID FromString(const std::string &name) {
+        if (name == CURRENCY_USD) {
+            return CURRENCY_ID(CurrencyId::USD);
+        }
+        if (name == CURRENCY_EUR) {
+            return CURRENCY_ID(CurrencyId::EUR);
+        }
+
+        return CURRENCY_ID(CurrencyId::UNKNOWN);
+    }
+
+    bool IsValid() const {
+        return v != static_cast<uint32_t>(CurrencyId::UNKNOWN);
+    }
+
+    bool operator<(const CURRENCY_ID& other) const {
+        return v < other.v;
+    }
+
+    inline bool operator==(const CURRENCY_ID& other) const {
+        return v == other.v;
+    }
+
+    inline bool operator!=(const CURRENCY_ID& other) const {
+        return v != other.v;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(v);
+    }
+};
+
 // Defi Custom Token ID
 struct DCT_ID {
     uint32_t v;
@@ -93,6 +168,21 @@ inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
         return Res::Err("overflow");
     }
     return {(CAmount) sum, Res::Ok()};
+}
+
+inline ResVal<CAmount> SafeMultiply(CAmount _a, uint64_t w) {
+    if (_a < 0) {
+        return Res::Err("negative amount");
+    }
+
+    auto a = static_cast<uint64_t>(_a);
+    uint64_t res = a * w;
+    constexpr uint64_t int64Max = std::numeric_limits<int64_t>::max();
+    if (res / w != a || res > static_cast<uint64_t>(int64Max)) {
+        return Res::Err("overflow");
+    }
+
+    return {static_cast<CAmount>(res), Res::Ok()};
 }
 
 struct CTokenAmount { // simple std::pair is less informative
