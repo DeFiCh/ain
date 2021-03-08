@@ -1,8 +1,10 @@
+[![Lint](https://github.com/DeFiCh/ain/actions/workflows/lint.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/lint.yaml)
+[![Tests](https://github.com/DeFiCh/ain/actions/workflows/tests.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/tests.yaml)
+[![Dev Build](https://github.com/DeFiCh/ain/actions/workflows/dev-builds.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/dev-builds.yaml)
+
 ![DeFiChain Logo](doc/img/defichain-logo.svg)
 
 # [DeFiChain](https://defichain.com)
-
-[![Build Status](https://travis-ci.com/DeFiCh/ain.svg?branch=master)](https://travis-ci.com/DeFiCh/ain)
 
 > **NOTE**: _master_ branch is a development branch and is thus _unstable_. Do not run from it. Run or compile from [tagged releases](https://github.com/DeFiCh/ain/releases) instead, unless you know what you are doing.
 
