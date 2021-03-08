@@ -95,6 +95,10 @@ UniValue createmasternode(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAddress (" + operatorAddress + ") does not refer to a P2PKH or P2WPKH address");
     }
 
+    if (!::IsMine(*pwallet, ownerDest)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
+    }
+
     CKeyID const operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest));
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

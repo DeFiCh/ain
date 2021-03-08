@@ -9,11 +9,9 @@ export LC_ALL=C.UTF-8
 echo "Setting default values in env"
 
 BASE_ROOT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../ >/dev/null 2>&1 && pwd )
-export BASE_ROOT_DIR
 
-# The number of parallel jobs to pass down to make and test_runner.py
+export BASE_ROOT_DIR
 export MAKEJOBS=${MAKEJOBS:--j4}
-# A folder for the ci system to put temporary files (ccache, datadirs for tests, ...)
 export BASE_SCRATCH_DIR=${BASE_SCRATCH_DIR:-$BASE_ROOT_DIR/ci/scratch/}
 export HOST=${HOST:-x86_64-unknown-linux-gnu}
 export RUN_UNIT_TESTS=${RUN_UNIT_TESTS:-true}
@@ -34,6 +32,32 @@ export GOAL=${GOAL:-install}
 export DIR_QA_ASSETS=${DIR_QA_ASSETS:-${BASE_BUILD_DIR}/qa-assets}
 export PATH=${BASE_ROOT_DIR}/ci/retry:$PATH
 export CI_RETRY_EXE=${CI_RETRY_EXE:retry}
+
+# This is required so Github actions can see the env vars in the next step
+{
+  echo "BASE_ROOT_DIR=${BASE_ROOT_DIR}"
+  echo "MAKEJOBS=${MAKEJOBS}"
+  echo "BASE_SCRATCH_DIR=${BASE_SCRATCH_DIR}"
+  echo "HOST=${HOST}"
+  echo "RUN_UNIT_TESTS=${RUN_UNIT_TESTS}"
+  echo "RUN_FUNCTIONAL_TESTS=${RUN_FUNCTIONAL_TESTS}"
+  echo "RUN_FUZZ_TESTS=${RUN_FUZZ_TESTS}"
+  echo "DOCKER_NAME_TAG=${DOCKER_NAME_TAG}"
+  echo "BOOST_TEST_RANDOM=${BOOST_TEST_RANDOM}"
+  echo "CCACHE_SIZE=${CCACHE_SIZE}"
+  echo "CCACHE_TEMPDIR=${CCACHE_TEMPDIR}"
+  echo "CCACHE_COMPRESS=${CCACHE_COMPRESS}"
+  echo "CCACHE_DIR=${CCACHE_DIR}"
+  echo "BASE_BUILD_DIR=${BASE_BUILD_DIR}"
+  echo "BASE_OUTDIR=${BASE_OUTDIR}"
+  echo "SDK_URL=${SDK_URL}"
+  echo "WINEDEBUG=${WINEDEBUG}"
+  echo "DOCKER_PACKAGES=${DOCKER_PACKAGES}"
+  echo "GOAL=${GOAL}"
+  echo "DIR_QA_ASSETS=${DIR_QA_ASSETS}"
+  echo "PATH=${PATH}"
+  echo "CI_RETRY_EXE=${CI_RETRY_EXE}"
+} >> $GITHUB_ENV
 
 echo "Setting specific values in env"
 if [ -n "${FILE_ENV}" ]; then
