@@ -175,6 +175,8 @@ constexpr auto FlagIsError = false;
 constexpr auto PriceFeeds = "priceFeeds";
 constexpr auto OracleAddress = "address";
 constexpr auto TokenPrices = "tokenPrices";
+constexpr uint8_t MaxWeightage{100u};
+constexpr uint8_t MinWeightage{1u};
 
 }; // namespace oraclefields
 
