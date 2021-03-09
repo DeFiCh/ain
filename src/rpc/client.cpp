@@ -239,6 +239,10 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listpoolshares", 1, "verbose" },
     { "listpoolshares", 2, "is_mine_only" },
 
+    { "createorder", 0, "order" },
+    { "fulfillorder", 0, "order" },
+    { "listorders", 0, "order" },
+
     { "listaccounthistory", 1, "options" },
     { "accounthistorycount", 1, "options" },
 

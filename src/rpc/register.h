@@ -23,10 +23,12 @@ void RegisterRawTransactionRPCCommands(CRPCTable &tableRPC);
 void RegisterMasternodesRPCCommands(CRPCTable &tableRPC);
 /** Register accounts RPC commands */
 void RegisterAccountsRPCCommands(CRPCTable &tableRPC);
-/** Register tokens RPC commands */
-void RegisterTokensRPCCommands(CRPCTable &tableRPC);
+/** Register orderbook RPC commands */
+void RegisterOrderbookRPCCommands(CRPCTable &tableRPC);
 /** Register poolpair RPC commands */
 void RegisterPoolpairRPCCommands(CRPCTable &tableRPC);
+/** Register tokens RPC commands */
+void RegisterTokensRPCCommands(CRPCTable &tableRPC);
 /** Register blockchain masternode RPC commands */
 void RegisterMNBlockchainRPCCommands(CRPCTable &tableRPC);
 /** Register SPV (anchoring) RPC commands */
@@ -41,8 +43,9 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
     RegisterRawTransactionRPCCommands(t);
     RegisterMasternodesRPCCommands(t);
     RegisterAccountsRPCCommands(t);
-    RegisterTokensRPCCommands(t);
+    RegisterOrderbookRPCCommands(t);
     RegisterPoolpairRPCCommands(t);
+    RegisterTokensRPCCommands(t);
     RegisterMNBlockchainRPCCommands(t);
     RegisterSpvRPCCommands(t);
 }

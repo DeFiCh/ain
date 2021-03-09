@@ -13,6 +13,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/incentivefunding.h>
+#include <masternodes/order.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <masternodes/poolpairs.h>
@@ -224,6 +225,7 @@ class CCustomCSView
         , public CPoolPairView
         , public CGovView
         , public CAnchorConfirmsView
+        , public COrderView
 {
 public:
     CCustomCSView() = default;

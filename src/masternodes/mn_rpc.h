@@ -69,6 +69,7 @@ CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransact
 CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx);
 CTransactionRef signsend(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx /* = {}*/);
 CWallet* GetWallet(const JSONRPCRequest& request);
+bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults);
 std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef& optAuthTx, UniValue const& explicitInputs);
 std::string ScriptToString(CScript const& script);
 CAccounts GetAllMineAccounts(CWallet* const pwallet);

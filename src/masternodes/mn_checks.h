@@ -38,9 +38,9 @@ enum class CustomTxType : unsigned char
     UpdateToken         = 'N', // previous type, only DAT flag triggers
     UpdateTokenAny      = 'n', // new type of token's update with any flags/fields possible
     // dex orders - just not to overlap in future
-//    CreateOrder         = 'O',
-//    DestroyOrder        = 'E',
-//    MatchOrders         = 'A',
+    CreateOrder         = 'O',
+    FulfillOrder        = 'F',
+    CloseOrder          = 'S',
     //poolpair
     CreatePoolPair      = 'p',
     UpdatePoolPair      = 'u',
@@ -59,7 +59,7 @@ enum class CustomTxType : unsigned char
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMNnpuslrUbBaGA";
+    char const txtypes[] = "CRTMNnOFSpuslrUbBaGA";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -86,6 +86,9 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
         case CustomTxType::AutoAuthPrep:        return "AutoAuth";
+        case CustomTxType::CreateOrder:         return "CreateOrder";
+        case CustomTxType::FulfillOrder:        return "FulfillOrder";
+        case CustomTxType::CloseOrder:          return "CloseOrder";
         default:                                return "None";
     }
 }
@@ -130,6 +133,10 @@ Res ApplyUtxosToAccountTx(CCustomCSView & mnview, CTransaction const & tx, uint3
 Res ApplyAccountToUtxosTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 Res ApplyAccountToAccountTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 Res ApplyAnyAccountsToAccountsTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+
+Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplyFulfillOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplyCloseOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue *rpcInfo = nullptr);
 
 Res ApplySetGovernanceTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 

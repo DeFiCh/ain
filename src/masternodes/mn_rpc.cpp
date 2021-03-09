@@ -378,6 +378,79 @@ CWallet* GetWallet(const JSONRPCRequest& request) {
     return pwallet;
 }
 
+bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)
+{
+    std::vector<unsigned char> metadata;
+    guess = GuessCustomTxType(*tx, metadata);
+    CCustomCSView mnview_dummy(*pcustomcsview);
+
+    switch (guess)
+    {
+        case CustomTxType::CreateMasternode:
+            res = ApplyCreateMasternodeTx(mnview_dummy, *tx, nHeight, metadata, &txResults);
+            break;
+        case CustomTxType::ResignMasternode:
+            res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
+            break;
+        case CustomTxType::CreateToken:
+            res = ApplyCreateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdateToken:
+            res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdateTokenAny:
+            res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::MintToken:
+            res = ApplyMintTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::CreatePoolPair:
+            res = ApplyCreatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdatePoolPair:
+            res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::PoolSwap:
+            res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AddPoolLiquidity:
+            res = ApplyAddPoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::RemovePoolLiquidity:
+            res = ApplyRemovePoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UtxosToAccount:
+            res = ApplyUtxosToAccountTx(mnview_dummy, *tx, nHeight, metadata, Params().GetConsensus(), &txResults);
+            break;
+        case CustomTxType::AccountToUtxos:
+            res = ApplyAccountToUtxosTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AccountToAccount:
+            res = ApplyAccountToAccountTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::SetGovVariable:
+            res = ApplySetGovernanceTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AnyAccountsToAccounts:
+            res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::AutoAuthPrep:
+            res.ok = true;
+            res.msg = "AutoAuth";
+            break;
+        case CustomTxType::CreateOrder:
+            res = ApplyCreateOrderTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::FulfillOrder:
+            res = ApplyFulfillOrderTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        default:
+            return false;
+    }
+
+    return true;
+}
+
 UniValue setgov(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
