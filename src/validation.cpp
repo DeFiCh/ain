@@ -2361,42 +2361,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // make all changes to the new cache/snapshot to make it possible to take a diff later:
         CCustomCSView cache(mnview);
 
-//        cache.CallYourInterblockProcessingsHere();
-
-        // distribute pool incentive rewards and trading fees:
-        {
-            std::shared_ptr<LP_DAILY_DFI_REWARD> var = std::dynamic_pointer_cast<LP_DAILY_DFI_REWARD>(cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName()));
-            CAmount poolsBlockReward = std::min(
-                                           cache.GetCommunityBalance(CommunityAccountType::IncentiveFunding),
-                                           var->dailyReward / (60*60*24/chainparams.GetConsensus().pos.nTargetSpacing) // 2880
-                                                );
-
-            CAmount distributed = cache.DistributeRewards(poolsBlockReward,
-                [&cache] (CScript const & owner, DCT_ID tokenID) {
-                    return cache.GetBalance(owner, tokenID);
-                },
-                [&cache, &block] (CScript const & to, CScript const & from, DCT_ID poolID, uint8_t type, CTokenAmount amount) {
-                    if (from != CScript()) {
-                        auto res = cache.SubBalance(from, amount);
-                        if (!res.ok) {
-                            LogPrintf("Custom pool rewards: can't update balance of %s: %s, Block %ld (%s)\n", to.GetHex(), res.msg, block.height, block.GetHash().ToString());
-                            return res; // no funds, no rewards
-                        }
-                    }
-                    auto res = cache.AddBalance(to, amount);
-                    if (!res.ok) {
-                        LogPrintf("Pool rewards: can't update balance of %s: %s, Block %ld (%s)\n", to.GetHex(), res.msg, block.height, block.GetHash().ToString());
-                    }
-                    return res;
-                },
-                pindex->nHeight
-            );
-
-            auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);
-            if (!res.ok) {
-                LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, block.height, block.GetHash().ToString());
-            }
-        }
+        // hardfork commissions update
+        cache.UpdatePoolCommissions([&cache](CScript const & owner, DCT_ID tokenID) {
+            return cache.GetBalance(owner, tokenID);
+        }, pindex->nHeight);
         // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
         if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
             cache.BayfrontFlagsCleanup();
