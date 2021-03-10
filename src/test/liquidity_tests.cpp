@@ -309,30 +309,17 @@ BOOST_AUTO_TEST_CASE(math_rewards)
         });
 
         // distribute 100 coins
-        CAmount totalRwd = 100*COIN;
-
-//        int64_t nTimeBegin = GetTimeMicros();
-        CAmount distributed = cache.DistributeRewards(totalRwd,
-            [&cache] (CScript const & owner, DCT_ID tokenID) {
-                return cache.GetBalance(owner, tokenID);
-            },
-            [&cache] (CScript const & to, CScript const & from, DCT_ID poolID, uint8_t type, CTokenAmount amount) {
-                return cache.AddBalance(to, amount);
-            }
-        );
-//        int64_t nTimeEnd = GetTimeMicros(); auto nTimeRwd = nTimeEnd - nTimeBegin;
-//        printf("Rewarded %d pools with %d shares each: %.2fms \n", PoolCount, ProvidersCount, 0.001 * (nTimeRwd));
-
-//        printf("Distributed: = %ld\n", distributed);
-        BOOST_CHECK(distributed == 9999000000); // always slightly less due to MINIMUM_LIQUIDITY & rounding
+        CAmount totalRwd = 100*COIN*2880;
+        cache.SetDailyReward(1, totalRwd);
+        // fund community
+        cache.AddCommunityBalance(CommunityAccountType::IncentiveFunding, totalRwd);
 
         // check it
         auto rwd25 = 25 * COIN / ProvidersCount;
         auto rwd50 = 50 * COIN / ProvidersCount;
         cache.ForEachPoolShare([&] (DCT_ID const & id, CScript const & owner, uint32_t) {
-//            if (id == RWD25/* || id == RWD50*/)
-//                printf("owner = %s: %s,\n", owner.GetHex().c_str(), cache.GetBalance(owner, DCT_ID{0}).ToString().c_str());
 
+            cache.CalculateOwnerRewards(owner, 2); // one block
             // check only first couple of pools and the last (zero)
             if (id == RWD25 && owner != CScript(id.v * ProvidersCount)) { // first got slightly less due to MINIMUM_LIQUIDITY
                 CAmount rwd = cache.GetBalance(owner, DCT_ID{0}).nValue;
