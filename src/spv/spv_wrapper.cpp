@@ -62,10 +62,6 @@ static const char DB_SPVTXS    = 'T';     // spv "tx2msg" table
 
 uint64_t const DEFAULT_BTC_FEERATE = TX_FEE_PER_KB;
 
-uint256 to_uint256(const UInt256 & i) {
-    return uint256(TBytes(&i.u8[0], &i.u8[32]));
-}
-
 /// spv wallet manager's callbacks wrappers:
 void balanceChanged(void *info, uint64_t balance)
 {
@@ -249,7 +245,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
                 }
 
                 UInt160 spvHash;
-                UInt160Convert(userHash.begin(), spvHash);
+                UIntConvert(userHash.begin(), spvHash);
                 userAddresses.insert(spvHash);
             }
         }
@@ -568,7 +564,7 @@ std::string CSpvWrapper::DumpBitcoinPrivKey(const CWallet* pwallet, const std::s
     return EncodeSecret(vchSecret);
 }
 
-UniValue CSpvWrapper::GetBitcoinBalance()
+int64_t CSpvWrapper::GetBitcoinBalance()
 {
     return BRWalletBalance(wallet);
 }
@@ -652,6 +648,25 @@ UniValue CSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, 
     result.pushKV("txid", txid);
     result.pushKV("sendmessage", DecodeSendResult(sendResult));
     return result;
+}
+
+UniValue CSpvWrapper::ListTransactions()
+{
+    auto userTransactions = BRListUserTransactions(wallet);
+
+    UniValue result(UniValue::VARR);
+    for (const auto& txid : userTransactions)
+    {
+        result.push_back(txid);
+    }
+    return result;
+}
+
+std::string CSpvWrapper::GetRawTransactions(uint256& hash)
+{
+    UInt256 spvHash;
+    UIntConvert(hash.begin(), spvHash);
+    return BRGetRawTransaction(wallet, spvHash);
 }
 
 void publishedTxCallback(void *info, int error)

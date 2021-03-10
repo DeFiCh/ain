@@ -53,8 +53,6 @@ namespace spv
 
 typedef std::vector<uint8_t> TBytes;
 
-uint256 to_uint256(UInt256 const & i);
-
 static const TBytes BtcAnchorMarker = { 'D', 'F', 'A'}; // 0x444641
 
 /// @todo test this amount of dust for p2wsh due to spv is very dumb and checks only for 546 (p2pkh)
@@ -123,8 +121,10 @@ public:
     std::string AddBitcoinAddress(const CPubKey &new_key);
     void AddBitcoinHash(const uint160 &userHash);
     std::string DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress);
-    UniValue GetBitcoinBalance();
+    int64_t GetBitcoinBalance();
     UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount);
+    UniValue ListTransactions();
+    std::string GetRawTransactions(uint256& hash);
 
 private:
     virtual void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise);

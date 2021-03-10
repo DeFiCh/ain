@@ -62,6 +62,9 @@ inline static int BRUTXOEq(const void *utxo, const void *otherUtxo)
 // Comparator for C++ containers of UInt160
 bool UInt160Compare(const UInt160& a, const UInt160& b);
 
+// Convert SPV UInt256 to Bitcoin uint256
+uint256 to_uint256(UInt256 const & i);
+
 typedef struct BRWalletStruct BRWallet;
 
 // allocates and populates a BRWallet struct that must be freed by calling BRWalletFree()
@@ -221,5 +224,11 @@ int64_t BRBitcoinAmount(int64_t localAmount, double price);
 #ifdef __cplusplus
 }
 #endif
+
+// Returns a set of all user related transactions.
+std::set<std::string> BRListUserTransactions(BRWallet *wallet);
+
+// Returns the raw hex encoded transaction data if found
+std::string BRGetRawTransaction(BRWallet *wallet, UInt256 txHash);
 
 #endif // BRWallet_h

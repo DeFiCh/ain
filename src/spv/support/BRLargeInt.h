@@ -117,14 +117,15 @@ inline static UInt256 UInt256Reverse(UInt256 u)
                                 u.u8[ 7], u.u8[ 6], u.u8[5],  u.u8[ 4], u.u8[ 3], u.u8[ 2], u.u8[ 1], u.u8[ 0] } });
 }
 
-// Copy uint8_t array to SPV's UInt160
-inline static void UInt160Convert(const uint8_t* hash160, UInt160& spv160)
-{
-    memcpy(&spv160, hash160, sizeof(UInt160));
-}
-
 #ifdef __cplusplus
 }
 #endif
+
+// Copy uint8_t array to SPV's UInt160
+template<typename T>
+inline static void UIntConvert(const uint8_t* source, T& destination)
+{
+    memcpy(&destination, source, sizeof(T));
+}
 
 #endif // BRLargeInt_h
