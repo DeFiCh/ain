@@ -2,15 +2,34 @@
 
 UniValue orderToJSON(COrderImplemetation const& order) {
     UniValue orderObj(UniValue::VOBJ);
+    auto tokenFrom=pcustomcsview->GetToken(order.idTokenFrom);
+    auto tokenTo=pcustomcsview->GetToken(order.idTokenTo);
     orderObj.pushKV("ownerAddress", order.ownerAddress);
-    orderObj.pushKV("tokenFrom", order.tokenFrom);
-    orderObj.pushKV("tokenTo", order.tokenTo);
+    orderObj.pushKV("tokenFrom", tokenFrom->symbol);
+    orderObj.pushKV("tokenTo", tokenTo->symbol);
     orderObj.pushKV("amountFrom", order.amountFrom);
     orderObj.pushKV("orderPrice", order.orderPrice);
+    orderObj.pushKV("height", static_cast<int>(order.creationHeight));
     orderObj.pushKV("expiry", static_cast<int>(order.expiry));
+    if (!order.closeTx.IsNull())
+    {
+        orderObj.pushKV("closeTx", order.closeTx.GetHex());
+        orderObj.pushKV("closeHeight", static_cast<int>(order.closeHeight));
+    }
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(order.creationTx.GetHex(), orderObj);
+    return ret;
+}
+
+UniValue fulfillOrderToJSON(CFulfillOrderImplemetation const& fulfillorder) {
+    UniValue orderObj(UniValue::VOBJ);
+    orderObj.pushKV("ownerAddress", fulfillorder.ownerAddress);
+    orderObj.pushKV("orderTx", fulfillorder.orderTx.GetHex());
+    orderObj.pushKV("amount", fulfillorder.amount);
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV(fulfillorder.creationTx.GetHex(), orderObj);
     return ret;
 }
 
@@ -103,8 +122,6 @@ UniValue createorder(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenToSymbol));
         }
 
-        order.tokenFrom=tokenFrom->symbol;
-        order.tokenTo=tokenTo->symbol;
         order.idTokenFrom=idTokenFrom;
         order.idTokenTo=idTokenTo;
 
@@ -292,7 +309,7 @@ UniValue closeorder(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
-    RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
     if (request.params[0].isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 1 must be non-null and expected as \"orderTx\"}");
@@ -306,7 +323,9 @@ UniValue closeorder(const JSONRPCRequest& request) {
         auto order = pcustomcsview->GetOrderByCreationTx(closeorder.orderTx);
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "orderTx (" + closeorder.orderTx.GetHex() + ") does not exist");
-    
+        if (!order->closeTx.IsNull()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER,"orderTx (" + closeorder.orderTx.GetHex() + " is already closed!");
+        }
         targetHeight = ::ChainActive().Height() + 1;
     }
 
@@ -338,6 +357,43 @@ UniValue closeorder(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, {})->GetHash().GetHex();
 }
 
+UniValue getorder(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"getorder",
+                "\nReturn information about order or fillorder.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"orderTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of maker order"},
+                },
+                RPCResult
+                {
+                    "{...}     (object) Json object with order information\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("closeorder", "'{\"orderTx\":\"txid\"}'")     
+                },
+     }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+    if (request.params[0].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameters, arguments 1 must be non-null and expected as \"orderTx\"}");
+    }
+    uint256 orderTxid= uint256S(request.params[0].getValStr());
+    auto order = pcustomcsview->GetOrderByCreationTx(orderTxid);
+    if (order)
+    {
+        return orderToJSON(*order);
+    }
+    auto fillorder = pcustomcsview->GetFulfillOrderByCreationTx(orderTxid);
+    if (fillorder)
+    {
+        return fulfillOrderToJSON(*fillorder);
+    }
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "orderTx (" + orderTxid.GetHex() + ") does not exist");    
+}
+
 UniValue listorders(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -347,8 +403,11 @@ UniValue listorders(const JSONRPCRequest& request) {
                 {
                     {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
-                            {"token1", RPCArg::Type::STR, RPCArg::Optional::NO, "Token symbol"},
-                            {"token2", RPCArg::Type::STR, RPCArg::Optional::NO, "Token symbol"},
+                            {"limit",  RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Maximum number of orders to return (default: 50)"},
+                            {"token1", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token symbol"},
+                            {"token2", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token symbol"},
+                            {"orderTx",RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Order txid to list all fulfill orders for this order"},
+                            {"closed", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Display closed orders (default: false)"},
                         },
                     },
                 },
@@ -357,60 +416,85 @@ UniValue listorders(const JSONRPCRequest& request) {
                         "{{...},...}     (array) Json object with orders information\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("listorders", "'{\"token\":\"MyToken\"'")
-                        + HelpExampleCli("listorders", "'{\"token\":\"MyToken1\",\"tokenPair\":\"Mytoken2\"'")
-                        
-                },
+                        HelpExampleCli("listorders", "'{\"limit\":\"10\"}'")
+                        + HelpExampleCli("listorders", "'{\"token\":\"MyToken1\",\"tokenPair\":\"Mytoken2\"}'")
+                        + HelpExampleCli("listorders", "'{\"orderTx\":\"acb4d7eef089e74708afc6d9ca40af34f27a70506094dac39a5b9fb0347614fb\"}'")
+                }
      }.Check(request);
 
+    size_t limit=50;
     std::string token1Symbol,token2Symbol;
+    uint256 orderTxid;
+    bool closed=false;
     if (request.params.size() > 0)
     {
         UniValue byObj = request.params[0].get_obj();
         if (!byObj["token1"].isNull()) token1Symbol=trim_ws(byObj["token1"].getValStr());
         if (!byObj["token2"].isNull()) token2Symbol=trim_ws(byObj["token2"].getValStr());
+        if (!byObj["limit"].isNull()) limit = (size_t) byObj["limit"].get_int64();
+        if (!byObj["orderTx"].isNull()) orderTxid=uint256S(byObj["orderTx"].getValStr());
+        if (!byObj["closed"].isNull()) closed=byObj["closed"].get_bool();
     }
 
     DCT_ID idToken1={std::numeric_limits<uint32_t>::max()},idToken2={std::numeric_limits<uint32_t>::max()};
     if (!token1Symbol.empty())
     {
+        if (token2Symbol.empty()) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("If token1 is specified you must specify token2!"));
         auto token1 = pcustomcsview->GetTokenGuessId(token1Symbol, idToken1);
             if (!token1) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", token1Symbol));
             }
-    }
-    if (!token2Symbol.empty())
-    {
         auto token2 = pcustomcsview->GetTokenGuessId(token2Symbol, idToken2);
             if (!token2) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", token2Symbol));
             }
     }
-
+    
     UniValue ret(UniValue::VOBJ);
-    int limit=100;
     if (idToken1.v!=std::numeric_limits<uint32_t>::max() && idToken2.v!=std::numeric_limits<uint32_t>::max())
     {
         COrderView::TokenPair prefix(idToken1,idToken2);
-        pcustomcsview->ForEachOrder([&](COrderView::TokenPairKey const & key, COrderImplemetation order) {
+        if (!closed)
+            pcustomcsview->ForEachOrder([&](COrderView::TokenPairKey const & key, COrderImplemetation order) {
+                if (key.first!=prefix) return (false);
+                ret.pushKVs(orderToJSON(order));
+                limit--;
+                return limit != 0;
+            },prefix);
+        else
+            pcustomcsview->ForEachClosedOrder([&](COrderView::TokenPairKey const & key, COrderImplemetation order) {
+            if (key.first!=prefix) return (false);
             ret.pushKVs(orderToJSON(order));
-
             limit--;
             return limit != 0;
         },prefix);
-
         return ret;
     }
-    else
+    else if (!orderTxid.IsNull())
     {
+        pcustomcsview->ForEachFulfillOrder([&](COrderView::FulfillOrderId const & key, CFulfillOrderImplemetation fillorder) {
+            if (key.first!=orderTxid) return (false);
+            ret.pushKVs(fulfillOrderToJSON(fillorder));
+            limit--;
+            return limit != 0;
+        },orderTxid);
+        return ret;
+    }
+    if (!closed)
         pcustomcsview->ForEachOrder([&](COrderView::TokenPairKey const & key, COrderImplemetation order) {
             ret.pushKVs(orderToJSON(order));
 
             limit--;
             return limit != 0;
         });
-        return ret;
-    }
+    else 
+        pcustomcsview->ForEachClosedOrder([&](COrderView::TokenPairKey const & key, COrderImplemetation order) {
+            ret.pushKVs(orderToJSON(order));
+
+            limit--;
+            return limit != 0;
+        });
+    return ret;
 }
 
 static const CRPCCommand commands[] =
@@ -420,6 +504,7 @@ static const CRPCCommand commands[] =
     {"orderbook",   "createorder",           &createorder,           {"ownerAddress", "tokenFrom", "tokenTo", "amountFrom", "orderPrice"}},
     {"orderbook",   "fulfillorder",          &fulfillorder,          {"ownerAddress", "orderTx", "amount"}},
     {"orderbook",   "closeorder",            &closeorder,            {"orderTx"}},
+    {"orderbook",   "getorder",              &getorder,              {"orderTx"}},
     {"orderbook",   "listorders",            &listorders,            {"tokenFrom", "tokenTo","ownerAddress"}},
 
 };

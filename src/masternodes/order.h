@@ -24,8 +24,6 @@ public:
 
     COrder()
         : ownerAddress("")
-        , tokenFrom("")
-        , tokenTo("")
         , idTokenFrom({0})
         , idTokenTo({0})
         , amountFrom(0)
@@ -39,8 +37,6 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(ownerAddress);
-        READWRITE(tokenFrom);
-        READWRITE(tokenTo);
         READWRITE(VARINT(idTokenFrom.v));
         READWRITE(VARINT(idTokenTo.v));
         READWRITE(amountFrom);
@@ -116,9 +112,7 @@ public:
     CFulfillOrderImplemetation()
         : CFulfillOrder()
         , creationTx()
-        , closeTx()
         , creationHeight(-1)
-        , closeHeight(-1)
     {}
     ~CFulfillOrderImplemetation() override = default;
 
@@ -128,9 +122,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CFulfillOrder, *this);
         READWRITE(creationTx);
-        READWRITE(closeTx);
         READWRITE(creationHeight);
-        READWRITE(closeHeight);
     }
 };
 
@@ -181,6 +173,7 @@ class COrderView : public virtual CStorageView {
 public:
     typedef std::pair<DCT_ID,DCT_ID> TokenPair;
     typedef std::pair<TokenPair,uint256> TokenPairKey;
+    typedef std::pair<uint256,uint256> FulfillOrderId;
 
     using COrderImpl = COrderImplemetation;
     using CFulfillOrderImpl = CFulfillOrderImplemetation;
@@ -188,28 +181,17 @@ public:
 
     std::unique_ptr<COrderImpl> GetOrderByCreationTx(const uint256 & txid) const;
     ResVal<uint256> CreateOrder(const COrderImpl& order);
-    ResVal<uint256> CloseOrderTx(const uint256& txid);
+    ResVal<uint256> CloseOrderTx(const COrderImpl& order);
     void ForEachOrder(std::function<bool (TokenPairKey const &, CLazySerialize<COrderImpl>)> callback, TokenPair const & pair=TokenPair());    
     
-    template<typename By, typename KeyType, typename ValueType>
-    bool ForEachOrder(std::function<bool(KeyType const &, CLazySerialize<ValueType>)> callback, KeyType const & start = KeyType()) const {
-        auto& self = const_cast<COrderView&>(*this);
-        auto it = self.DB().NewIterator();        
-        auto key = std::make_pair(By::prefix, start);
-        for(it->Seek(DbTypeToBytes(key)); it->Valid() && BytesToDbType(it->Key(), key) && key.first == By::prefix; it->Next())
-        {
-            boost::this_thread::interruption_point();
-            if ((start!=KeyType() && key.second.first!=start.first) || !callback(key.second, CLazySerialize<COrderImpl>(*it)))
-                break;
-        }
-        return true;
-    }
-
     std::unique_ptr<CFulfillOrderImpl> GetFulfillOrderByCreationTx(const uint256 & txid) const;
     ResVal<uint256> FulfillOrder(const CFulfillOrderImpl& fillorder);
+    void ForEachFulfillOrder(std::function<bool (FulfillOrderId const &, CLazySerialize<CFulfillOrderImpl>)> callback, uint256 const & ordertxid=uint256());
 
     std::unique_ptr<CCloseOrderImpl> GetCloseOrderByCreationTx(const uint256 & txid) const;
     ResVal<uint256> CloseOrder(const CCloseOrderImpl& closeorder);
+    void ForEachClosedOrder(std::function<bool (TokenPairKey const &, CLazySerialize<COrderImpl>)> callback, TokenPair const & pair=TokenPair());
+
 
     struct OrderCreationTx { static const unsigned char prefix; };
     struct OrderCreationTxId { static const unsigned char prefix; };

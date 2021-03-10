@@ -1634,6 +1634,9 @@ Res ApplyCloseOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTr
     if (!(order=mnview.GetOrderByCreationTx(closeorder.orderTx))) {
         return Res::Err("order with creation tx %s does not exists!", closeorder.orderTx.GetHex());
     }
+    if (!order->closeTx.IsNull()) {
+        return Res::Err("order with creation tx %s is already closed!", closeorder.orderTx.GetHex());
+    }
 
     order->closeTx=closeorder.creationTx;
     order->closeHeight=closeorder.creationHeight;
@@ -1644,14 +1647,14 @@ Res ApplyCloseOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTr
         return Res::Ok();
     }
 
-    // auto res = mnview.CloseOrder(closeorder);
-    // if (!res.ok) {
-    //     return Res::Err("%s %s: %s", __func__, closeorder.creationTx.GetHex(), res.msg);
-    // }
-    // res = mnview.CloseOrderTx(*order);
-    // if (!res.ok) {
-    //     return Res::Err("%s %s: %s", __func__, closeorder.creationTx.GetHex(), res.msg);
-    // }
+    auto res = mnview.CloseOrder(closeorder);
+    if (!res.ok) {
+        return Res::Err("%s %s: %s", __func__, closeorder.creationTx.GetHex(), res.msg);
+    }
+    res = mnview.CloseOrderTx(*order);
+    if (!res.ok) {
+        return Res::Err("%s %s: %s", __func__, closeorder.creationTx.GetHex(), res.msg);
+    }
 
     return Res::Ok();
 }

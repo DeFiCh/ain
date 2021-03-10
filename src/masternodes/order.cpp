@@ -1,5 +1,4 @@
 #include <masternodes/order.h>
-// #include <masternodes/masternodes.h>
 
 /// @attention make sure that it does not overlap with other views !!!
 const unsigned char COrderView::OrderCreationTx  ::prefix = 'O';
@@ -35,25 +34,18 @@ ResVal<uint256> COrderView::CreateOrder(const COrderView::COrderImpl& order)
     return {order.creationTx, Res::Ok()};
 }
 
-ResVal<uint256> COrderView::CloseOrderTx(const uint256& txid)
+ResVal<uint256> COrderView::CloseOrderTx(const COrderView::COrderImpl& order)
 {
-    auto order=GetOrderByCreationTx(txid);
-    if (!order) {
-        return Res::Err("order with creation tx %s doesn't exists!", txid.GetHex());
-    }
-
-    TokenPair pair(order->idTokenFrom,order->idTokenTo);
-    TokenPairKey key(pair,order->creationTx);
+    TokenPairKey key(std::make_pair(order.idTokenFrom,order.idTokenTo),order.creationTx);
     EraseBy<OrderCreationTx>(key);
-    WriteBy<OrderCreationTx>(key,*order);
-    WriteBy<OrderCloseTx>(order->closeTx, order->creationTx);
-    return {order->creationTx, Res::Ok()};
+    WriteBy<OrderCloseTx>(key, order);
+    return {order.creationTx, Res::Ok()};
 }
 
-void COrderView::ForEachOrder(std::function<bool (COrderView::TokenPairKey const &, CLazySerialize<COrderView::COrderImpl>)> callback, TokenPair const & pair)
+void COrderView::ForEachOrder(std::function<bool (TokenPairKey const &, CLazySerialize<COrderImpl>)> callback, TokenPair const & pair)
 {
     TokenPairKey start(pair,uint256());
-    ForEachOrder<OrderCreationTx,TokenPairKey,COrderImpl>([&callback] (TokenPairKey const &key, CLazySerialize<COrderImpl> orderImpl) {
+    ForEach<OrderCreationTx,TokenPairKey,COrderImpl>([&start,&callback] (TokenPairKey const &key, CLazySerialize<COrderImpl> orderImpl) {
         return callback(key, orderImpl);
     }, start);
 }
@@ -61,13 +53,14 @@ void COrderView::ForEachOrder(std::function<bool (COrderView::TokenPairKey const
 std::unique_ptr<COrderView::CFulfillOrderImpl> COrderView::GetFulfillOrderByCreationTx(const uint256 & txid) const
 {
     auto ordertxid=ReadBy<FulfillOrderTxid, uint256>(txid);
-    if (!ordertxid->IsNull())
+    if (ordertxid && !ordertxid->IsNull())
     {
         auto fillorderImpl=ReadBy<FulfillCreationTx,CFulfillOrderImpl>(std::make_pair(*ordertxid,txid));
         if (fillorderImpl)
             return MakeUnique<CFulfillOrderImpl>(*fillorderImpl);
         return nullptr;
     }
+    return nullptr;
 }
 
 ResVal<uint256> COrderView::FulfillOrder(const COrderView::CFulfillOrderImpl & fillorder)
@@ -80,6 +73,14 @@ ResVal<uint256> COrderView::FulfillOrder(const COrderView::CFulfillOrderImpl & f
     WriteBy<FulfillOrderTxid>(fillorder.creationTx, fillorder.orderTx);
     WriteBy<FulfillCreationTx>(std::make_pair(fillorder.orderTx,fillorder.creationTx), fillorder);
     return {fillorder.creationTx, Res::Ok()};
+}
+
+void COrderView::ForEachFulfillOrder(std::function<bool (FulfillOrderId const &, CLazySerialize<CFulfillOrderImpl>)> callback, uint256 const & ordertxid)
+{
+    FulfillOrderId start(ordertxid,uint256());
+    ForEach<FulfillCreationTx,FulfillOrderId,CFulfillOrderImpl>([&callback] (FulfillOrderId const &key, CLazySerialize<CFulfillOrderImpl> fulfillOrder) {
+        return callback(key, fulfillOrder);
+    }, start);
 }
 
 std::unique_ptr<COrderView::CCloseOrderImpl> COrderView::GetCloseOrderByCreationTx(const uint256 & txid) const
@@ -95,10 +96,15 @@ ResVal<uint256> COrderView::CloseOrder(const COrderView::CCloseOrderImpl& closeo
     if (GetCloseOrderByCreationTx(closeorder.creationTx)) {
         return Res::Err("close with creation tx %s already exists!", closeorder.creationTx.GetHex());
     }
-    if (!CloseOrderTx(closeorder.orderTx).ok) {
-        return Res::Err("order with creation tx %s doesn't exists!", closeorder.orderTx.GetHex());
-    }
     WriteBy<CloseCreationTx>(closeorder.creationTx, closeorder);
 
     return {closeorder.creationTx, Res::Ok()};
+}
+
+void COrderView::ForEachClosedOrder(std::function<bool (TokenPairKey const &, CLazySerialize<COrderImpl>)> callback, TokenPair const & pair)
+{
+    TokenPairKey start(pair,uint256());
+    ForEach<OrderCloseTx,TokenPairKey,COrderImpl>([&start,&callback] (TokenPairKey const &key, CLazySerialize<COrderImpl> orderImpl) {
+        return callback(key, orderImpl);
+    }, start);
 }
