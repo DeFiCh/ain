@@ -34,24 +34,6 @@ static CWallet* GetWallet(const JSONRPCRequest& request)
     return pwallet;
 }
 
-static const int ENOSPV         = 100000;
-static const int EPARSINGTX     = 100001;
-static const int ETXNOTSIGNED   = 100002;
-
-std::string DecodeSendResult(int result)
-{
-    switch (result) {
-        case ENOSPV:
-            return "spv module disabled";
-        case EPARSINGTX:
-            return "Can't parse transaction";
-        case ETXNOTSIGNED:
-            return "Tx not signed";
-        default:
-            return strerror(result);
-    }
-}
-
 UniValue spv_sendrawtx(const JSONRPCRequest& request)
 {
     RPCHelpMan{"spv_sendrawtx",
@@ -866,7 +848,7 @@ UniValue spv_setlastheight(const JSONRPCRequest& request)
     return UniValue();
 }
 
-UniValue spv_getnewaddress(const JSONRPCRequest& request)
+static UniValue spv_getnewaddress(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
@@ -895,19 +877,18 @@ UniValue spv_getnewaddress(const JSONRPCRequest& request)
     CPubKey new_key;
     if (!pwallet->GetKeyFromPool(new_key)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-        return false;
     }
 
     auto newAddress = spv::pspv->AddBitcoinAddress(new_key);
     if (!newAddress.empty()) {
         auto dest = GetDestinationForKey(new_key, OutputType::BECH32);
-        pwallet->SetAddressBook(dest, "", "spv");
+        pwallet->SetAddressBook(dest, "spv", "spv");
     }
 
     return newAddress;
 }
 
-UniValue spv_dumpprivkey(const JSONRPCRequest& request)
+static UniValue spv_dumpprivkey(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
@@ -933,14 +914,14 @@ UniValue spv_dumpprivkey(const JSONRPCRequest& request)
     return spv::pspv->DumpBitcoinPrivKey(pwallet, strAddress);
 }
 
-UniValue spv_getbalance(const JSONRPCRequest& request)
+static UniValue spv_getbalance(const JSONRPCRequest& request)
 {
     RPCHelpMan{"spv_getbalance",
         "\nReturns the Bitcoin balance of the SPV wallet\n",
         {
         },
         RPCResult{
-        "amount                 (numeric) The total amount in BTC received in the SPV wallet.\n"
+            "amount                 (numeric) The total amount in BTC received in the SPV wallet.\n"
         },
         RPCExamples{
             HelpExampleCli("spv_getbalance", "")
@@ -950,6 +931,53 @@ UniValue spv_getbalance(const JSONRPCRequest& request)
 
     return ValueFromAmount(spv::pspv->GetBitcoinBalance());
 }
+
+
+static UniValue spv_sendtoaddress(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    RPCHelpMan{"spv_sendtoaddress",
+        "\nSend a Bitcoin amount to a given address." +
+            HelpRequiringPassphrase(pwallet) + "\n",
+        {
+            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The Bitcoin address to send to."},
+            {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount in " + CURRENCY_UNIT + " to send. eg 0.1"},
+        },
+        RPCResult{
+            "\"txid\"                  (string) The transaction id.\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
+            + HelpExampleRpc("spv_sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.1")
+        },
+    }.Check(request);
+
+    if (!spv::pspv) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    std::string address = request.params[0].get_str();
+
+    // Amount
+    CAmount nAmount = AmountFromValue(request.params[1]);
+    if (nAmount <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
+    }
+
+    EnsureWalletIsUnlocked(pwallet);
+
+    return spv::pspv->SendBitcoins(pwallet, address, nAmount);
+}
+
 
 
 static const CRPCCommand commands[] =
@@ -962,7 +990,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_rescan",                 &spv_rescan,                { "height" }  },
   { "spv",      "spv_syncstatus",             &spv_syncstatus,            { }  },
   { "spv",      "spv_gettxconfirmations",     &spv_gettxconfirmations,    { "txhash" }  },
-  { "spv",      "spv_splitutxo",              &spv_splitutxo,             { "parts", "amount" }  },
+  { "hidden",   "spv_splitutxo",              &spv_splitutxo,             { "parts", "amount" }  },
   { "spv",      "spv_listanchors",            &spv_listanchors,           { "minBtcHeight", "maxBtcHeight", "minConfs", "maxConfs" }  },
   { "spv",      "spv_listanchorauths",        &spv_listanchorauths,       { }  },
   { "spv",      "spv_listanchorrewardconfirms",     &spv_listanchorrewardconfirms,    { }  },
@@ -972,6 +1000,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_getnewaddress",          &spv_getnewaddress,         { }  },
   { "spv",      "spv_dumpprivkey",            &spv_dumpprivkey,           { }  },
   { "spv",      "spv_getbalance",             &spv_getbalance,            { }  },
+  { "spv",      "spv_sendtoaddress",          &spv_sendtoaddress,         { "address", "amount" }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
 };
 

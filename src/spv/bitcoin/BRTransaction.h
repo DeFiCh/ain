@@ -27,8 +27,10 @@
 
 #include "BRKey.h"
 #include "BRInt.h"
+
 #include <stddef.h>
 #include <inttypes.h>
+#include <string>
 
 #ifdef __cplusplus
 extern "C" {
@@ -148,6 +150,11 @@ inline static size_t BRTransactionHash(const void *tx)
 inline static int BRTransactionEq(const void *tx, const void *otherTx)
 {
     return (tx == otherTx || UInt256Eq(((const BRTransaction *)tx)->txHash, ((const BRTransaction *)otherTx)->txHash));
+}
+
+inline static std::string BRTransactionID(const BRTransaction &tx)
+{
+    return u256hex(tx.txHash);
 }
 
 // frees memory allocated for tx

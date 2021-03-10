@@ -40,6 +40,13 @@ class CAnchor;
 class CPubKey;
 class CScript;
 class CWallet;
+class UniValue;
+
+extern const int ENOSPV;
+extern const int EPARSINGTX;
+extern const int ETXNOTSIGNED;
+
+std::string DecodeSendResult(int result);
 
 namespace spv
 {
@@ -114,8 +121,10 @@ public:
 
     // Bitcoin Address calls
     std::string AddBitcoinAddress(const CPubKey &new_key);
+    void AddBitcoinHash(const uint160 &userHash);
     std::string DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress);
-    uint64_t GetBitcoinBalance();
+    UniValue GetBitcoinBalance();
+    UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount);
 
 private:
     virtual void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise);

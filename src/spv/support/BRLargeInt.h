@@ -123,12 +123,6 @@ inline static void UInt160Convert(const uint8_t* hash160, UInt160& spv160)
     memcpy(&spv160, hash160, sizeof(UInt160));
 }
 
-// Comparator for C++ containers of UInt160
-inline static bool UInt160Compare(const UInt160& a, const UInt160& b)
-{
-    return memcmp(&a, &b, sizeof(a)) < 0;
-}
-
 #ifdef __cplusplus
 }
 #endif

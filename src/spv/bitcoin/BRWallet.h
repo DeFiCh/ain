@@ -58,6 +58,10 @@ inline static int BRUTXOEq(const void *utxo, const void *otherUtxo)
                                   ((const BRUTXO *)utxo)->n == ((const BRUTXO *)otherUtxo)->n));
 }
 
+
+// Comparator for C++ containers of UInt160
+bool UInt160Compare(const UInt160& a, const UInt160& b);
+
 typedef struct BRWalletStruct BRWallet;
 
 // allocates and populates a BRWallet struct that must be freed by calling BRWalletFree()
@@ -87,8 +91,11 @@ void BRWalletSetCallbacks(BRWallet *wallet, void *info,
 // returns the number addresses written to addrs
 size_t BRWalletUnusedAddrs(BRWallet *wallet, BRAddress addrs[], uint32_t gapLimit, uint32_t internal);
 
+// Import single uint160 into wallet
+void BRWalletImportAddress(BRWallet *wallet, const uint160& userHash);
+
 // Add Bitcoin public key to SPV wallet from DeFi public key
-bool BRWalletAddAddr(BRWallet *wallet, const uint8_t &pubKey, const size_t pkLen, BRAddress& addr);
+bool BRWalletAddSingleAddress(BRWallet *wallet, const uint8_t &pubKey, const size_t pkLen, BRAddress& addr);
 
 // Add previously created Bitcoin addresses from DeFi address book
 void BRWalletAddUserAddresses(BRWallet *wallet);
@@ -136,11 +143,11 @@ void BRWalletSetFeePerKb(BRWallet *wallet, uint64_t feePerKb);
 
 // returns an unsigned transaction that sends the specified amount from the wallet to the given address
 // result must be freed using BRTransactionFree()
-BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, const char *addr);
+BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, const char *addr, std::string changeAddress);
 
 // returns an unsigned transaction that satisifes the given transaction outputs
 // result must be freed using BRTransactionFree()
-BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput outputs[], size_t outCount);
+BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput outputs[], size_t outCount, std::string changeAddress);
 
 // signs any inputs in tx that can be signed using private keys from the wallet
 // seed is the master private key (wallet seed) corresponding to the master public key given when the wallet was created
@@ -195,7 +202,7 @@ uint64_t BRWalletFeeForTxSize(BRWallet *wallet, size_t size);
 uint64_t BRWalletFeeForTxAmount(BRWallet *wallet, uint64_t amount);
 
 // outputs below this amount are uneconomical due to fees (TX_MIN_OUTPUT_AMOUNT is the absolute minimum output amount)
-uint64_t BRWalletMinOutputAmount(BRWallet *wallet);
+uint64_t BRWalletMinOutputAmountWithFeePerKb(BRWallet *wallet, uint64_t feePerKb);
 
 // maximum amount that can be sent from the wallet to a single address after fees
 uint64_t BRWalletMaxOutputAmount(BRWallet *wallet);
