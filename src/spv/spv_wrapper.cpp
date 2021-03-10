@@ -5,7 +5,7 @@
 #include <spv/spv_wrapper.h>
 
 #include <chainparams.h>
-
+#include <core_io.h>
 #include <masternodes/anchors.h>
 #include <rpc/protocol.h>
 #include <rpc/request.h>
@@ -20,6 +20,7 @@
 #include <spv/bitcoin/BRPeerManager.h>
 #include <spv/bitcoin/BRChainParams.h>
 #include <spv/bcash/BRBCashParams.h>
+#include <spv/support/BRLargeInt.h>
 #include <spv/support/BRSet.h>
 
 #include <string.h>
@@ -29,6 +30,24 @@
 extern RecursiveMutex cs_main;
 
 RecursiveMutex cs_spvcallback;
+
+const int ENOSPV         = 100000;
+const int EPARSINGTX     = 100001;
+const int ETXNOTSIGNED   = 100002;
+
+std::string DecodeSendResult(int result)
+{
+    switch (result) {
+        case ENOSPV:
+            return "spv module disabled";
+        case EPARSINGTX:
+            return "Can't parse transaction";
+        case ETXNOTSIGNED:
+            return "Tx not signed";
+        default:
+            return strerror(result);
+    }
+}
 
 namespace spv
 {
@@ -393,7 +412,7 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
         {
             LogPrint(BCLog::SPV, "updating anchor pending %s\n", txHash.ToString());
             if (panchors->AddToAnchorPending(oldPending.anchor, txHash, blockHeight, true)) {
-                LogPrintf("Anchor pending added/updated %s\n", txHash.ToString());
+                LogPrint(BCLog::ANCHORING, "Anchor pending added/updated %s\n", txHash.ToString());
             }
         }
         else if (auto exist = panchors->GetAnchorByBtcTx(txHash)) // update index. no any checks nor validations
@@ -401,7 +420,7 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
             LogPrint(BCLog::SPV, "updating anchor %s\n", txHash.ToString());
             CAnchor oldAnchor{exist->anchor};
             if (panchors->AddAnchor(oldAnchor, txHash, blockHeight, true)) {
-                LogPrintf("Anchor added/updated %s\n", txHash.ToString());
+                LogPrint(BCLog::ANCHORING, "Anchor added/updated %s\n", txHash.ToString());
             }
         }
     }
@@ -520,13 +539,18 @@ void CSpvWrapper::WriteBlock(const BRMerkleBlock * block)
 std::string CSpvWrapper::AddBitcoinAddress(const CPubKey& new_key)
 {
     BRAddress addr = BR_ADDRESS_NONE;
-    if (!BRWalletAddAddr(wallet, *new_key.data(), new_key.size(), addr)) {
+    if (!BRWalletAddSingleAddress(wallet, *new_key.data(), new_key.size(), addr)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unable to add Bitcoin address");
     }
 
     BRPeerManagerRebuildBloomFilter(manager);
 
     return addr.s;
+}
+
+void CSpvWrapper::AddBitcoinHash(const uint160 &userHash)
+{
+    BRWalletImportAddress(wallet, userHash);
 }
 
 std::string CSpvWrapper::DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress)
@@ -536,8 +560,6 @@ std::string CSpvWrapper::DumpBitcoinPrivKey(const CWallet* pwallet, const std::s
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
     }
 
-    LogPrint(BCLog::SPV, "%s: CKeyID: %s\n", __func__, HexStr(keyid));
-
     CKey vchSecret;
     if (!pwallet->GetKey(keyid, vchSecret)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key for address " + strAddress + " is not known");
@@ -546,9 +568,90 @@ std::string CSpvWrapper::DumpBitcoinPrivKey(const CWallet* pwallet, const std::s
     return EncodeSecret(vchSecret);
 }
 
-uint64_t CSpvWrapper::GetBitcoinBalance()
+UniValue CSpvWrapper::GetBitcoinBalance()
 {
     return BRWalletBalance(wallet);
+}
+
+UniValue CSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount)
+{
+    if (!BRAddressIsValid(address.c_str())) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    auto dust = BRWalletMinOutputAmountWithFeePerKb(wallet, MIN_FEE_PER_KB);
+    if (amount < static_cast<int64_t>(dust)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Amount below dust threshold, minimum required: " + std::to_string(dust));
+    }
+
+    // Generate change address while we have CWallet
+    CPubKey new_key;
+    if (!pwallet->GetKeyFromPool(new_key)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
+    auto changeAddress = AddBitcoinAddress(new_key);
+    auto dest = GetDestinationForKey(new_key, OutputType::BECH32);
+    pwallet->SetAddressBook(dest, "spv", "spv");
+
+    BRTransaction *tx = BRWalletCreateTransaction(wallet, static_cast<uint64_t>(amount), address.c_str(), changeAddress);
+
+    if (tx == nullptr) {
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
+    }
+
+    std::vector<BRKey> inputKeys;
+    for (size_t i{0}; i < tx->inCount; ++i) {
+        CTxDestination dest;
+        if (!ExtractDestination({tx->inputs[i].script, tx->inputs[i].script + tx->inputs[i].scriptLen}, dest)) {
+            BRTransactionFree(tx);
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Failed to extract destination from script");
+
+        }
+
+        auto keyid = GetKeyForDestination(*pwallet, dest);
+        if (keyid.IsNull()) {
+            BRTransactionFree(tx);
+            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to get address hash.");
+        }
+
+        CKey vchSecret;
+        if (!pwallet->GetKey(keyid, vchSecret)) {
+            BRTransactionFree(tx);
+            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to get address private key.");
+        }
+
+        UInt256 rawKey;
+        memcpy(&rawKey, &(*vchSecret.begin()), vchSecret.size());
+
+        BRKey inputKey;
+        if (!BRKeySetSecret(&inputKey, &rawKey, vchSecret.IsCompressed())) {
+            BRTransactionFree(tx);
+            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to create private key.");
+        }
+
+        inputKeys.push_back(inputKey);
+    }
+
+    BRTransactionSign(tx, 0, inputKeys.data(), inputKeys.size());
+    if (!BRTransactionIsSigned(tx)) {
+        BRTransactionFree(tx);
+        throw JSONRPCError(RPC_WALLET_ERROR, "Failed to sign transaction.");
+    }
+
+    int sendResult = 0;
+    std::promise<int> promise;
+    std::string txid = to_uint256(tx->txHash).ToString();
+    OnSendRawTx(tx, &promise);
+    if (tx) {
+        sendResult = promise.get_future().get();
+    } else {
+        sendResult = EPARSINGTX;
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("txid", txid);
+    result.pushKV("sendmessage", DecodeSendResult(sendResult));
+    return result;
 }
 
 void publishedTxCallback(void *info, int error)

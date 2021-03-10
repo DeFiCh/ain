@@ -20,6 +20,7 @@
 #include <rpc/util.h>
 #include <script/descriptor.h>
 #include <script/sign.h>
+#include <spv/spv_wrapper.h>
 #include <util/bip32.h>
 #include <util/fees.h>
 #include <util/moneystr.h>
@@ -2609,6 +2610,29 @@ static UniValue loadwallet(const JSONRPCRequest& request)
     std::string error, warning;
     std::shared_ptr<CWallet> const wallet = LoadWallet(*g_rpc_interfaces->chain, location, error, warning);
     if (!wallet) throw JSONRPCError(RPC_WALLET_ERROR, error);
+
+    if (spv::pspv) {
+        bool foundSPV{false};
+        for (const auto& entry : wallet->mapAddressBook) {
+            if (entry.second.purpose == "spv") {
+                uint160 userHash;
+                if (entry.first.which() == 1) {
+                    userHash = *boost::get<PKHash>(&entry.first);
+                } else if (entry.first.which() == 4) {
+                    userHash = *boost::get<WitnessV0KeyHash>(&entry.first);
+                } else {
+                    continue;
+                }
+
+                spv::pspv->AddBitcoinHash(userHash);
+                foundSPV = true;
+            }
+
+            if (foundSPV) {
+                spv::pspv->Rescan(std::numeric_limits<int>::max());
+            }
+        }
+    }
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("name", wallet->GetName());
