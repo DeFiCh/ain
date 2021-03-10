@@ -299,7 +299,7 @@ UniValue closeorder(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("closeorder", "'{\"orderTx\":\"txid\"}'")
+                        HelpExampleCli("closeorder", "'{\"orderTx\":\"acb4d7eef089e74708afc6d9ca40af34f27a70506094dac39a5b9fb0347614fb\"}'")
                 },
      }.Check(request);
 
@@ -358,20 +358,17 @@ UniValue closeorder(const JSONRPCRequest& request) {
 }
 
 UniValue getorder(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"getorder",
-                "\nReturn information about order or fillorder.\n" +
-                HelpRequiringPassphrase(pwallet) + "\n",
+                "\nReturn information about order or fillorder.\n",
                 {
-                    {"orderTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of maker order"},
+                    {"orderTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of createorder or fulfillorder tx"},
                 },
                 RPCResult
                 {
                     "{...}     (object) Json object with order information\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("closeorder", "'{\"orderTx\":\"txid\"}'")     
+                    HelpExampleCli("getorder", "'{\"orderTx\":\"acb4d7eef089e74708afc6d9ca40af34f27a70506094dac39a5b9fb0347614fb\"}'")     
                 },
      }.Check(request);
 
@@ -395,21 +392,18 @@ UniValue getorder(const JSONRPCRequest& request) {
 }
 
 UniValue listorders(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"listorders",
-                "\nReturn information about orders.\n" +
-                HelpRequiringPassphrase(pwallet) + "\n",
+                "\nReturn information about orders.\n",
                 {
-                    {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                            {"limit",  RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Maximum number of orders to return (default: 50)"},
-                            {"token1", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token symbol"},
-                            {"token2", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token symbol"},
-                            {"orderTx",RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Order txid to list all fulfill orders for this order"},
-                            {"closed", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Display closed orders (default: false)"},
+                        {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                            {
+                                {"limit",  RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Maximum number of orders to return (default: 50)"},
+                                {"token1", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token symbol"},
+                                {"token2", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token symbol"},
+                                {"orderTx",RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Order txid to list all fulfill orders for this order"},
+                                {"closed", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Display closed orders (default: false)"},
+                            },
                         },
-                    },
                 },
                 RPCResult
                 {
@@ -418,6 +412,7 @@ UniValue listorders(const JSONRPCRequest& request) {
                 RPCExamples{
                         HelpExampleCli("listorders", "'{\"limit\":\"10\"}'")
                         + HelpExampleCli("listorders", "'{\"token\":\"MyToken1\",\"tokenPair\":\"Mytoken2\"}'")
+                        + HelpExampleCli("listorders", "'{\"token\":\"MyToken1\",\"tokenPair\":\"Mytoken2\",\"closed\":true}'")
                         + HelpExampleCli("listorders", "'{\"orderTx\":\"acb4d7eef089e74708afc6d9ca40af34f27a70506094dac39a5b9fb0347614fb\"}'")
                 }
      }.Check(request);
@@ -501,11 +496,11 @@ static const CRPCCommand commands[] =
 { 
 //  category        name                     actor (function)        params
 //  --------------- ----------------------   ---------------------   ----------
-    {"orderbook",   "createorder",           &createorder,           {"ownerAddress", "tokenFrom", "tokenTo", "amountFrom", "orderPrice"}},
-    {"orderbook",   "fulfillorder",          &fulfillorder,          {"ownerAddress", "orderTx", "amount"}},
+    {"orderbook",   "createorder",           &createorder,           {"order"}},
+    {"orderbook",   "fulfillorder",          &fulfillorder,          {"order"}},
     {"orderbook",   "closeorder",            &closeorder,            {"orderTx"}},
     {"orderbook",   "getorder",              &getorder,              {"orderTx"}},
-    {"orderbook",   "listorders",            &listorders,            {"tokenFrom", "tokenTo","ownerAddress"}},
+    {"orderbook",   "listorders",            &listorders,            {"by"}},
 
 };
 

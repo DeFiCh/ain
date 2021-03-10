@@ -241,7 +241,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "createorder", 0, "order" },
     { "fulfillorder", 0, "order" },
-    { "listorders", 0, "order" },
+    { "listorders", 0, "by" },
 
     { "listaccounthistory", 1, "options" },
     { "accounthistorycount", 1, "options" },
