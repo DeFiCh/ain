@@ -47,6 +47,11 @@ bool UInt160Compare(const UInt160& a, const UInt160& b)
     return memcmp(&a, &b, sizeof(a)) < 0;
 }
 
+uint256 to_uint256(const UInt256 & i)
+{
+    return uint256(std::vector<uint8_t>(&i.u8[0], &i.u8[32]));
+}
+
 inline static size_t _pkhHash(const void *pkh)
 {
     return (size_t)UInt32GetLE(pkh);
@@ -189,7 +194,7 @@ static int _BRWalletContainsUserTx(BRWallet *wallet, const BRTransaction *tx)
         pkh = BRScriptPKH(tx->outputs[i].script, tx->outputs[i].scriptLen);
         if (pkh) {
             UInt160 hash160;
-            UInt160Convert(pkh, hash160);
+            UIntConvert(pkh, hash160);
             if (wallet->userPKH.count(hash160)) r = 1;
         }
     }
@@ -201,12 +206,43 @@ static int _BRWalletContainsUserTx(BRWallet *wallet, const BRTransaction *tx)
         pkh = (t && n < t->outCount) ? BRScriptPKH(t->outputs[n].script, t->outputs[n].scriptLen) : NULL;
         if (pkh) {
             UInt160 hash160;
-            UInt160Convert(pkh, hash160);
+            UIntConvert(pkh, hash160);
             if (wallet->userPKH.count(hash160)) r = 1;
         }
     }
 
     return r;
+}
+
+std::set<std::string> BRListUserTransactions(BRWallet *wallet)
+{
+    std::set<std::string> userTransactions;
+    BRTransaction *tx;
+
+    for (size_t i = 0; i < array_count(wallet->transactions); ++i) {
+        tx = wallet->transactions[i];
+
+        if (_BRWalletContainsUserTx(wallet, tx)) {
+            userTransactions.insert(to_uint256(tx->txHash).ToString());
+        }
+    }
+
+    return userTransactions;
+}
+
+std::string BRGetRawTransaction(BRWallet *wallet, UInt256 txHash)
+{
+    auto tx = BRWalletTransactionForHash(wallet, txHash);
+
+    if (!tx) {
+        return {};
+    }
+
+    size_t len = BRTransactionSerialize(tx, nullptr, 0);
+    std::vector<uint8_t> buf(len);
+    BRTransactionSerialize(tx, buf.data(), buf.size());
+
+    return HexStr(buf);
 }
 
 static void _BRWalletUpdateBalance(BRWallet *wallet)
@@ -509,7 +545,7 @@ void BRWalletImportAddress(BRWallet *wallet, const uint160& userHash)
     UInt160 *origChain = chain;
 
     UInt160 hash;
-    UInt160Convert(userHash.begin(), hash);
+    UIntConvert(userHash.begin(), hash);
 
     size_t count = array_count(chain);
     array_add(chain, hash);

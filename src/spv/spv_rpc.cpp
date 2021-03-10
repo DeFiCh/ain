@@ -978,6 +978,54 @@ static UniValue spv_sendtoaddress(const JSONRPCRequest& request)
     return spv::pspv->SendBitcoins(pwallet, address, nAmount);
 }
 
+static UniValue spv_listtransactions(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_listransactions",
+        "\nReturns an array of all Bitcoin transaction hashes.\n",
+        {},
+        RPCResult{
+            "[                         (array of strings)\n"
+            "  \"txid\"                  (string) The transaction id.\n"
+            "  ...\n"
+            "]"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_listransactions", "")
+            + HelpExampleRpc("spv_listransactions", "")
+        },
+    }.Check(request);
+
+    if (!spv::pspv) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    return spv::pspv->ListTransactions();
+}
+
+static UniValue spv_getrawtransaction(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_gatrawtransaction",
+        "\nReturn the raw transaction data.\n",
+        {
+            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+        },
+        RPCResult{
+            "\"data\"      (string) The serialized, hex-encoded data for 'txid'\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_getrawtransaction", "\"txid\"")
+            + HelpExampleRpc("spv_getrawtransaction", "\"txid\"")
+        },
+    }.Check(request);
+
+    if (!spv::pspv) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    uint256 hash = ParseHashV(request.params[0], "");
+
+    return spv::pspv->GetRawTransactions(hash);
+}
 
 
 static const CRPCCommand commands[] =
@@ -1001,6 +1049,8 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_dumpprivkey",            &spv_dumpprivkey,           { }  },
   { "spv",      "spv_getbalance",             &spv_getbalance,            { }  },
   { "spv",      "spv_sendtoaddress",          &spv_sendtoaddress,         { "address", "amount" }  },
+  { "spv",      "spv_listtransactions",       &spv_listtransactions,      { }  },
+  { "spv",      "spv_getrawtransaction",      &spv_getrawtransaction,     { "txid" }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
 };
 
