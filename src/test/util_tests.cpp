@@ -1441,7 +1441,7 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     // Revert SIGCHLD to default, otherwise boost.test will catch and fail on
     // it: there is BOOST_TEST_IGNORE_SIGCHLD but that only works when defined
     // at build-time of the boost library
-    void (*old_handler)(int) = signal(SIGCHLD, SIG_DFL);
+//    void (*old_handler)(int) = signal(SIGCHLD, SIG_DFL);
 
     // Fork another process for testing before creating the lock, so that we
     // won't fork while holding the lock (which might be undefined, and is not
@@ -1505,7 +1505,7 @@ BOOST_AUTO_TEST_CASE(test_LockDirectory)
     // Re-lock the lock in the child process, then wait for it to exit, check
     // successful return. After that, we check that exiting the process
     // has released the lock as we would expect by probing it.
-    int processstatus;
+//    int processstatus;
     BOOST_CHECK_EQUAL(write(fd[1], &LockCommand, 1), 1);
     BOOST_CHECK_EQUAL(write(fd[1], &ExitCommand, 1), 1);
 //    BOOST_CHECK_EQUAL(waitpid(pid, &processstatus, 0), pid); // TODO: (temp) !!!

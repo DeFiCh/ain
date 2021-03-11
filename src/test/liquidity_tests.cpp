@@ -310,7 +310,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
         // distribute 100 coins
         CAmount totalRwd = 100*COIN;
 
-        int64_t nTimeBegin = GetTimeMicros();
+//        int64_t nTimeBegin = GetTimeMicros();
         CAmount distributed = cache.DistributeRewards(totalRwd,
             [&cache] (CScript const & owner, DCT_ID tokenID) {
                 return cache.GetBalance(owner, tokenID);
@@ -319,7 +319,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
                 return cache.AddBalance(to, amount);
             }
         );
-        int64_t nTimeEnd = GetTimeMicros(); auto nTimeRwd = nTimeEnd - nTimeBegin;
+//        int64_t nTimeEnd = GetTimeMicros(); auto nTimeRwd = nTimeEnd - nTimeBegin;
 //        printf("Rewarded %d pools with %d shares each: %.2fms \n", PoolCount, ProvidersCount, 0.001 * (nTimeRwd));
 
 //        printf("Distributed: = %ld\n", distributed);

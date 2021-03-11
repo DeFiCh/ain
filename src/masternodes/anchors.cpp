@@ -526,9 +526,13 @@ void CAnchorIndex::CheckPendingAnchors()
 {
     AssertLockHeld(cs_main);
 
-    std::set<uint256> deletePending;
+    std::set<AnchorRec, decltype(OrderPendingAnchors)> anchorsPending(OrderPendingAnchors);
+    ForEachPending([&anchorsPending](uint256 const &, AnchorRec & rec) {
+        anchorsPending.insert(rec);
+    });
 
-    ForEachPending([this, &deletePending](uint256 const &, AnchorRec & rec) {
+    std::set<uint256> deletePending;
+    for (const auto& rec : anchorsPending) {
 
         CBlockIndex anchorBlock;
         uint64_t anchorCreationHeight;
@@ -539,13 +543,21 @@ void CAnchorIndex::CheckPendingAnchors()
                 deletePending.insert(rec.txHash);
             }
 
-            return;
+            continue;
+        }
+
+        uint32_t timestamp = spv::pspv->ReadTxTimestamp(rec.txHash);
+
+        // Do not delete, TX time still pending.
+        if (timestamp == 0 || timestamp == std::numeric_limits<int32_t>::max()) {
+            continue;
         }
 
         // Here we can check new rule that Bitcoin blocktime is three hours more than DeFi anchored block
-        uint32_t timestamp = spv::pspv->ReadTxTimestamp(rec.txHash);
-        if (timestamp == 0 || anchorBlock.nTime > timestamp - Params().GetConsensus().mn.anchoringTimeDepth) {
-            return; // Do not delete, TX time may still be updated on SPV TX status update.
+        if (anchorBlock.nTime > timestamp - Params().GetConsensus().mn.anchoringTimeDepth) {
+            LogPrint(BCLog::ANCHORING, "DeFi anchor time not deep enough. DeFi: %d Bitcoin: %d\n", anchorBlock.nTime, timestamp);
+            deletePending.insert(rec.txHash);
+            continue;
         }
 
         // Let's try and get the team that set this anchor
@@ -554,7 +566,7 @@ void CAnchorIndex::CheckPendingAnchors()
         if (!anchorTeam || anchorTeam->empty()) {
             LogPrint(BCLog::ANCHORING, "No team found at height %ld. Deleting anchor txHash %s\n", anchorCreationHeight, rec.txHash.ToString());
             deletePending.insert(rec.txHash);
-            return;
+            continue;
         }
 
         // Validate the anchor sigs
@@ -562,7 +574,7 @@ void CAnchorIndex::CheckPendingAnchors()
         if (!rec.anchor.CheckAuthSigs(*anchorTeam)) {
             LogPrint(BCLog::ANCHORING, "Signature validation fails. Deleting anchor txHash %s\n", rec.txHash.ToString());
             deletePending.insert(rec.txHash);
-            return;
+            continue;
         }
 
         // Finally add to anchors and delete from pending
@@ -573,7 +585,7 @@ void CAnchorIndex::CheckPendingAnchors()
         // Recheck anchors
         possibleReActivation = true;
         CheckActiveAnchor();
-    });
+    }
 
     for (const auto& hash : deletePending) {
         DeletePendingByBtcTx(hash);

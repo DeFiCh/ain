@@ -268,6 +268,7 @@ class CRewardsHistoryStorage : public CCustomCSView
     int acindex;
     const uint32_t height;
     std::map<std::pair<CScript, uint8_t>, std::map<DCT_ID, TAmounts>> diffs;
+    using CCustomCSView::AddBalance;
 public:
     CRewardsHistoryStorage(CCustomCSView & storage, uint32_t height);
     Res AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount);

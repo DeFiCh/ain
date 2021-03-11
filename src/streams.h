@@ -852,14 +852,13 @@ public:
     //! search for a given byte in the stream, and remain positioned on it
     void FindByte(char ch) {
         while (true) {
-            if (nReadPos == nSrcPos)
-                if (!Fill())
-                    throw std::ios_base::failure("CBufferedFile::FindByte: fail to read");
-                if (nReadPos >= vchBuf.size())
-                    throw std::ios_base::failure("CBufferedFile::FindByte: fail to find");
-                if (vchBuf[nReadPos] == ch)
-                    break;
-                nReadPos++;
+            if (nReadPos == nSrcPos && !Fill())
+                throw std::ios_base::failure("CBufferedFile::FindByte: fail to read");
+            if (nReadPos >= vchBuf.size())
+                throw std::ios_base::failure("CBufferedFile::FindByte: fail to find");
+            if (vchBuf[nReadPos] == ch)
+                break;
+            nReadPos++;
         }
     }
 };

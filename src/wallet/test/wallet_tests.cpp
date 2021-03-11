@@ -443,7 +443,7 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
     // returns the coin associated with the change address underneath the
     // coinbaseKey pubkey, even though the change address has a different
     // pubkey.
-    AddTx(CRecipient{GetScriptForRawPubKey({}), 1 * COIN, 0, false /* subtract fee */});
+    AddTx(CRecipient{GetScriptForRawPubKey({}), 1 * COIN, DCT_ID{0}, false /* subtract fee */});
     {
         auto locked_chain = m_chain->lock();
         LOCK(wallet->cs_wallet);

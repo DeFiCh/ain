@@ -3838,18 +3838,6 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             if (ppindex)
                 *ppindex = pindex;
             if (pindex->nStatus & BLOCK_FAILED_MASK) {
-                if (pindex->nHeight == 597925) {
-                    ResetBlockFailureFlags(pindex);
-                    auto pindexInvalid = ::ChainActive()[597915];
-                    pindexInvalid->nStatus |= BLOCK_FAILED_VALID;
-                    m_failed_blocks.insert(pindexInvalid);
-                    auto& chain = ::ChainstateActive();
-                    chain.setBlockIndexCandidates.erase(pindexInvalid);
-                    setDirtyBlockIndex.insert(pindexInvalid);
-                    InvalidChainFound(pindexInvalid);
-                } else if (pindex->nHeight == 597915) {
-                    ResetBlockFailureFlags(pindex);
-                }
                 return state.Invalid(ValidationInvalidReason::CACHED_INVALID, error("%s: block %s is marked invalid", __func__, hash.ToString()), 0, "duplicate");
             }
             return true;
@@ -3879,7 +3867,7 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
 
                 auto state = pcustomcsview->GetMasternode(nodeId)->GetState(block.height);
                 if (state != CMasternode::PRE_BANNED && state != CMasternode::BANNED) { // deny check & addition if masternode was already punished
-                    for (std::pair <uint256, CBlockHeader> const & blockHeader : blockHeaders) {
+                    for (auto const & blockHeader : blockHeaders) {
                         if (IsDoubleSignRestricted(block.height, blockHeader.second.height)) { // we already have equal minters and even mintedBlocks counter
                             // this is the ONLY place
                             pcriminals->AddCriminalProof(nodeId, block, blockHeader.second);
