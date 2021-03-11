@@ -55,7 +55,7 @@ pull_request:
           * `/kind refactor`
           * `/kind dependencies`
         status:
-          context: "Governance / Kind"
+          context: "Governance / Kind Label"
           description:
             success: Ready for review & merge.
             failure: Missing kind label for release generation.
