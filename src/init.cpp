@@ -1589,12 +1589,15 @@ bool AppInitMain(InitInterfaces& interfaces)
                 pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);
                 pcustomcsview.reset();
                 pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
-                if (!fReset && gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
-                    if (shouldMigrateOldRewardHistory(*pcustomcsview)) {
-                        strLoadError = _("Account history needs rebuild").translated;
+                if (!fReset && !fReindexChainState) {
+                    if (!pcustomcsDB->IsEmpty() && pcustomcsview->GetDbVersion() != CCustomCSView::DbVersion) {
+                        strLoadError = _("Account database is unsuitable").translated;
                         break;
                     }
                 }
+
+                // Ensure we are on latest DB version
+                pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate

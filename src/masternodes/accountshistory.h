@@ -64,7 +64,4 @@ public:
 
 static constexpr bool DEFAULT_ACINDEX = true;
 
-class CCustomCSView;
-bool shouldMigrateOldRewardHistory(CCustomCSView & view);
-
 #endif //DEFI_MASTERNODES_ACCOUNTSHISTORY_H

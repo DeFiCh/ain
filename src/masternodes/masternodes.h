@@ -248,6 +248,9 @@ class CCustomCSView
         , public CAnchorConfirmsView
 {
 public:
+    // Increase version when underlaying tables are changed
+    static constexpr const int DbVersion = 1;
+
     CCustomCSView() = default;
 
     CCustomCSView(CStorageKV & st)
@@ -273,6 +276,10 @@ public:
     bool CanSpend(const uint256 & txId, int height) const;
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
+
+    void SetDbVersion(int version);
+
+    int GetDbVersion() const;
 
     CStorageKV& GetRaw() {
         return DB();
