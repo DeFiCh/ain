@@ -89,8 +89,6 @@ UniValue spv_sendrawtx(const JSONRPCRequest& request)
 */
 UniValue spv_splitutxo(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"spv_splitutxo",
         "\nFor tests|experiments only\n",
         {

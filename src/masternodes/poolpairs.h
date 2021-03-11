@@ -259,7 +259,7 @@ public:
     boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 
     void ForEachPoolPair(std::function<bool(DCT_ID const &, CLazySerialize<CPoolPair>)> callback, DCT_ID const & start = DCT_ID{0});
-    void ForEachPoolShare(std::function<bool(DCT_ID const &, CScript const &)> callback, PoolShareKey const &startKey = PoolShareKey{0,CScript{}}) const;
+    void ForEachPoolShare(std::function<bool(DCT_ID const &, CScript const &)> callback, PoolShareKey const &startKey = {}) const;
 
     Res SetShare(DCT_ID const & poolId, CScript const & provider) {
         WriteBy<ByShare>(PoolShareKey{poolId, provider}, '\0');

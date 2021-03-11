@@ -53,7 +53,6 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock, const uint
 }
 
 std::vector<CBlockHeader> GenerateTwoCriminalsHeaders(CKey const &minterKey, uint64_t const &mintedBlocks, uint256 const &masternodeID) {
-    uint64_t time = Params().GenesisBlock().nTime;
     uint64_t height = 1;
     uint256 prevStakeModifier = Params().GenesisBlock().stakeModifier;
 
