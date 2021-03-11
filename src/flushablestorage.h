@@ -146,6 +146,9 @@ public:
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
         return MakeUnique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db.NewIterator()));
     }
+    bool IsEmpty() {
+        return db.IsEmpty();
+    }
 
 private:
     CDBWrapper db;

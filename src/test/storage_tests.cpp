@@ -6,7 +6,6 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/masternodes.h>
-#include <masternodes/rewardhistoryold.h>
 #include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
 

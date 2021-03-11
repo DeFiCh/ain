@@ -27,6 +27,7 @@ const unsigned char DB_MN_OPERATORS = 'o';    // masternodes' operators index
 const unsigned char DB_MN_OWNERS = 'w';       // masternodes' owners index
 const unsigned char DB_MN_STAKER = 'X';       // masternodes' last staked block time
 const unsigned char DB_MN_HEIGHT = 'H';       // single record with last processed chain height
+const unsigned char DB_MN_VERSION = 'D';
 const unsigned char DB_MN_ANCHOR_REWARD = 'r';
 const unsigned char DB_MN_ANCHOR_CONFIRM = 'x';
 const unsigned char DB_MN_CURRENT_TEAM = 't';
@@ -587,6 +588,19 @@ std::vector<CAnchorConfirmDataPlus> CAnchorConfirmsView::GetAnchorConfirmData()
 /*
  *  CCustomCSView
  */
+int CCustomCSView::GetDbVersion() const
+{
+    int version;
+    if (Read(DB_MN_VERSION, version))
+        return version;
+    return 0;
+}
+
+void CCustomCSView::SetDbVersion(int version)
+{
+    Write(DB_MN_VERSION, version);
+}
+
 CTeamView::CTeam CCustomCSView::CalcNextTeam(const uint256 & stakeModifier)
 {
     if (stakeModifier == uint256())

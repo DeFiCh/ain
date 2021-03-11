@@ -5,7 +5,6 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/accounts.h>
 #include <masternodes/masternodes.h>
-#include <masternodes/rewardhistoryold.h>
 #include <key_io.h>
 
 #include <limits>
@@ -22,28 +21,4 @@ Res CAccountsHistoryView::SetAccountHistory(const AccountHistoryKey& key, const 
 {
     WriteBy<ByAccountHistoryKey>(key, value);
     return Res::Ok();
-}
-
-bool shouldMigrateOldRewardHistory(CCustomCSView & view)
-{
-    auto it = view.GetRaw().NewIterator();
-    try {
-        auto prefix = oldRewardHistoryPrefix;
-        auto oldKey = std::make_pair(prefix, oldRewardHistoryKey{});
-        it->Seek(DbTypeToBytes(oldKey));
-        if (it->Valid() && BytesToDbType(it->Key(), oldKey) && oldKey.first == prefix) {
-            return true;
-        }
-        bool hasOldAccountHistory = false;
-        view.ForEachAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue>) {
-            if (key.txn == std::numeric_limits<uint32_t>::max()) {
-                hasOldAccountHistory = true;
-                return false;
-            }
-            return true;
-        }, { {}, 0, std::numeric_limits<uint32_t>::max() });
-        return hasOldAccountHistory;
-    } catch(...) {
-        return true;
-    }
 }
