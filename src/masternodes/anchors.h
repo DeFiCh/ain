@@ -501,6 +501,23 @@ bool ContextualValidateAnchor(const CAnchorData& anchor, CBlockIndex &anchorBloc
 // Get info from data embedded into CAnchorData::nextTeam
 bool GetAnchorEmbeddedData(const CKeyID& data, uint64_t& anchorCreationHeight, std::shared_ptr<std::vector<unsigned char>>& prefix);
 
+// Comparator to organise by Bitcoin height, anchor height or TX hash
+const auto OrderPendingAnchors = [](const CAnchorIndex::AnchorRec& a, const CAnchorIndex::AnchorRec& b) {
+    if (a.btcHeight == b.btcHeight) {
+        if (a.anchor.height == b.anchor.height) {
+            return a.txHash < b.txHash;
+        }
+
+        // Higher DeFi height wins
+        return a.anchor.height > b.anchor.height;
+    }
+
+    return a.btcHeight < b.btcHeight;
+};
+
+// Selects "best" of two anchors at the equal btc height (prevs must be checked before)
+CAnchorIndex::AnchorRec const* BestOfTwo(CAnchorIndex::AnchorRec const* a1, CAnchorIndex::AnchorRec const* a2);
+
 /** Global variables that points to the anchors and their auths (should be protected by cs_main) */
 extern std::unique_ptr<CAnchorAuthIndex> panchorauths;
 extern std::unique_ptr<CAnchorIndex> panchors;

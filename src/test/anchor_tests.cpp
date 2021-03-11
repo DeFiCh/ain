@@ -24,6 +24,39 @@ struct SpvTestingSetup : public TestingSetup {
 
 BOOST_FIXTURE_TEST_SUITE(anchor_tests, SpvTestingSetup)
 
+BOOST_AUTO_TEST_CASE(anchor_order_logic)
+{
+    CAnchorIndex::AnchorRec anchorOne;
+    CAnchorIndex::AnchorRec anchorTwo;
+
+    anchorOne.btcHeight = 100;
+    anchorTwo.btcHeight = 200;
+
+    // Lowest Bitcoin height wins
+    BOOST_CHECK(OrderPendingAnchors(anchorOne, anchorTwo) == true);
+    BOOST_CHECK(OrderPendingAnchors(anchorTwo, anchorOne) == false);
+
+    anchorOne.btcHeight = anchorTwo.btcHeight;
+    anchorOne.anchor.height = 100;
+    anchorTwo.anchor.height = 200;
+
+    // Heighest DeFi height wins
+    BOOST_CHECK(OrderPendingAnchors(anchorOne, anchorTwo) == false);
+    BOOST_CHECK(OrderPendingAnchors(anchorTwo, anchorOne) == true);
+    BOOST_CHECK(BestOfTwo(&anchorOne, &anchorTwo)->anchor.height == 200);
+    BOOST_CHECK(BestOfTwo(&anchorTwo, &anchorOne)->anchor.height == 200);
+
+    anchorOne.anchor.height = anchorTwo.anchor.height;
+    anchorOne.txHash = uint256S("12ca5ac2b666478bbbdfc0e0b328552a8cd83aa1b3fbb822560ab8cbf72be893");
+    anchorTwo.txHash = uint256S("852bb89808af5a5487d4afed23b4ec3c4186ec8101ff9e7c73a038c9a2c436d9");
+
+    // Lowest hash wins
+    BOOST_CHECK(OrderPendingAnchors(anchorOne, anchorTwo) == true);
+    BOOST_CHECK(OrderPendingAnchors(anchorTwo, anchorOne) == false);
+    BOOST_CHECK(BestOfTwo(&anchorOne, &anchorTwo)->txHash == uint256S("12ca5ac2b666478bbbdfc0e0b328552a8cd83aa1b3fbb822560ab8cbf72be893"));
+    BOOST_CHECK(BestOfTwo(&anchorTwo, &anchorOne)->txHash == uint256S("12ca5ac2b666478bbbdfc0e0b328552a8cd83aa1b3fbb822560ab8cbf72be893"));
+}
+
 BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 {
     spv::CFakeSpvWrapper * fspv = static_cast<spv::CFakeSpvWrapper *>(spv::pspv.get());
