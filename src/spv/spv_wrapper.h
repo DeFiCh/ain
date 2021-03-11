@@ -69,7 +69,6 @@ private:
     boost::shared_ptr<CDBWrapper> db;
     boost::scoped_ptr<CDBBatch> batch;
 
-    BRWallet *wallet = nullptr;
     BRPeerManager *manager = nullptr;
     std::string spv_internal_logfilename;
 
@@ -77,6 +76,9 @@ private:
     using db_block_rec = std::pair<TBytes, uint32_t>;                       // serialized block, blockHeight
 
     bool initialSync = true;
+
+protected:
+    BRWallet *wallet = nullptr;
 
 public:
     CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
@@ -122,7 +124,7 @@ public:
     void AddBitcoinHash(const uint160 &userHash);
     std::string DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress);
     int64_t GetBitcoinBalance();
-    UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount);
+    virtual UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount);
     UniValue ListTransactions();
     std::string GetRawTransactions(uint256& hash);
 
@@ -210,7 +212,7 @@ protected:
 class CFakeSpvWrapper : public CSpvWrapper
 {
 public:
-    CFakeSpvWrapper() : CSpvWrapper(false, 1 << 23, true, true) {}
+    CFakeSpvWrapper();
 
     void Connect() override;
     void Disconnect() override;
@@ -221,6 +223,7 @@ public:
     uint32_t GetEstimatedBlockHeight() const override { return lastBlockHeight+1000; } // dummy
 
     void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise) override;
+    UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount) override;
 
     uint32_t lastBlockHeight = 0;
     bool isConnected = false;

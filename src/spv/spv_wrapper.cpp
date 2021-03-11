@@ -973,6 +973,11 @@ void CSpvWrapper::OnSendRawTx(BRTransaction *tx, std::promise<int> * promise)
     }
 }
 
+CFakeSpvWrapper::CFakeSpvWrapper() : CSpvWrapper(false, 1 << 23, true, true) {
+    spv_mainnet = 2;
+}
+
+// Promise used to toggle between anchor testing and SPV Bitcoin user wallet testing.
 void CFakeSpvWrapper::OnSendRawTx(BRTransaction *tx, std::promise<int> * promise)
 {
     assert(tx);
@@ -984,20 +989,92 @@ void CFakeSpvWrapper::OnSendRawTx(BRTransaction *tx, std::promise<int> * promise
         return;
     }
 
-    /// @todo lock cs_main? or assert unlocked?
-    LogPrintf("fakespv: adding anchor tx %s\n", to_uint256(tx->txHash).ToString());
+    if (promise)
+    {
+        // Adds to DeFi anchor system
+        OnTxAdded(tx);
+    }
+    else
+    {
+        // Add to SPV wallet as legitimate TX
+        BRWalletRegisterTransaction(wallet, tx);
+    }
 
     // Use realistic time
     tx->timestamp = GetTime();
-
-    OnTxAdded(tx);
     OnTxUpdated(&tx->txHash, 1, lastBlockHeight, GetTime() + 1000);
 
-    if (promise)
+    if (promise) {
         promise->set_value(0);
 
-    BRTransactionFree(tx);
+        // Only free in anchor testing, SPV wallet testing adds TX to wallet.
+        BRTransactionFree(tx);
+    }
 }
+
+UniValue CFakeSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount)
+{
+    // Normal TX, pass to parent.
+    if (amount != -1) {
+        return CSpvWrapper::SendBitcoins(pwallet, address, amount);
+    }
+
+    // Fund Bitcoin wallet for testing with 1 Bitcoin.
+
+    // Get real key for input and signing to make TX with unique TXID
+    CPubKey new_key;
+    if (!pwallet->GetKeyFromPool(new_key)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
+
+    CTxDestination dest = GetDestinationForKey(new_key, OutputType::BECH32);
+    CKeyID keyid = GetKeyForDestination(*pwallet, dest);
+    if (keyid.IsNull()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Failed to get address hash.");
+    }
+
+    CKey vchSecret;
+    if (!pwallet->GetKey(keyid, vchSecret)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Failed to get address private key.");
+    }
+
+    UInt256 rawKey;
+    memcpy(&rawKey, &(*vchSecret.begin()), vchSecret.size());
+
+    BRKey inputKey;
+    if (!BRKeySetSecret(&inputKey, &rawKey, vchSecret.IsCompressed())) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Failed to create private key.");
+    }
+
+    // Create blank TX
+    BRTransaction *tx = BRTransactionNew();
+
+    // Add output
+    BRTxOutput o = BR_TX_OUTPUT_NONE;
+    BRTxOutputSetAddress(&o, address.c_str());
+    BRTransactionAddOutput(tx, SATOSHIS, o.script, o.scriptLen);
+
+    // Add Bech32 input
+    TBytes script(2 + sizeof(keyid), OP_0);
+    script[1] = 0x14;
+    memcpy(script.data() + 2, keyid.begin(), sizeof(keyid));
+    BRTransactionAddInput(tx, toUInt256("1111111111111111111111111111111111111111111111111111111111111111"), 0,
+                          SATOSHIS + 1000, script.data(), script.size(), nullptr, 0, nullptr, 0, TXIN_SEQUENCE);
+
+    // Sign TX
+    BRTransactionSign(tx, 0, &inputKey, 1);
+    if (!BRTransactionIsSigned(tx)) {
+        BRTransactionFree(tx);
+        throw JSONRPCError(RPC_WALLET_ERROR, "Failed to sign transaction.");
+    }
+
+    int sendResult = 0;
+    std::string txid = to_uint256(tx->txHash).ToString();
+    OnSendRawTx(tx, nullptr);
+
+    return txid;
+}
+
 
 TBytes CreateScriptForAddress(char const * address)
 {
