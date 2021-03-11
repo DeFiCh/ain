@@ -846,6 +846,34 @@ UniValue spv_setlastheight(const JSONRPCRequest& request)
     return UniValue();
 }
 
+UniValue spv_fundaddress(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_fundaddress",
+        "\nFund a Bitcoin address (for test purposes only)\n",
+        {
+            {"address", RPCArg::Type::NUM, RPCArg::Optional::NO, "Bitcoin address to fund"},
+        },
+        RPCResult{
+            "\"txid\"                  (string) The transaction id.\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_fundaddress", "\"address\"")
+            + HelpExampleRpc("spv_fundaddress", "\"address\"")
+        },
+    }.Check(request);
+
+    auto fake_spv = static_cast<spv::CFakeSpvWrapper *>(spv::pspv.get());
+    if (!fake_spv) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "command disabled");
+    }
+
+    std::string strAddress = request.params[0].get_str();
+
+    return fake_spv->SendBitcoins(pwallet, strAddress, -1);
+}
+
 static UniValue spv_getnewaddress(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
@@ -1050,6 +1078,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_listtransactions",       &spv_listtransactions,      { }  },
   { "spv",      "spv_getrawtransaction",      &spv_getrawtransaction,     { "txid" }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
+  { "hidden",   "spv_fundaddress",            &spv_fundaddress,           { "address" }  },
 };
 
 void RegisterSpvRPCCommands(CRPCTable &tableRPC)

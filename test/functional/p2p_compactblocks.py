@@ -96,7 +96,7 @@ class CompactBlocksTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 1
         self.extra_args = [[
-            "-acceptnonstdtxn=1", "-dummypos=1", "-nospv"
+            "-acceptnonstdtxn=1", "-dummypos=1"
         ]]
         self.utxos = []
 

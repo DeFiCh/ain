@@ -128,6 +128,8 @@ static const char BRTestBip32xprv[] = "\x04\x35\x83\x94";
 static const char BRTestBip32xpub[] = "\x04\x35\x87\xCF";
 static const char BRTestBech32[] = "tb";
 
+static const char BRRegtestBech32[] = "bcrt";
+
 static const BRChainParams BRMainNetParamsRecord = {
     BRMainNetDNSSeeds,
     8333,                  // standardPort
@@ -161,6 +163,23 @@ static const BRChainParams BRTestNetParamsRecord = {
     BRTestBech32
 };
 const BRChainParams *BRTestNetParams = &BRTestNetParamsRecord;
+
+static const BRChainParams BRRegtestParamsRecord = {
+    BRTestNetDNSSeeds,
+    18443,                 // standardPort
+    0xdab5bffa,            // magicNumber
+    SERVICES_NODE_WITNESS, // services
+    BRTestNetVerifyDifficulty,
+    BRTestNetCheckpoints,
+    0,
+    239,
+    111,
+    196,
+    BRTestBip32xprv,
+    BRTestBip32xpub,
+    BRRegtestBech32
+};
+const BRChainParams *BRRegtestParams = &BRRegtestParamsRecord;
 
 int spv_mainnet = 1;
 
