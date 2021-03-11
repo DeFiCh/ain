@@ -30,44 +30,71 @@ enum CustomTxErrCodes : uint32_t {
     Fatal = uint32_t(1) << 31 // not allowed to fail
 };
 
-enum class CustomTxType : unsigned char
+enum class CustomTxType : uint8_t
 {
     None = 0,
     // masternodes:
-    CreateMasternode    = 'C',
-    ResignMasternode    = 'R',
+    CreateMasternode      = 'C',
+    ResignMasternode      = 'R',
     // custom tokens:
-    CreateToken         = 'T',
-    MintToken           = 'M',
-    UpdateToken         = 'N', // previous type, only DAT flag triggers
-    UpdateTokenAny      = 'n', // new type of token's update with any flags/fields possible
+    CreateToken           = 'T',
+    MintToken             = 'M',
+    UpdateToken           = 'N', // previous type, only DAT flag triggers
+    UpdateTokenAny        = 'n', // new type of token's update with any flags/fields possible
     // dex orders - just not to overlap in future
 //    CreateOrder         = 'O',
 //    DestroyOrder        = 'E',
 //    MatchOrders         = 'A',
     //poolpair
-    CreatePoolPair      = 'p',
-    UpdatePoolPair      = 'u',
-    PoolSwap            = 's',
-    AddPoolLiquidity    = 'l',
-    RemovePoolLiquidity = 'r',
+    CreatePoolPair        = 'p',
+    UpdatePoolPair        = 'u',
+    PoolSwap              = 's',
+    AddPoolLiquidity      = 'l',
+    RemovePoolLiquidity   = 'r',
     // accounts
-    UtxosToAccount     = 'U',
-    AccountToUtxos     = 'b',
-    AccountToAccount   = 'B',
-    AnyAccountsToAccounts  = 'a',
+    UtxosToAccount        = 'U',
+    AccountToUtxos        = 'b',
+    AccountToAccount      = 'B',
+    AnyAccountsToAccounts = 'a',
     //set governance variable
-    SetGovVariable       = 'G',
+    SetGovVariable        = 'G',
     // Auto auth TX
-    AutoAuthPrep       = 'A',
+    AutoAuthPrep          = 'A',
+    // oracles
+    AppointOracle         = 'o',
+    RemoveOracleAppoint   = 'h',
+    UpdateOracleAppoint   = 't',
+    SetOracleData         = 'y',
 };
 
-inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    constexpr const char txtypes[] = "CRTMNnpuslrUbBaGA";
-    if (memchr(txtypes, ch, sizeof(txtypes) - 1))
-        return static_cast<CustomTxType>(ch);
-    else
-        return CustomTxType::None;
+inline CustomTxType CustomTxCodeToType(uint8_t ch) {
+    auto type = static_cast<CustomTxType>(ch);
+    switch(type) {
+        case CustomTxType::CreateMasternode:
+        case CustomTxType::ResignMasternode:
+        case CustomTxType::CreateToken:
+        case CustomTxType::MintToken:
+        case CustomTxType::UpdateToken:
+        case CustomTxType::UpdateTokenAny:
+        case CustomTxType::CreatePoolPair:
+        case CustomTxType::UpdatePoolPair:
+        case CustomTxType::PoolSwap:
+        case CustomTxType::AddPoolLiquidity:
+        case CustomTxType::RemovePoolLiquidity:
+        case CustomTxType::UtxosToAccount:
+        case CustomTxType::AccountToUtxos:
+        case CustomTxType::AccountToAccount:
+        case CustomTxType::AnyAccountsToAccounts:
+        case CustomTxType::SetGovVariable:
+        case CustomTxType::AutoAuthPrep:
+        case CustomTxType::AppointOracle:
+        case CustomTxType::RemoveOracleAppoint:
+        case CustomTxType::UpdateOracleAppoint:
+        case CustomTxType::SetOracleData:
+        case CustomTxType::None:
+            return type;
+    }
+    return CustomTxType::None;
 }
 
 std::string ToString(CustomTxType type);
@@ -99,6 +126,10 @@ struct CLiquidityMessage;
 struct CPoolSwapMessage;
 struct CRemoveLiquidityMessage;
 struct CUtxosToAccountMessage;
+struct CAppointOracleMessage;
+struct CRemoveOracleAppointMessage;
+struct CUpdateOracleAppointMessage;
+struct CSetOracleDataMessage;
 
 struct CCreateMasterNodeMessage {
     char operatorType;
@@ -203,7 +234,11 @@ typedef boost::variant<
     CAccountToUtxosMessage,
     CAccountToAccountMessage,
     CAnyAccountsToAccountsMessage,
-    CGovernanceMessage
+    CGovernanceMessage,
+    CAppointOracleMessage,
+    CRemoveOracleAppointMessage,
+    CUpdateOracleAppointMessage,
+    CSetOracleDataMessage
 > CCustomTxMessage;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);

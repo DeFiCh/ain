@@ -6,6 +6,7 @@
 #include <masternodes/anchors.h>
 #include <masternodes/balances.h>
 #include <masternodes/mn_checks.h>
+#include <masternodes/oracles.h>
 #include <masternodes/res.h>
 
 #include <arith_uint256.h>
@@ -21,8 +22,6 @@
 #include <validation.h>
 
 #include <algorithm>
-#include <sstream>
-#include <cstring>
 
 using namespace std;
 
@@ -45,9 +44,14 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
+        case CustomTxType::AppointOracle:       return "AppointOracle";
+        case CustomTxType::RemoveOracleAppoint: return "RemoveOracleAppoint";
+        case CustomTxType::UpdateOracleAppoint: return "UpdateOracleAppoint";
+        case CustomTxType::SetOracleData:       return "SetOracleData";
         case CustomTxType::AutoAuthPrep:        return "AutoAuth";
-        default:                                return "None";
+        case CustomTxType::None:                return "None";
     }
+    return "None";
 }
 
 static ResVal<CBalances> BurntTokens(CTransaction const & tx) {
@@ -108,8 +112,14 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
     case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
     case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
-    default:                                    return CCustomTxMessageNone{};
+    case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
+    case CustomTxType::RemoveOracleAppoint:     return CRemoveOracleAppointMessage{};
+    case CustomTxType::UpdateOracleAppoint:     return CUpdateOracleAppointMessage{};
+    case CustomTxType::SetOracleData:           return CSetOracleDataMessage{};
+    case CustomTxType::AutoAuthPrep:            return CCustomTxMessageNone{};
+    case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
+    return CCustomTxMessageNone{};
 }
 
 extern std::string ScriptToString(CScript const& script);
@@ -137,6 +147,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
     Res isPostBayfrontGardensFork() const {
         if(static_cast<int>(height) < consensus.BayfrontGardensHeight) {
             return Res::Err("called before Bayfront Gardens height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostEunosFork() const {
+        if(static_cast<int>(height) < consensus.EunosHeight) {
+            return Res::Err("called before Eunos height");
         }
         return Res::Ok();
     }
@@ -290,6 +307,26 @@ public:
             obj.govs.insert(std::move(var));
         }
         return Res::Ok();
+    }
+
+    Res operator()(CAppointOracleMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CRemoveOracleAppointMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CUpdateOracleAppointMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CSetOracleDataMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CCustomTxMessageNone&) const {
@@ -483,6 +520,20 @@ public:
                 return res;
             }
         }
+        return Res::Ok();
+    }
+
+    Res normalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& tokenCurrency) const {
+        std::set<CTokenCurrencyPair> trimmed;
+        for (const auto& pair : tokenCurrency) {
+            auto token = trim_ws(pair.first).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+            auto currency = trim_ws(pair.second).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+            if (token.empty() || currency.empty()) {
+                return Res::Err("empty token / currency");
+            }
+            trimmed.emplace(token, currency);
+        }
+        tokenCurrency = std::move(trimmed);
         return Res::Ok();
     }
 };
@@ -941,6 +992,43 @@ public:
         return Res::Ok();
     }
 
+    Res operator()(const CAppointOracleMessage& obj) const {
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member");
+        }
+        auto msg = obj;
+        auto res = normalizeTokenCurrencyPair(msg.availablePairs);
+        return !res ? res : mnview.AppointOracle(tx.GetHash(), COracle(msg));
+    }
+
+    Res operator()(const CUpdateOracleAppointMessage& obj) const {
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member");
+        }
+        auto msg = obj.newOracleAppoint;
+        auto res = normalizeTokenCurrencyPair(msg.availablePairs);
+        return !res ? res : mnview.UpdateOracle(obj.oracleId, COracle(msg));
+    }
+
+    Res operator()(const CRemoveOracleAppointMessage& obj) const {
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member");
+        }
+        return mnview.RemoveOracle(obj.oracleId);
+    }
+
+    Res operator()(const CSetOracleDataMessage& obj) const {
+
+        auto oracle = mnview.GetOracleData(obj.oracleId);
+        if (!oracle) {
+            return Res::Err("failed to retrieve oracle <%s> from database", obj.oracleId.GetHex());
+        }
+        if (!HasAuth(oracle.val->oracleAddress)) {
+            return Res::Err("tx must have at least one input from account owner");
+        }
+        return mnview.SetOracleData(obj.oracleId, obj.timestamp, obj.tokenPrices);
+    }
+
     Res operator()(const CCustomTxMessageNone&) const {
         return Res::Ok();
     }
@@ -1235,7 +1323,6 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const &
     return { finMsg.btcTxHash, Res::Ok() };
 }
 
-
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams)
 {
     if (height < consensusParams.DakotaHeight) {
@@ -1304,9 +1391,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
     return { finMsg.btcTxHash, Res::Ok() };
 }
 
-
-bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
-{
+bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid) {
     CTransactionRef ptx = pool.get(txid);
     if (ptx) {
         std::vector<unsigned char> dummy;
