@@ -26,44 +26,71 @@ enum CustomTxErrCodes : uint32_t {
     Fatal = uint32_t(1) << 31 // not allowed to fail
 };
 
-enum class CustomTxType : unsigned char
+enum class CustomTxType : unsigned short
 {
     None = 0,
     // masternodes:
-    CreateMasternode    = 'C',
-    ResignMasternode    = 'R',
+    CreateMasternode      = 'C', // 67
+    ResignMasternode      = 'R', // 82
     // custom tokens:
-    CreateToken         = 'T',
-    MintToken           = 'M',
-    UpdateToken         = 'N', // previous type, only DAT flag triggers
-    UpdateTokenAny      = 'n', // new type of token's update with any flags/fields possible
+    CreateToken           = 'T', // 84
+    MintToken             = 'M', // 77
+    UpdateToken           = 'N', // 78 previous type, only DAT flag triggers
+    UpdateTokenAny        = 'n', // 110 new type of token's update with any flags/fields possible
     // dex orders - just not to overlap in future
 //    CreateOrder         = 'O',
 //    DestroyOrder        = 'E',
 //    MatchOrders         = 'A',
     //poolpair
-    CreatePoolPair      = 'p',
-    UpdatePoolPair      = 'u',
-    PoolSwap            = 's',
-    AddPoolLiquidity    = 'l',
-    RemovePoolLiquidity = 'r',
+    CreatePoolPair        = 'p', // 112
+    UpdatePoolPair        = 'u', // 117
+    PoolSwap              = 's', // 115
+    AddPoolLiquidity      = 'l', // 108
+    RemovePoolLiquidity   = 'r', // 114
     // accounts
-    UtxosToAccount     = 'U',
-    AccountToUtxos     = 'b',
-    AccountToAccount   = 'B',
-    AnyAccountsToAccounts  = 'a',
+    UtxosToAccount        = 'U', // 85
+    AccountToUtxos        = 'b', // 98
+    AccountToAccount      = 'B', // 66
+    AnyAccountsToAccounts = 'a', // 97
     //set governance variable
-    SetGovVariable       = 'G',
+    SetGovVariable        = 'G', // 71
     // Auto auth TX
     AutoAuthPrep       = 'A',
+    // oracles
+    AppointOracle         = 200,
+    RemoveOracleAppoint   = 201,
+    UpdateOracleAppoint   = 202,
+    SetOracleData         = 203,
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMNnpuslrUbBaGA";
-    if (memchr(txtypes, ch, strlen(txtypes)))
-        return static_cast<CustomTxType>(ch);
-    else
-        return CustomTxType::None;
+    auto type = static_cast<CustomTxType>(ch);
+    switch(type) {
+        case CustomTxType::CreateMasternode:
+        case CustomTxType::ResignMasternode:
+        case CustomTxType::CreateToken:
+        case CustomTxType::MintToken:
+        case CustomTxType::UpdateToken:
+        case CustomTxType::UpdateTokenAny:
+        case CustomTxType::CreatePoolPair:
+        case CustomTxType::UpdatePoolPair:
+        case CustomTxType::PoolSwap:
+        case CustomTxType::AddPoolLiquidity:
+        case CustomTxType::RemovePoolLiquidity:
+        case CustomTxType::UtxosToAccount:
+        case CustomTxType::AccountToUtxos:
+        case CustomTxType::AccountToAccount:
+        case CustomTxType::AnyAccountsToAccounts:
+        case CustomTxType::SetGovVariable:
+        case CustomTxType::AutoAuthPrep:
+        case CustomTxType::AppointOracle:
+        case CustomTxType::RemoveOracleAppoint:
+        case CustomTxType::UpdateOracleAppoint:
+        case CustomTxType::SetOracleData:
+            return type;
+        default:
+            return CustomTxType::None;
+    }
 }
 
 inline std::string ToString(CustomTxType type) {
@@ -85,7 +112,10 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
-        case CustomTxType::AutoAuthPrep:        return "AutoAuth";
+        case CustomTxType::AppointOracle:       return "AppointOracle";
+        case CustomTxType::RemoveOracleAppoint: return "RemoveOracleAppoint";
+        case CustomTxType::UpdateOracleAppoint: return "UpdateOracleAppoint";
+        case CustomTxType::SetOracleData:       return "SetOracleData";
         default:                                return "None";
     }
 }
@@ -135,6 +165,11 @@ Res ApplySetGovernanceTx(CCustomCSView & mnview, CCoinsViewCache const & coins, 
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+
+Res ApplyAppointOracleTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplyRemoveOracleAppointTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata,Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplyUpdateOracleAppointTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplySetOracleDataTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256 & txid);
 
