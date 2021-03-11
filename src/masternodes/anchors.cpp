@@ -526,20 +526,7 @@ void CAnchorIndex::CheckPendingAnchors()
 {
     AssertLockHeld(cs_main);
 
-    // Get pending anchors and organise by Bitcoin height, anchor height or TX hash
-    auto ByBtcHeight = [](const AnchorRec& a, const AnchorRec& b) {
-        if (a.btcHeight == b.btcHeight) {
-            if (a.anchor.height == b.anchor.height) {
-                return a.txHash < b.txHash;
-            }
-
-            // Higher DeFi height wins
-            return a.anchor.height > b.anchor.height;
-        }
-
-        return a.btcHeight < b.btcHeight;
-    };
-    std::set<AnchorRec, decltype(ByBtcHeight)> anchorsPending(ByBtcHeight);
+    std::set<AnchorRec, decltype(OrderPendingAnchors)> anchorsPending(OrderPendingAnchors);
     ForEachPending([&anchorsPending](uint256 const &, AnchorRec & rec) {
         anchorsPending.insert(rec);
     });
