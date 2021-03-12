@@ -59,9 +59,6 @@ inline static int BRUTXOEq(const void *utxo, const void *otherUtxo)
 }
 
 
-// Comparator for C++ containers of UInt160
-bool UInt160Compare(const UInt160& a, const UInt160& b);
-
 // Convert SPV UInt256 to Bitcoin uint256
 uint256 to_uint256(UInt256 const & i);
 
@@ -70,7 +67,7 @@ typedef struct BRWalletStruct BRWallet;
 // allocates and populates a BRWallet struct that must be freed by calling BRWalletFree()
 // forkId is 0 for bitcoin, 0x40 for b-cash
 BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId,
-                      std::set<UInt160, decltype(&UInt160Compare)> *userAddresses);
+                      std::set<UInt160, UInt160Compare> *userAddresses);
 
 // not thread-safe, set callbacks once after BRWalletNew(), before calling other BRWallet functions
 // info is a void pointer that will be passed along with each callback call

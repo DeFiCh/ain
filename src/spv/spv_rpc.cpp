@@ -883,7 +883,7 @@ static UniValue spv_getnewaddress(const JSONRPCRequest& request)
         {
         },
         RPCResult{
-            "\"none\"                  Returns nothing\n"
+            "\"address\"                  Returns a new Bitcoin address\n"
         },
         RPCExamples{
             HelpExampleCli("spv_getnewaddress", "")

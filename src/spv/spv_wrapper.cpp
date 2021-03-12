@@ -230,7 +230,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
         IterateTable(DB_SPVTXS, onLoadTx);
     }
 
-    auto userAddresses = new std::set<UInt160, decltype(&UInt160Compare)>(UInt160Compare);
+    auto userAddresses = new std::set<UInt160, UInt160Compare>;
     const auto wallets = GetWallets();
     for (const auto& wallet : wallets) {
         for (const auto& entry : wallet->mapAddressBook) {

@@ -42,11 +42,6 @@
 //#include <pthread.h>
 #include <assert.h>
 
-bool UInt160Compare(const UInt160& a, const UInt160& b)
-{
-    return memcmp(&a, &b, sizeof(a)) < 0;
-}
-
 uint256 to_uint256(const UInt256 & i)
 {
     return uint256(std::vector<uint8_t>(&i.u8[0], &i.u8[32]));
@@ -94,7 +89,7 @@ struct BRWalletStruct {
     int forkId;
     UInt160 *internalChain, *externalChain;
     BRSet *allTx, *invalidTx, *pendingTx, *spentOutputs, *usedPKH, *allPKH;
-    std::set<UInt160, decltype(&UInt160Compare)>* userPKH;
+    std::set<UInt160, UInt160Compare>* userPKH;
     void *callbackInfo;
     void (*balanceChanged)(void *info, uint64_t balance);
     void (*txAdded)(void *info, BRTransaction *tx);
@@ -353,7 +348,7 @@ static void _BRWalletUpdateBalance(BRWallet *wallet)
 // allocates and populates a BRWallet struct which must be freed by calling BRWalletFree()
 // forkId is 0 for bitcoin, 0x40 for b-cash
 BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId,
-                      std::set<UInt160, decltype(&UInt160Compare)>* userAddresses)
+                      std::set<UInt160, UInt160Compare>* userAddresses)
 {
     BRWallet *wallet = NULL;
     BRTransaction *tx;

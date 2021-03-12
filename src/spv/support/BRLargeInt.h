@@ -117,6 +117,14 @@ inline static UInt256 UInt256Reverse(UInt256 u)
                                 u.u8[ 7], u.u8[ 6], u.u8[5],  u.u8[ 4], u.u8[ 3], u.u8[ 2], u.u8[ 1], u.u8[ 0] } });
 }
 
+struct UInt160Compare
+{
+    bool operator() (const UInt160& a, const UInt160& b) const
+    {
+        return memcmp(&a, &b, sizeof(a)) < 0;
+    }
+};
+
 #ifdef __cplusplus
 }
 #endif
