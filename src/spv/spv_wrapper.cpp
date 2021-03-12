@@ -197,7 +197,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
     // Configuring spv logs:
     // (we need intermediate persistent storage for filename here)
-    spv_internal_logfilename = (LogInstance().m_file_path.remove_filename() / "spv.log").string();
+    spv_internal_logfilename = AbsPathForConfigVal("spv.log").string();
     spv_logfilename = spv_internal_logfilename.c_str();
     LogPrint(BCLog::SPV, "internal logs set to %s\n", spv_logfilename);
     spv_log2console = 0;
@@ -1057,7 +1057,6 @@ UniValue CFakeSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string addre
         throw JSONRPCError(RPC_WALLET_ERROR, "Failed to sign transaction.");
     }
 
-    int sendResult = 0;
     std::string txid = to_uint256(tx->txHash).ToString();
     OnSendRawTx(tx, nullptr);
 
