@@ -94,7 +94,7 @@ struct BRWalletStruct {
     int forkId;
     UInt160 *internalChain, *externalChain;
     BRSet *allTx, *invalidTx, *pendingTx, *spentOutputs, *usedPKH, *allPKH;
-    std::set<UInt160, decltype(&UInt160Compare)> userPKH;
+    std::set<UInt160, decltype(&UInt160Compare)>* userPKH;
     void *callbackInfo;
     void (*balanceChanged)(void *info, uint64_t balance);
     void (*txAdded)(void *info, BRTransaction *tx);
@@ -195,7 +195,7 @@ static int _BRWalletContainsUserTx(BRWallet *wallet, const BRTransaction *tx)
         if (pkh) {
             UInt160 hash160;
             UIntConvert(pkh, hash160);
-            if (wallet->userPKH.count(hash160)) r = 1;
+            if (wallet->userPKH->count(hash160)) r = 1;
         }
     }
 
@@ -207,7 +207,7 @@ static int _BRWalletContainsUserTx(BRWallet *wallet, const BRTransaction *tx)
         if (pkh) {
             UInt160 hash160;
             UIntConvert(pkh, hash160);
-            if (wallet->userPKH.count(hash160)) r = 1;
+            if (wallet->userPKH->count(hash160)) r = 1;
         }
     }
 
@@ -353,7 +353,7 @@ static void _BRWalletUpdateBalance(BRWallet *wallet)
 // allocates and populates a BRWallet struct which must be freed by calling BRWalletFree()
 // forkId is 0 for bitcoin, 0x40 for b-cash
 BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId,
-                      std::set<UInt160, decltype(&UInt160Compare)>&& userAddresses)
+                      std::set<UInt160, decltype(&UInt160Compare)>* userAddresses)
 {
     BRWallet *wallet = NULL;
     BRTransaction *tx;
@@ -376,7 +376,7 @@ BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPub
     wallet->spentOutputs = BRSetNew(BRUTXOHash, BRUTXOEq, txCount + 100);
     wallet->usedPKH = BRSetNew(_pkhHash, _pkhEq, txCount + 100);
     wallet->allPKH = BRSetNew(_pkhHash, _pkhEq, txCount + 100);
-    wallet->userPKH = std::move(userAddresses);
+    wallet->userPKH = userAddresses;
 
     for (size_t i = 0; transactions && i < txCount; i++) {
         tx = transactions[i];
@@ -393,7 +393,7 @@ BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPub
     BRWalletUnusedAddrs(wallet, NULL, SEQUENCE_GAP_LIMIT_EXTERNAL, SEQUENCE_EXTERNAL_CHAIN);
     BRWalletUnusedAddrs(wallet, NULL, SEQUENCE_GAP_LIMIT_INTERNAL, SEQUENCE_INTERNAL_CHAIN);
 
-    if (!wallet->userPKH.empty()) {
+    if (!wallet->userPKH->empty()) {
         BRWalletAddUserAddresses(wallet);
     }
 
@@ -507,7 +507,7 @@ bool BRWalletAddSingleAddress(BRWallet *wallet, const uint8_t& pubKey, const siz
     size_t count = array_count(chain);
     auto hash = BRKeyHash160(&key);
     array_add(chain, hash);
-    wallet->userPKH.insert(hash);
+    wallet->userPKH->insert(hash);
 
     _BRWalletAddressFromHash160(wallet, addr.s, sizeof(addr), hash);
 
@@ -549,7 +549,7 @@ void BRWalletImportAddress(BRWallet *wallet, const uint160& userHash)
 
     size_t count = array_count(chain);
     array_add(chain, hash);
-    wallet->userPKH.insert(hash);
+    wallet->userPKH->insert(hash);
 
     // was chain moved to a new memory location?
     if (chain == origChain)
@@ -582,7 +582,7 @@ void BRWalletAddUserAddresses(BRWallet *wallet) {
 
     size_t before_count = array_count(chain);
 
-    for (const auto& address : wallet->userPKH) {
+    for (const auto& address : *wallet->userPKH) {
         array_add(chain, address);
     }
 
@@ -1430,6 +1430,7 @@ void BRWalletFree(BRWallet *wallet)
 {
     assert(wallet != NULL);
     wallet->lock.lock();
+    delete wallet->userPKH;
     BRSetFree(wallet->allPKH);
     BRSetFree(wallet->usedPKH);
     BRSetFree(wallet->invalidTx);

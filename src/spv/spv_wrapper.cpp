@@ -230,7 +230,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
         IterateTable(DB_SPVTXS, onLoadTx);
     }
 
-    std::set<UInt160, decltype(&UInt160Compare)> userAddresses(UInt160Compare);
+    auto userAddresses = new std::set<UInt160, decltype(&UInt160Compare)>(UInt160Compare);
     const auto wallets = GetWallets();
     for (const auto& wallet : wallets) {
         for (const auto& entry : wallet->mapAddressBook) {
@@ -246,12 +246,12 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
                 UInt160 spvHash;
                 UIntConvert(userHash.begin(), spvHash);
-                userAddresses.insert(spvHash);
+                userAddresses->insert(spvHash);
             }
         }
     }
 
-    wallet = BRWalletNew(txs.data(), txs.size(), mpk, 0, std::move(userAddresses));
+    wallet = BRWalletNew(txs.data(), txs.size(), mpk, 0, userAddresses);
     BRWalletSetCallbacks(wallet, this, balanceChanged, txAdded, txUpdated, txDeleted);
     LogPrint(BCLog::SPV, "wallet created with first receive address: %s\n", BRWalletLegacyAddress(wallet).s);
 
