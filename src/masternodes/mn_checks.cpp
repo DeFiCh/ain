@@ -1522,8 +1522,10 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
 
 Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
+    if ((int)height < consensusParams.EhardforkHeight) { return Res::Err("Order tx before Ehardfork height (block %d)", consensusParams.EhardforkHeight); }
+
     // Check quick conditions first
-    if (tx.vout.size() !=2) {
+    if (tx.vout.size() != 2) {
         return Res::Err("%s: %s", __func__, "malformed tx vouts (wrong number of vouts)");
     }
 
@@ -1534,7 +1536,7 @@ Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
     
-    order.creationTx=tx.GetHash();
+    order.creationTx = tx.GetHash();
     order.creationHeight = height;
 
     CTxDestination ownerDest = DecodeDestination(order.ownerAddress);
@@ -1574,8 +1576,10 @@ Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
 
 Res ApplyFulfillOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
+    if ((int)height < consensusParams.EhardforkHeight) { return Res::Err("Order tx before Ehardfork height (block %d)", consensusParams.EhardforkHeight); }
+
     // Check quick conditions first
-    if (tx.vout.size() !=2) {
+    if (tx.vout.size() != 2) {
         return Res::Err("%s: %s", __func__, "malformed tx vouts (wrong number of vouts)");
     }
 
@@ -1615,8 +1619,10 @@ Res ApplyFulfillOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, C
 
 Res ApplyCloseOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
 {
+    if ((int)height < consensusParams.EhardforkHeight) { return Res::Err("Order tx before Ehardfork height (block %d)", consensusParams.EhardforkHeight); }
+
     // Check quick conditions first
-    if (tx.vout.size() !=2) {
+    if (tx.vout.size() != 2) {
         return Res::Err("%s: %s", __func__, "malformed tx vouts (wrong number of vouts)");
     }
 
@@ -1627,19 +1633,19 @@ Res ApplyCloseOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTr
         return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
     }
     
-    closeorder.creationTx=tx.GetHash();
+    closeorder.creationTx = tx.GetHash();
     closeorder.creationHeight = height;
 
     std::unique_ptr<COrderImplemetation> order;
-    if (!(order=mnview.GetOrderByCreationTx(closeorder.orderTx))) {
+    if (!(order = mnview.GetOrderByCreationTx(closeorder.orderTx))) {
         return Res::Err("order with creation tx %s does not exists!", closeorder.orderTx.GetHex());
     }
     if (!order->closeTx.IsNull()) {
         return Res::Err("order with creation tx %s is already closed!", closeorder.orderTx.GetHex());
     }
 
-    order->closeTx=closeorder.creationTx;
-    order->closeHeight=closeorder.creationHeight;
+    order->closeTx = closeorder.creationTx;
+    order->closeHeight = closeorder.creationHeight;
 
     // Return here to avoid already exist error
     if (rpcInfo) {

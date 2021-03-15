@@ -2,11 +2,11 @@
 
 UniValue orderToJSON(COrderImplemetation const& order) {
     UniValue orderObj(UniValue::VOBJ);
-    auto tokenFrom=pcustomcsview->GetToken(order.idTokenFrom);
-    auto tokenTo=pcustomcsview->GetToken(order.idTokenTo);
+    auto tokenFrom = pcustomcsview->GetToken(order.idTokenFrom);
+    auto tokenTo = pcustomcsview->GetToken(order.idTokenTo);
     orderObj.pushKV("ownerAddress", order.ownerAddress);
-    orderObj.pushKV("tokenFrom", tokenFrom->symbol);
-    orderObj.pushKV("tokenTo", tokenTo->symbol);
+    orderObj.pushKV("tokenFrom", tokenFrom->CreateSymbolKey(order.idTokenFrom));
+    orderObj.pushKV("tokenTo", tokenTo->CreateSymbolKey(order.idTokenTo));
     orderObj.pushKV("amountFrom", order.amountFrom);
     orderObj.pushKV("orderPrice", order.orderPrice);
     orderObj.pushKV("height", static_cast<int>(order.creationHeight));
@@ -47,7 +47,8 @@ UniValue createorder(const JSONRPCRequest& request) {
                             {"tokenTo", RPCArg::Type::STR, RPCArg::Optional::NO, "Symbol or id of buying token"},
                             {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO, "tokenFrom coins amount"},
                             {"orderPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Price per unit"},
-                            {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the order expires (Default: 2880 blocks)"}
+                            {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the order expires (Default: 2880 blocks)"},
+                            {"optionDFI", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Amount in DFI per unit the taker has to pay if they do not complete the order (Default: 8 DFI)"}
                         },
                     },
                 },
@@ -56,10 +57,10 @@ UniValue createorder(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                         HelpExampleCli("createorder", "'{\"ownerAddress\":\"tokenAddress\","
-                                                        "\"tokenFrom\":\"MyToken\",\"tokenTo\":\"Token1\","
+                                                        "\"tokenFrom\":\"MyToken1\",\"tokenTo\":\"MyToken2\","
                                                         "\"amountFrom\":\"10\",\"orderPrice\":\"0.02\"}'")
                         + HelpExampleCli("createorder", "'{\"ownerAddress\":\"tokenAddress\","
-                                                        "\"tokenFrom\":\"MyToken\",\"tokenTo\":\"Token2\","
+                                                        "\"tokenFrom\":\"MyToken1\",\"tokenTo\":\"MyToken2\","
                                                         "\"amountFrom\":\"5\",\"orderPrice\":\"0.1\","
                                                         "\"expiry\":\"120\"}'")
                 },
@@ -84,7 +85,7 @@ UniValue createorder(const JSONRPCRequest& request) {
     if (!metaObj["ownerAddress"].isNull()) {
         order.ownerAddress = trim_ws(metaObj["ownerAddress"].getValStr());
     }
-    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"ownerAddres\" must be non-null");
+    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"ownerAddress\" must be non-null");
     if (!metaObj["tokenFrom"].isNull()) {
         tokenFromSymbol = trim_ws(metaObj["tokenFrom"].getValStr());
     }
@@ -104,6 +105,9 @@ UniValue createorder(const JSONRPCRequest& request) {
     if (!metaObj["expiry"].isNull()) {
         order.expiry = metaObj["expiry"].get_int();
     }
+    if (!metaObj["optionDFI"].isNull()) {
+        order.optionDFI = AmountFromValue(metaObj["optionDFI"]);
+    }
     CTxDestination ownerDest = DecodeDestination(order.ownerAddress);
     if (ownerDest.which() == 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "ownerAdress (" + order.ownerAddress + ") does not refer to any valid address");
@@ -112,7 +116,7 @@ UniValue createorder(const JSONRPCRequest& request) {
     int targetHeight;
     {
         LOCK(cs_main);
-        DCT_ID idTokenFrom,idTokenTo;
+        DCT_ID idTokenFrom, idTokenTo;
         auto tokenFrom = pcustomcsview->GetTokenGuessId(tokenFromSymbol, idTokenFrom);
         if (!tokenFrom) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenFromSymbol));
@@ -122,11 +126,11 @@ UniValue createorder(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenToSymbol));
         }
 
-        order.idTokenFrom=idTokenFrom;
-        order.idTokenTo=idTokenTo;
+        order.idTokenFrom = idTokenFrom;
+        order.idTokenTo = idTokenTo;
 
         CBalances totalBalances;
-        CAmount total=0;
+        CAmount total = 0;
         pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
             if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
                 totalBalances.Add(balance);
@@ -136,12 +140,11 @@ UniValue createorder(const JSONRPCRequest& request) {
         auto it = totalBalances.balances.begin();
         for (int i = 0; it != totalBalances.balances.end(); it++, i++) {
             CTokenAmount bal = CTokenAmount{(*it).first, (*it).second};
-            std::string tokenIdStr = bal.nTokenId.ToString();
             auto token = pcustomcsview->GetToken(bal.nTokenId);
-            if (bal.nTokenId==order.idTokenFrom) total+=bal.nValue;
+            if (bal.nTokenId == order.idTokenFrom) total += bal.nValue;
         }
-        if (total<order.amountFrom)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %s!", order.tokenFrom, (double)order.amountFrom/COIN));
+        if (total < order.amountFrom)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %s!", tokenFrom->CreateSymbolKey(order.idTokenFrom), (double)order.amountFrom/COIN));
     
         targetHeight = ::ChainActive().Height() + 1;
     }
@@ -216,7 +219,7 @@ UniValue fulfillorder(const JSONRPCRequest& request) {
     if (!metaObj["ownerAddress"].isNull()) {
         fillorder.ownerAddress = trim_ws(metaObj["ownerAddress"].getValStr());
     }
-    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"ownerAddres\" must be non-null");
+    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"ownerAddress\" must be non-null");
     if (!metaObj["orderTx"].isNull()) {
         fillorder.orderTx = uint256S(metaObj["orderTx"].getValStr());
     }
@@ -239,6 +242,7 @@ UniValue fulfillorder(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "orderTx (" + fillorder.orderTx.GetHex() + ") does not exist");
 
         CBalances totalBalances;
+        CAmount total = 0;
         pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
             if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
                 totalBalances.Add(balance);
@@ -248,11 +252,11 @@ UniValue fulfillorder(const JSONRPCRequest& request) {
         auto it = totalBalances.balances.begin();
         for (int i = 0; it != totalBalances.balances.end(); it++, i++) {
             CTokenAmount bal = CTokenAmount{(*it).first, (*it).second};
-            std::string tokenIdStr = bal.nTokenId.ToString();
             auto token = pcustomcsview->GetToken(bal.nTokenId);
-            if (token->CreateSymbolKey(bal.nTokenId)==order->tokenFrom && bal.nValue<order->amountFrom)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %s!", order->tokenFrom, order->amountFrom));
+            if (bal.nTokenId == order->idTokenTo) total += bal.nValue;
         }
+        if (total < fillorder.amount)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %s!", pcustomcsview->GetToken(order->idTokenTo)->CreateSymbolKey(order->idTokenTo), (double)fillorder.amount/COIN));
     
         targetHeight = ::ChainActive().Height() + 1;
     }
@@ -315,7 +319,7 @@ UniValue closeorder(const JSONRPCRequest& request) {
                            "Invalid parameters, arguments 1 must be non-null and expected as \"orderTx\"}");
     }
     CCloseOrder closeorder;
-    closeorder.orderTx= uint256S(request.params[0].getValStr());
+    closeorder.orderTx = uint256S(request.params[0].getValStr());
 
     int targetHeight;
     {
@@ -417,21 +421,21 @@ UniValue listorders(const JSONRPCRequest& request) {
                 }
      }.Check(request);
 
-    size_t limit=50;
-    std::string token1Symbol,token2Symbol;
+    size_t limit = 50;
+    std::string token1Symbol, token2Symbol;
     uint256 orderTxid;
-    bool closed=false;
+    bool closed = false;
     if (request.params.size() > 0)
     {
         UniValue byObj = request.params[0].get_obj();
-        if (!byObj["token1"].isNull()) token1Symbol=trim_ws(byObj["token1"].getValStr());
-        if (!byObj["token2"].isNull()) token2Symbol=trim_ws(byObj["token2"].getValStr());
+        if (!byObj["token1"].isNull()) token1Symbol = trim_ws(byObj["token1"].getValStr());
+        if (!byObj["token2"].isNull()) token2Symbol = trim_ws(byObj["token2"].getValStr());
         if (!byObj["limit"].isNull()) limit = (size_t) byObj["limit"].get_int64();
-        if (!byObj["orderTx"].isNull()) orderTxid=uint256S(byObj["orderTx"].getValStr());
-        if (!byObj["closed"].isNull()) closed=byObj["closed"].get_bool();
+        if (!byObj["orderTx"].isNull()) orderTxid = uint256S(byObj["orderTx"].getValStr());
+        if (!byObj["closed"].isNull()) closed = byObj["closed"].get_bool();
     }
 
-    DCT_ID idToken1={std::numeric_limits<uint32_t>::max()},idToken2={std::numeric_limits<uint32_t>::max()};
+    DCT_ID idToken1 = {std::numeric_limits<uint32_t>::max()}, idToken2 = {std::numeric_limits<uint32_t>::max()};
     if (!token1Symbol.empty())
     {
         if (token2Symbol.empty()) throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("If token1 is specified you must specify token2!"));
@@ -446,19 +450,19 @@ UniValue listorders(const JSONRPCRequest& request) {
     }
     
     UniValue ret(UniValue::VOBJ);
-    if (idToken1.v!=std::numeric_limits<uint32_t>::max() && idToken2.v!=std::numeric_limits<uint32_t>::max())
+    if (idToken1.v != std::numeric_limits<uint32_t>::max() && idToken2.v != std::numeric_limits<uint32_t>::max())
     {
         COrderView::TokenPair prefix(idToken1,idToken2);
         if (!closed)
             pcustomcsview->ForEachOrder([&](COrderView::TokenPairKey const & key, COrderImplemetation order) {
-                if (key.first!=prefix) return (false);
+                if (key.first != prefix) return (false);
                 ret.pushKVs(orderToJSON(order));
                 limit--;
                 return limit != 0;
             },prefix);
         else
             pcustomcsview->ForEachClosedOrder([&](COrderView::TokenPairKey const & key, COrderImplemetation order) {
-            if (key.first!=prefix) return (false);
+            if (key.first != prefix) return (false);
             ret.pushKVs(orderToJSON(order));
             limit--;
             return limit != 0;
@@ -468,7 +472,7 @@ UniValue listorders(const JSONRPCRequest& request) {
     else if (!orderTxid.IsNull())
     {
         pcustomcsview->ForEachFulfillOrder([&](COrderView::FulfillOrderId const & key, CFulfillOrderImplemetation fillorder) {
-            if (key.first!=orderTxid) return (false);
+            if (key.first != orderTxid) return (false);
             ret.pushKVs(fulfillOrderToJSON(fillorder));
             limit--;
             return limit != 0;

@@ -11,6 +11,8 @@ class COrder
 {
 public:
     static const int DEFAULT_ORDER_EXPIRY = 2880;
+    static const int DEFAULT_OPTION_DFI = 8;
+
 
     //! basic properties
     std::string ownerAddress;
@@ -21,6 +23,7 @@ public:
     CAmount amountFrom;
     CAmount orderPrice;
     uint32_t expiry;
+    CAmount optionDFI;
 
     COrder()
         : ownerAddress("")
@@ -29,6 +32,7 @@ public:
         , amountFrom(0)
         , orderPrice(0)
         , expiry(DEFAULT_ORDER_EXPIRY)
+        , optionDFI(DEFAULT_OPTION_DFI)
     {}
     virtual ~COrder() = default;
 
@@ -42,6 +46,7 @@ public:
         READWRITE(amountFrom);
         READWRITE(orderPrice);
         READWRITE(expiry);
+        READWRITE(optionDFI);
     }
 };
 

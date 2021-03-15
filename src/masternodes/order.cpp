@@ -10,10 +10,10 @@ const unsigned char COrderView::OrderCloseTx  ::prefix = 'C';
 
 std::unique_ptr<COrderView::COrderImpl> COrderView::GetOrderByCreationTx(const uint256 & txid) const
 {
-    auto tokenPair=ReadBy<OrderCreationTxId, TokenPair>(txid);
+    auto tokenPair = ReadBy<OrderCreationTxId, TokenPair>(txid);
     if (tokenPair)
     {
-        auto orderImpl=ReadBy<OrderCreationTx,COrderImpl>(std::make_pair(*tokenPair,txid));
+        auto orderImpl = ReadBy<OrderCreationTx,COrderImpl>(std::make_pair(*tokenPair, txid));
         if (orderImpl)
             return MakeUnique<COrderImpl>(*orderImpl);
     }
@@ -26,17 +26,17 @@ ResVal<uint256> COrderView::CreateOrder(const COrderView::COrderImpl& order)
     if (GetOrderByCreationTx(order.creationTx)) {
         return Res::Err("order with creation tx %s already exists!", order.creationTx.GetHex());
     }
-    TokenPair pair(order.idTokenFrom,order.idTokenTo);
-    TokenPairKey key(pair,order.creationTx);
-    WriteBy<OrderCreationTx>(key,order);
-    WriteBy<OrderCreationTxId>(order.creationTx,pair);
+    TokenPair pair(order.idTokenFrom, order.idTokenTo);
+    TokenPairKey key(pair, order.creationTx);
+    WriteBy<OrderCreationTx>(key, order);
+    WriteBy<OrderCreationTxId>(order.creationTx, pair);
 
     return {order.creationTx, Res::Ok()};
 }
 
 ResVal<uint256> COrderView::CloseOrderTx(const COrderView::COrderImpl& order)
 {
-    TokenPairKey key(std::make_pair(order.idTokenFrom,order.idTokenTo),order.creationTx);
+    TokenPairKey key(std::make_pair(order.idTokenFrom, order.idTokenTo), order.creationTx);
     EraseBy<OrderCreationTx>(key);
     WriteBy<OrderCloseTx>(key, order);
     return {order.creationTx, Res::Ok()};
@@ -44,7 +44,7 @@ ResVal<uint256> COrderView::CloseOrderTx(const COrderView::COrderImpl& order)
 
 void COrderView::ForEachOrder(std::function<bool (TokenPairKey const &, CLazySerialize<COrderImpl>)> callback, TokenPair const & pair)
 {
-    TokenPairKey start(pair,uint256());
+    TokenPairKey start(pair, uint256());
     ForEach<OrderCreationTx,TokenPairKey,COrderImpl>([&start,&callback] (TokenPairKey const &key, CLazySerialize<COrderImpl> orderImpl) {
         return callback(key, orderImpl);
     }, start);
@@ -52,10 +52,10 @@ void COrderView::ForEachOrder(std::function<bool (TokenPairKey const &, CLazySer
 
 std::unique_ptr<COrderView::CFulfillOrderImpl> COrderView::GetFulfillOrderByCreationTx(const uint256 & txid) const
 {
-    auto ordertxid=ReadBy<FulfillOrderTxid, uint256>(txid);
+    auto ordertxid = ReadBy<FulfillOrderTxid, uint256>(txid);
     if (ordertxid && !ordertxid->IsNull())
     {
-        auto fillorderImpl=ReadBy<FulfillCreationTx,CFulfillOrderImpl>(std::make_pair(*ordertxid,txid));
+        auto fillorderImpl = ReadBy<FulfillCreationTx,CFulfillOrderImpl>(std::make_pair(*ordertxid, txid));
         if (fillorderImpl)
             return MakeUnique<CFulfillOrderImpl>(*fillorderImpl);
         return nullptr;
@@ -85,7 +85,7 @@ void COrderView::ForEachFulfillOrder(std::function<bool (FulfillOrderId const &,
 
 std::unique_ptr<COrderView::CCloseOrderImpl> COrderView::GetCloseOrderByCreationTx(const uint256 & txid) const
 {
-    auto closeorderImpl=ReadBy<CloseCreationTx, CCloseOrderImpl>(txid);
+    auto closeorderImpl = ReadBy<CloseCreationTx, CCloseOrderImpl>(txid);
     if (closeorderImpl)
         return MakeUnique<CCloseOrderImpl>(*closeorderImpl);
     return nullptr;
