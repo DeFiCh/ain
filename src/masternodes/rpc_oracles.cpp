@@ -136,7 +136,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode weightage");
     }
 
-    if (weightage > std::numeric_limits<uint8_t>::max()) {
+    if (weightage > oraclefields::MaxWeightage || weightage < oraclefields::MinWeightage) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "the weightage value is out of bounds");
     }
 
@@ -281,7 +281,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode weightage");
     }
 
-    if (weightage > std::numeric_limits<uint8_t>::max()) {
+    if (weightage > oraclefields::MaxWeightage || weightage < oraclefields::MinWeightage) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "the weightage value is out of bounds");
     }
 
@@ -503,11 +503,15 @@ UniValue setoracledata(const JSONRPCRequest &request) {
                RPCExamples{
                        HelpExampleCli(
                                "setoracledata",
-                               "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237937 '[“38293.12@BTC”, “1328.32@ETH”]' "
+                               "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237937 "
+                               R"('[{"currency":"USD", "tokenAmount":"38293.12@BTC#1"}"
+                               ", {currency:"EUR", "tokenAmount":"1328.32@ETH"}]')"
                        )
                        + HelpExampleRpc(
                                "setoracledata",
-                               "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237637 '[“38293.12@BTC”, “1328.32@ETH”]' "
+                               "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf 1612237937 "
+                               R"('[{"currency":"USD", "tokenAmount":"38293.12@BTC#1"}"
+                               ", {currency:"EUR", "tokenAmount":"1328.32@ETH"}]')"
                        )
                },
     }.Check(request);
@@ -534,6 +538,10 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         timestamp = std::stoll(request.params[1].getValStr());
     } catch (...) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode timestamp");
+    }
+
+    if (0 == timestamp) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be ze");
     }
     // decode prices
     UniValue prices{UniValue::VARR};
@@ -1078,10 +1086,10 @@ static const CRPCCommand commands[] =
         {
 //  category        name                     actor (function)        params
 //  -------------   ---------------------    --------------------    ----------
-                {"oracles",     "appointoracle",         &appointoracle,          {"address", "allowedtokens"}},
+                {"oracles",     "appointoracle",         &appointoracle,          {"address", "pricefeeds", "weightage"}},
                 {"oracles",     "removeoracle",          &removeoracle,           {"oracleid"}},
                 {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "allowedtokens"}},
-                {"oracles",     "setoracledata",         &setoracledata,          {"timestamp", "prices"}},
+                {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices"}},
                 {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
                 {"oracles",     "listoracles",           &listoracles,                 {}},
                 {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request"}},
