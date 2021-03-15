@@ -988,6 +988,16 @@ static UniValue spv_sendtoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
     }
 
+    if (!spv::pspv->IsConnected()) {
+        throw JSONRPCError(RPC_MISC_ERROR, "spv not connected");
+    }
+
+    uint32_t bitcoinBlocksDay{140};
+    if (spv::pspv->GetLastBlockHeight() + bitcoinBlocksDay < spv::pspv->GetEstimatedBlockHeight()) {
+        auto blocksRemaining = std::to_string(spv::pspv->GetEstimatedBlockHeight() -spv::pspv->GetLastBlockHeight());
+        throw JSONRPCError(RPC_MISC_ERROR, "spv still syncing, " + blocksRemaining + " blocks left.");
+    }
+
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 

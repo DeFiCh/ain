@@ -220,7 +220,7 @@ public:
     void CancelPendingTxs() override;
 
     uint32_t GetLastBlockHeight() const override { return lastBlockHeight; }
-    uint32_t GetEstimatedBlockHeight() const override { return lastBlockHeight+1000; } // dummy
+    uint32_t GetEstimatedBlockHeight() const override { return lastBlockHeight; } // dummy
 
     void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise) override;
     UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount) override;
