@@ -120,6 +120,7 @@ public:
         consensus.BayfrontGardensHeight = 488300;
         consensus.ClarkeQuayHeight = 595738;
         consensus.DakotaHeight = 678000; // 1st March 2021
+        consensus.EhardforkHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -300,6 +301,7 @@ public:
         consensus.BayfrontGardensHeight = 101342;
         consensus.ClarkeQuayHeight = 155000;
         consensus.DakotaHeight = 220680;
+        consensus.EhardforkHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -446,6 +448,7 @@ public:
         consensus.BayfrontGardensHeight = 300;
         consensus.ClarkeQuayHeight = 500;
         consensus.DakotaHeight = std::numeric_limits<int>::max();
+        consensus.EhardforkHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -584,6 +587,7 @@ public:
         consensus.BayfrontGardensHeight = 10000000;
         consensus.ClarkeQuayHeight = 10000000;
         consensus.DakotaHeight = 10000000;
+        consensus.EhardforkHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -783,6 +787,17 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.DakotaHeight = static_cast<int>(height);
+    }
+
+    if (gArgs.IsArgSet("-ehardforkheight")) {
+        int64_t height = gArgs.GetArg("-ehardforkheight", consensus.EhardforkHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for Dakota is out of valid range. Use -1 to disable dakota features.", height));
+        } else if (height == -1) {
+            LogPrintf("Ehardfork disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.EhardforkHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;
