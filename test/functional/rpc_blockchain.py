@@ -134,6 +134,7 @@ class BlockchainTest(DefiTestFramework):
             'clarkequay': {'type': 'buried', 'active': False, 'height': 10000000},
             'dakota': {'type': 'buried', 'active': False, 'height': 10000000},
             'dakotacrescent': {'type': 'buried', 'active': False, 'height': 10000000},
+            'ehardfork': {'type': 'buried', 'active': False, 'height': 10000000},
             'testdummy': {
                 'type': 'bip9',
                 'bip9': {
