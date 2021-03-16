@@ -72,7 +72,8 @@ namespace pos {
             }
 
             // Calculate coinDayWeight, at min this is 1 with no impact on difficulty.
-            arith_uint256 coinDayWeight = nTimeTx / (24 * 60 * 60);
+            arith_uint256 period = 6 * 60 * 60; // 6 hours
+            arith_uint256 coinDayWeight = nTimeTx + period / period;
 
             // Increase target by coinDayWeight.
             return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(height) ) ) ) <= targetProofOfStake * coinDayWeight;
