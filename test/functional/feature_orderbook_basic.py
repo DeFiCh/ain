@@ -32,14 +32,16 @@ class OrderBasicTest (DefiTestFramework):
         self.sync_all()
         collateral0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
         collateral1 = self.nodes[1].get_genesis_keys().ownerAuthAddress
+        idGold = self.get_id_token("GOLD")
+        idSilver = self.get_id_token("SILVER")
 
         # At this point, tokens are created
         tokens = self.nodes[0].listtokens()
 
         order1txid = self.nodes[0].createorder({
                                     'ownerAddress':collateral0,
-                                    'tokenFrom':tokens['128']["symbolKey"],
-                                    'tokenTo':tokens['129']["symbolKey"],
+                                    'tokenFrom':tokens[idGold]["symbolKey"],
+                                    'tokenTo':tokens[idSilver]["symbolKey"],
                                     'amountFrom':10,
                                     'orderPrice':0.1})
 
@@ -50,8 +52,8 @@ class OrderBasicTest (DefiTestFramework):
 
         assert_equal(len(order), 1)
         assert_equal(order[order1txid]["ownerAddress"], collateral0)
-        assert_equal(order[order1txid]["tokenFrom"], tokens['128']["symbolKey"])
-        assert_equal(order[order1txid]["tokenTo"], tokens['129']["symbolKey"])
+        assert_equal(order[order1txid]["tokenFrom"], tokens[idGold]["symbolKey"])
+        assert_equal(order[order1txid]["tokenTo"], tokens[idSilver]["symbolKey"])
         assert_equal(order[order1txid]["amountFrom"], 1000000000)
         assert_equal(order[order1txid]["orderPrice"], 10000000)
         assert_equal(order[order1txid]["expiry"], 2880)

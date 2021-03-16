@@ -140,11 +140,10 @@ UniValue createorder(const JSONRPCRequest& request) {
         auto it = totalBalances.balances.begin();
         for (int i = 0; it != totalBalances.balances.end(); it++, i++) {
             CTokenAmount bal = CTokenAmount{(*it).first, (*it).second};
-            auto token = pcustomcsview->GetToken(bal.nTokenId);
             if (bal.nTokenId == order.idTokenFrom) total += bal.nValue;
         }
         if (total < order.amountFrom)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %s!", tokenFrom->CreateSymbolKey(order.idTokenFrom), (double)order.amountFrom/COIN));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %f!", tokenFrom->CreateSymbolKey(order.idTokenFrom), (double)order.amountFrom/COIN));
     
         targetHeight = ::ChainActive().Height() + 1;
     }
@@ -252,11 +251,10 @@ UniValue fulfillorder(const JSONRPCRequest& request) {
         auto it = totalBalances.balances.begin();
         for (int i = 0; it != totalBalances.balances.end(); it++, i++) {
             CTokenAmount bal = CTokenAmount{(*it).first, (*it).second};
-            auto token = pcustomcsview->GetToken(bal.nTokenId);
             if (bal.nTokenId == order->idTokenTo) total += bal.nValue;
         }
         if (total < fillorder.amount)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %s!", pcustomcsview->GetToken(order->idTokenTo)->CreateSymbolKey(order->idTokenTo), (double)fillorder.amount/COIN));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %f!", pcustomcsview->GetToken(order->idTokenTo)->CreateSymbolKey(order->idTokenTo), (double)fillorder.amount/COIN));
     
         targetHeight = ::ChainActive().Height() + 1;
     }
