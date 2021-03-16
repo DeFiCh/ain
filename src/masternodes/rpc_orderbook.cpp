@@ -2,13 +2,21 @@
 
 UniValue orderToJSON(COrderImplemetation const& order) {
     UniValue orderObj(UniValue::VOBJ);
+    UniValue ret(UniValue::VOBJ);
+
     auto tokenFrom = pcustomcsview->GetToken(order.idTokenFrom);
+    if (!tokenFrom)
+        return (ret);
     auto tokenTo = pcustomcsview->GetToken(order.idTokenTo);
+    if (!tokenTo)
+        return (ret);
+        
     orderObj.pushKV("ownerAddress", order.ownerAddress);
     orderObj.pushKV("tokenFrom", tokenFrom->CreateSymbolKey(order.idTokenFrom));
     orderObj.pushKV("tokenTo", tokenTo->CreateSymbolKey(order.idTokenTo));
     orderObj.pushKV("amountFrom", order.amountFrom);
     orderObj.pushKV("orderPrice", order.orderPrice);
+    orderObj.pushKV("optionDFI",order.optionDFI);
     orderObj.pushKV("height", static_cast<int>(order.creationHeight));
     orderObj.pushKV("expiry", static_cast<int>(order.expiry));
     if (!order.closeTx.IsNull())
@@ -17,9 +25,8 @@ UniValue orderToJSON(COrderImplemetation const& order) {
         orderObj.pushKV("closeHeight", static_cast<int>(order.closeHeight));
     }
 
-    UniValue ret(UniValue::VOBJ);
     ret.pushKV(order.creationTx.GetHex(), orderObj);
-    return ret;
+    return (ret);
 }
 
 UniValue fulfillOrderToJSON(CFulfillOrderImplemetation const& fulfillorder) {
@@ -143,7 +150,7 @@ UniValue createorder(const JSONRPCRequest& request) {
             if (bal.nTokenId == order.idTokenFrom) total += bal.nValue;
         }
         if (total < order.amountFrom)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %f!", tokenFrom->CreateSymbolKey(order.idTokenFrom), (double)order.amountFrom/COIN));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %s!", tokenFrom->CreateSymbolKey(order.idTokenFrom), ValueFromAmount(order.amountFrom).getValStr()));
     
         targetHeight = ::ChainActive().Height() + 1;
     }
@@ -254,7 +261,7 @@ UniValue fulfillorder(const JSONRPCRequest& request) {
             if (bal.nTokenId == order->idTokenTo) total += bal.nValue;
         }
         if (total < fillorder.amount)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %f!", pcustomcsview->GetToken(order->idTokenTo)->CreateSymbolKey(order->idTokenTo), (double)fillorder.amount/COIN));
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s for order amount %s!", pcustomcsview->GetToken(order->idTokenTo)->CreateSymbolKey(order->idTokenTo), ValueFromAmount(fillorder.amount).getValStr()));
     
         targetHeight = ::ChainActive().Height() + 1;
     }
