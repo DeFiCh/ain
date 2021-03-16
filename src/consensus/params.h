@@ -90,6 +90,8 @@ struct Params {
         uint256 diffLimit;
         int64_t nTargetTimespan;
         int64_t nTargetSpacing;
+        int64_t nStakeMinAge;
+        int64_t nStakeMaxAge;
         bool fAllowMinDifficultyBlocks;
         bool fNoRetargeting;
 

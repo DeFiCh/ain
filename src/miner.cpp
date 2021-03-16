@@ -710,7 +710,7 @@ namespace pos {
 
                 pblock->nTime = ((uint32_t)coinstakeTime - t);
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, masternodeID, chainparams.GetConsensus())) {
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID, chainparams.GetConsensus())) {
                     LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                     found = true;
