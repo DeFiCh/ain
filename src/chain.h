@@ -22,7 +22,7 @@
  */
 static constexpr int64_t MAX_FUTURE_BLOCK_TIME = 2 * 60 * 60;
 
-static constexpr int64_t MAX_FUTURE_BLOCK_TIME_EHARDFORK = 5;
+static constexpr int64_t MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT = 5 * 60;
 
 /**
  * Timestamp window used as a grace period by code that compares external
