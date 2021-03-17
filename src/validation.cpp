@@ -1723,7 +1723,32 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
     if (!fIsFakeNet) {
-        mnview.DecrementMintedBy(pindex->minterKey());
+        const CKeyID minterKey = pindex->minterKey();
+        mnview.DecrementMintedBy(minterKey);
+
+        // Default time to be set if no previous staked block found.
+        int64_t blockTime{-1};
+
+        // Find last block staked by this node.
+        auto nodeId = pcustomcsview->GetMasternodeIdByOperator(minterKey);
+        for (const CBlockIndex* tip = pindex->pprev; nodeId && tip &&
+             pindex->pprev->GetBlockTime() - tip->GetBlockTime() < Params().GetConsensus().pos.nStakeMaxAge &&
+                tip->nHeight >= Params().GetConsensus().DakotaCrescentHeight; tip = tip->pprev)
+        {
+            CKeyID staker;
+            if (tip->GetBlockHeader().ExtractMinterKey(staker))
+            {
+                auto id = pcustomcsview->GetMasternodeIdByOperator(staker);
+                if (id && id == nodeId)
+                {
+                    // Found the last staked block
+                    blockTime = tip->GetBlockTime();
+                    break;
+                }
+            }
+        }
+
+        pcustomcsview->SetMasternodeLastBlockTime(minterKey, blockTime);
     }
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
@@ -2002,10 +2027,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return true;
     }
 
+    CKeyID minterKey;
+
     // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
     if (!fJustCheck && !fIsFakeNet) {
         // Check only that mintedBlocks counter is correct (MN existence and activation was partially checked before in CheckBlock()->ContextualCheckProofOfStake(), but not in the case of fJustCheck)
-        auto nodeId = mnview.GetMasternodeIdByOperator(pindex->minterKey());
+        minterKey = pindex->minterKey();
+        auto nodeId = mnview.GetMasternodeIdByOperator(minterKey);
         assert(nodeId);
         auto const & node = *mnview.GetMasternode(*nodeId);
         if (node.mintedBlocks + 1 != block.mintedBlocks)
@@ -2397,7 +2425,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     if (!fIsFakeNet) {
-        mnview.IncrementMintedBy(pindex->minterKey());
+        mnview.IncrementMintedBy(minterKey);
+
+        // Store block staker height for use in coinage
+        if (pindex->nHeight >= chainparams.GetConsensus().DakotaCrescentHeight) {
+            mnview.SetMasternodeLastBlockTime(minterKey, pindex->GetBlockTime());
+        }
     }
     mnview.SetLastHeight(pindex->nHeight);
 
