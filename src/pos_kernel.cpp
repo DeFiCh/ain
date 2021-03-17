@@ -55,6 +55,9 @@ namespace pos {
                 }
             }
 
+            // Raise time to min age if below it.
+            nTimeTx = std::max(nTimeTx, params.pos.nStakeMinAge);
+
             // Make sure time is not negative.
             if (nTimeTx < 0) {
                 nTimeTx = 0;
