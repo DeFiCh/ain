@@ -58,11 +58,6 @@ namespace pos {
             // Raise time to min age if below it.
             nTimeTx = std::max(nTimeTx, params.pos.nStakeMinAge);
 
-            // Make sure time is not negative.
-            if (nTimeTx < 0) {
-                nTimeTx = 0;
-            }
-
             // Calculate coinDayWeight, at min this is 1 with no impact on difficulty.
             arith_uint256 period = 6 * 60 * 60; // 6 hours
             arith_uint256 coinDayWeight = nTimeTx + period / period;
