@@ -58,7 +58,6 @@ class OrderBasicTest (DefiTestFramework):
         assert_equal(order[order1txid]["orderPrice"], Decimal("0.10000000"))
         assert_equal(order[order1txid]["optionDFI"], Decimal("8.00000000"))
         assert_equal(order[order1txid]["expiry"], 2880)
-        
 
         order2txid = self.nodes[1].fulfillorder({
                                     'ownerAddress':collateral1,
