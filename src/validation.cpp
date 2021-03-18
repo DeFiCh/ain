@@ -1622,6 +1622,16 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // Undo community balance increments
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
 
+    CKeyID minterKey;
+    boost::optional<uint256> nodeId;
+    if (!fIsFakeNet) {
+        minterKey = pindex->minterKey();
+
+        // Get node id now from mnview before undo
+        nodeId = mnview.GetMasternodeIdByOperator(minterKey);
+        assert(nodeId);
+    }
+
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = *(block.vtx[i]);
@@ -1723,32 +1733,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
     if (!fIsFakeNet) {
-        const CKeyID minterKey = pindex->minterKey();
         mnview.DecrementMintedBy(minterKey);
-
-        // Default time to be set if no previous staked block found.
-        int64_t blockTime{-1};
-
-        // Find last block staked by this node.
-        auto nodeId = pcustomcsview->GetMasternodeIdByOperator(minterKey);
-        for (const CBlockIndex* tip = pindex->pprev; nodeId && tip &&
-             pindex->pprev->GetBlockTime() - tip->GetBlockTime() < Params().GetConsensus().pos.nStakeMaxAge &&
-                tip->nHeight >= Params().GetConsensus().DakotaCrescentHeight; tip = tip->pprev)
-        {
-            CKeyID staker;
-            if (tip->GetBlockHeader().ExtractMinterKey(staker))
-            {
-                auto id = pcustomcsview->GetMasternodeIdByOperator(staker);
-                if (id && id == nodeId)
-                {
-                    // Found the last staked block
-                    blockTime = tip->GetBlockTime();
-                    break;
-                }
-            }
-        }
-
-        pcustomcsview->SetMasternodeLastBlockTime(minterKey, blockTime);
+        mnview.EraseMasternodeLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
     }
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
@@ -2429,7 +2415,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         // Store block staker height for use in coinage
         if (pindex->nHeight >= chainparams.GetConsensus().DakotaCrescentHeight) {
-            mnview.SetMasternodeLastBlockTime(minterKey, pindex->GetBlockTime());
+            mnview.SetMasternodeLastBlockTime(minterKey, static_cast<uint32_t>(pindex->nHeight), pindex->GetBlockTime());
         }
     }
     mnview.SetLastHeight(pindex->nHeight);

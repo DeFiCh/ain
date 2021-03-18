@@ -137,8 +137,9 @@ public:
 //    void UnCreateMasternode(uint256 const & nodeId);
 //    void UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
 
-    void SetMasternodeLastBlockTime(const CKeyID & minter, const int64_t &time);
+    void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
     boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter);
+    void EraseMasternodeLastBlockTime(const uint256 &minter, const uint32_t& blockHeight);
 
     // tags
     struct ID { static const unsigned char prefix; };

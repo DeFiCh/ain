@@ -43,6 +43,28 @@ const unsigned char CAnchorConfirmsView::BtcTx::prefix = DB_MN_ANCHOR_CONFIRM;
 const unsigned char CTeamView::AuthTeam       ::prefix = DB_MN_AUTH_TEAM;
 const unsigned char CTeamView::ConfirmTeam    ::prefix = DB_MN_CONFIRM_TEAM;
 
+struct MNBlockTimeKey
+{
+    uint256 masternodeID;
+    uint32_t blockHeight;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(masternodeID);
+
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(blockHeight));
+            blockHeight = ~blockHeight;
+        }
+        else {
+            uint32_t blockHeight_ = ~blockHeight;
+            READWRITE(WrapBigEndian(blockHeight_));
+        }
+    }
+};
+
 std::unique_ptr<CCustomCSView> pcustomcsview;
 std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 
@@ -372,12 +394,12 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
     return Res::Ok();
 }
 
-void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const int64_t& time)
+void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t& time)
 {
     auto nodeId = GetMasternodeIdByOperator(minter);
     assert(nodeId);
 
-    WriteBy<Staker>(*nodeId, time);
+    WriteBy<Staker>(MNBlockTimeKey{*nodeId, blockHeight}, time);
 }
 
 boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKeyID & minter)
@@ -385,7 +407,30 @@ boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKey
     auto nodeId = GetMasternodeIdByOperator(minter);
     assert(nodeId);
 
-    return ReadBy<Staker, int64_t>(*nodeId);
+    int64_t time{0};
+
+    ForEach<Staker, MNBlockTimeKey, int64_t>([&](const MNBlockTimeKey &key, const int64_t &blockTime)
+    {
+        if (key.masternodeID == nodeId)
+        {
+            time = blockTime;
+        }
+
+        // Get first result only and exit
+        return false;
+    }, MNBlockTimeKey{*nodeId, std::numeric_limits<uint32_t>::max()});
+
+    if (time)
+    {
+        return time;
+    }
+
+    return {};
+}
+
+void CMasternodesView::EraseMasternodeLastBlockTime(const uint256& nodeId, const uint32_t& blockHeight)
+{
+    EraseBy<Staker>(MNBlockTimeKey{nodeId, blockHeight});
 }
 
 //void CMasternodesView::UnCreateMasternode(const uint256 & nodeId)
