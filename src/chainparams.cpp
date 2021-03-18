@@ -446,13 +446,13 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0;
         consensus.BIP66Height = 0;
-        consensus.AMKHeight = 150;
-        consensus.BayfrontHeight = 250;
-        consensus.BayfrontMarinaHeight = 300;
-        consensus.BayfrontGardensHeight = 300;
-        consensus.ClarkeQuayHeight = 500;
-        consensus.DakotaHeight = std::numeric_limits<int>::max();
-        consensus.DakotaCrescentHeight = std::numeric_limits<int>::max();
+        consensus.AMKHeight = 0;
+        consensus.BayfrontHeight = 0;
+        consensus.BayfrontMarinaHeight = 0;
+        consensus.BayfrontGardensHeight = 0;
+        consensus.ClarkeQuayHeight = 0;
+        consensus.DakotaHeight = 0;
+        consensus.DakotaCrescentHeight = 0;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
