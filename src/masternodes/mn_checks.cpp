@@ -1557,9 +1557,8 @@ Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     if (rpcInfo) {
         rpcInfo->pushKV("creationTx", order.creationTx.GetHex());
         rpcInfo->pushKV("ownerAddress", order.ownerAddress);
-        rpcInfo->pushKV("tokenFrom", order.tokenFrom);
-        rpcInfo->pushKV("tokenTo", order.tokenTo);
         rpcInfo->pushKV("amountFrom", order.amountFrom);
+        rpcInfo->pushKV("amountToFill", order.amountToFill);
         rpcInfo->pushKV("orderPrice", order.orderPrice);
         rpcInfo->pushKV("expiry", static_cast<int>(order.expiry));
 
@@ -1597,8 +1596,20 @@ Res ApplyFulfillOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, C
     if (ownerDest.which() == 0) {
         return Res::Err("%s: %s", __func__, "ownerAdress (" + fillorder.ownerAddress + ") does not refer to any valid address");
     }
-    if (!mnview.GetOrderByCreationTx(fillorder.orderTx)) {
+    auto order=mnview.GetOrderByCreationTx(fillorder.orderTx);
+    if (!order) {
         return Res::Err("order with creation tx %s does not exists!", fillorder.orderTx.GetHex());
+    }
+
+    if (order->amountToFill < fillorder.amount) {
+        return Res::Err("cannot fill order with that amount, order (" + order->creationTx.GetHex() + ") has less amount to fill!");
+    }
+
+    order->amountToFill -= fillorder.amount;
+    if (order->amountToFill==0)
+    {
+        order->closeTx=fillorder.creationTx;
+        order->closeHeight = height;
     }
 
     // Return here to avoid already exist error
@@ -1609,7 +1620,7 @@ Res ApplyFulfillOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, C
         return Res::Ok();
     }
 
-    auto res = mnview.FulfillOrder(fillorder);
+    auto res = mnview.FulfillOrder(fillorder,*order);
     if (!res.ok) {
         return Res::Err("%s %s: %s", __func__, fillorder.creationTx.GetHex(), res.msg);
     }

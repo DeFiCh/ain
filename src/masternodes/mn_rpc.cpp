@@ -444,6 +444,9 @@ bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& 
         case CustomTxType::FulfillOrder:
             res = ApplyFulfillOrderTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
             break;
+        case CustomTxType::CloseOrder:
+            res = ApplyCloseOrderTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
         default:
             return false;
     }

@@ -14,16 +14,14 @@ UniValue orderToJSON(COrderImplemetation const& order) {
     orderObj.pushKV("ownerAddress", order.ownerAddress);
     orderObj.pushKV("tokenFrom", tokenFrom->CreateSymbolKey(order.idTokenFrom));
     orderObj.pushKV("tokenTo", tokenTo->CreateSymbolKey(order.idTokenTo));
-    orderObj.pushKV("amountFrom", order.amountFrom);
-    orderObj.pushKV("orderPrice", order.orderPrice);
-    orderObj.pushKV("optionDFI",order.optionDFI);
+    orderObj.pushKV("amountFrom", ValueFromAmount(order.amountFrom));
+    orderObj.pushKV("amountToFill", ValueFromAmount(order.amountToFill));
+    orderObj.pushKV("orderPrice", ValueFromAmount(order.orderPrice));
+    orderObj.pushKV("optionDFI",ValueFromAmount(order.optionDFI));
     orderObj.pushKV("height", static_cast<int>(order.creationHeight));
     orderObj.pushKV("expiry", static_cast<int>(order.expiry));
-    if (!order.closeTx.IsNull())
-    {
-        orderObj.pushKV("closeTx", order.closeTx.GetHex());
-        orderObj.pushKV("closeHeight", static_cast<int>(order.closeHeight));
-    }
+    if (order.closeHeight > -1) orderObj.pushKV("closeHeight", static_cast<int>(order.closeHeight));
+    if (!order.closeTx.IsNull()) orderObj.pushKV("closeTx", order.closeTx.GetHex());
 
     ret.pushKV(order.creationTx.GetHex(), orderObj);
     return (ret);
@@ -33,7 +31,7 @@ UniValue fulfillOrderToJSON(CFulfillOrderImplemetation const& fulfillorder) {
     UniValue orderObj(UniValue::VOBJ);
     orderObj.pushKV("ownerAddress", fulfillorder.ownerAddress);
     orderObj.pushKV("orderTx", fulfillorder.orderTx.GetHex());
-    orderObj.pushKV("amount", fulfillorder.amount);
+    orderObj.pushKV("amount", ValueFromAmount(fulfillorder.amount));
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(fulfillorder.creationTx.GetHex(), orderObj);
@@ -103,6 +101,7 @@ UniValue createorder(const JSONRPCRequest& request) {
     else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"tokenTo\" must be non-null");
     if (!metaObj["amountFrom"].isNull()) {
         order.amountFrom = AmountFromValue(metaObj["amountFrom"]);
+        order.amountToFill = order.amountFrom;
     }
     else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amountFrom\" must be non-null");
     if (!metaObj["orderPrice"].isNull()) {
@@ -246,6 +245,9 @@ UniValue fulfillorder(const JSONRPCRequest& request) {
         auto order = pcustomcsview->GetOrderByCreationTx(fillorder.orderTx);
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "orderTx (" + fillorder.orderTx.GetHex() + ") does not exist");
+
+        if (order->amountToFill < fillorder.amount)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "cannot fill order with that amount, order (" + order->creationTx.GetHex() + ") has less amount to fill!");
 
         CBalances totalBalances;
         CAmount total = 0;

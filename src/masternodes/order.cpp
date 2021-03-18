@@ -17,10 +17,10 @@ std::unique_ptr<COrderView::COrderImpl> COrderView::GetOrderByCreationTx(const u
         if (orderImpl)
             return MakeUnique<COrderImpl>(*orderImpl);
     }
-    return nullptr;
+    return (nullptr);
 }
 
-ResVal<uint256> COrderView::CreateOrder(const COrderView::COrderImpl& order)
+ResVal<uint256> COrderView::CreateOrder(const COrderImpl& order)
 {
     //this should not happen, but for sure
     if (GetOrderByCreationTx(order.creationTx)) {
@@ -34,7 +34,7 @@ ResVal<uint256> COrderView::CreateOrder(const COrderView::COrderImpl& order)
     return {order.creationTx, Res::Ok()};
 }
 
-ResVal<uint256> COrderView::CloseOrderTx(const COrderView::COrderImpl& order)
+ResVal<uint256> COrderView::CloseOrderTx(const COrderImpl& order)
 {
     TokenPairKey key(std::make_pair(order.idTokenFrom, order.idTokenTo), order.creationTx);
     EraseBy<OrderCreationTx>(key);
@@ -58,12 +58,12 @@ std::unique_ptr<COrderView::CFulfillOrderImpl> COrderView::GetFulfillOrderByCrea
         auto fillorderImpl = ReadBy<FulfillCreationTx,CFulfillOrderImpl>(std::make_pair(*ordertxid, txid));
         if (fillorderImpl)
             return MakeUnique<CFulfillOrderImpl>(*fillorderImpl);
-        return nullptr;
+        return (nullptr);
     }
-    return nullptr;
+    return (nullptr);
 }
 
-ResVal<uint256> COrderView::FulfillOrder(const COrderView::CFulfillOrderImpl & fillorder)
+ResVal<uint256> COrderView::FulfillOrder(const CFulfillOrderImpl & fillorder, const COrderImpl & order)
 {
     //this should not happen, but for sure
     if (GetFulfillOrderByCreationTx(fillorder.creationTx)) {
@@ -72,6 +72,15 @@ ResVal<uint256> COrderView::FulfillOrder(const COrderView::CFulfillOrderImpl & f
 
     WriteBy<FulfillOrderTxid>(fillorder.creationTx, fillorder.orderTx);
     WriteBy<FulfillCreationTx>(std::make_pair(fillorder.orderTx,fillorder.creationTx), fillorder);
+
+    if (order.closeHeight > -1) this->CloseOrderTx(order);
+    else
+    {
+        TokenPair pair(order.idTokenFrom, order.idTokenTo);
+        TokenPairKey key(pair, order.creationTx);
+        WriteBy<OrderCreationTx>(key, order);
+    }
+
     return {fillorder.creationTx, Res::Ok()};
 }
 
@@ -88,11 +97,12 @@ std::unique_ptr<COrderView::CCloseOrderImpl> COrderView::GetCloseOrderByCreation
     auto closeorderImpl = ReadBy<CloseCreationTx, CCloseOrderImpl>(txid);
     if (closeorderImpl)
         return MakeUnique<CCloseOrderImpl>(*closeorderImpl);
-    return nullptr;
+    return (nullptr);
 }
 
-ResVal<uint256> COrderView::CloseOrder(const COrderView::CCloseOrderImpl& closeorder)
+ResVal<uint256> COrderView::CloseOrder(const CCloseOrderImpl& closeorder)
 {
+    //this should not happen, but for sure
     if (GetCloseOrderByCreationTx(closeorder.creationTx)) {
         return Res::Err("close with creation tx %s already exists!", closeorder.creationTx.GetHex());
     }

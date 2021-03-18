@@ -11,16 +11,14 @@ class COrder
 {
 public:
     static const int DEFAULT_ORDER_EXPIRY = 2880;
-    static const int DEFAULT_OPTION_DFI = 8;
-
+    static const int DEFAULT_OPTION_DFI = 800000000;
 
     //! basic properties
     std::string ownerAddress;
-    std::string tokenFrom;
-    std::string tokenTo;
     DCT_ID idTokenFrom;
     DCT_ID idTokenTo;
     CAmount amountFrom;
+    CAmount amountToFill;
     CAmount orderPrice;
     uint32_t expiry;
     CAmount optionDFI;
@@ -30,6 +28,7 @@ public:
         , idTokenFrom({0})
         , idTokenTo({0})
         , amountFrom(0)
+        , amountToFill(0)
         , orderPrice(0)
         , expiry(DEFAULT_ORDER_EXPIRY)
         , optionDFI(DEFAULT_OPTION_DFI)
@@ -44,6 +43,7 @@ public:
         READWRITE(VARINT(idTokenFrom.v));
         READWRITE(VARINT(idTokenTo.v));
         READWRITE(amountFrom);
+        READWRITE(amountToFill);
         READWRITE(orderPrice);
         READWRITE(expiry);
         READWRITE(optionDFI);
@@ -56,8 +56,8 @@ public:
     //! tx related properties
     uint256 creationTx;
     uint256 closeTx;
-    uint32_t creationHeight; 
-    uint32_t closeHeight;
+    int32_t creationHeight; 
+    int32_t closeHeight;
 
     COrderImplemetation()
         : COrder()
@@ -110,9 +110,7 @@ class CFulfillOrderImplemetation : public CFulfillOrder
 public:
     //! tx related properties
     uint256 creationTx;
-    uint256 closeTx;
-    uint32_t creationHeight; 
-    uint32_t closeHeight;
+    int32_t creationHeight; 
 
     CFulfillOrderImplemetation()
         : CFulfillOrder()
@@ -155,7 +153,7 @@ class CCloseOrderImplemetation : public CCloseOrder
 public:
     //! tx related properties
     uint256 creationTx;
-    uint32_t creationHeight; 
+    int32_t creationHeight; 
 
     CCloseOrderImplemetation()
         : CCloseOrder()
@@ -190,7 +188,7 @@ public:
     void ForEachOrder(std::function<bool (TokenPairKey const &, CLazySerialize<COrderImpl>)> callback, TokenPair const & pair=TokenPair());    
     
     std::unique_ptr<CFulfillOrderImpl> GetFulfillOrderByCreationTx(const uint256 & txid) const;
-    ResVal<uint256> FulfillOrder(const CFulfillOrderImpl& fillorder);
+    ResVal<uint256> FulfillOrder(const CFulfillOrderImpl& fillorder, const COrderImpl & order);
     void ForEachFulfillOrder(std::function<bool (FulfillOrderId const &, CLazySerialize<CFulfillOrderImpl>)> callback, uint256 const & ordertxid=uint256());
 
     std::unique_ptr<CCloseOrderImpl> GetCloseOrderByCreationTx(const uint256 & txid) const;

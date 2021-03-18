@@ -9,9 +9,8 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-
 from test_framework.util import assert_equal
-
+from decimal import Decimal
 class OrderBasicTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
@@ -54,9 +53,12 @@ class OrderBasicTest (DefiTestFramework):
         assert_equal(order[order1txid]["ownerAddress"], collateral0)
         assert_equal(order[order1txid]["tokenFrom"], tokens[idGold]["symbolKey"])
         assert_equal(order[order1txid]["tokenTo"], tokens[idSilver]["symbolKey"])
-        assert_equal(order[order1txid]["amountFrom"], 1000000000)
-        assert_equal(order[order1txid]["orderPrice"], 10000000)
+        assert_equal(order[order1txid]["amountFrom"], Decimal("10.00000000"))
+        assert_equal(order[order1txid]["amountToFill"], Decimal("10.00000000"))
+        assert_equal(order[order1txid]["orderPrice"], Decimal("0.10000000"))
+        assert_equal(order[order1txid]["optionDFI"], Decimal("8.00000000"))
         assert_equal(order[order1txid]["expiry"], 2880)
+        
 
         order2txid = self.nodes[1].fulfillorder({
                                     'ownerAddress':collateral1,
@@ -72,7 +74,19 @@ class OrderBasicTest (DefiTestFramework):
         assert_equal(len(fillorder), 1)
         assert_equal(fillorder[order2txid]["ownerAddress"], collateral1)
         assert_equal(fillorder[order2txid]["orderTx"], order1txid)
-        assert_equal(fillorder[order2txid]["amount"], 400000000)
+        assert_equal(fillorder[order2txid]["amount"], Decimal("4.00000000"))
+
+        order = self.nodes[0].getorder(order1txid)
+
+        assert_equal(len(order), 1)
+        assert_equal(order[order1txid]["ownerAddress"], collateral0)
+        assert_equal(order[order1txid]["tokenFrom"], tokens[idGold]["symbolKey"])
+        assert_equal(order[order1txid]["tokenTo"], tokens[idSilver]["symbolKey"])
+        assert_equal(order[order1txid]["amountFrom"], Decimal("10.00000000"))
+        assert_equal(order[order1txid]["amountToFill"], Decimal("6.00000000"))
+        assert_equal(order[order1txid]["orderPrice"], Decimal("0.10000000"))
+        assert_equal(order[order1txid]["optionDFI"], Decimal("8.00000000"))
+        assert_equal(order[order1txid]["expiry"], 2880)
 
         listorders = self.nodes[0].listorders()
 
@@ -81,7 +95,7 @@ class OrderBasicTest (DefiTestFramework):
         listfillorders = self.nodes[0].listorders({'order1txid':order1txid})
         assert_equal(len(listfillorders), 1)
 
-        self.nodes[1].closeorder(order1txid)
+        closetxid = self.nodes[1].closeorder(order1txid)
 
         self.sync_mempools()
         self.nodes[0].generate(1)
@@ -95,5 +109,16 @@ class OrderBasicTest (DefiTestFramework):
         listclosedorders = self.nodes[0].listorders({'closed':True})
 
         assert_equal(len(listclosedorders), 1)
+
+        assert_equal(listclosedorders[order1txid]["ownerAddress"], collateral0)
+        assert_equal(listclosedorders[order1txid]["tokenFrom"], tokens[idGold]["symbolKey"])
+        assert_equal(listclosedorders[order1txid]["tokenTo"], tokens[idSilver]["symbolKey"])
+        assert_equal(listclosedorders[order1txid]["amountFrom"], Decimal("10.00000000"))
+        assert_equal(listclosedorders[order1txid]["amountToFill"], Decimal("6.00000000"))
+        assert_equal(listclosedorders[order1txid]["orderPrice"], Decimal("0.10000000"))
+        assert_equal(listclosedorders[order1txid]["optionDFI"], Decimal("8.00000000"))
+        assert_equal(listclosedorders[order1txid]["expiry"], 2880)
+        assert_equal(listclosedorders[order1txid]["closeTx"], closetxid)
+
 if __name__ == '__main__':
     OrderBasicTest ().main ()
