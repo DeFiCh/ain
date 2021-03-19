@@ -26,7 +26,7 @@ namespace pos {
         {
             nTimeTx = std::min(coinstakeTime - stakersBlockTime, params.pos.nStakeMaxAge);
         }
-        else if (node.mintedBlocks > 0)
+        else
         {
             // Lookup stored valid blocktime. no optional value indicate no previous staked block.
             if (auto lastBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress))
