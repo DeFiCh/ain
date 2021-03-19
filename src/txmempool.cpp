@@ -594,7 +594,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
                 staged.insert(mapTx.project<0>(it));
                 continue;
             }
-            auto res = ApplyCustomTx(viewDuplicate, mempoolDuplicate, tx, Params().GetConsensus(), nBlockHeight, 0, false);
+            auto res = ApplyCustomTx(viewDuplicate, mempoolDuplicate, tx, Params().GetConsensus(), nBlockHeight, 0, uint64_t{0}, false);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
                 staged.insert(mapTx.project<0>(it));

@@ -117,7 +117,7 @@ bool HasFoundationAuth(CTransaction const & tx, CCoinsViewCache const & coins, C
     return false;
 }
 
-Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CTransaction const & tx, Consensus::Params const & consensusParams, uint32_t height, uint32_t txn, bool isCheck, bool skipAuth)
+Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CTransaction const & tx, Consensus::Params const & consensusParams, uint32_t height, const uint64_t &time, uint32_t txn, bool isCheck, bool skipAuth)
 {
     Res res = Res::Ok();
 
@@ -142,7 +142,7 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
         switch (guess)
         {
             case CustomTxType::CreateMasternode:
-                res = ApplyCreateMasternodeTx(mnview, tx, height, metadata);
+                res = ApplyCreateMasternodeTx(mnview, tx, height, time, metadata);
                 break;
             case CustomTxType::ResignMasternode:
                 res = ApplyResignMasternodeTx(mnview, coins, tx, height, metadata, skipAuth);
@@ -224,7 +224,7 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
  * Checks if given tx is 'txCreateMasternode'. Creates new MN if all checks are passed
  * Issued by: any
  */
-Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, UniValue *rpcInfo)
+Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, const uint64_t &time, std::vector<unsigned char> const & metadata, UniValue *rpcInfo)
 {
     // Check quick conditions first
     if (tx.vout.size() < 2 ||
@@ -266,6 +266,12 @@ Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uin
     auto res = mnview.CreateMasternode(tx.GetHash(), node);
     if (!res.ok) {
         return Res::Err("%s: %s", __func__, res.msg);
+    }
+
+    // Build coinage from the point of masternode creation
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().DakotaCrescentHeight))
+    {
+        mnview.SetMasternodeLastBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), time);
     }
 
     return Res::Ok();
