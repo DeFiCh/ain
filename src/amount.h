@@ -76,6 +76,16 @@ struct DCT_ID {
 
 static const CAmount COIN = 100000000;
 
+//Converts the given value to decimal format string with COIN precision. 
+inline std::string GetDecimaleString(CAmount nValue)
+{
+    const bool sign = nValue < 0;
+    const int64_t n_abs = (sign ? -nValue : nValue);
+    const int64_t quotient = n_abs / COIN;
+    const int64_t remainder = n_abs % COIN;
+    return strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder);
+}
+
 typedef std::map<DCT_ID, CAmount> TAmounts;
 
 inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
@@ -110,7 +120,7 @@ struct CTokenAmount { // simple std::pair is less informative
     Res Add(CAmount amount) {
         // safety checks
         if (amount < 0) {
-            return Res::Err("negative amount: %d", amount);
+            return Res::Err("negative amount: %s", GetDecimaleString(amount));
         }
         // add
         auto sumRes = SafeAdd(this->nValue, amount);
@@ -123,10 +133,10 @@ struct CTokenAmount { // simple std::pair is less informative
     Res Sub(CAmount amount) {
         // safety checks
         if (amount < 0) {
-            return Res::Err("negative amount: %d", amount);
+            return Res::Err("negative amount: %s", GetDecimaleString(amount));
         }
         if (this->nValue < amount) {
-            return Res::Err("amount %d is less than %d", this->nValue, amount);
+            return Res::Err("amount %s is less than %s", GetDecimaleString(this->nValue), GetDecimaleString(amount));
         }
         // sub
         this->nValue -= amount;
