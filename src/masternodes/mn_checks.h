@@ -110,9 +110,9 @@ inline void Unserialize(Stream& s, CustomTxType & txType) {
     txType = CustomTxCodeToType(ch);
 }
 
-Res ApplyCustomTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, const Consensus::Params& consensusParams, uint32_t height, uint32_t txn, bool isCheck = true, bool skipAuth = false);
+Res ApplyCustomTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, const Consensus::Params& consensusParams, uint32_t height, const uint64_t& time, uint32_t txn, bool isCheck = true, bool skipAuth = false);
 //! Deep check (and write)
-Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, UniValue* rpcInfo = nullptr);
+Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, const uint64_t &time, std::vector<unsigned char> const & metadata, UniValue* rpcInfo = nullptr);
 Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 
 Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);

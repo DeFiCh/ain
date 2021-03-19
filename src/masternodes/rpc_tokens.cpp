@@ -10,7 +10,7 @@ static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomT
     switch (guess)
     {
         case CustomTxType::CreateMasternode:
-            res = ApplyCreateMasternodeTx(mnview_dummy, *tx, nHeight, metadata, &txResults);
+            res = ApplyCreateMasternodeTx(mnview_dummy, *tx, nHeight, uint64_t{0}, metadata, &txResults);
             break;
         case CustomTxType::ResignMasternode:
             res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);

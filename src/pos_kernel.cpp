@@ -24,10 +24,7 @@ namespace pos {
         // If staker has provided a previous block time use that to avoid DB lookup.
         if (stakersBlockTime)
         {
-            if (coinstakeTime != stakersBlockTime)
-            {
-                nTimeTx = std::min(coinstakeTime - stakersBlockTime, params.pos.nStakeMaxAge);
-            }
+            nTimeTx = std::min(coinstakeTime - stakersBlockTime, params.pos.nStakeMaxAge);
         }
         else if (node.mintedBlocks > 0)
         {
@@ -36,6 +33,13 @@ namespace pos {
             {
                 // Choose whatever is smaller, time since last stake or max age.
                 nTimeTx = std::min(coinstakeTime - *lastBlockTime, params.pos.nStakeMaxAge);
+            }
+            else // No record. No stake blocks or post-fork createmastnode TX, use fork time.
+            {
+                if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight])
+                {
+                    nTimeTx = std::min(coinstakeTime - block->GetBlockTime(), params.pos.nStakeMaxAge);
+                }
             }
         }
 
