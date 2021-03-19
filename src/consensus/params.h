@@ -80,6 +80,8 @@ struct Params {
     int ClarkeQuayHeight;
     /** Fourth major fork **/
     int DakotaHeight;
+    /** Fifth major fork **/
+    int DakotaCrescentHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
 
@@ -88,6 +90,8 @@ struct Params {
         uint256 diffLimit;
         int64_t nTargetTimespan;
         int64_t nTargetSpacing;
+        int64_t nStakeMinAge;
+        int64_t nStakeMaxAge;
         bool fAllowMinDifficultyBlocks;
         bool fNoRetargeting;
 

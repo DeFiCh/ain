@@ -1,5 +1,6 @@
 #include <masternodes/mn_rpc.h>
 
+#include <pos_kernel.h>
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
 UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
@@ -24,6 +25,7 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
         obj.pushKV("banTx", node.banTx.GetHex());
         obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
+        obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), node, GetTime()).getdouble());
 
         /// @todo add unlock height and|or real resign height
         ret.pushKV(nodeId.GetHex(), obj);

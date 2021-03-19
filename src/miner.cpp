@@ -703,6 +703,7 @@ namespace pos {
             pblock->height = tip->nHeight + 1;
             pblock->mintedBlocks = mintedBlocks + 1;
             pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
+            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID);
 
             bool found = false;
             for (uint32_t t = 0; t < nSearchInterval; t++) {
@@ -710,7 +711,9 @@ namespace pos {
 
                 pblock->nTime = ((uint32_t)coinstakeTime - t);
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, masternodeID, chainparams.GetConsensus())) {
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
+                                         chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : static_cast<int64_t>(pblock->nTime)))
+                {
                     LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                     found = true;

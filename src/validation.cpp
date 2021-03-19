@@ -1622,6 +1622,16 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // Undo community balance increments
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
 
+    CKeyID minterKey;
+    boost::optional<uint256> nodeId;
+    if (!fIsFakeNet) {
+        minterKey = pindex->minterKey();
+
+        // Get node id now from mnview before undo
+        nodeId = mnview.GetMasternodeIdByOperator(minterKey);
+        assert(nodeId);
+    }
+
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = *(block.vtx[i]);
@@ -1723,7 +1733,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
     if (!fIsFakeNet) {
-        mnview.DecrementMintedBy(pindex->minterKey());
+        mnview.DecrementMintedBy(minterKey);
+        mnview.EraseMasternodeLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
     }
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
@@ -2002,10 +2013,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return true;
     }
 
+    CKeyID minterKey;
+
     // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
     if (!fJustCheck && !fIsFakeNet) {
         // Check only that mintedBlocks counter is correct (MN existence and activation was partially checked before in CheckBlock()->ContextualCheckProofOfStake(), but not in the case of fJustCheck)
-        auto nodeId = mnview.GetMasternodeIdByOperator(pindex->minterKey());
+        minterKey = pindex->minterKey();
+        auto nodeId = mnview.GetMasternodeIdByOperator(minterKey);
         assert(nodeId);
         auto const & node = *mnview.GetMasternode(*nodeId);
         if (node.mintedBlocks + 1 != block.mintedBlocks)
@@ -2397,7 +2411,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     if (!fIsFakeNet) {
-        mnview.IncrementMintedBy(pindex->minterKey());
+        mnview.IncrementMintedBy(minterKey);
+
+        // Store block staker height for use in coinage
+        if (pindex->nHeight >= chainparams.GetConsensus().DakotaCrescentHeight) {
+            mnview.SetMasternodeLastBlockTime(minterKey, static_cast<uint32_t>(pindex->nHeight), pindex->GetBlockTime());
+        }
     }
     mnview.SetLastHeight(pindex->nHeight);
 
@@ -3724,6 +3743,11 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     // Check timestamp
     if (block.GetBlockTime() > nAdjustedTime + MAX_FUTURE_BLOCK_TIME)
         return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
+
+    if (block.height >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
+        if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT)
+            return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
+    }
 
     // Reject outdated version blocks when 95% (75% on testnet) of the network has upgraded:
     // check for version 2, 3 and 4 upgrades
