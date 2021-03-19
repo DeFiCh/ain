@@ -224,7 +224,7 @@ class PoolLiquidityTest (DefiTestFramework):
             self.nodes[0].removepoolliquidity(poolOwner, "10@GS", [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("amount 0 is less" in errorString)
+        assert("amount 0.00000000 is less" in errorString)
 
 
         resAmountA = make_rounded_decimal(25 * poolReserveA / poolLiquidity)
