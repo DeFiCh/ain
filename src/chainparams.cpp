@@ -120,7 +120,7 @@ public:
         consensus.BayfrontGardensHeight = 488300;
         consensus.ClarkeQuayHeight = 595738;
         consensus.DakotaHeight = 678000; // 1st March 2021
-        consensus.DakotaCrescentHeight = std::numeric_limits<int>::max();
+        consensus.DakotaCrescentHeight = 733000; // 25th March 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
