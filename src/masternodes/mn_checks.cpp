@@ -1655,6 +1655,12 @@ Res ApplyCloseOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTr
         return Res::Err("order with creation tx %s is already closed!", closeorder.orderTx.GetHex());
     }
 
+    const Coin& auth = coins.AccessCoin(COutPoint(order->creationTx, 1)); // always n=1 output
+    // check auth
+    if (!skipAuth && !HasAuth(tx, coins, auth.out.scriptPubKey)) {
+        return Res::Err("%s: %s", __func__, "tx must have at least one input from order owner");
+    }
+
     order->closeTx = closeorder.creationTx;
     order->closeHeight = closeorder.creationHeight;
 

@@ -56,6 +56,17 @@ UniValue createorder(const JSONRPCRequest& request) {
                             {"optionDFI", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Amount in DFI per unit the taker has to pay if they do not complete the order (Default: 8 DFI)"}
                         },
                     },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
                 },
                 RPCResult{
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -84,6 +95,8 @@ UniValue createorder(const JSONRPCRequest& request) {
                            "{\"ownerAddress\",\"tokenFrom\",\"tokenTo\",\"amountFrom\",\"orderPrice\"}");
     }
     UniValue metaObj = request.params[0].get_obj();
+    UniValue const & txInputs = request.params[1];
+
     COrder order;
     std::string tokenFromSymbol, tokenToSymbol;
 
@@ -164,15 +177,32 @@ UniValue createorder(const JSONRPCRequest& request) {
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    fund(rawTx, pwallet, {});
+    CCoinControl coinControl;
+
+    // Return change to auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
         const auto res = ApplyCreateOrderTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
                                       ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, order}), Params().GetConsensus());
         if (!res.ok) {
@@ -194,6 +224,17 @@ UniValue fulfillorder(const JSONRPCRequest& request) {
                             {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Address of the owner of token"},
                             {"orderTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of maker order"},
                             {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "coins amount to fulfill the order"},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
                         },
                     },
                 },
@@ -219,6 +260,8 @@ UniValue fulfillorder(const JSONRPCRequest& request) {
                            "{\"ownerAddress\",\"orderTx\",\"amount\"}");
     }
     UniValue metaObj = request.params[0].get_obj();
+    UniValue const & txInputs = request.params[1];
+
     CFulfillOrder fillorder;
 
     if (!metaObj["ownerAddress"].isNull()) {
@@ -279,15 +322,32 @@ UniValue fulfillorder(const JSONRPCRequest& request) {
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    fund(rawTx, pwallet, {});
+    CCoinControl coinControl;
+
+    // Return change to auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
         const auto res = ApplyFulfillOrderTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
                                       ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, fillorder}), Params().GetConsensus());
         if (!res.ok) {
@@ -305,7 +365,19 @@ UniValue closeorder(const JSONRPCRequest& request) {
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"orderTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of maker order"},
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
                 },
+                
                 RPCResult{
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
@@ -325,6 +397,8 @@ UniValue closeorder(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 1 must be non-null and expected as \"orderTx\"}");
     }
+    UniValue const & txInputs = request.params[1];
+
     CCloseOrder closeorder;
     closeorder.orderTx = uint256S(request.params[0].getValStr());
 
@@ -350,15 +424,32 @@ UniValue closeorder(const JSONRPCRequest& request) {
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    fund(rawTx, pwallet, {});
+    CCoinControl coinControl;
+
+    // Return change to auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
         const auto res = ApplyCloseOrderTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
                                       ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, closeorder}), Params().GetConsensus());
         if (!res.ok) {
