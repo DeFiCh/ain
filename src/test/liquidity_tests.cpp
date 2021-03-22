@@ -388,7 +388,6 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         pool.swapEvent = true;
         pool.ownerAddress = shareAddress[0];
         mnview.SetPoolPair(idPool, 1, pool);
-        mnview.SetPoolCustomReward(idPool, 1, {TAmounts{{idPool, COIN}}});
         return true;
     });
 
@@ -409,25 +408,24 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
     };
 
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
-        auto liquidity = mnview.GetBalance(shareAddress[0], idPool).nValue;
-        mnview.CalculatePoolRewards(idPool, liquidity, 1, 10,
-            [&](CScript const &, uint8_t type, CTokenAmount amount, uint32_t begin, uint32_t end) {
+        auto onLiquidity = [&]() -> CAmount {
+            return mnview.GetBalance(shareAddress[0], idPool).nValue;
+        };
+        mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
+            [&](CScript const &, uint8_t type, CTokenAmount amount, uint32_t height) {
                 switch(type) {
                 case int(RewardType::Rewards):
-                    BOOST_CHECK_EQUAL(begin, 3);
-                    BOOST_CHECK_EQUAL(end, 10);
-                    BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(liquidity, pool));
+                    BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
                     break;
                 case int(RewardType::Commission):
-                    BOOST_CHECK_EQUAL(begin, 1);
-                    BOOST_CHECK_EQUAL(end, 2);
                     if (amount.nTokenId == pool.idTokenA) {
-                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(liquidity, pool).first);
+                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).first);
                     } else {
-                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(liquidity, pool).second);
+                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).second);
                     }
                     break;
                 }
+                mnview.AddBalance(shareAddress[0], amount);
             }
         );
         return true;
@@ -435,8 +433,6 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
 
     // new calculation
     const_cast<int&>(Params().GetConsensus().BayfrontGardensHeight) = 6;
-    // custom rewards
-    const_cast<int&>(Params().GetConsensus().ClarkeQuayHeight) = 7;
 
     auto newRewardCalculation = [](CAmount liquidity, const CPoolPair& pool) -> CAmount {
         return COIN / 2880 * pool.rewardPct / COIN * liquidity / pool.totalLiquidity;
@@ -451,43 +447,41 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
         pool.swapEvent = true;
         pool.ownerAddress = shareAddress[1];
+        pool.rewards = CBalances{TAmounts{{idPool, COIN}}};
         mnview.SetPoolPair(idPool, 8, pool);
         return false;
     });
 
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
-        auto liquidity = mnview.GetBalance(shareAddress[0], idPool).nValue;
-        mnview.CalculatePoolRewards(idPool, liquidity, 1, 10,
-            [&](CScript const & from, uint8_t type, CTokenAmount amount, uint32_t begin, uint32_t end) {
-                if (begin >= Params().GetConsensus().BayfrontGardensHeight) {
+        auto onLiquidity = [&] () -> CAmount {
+            return mnview.GetBalance(shareAddress[1], idPool).nValue;
+        };
+        mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
+            [&](CScript const & from, uint8_t type, CTokenAmount amount, uint32_t height) {
+                if (height >= Params().GetConsensus().BayfrontGardensHeight) {
                     if (!from.empty()) {
-                        if (begin >= 8) {
-                            BOOST_CHECK(from == shareAddress[1]);
-                        } else {
-                            BOOST_CHECK(from == shareAddress[0]);
-                        }
-                        auto rewards = mnview.GetPoolCustomReward(idPool);
-                        BOOST_REQUIRE(rewards);
-                        for (const auto& reward : rewards->balances) {
-                            auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
+                        BOOST_CHECK(from == shareAddress[1]);
+                        for (const auto& reward : pool.rewards.balances) {
+                            auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(onLiquidity()) / arith_uint256(pool.totalLiquidity)).GetLow64());
                             BOOST_CHECK_EQUAL(amount.nValue, providerReward);
                         }
                     } else if (type == int(RewardType::Rewards)) {
-                        BOOST_CHECK_EQUAL(amount.nValue, newRewardCalculation(liquidity, pool));
+                        BOOST_CHECK_EQUAL(amount.nValue, newRewardCalculation(onLiquidity(), pool));
                     } else if (amount.nTokenId == pool.idTokenA) {
-                        BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(liquidity, pool).first);
+                        BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(onLiquidity(), pool).first);
                     } else {
-                        BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(liquidity, pool).second);
+                        BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(onLiquidity(), pool).second);
                     }
                 } else {
                     if (type == int(RewardType::Rewards)) {
-                        BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(liquidity, pool));
+                        BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
                     } else if (amount.nTokenId == pool.idTokenA) {
-                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(liquidity, pool).first);
+                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).first);
                     } else {
-                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(liquidity, pool).second);
+                        BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).second);
                     }
                 }
+                mnview.AddBalance(shareAddress[1], amount);
             }
         );
         return false;

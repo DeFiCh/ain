@@ -88,97 +88,23 @@ public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
     static const CAmount SLOPE_SWAP_RATE = 1000;
     static const uint32_t PRECISION = (uint32_t) COIN; // or just PRECISION_BITS for "<<" and ">>"
-    CPoolPair(CPoolPairMessage const & msg = {})
-        : CPoolPairMessage(msg)
-        , reserveA(0)
-        , reserveB(0)
-        , totalLiquidity(0)
-        , blockCommissionA(0)
-        , blockCommissionB(0)
-        , rewardPct(0)
-        , swapEvent(false)
-        , creationTx()
-        , creationHeight(-1)
-    {}
+    CPoolPair(CPoolPairMessage const & msg = {}) : CPoolPairMessage(msg) {}
     virtual ~CPoolPair() = default;
 
-    CAmount reserveA, reserveB, totalLiquidity;
-    CAmount blockCommissionA, blockCommissionB;
+    CBalances rewards;
+    CAmount reserveA = 0, reserveB = 0, totalLiquidity = 0;
+    CAmount blockCommissionA = 0, blockCommissionB = 0;
 
-    CAmount rewardPct;       // pool yield farming reward %%
+    CAmount rewardPct = 0;       // pool yield farming reward %%
     bool swapEvent = false;
 
     uint256 creationTx;
-    uint32_t creationHeight;
+    uint32_t creationHeight = -1;
 
     // 'amountA' && 'amountB' should be normalized (correspond) to actual 'tokenA' and 'tokenB' ids in the pair!!
     // otherwise, 'AddLiquidity' should be () external to 'CPairPool' (i.e. CPoolPairView::AddLiquidity(TAmount a,b etc) with internal lookup of pool by TAmount a,b)
-    Res AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(CAmount liqAmount)> onMint, bool slippageProtection = false) {
-        // instead of assertion due to tests
-        if (amountA <= 0 || amountB <= 0) {
-            return Res::Err("amounts should be positive");
-        }
-
-        CAmount liquidity{0};
-        if (totalLiquidity == 0) {
-            liquidity = (CAmount) (arith_uint256(amountA) * arith_uint256(amountB)).sqrt().GetLow64(); // sure this is below std::numeric_limits<CAmount>::max() due to sqrt natue
-            if (liquidity <= MINIMUM_LIQUIDITY) // ensure that it'll be non-zero
-                return Res::Err("liquidity too low");
-            liquidity -= MINIMUM_LIQUIDITY;
-            // MINIMUM_LIQUIDITY is a hack for non-zero division
-            totalLiquidity = MINIMUM_LIQUIDITY;
-        } else {
-            CAmount liqA = (arith_uint256(amountA) * arith_uint256(totalLiquidity) / reserveA).GetLow64();
-            CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
-            liquidity = std::min(liqA, liqB);
-
-            if (liquidity == 0)
-                return Res::Err("amounts too low, zero liquidity");
-
-            if(slippageProtection) {
-                if ((std::max(liqA, liqB) - liquidity) * 100 / liquidity >= 3) {
-                    return Res::Err("Exceeds max ratio slippage protection of 3%%");
-                }
-            }
-        }
-
-        // increasing totalLiquidity
-        auto resTotal = SafeAdd(totalLiquidity, liquidity);
-        if (!resTotal.ok) {
-            return Res::Err("can't add %d to totalLiquidity: %s", liquidity, resTotal.msg);
-        }
-        totalLiquidity = *resTotal.val;
-
-        // increasing reserves
-        auto resA = SafeAdd(reserveA, amountA);
-        auto resB = SafeAdd(reserveB, amountB);
-        if (resA.ok && resB.ok) {
-            reserveA = *resA.val;
-            reserveB = *resB.val;
-        } else {
-            return Res::Err("overflow when adding to reserves");
-        }
-
-        return onMint(liquidity);
-    }
-
-    Res RemoveLiquidity(CAmount const & liqAmount, std::function<Res(CAmount amountA, CAmount amountB)> onReclaim) {
-        // instead of assertion due to tests
-        // IRL it can't be more than "total-1000", and was checked indirectly by balances before. but for tests and incapsulation:
-        if (liqAmount <= 0 || liqAmount >= totalLiquidity) {
-            return Res::Err("incorrect liquidity");
-        }
-
-        CAmount resAmountA, resAmountB;
-        resAmountA = (arith_uint256(liqAmount) * arith_uint256(reserveA) / totalLiquidity).GetLow64();
-        resAmountB = (arith_uint256(liqAmount) * arith_uint256(reserveB) / totalLiquidity).GetLow64();
-
-        reserveA -= resAmountA; // safe due to previous math
-        reserveB -= resAmountB;
-        totalLiquidity -= liqAmount;
-
-        return onReclaim(resAmountA, resAmountB);
-    }
+    Res AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(CAmount)> onMint, bool slippageProtection = false);
+    Res RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAmount)> onReclaim);
 
     Res Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res(CTokenAmount const &)> onTransfer, int height = INT_MAX);
 
@@ -213,6 +139,7 @@ public:
         READWRITE(swapEvent);
         READWRITE(creationTx);
         READWRITE(creationHeight);
+        READWRITE(rewards);
 
         if (ser_action.ForRead()) ioProofer();
     }
@@ -226,12 +153,12 @@ struct PoolShareKey {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(poolID);
+        READWRITE(WrapBigEndian(poolID.v));
         READWRITE(owner);
     }
 };
 
-struct PoolRewardKey {
+struct PoolHeightKey {
     DCT_ID poolID;
     uint32_t height;
 
@@ -270,10 +197,7 @@ class CPoolPairView : public virtual CStorageView
 {
 public:
     Res SetPoolPair(const DCT_ID &poolId, uint32_t height, CPoolPair const & pool);
-    Res UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool status, CAmount const & commission, CScript const & ownerAddress);
-
-    Res SetPoolCustomReward(const DCT_ID &poolId, uint32_t height, const CBalances &rewards);
-    boost::optional<CBalances> GetPoolCustomReward(const DCT_ID &poolId);
+    Res UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool status, CAmount const & commission, CScript const & ownerAddress, CBalances const & rewards);
 
     boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
     boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
@@ -281,26 +205,14 @@ public:
     void ForEachPoolPair(std::function<bool(DCT_ID const &, CLazySerialize<CPoolPair>)> callback, DCT_ID const & start = DCT_ID{0});
     void ForEachPoolShare(std::function<bool(DCT_ID const &, CScript const &, uint32_t)> callback, PoolShareKey const &startKey = {});
 
-    Res SetShare(DCT_ID const & poolId, CScript const & provider, uint32_t height) {
-        WriteBy<ByShare>(PoolShareKey{poolId, provider}, height);
-        return Res::Ok();
-    }
+    Res SetShare(DCT_ID const & poolId, CScript const & provider, uint32_t height);
+    Res DelShare(DCT_ID const & poolId, CScript const & provider);
 
-    Res DelShare(DCT_ID const & poolId, CScript const & provider) {
-        EraseBy<ByShare>(PoolShareKey{poolId, provider});
-        return Res::Ok();
-    }
+    boost::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider);
 
-    boost::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider) {
-        return ReadBy<ByShare, uint32_t>(PoolShareKey{poolId, provider});
-    }
+    void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(CScript const &, uint8_t, CTokenAmount, uint32_t)> onReward);
 
-    void CalculatePoolRewards(DCT_ID const & poolId, CAmount liquidity, uint32_t begin, uint32_t end, std::function<void(CScript const &, uint8_t, CTokenAmount, uint32_t, uint32_t)> onReward);
-
-    Res SetDailyReward(uint32_t height, CAmount reward) {
-        WriteBy<ByDailyReward>(PoolRewardKey{{}, height}, reward);
-        return Res::Ok();
-    }
+    Res SetDailyReward(uint32_t height, CAmount reward);
 
     void UpdatePoolCommissions(std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, int nHeight = 0) {
 

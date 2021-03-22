@@ -34,9 +34,9 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
 
         poolObj.pushKV("rewardPct", ValueFromAmount(pool.rewardPct));
 
-        auto rewards = pcustomcsview->GetPoolCustomReward(id);
-        if (rewards && !rewards->balances.empty()) {
-            for (auto it = rewards->balances.cbegin(), next_it = it; it != rewards->balances.cend(); it = next_it) {
+        auto rewards = pool.rewards;
+        if (!rewards.balances.empty()) {
+            for (auto it = rewards.balances.cbegin(), next_it = it; it != rewards.balances.cend(); it = next_it) {
                 ++next_it;
 
                 // Get token balance
@@ -44,14 +44,14 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
 
                 // Make there's enough to pay reward otherwise remove it
                 if (balance < it->second) {
-                    rewards->balances.erase(it);
+                    rewards.balances.erase(it);
                 }
             }
 
-            if (!rewards->balances.empty()) {
+            if (!rewards.balances.empty()) {
                 UniValue rewardArr(UniValue::VARR);
 
-                for (const auto& reward : rewards->balances) {
+                for (const auto& reward : rewards.balances) {
                     rewardArr.push_back(CTokenAmount{reward.first, reward.second}.ToString());
                 }
 

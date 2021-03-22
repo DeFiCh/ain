@@ -658,6 +658,7 @@ public:
         auto pairSymbol = obj.pairSymbol;
         poolPair.creationTx = tx.GetHash();
         poolPair.creationHeight = height;
+        auto& rewards = poolPair.rewards;
 
         auto tokenA = mnview.GetToken(poolPair.idTokenA);
         if (!tokenA) {
@@ -691,19 +692,16 @@ public:
             return std::move(tokenId);
         }
 
-        auto res = mnview.SetPoolPair(tokenId, height, poolPair);
-        if (!res) {
-            return res;
-        }
-
-        if (!obj.rewards.balances.empty()) {
-            auto rewards = obj.rewards;
+        rewards = obj.rewards;
+        if (!rewards.balances.empty()) {
             // Check tokens exist and remove empty reward amounts
             auto res = eraseEmptyBalances(rewards.balances);
-            // Will only fail if pool was not actually created in SetPoolPair
-            return !res ? res : mnview.SetPoolCustomReward(tokenId, height, rewards);
+            if (!res) {
+                return res;
+            }
         }
-        return Res::Ok();
+
+        return mnview.SetPoolPair(tokenId, height, poolPair);
     }
 
     Res operator()(const CUpdatePoolPairMessage& obj) const {
@@ -712,24 +710,19 @@ public:
             return Res::Err("tx not from foundation member");
         }
 
-        auto res = mnview.UpdatePoolPair(obj.poolId, height, obj.status, obj.commission, obj.ownerAddress);
-        if (!res) {
-            return res;
-        }
-
-        if (!obj.rewards.balances.empty()) {
+        auto rewards = obj.rewards;
+        if (!rewards.balances.empty()) {
             // Check for special case to wipe rewards
-            auto rewards = obj.rewards;
-            if (rewards.balances.size() == 1 && rewards.balances.cbegin()->first == DCT_ID{std::numeric_limits<uint32_t>::max()}
-            && rewards.balances.cbegin()->second == std::numeric_limits<CAmount>::max()) {
-                rewards.balances.clear();
+            if (!(rewards.balances.size() == 1 && rewards.balances.cbegin()->first == DCT_ID{std::numeric_limits<uint32_t>::max()}
+            && rewards.balances.cbegin()->second == std::numeric_limits<CAmount>::max())) {
+                // Check if tokens exist and remove empty reward amounts
+                auto res = eraseEmptyBalances(rewards.balances);
+                if (!res) {
+                    return res;
+                }
             }
-            // Check if tokens exist and remove empty reward amounts
-            auto res = eraseEmptyBalances(rewards.balances);
-            // Will only fail if pool was not actually created in SetPoolPair
-            return !res ? res : mnview.SetPoolCustomReward(obj.poolId, height, rewards);
         }
-        return Res::Ok();
+        return mnview.UpdatePoolPair(obj.poolId, height, obj.status, obj.commission, obj.ownerAddress, rewards);
     }
 
     Res operator()(const CPoolSwapMessage& obj) const {

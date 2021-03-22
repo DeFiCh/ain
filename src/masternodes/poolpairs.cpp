@@ -10,8 +10,7 @@
 const unsigned char CPoolPairView::ByID             ::prefix = 'i';
 const unsigned char CPoolPairView::ByPair           ::prefix = 'j';
 const unsigned char CPoolPairView::ByShare          ::prefix = 'k';
-const unsigned char CPoolPairView::Reward           ::prefix = 'I';
-const unsigned char CPoolPairView::ByDailyReward    ::prefix = 'C';
+const unsigned char CPoolPairView::ByDailyReward    ::prefix = 'I';
 const unsigned char CPoolPairView::ByPoolHeight     ::prefix = 'P';
 
 Res CPoolPairView::SetPoolPair(DCT_ID const & poolId, uint32_t height, CPoolPair const & pool)
@@ -33,7 +32,7 @@ Res CPoolPairView::SetPoolPair(DCT_ID const & poolId, uint32_t height, CPoolPair
         WriteBy<ByPair>(ByPairKey{pool.idTokenA, pool.idTokenB}, poolId);
         WriteBy<ByPair>(ByPairKey{pool.idTokenB, pool.idTokenA}, poolId);
         if (height < UINT_MAX) {
-            WriteBy<ByPoolHeight>(PoolRewardKey{poolId, height}, pool);
+            WriteBy<ByPoolHeight>(PoolHeightKey{poolId, height}, pool);
         }
         return Res::Ok();
     }
@@ -44,7 +43,7 @@ Res CPoolPairView::SetPoolPair(DCT_ID const & poolId, uint32_t height, CPoolPair
     && poolPairByTokens->second.idTokenB == pool.idTokenB) {
         WriteBy<ByID>(poolId, pool);
         if (height < UINT_MAX) {
-            WriteBy<ByPoolHeight>(PoolRewardKey{poolId, height}, pool);
+            WriteBy<ByPoolHeight>(PoolHeightKey{poolId, height}, pool);
         }
         return Res::Ok();
     }
@@ -60,7 +59,7 @@ Res CPoolPairView::SetPoolPair(DCT_ID const & poolId, uint32_t height, CPoolPair
     return Res::Err("Error: Couldn't create/update pool pair.");
 }
 
-Res CPoolPairView::UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool status, CAmount const & commission, CScript const & ownerAddress)
+Res CPoolPairView::UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool status, CAmount const & commission, CScript const & ownerAddress, CBalances const & rewards)
 {
     auto poolPair = GetPoolPair(poolId);
     if (!poolPair) {
@@ -84,6 +83,19 @@ Res CPoolPairView::UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool s
             usedHeight = height;
         }
         pool.ownerAddress = ownerAddress;
+    }
+
+    if (!rewards.balances.empty()) {
+        auto customRewards = rewards;
+        // Check for special case to wipe rewards
+        if (rewards.balances.size() == 1 && rewards.balances.cbegin()->first == DCT_ID{std::numeric_limits<uint32_t>::max()}
+        && rewards.balances.cbegin()->second == std::numeric_limits<CAmount>::max()) {
+            customRewards.balances.clear();
+        }
+        if (pool.rewards != customRewards) {
+            usedHeight = height;
+            pool.rewards = customRewards;
+        }
     }
 
     auto res = SetPoolPair(poolId, usedHeight, pool);
@@ -110,106 +122,165 @@ boost::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const 
     return {};
 }
 
-Res CPoolPairView::SetPoolCustomReward(const DCT_ID &poolId, uint32_t height, const CBalances& rewards)
-{
-    if (!GetPoolPair(poolId)) {
-        return Res::Err("Error %s: poolID %s does not exist", __func__, poolId.ToString());
-    }
-
-    WriteBy<Reward>(PoolRewardKey{poolId, height}, rewards);
-    return Res::Ok();
+inline CAmount poolRewardPerBlock(CAmount dailyReward, CAmount rewardPct) {
+    return dailyReward / Params().GetConsensus().blocksPerDay() * rewardPct / COIN;
 }
 
-boost::optional<CBalances> CPoolPairView::GetPoolCustomReward(const DCT_ID &poolId)
-{
-    auto it = LowerBound<Reward>(PoolRewardKey{poolId, UINT_MAX});
-    if (!it.Valid() || it.Key().poolID != poolId) {
-        return {};
-    }
-    return it.Value().as<CBalances>();
-}
-
-void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, CAmount liquidity, uint32_t begin, uint32_t end, std::function<void(CScript const &, uint8_t, CTokenAmount, uint32_t, uint32_t)> onReward) {
-    if (begin >= end || liquidity == 0) {
+void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(CScript const &, uint8_t, CTokenAmount, uint32_t)> onReward) {
+    if (begin >= end) {
         return;
     }
     constexpr const uint32_t PRECISION = 10000;
     const auto newCalcHeight = uint32_t(Params().GetConsensus().BayfrontGardensHeight);
-    const auto blocksPerDay = (60 * 60 * 24 / Params().GetConsensus().pos.nTargetSpacing);
-    const auto beginCustomRewards = std::max(begin, uint32_t(Params().GetConsensus().ClarkeQuayHeight));
+    /// @Note we store keys in desc oreder so Prev is actually go in forward
+    PoolHeightKey pctKey{DCT_ID{}, begin};
+    auto itPct = LowerBound<ByDailyReward>(pctKey);
+    auto itPool = LowerBound<ByPoolHeight>(PoolHeightKey{poolId, begin});
 
-    auto itPct = LowerBound<ByDailyReward>(PoolRewardKey{{}, end - 1});
-    auto itPool = LowerBound<ByPoolHeight>(PoolRewardKey{poolId, end - 1});
-    auto itReward = LowerBound<Reward>(PoolRewardKey{poolId, end - 1});
-
+    CAmount dailyReward = 0;
+    auto dailyBeginHeight = UINT_MAX;
+    while (!itPct.Valid() && pctKey.height < end) {
+        pctKey.height++;
+        itPct.Seek(pctKey);
+    }
+    auto dailyEndHeight = UINT_MAX;
+    if (itPct.Valid() && itPct.Key().height < end) {
+        dailyReward = itPct.Value();
+        dailyBeginHeight = itPct.Key().height;
+        itPct.Prev();
+        dailyEndHeight = itPct.Valid() ? itPct.Key().height : UINT_MAX;
+    }
     while (itPool.Valid() && itPool.Key().poolID == poolId) {
         // rewards starting in same block as pool
         const auto poolHeight = itPool.Key().height;
         const auto pool = itPool.Value().as<CPoolPair>();
-        // daily rewards
-        for (auto endHeight = end; itPct.Valid(); itPct.Next()) {
-            // we have desc order so we select higher height
-            auto beginHeight = std::max(begin, std::max(poolHeight, itPct.Key().height));
-            auto poolReward = itPct.Value().as<CAmount>() / blocksPerDay * pool.rewardPct / COIN;
-            if (poolReward != 0 && pool.totalLiquidity != 0) {
-                auto beginCalcHeight = beginHeight;
-                auto endCalcHeight = std::min(endHeight, newCalcHeight);
-                if (endCalcHeight > beginHeight) { // old calculation
+        auto poolReward = poolRewardPerBlock(dailyReward, pool.rewardPct);
+        itPool.Prev();
+        auto endHeight = UINT_MAX;
+        if (itPool.Valid() && itPool.Key().poolID == poolId) {
+            endHeight = itPool.Key().height;
+        }
+        endHeight = std::min(end, endHeight);
+        for (auto height = begin; height < endHeight; height++) {
+            if (height == dailyEndHeight) {
+                dailyReward = itPct.Value();
+                poolReward = poolRewardPerBlock(dailyReward, pool.rewardPct);
+                itPct.Prev();
+                dailyEndHeight = itPct.Valid() ? itPct.Key().height : UINT_MAX;
+            }
+            if (pool.totalLiquidity == 0) {
+                continue;
+            }
+            auto liquidity = onLiquidity();
+            // daily rewards
+            if (height >= dailyBeginHeight && poolReward != 0) {
+                CAmount providerReward;
+                if (height < newCalcHeight) { // old calculation
                     uint32_t liqWeight = liquidity * PRECISION / pool.totalLiquidity;
-                    auto providerReward = poolReward * liqWeight / PRECISION;
-                    onReward({}, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}, beginHeight, endCalcHeight);
-                    beginCalcHeight = endCalcHeight;
+                    providerReward = poolReward * liqWeight / PRECISION;
+                } else { // new calculation
+                    providerReward = static_cast<CAmount>((arith_uint256(poolReward) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                 }
-                if (endHeight > beginCalcHeight) { // new calculation
-                    auto providerReward = static_cast<CAmount>((arith_uint256(poolReward) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
-                    onReward({}, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}, beginCalcHeight, endHeight);
-                }
+                onReward({}, uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}, height);
             }
-            if (beginHeight == begin || beginHeight == poolHeight) {
-                break;
-            }
-            endHeight = beginHeight;
-        }
-        // commissions
-        if (pool.swapEvent && pool.totalLiquidity != 0) {
-            CAmount feeA, feeB;
-            if (poolHeight < newCalcHeight) {
-                uint32_t liqWeight = liquidity * PRECISION / pool.totalLiquidity;
-                feeA = pool.blockCommissionA * liqWeight / PRECISION;
-                feeB = pool.blockCommissionB * liqWeight / PRECISION;
-            } else {
-                feeA = static_cast<CAmount>((arith_uint256(pool.blockCommissionA) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
-                feeB = static_cast<CAmount>((arith_uint256(pool.blockCommissionB) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
-            }
-            onReward({}, uint8_t(RewardType::Commission), {pool.idTokenA, feeA}, poolHeight, poolHeight + 1);
-            onReward({}, uint8_t(RewardType::Commission), {pool.idTokenB, feeB}, poolHeight, poolHeight + 1);
-        }
-        // custom rewards
-        if (end > beginCustomRewards) {
-            for (auto endHeight = end; itReward.Valid() && itReward.Key().poolID == poolId; itReward.Next()) {
-                auto beginHeight = std::max(beginCustomRewards, std::max(poolHeight, itReward.Key().height));
-                if (endHeight > beginHeight && pool.totalLiquidity != 0) {
-                    for (const auto& reward : itReward.Value().as<CBalances>().balances) {
-                        if (auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64())) {
-                            onReward(pool.ownerAddress, uint8_t(RewardType::Rewards), {reward.first, providerReward}, beginHeight, endHeight);
-                        }
-                    }
+            // commissions
+            if (height == poolHeight && pool.swapEvent) {
+                CAmount feeA, feeB;
+                if (height < newCalcHeight) {
+                    uint32_t liqWeight = liquidity * PRECISION / pool.totalLiquidity;
+                    feeA = pool.blockCommissionA * liqWeight / PRECISION;
+                    feeB = pool.blockCommissionB * liqWeight / PRECISION;
+                } else {
+                    feeA = static_cast<CAmount>((arith_uint256(pool.blockCommissionA) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
+                    feeB = static_cast<CAmount>((arith_uint256(pool.blockCommissionB) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
                 }
-                if (beginHeight == beginCustomRewards || beginHeight == poolHeight) {
-                    break;
+                onReward({}, uint8_t(RewardType::Commission), {pool.idTokenA, feeA}, height);
+                onReward({}, uint8_t(RewardType::Commission), {pool.idTokenB, feeB}, height);
+            }
+            // custom rewards
+            for (const auto& reward : pool.rewards.balances) {
+                if (auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64())) {
+                    onReward(pool.ownerAddress, uint8_t(RewardType::Rewards), {reward.first, providerReward}, height);
                 }
-                endHeight = beginHeight;
             }
         }
-        if (begin >= poolHeight) {
+        if (endHeight == end) {
             break;
         }
-        itPool.Next();
-        end = poolHeight;
+        begin = endHeight;
     }
 }
 
-Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &tokenAmount)> onTransfer, int height) {
+Res CPoolPair::AddLiquidity(CAmount amountA, CAmount amountB, std::function<Res(CAmount)> onMint, bool slippageProtection) {
+    // instead of assertion due to tests
+    if (amountA <= 0 || amountB <= 0) {
+        return Res::Err("amounts should be positive");
+    }
+
+    CAmount liquidity{0};
+    if (totalLiquidity == 0) {
+        liquidity = (CAmount) (arith_uint256(amountA) * arith_uint256(amountB)).sqrt().GetLow64(); // sure this is below std::numeric_limits<CAmount>::max() due to sqrt natue
+        if (liquidity <= MINIMUM_LIQUIDITY) { // ensure that it'll be non-zero
+            return Res::Err("liquidity too low");
+        }
+        liquidity -= MINIMUM_LIQUIDITY;
+        // MINIMUM_LIQUIDITY is a hack for non-zero division
+        totalLiquidity = MINIMUM_LIQUIDITY;
+    } else {
+        CAmount liqA = (arith_uint256(amountA) * arith_uint256(totalLiquidity) / reserveA).GetLow64();
+        CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
+        liquidity = std::min(liqA, liqB);
+
+        if (liquidity == 0) {
+            return Res::Err("amounts too low, zero liquidity");
+        }
+
+        if(slippageProtection) {
+            if ((std::max(liqA, liqB) - liquidity) * 100 / liquidity >= 3) {
+                return Res::Err("Exceeds max ratio slippage protection of 3%%");
+            }
+        }
+    }
+
+    // increasing totalLiquidity
+    auto resTotal = SafeAdd(totalLiquidity, liquidity);
+    if (!resTotal.ok) {
+        return Res::Err("can't add %d to totalLiquidity: %s", liquidity, resTotal.msg);
+    }
+    totalLiquidity = *resTotal.val;
+
+    // increasing reserves
+    auto resA = SafeAdd(reserveA, amountA);
+    auto resB = SafeAdd(reserveB, amountB);
+    if (resA.ok && resB.ok) {
+        reserveA = *resA.val;
+        reserveB = *resB.val;
+    } else {
+        return Res::Err("overflow when adding to reserves");
+    }
+
+    return onMint(liquidity);
+}
+
+Res CPoolPair::RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAmount)> onReclaim) {
+    // instead of assertion due to tests
+    // IRL it can't be more than "total-1000", and was checked indirectly by balances before. but for tests and incapsulation:
+    if (liqAmount <= 0 || liqAmount >= totalLiquidity) {
+        return Res::Err("incorrect liquidity");
+    }
+
+    CAmount resAmountA, resAmountB;
+    resAmountA = (arith_uint256(liqAmount) * arith_uint256(reserveA) / totalLiquidity).GetLow64();
+    resAmountB = (arith_uint256(liqAmount) * arith_uint256(reserveB) / totalLiquidity).GetLow64();
+
+    reserveA -= resAmountA; // safe due to previous math
+    reserveB -= resAmountB;
+    totalLiquidity -= liqAmount;
+
+    return onReclaim(resAmountA, resAmountB);
+}
+
+Res CPoolPair::Swap(CTokenAmount in, PoolPrice const & maxPrice, std::function<Res (const CTokenAmount &)> onTransfer, int height) {
     if (in.nTokenId != idTokenA && in.nTokenId != idTokenB)
         return Res::Err("Error, input token ID (" + in.nTokenId.ToString() + ") doesn't match pool tokens (" + idTokenA.ToString() + "," + idTokenB.ToString() + ")");
 
@@ -290,13 +361,30 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     return swapped.GetLow64();
 }
 
-void CPoolPairView::ForEachPoolPair(std::function<bool(const DCT_ID &, CLazySerialize<CPoolPair>)> callback, DCT_ID const & start)
-{
+Res CPoolPairView::SetShare(DCT_ID const & poolId, CScript const & provider, uint32_t height) {
+    WriteBy<ByShare>(PoolShareKey{poolId, provider}, height);
+    return Res::Ok();
+}
+
+Res CPoolPairView::DelShare(DCT_ID const & poolId, CScript const & provider) {
+    EraseBy<ByShare>(PoolShareKey{poolId, provider});
+    return Res::Ok();
+}
+
+boost::optional<uint32_t> CPoolPairView::GetShare(DCT_ID const & poolId, CScript const & provider) {
+    return ReadBy<ByShare, uint32_t>(PoolShareKey{poolId, provider});
+}
+
+Res CPoolPairView::SetDailyReward(uint32_t height, CAmount reward) {
+    WriteBy<ByDailyReward>(PoolHeightKey{{}, height}, reward);
+    return Res::Ok();
+}
+
+void CPoolPairView::ForEachPoolPair(std::function<bool(const DCT_ID &, CLazySerialize<CPoolPair>)> callback, DCT_ID const & start) {
     ForEach<ByID, DCT_ID, CPoolPair>(callback, start);
 }
 
-void CPoolPairView::ForEachPoolShare(std::function<bool (DCT_ID const &, CScript const &, uint32_t)> callback, const PoolShareKey &startKey)
-{
+void CPoolPairView::ForEachPoolShare(std::function<bool (DCT_ID const &, CScript const &, uint32_t)> callback, const PoolShareKey &startKey) {
     ForEach<ByShare, PoolShareKey, uint32_t>([&callback] (PoolShareKey const & poolShareKey, uint32_t height) {
         return callback(poolShareKey.poolID, poolShareKey.owner, height);
     }, startKey);
