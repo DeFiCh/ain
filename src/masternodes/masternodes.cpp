@@ -750,10 +750,12 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
         if (!height || *height >= targetHeight) {
             return true; // no share or target height is before a pool share' one
         }
+        auto onLiquidity = [&]() -> CAmount {
+            return GetBalance(owner, poolId).nValue;
+        };
         auto beginHeight = std::max(*height, balanceHeight);
-        CalculatePoolRewards(poolId, GetBalance(owner, poolId).nValue, beginHeight, targetHeight,
-            [&](CScript const & from, uint8_t type, CTokenAmount amount, uint32_t begin, uint32_t end) {
-                amount.nValue *= (end - begin);
+        CalculatePoolRewards(poolId, onLiquidity, beginHeight, targetHeight,
+            [&](CScript const & from, uint8_t type, CTokenAmount amount, uint32_t height) {
                 if (!from.empty()) {
                     auto res = SubBalance(from, amount);
                     if (!res) {

@@ -2362,7 +2362,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         CCustomCSView cache(mnview);
 
         // hardfork commissions update
-        cache.UpdatePoolCommissions([&cache](CScript const & owner, DCT_ID tokenID) {
+        cache.UpdatePoolCommissions([&](CScript const & owner, DCT_ID tokenID) {
+            cache.CalculateOwnerRewards(owner, pindex->nHeight);
             return cache.GetBalance(owner, tokenID);
         }, pindex->nHeight);
         // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork

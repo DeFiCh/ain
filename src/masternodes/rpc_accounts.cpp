@@ -95,17 +95,20 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
 }
 
 static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t begin, uint32_t end, std::function<void(uint32_t, DCT_ID, uint8_t, CTokenAmount)> onReward) {
+    CCustomCSView mnview(view);
     view.ForEachPoolPair([&] (DCT_ID const & poolId, CLazySerialize<CPoolPair>) {
         auto height = view.GetShare(poolId, owner);
         if (!height || *height >= end) {
             return true; // no share or target height is before a pool share' one
         }
+        auto onLiquidity = [&]() -> CAmount {
+            return mnview.GetBalance(owner, poolId).nValue;
+        };
         auto beginHeight = std::max(*height, begin);
-        view.CalculatePoolRewards(poolId, view.GetBalance(owner, poolId).nValue, beginHeight, end,
-            [&](CScript const &, uint8_t type, CTokenAmount amount, uint32_t begin, uint32_t end) {
-                for (auto height = end - 1; height >= begin; height--) {
-                    onReward(height, poolId, type, amount);
-                }
+        view.CalculatePoolRewards(poolId, onLiquidity, beginHeight, end,
+            [&](CScript const &, uint8_t type, CTokenAmount amount, uint32_t height) {
+                onReward(height, poolId, type, amount);
+                mnview.AddBalance(owner, amount); // update owner liquidity
             }
         );
         return true;

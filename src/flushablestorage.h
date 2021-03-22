@@ -43,6 +43,7 @@ public:
     virtual ~CStorageKVIterator() = default;
     virtual void Seek(const TBytes& key) = 0;
     virtual void Next() = 0;
+    virtual void Prev() = 0;
     virtual bool Valid() = 0;
     virtual TBytes Key() = 0;
     virtual TBytes Value() = 0;
@@ -95,7 +96,12 @@ public:
     void Seek(const TBytes& key) override {
         it->Seek(refTBytes(key)); // lower_bound in fact
     }
-    void Next() override { it->Next(); }
+    void Next() override {
+        it->Next();
+    }
+    void Prev() override {
+        it->Prev();
+    }
     bool Valid() override {
         return it->Valid();
     }
@@ -160,80 +166,83 @@ private:
 // Flushable Key-Value Storage Iterator
 class CFlushableStorageKVIterator : public CStorageKVIterator {
 public:
-    explicit CFlushableStorageKVIterator(std::unique_ptr<CStorageKVIterator>&& pIt_, MapKV& map_) : pIt{std::move(pIt_)}, map(map_) {
-        inited = parentOk = mapOk = useMap = false;
+    explicit CFlushableStorageKVIterator(std::unique_ptr<CStorageKVIterator>&& pIt, MapKV& map) : map(map), pIt(std::move(pIt)) {
+        itState = Invalid;
     }
     CFlushableStorageKVIterator(const CFlushableStorageKVIterator&) = delete;
     ~CFlushableStorageKVIterator() override = default;
 
     void Seek(const TBytes& key) override {
-        prevKey.clear();
         pIt->Seek(key);
-        parentOk = pIt->Valid();
-        mIt = map.lower_bound(key);
-        mapOk = mIt != map.end();
-        inited = true;
-        Next();
+        mIt = Advance(map.lower_bound(key), map.end(), std::greater<TBytes>{}, {});
     }
     void Next() override {
-        if (!inited) throw std::runtime_error("Iterator wasn't inited.");
-
-        if (!prevKey.empty()) {
-            useMap ? nextMap() : nextParent();
+        assert(Valid());
+        mIt = Advance(mIt, map.end(), std::greater<TBytes>{}, Key());
+    }
+    void Prev() override {
+        assert(Valid());
+        auto tmp = mIt;
+        if (tmp != map.end()) {
+            ++tmp;
         }
-
-        while (mapOk || parentOk) {
-            if (mapOk) {
-                while (mapOk && (!parentOk || mIt->first <= pIt->Key())) {
-                    bool ok = false;
-
-                    if (mIt->second) {
-                        ok = prevKey.empty() || mIt->first > prevKey;
-                    } else {
-                        prevKey = mIt->first;
-                    }
-                    if (ok) {
-                        useMap = true;
-                        prevKey = mIt->first;
-                        return;
-                    }
-                    nextMap();
-                }
-            }
-            if (parentOk) {
-                if (prevKey.empty() || pIt->Key() > prevKey) {
-                    useMap = false;
-                    prevKey = pIt->Key();
-                    return;
-                }
-                nextParent();
-            }
+        auto it = std::reverse_iterator<decltype(tmp)>(tmp);
+        auto end = Advance(it, map.rend(), std::less<TBytes>{}, Key());
+        if (end == map.rend()) {
+            mIt = map.begin();
+        } else {
+            auto offset = mIt == map.end() ? 1 : 0;
+            std::advance(mIt, -std::distance(it, end) - offset);
         }
     }
     bool Valid() override {
-        return mapOk || parentOk;
+        return itState != Invalid;
     }
     TBytes Key() override {
-        return useMap ? mIt->first : pIt->Key();
+        assert(Valid());
+        return itState == Map ? mIt->first : pIt->Key();
     }
     TBytes Value() override {
-        return useMap ? *mIt->second : pIt->Value();
+        assert(Valid());
+        return itState == Map ? *mIt->second : pIt->Value();
     }
 private:
-    void nextMap() {
-        mapOk = mapOk && ++mIt != map.end();
+    template<typename TIterator, typename Compare>
+    TIterator Advance(TIterator it, TIterator end, Compare comp, TBytes prevKey) {
+
+        while (it != end || pIt->Valid()) {
+            while (it != end && (!pIt->Valid() || !comp(it->first, pIt->Key()))) {
+                if (prevKey.empty() || comp(it->first, prevKey)) {
+                    if (it->second) {
+                        itState = Map;
+                        return it;
+                    } else {
+                        prevKey = it->first;
+                    }
+                }
+                ++it;
+            }
+            if (pIt->Valid()) {
+                if (prevKey.empty() || comp(pIt->Key(), prevKey)) {
+                    itState = Parent;
+                    return it;
+                }
+                NextParent(it);
+            }
+        }
+        itState = Invalid;
+        return it;
     }
-    void nextParent() {
-        parentOk = parentOk && (pIt->Next(), pIt->Valid());
+    void NextParent(MapKV::const_iterator&) {
+        pIt->Next();
     }
-    bool inited;
-    bool useMap;
-    std::unique_ptr<CStorageKVIterator> pIt;
-    bool parentOk;
+    void NextParent(std::reverse_iterator<MapKV::const_iterator>&) {
+        pIt->Prev();
+    }
     const MapKV& map;
     MapKV::const_iterator mIt;
-    bool mapOk;
-    TBytes prevKey;
+    std::unique_ptr<CStorageKVIterator> pIt;
+    enum IteratorState { Invalid, Map, Parent } itState;
 };
 
 // Flushable Key-Value Storage
@@ -374,6 +383,11 @@ public:
     void Next() {
         assert(Valid());
         it->Next();
+        UpdateValidity();
+    }
+    void Prev() {
+        assert(Valid());
+        it->Prev();
         UpdateValidity();
     }
     void Seek(const KeyType& newKey) {
