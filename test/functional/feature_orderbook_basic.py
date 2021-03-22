@@ -11,6 +11,8 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
 from decimal import Decimal
+from test_framework.authproxy import JSONRPCException
+
 class OrderBasicTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
@@ -93,8 +95,13 @@ class OrderBasicTest (DefiTestFramework):
 
         listfillorders = self.nodes[0].listorders({'order1txid':order1txid})
         assert_equal(len(listfillorders), 1)
+        try:
+            closetxid = self.nodes[1].closeorder(order1txid)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("tx must have at least one input from order owner" in errorString)
 
-        closetxid = self.nodes[1].closeorder(order1txid)
+        closetxid = self.nodes[0].closeorder(order1txid)
 
         self.sync_mempools()
         self.nodes[0].generate(1)

@@ -1552,6 +1552,9 @@ Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
     if (!tokenTo) {
         return Res::Err("%s: token %s does not exist!", tokenTo->symbol);
     }
+    if (order.amountToFill != order.amountFrom*COIN/order.orderPrice) {
+        return Res::Err("order amountToFill does not equal to amountFrom * orderPrice!");
+    }
 
     // Return here to avoid already exist error
     if (rpcInfo) {

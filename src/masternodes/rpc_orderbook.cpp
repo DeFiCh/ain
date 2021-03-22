@@ -114,11 +114,11 @@ UniValue createorder(const JSONRPCRequest& request) {
     else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"tokenTo\" must be non-null");
     if (!metaObj["amountFrom"].isNull()) {
         order.amountFrom = AmountFromValue(metaObj["amountFrom"]);
-        order.amountToFill = order.amountFrom;
     }
     else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amountFrom\" must be non-null");
     if (!metaObj["orderPrice"].isNull()) {
         order.orderPrice = AmountFromValue(metaObj["orderPrice"]);
+        order.amountToFill = order.amountFrom*COIN/order.orderPrice;
     }
     else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"orderPrice\" must be non-null");
     if (!metaObj["expiry"].isNull()) {
