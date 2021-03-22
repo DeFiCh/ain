@@ -563,7 +563,6 @@ UniValue setoracledata(const JSONRPCRequest &request) {
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
 
         auto &chain = pwallet->chain();
-        auto lock = chain.lock();
 
         auto parseDataItem = [&chain](const UniValue &uni) -> std::pair<CURRENCY_ID, CTokenAmount> {
             if (!uni.exists(oraclefields::Currency)) {
@@ -783,10 +782,6 @@ UniValue getoracledata(const JSONRPCRequest &request) {
 
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
-    CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-
-    auto &chain = pwallet->chain();
-    auto lock = chain.lock();
 
     auto oracleRes = mnview.GetOracleData(oracleId);
     if (!oracleRes.ok) {
@@ -794,10 +789,7 @@ UniValue getoracledata(const JSONRPCRequest &request) {
     }
 
     auto& oracle = *oracleRes.val;
-
-    UniValue result = OracleToJSON(mnview, oracle);
-
-    return result;
+    return OracleToJSON(mnview, oracle);
 }
 
 UniValue listoracles(const JSONRPCRequest &request) {
@@ -1083,19 +1075,19 @@ UniValue listprices(const JSONRPCRequest& request) {
 }
 
 static const CRPCCommand commands[] =
-        {
+{
 //  category        name                     actor (function)        params
 //  -------------   ---------------------    --------------------    ----------
-                {"oracles",     "appointoracle",         &appointoracle,          {"address", "pricefeeds", "weightage"}},
-                {"oracles",     "removeoracle",          &removeoracle,           {"oracleid"}},
-                {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "allowedtokens"}},
-                {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices"}},
-                {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
-                {"oracles",     "listoracles",           &listoracles,                 {}},
-                {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request"}},
-                {"oracles",     "getprice",              &getprice,               {"request"}},
-                {"oracles",     "listprices",            &listprices,                   {}},
-        };
+    {"oracles",     "appointoracle",         &appointoracle,          {"address", "pricefeeds", "weightage"}},
+    {"oracles",     "removeoracle",          &removeoracle,           {"oracleid"}},
+    {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "pricefeeds", "weightage"}},
+    {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices"}},
+    {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
+    {"oracles",     "listoracles",           &listoracles,                 {}},
+    {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request"}},
+    {"oracles",     "getprice",              &getprice,               {"request"}},
+    {"oracles",     "listprices",            &listprices,                   {}},
+};
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)

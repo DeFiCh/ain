@@ -1537,14 +1537,15 @@ Res ApplyAppointOracleTx(
         return Res::Err("Appoint oracle tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
-    constexpr auto base = "Appoint oracle";
-
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CAppointOracleMessage msg;
     ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
+    }
 
     if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
-        return Res::Err("%s: %s", base, "foundation authentication failed");
+        return Res::Err("%s: foundation authentication failed", __func__);
     }
 
     // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
@@ -1565,21 +1566,20 @@ Res ApplyUpdateOracleAppointTx(CCustomCSView &mnview,
         return Res::Err("Update oracle appoint tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
 
-    constexpr auto base = "Update oracle appoint";
-
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CUpdateOracleAppointMessage msg;
     ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
+    }
 
     if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
-        return Res::Err("%s: %s", base, "foundation authentication failed");
+        return Res::Err("%s: foundation authentication failed", __func__);
     }
 
     // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
 
-    Res res = mnview.UpdateOracle(msg.oracleId, COracle(msg.oracleId, msg.newOracleAppoint));
-
-    return res;
+    return mnview.UpdateOracle(msg.oracleId, COracle(msg.oracleId, msg.newOracleAppoint));
 }
 
 Res ApplyRemoveOracleAppointTx(
@@ -1592,17 +1592,18 @@ Res ApplyRemoveOracleAppointTx(
         bool skipAuth,
         UniValue *rpcInfo) {
     if ((int) height < consensusParams.BayfrontHeight) {
-        return Res::Err("Appoint oracle tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+        return Res::Err("Remove oracle appoint tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
-
-    constexpr auto base = "Remove oracle appoint";
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CRemoveOracleAppointMessage msg;
     ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
+    }
 
     if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
-        return Res::Err("%s: %s", base, "foundation authentication failed");
+        return Res::Err("%s: foundation authentication failed", __func__);
     }
 
     // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
@@ -1620,35 +1621,36 @@ Res ApplySetOracleDataTx(CCustomCSView &mnview,
                          UniValue *rpcInfo) {
     // do we need it in setoracledata?
     if ((int) height < consensusParams.BayfrontHeight) {
-        return Res::Err("SetRawPrice tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+        return Res::Err("Set oracle data tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
     }
-
-    constexpr auto base = "Set oracle data";
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CSetOracleDataMessage msg;
     ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
+    }
 
     if (msg.oracleId.IsNull()) {
         return Res::Err("oracleId is Null");
     }
 
-    auto &&oracleRes = mnview.GetOracleData(msg.oracleId);
+    auto oracleRes = mnview.GetOracleData(msg.oracleId);
     if (!oracleRes.ok) {
         return Res::Err("failed to retrieve oracle <%s> from database", msg.oracleId.GetHex());
     }
 
-    auto &&auth = oracleRes.val->oracleAddress;
+    auto auth = oracleRes.val->oracleAddress;
     if (!skipAuth && !HasAuth(tx, coins, auth)) {
-        return Res::Err("%s: %s", base, "oracle authentication failed");
+        return Res::Err("%s: oracle authentication failed", __func__);
     }
 
-    auto &&res = mnview.SetOracleData(msg.oracleId, msg.timestamp, msg.tokenPrices);
+    auto res = mnview.SetOracleData(msg.oracleId, msg.timestamp, msg.tokenPrices);
     if (!res.ok) {
         return Res::Err("SetRawPrice: %s", res.msg);
     }
 
     // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
 
-    return Res::Ok(base);
+    return Res::Ok("Set oracle data");
 }

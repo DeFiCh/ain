@@ -210,8 +210,6 @@ struct COracle : public CAppointOracleMessage {
 
     Res SetTokenPrice(DCT_ID tokenId, CURRENCY_ID currencyId, CAmount amount, int64_t timestamp);
 
-//    boost::optional<CPricePoint> GetTokenPrice(DCT_ID tokenId, CURRENCY_ID currencyId) const;
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>

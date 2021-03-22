@@ -23,6 +23,7 @@ SOURCES = [
     "src/masternodes/rpc_accounts.cpp",
     "src/masternodes/rpc_tokens.cpp",
     "src/masternodes/rpc_poolpair.cpp",
+    "src/masternodes/rpc_oracles.cpp",
     "src/spv/spv_rpc.cpp",
 ]
 # Source file (relative to root) containing conversion mapping
@@ -116,7 +117,6 @@ def main():
     mapping = set(process_mapping(os.path.join(root, client)))
 
     print('* Checking consistency between dispatch tables and vRPCConvertParams')
-
     # Check mapping consistency
     errors = 0
     for (cmdname, argidx, argname) in mapping:

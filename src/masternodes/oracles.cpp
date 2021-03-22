@@ -44,24 +44,6 @@ Res COracle::SetTokenPrice(DCT_ID tokenId, CURRENCY_ID currencyId, CAmount amoun
     return Res::Ok();
 }
 
-//boost::optional<CPricePoint> COracle::GetTokenPrice(DCT_ID tokenId, CURRENCY_ID currencyId) const
-//{
-//    if (!SupportsPair(tokenId, currencyId)) {
-//        return {};
-//    }
-//
-//    if (tokenPrices.find(tokenId) == tokenPrices.end()) {
-//        return {};
-//    }
-//
-//    auto& map = tokenPrices.at(tokenId);
-//    if (map.find(currencyId) == map.end()) {
-//        return {};
-//    }
-//
-//    return map.at(currencyId);
-//}
-
 Res COracleView::AppointOracle(const COracleId& oracleId, const COracle& oracle)
 {
     if (!WriteBy<ByName>(oracleId, oracle)) {

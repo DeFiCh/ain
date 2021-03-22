@@ -88,9 +88,8 @@ inline CustomTxType CustomTxCodeToType(unsigned char ch) {
         case CustomTxType::UpdateOracleAppoint:
         case CustomTxType::SetOracleData:
             return type;
-        default:
-            return CustomTxType::None;
     }
+    return CustomTxType::None;
 }
 
 inline std::string ToString(CustomTxType type) {
