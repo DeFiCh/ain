@@ -38,7 +38,7 @@ struct OraclesTestingSetup : public TestingSetup {
     }
 };
 
-BOOST_FIXTURE_TEST_SUITE(oracle_tests, OraclesTestingSetup)
+BOOST_FIXTURE_TEST_SUITE(oracles_tests, OraclesTestingSetup)
 
     BOOST_AUTO_TEST_CASE(check_oracleid_compare_operator) {
         COracleId id1{rawVector1}, id2{}, id3{rawVector1};
