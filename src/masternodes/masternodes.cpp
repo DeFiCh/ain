@@ -114,6 +114,8 @@ CMasternode::CMasternode()
     , ownerType(0)
     , operatorAuthAddress()
     , operatorType(0)
+    , rewardAddress()
+    , rewardAddressType(0)
     , creationHeight(0)
     , resignHeight(-1)
     , banHeight(-1)
@@ -191,6 +193,8 @@ bool operator==(CMasternode const & a, CMasternode const & b)
             a.ownerAuthAddress == b.ownerAuthAddress &&
             a.operatorType == b.operatorType &&
             a.operatorAuthAddress == b.operatorAuthAddress &&
+            a.rewardAddress == b.rewardAddress &&
+            a.rewardAddressType == b.rewardAddressType &&
             a.creationHeight == b.creationHeight &&
             a.resignHeight == b.resignHeight &&
             a.banHeight == b.banHeight &&
