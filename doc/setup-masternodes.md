@@ -1,4 +1,4 @@
-# How to run a Defichain masternode on Linux/Mac OS
+# How to run a Defichain masternode
 
 ## Introduction
 
