@@ -31,8 +31,6 @@ class OraclesTest(DefiTestFramework):
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
 
-        self.default_oracle_money = 50
-
     def create_tokens(self):
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
 
