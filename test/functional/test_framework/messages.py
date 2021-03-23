@@ -1120,6 +1120,22 @@ class msg_inv:
     def __repr__(self):
         return "msg_inv(inv=%s)" % (repr(self.inv))
 
+class msg_getauths:
+    __slots__ = ()
+    command = b"getauths"
+
+    def __init__(self):
+        pass
+
+    def deserialize(self, f):
+        pass
+
+    def serialize(self):
+        return b""
+
+    def __repr__(self):
+        return "msg_getauths()"
+
 
 class msg_getdata:
     __slots__ = ("inv",)

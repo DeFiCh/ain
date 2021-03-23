@@ -96,7 +96,6 @@ class TestNode():
             "-uacomment=testnode%d" % i,
             "-masternode_operator="+self.get_genesis_keys().operatorAuthAddress,
             "-dummypos=1",
-            "-nospv",
             "-txnotokens=1",
         ]
 

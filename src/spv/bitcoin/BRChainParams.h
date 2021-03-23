@@ -54,6 +54,7 @@ typedef struct {
 
 extern const BRChainParams *BRMainNetParams;
 extern const BRChainParams *BRTestNetParams;
+extern const BRChainParams *BRRegtestParams;
 
 extern BRCheckPoint BRMainNetCheckpoints[30];
 extern BRCheckPoint BRTestNetCheckpoints[17];
@@ -61,7 +62,14 @@ extern BRCheckPoint BRTestNetCheckpoints[17];
 extern int spv_mainnet;
 
 static inline const BRChainParams *BRGetChainParams () {
-    return spv_mainnet ? BRMainNetParams : BRTestNetParams;
+    switch(spv_mainnet) {
+        case 0:
+            return BRTestNetParams;
+        case 2:
+            return BRRegtestParams;
+        default:
+            return BRMainNetParams;
+    }
 }
 
 #endif // BRChainParams_h
