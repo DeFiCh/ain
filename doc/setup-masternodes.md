@@ -135,6 +135,20 @@ It's easy to set up your masternode through the DeFiChain Desktop Wallet, simply
 
 <img width="1020" alt="Masternode1" src="https://user-images.githubusercontent.com/3271586/112108417-2472a280-8beb-11eb-91f1-896904d46a85.png">
 
+## Running multiple masternodes on the same machine
+
+If you would like to run multiple masternodes on the same machine, you simply need to specify multiple `masternode_operator` entries in your `defi.conf`:
+
+```
+gen=1
+spv=1
+masternode_operator=OPERATOR_ADDRESS_1
+masternode_operator=OPERATOR_ADDRESS_2
+masternode_operator=OPERATOR_ADDRESS_3
+```
+
+On the next run, the node will begin minting for all the specified masternodes. There is no hard limit to how many masternodes a single machine can run.
+
 ## Resigning masternodes
 
 If you decide to resign your masternode, you may run 
