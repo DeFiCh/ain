@@ -21,7 +21,6 @@ public:
     CAmount amountToFill;
     CAmount orderPrice;
     uint32_t expiry;
-    CAmount optionDFI;
 
     COrder()
         : ownerAddress("")
@@ -31,7 +30,6 @@ public:
         , amountToFill(0)
         , orderPrice(0)
         , expiry(DEFAULT_ORDER_EXPIRY)
-        , optionDFI(DEFAULT_OPTION_DFI)
     {}
     virtual ~COrder() = default;
 
@@ -46,7 +44,6 @@ public:
         READWRITE(amountToFill);
         READWRITE(orderPrice);
         READWRITE(expiry);
-        READWRITE(optionDFI);
     }
 };
 

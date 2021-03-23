@@ -17,7 +17,6 @@ UniValue orderToJSON(COrderImplemetation const& order) {
     orderObj.pushKV("amountFrom", ValueFromAmount(order.amountFrom));
     orderObj.pushKV("amountToFill", ValueFromAmount(order.amountToFill));
     orderObj.pushKV("orderPrice", ValueFromAmount(order.orderPrice));
-    orderObj.pushKV("optionDFI",ValueFromAmount(order.optionDFI));
     orderObj.pushKV("height", static_cast<int>(order.creationHeight));
     orderObj.pushKV("expiry", static_cast<int>(order.expiry));
     if (order.closeHeight > -1) orderObj.pushKV("closeHeight", static_cast<int>(order.closeHeight));
@@ -53,7 +52,6 @@ UniValue createorder(const JSONRPCRequest& request) {
                             {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO, "tokenFrom coins amount"},
                             {"orderPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Price per unit"},
                             {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the order expires (Default: 2880 blocks)"},
-                            {"optionDFI", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Amount in DFI per unit the taker has to pay if they do not complete the order (Default: 8 DFI)"}
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -123,9 +121,6 @@ UniValue createorder(const JSONRPCRequest& request) {
     else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"orderPrice\" must be non-null");
     if (!metaObj["expiry"].isNull()) {
         order.expiry = metaObj["expiry"].get_int();
-    }
-    if (!metaObj["optionDFI"].isNull()) {
-        order.optionDFI = AmountFromValue(metaObj["optionDFI"]);
     }
     CTxDestination ownerDest = DecodeDestination(order.ownerAddress);
     if (ownerDest.which() == 0) {
