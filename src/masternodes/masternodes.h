@@ -70,6 +70,10 @@ public:
     CKeyID operatorAuthAddress;
     char operatorType;
 
+    //! Consensus-enforced address for operator rewards.
+    CKeyID rewardAddress;
+    char rewardAddressType;
+
     //! MN creation block height
     int32_t creationHeight;
     //! Resign height
@@ -101,6 +105,8 @@ public:
         READWRITE(ownerType);
         READWRITE(operatorAuthAddress);
         READWRITE(operatorType);
+        READWRITE(rewardAddress);
+        READWRITE(rewardAddressType);
 
         READWRITE(creationHeight);
         READWRITE(resignHeight);
