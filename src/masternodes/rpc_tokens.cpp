@@ -61,6 +61,18 @@ static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomT
             res.ok = true;
             res.msg = "AutoAuth";
             break;
+        case CustomTxType::AppointOracle:
+            res = ApplyAppointOracleTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::RemoveOracleAppoint:
+            res = ApplyRemoveOracleAppointTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::UpdateOracleAppoint:
+            res = ApplyUpdateOracleAppointTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
+        case CustomTxType::SetOracleData:
+            res = ApplySetOracleDataTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
+            break;
         default:
             return false;
     }
