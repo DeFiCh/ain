@@ -1545,8 +1545,6 @@ Res ApplyAppointOracleTx(
         return Res::Err("%s: foundation authentication failed", __func__);
     }
 
-    // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
-
     COracleId oracleId{tx.GetHash()};
     return mnview.AppointOracle(oracleId, COracle(oracleId, msg));
 }
@@ -1574,8 +1572,6 @@ Res ApplyUpdateOracleAppointTx(CCustomCSView &mnview,
         return Res::Err("%s: foundation authentication failed", __func__);
     }
 
-    // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
-
     return mnview.UpdateOracle(msg.oracleId, COracle(msg.oracleId, msg.newOracleAppoint));
 }
 
@@ -1602,8 +1598,6 @@ Res ApplyRemoveOracleAppointTx(
     if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
         return Res::Err("%s: foundation authentication failed", __func__);
     }
-
-    // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
 
     return mnview.RemoveOracle(msg.oracleId);
 }
@@ -1644,10 +1638,8 @@ Res ApplySetOracleDataTx(CCustomCSView &mnview,
 
     auto res = mnview.SetOracleData(msg.oracleId, msg.timestamp, msg.tokenPrices);
     if (!res.ok) {
-        return Res::Err("SetRawPrice: %s", res.msg);
+        return Res::Err("%s: %s", __func__, res.msg);
     }
 
-    // TODO (IntegralTeam): ignore rpcInfo for now, implement getting tx info later
-
-    return Res::Ok("Set oracle data");
+    return Res::Ok();
 }
