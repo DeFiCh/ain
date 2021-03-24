@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef AIN_MASTERNODES_TOKENPRICEITERATOR_H
-#define AIN_MASTERNODES_TOKENPRICEITERATOR_H
+#ifndef DEFI_MASTERNODES_TOKENPRICEITERATOR_H
+#define DEFI_MASTERNODES_TOKENPRICEITERATOR_H
 
 #include <functional>
 
@@ -44,5 +44,4 @@ private:
     int64_t _lastBlockTime;
 };
 
-
-#endif // AIN_MASTERNODES_TOKENPRICEITERATOR_H
+#endif // DEFI_MASTERNODES_TOKENPRICEITERATOR_H
