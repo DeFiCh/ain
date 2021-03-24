@@ -52,6 +52,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "policy/fees -> txmempool -> validation -> wallet/wallet -> policy/fees"
     "policy/fees -> txmempool -> validation -> wallet/wallet -> util/fees -> policy/fees"
     "chainparams -> masternodes/mn_checks -> txmempool -> chainparams"
+    "masternodes/oracles -> masternodes/tokenpriceiterator -> masternodes/oracles"
     "pos_kernel -> validation -> pos_kernel"
     "pos -> pos_kernel -> validation -> pos"
     "pos_kernel -> validation -> txdb -> pos_kernel"
