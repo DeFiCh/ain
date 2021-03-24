@@ -129,6 +129,7 @@ bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
+size_t nCustomMemUsage = nDefaultDbCache << 10;
 uint64_t nPruneTarget = 0;
 bool fIsFakeNet = false;
 bool fCriminals = false;
@@ -2514,7 +2515,8 @@ bool CChainState::FlushStateToDisk(
                 UnlinkPrunedFiles(setFilesToPrune);
             nLastWrite = nNow;
         }
-        static const size_t memoryCacheSizeMax = gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX) ? (nDefaultDbCache << 16) : (nDefaultDbCache << 10);
+        // use a bit more memory in normal usage
+        const size_t memoryCacheSizeMax = IsInitialBlockDownload() ? nCustomMemUsage : (nCustomMemUsage << 1);
         bool fMemoryCacheLarge = fDoFullFlush || (mode == FlushStateMode::IF_NEEDED && pcustomcsview->SizeEstimate() > memoryCacheSizeMax);
         // Flush best chain related state. This can only be done if the blocks / block index write was also done.
         if (fMemoryCacheLarge && !CoinsTip().GetBestBlock().IsNull()) {
