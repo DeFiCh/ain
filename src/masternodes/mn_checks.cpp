@@ -312,7 +312,47 @@ Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
 Res ApplySetForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth, UniValue *rpcInfo)
 {
-    // TODO
+    uint256 nodeId;
+    char rewardAddressType;
+    CKeyID rewardAddress;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> nodeId;
+    ss >> rewardAddressType;
+    ss >> rewardAddress;
+    if (!ss.empty()) {
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__,  ss.size());
+    }
+
+    auto const node = mnview.GetMasternode(nodeId);
+    if (!node) {
+        return Res::Err("%s: node %s does not exist", __func__, nodeId.ToString());
+    }
+    if (!skipAuth && !HasCollateralAuth(tx, coins, nodeId)) {
+        return Res::Err("%s %s: %s", __func__, nodeId.ToString(), "tx must have at least one input from masternode owner");
+    }
+
+    // rpc info
+    if (rpcInfo) {
+        rpcInfo->pushKV("mc_id", nodeId.GetHex());
+        rpcInfo->pushKV("rewardAddress", EncodeDestination(
+            rewardAddressType == 1 ?
+                CTxDestination(PKHash(rewardAddress)) :
+                CTxDestination(WitnessV0KeyHash(rewardAddress)))
+        );
+        rpcInfo->pushKV("ownerAddress", EncodeDestination(
+            node->ownerType == 1 ?
+                CTxDestination(PKHash(node->ownerAuthAddress)) :
+                CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress)))
+        );
+        return Res::Ok();
+    }
+
+    auto res = mnview.SetForcedRewardAddress(nodeId, rewardAddressType, rewardAddress, height);
+    if (!res.ok) {
+        return Res::Err("%s %s: %s", __func__, nodeId.ToString(), res.msg);
+    }
+
+    return Res::Ok();
 }
 
 Res ApplyRemoveForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth, UniValue *rpcInfo)

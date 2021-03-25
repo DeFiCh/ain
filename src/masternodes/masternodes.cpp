@@ -398,6 +398,24 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
     return Res::Ok();
 }
 
+Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height)
+{
+    auto node = GetMasternode(nodeId);
+    if (!node) {
+        return Res::Err("node %s does not exists", nodeId.ToString());
+    }
+    auto state = node->GetState(height);
+    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
+        return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
+    }
+
+    node->rewardAddressType = rewardAddressType;
+    node->rewardAddress = rewardAddress;
+    WriteBy<ID>(nodeId, *node);
+
+    return Res::Ok();
+}
+
 void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t& time)
 {
     auto nodeId = GetMasternodeIdByOperator(minter);
