@@ -354,18 +354,17 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
     UniValue identifier = request.params[0].get_obj();
     int idCount{0};
     uint256 mn_id;
-    std::string ownerAddress;
-    std::string operatorAddress;
-    CKeyID ownerAddressID;
-    CKeyID operatorAddressID;
 
     if (!identifier["id"].isNull()) {
         mn_id = ParseHashV(identifier["id"], "id");
         ++idCount;
     }
 
+    LOCK(cs_main);
+
     if (!identifier["ownerAddress"].isNull()) {
-        ownerAddress = identifier["ownerAddress"].getValStr();
+        CKeyID ownerAddressID;
+        auto ownerAddress = identifier["ownerAddress"].getValStr();
         auto ownerDest = DecodeDestination(ownerAddress);
         if (ownerDest.which() == 1) {
             ownerAddressID = CKeyID(*boost::get<PKHash>(&ownerDest));
@@ -374,11 +373,17 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         } else {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid P2PKH address");
         }
+        auto node = pcustomcsview->GetMasternodeIdByOwner(ownerAddressID);
+        if (!node) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
+        }
+        mn_id = *node;
         ++idCount;
     }
 
     if (!identifier["operatorAddress"].isNull()) {
-        operatorAddress = identifier["operatorAddress"].getValStr();
+        CKeyID operatorAddressID;
+        auto operatorAddress = identifier["operatorAddress"].getValStr();
         auto operatorDest = DecodeDestination(operatorAddress);
         if (operatorDest.which() == 1) {
             operatorAddressID = CKeyID(*boost::get<PKHash>(&operatorDest));
@@ -387,6 +392,11 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         } else {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid P2PKH address");
         }
+        auto node = pcustomcsview->GetMasternodeIdByOperator(operatorAddressID);
+        if (!node) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
+        }
+        mn_id = *node;
         ++idCount;
     }
 
@@ -398,50 +408,42 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Only provide one identifier information");
     }
 
-    LOCK(cs_main);
-    if (mn_id != uint256()) {
-        auto node = pcustomcsview->GetMasternode(mn_id);
-        if (!node) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
-        }
-    } else if (!ownerAddress.empty()) {
-        auto node = pcustomcsview->GetMasternodeIdByOwner(ownerAddressID);
-        if (!node) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
-        }
-    } else if (!operatorAddress.empty()) {
-        auto node = pcustomcsview->GetMasternodeIdByOperator(operatorAddressID);
-        if (!node) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
-        }
+    auto masternode = pcustomcsview->GetMasternode(mn_id);
+    if (!masternode) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
     }
+
+    auto lastHeight = ::ChainActive().Tip()->height + 1;
+    const auto creationHeight = masternode->creationHeight;
 
     int depth{std::numeric_limits<int>::max()};
     if (!request.params[1].isNull()) {
         depth = request.params[1].get_int();
     }
 
-    const CBlockIndex* tip = ::ChainActive().Tip();
-
     UniValue ret(UniValue::VOBJ);
 
-    for (; tip && depth > 0; tip = tip->pprev, --depth) {
+    pcustomcsview->ForEachMinterNode([&](MNBlockTimeKey const & key, CLazySerialize<int64_t>) {
+        if (key.masternodeID != mn_id) {
+            return false;
+        }
+
+        if (auto tip = ::ChainActive()[key.blockHeight]) {
+            lastHeight = tip->height;
+            ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
+        }
+
+        return true;
+    }, MNBlockTimeKey{mn_id, std::numeric_limits<uint32_t>::max()});
+
+    auto tip = ::ChainActive()[std::min(lastHeight, uint64_t(Params().GetConsensus().DakotaCrescentHeight)) - 1];
+
+    for (; tip && tip->height > creationHeight && depth > 0; tip = tip->pprev, --depth) {
         CKeyID minter;
         if (tip->GetBlockHeader().ExtractMinterKey(minter)) {
             auto id = pcustomcsview->GetMasternodeIdByOperator(minter);
-            if (id) {
-                if (mn_id != uint256()) {
-                    if (id == mn_id) {
-                        ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
-                    }
-                } else if (!ownerAddress.empty()) {
-                    auto mn = pcustomcsview->GetMasternode(*id);
-                    if (mn->ownerAuthAddress == ownerAddressID) {
-                        ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
-                    }
-                } else if (minter == operatorAddressID) {
-                    ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
-                }
+            if (id && *id == mn_id) {
+                ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
             }
         }
     }
