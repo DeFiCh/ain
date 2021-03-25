@@ -147,6 +147,12 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::ResignMasternode:
                 res = ApplyResignMasternodeTx(mnview, coins, tx, height, metadata, skipAuth);
                 break;
+            case CustomTxType::SetForcedRewardAddress:
+                res = ApplySetForcedRewardAddress(mnview, coins, tx, height, metadata, skipAuth);
+                break;
+            case CustomTxType::RemoveForcedRewardAddress:
+                res = ApplyRemoveForcedRewardAddress(mnview, coins, tx, height, metadata, skipAuth);
+                break;
             case CustomTxType::CreateToken:
                 res = ApplyCreateTokenTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
                 break;
@@ -302,6 +308,16 @@ Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coin
         return Res::Err("%s %s: %s", __func__, nodeId.ToString(), res.msg);
     }
     return Res::Ok();
+}
+
+Res ApplySetForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth, UniValue *rpcInfo)
+{
+    // TODO
+}
+
+Res ApplyRemoveForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth, UniValue *rpcInfo)
+{
+    // TODO
 }
 
 Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)

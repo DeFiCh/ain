@@ -15,6 +15,12 @@ static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomT
         case CustomTxType::ResignMasternode:
             res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
             break;
+        case CustomTxType::SetForcedRewardAddress:
+            res = ApplySetForcedRewardAddress(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
+            break;
+        case CustomTxType::RemoveForcedRewardAddress:
+            res = ApplyRemoveForcedRewardAddress(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
+            break;
         case CustomTxType::CreateToken:
             res = ApplyCreateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
             break;
@@ -816,7 +822,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
 }
 
 static const CRPCCommand commands[] =
-{ 
+{
 //  category        name                     actor (function)        params
 //  -------------   ---------------------    --------------------    ----------
     {"tokens",      "createtoken",           &createtoken,           {"metadata", "inputs"}},

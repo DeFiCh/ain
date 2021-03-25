@@ -32,6 +32,8 @@ enum class CustomTxType : unsigned char
     // masternodes:
     CreateMasternode    = 'C',
     ResignMasternode    = 'R',
+    SetForcedRewardAddress    = 'F',
+    RemoveForcedRewardAddress = 'f',
     // custom tokens:
     CreateToken         = 'T',
     MintToken           = 'M',
@@ -86,6 +88,8 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
         case CustomTxType::AutoAuthPrep:        return "AutoAuth";
+        case CustomTxType::SetForcedRewardAddress:    return "SetForcedRewardAddress";
+        case CustomTxType::RemoveForcedRewardAddress: return "RemoveForcedRewardAddress";
         default:                                return "None";
     }
 }
@@ -114,6 +118,9 @@ Res ApplyCustomTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransa
 //! Deep check (and write)
 Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, const uint64_t &time, std::vector<unsigned char> const & metadata, UniValue* rpcInfo = nullptr);
 Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+
+Res ApplySetForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth = false, UniValue *rpcInfo = nullptr);
+Res ApplyRemoveForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth = false, UniValue *rpcInfo = nullptr);
 
 Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
