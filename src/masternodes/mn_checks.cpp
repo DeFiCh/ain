@@ -1556,7 +1556,7 @@ Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Err("order amountToFill does not equal to amountFrom * orderPrice!");
     }
 
-    // Return here to avoid already exist error
+    // Return here to avoid balance problems
     if (rpcInfo) {
         rpcInfo->pushKV("creationTx", order.creationTx.GetHex());
         rpcInfo->pushKV("ownerAddress", order.ownerAddress);
@@ -1568,7 +1568,14 @@ Res ApplyCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CT
         return Res::Ok();
     }
 
-    auto res = mnview.CreateOrder(order);
+    // subtract the balance from tokenFrom to dedicate them for the order
+    CTokenAmount amount={order.idTokenFrom,order.amountFrom};
+    auto res = mnview.SubBalance(GetScriptForDestination(DecodeDestination(order.ownerAddress)),amount);
+    if (!res.ok) {
+        return Res::Err("%s: %s", __func__, res.msg);
+    }
+    
+    res = mnview.CreateOrder(order);
     if (!res.ok) {
         return Res::Err("%s %s: %s", __func__, order.creationTx.GetHex(), res.msg);
     }
@@ -1623,7 +1630,14 @@ Res ApplyFulfillOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, C
         return Res::Ok();
     }
 
-    auto res = mnview.FulfillOrder(fillorder,*order);
+    // subtract the balance from tokenFrom to dedicate them for the order
+    CTokenAmount amount={order->idTokenTo,fillorder.amount};
+    auto res = mnview.SubBalance(GetScriptForDestination(DecodeDestination(fillorder.ownerAddress)),amount);
+    if (!res.ok) {
+        return Res::Err("%s: %s", __func__, res.msg);
+    }
+
+    res = mnview.FulfillOrder(fillorder,*order);
     if (!res.ok) {
         return Res::Err("%s %s: %s", __func__, fillorder.creationTx.GetHex(), res.msg);
     }
@@ -1671,6 +1685,16 @@ Res ApplyCloseOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTr
     if (rpcInfo) {
         rpcInfo->pushKV("orderTx", closeorder.orderTx.GetHex());
         return Res::Ok();
+    }
+
+    // add the balance to tokenFrom to return amount that is left from reserve
+    if (order->amountToFill)
+    {
+        CTokenAmount amount={order->idTokenFrom,order->amountToFill};;
+        auto res = mnview.AddBalance(GetScriptForDestination(DecodeDestination(order->ownerAddress)),amount);
+        if (!res.ok) {
+            return Res::Err("%s: %s", __func__, res.msg);
+        }
     }
 
     auto res = mnview.CloseOrder(closeorder);
