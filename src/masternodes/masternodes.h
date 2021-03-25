@@ -192,6 +192,7 @@ public:
 //    void UnCreateMasternode(uint256 const & nodeId);
 //    void UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
     Res SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height);
+    Res RemoveForcedRewardAddress(uint256 const & nodeId, int height);
 
     // Get blocktimes for non-subnode and subnode with fork logic
     std::vector<int64_t> GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int32_t creationHeight, const uint16_t timelock);
