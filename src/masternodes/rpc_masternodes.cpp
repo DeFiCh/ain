@@ -274,7 +274,8 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
 
     CKeyID const rewardAuthKey = rewardDest.which() == 1 ?
         CKeyID(*boost::get<PKHash>(&rewardDest)) :
-        CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
+        CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest)
+    );
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
