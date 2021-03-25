@@ -416,6 +416,24 @@ Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char 
     return Res::Ok();
 }
 
+Res CMasternodesView::RemoveForcedRewardAddress(uint256 const & nodeId, int height)
+{
+    auto node = GetMasternode(nodeId);
+    if (!node) {
+        return Res::Err("node %s does not exists", nodeId.ToString());
+    }
+    auto state = node->GetState(height);
+    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
+        return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
+    }
+
+    node->rewardAddressType = 0;
+    node->rewardAddress.SetNull();
+    WriteBy<ID>(nodeId, *node);
+
+    return Res::Ok();
+}
+
 void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t& time)
 {
     auto nodeId = GetMasternodeIdByOperator(minter);

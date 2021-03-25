@@ -143,6 +143,7 @@ public:
 //    void UnCreateMasternode(uint256 const & nodeId);
 //    void UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
     Res SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height);
+    Res RemoveForcedRewardAddress(uint256 const & nodeId, int height);
 
     void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
     boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter);
