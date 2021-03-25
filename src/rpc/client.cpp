@@ -227,6 +227,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "spv_listanchors", 1, "maxBtcHeight" },
     { "spv_listanchors", 2, "minConfs" },
     { "spv_listanchors", 3, "maxConfs" },
+    { "spv_sendtoaddress", 1, "amount" },
 
     { "createpoolpair", 0, "metadata" },
     { "createpoolpair", 1, "inputs" },

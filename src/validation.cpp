@@ -608,7 +608,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // check for txs in mempool
         for (const auto& e : mempool.mapTx.get<entry_time>()) {
             const auto& tx = e.GetTx();
-            auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, 0, false);
+            auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, uint64_t{0}, 0, false);
             // we don't need contract anynore furthermore transition to new hardfork will broke it
             if (height < chainparams.GetConsensus().DakotaHeight) {
                 assert(res.ok || !(res.code & CustomTxErrCodes::Fatal));
@@ -1622,6 +1622,16 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // Undo community balance increments
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
 
+    CKeyID minterKey;
+    boost::optional<uint256> nodeId;
+    if (!fIsFakeNet) {
+        minterKey = pindex->minterKey();
+
+        // Get node id now from mnview before undo
+        nodeId = mnview.GetMasternodeIdByOperator(minterKey);
+        assert(nodeId);
+    }
+
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = *(block.vtx[i]);
@@ -1723,7 +1733,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
     if (!fIsFakeNet) {
-        mnview.DecrementMintedBy(pindex->minterKey());
+        mnview.DecrementMintedBy(minterKey);
+        mnview.EraseMasternodeLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
     }
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
@@ -1991,7 +2002,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             pcustomcsview->CreateDFIToken();
             // init view|db with genesis here
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, fJustCheck);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2002,10 +2013,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return true;
     }
 
+    CKeyID minterKey;
+
     // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
     if (!fJustCheck && !fIsFakeNet) {
         // Check only that mintedBlocks counter is correct (MN existence and activation was partially checked before in CheckBlock()->ContextualCheckProofOfStake(), but not in the case of fJustCheck)
-        auto nodeId = mnview.GetMasternodeIdByOperator(pindex->minterKey());
+        minterKey = pindex->minterKey();
+        auto nodeId = mnview.GetMasternodeIdByOperator(minterKey);
         assert(nodeId);
         auto const & node = *mnview.GetMasternode(*nodeId);
         if (node.mintedBlocks + 1 != block.mintedBlocks)
@@ -2237,7 +2251,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            const auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), pindex->nHeight, i, fJustCheck);
+            const auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, fJustCheck);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 // we will never fail, but skip, unless transaction mints UTXOs
                 return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
@@ -2397,7 +2411,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     if (!fIsFakeNet) {
-        mnview.IncrementMintedBy(pindex->minterKey());
+        mnview.IncrementMintedBy(minterKey);
+
+        // Store block staker height for use in coinage
+        if (pindex->nHeight >= chainparams.GetConsensus().DakotaCrescentHeight) {
+            mnview.SetMasternodeLastBlockTime(minterKey, static_cast<uint32_t>(pindex->nHeight), pindex->GetBlockTime());
+        }
     }
     mnview.SetLastHeight(pindex->nHeight);
 
@@ -3724,6 +3743,11 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     // Check timestamp
     if (block.GetBlockTime() > nAdjustedTime + MAX_FUTURE_BLOCK_TIME)
         return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
+
+    if (block.height >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
+        if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT)
+            return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
+    }
 
     // Reject outdated version blocks when 95% (75% on testnet) of the network has upgraded:
     // check for version 2, 3 and 4 upgrades

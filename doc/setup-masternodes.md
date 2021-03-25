@@ -1,4 +1,4 @@
-# How to run a Defichain masternode on Linux/Mac OS
+# How to run a Defichain masternode
 
 ## Introduction
 
@@ -84,10 +84,9 @@ We're almost done, in order for the master node to operate correctly, we must ma
 gen=1
 spv=1
 masternode_operator=OPERATOR_ADDRESS
-masternode_owner=OWNER_ADDRESS
 ```
 
-Because we have decided to run owner and operator on the same address, just substitute the same legacy address you created for `OPERATOR_ADDRESS` and `OWNER_ADDRESS`.
+Because we have decided to run owner and operator on the same address, just substitute the same legacy address you created for `OPERATOR_ADDRESS`. There is no need to specify owner address in this case.
 
 Now the final step is to restart the node. Since we have crontab running, we just have to kill the process and crontab will start it again for us after one minute. We can do this final step by running `killall defi-init`. One minute later, we should have our masternode running and minting coins.
 
@@ -98,6 +97,8 @@ We can confirm the masternode is running by running:
 ```
 
 look for your masternode address in the list of masternodes to confirm that you have successfully set everything up.
+
+You may run the command `getmasternodeblocks OPERATOR_ADDRESS` to see how many blocks your masternode has minted so far.
 
 ## For owners who would like to delegate the masternode duties to another node
 In this scenario, operator's address will be different to the owner's (collateral) address.
@@ -116,23 +117,7 @@ In order to participate in the staking algorithm, you must broadcast to the netw
 
 where `OWNER_ADDRESS` is the address for the collateral/owner node and `OPERATOR_ADDRESS` is the address for the operator. Please note that it costs 10 DFI to run this command.
 
-### Step 6 - Configure the masternode and restart
-
-We're almost done, in order for the master node to operate correctly, we must make a couple of configuration changes. The configuration file will sit in `~/.defi/defi.conf`. Let's make sure the configuration file exists by running `touch ~/.defi/defi.conf`. Now open this configuration file on the owner node with editor of your choice and add the following:
-
-```
-masternode_owner=OWNER_ADDRESS
-```
-
-In this case `OWNER_ADDRESS` should be the address of the owner node you have set up. If you are also setting up the operator node yourself, make sure the configuration file exists and open this file on the operator machine, this time add the following:
-
-```
-gen=1
-spv=1
-masternode_operator=OPERATOR_ADDRESS
-```
-
-Now the final step is to restart the node. Since we have crontab running, we just have to kill the process and crontab will start it again for us after one minute. We can do this final step by running `killall defi-init`. Perform this step both on the owner node and the operator node if you have control of it. One minute later, we should have our masternode running and minting coins.
+There is nothing to do after this, you may simply ensure that your masternode operator is correctly running the masternode on their side by passing them the operator address.
 
 We can confirm the masternode is running by running: 
 
@@ -141,6 +126,28 @@ We can confirm the masternode is running by running:
 ```
 
 Look for your masternode address in the list of masternodes to confirm that you have successfully set everything up.
+
+You may run the command `getmasternodeblocks OPERATOR_ADDRESS` to see how many blocks your masternode has minted so far.
+
+## Creating via the DeFiChain Desktop Wallet
+
+It's easy to set up your masternode through the DeFiChain Desktop Wallet, simply browse to the Masternodes tab and click on "Create +" in the upper right corner of the screen. The process is automated and seamless.
+
+<img width="1020" alt="Masternode1" src="https://user-images.githubusercontent.com/3271586/112108417-2472a280-8beb-11eb-91f1-896904d46a85.png">
+
+## Running multiple masternodes on the same machine
+
+If you would like to run multiple masternodes on the same machine, you simply need to specify multiple `masternode_operator` entries in your `defi.conf`:
+
+```
+gen=1
+spv=1
+masternode_operator=OPERATOR_ADDRESS_1
+masternode_operator=OPERATOR_ADDRESS_2
+masternode_operator=OPERATOR_ADDRESS_3
+```
+
+On the next run, the node will begin minting for all the specified masternodes. There is no hard limit to how many masternodes a single machine can run.
 
 ## Resigning masternodes
 

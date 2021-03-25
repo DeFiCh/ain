@@ -120,12 +120,15 @@ public:
         consensus.BayfrontGardensHeight = 488300;
         consensus.ClarkeQuayHeight = 595738;
         consensus.DakotaHeight = 678000; // 1st March 2021
+        consensus.DakotaCrescentHeight = 733000; // 25th March 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
 //        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30; // seconds
+        consensus.pos.nStakeMinAge = 0;
+        consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
         consensus.pos.fNoRetargeting = false; // only for regtest
 
@@ -300,12 +303,15 @@ public:
         consensus.BayfrontGardensHeight = 101342;
         consensus.ClarkeQuayHeight = 155000;
         consensus.DakotaHeight = 220680;
+        consensus.DakotaCrescentHeight = 287700;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
 //        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30;
+        consensus.pos.nStakeMinAge = 0;
+        consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = false;
         consensus.pos.fNoRetargeting = false; // only for regtest
 
@@ -440,16 +446,19 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0;
         consensus.BIP66Height = 0;
-        consensus.AMKHeight = 150;
-        consensus.BayfrontHeight = 250;
-        consensus.BayfrontMarinaHeight = 300;
-        consensus.BayfrontGardensHeight = 300;
-        consensus.ClarkeQuayHeight = 500;
-        consensus.DakotaHeight = std::numeric_limits<int>::max();
+        consensus.AMKHeight = 0;
+        consensus.BayfrontHeight = 0;
+        consensus.BayfrontMarinaHeight = 0;
+        consensus.BayfrontGardensHeight = 0;
+        consensus.ClarkeQuayHeight = 0;
+        consensus.DakotaHeight = 0;
+        consensus.DakotaCrescentHeight = 0;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30;
+        consensus.pos.nStakeMinAge = 0;
+        consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = false;
         consensus.pos.fNoRetargeting = false; // only for regtest
 
@@ -584,10 +593,13 @@ public:
         consensus.BayfrontGardensHeight = 10000000;
         consensus.ClarkeQuayHeight = 10000000;
         consensus.DakotaHeight = 10000000;
+        consensus.DakotaCrescentHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
+        consensus.pos.nStakeMinAge = 0;
+        consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = true; // only for regtest
         consensus.pos.fNoRetargeting = true; // only for regtest
 
@@ -783,6 +795,17 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.DakotaHeight = static_cast<int>(height);
+    }
+
+    if (gArgs.IsArgSet("-dakotacrescentheight")) {
+        int64_t height = gArgs.GetArg("-dakotacrescentheight", consensus.DakotaCrescentHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for DakotaCrescent is out of valid range. Use -1 to disable dakota features.", height));
+        } else if (height == -1) {
+            LogPrintf("DakotaCrescent disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.DakotaCrescentHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;

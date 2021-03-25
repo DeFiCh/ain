@@ -468,6 +468,7 @@ void SetupServerArgs()
     gArgs.AddArg("-bayfrontgardensheight", "Bayfront Gardens fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-clarkequayheight", "ClarkeQuay fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-dakotaheight", "Dakota fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-dakotacrescentheight", "DakotaCrescent fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1599,28 +1600,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                     }
                 }
 
-                panchorauths.reset();
-                panchorauths = MakeUnique<CAnchorAuthIndex>();
-                panchorAwaitingConfirms.reset();
-                panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
-                panchors.reset();
-                // If users set masternode_operator set SPV default to enabled
-                bool anchorsEnabled{!gArgs.GetArgs("-masternode_operator").empty()};
-                panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", anchorsEnabled) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
-                // load anchors after spv due to spv (and spv height) not set before (no last height yet)
-
-                if (gArgs.GetBoolArg("-spv", anchorsEnabled)) {
-                    spv::pspv.reset();
-                    if (Params().NetworkIDString() == "regtest") {
-                        spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
-                    } else if (Params().NetworkIDString() == "test") {
-                        spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
-                    } else {
-                        spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
-                    }
-                }
-                panchors->Load();
-
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!::ChainstateActive().CoinsDB().Upgrade()) {
@@ -1745,11 +1724,44 @@ bool AppInitMain(InitInterfaces& interfaces)
         GetBlockFilterIndex(filter_type)->Start();
     }
 
-    // ********************************************************* Step 9: load wallet
+    // ********************************************************* Step 9.a: load wallet
     for (const auto& client : interfaces.chain_clients) {
         if (!client->load()) {
             return false;
         }
+    }
+
+    // ********************************************************* Step 9.b: load anchors / SPV wallet
+
+    try {
+        LOCK(cs_main);
+
+        panchorauths.reset();
+        panchorauths = MakeUnique<CAnchorAuthIndex>();
+        panchorAwaitingConfirms.reset();
+        panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
+        panchors.reset();
+
+        // If users set masternode_operator set SPV default to enabled
+        bool anchorsEnabled{!gArgs.GetArgs("-masternode_operator").empty()};
+        panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", anchorsEnabled) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
+
+        // load anchors after spv due to spv (and spv height) not set before (no last height yet)
+        if (gArgs.GetBoolArg("-spv", anchorsEnabled)) {
+            spv::pspv.reset();
+            if (Params().NetworkIDString() == "regtest") {
+                spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
+            } else if (Params().NetworkIDString() == "test") {
+                spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
+            } else {
+                spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
+            }
+        }
+        panchors->Load();
+
+    } catch (const std::exception& e) {
+        LogPrintf("%s\n", e.what());
+        return InitError("Error opening SPV database");
     }
 
     // ********************************************************* Step 10: data directory maintenance

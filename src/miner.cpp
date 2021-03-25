@@ -568,7 +568,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                auto res = ApplyCustomTx(view, ::ChainstateActive().CoinsTip(), tx, chainparams.GetConsensus(), nHeight, 0, false, true);
+                auto res = ApplyCustomTx(view, ::ChainstateActive().CoinsTip(), tx, chainparams.GetConsensus(), nHeight, uint64_t{0}, 0, false, true);
 
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
@@ -703,6 +703,16 @@ namespace pos {
             pblock->height = tip->nHeight + 1;
             pblock->mintedBlocks = mintedBlocks + 1;
             pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
+            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID);
+
+            // No record. No stake blocks or post-fork createmastnode TX, use fork time.
+            if (!stakerBlockTime)
+            {
+                if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight])
+                {
+                    stakerBlockTime = std::min(pblock->nTime - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
+                }
+            }
 
             bool found = false;
             for (uint32_t t = 0; t < nSearchInterval; t++) {
@@ -710,7 +720,9 @@ namespace pos {
 
                 pblock->nTime = ((uint32_t)coinstakeTime - t);
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, masternodeID, chainparams.GetConsensus())) {
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
+                                         chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                {
                     LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
                     found = true;

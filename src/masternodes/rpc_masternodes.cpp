@@ -1,5 +1,6 @@
 #include <masternodes/mn_rpc.h>
 
+#include <pos_kernel.h>
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
 UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
@@ -24,6 +25,7 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
         obj.pushKV("banTx", node.banTx.GetHex());
         obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
+        obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), node, GetTime()).getdouble());
 
         /// @todo add unlock height and|or real resign height
         ret.pushKV(nodeId.GetHex(), obj);
@@ -126,7 +128,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyCreateMasternodeTx(mnview_dummy, CTransaction(rawTx), targetHeight,
+        const auto res = ApplyCreateMasternodeTx(mnview_dummy, CTransaction(rawTx), targetHeight, uint64_t{0},
                                       ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey}));
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);

@@ -61,10 +61,10 @@ BOOST_AUTO_TEST_CASE(calc_kernel)
                 pos::CalcKernelHash(stakeModifier, 1, coinstakeTime, mnID, Params().GetConsensus()));
 
     uint32_t target = 0x1effffff;
-    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, 1, coinstakeTime, mnID, Params().GetConsensus()));
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, 1, coinstakeTime, 0, mnID, Params().GetConsensus()));
 
     uint32_t unattainableTarget = 0x00ffffff;
-    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, 1, coinstakeTime, mnID, Params().GetConsensus()));
+    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, 1, coinstakeTime, 0, mnID, Params().GetConsensus()));
 
 //    CKey key;
 //    key.MakeNewKey(true); // Need to use compressed keys in segwit or the signing will fail

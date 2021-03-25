@@ -25,7 +25,12 @@
 #ifndef BRLargeInt_h
 #define BRLargeInt_h
 
+#include <uint256.h>
+#include <util/strencodings.h>
+#include <logging.h>
+
 #include <inttypes.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -112,9 +117,23 @@ inline static UInt256 UInt256Reverse(UInt256 u)
                                 u.u8[ 7], u.u8[ 6], u.u8[5],  u.u8[ 4], u.u8[ 3], u.u8[ 2], u.u8[ 1], u.u8[ 0] } });
 }
 
+struct UInt160Compare
+{
+    bool operator() (const UInt160& a, const UInt160& b) const
+    {
+        return memcmp(&a, &b, sizeof(a)) < 0;
+    }
+};
 
 #ifdef __cplusplus
 }
 #endif
+
+// Copy uint8_t array to SPV's UInt160
+template<typename T>
+inline static void UIntConvert(const uint8_t* source, T& destination)
+{
+    memcpy(&destination, source, sizeof(T));
+}
 
 #endif // BRLargeInt_h

@@ -859,9 +859,6 @@ private:
      */
     uint256 m_last_block_processed GUARDED_BY(cs_wallet);
 
-    //! Fetches a key from the keypool
-    bool GetKeyFromPool(CPubKey &key, bool internal = false);
-
 public:
     /*
      * Main wallet lock.
@@ -1187,6 +1184,9 @@ public:
     std::map<CTxDestination, CAmount> GetAddressBalances(interfaces::Chain::Lock& locked_chain);
 
     std::set<CTxDestination> GetLabelAddresses(const std::string& label) const;
+
+    //! Fetches a key from the keypool. Public for use in SPV.
+    bool GetKeyFromPool(CPubKey &key, bool internal = false);
 
     bool GetNewDestination(const OutputType type, const std::string label, CTxDestination& dest, std::string& error);
     bool GetNewChangeDestination(const OutputType type, CTxDestination& dest, std::string& error);

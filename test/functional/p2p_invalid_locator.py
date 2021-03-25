@@ -14,7 +14,7 @@ class InvalidLocatorTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = False
-        self.extra_args = [["-dummypos=1", "-nospv"]]
+        self.extra_args = [["-dummypos=1"]]
 
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node

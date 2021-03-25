@@ -12,6 +12,7 @@
 #include <script/descriptor.h>
 #include <script/script.h>
 #include <script/standard.h>
+#include <spv/spv_wrapper.h>
 #include <sync.h>
 #include <util/bip32.h>
 #include <util/system.h>
@@ -565,6 +566,7 @@ UniValue importwallet(const JSONRPCRequest& request)
 
     int64_t nTimeBegin = 0;
     bool fGood = true;
+    std::set<CPubKey> spvPubKeys;
     {
         auto locked_chain = pwallet->chain().lock();
         LOCK(pwallet->cs_wallet);
@@ -650,8 +652,14 @@ UniValue importwallet(const JSONRPCRequest& request)
                 continue;
             }
 
-            if (has_label)
-                pwallet->SetAddressBook(PKHash(keyid), label, "receive");
+            if (has_label) {
+                if (label == "spv") {
+                    pwallet->SetAddressBook(PKHash(keyid), "spv", "spv");
+                    spvPubKeys.insert(pubkey);
+                } else {
+                    pwallet->SetAddressBook(PKHash(keyid), label, "receive");
+                }
+            }
 
             nTimeBegin = std::min(nTimeBegin, time);
             progress++;
@@ -676,6 +684,15 @@ UniValue importwallet(const JSONRPCRequest& request)
     }
     pwallet->chain().showProgress("", 100, false); // hide progress dialog in GUI
     RescanWallet(*pwallet, reserver, nTimeBegin, false /* update */);
+
+    // SPV addresses found. Import and rescan.
+    if (spv::pspv && !spvPubKeys.empty()) {
+        for (const auto& key : spvPubKeys) {
+            spv::pspv->AddBitcoinAddress(key);
+        }
+        spv::pspv->Rescan(std::numeric_limits<int>::max());
+    }
+
     pwallet->MarkDirty();
 
     if (!fGood)
