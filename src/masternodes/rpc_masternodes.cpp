@@ -208,6 +208,118 @@ UniValue createmasternode(const JSONRPCRequest& request)
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue setforcedrewardaddress(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"setforcedrewardaddress",
+               "\nCreates (and submits to local node and network) a set forced reward address transaction with given masternode id and reward address\n"
+               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                   {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
+                   {"rewardAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Masternode`s new reward address (any P2PKH or P2WKH address)"},
+                   {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                       {
+                           {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                               {
+                                   {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                   {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                               },
+                           },
+                       },
+                   },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                   HelpExampleCli("setforcedrewardaddress", "mn_id rewardAddress '[{\"txid\":\"id\",\"vout\":0}]'")
+                   + HelpExampleRpc("setforcedrewardaddress", "mn_id rewardAddress '[{\"txid\":\"id\",\"vout\":0}]'")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot update Masternode while still in Initial Block Download");
+    }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
+
+    // decode and verify
+    std::string const nodeIdStr = request.params[0].getValStr();
+    uint256 const nodeId = uint256S(nodeIdStr);
+    CTxDestination ownerDest;
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        auto nodePtr = pcustomcsview->GetMasternode(nodeId);
+        if (!nodePtr) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
+        }
+        ownerDest = nodePtr->ownerType == 1 ?
+            CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
+            CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    std::string rewardAddress = request.params[1].getValStr();
+    CTxDestination rewardDest = DecodeDestination(rewardAddress);
+    if (rewardDest.which() != 1 && rewardDest.which() != 4) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
+    }
+
+    CKeyID const rewardAuthKey = rewardDest.which() == 1 ?
+        CKeyID(*boost::get<PKHash>(&rewardDest)) :
+        CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{GetScriptForDestination(ownerDest)};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+
+    // Return change to owner address
+    CCoinControl coinControl;
+    if (IsValidDestination(ownerDest)) {
+        coinControl.destChange = ownerDest;
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::SetForcedRewardAddress)
+             << nodeId
+             << static_cast<char>(rewardDest.which()) << rewardAuthKey;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto res = ApplySetForcedRewardAddress(
+            mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
+            ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId, static_cast<char>(rewardDest.which()), rewardAuthKey})
+        );
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 UniValue resignmasternode(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
@@ -675,7 +787,7 @@ UniValue listanchors(const JSONRPCRequest& request)
 }
 
 static const CRPCCommand commands[] =
-{ 
+{
 //  category        name                     actor (function)        params
 //  --------------- ----------------------   ---------------------   ----------
     {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},
@@ -686,6 +798,7 @@ static const CRPCCommand commands[] =
     {"masternodes", "getanchorteams",        &getanchorteams,        {"blockHeight"}},
     {"masternodes", "getactivemasternodecount",  &getactivemasternodecount,  {"blockCount"}},
     {"masternodes", "listanchors",           &listanchors,           {}},
+    {"masternodes", "setforcedrewardaddress", &setforcedrewardaddress, {"mn_id", "rewardAddress", "inputs"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

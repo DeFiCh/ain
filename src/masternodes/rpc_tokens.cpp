@@ -824,7 +824,7 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
 }
 
 static const CRPCCommand commands[] =
-{ 
+{
 //  category        name                     actor (function)        params
 //  -------------   ---------------------    --------------------    ----------
     {"tokens",      "createtoken",           &createtoken,           {"metadata", "inputs"}},
