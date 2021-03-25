@@ -1545,6 +1545,24 @@ Res ApplyAppointOracleTx(
         return Res::Err("%s: foundation authentication failed", __func__);
     }
 
+    if (rpcInfo) {
+        rpcInfo->pushKV("oracleAddress", msg.oracleAddress.GetHex());
+        rpcInfo->pushKV("weightage", msg.weightage);
+
+        UniValue availablePairs(UniValue::VARR);
+        for (const TokenCurrencyPair pair : msg.availablePairs) {
+            UniValue uniPair(UniValue::VOBJ);
+            auto tokenPtr = mnview.GetToken(pair.tid);
+            uniPair.pushKV(oraclefields::Currency, pair.cid.ToString());
+            uniPair.pushKV(oraclefields::Token, tokenPtr->CreateSymbolKey(pair.tid));
+
+            availablePairs.push_back(uniPair);
+        }
+        rpcInfo->pushKV("availablePairs", availablePairs);
+
+        return Res::Ok();
+    }
+
     COracleId oracleId{tx.GetHash()};
     return mnview.AppointOracle(oracleId, COracle(oracleId, msg));
 }
@@ -1572,6 +1590,25 @@ Res ApplyUpdateOracleAppointTx(CCustomCSView &mnview,
         return Res::Err("%s: foundation authentication failed", __func__);
     }
 
+    if (rpcInfo) {
+        rpcInfo->pushKV("oracleId", msg.oracleId.ToString());
+        rpcInfo->pushKV("oracleAddress", msg.newOracleAppoint.oracleAddress.GetHex());
+        rpcInfo->pushKV("weightage", msg.newOracleAppoint.weightage);
+
+        UniValue availablePairs(UniValue::VARR);
+        for (const TokenCurrencyPair pair : msg.newOracleAppoint.availablePairs) {
+            UniValue uniPair(UniValue::VOBJ);
+            auto tokenPtr = mnview.GetToken(pair.tid);
+            uniPair.pushKV(oraclefields::Currency, pair.cid.ToString());
+            uniPair.pushKV(oraclefields::Token, tokenPtr->CreateSymbolKey(pair.tid));
+
+            availablePairs.push_back(uniPair);
+        }
+        rpcInfo->pushKV("availablePairs", availablePairs);
+
+        return Res::Ok();
+    }
+
     return mnview.UpdateOracle(msg.oracleId, COracle(msg.oracleId, msg.newOracleAppoint));
 }
 
@@ -1597,6 +1634,11 @@ Res ApplyRemoveOracleAppointTx(
 
     if (!skipAuth && !HasFoundationAuth(tx, coins, consensusParams)) {
         return Res::Err("%s: foundation authentication failed", __func__);
+    }
+
+    if (rpcInfo) {
+        rpcInfo->pushKV("oracleId", msg.oracleId.ToString());
+        return Res::Ok();
     }
 
     return mnview.RemoveOracle(msg.oracleId);
@@ -1634,6 +1676,32 @@ Res ApplySetOracleDataTx(CCustomCSView &mnview,
     auto auth = oracleRes.val->oracleAddress;
     if (!skipAuth && !HasAuth(tx, coins, auth)) {
         return Res::Err("%s: oracle authentication failed", __func__);
+    }
+
+    if (rpcInfo) {
+        rpcInfo->pushKV("oracleId", msg.oracleId.ToString());
+        rpcInfo->pushKV("timestamp", msg.timestamp);
+
+        UniValue tokenPrices(UniValue::VARR);
+        for (const auto tval : msg.tokenPrices) {
+            DCT_ID tid = tval.first;
+            for (auto cval : tval.second) {
+                CURRENCY_ID cid = cval.first;
+                CAmount amount = cval.second;
+
+                const auto tokenPtr = mnview.GetToken(tid);
+                const std::string valueString = strprintf("%d.%08d", amount / COIN, amount % COIN);
+                std::string tokenAmountString = valueString + "@" + tokenPtr->symbol + (tokenPtr->IsDAT() ? "" : "#" + tid.ToString());
+
+                UniValue uniPair(UniValue::VOBJ);
+                uniPair.pushKV("currency", cid.ToString());
+                uniPair.pushKV("tokenAmount", tokenAmountString);
+                tokenPrices.push_back(uniPair);
+            }
+        }
+        rpcInfo->pushKV("tokenPrices", tokenPrices);
+
+        return Res::Ok();
     }
 
     auto res = mnview.SetOracleData(msg.oracleId, msg.timestamp, msg.tokenPrices);
