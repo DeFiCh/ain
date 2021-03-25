@@ -111,4 +111,40 @@ BOOST_AUTO_TEST_CASE(ToStringTest)
     BOOST_CHECK_EQUAL(feeRate.ToString(), "0.00000001 DFI/kB");
 }
 
+//Tests whether the function GetDecimaleString() returns the correct string value
+BOOST_AUTO_TEST_CASE(GetDecimaleString_Test)
+{
+    CAmount val = 1200;
+    BOOST_CHECK_EQUAL(GetDecimaleString(val), "0.00001200");
+}
+
+
+//Tests whether the function CTokenAmount::Add() returns the correct 
+//error response/error string when a negative value is passed.
+BOOST_AUTO_TEST_CASE(CTokenAmount_Add_Test)
+{
+    CTokenAmount amount;
+    CAmount val = -1;
+    BOOST_CHECK_EQUAL(amount.Add(val).msg, "negative amount: -0.00000001");
+}
+
+//Tests whether the function CTokenAmount::Sub() returns the correct 
+//error response/error string when a negative value is passed.
+BOOST_AUTO_TEST_CASE(CTokenAmount_Sub_Test)
+{
+    CTokenAmount amount;
+    CAmount val = -1;
+    BOOST_CHECK_EQUAL(amount.Sub(val).msg, "negative amount: -0.00000001");
+}
+
+//Tests whether the function CTokenAmount::Sub() returns the correct 
+//error response/error string when a value > CTokenAmount.nValue is passed.
+BOOST_AUTO_TEST_CASE(CTokenAmount_Sub_Negative_Result_Test)
+{
+    CTokenAmount amount;
+    amount.nValue = 10;
+    CAmount val = 11;
+    BOOST_CHECK_EQUAL(amount.Sub(val).msg, "amount 0.00000010 is less than 0.00000011");
+}
+
 BOOST_AUTO_TEST_SUITE_END()
