@@ -1997,30 +1997,43 @@ bool AppInitMain(InitInterfaces& interfaces)
                 continue;
             }
 
-            auto const rewardAddressStr = gArgs.GetArg("-rewardaddress", "");
-            CTxDestination const rewardAddress = rewardAddressStr.empty() ? CNoDestination{} :
-                                                    DecodeDestination(rewardAddressStr, chainparams);
-            if (IsValidDestination(rewardAddress)) {
-                coinbaseScript = GetScriptForDestination(rewardAddress);
-                LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", rewardAddressStr);
-            } else {
-                // determine coinbase script for minting thread
-                CTxDestination ownerDest;
-                auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
-                if (optMasternodeID) {
-                    auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
-                    assert(nodePtr); // this should not happen if MN was found by operator's id
-                    ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-                                                CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
-                }
-                if (IsValidDestination(ownerDest)) {
-                    coinbaseScript = GetScriptForDestination(ownerDest);
-                    LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
-                } else {
-                    LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
+            // determine coinbase script for minting thread
+            auto const customRewardAddressStr = gArgs.GetArg("-rewardaddress", "");
+            CTxDestination const customRewardDest = customRewardAddressStr.empty() ?
+                CNoDestination{} :
+                DecodeDestination(customRewardAddressStr, chainparams);
+
+            CTxDestination ownerDest;
+            CTxDestination rewardDest;
+            auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
+            if (optMasternodeID) {
+                auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
+                assert(nodePtr); // this should not happen if MN was found by operator's id
+                ownerDest = nodePtr->ownerType == 1 ?
+                    CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
+                    CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+                if (nodePtr->rewardAddressType != 0) {
+                    rewardDest = nodePtr->rewardAddressType == 1 ?
+                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
+                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress));
                 }
             }
 
+            if (IsValidDestination(rewardDest)) {
+                coinbaseScript = GetScriptForDestination(rewardDest);
+                LogPrintf("Minting thread will start with reward address %s\n", EncodeDestination(ownerDest));
+            }
+            else if (IsValidDestination(customRewardDest)) {
+                coinbaseScript = GetScriptForDestination(customRewardDest);
+                LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", customRewardAddressStr);
+            }
+            else if (IsValidDestination(ownerDest)) {
+                coinbaseScript = GetScriptForDestination(ownerDest);
+                LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
+            }
+            else {
+                LogPrintf("Minting thread will start with empty coinbase address cause masternode does not exist yet. Correct address will be resolved later.\n");
+            }
             stakersParams.push_back(std::move(stakerParams));
             atLeastOneRunningOperator = true;
         }
