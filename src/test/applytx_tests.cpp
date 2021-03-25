@@ -19,11 +19,11 @@ BOOST_AUTO_TEST_CASE(neg_token_amounts)
         CTokenAmount val{};
         auto res = val.Add(-100);
         BOOST_CHECK(!res.ok);
-        BOOST_CHECK_EQUAL(res.msg, "negative amount: -100");
+        BOOST_CHECK_EQUAL(res.msg, "negative amount: -0.00000100");
 
         res = val.Sub(-100);
         BOOST_CHECK(!res.ok);
-        BOOST_CHECK_EQUAL(res.msg, "negative amount: -100");
+        BOOST_CHECK_EQUAL(res.msg, "negative amount: -0.00000100");
     }
 
     { // it is possible to create neg TokenAmount, but can't manipulate with it
@@ -34,11 +34,11 @@ BOOST_AUTO_TEST_CASE(neg_token_amounts)
 
         res = val.Sub(100);
         BOOST_CHECK(!res.ok);
-        BOOST_CHECK_EQUAL(res.msg, "amount -100 is less than 100");
+        BOOST_CHECK_EQUAL(res.msg, "amount -0.00000100 is less than 0.00000100");
 
         res = val.Sub(-200);
         BOOST_CHECK(!res.ok);
-        BOOST_CHECK_EQUAL(res.msg, "negative amount: -200");
+        BOOST_CHECK_EQUAL(res.msg, "negative amount: -0.00000200");
     }
 }
 
@@ -59,13 +59,13 @@ BOOST_AUTO_TEST_CASE(neg_token_balances)
         // Fail to add negative
         res = mnview.AddBalance(owner, CTokenAmount{DCT_ID{0}, -100});
         BOOST_CHECK(!res.ok);
-        BOOST_CHECK_EQUAL(res.msg, "negative amount: -100");
+        BOOST_CHECK_EQUAL(res.msg, "negative amount: -0.00000100");
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
 
         // Fail to sub negative
         res = mnview.SubBalance(owner, CTokenAmount{DCT_ID{0}, -100});
         BOOST_CHECK(!res.ok);
-        BOOST_CHECK_EQUAL(res.msg, "negative amount: -100");
+        BOOST_CHECK_EQUAL(res.msg, "negative amount: -0.00000100");
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
     }
 }

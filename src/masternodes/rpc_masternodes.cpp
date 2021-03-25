@@ -246,7 +246,7 @@ UniValue listmasternodes(const JSONRPCRequest& request)
                                  {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                                   "If true, then iterate including starting position. False by default"},
                                  {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                                  "Maximum number of orders to return, 100 by default"},
+                                  "Maximum number of orders to return, 1000000 by default"},
                          },
                         },
                         {"verbose", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
@@ -266,7 +266,7 @@ UniValue listmasternodes(const JSONRPCRequest& request)
         verbose = request.params[1].get_bool();
     }
     // parse pagination
-    size_t limit = 100;
+    size_t limit = 1000000;
     uint256 start = {};
     bool including_start = true;
     {
