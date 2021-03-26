@@ -267,6 +267,66 @@ static UniValue getmintinginfo(const JSONRPCRequest& request)
     return obj;
 }
 
+//Returns the mining information of all local masternodes
+static UniValue getmininginfo(const JSONRPCRequest& request)
+{
+            RPCHelpMan{"getmininginfo",
+                "\nReturns a json object containing mining-related information for all local masternodes",
+                {},
+                RPCResult{
+                    "{\n"
+                    "  \"blocks\": nnn,             (numeric) The current block\n"
+                    "  \"currentblockweight\": nnn, (numeric, optional) The block weight of the last assembled block (only present if a block was ever assembled)\n"
+                    "  \"currentblocktx\": nnn,     (numeric, optional) The number of block transactions of the last assembled block (only present if a block was ever assembled)\n"
+                    "  \"generate\": true|false     (boolean) If the generation is on or off (see getgenerate or setgenerate calls)\n"
+                    "  \"difficulty\": xxx.xxxxx    (numeric) The current difficulty\n"
+                    "  \"networkhashps\": nnn,      (numeric) The network hashes per second\n"
+                    "  \"pooledtx\": n              (numeric) The size of the mempool\n"
+                    "  \"chain\": \"xxxx\",           (string) current network name as defined in BIP70 (main, test, regtest)\n"
+                    "  \"warnings\": \"...\"          (string) any network and blockchain warnings\n"
+                    "}\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("getmininginfo", "")
+            + HelpExampleRpc("getmininginfo", "")
+                },
+            }.Check(request);
+
+    LOCK(cs_main);
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("blocks",           (int)::ChainActive().Height());
+    if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
+    if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
+    obj.pushKV("difficulty",       (double)GetDifficulty(::ChainActive().Tip()));
+    obj.pushKV("networkhashps",    getnetworkhashps(request));
+    obj.pushKV("pooledtx",         (uint64_t)mempool.size());
+    obj.pushKV("chain",            Params().NetworkIDString());
+
+    //get all masternode operators
+    auto mnIds = pcustomcsview->GetOperatorsMulti();
+    obj.pushKV("isoperator", !mnIds.empty());
+
+    UniValue mnObj(UniValue::VOBJ); // masternodes sub object
+    for (const auto& mnId : mnIds) {
+        UniValue subObj(UniValue::VOBJ);
+
+        CMasternode const & node = *pcustomcsview->GetMasternode(mnId.second);
+        auto state = node.GetState();
+        subObj.pushKV("masternodeoperator", node.operatorAuthAddress.GetHex());// NOTE(sp) : Should this also be encoded? not the HEX
+        subObj.pushKV("masternodestate", CMasternode::GetHumanReadableState(state));
+        subObj.pushKV("generate", node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
+        subObj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);
+
+        mnObj.pushKV(mnId.second.GetHex(), subObj);
+    }
+
+    obj.pushKV("masternodes", mnObj);
+    obj.pushKV("warnings",         GetWarnings("statusbar"));
+    return obj;
+}
+
+
 
 // NOTE: Unlike wallet RPC (which use DFI values), mining RPCs follow GBT (BIP 22) in using satoshi amounts
 static UniValue prioritisetransaction(const JSONRPCRequest& request)
@@ -1011,6 +1071,7 @@ static const CRPCCommand commands[] =
     { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
     { "mining",             "submitblock",            &submitblock,            {"hexdata","dummy"} },
     { "mining",             "submitheader",           &submitheader,           {"hexdata"} },
+    { "mining",             "getmininginfo",          &getmininginfo,          {} },
 
 
     { "generating",         "generatetoaddress",      &generatetoaddress,      {"nblocks","address","maxtries"} },
