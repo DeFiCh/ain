@@ -71,5 +71,11 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         assert_equal(results[0]['owner'], collateral_a)
         assert_equal(results[0]['type'], 'MintToken')
 
+        result = self.nodes[0].listaccounthistory()
+        assert 'blockReward' in [res['type'] for res in result]
+
+        result = self.nodes[1].listaccounthistory()
+        assert_equal(result, [])
+
 if __name__ == '__main__':
     TokensRPCListAccountHistory().main ()
