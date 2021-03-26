@@ -270,27 +270,28 @@ static UniValue getmintinginfo(const JSONRPCRequest& request)
 //Returns the mining information of all local masternodes
 static UniValue getmininginfo(const JSONRPCRequest& request)
 {
-            RPCHelpMan{"getmininginfo",
-                "\nReturns a json object containing mining-related information for all local masternodes",
-                {},
-                RPCResult{
-                    "{\n"
-                    "  \"blocks\": nnn,             (numeric) The current block\n"
-                    "  \"currentblockweight\": nnn, (numeric, optional) The block weight of the last assembled block (only present if a block was ever assembled)\n"
-                    "  \"currentblocktx\": nnn,     (numeric, optional) The number of block transactions of the last assembled block (only present if a block was ever assembled)\n"
-                    "  \"generate\": true|false     (boolean) If the generation is on or off (see getgenerate or setgenerate calls)\n"
-                    "  \"difficulty\": xxx.xxxxx    (numeric) The current difficulty\n"
-                    "  \"networkhashps\": nnn,      (numeric) The network hashes per second\n"
-                    "  \"pooledtx\": n              (numeric) The size of the mempool\n"
-                    "  \"chain\": \"xxxx\",           (string) current network name as defined in BIP70 (main, test, regtest)\n"
-                    "  \"warnings\": \"...\"          (string) any network and blockchain warnings\n"
-                    "}\n"
-                },
-                RPCExamples{
-                    HelpExampleCli("getmininginfo", "")
+    RPCHelpMan{"getmininginfo",
+        "\nReturns a json object containing mining-related information for all local masternodes",
+        {},
+        RPCResult{
+            "{\n"
+            "  \"blocks\": nnn,             (numeric) The current block\n"
+            "  \"currentblockweight\": nnn, (numeric, optional) The block weight of the last assembled block (only present if a block was ever assembled)\n"
+            "  \"currentblocktx\": nnn,     (numeric, optional) The number of block transactions of the last assembled block (only present if a block was ever assembled)\n"
+            "  \"difficulty\": xxx.xxxxx    (numeric) The current difficulty\n"
+            "  \"networkhashps\": nnn,      (numeric) The network hashes per second\n"
+            "  \"pooledtx\": n              (numeric) The size of the mempool\n"
+            "  \"chain\": \"xxxx\",         (string)  current network name as defined in BIP70 (main, test, regtest)\n"
+            "  \"isoperator\": true|false   (boolean) Local master nodes are available or not \n"
+            "  \"masternodes\": []          (array)   an array of objects which includes each master node information\n"
+            "  \"warnings\": \"...\"        (string)  any network and blockchain warnings\n"
+            "}\n"    
+        },
+        RPCExamples{
+            HelpExampleCli("getmininginfo", "")
             + HelpExampleRpc("getmininginfo", "")
-                },
-            }.Check(request);
+        },
+    }.Check(request);
 
     LOCK(cs_main);
 
@@ -307,10 +308,11 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     auto mnIds = pcustomcsview->GetOperatorsMulti();
     obj.pushKV("isoperator", !mnIds.empty());
 
-    UniValue mnObj(UniValue::VOBJ); // masternodes sub object
+    UniValue mnArr(UniValue::UniValue::VARR); // masternodes array
     for (const auto& mnId : mnIds) {
         UniValue subObj(UniValue::VOBJ);
 
+        subObj.pushKV("masternodeid", mnId.second.GetHex());
         CMasternode const & node = *pcustomcsview->GetMasternode(mnId.second);
         auto state = node.GetState();
         subObj.pushKV("masternodeoperator", node.operatorAuthAddress.GetHex());// NOTE(sp) : Should this also be encoded? not the HEX
@@ -318,10 +320,10 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
         subObj.pushKV("generate", node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
         subObj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);
 
-        mnObj.pushKV(mnId.second.GetHex(), subObj);
+        mnArr.push_back(subObj);
     }
 
-    obj.pushKV("masternodes", mnObj);
+    obj.pushKV("masternodes", mnArr);
     obj.pushKV("warnings",         GetWarnings("statusbar"));
     return obj;
 }
