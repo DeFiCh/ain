@@ -666,7 +666,18 @@ namespace pos {
             mintedBlocks = nodePtr->mintedBlocks;
             if (args.coinbaseScript.empty()) {
                 // this is safe cause MN was found
-                scriptPubKey = GetScriptForDestination(nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress)));
+                if (nodePtr->rewardAddressType != 0) {
+                    scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == 1 ?
+                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
+                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress))
+                    );
+                }
+                else {
+                    scriptPubKey = GetScriptForDestination(nodePtr->ownerType == 1 ?
+                        CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
+                        CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress))
+                    );
+                }
             } else {
                 scriptPubKey = args.coinbaseScript;
             }
