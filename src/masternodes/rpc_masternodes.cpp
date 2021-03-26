@@ -17,6 +17,14 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         CTxDestination operatorDest = node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) :
                                       CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress));
         obj.pushKV("operatorAuthAddress", EncodeDestination(operatorDest));
+        if (node.rewardAddressType != 0) {
+            obj.pushKV("rewardAddress", EncodeDestination(
+                node.rewardAddressType == 1 ? CTxDestination(PKHash(node.rewardAddress)) : CTxDestination(
+                        WitnessV0KeyHash(node.rewardAddress))));
+        }
+        else {
+            obj.pushKV("rewardAddress", EncodeDestination(CTxDestination()));
+        }
 
         obj.pushKV("creationHeight", node.creationHeight);
         obj.pushKV("resignHeight", node.resignHeight);
