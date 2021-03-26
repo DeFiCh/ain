@@ -203,6 +203,10 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
         targetHeight = ::ChainActive().Height() + 1;
     }
 
+    if (!::IsMine(*pwallet, ownerDest)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode ownerAddress (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
+    }
+
     std::string rewardAddress = request.params[1].getValStr();
     CTxDestination rewardDest = DecodeDestination(rewardAddress);
     if (rewardDest.which() != 1 && rewardDest.which() != 4) {
@@ -313,6 +317,10 @@ UniValue removeforcedrewardaddress(const JSONRPCRequest& request)
             CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
         targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    if (!::IsMine(*pwallet, ownerDest)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Masternode ownerAddress (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
     }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
