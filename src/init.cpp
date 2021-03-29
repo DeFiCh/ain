@@ -1996,7 +1996,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
             if (IsValidDestination(rewardDest)) {
                 coinbaseScript = GetScriptForDestination(rewardDest);
-                LogPrintf("Minting thread will start with reward address %s\n", EncodeDestination(ownerDest));
+                LogPrintf("Minting thread will start with reward address %s\n", EncodeDestination(rewardDest));
             }
             else if (IsValidDestination(customRewardDest)) {
                 coinbaseScript = GetScriptForDestination(customRewardDest);
