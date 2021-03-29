@@ -320,6 +320,9 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
         subObj.pushKV("generate", node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
         subObj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);
 
+        auto lastBlockCreationAttemptTs = node.lastBlockCreationAttemptTs;
+        subObj.pushKV("lastblockcreationattempt", FormatISO8601DateTime(node.lastBlockCreationAttemptTs));
+
         mnArr.push_back(subObj);
     }
 
