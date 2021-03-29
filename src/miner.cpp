@@ -121,8 +121,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (!nodePtr || !nodePtr->IsActive())
         return nullptr;
 
-    //update last block creation attempt in the master node
-    nodePtr->lastBlockCreationAttemptTs = nTimeStart;
+    //update last block creation attempt ts for the master node
+    {
+        CLockFreeGuard lock(pos::cs_MNLastBlockCreationAttemptTs);
+        pos::mapMNLastBlockCreationAttemptTs[myIDs->second] = GetTime();
+    }
 
     CBlockIndex* pindexPrev = ::ChainActive().Tip();
     assert(pindexPrev != nullptr);

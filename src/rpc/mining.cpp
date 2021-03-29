@@ -320,9 +320,13 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
         subObj.pushKV("generate", node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
         subObj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);
 
-        auto lastBlockCreationAttemptTs = node.lastBlockCreationAttemptTs;
-        subObj.pushKV("lastblockcreationattempt", FormatISO8601DateTime(node.lastBlockCreationAttemptTs));
-
+        //get the last block creation attempt by the master node
+        {
+            CLockFreeGuard lock(pos::cs_MNLastBlockCreationAttemptTs);
+            auto lastBlockCreationAttemptTs = pos::mapMNLastBlockCreationAttemptTs[mnId.second];
+            subObj.pushKV("lastblockcreationattempt", (lastBlockCreationAttemptTs != 0) ? FormatISO8601DateTime(lastBlockCreationAttemptTs) : "0");
+        }
+        
         mnArr.push_back(subObj);
     }
 

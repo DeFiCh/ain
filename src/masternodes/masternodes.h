@@ -73,10 +73,7 @@ public:
 
     //! This fields are for transaction rollback (by disconnecting block)
     uint256 resignTx;
-    uint256 banTx;
-
-    //! This keep track of the last block creation attempt time
-    int64_t lastBlockCreationAttemptTs;     
+    uint256 banTx;  
 
     //! empty constructor
     CMasternode();
