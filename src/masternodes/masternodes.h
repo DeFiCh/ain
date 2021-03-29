@@ -12,11 +12,12 @@
 #include <masternodes/accounts.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/icxorder.h>
 #include <masternodes/incentivefunding.h>
+#include <masternodes/gv.h>
+#include <masternodes/poolpairs.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
-#include <masternodes/poolpairs.h>
-#include <masternodes/gv.h>
 #include <uint256.h>
 #include <wallet/ismine.h>
 
@@ -224,6 +225,7 @@ class CCustomCSView
         , public CPoolPairView
         , public CGovView
         , public CAnchorConfirmsView
+        , public CICXOrderView
 {
 public:
     CCustomCSView() = default;

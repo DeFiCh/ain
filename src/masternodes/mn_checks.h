@@ -56,6 +56,9 @@ enum class CustomTxType : unsigned char
     SetGovVariable       = 'G',
     // Auto auth TX
     AutoAuthPrep       = 'A',
+    ICXCreateOrder      = '1',
+    ICXMakeOffer        = '2',
+    ICXCloseOrder       = '6',
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
@@ -86,6 +89,9 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
         case CustomTxType::AutoAuthPrep:        return "AutoAuth";
+        case CustomTxType::ICXCreateOrder:      return "ICXCreateOrder";
+        case CustomTxType::ICXMakeOffer:        return "ICXMakeOffer";
+        case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         default:                                return "None";
     }
 }
@@ -135,6 +141,10 @@ Res ApplySetGovernanceTx(CCustomCSView & mnview, CCoinsViewCache const & coins, 
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView & mnview, CTransaction const & tx, int height, uint256 const & prevStakeModifier, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction const & tx, int height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams);
+
+Res ApplyICXCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplyICXMakeOfferTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplyICXCloseOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256 & txid);
 
