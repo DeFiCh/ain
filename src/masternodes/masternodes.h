@@ -75,6 +75,9 @@ public:
     uint256 resignTx;
     uint256 banTx;
 
+    //! This keep track of the last block creation attempt time
+    int64_t lastBlockCreationAttemptTs;     
+
     //! empty constructor
     CMasternode();
 

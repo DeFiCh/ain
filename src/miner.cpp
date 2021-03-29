@@ -121,6 +121,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (!nodePtr || !nodePtr->IsActive())
         return nullptr;
 
+    //update last block creation attempt in the master node
+    nodePtr->lastBlockCreationAttemptTs = nTimeStart;
+
     CBlockIndex* pindexPrev = ::ChainActive().Tip();
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
