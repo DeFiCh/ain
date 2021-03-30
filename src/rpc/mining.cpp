@@ -318,11 +318,14 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
         auto state = node.GetState();
         subObj.pushKV("masternodeoperator", node.operatorAuthAddress.GetHex());// NOTE(sp) : Should this also be encoded? not the HEX
         subObj.pushKV("masternodestate", CMasternode::GetHumanReadableState(state));
-        subObj.pushKV("generate", node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
+        auto generate = node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE);
+        subObj.pushKV("generate", generate);
         subObj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);
 
-        // get the last block creation attempt by the master node
-        {
+        if (!generate) {
+            subObj.pushKV("lastblockcreationattempt", "0");
+        } else {
+            // get the last block creation attempt by the master node
             CLockFreeGuard lock(pos::cs_MNLastBlockCreationAttemptTs);
             auto lastBlockCreationAttemptTs = pos::mapMNLastBlockCreationAttemptTs[mnId.second];
             subObj.pushKV("lastblockcreationattempt", (lastBlockCreationAttemptTs != 0) ? FormatISO8601DateTime(lastBlockCreationAttemptTs) : "0");
