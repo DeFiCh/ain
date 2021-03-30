@@ -1324,6 +1324,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "clarkequay", consensusParams.ClarkeQuayHeight);
     BuriedForkDescPushBack(softforks, "dakota", consensusParams.DakotaHeight);
     BuriedForkDescPushBack(softforks, "dakotacrescent", consensusParams.DakotaCrescentHeight);
+    BuriedForkDescPushBack(softforks, "eunos", consensusParams.EunosHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 
