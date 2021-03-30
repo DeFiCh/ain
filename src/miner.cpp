@@ -121,7 +121,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (!nodePtr || !nodePtr->IsActive())
         return nullptr;
 
-    //update last block creation attempt ts for the master node
+    // update last block creation attempt ts for the master node
     {
         CLockFreeGuard lock(pos::cs_MNLastBlockCreationAttemptTs);
         pos::mapMNLastBlockCreationAttemptTs[myIDs->second] = GetTime();

@@ -267,7 +267,7 @@ static UniValue getmintinginfo(const JSONRPCRequest& request)
     return obj;
 }
 
-//Returns the mining information of all local masternodes
+// Returns the mining information of all local masternodes
 static UniValue getmininginfo(const JSONRPCRequest& request)
 {
     RPCHelpMan{"getmininginfo",
@@ -304,7 +304,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
     obj.pushKV("chain",            Params().NetworkIDString());
 
-    //get all masternode operators
+    // get all masternode operators
     auto mnIds = pcustomcsview->GetOperatorsMulti();
     obj.pushKV("isoperator", !mnIds.empty());
 
@@ -320,7 +320,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
         subObj.pushKV("generate", node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
         subObj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);
 
-        //get the last block creation attempt by the master node
+        // get the last block creation attempt by the master node
         {
             CLockFreeGuard lock(pos::cs_MNLastBlockCreationAttemptTs);
             auto lastBlockCreationAttemptTs = pos::mapMNLastBlockCreationAttemptTs[mnId.second];
@@ -334,8 +334,6 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("warnings",         GetWarnings("statusbar"));
     return obj;
 }
-
-
 
 // NOTE: Unlike wallet RPC (which use DFI values), mining RPCs follow GBT (BIP 22) in using satoshi amounts
 static UniValue prioritisetransaction(const JSONRPCRequest& request)

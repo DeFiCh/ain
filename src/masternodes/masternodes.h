@@ -73,7 +73,7 @@ public:
 
     //! This fields are for transaction rollback (by disconnecting block)
     uint256 resignTx;
-    uint256 banTx;  
+    uint256 banTx;
 
     //! empty constructor
     CMasternode();
