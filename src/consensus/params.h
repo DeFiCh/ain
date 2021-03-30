@@ -180,6 +180,16 @@ struct Params {
     };
     SpvParams spv;
 
+    struct CPropsParams {
+        struct CPropsSpecs {
+            CAmount fee;
+            uint32_t majorityThreshold;
+        } cfp, brp, voc;
+        int votingPeriod;
+        uint32_t minVoting;
+    };
+    CPropsParams props;
+
     std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
     std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;
 };

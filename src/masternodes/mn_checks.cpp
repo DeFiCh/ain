@@ -56,6 +56,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXClaimDFCHTLC:     return "ICXClaimDFCHTLC";
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
+        case CustomTxType::CreateCfp:           return "CreateCfp";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -131,6 +132,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXClaimDFCHTLC:         return CICXClaimDFCHTLCMessage{};
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
+        case CustomTxType::CreateCfp:               return CCreatePropMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -168,6 +170,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
     Res isPostEunosFork() const {
         if(static_cast<int>(height) < consensus.EunosHeight) {
             return Res::Err("called before Eunos height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostFortCanningFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningHeight) {
+            return Res::Err("called before FortCanning height");
         }
         return Res::Ok();
     }
@@ -378,6 +387,11 @@ public:
         return !res ? res : serialize(obj);
     }
 
+    Res operator()(CCreatePropMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
     Res operator()(CCustomTxMessageNone&) const {
         return Res::Ok();
     }
@@ -450,6 +464,14 @@ public:
     Res CheckICXTx() const {
         if (tx.vout.size() != 2) {
             return Res::Err("malformed tx vouts ((wrong number of vouts)");
+        }
+        return Res::Ok();
+    }
+
+    Res CheckProposalTx(CPropType type) const {
+        if (tx.vout.size() < 1
+        || tx.vout[0].nValue < GetPropsCreationFee(height, type) || tx.vout[0].nTokenId != DCT_ID{0}) {
+            return Res::Err("malformed tx vouts (wrong creation fee)");
         }
         return Res::Ok();
     }
@@ -1614,6 +1636,32 @@ public:
 
         res = mnview.ICXCloseOffer(closeoffer);
         return !res ? res : mnview.ICXCloseMakeOfferTx(*offer, CICXMakeOffer::STATUS_CLOSED);
+    }
+
+    Res operator()(const CCreatePropMessage& obj) const {
+        if (obj.type != CPropType::CommunityFundRequest) {
+            return Res::Err("wrong type on community fund proposal request");
+        }
+        auto res = CheckProposalTx(obj.type);
+        if (!res) {
+            return res;
+        }
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member");
+        }
+        if (obj.nAmount >= MAX_MONEY) {
+            return Res::Err("proposal wants to gain all money");
+        }
+        if (obj.title.size() > 128) {
+            return Res::Err("proposal title cannot be more than 128 bytes");
+        }
+        if (obj.nCycles < 1 || obj.nCycles > 3) {
+            return Res::Err("proposal cycles can be 1, 2 or 3");
+        }
+        if (obj.blocksCount < 0 || obj.blocksCount > 3 * consensus.props.votingPeriod) {
+            return Res::Err("finalized after is out of range");
+        }
+        return mnview.CreateProp(tx.GetHash(), height, obj);
     }
 
     Res operator()(const CCustomTxMessageNone&) const {

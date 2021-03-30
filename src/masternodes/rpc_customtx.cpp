@@ -299,6 +299,16 @@ public:
         rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
     }
 
+    void operator()(const CCreatePropMessage& obj) const {
+        rpcInfo.pushKV("proposalId", tx.GetHash().GetHex());
+        rpcInfo.pushKV("type", CPropTypeToString(obj.type));
+        rpcInfo.pushKV("title", obj.title);
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
+        rpcInfo.pushKV("cycles", int(obj.nCycles));
+        rpcInfo.pushKV("finalizeAfter", int64_t(height + (obj.nCycles * obj.blocksCount)));
+        rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };

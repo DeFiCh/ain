@@ -168,6 +168,7 @@ DEFI_CORE_H = \
   masternodes/res.h \
   masternodes/tokens.h \
   masternodes/poolpairs.h \
+  masternodes/proposals.h \
   masternodes/undo.h \
   masternodes/undos.h \
   masternodes/oracles.h \
@@ -381,9 +382,11 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_icxorderbook.cpp \
   masternodes/rpc_oracles.cpp \
   masternodes/rpc_poolpair.cpp \
+  masternodes/rpc_proposals.cpp \
   masternodes/rpc_tokens.cpp \
   masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
+  masternodes/proposals.cpp \
   masternodes/skipped_txs.cpp \
   masternodes/undos.cpp \
   miner.cpp \
