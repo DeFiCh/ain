@@ -168,9 +168,11 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
     CKeyID const operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest));
 
+    CreateMasternodeMessage msg{static_cast<char>(operatorDest.which()), operatorAuthKey};
+
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
-             << static_cast<char>(operatorDest.which()) << operatorAuthKey;
+             << msg;
 
     if (eunosPaya) {
         metadata << timelock;
@@ -302,10 +304,11 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
         coinControl.destChange = ownerDest;
     }
 
+    SetForcedRewardAddressMessage msg{nodeId, static_cast<char>(rewardDest.which()), rewardAuthKey};
+
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::SetForcedRewardAddress)
-             << nodeId
-             << static_cast<char>(rewardDest.which()) << rewardAuthKey;
+             << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -321,9 +324,9 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplySetForcedRewardAddress(
+        const auto res = ApplySetForcedRewardAddressTx(
             mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-            ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId, static_cast<char>(rewardDest.which()), rewardAuthKey})
+            ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg})
         );
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
@@ -407,9 +410,11 @@ UniValue removeforcedrewardaddress(const JSONRPCRequest& request)
         coinControl.destChange = ownerDest;
     }
 
+    RemoveForcedRewardAddressMessage msg{nodeId};
+
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::RemoveForcedRewardAddress)
-             << nodeId;
+             << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -425,9 +430,9 @@ UniValue removeforcedrewardaddress(const JSONRPCRequest& request)
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyRemoveForcedRewardAddress(
+        const auto res = ApplyRemoveForcedRewardAddressTx(
             mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-            ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId})
+            ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg})
         );
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
@@ -506,9 +511,11 @@ UniValue resignmasternode(const JSONRPCRequest& request)
         coinControl.destChange = ownerDest;
     }
 
+    ResignMasternodeMessage msg{nodeId};
+
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::ResignMasternode)
-             << nodeId;
+             << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
