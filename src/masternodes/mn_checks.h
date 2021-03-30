@@ -119,8 +119,8 @@ Res ApplyCustomTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransa
 Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uint32_t height, const uint64_t &time, std::vector<unsigned char> const & metadata, UniValue* rpcInfo = nullptr);
 Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 
-Res ApplySetForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth = false, UniValue *rpcInfo = nullptr);
-Res ApplyRemoveForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth = false, UniValue *rpcInfo = nullptr);
+Res ApplySetForcedRewardAddressTx(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth = false, UniValue *rpcInfo = nullptr);
+Res ApplyRemoveForcedRewardAddressTx(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth = false, UniValue *rpcInfo = nullptr);
 
 Res ApplyCreateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 Res ApplyUpdateTokenTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);

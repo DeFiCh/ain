@@ -148,10 +148,10 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
                 res = ApplyResignMasternodeTx(mnview, coins, tx, height, metadata, skipAuth);
                 break;
             case CustomTxType::SetForcedRewardAddress:
-                res = ApplySetForcedRewardAddress(mnview, coins, tx, height, metadata, skipAuth);
+                res = ApplySetForcedRewardAddressTx(mnview, coins, tx, height, metadata, skipAuth);
                 break;
             case CustomTxType::RemoveForcedRewardAddress:
-                res = ApplyRemoveForcedRewardAddress(mnview, coins, tx, height, metadata, skipAuth);
+                res = ApplyRemoveForcedRewardAddressTx(mnview, coins, tx, height, metadata, skipAuth);
                 break;
             case CustomTxType::CreateToken:
                 res = ApplyCreateTokenTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
@@ -240,13 +240,16 @@ Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uin
         return Res::Err("%s: %s", __func__, "malformed tx vouts (wrong creation fee or collateral amount)");
     }
 
-    CMasternode node;
+    CreateMasternodeMessage msg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> node.operatorType;
-    ss >> node.operatorAuthAddress;
+    ss >> msg;
     if (!ss.empty()) {
         return Res::Err("%s: deserialization failed: excess %d bytes", __func__,  ss.size());
     }
+
+    CMasternode node;
+    node.operatorAuthAddress = msg.operatorAuthAddress;
+    node.operatorType = msg.operatorType;
 
     CTxDestination dest;
     if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
@@ -288,56 +291,59 @@ Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coin
     if (metadata.size() != sizeof(uint256)) {
         return Res::Err("%s: metadata must contain 32 bytes", __func__);
     }
-    uint256 nodeId(metadata);
-    auto const node = mnview.GetMasternode(nodeId);
-    if (!node) {
-        return Res::Err("%s: node %s does not exist", __func__, nodeId.ToString());
+
+    ResignMasternodeMessage msg;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> msg;
+    if (!ss.empty()) {
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__,  ss.size());
     }
-    if (!skipAuth && !HasCollateralAuth(tx, coins, nodeId)) {
-        return Res::Err("%s %s: %s", __func__, nodeId.ToString(), "tx must have at least one input from masternode owner");
+
+    auto const node = mnview.GetMasternode(msg.nodeId);
+    if (!node) {
+        return Res::Err("%s: node %s does not exist", __func__, msg.nodeId.ToString());
+    }
+    if (!skipAuth && !HasCollateralAuth(tx, coins, msg.nodeId)) {
+        return Res::Err("%s %s: %s", __func__, msg.nodeId.ToString(), "tx must have at least one input from masternode owner");
     }
 
     // Return here to avoid state is not ENABLED error
     if (rpcInfo) {
-        rpcInfo->pushKV("id", nodeId.GetHex());
+        rpcInfo->pushKV("id", msg.nodeId.GetHex());
         return Res::Ok();
     }
 
-    auto res = mnview.ResignMasternode(nodeId, tx.GetHash(), height);
+    auto res = mnview.ResignMasternode(msg.nodeId, tx.GetHash(), height);
     if (!res.ok) {
-        return Res::Err("%s %s: %s", __func__, nodeId.ToString(), res.msg);
+        return Res::Err("%s %s: %s", __func__, msg.nodeId.ToString(), res.msg);
     }
     return Res::Ok();
 }
 
-Res ApplySetForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth, UniValue *rpcInfo)
+Res ApplySetForcedRewardAddressTx(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth, UniValue *rpcInfo)
 {
-    uint256 nodeId;
-    char rewardAddressType;
-    CKeyID rewardAddress;
+    SetForcedRewardAddressMessage msg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> nodeId;
-    ss >> rewardAddressType;
-    ss >> rewardAddress;
+    ss >> msg;
     if (!ss.empty()) {
         return Res::Err("%s: deserialization failed: excess %d bytes", __func__,  ss.size());
     }
 
-    auto const node = mnview.GetMasternode(nodeId);
+    auto const node = mnview.GetMasternode(msg.nodeId);
     if (!node) {
-        return Res::Err("%s: node %s does not exist", __func__, nodeId.ToString());
+        return Res::Err("%s: node %s does not exist", __func__, msg.nodeId.ToString());
     }
-    if (!skipAuth && !HasCollateralAuth(tx, coins, nodeId)) {
-        return Res::Err("%s %s: %s", __func__, nodeId.ToString(), "tx must have at least one input from masternode owner");
+    if (!skipAuth && !HasCollateralAuth(tx, coins, msg.nodeId)) {
+        return Res::Err("%s %s: %s", __func__, msg.nodeId.ToString(), "tx must have at least one input from masternode owner");
     }
 
     // rpc info
     if (rpcInfo) {
-        rpcInfo->pushKV("mc_id", nodeId.GetHex());
+        rpcInfo->pushKV("mc_id", msg.nodeId.GetHex());
         rpcInfo->pushKV("rewardAddress", EncodeDestination(
-            rewardAddressType == 1 ?
-                CTxDestination(PKHash(rewardAddress)) :
-                CTxDestination(WitnessV0KeyHash(rewardAddress)))
+            msg.rewardAddressType == 1 ?
+                CTxDestination(PKHash(msg.rewardAddress)) :
+                CTxDestination(WitnessV0KeyHash(msg.rewardAddress)))
         );
         rpcInfo->pushKV("ownerAddress", EncodeDestination(
             node->ownerType == 1 ?
@@ -347,34 +353,34 @@ Res ApplySetForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& co
         return Res::Ok();
     }
 
-    auto res = mnview.SetForcedRewardAddress(nodeId, rewardAddressType, rewardAddress, height);
+    auto res = mnview.SetForcedRewardAddress(msg.nodeId, msg.rewardAddressType, msg.rewardAddress, height);
     if (!res.ok) {
-        return Res::Err("%s %s: %s", __func__, nodeId.ToString(), res.msg);
+        return Res::Err("%s %s: %s", __func__, msg.nodeId.ToString(), res.msg);
     }
 
     return Res::Ok();
 }
 
-Res ApplyRemoveForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth, UniValue *rpcInfo)
+Res ApplyRemoveForcedRewardAddressTx(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth, UniValue *rpcInfo)
 {
-    uint256 nodeId;
+    RemoveForcedRewardAddressMessage msg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> nodeId;
+    ss >> msg;
     if (!ss.empty()) {
         return Res::Err("%s: deserialization failed: excess %d bytes", __func__,  ss.size());
     }
 
-    auto const node = mnview.GetMasternode(nodeId);
+    auto const node = mnview.GetMasternode(msg.nodeId);
     if (!node) {
-        return Res::Err("%s: node %s does not exist", __func__, nodeId.ToString());
+        return Res::Err("%s: node %s does not exist", __func__, msg.nodeId.ToString());
     }
-    if (!skipAuth && !HasCollateralAuth(tx, coins, nodeId)) {
-        return Res::Err("%s %s: %s", __func__, nodeId.ToString(), "tx must have at least one input from masternode owner");
+    if (!skipAuth && !HasCollateralAuth(tx, coins, msg.nodeId)) {
+        return Res::Err("%s %s: %s", __func__, msg.nodeId.ToString(), "tx must have at least one input from masternode owner");
     }
 
     // rpc info
     if (rpcInfo) {
-        rpcInfo->pushKV("mc_id", nodeId.GetHex());
+        rpcInfo->pushKV("mc_id", msg.nodeId.GetHex());
         rpcInfo->pushKV("ownerAddress", EncodeDestination(
             node->ownerType == 1 ?
                 CTxDestination(PKHash(node->ownerAuthAddress)) :
@@ -383,9 +389,9 @@ Res ApplyRemoveForcedRewardAddress(CCustomCSView& mnview, CCoinsViewCache const&
         return Res::Ok();
     }
 
-    auto res = mnview.RemoveForcedRewardAddress(nodeId, height);
+    auto res = mnview.RemoveForcedRewardAddress(msg.nodeId, height);
     if (!res.ok) {
-        return Res::Err("%s %s: %s", __func__, nodeId.ToString(), res.msg);
+        return Res::Err("%s %s: %s", __func__, msg.nodeId.ToString(), res.msg);
     }
 
     return Res::Ok();

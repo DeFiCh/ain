@@ -16,10 +16,10 @@ static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomT
             res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
             break;
         case CustomTxType::SetForcedRewardAddress:
-            res = ApplySetForcedRewardAddress(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
+            res = ApplySetForcedRewardAddressTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
             break;
         case CustomTxType::RemoveForcedRewardAddress:
-            res = ApplyRemoveForcedRewardAddress(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
+            res = ApplyRemoveForcedRewardAddressTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
             break;
         case CustomTxType::CreateToken:
             res = ApplyCreateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
