@@ -217,10 +217,11 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     return generateBlocks(coinbase_script, minterKey, myIDs->first, nGenerate, nMaxTries);
 }
 
+/// @deprecated version of getmininginfo. prefer using getmininginfo
 static UniValue getmintinginfo(const JSONRPCRequest& request)
 {
             RPCHelpMan{"getmintinginfo",
-                "\nReturns a json object containing mining-related information.",
+                "\nDEPRECATED. Prefer using getmininginfo.\nReturns a json object containing mining-related information.",
                 {},
                 RPCResult{
                     "{\n"
