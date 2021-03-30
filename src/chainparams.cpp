@@ -121,6 +121,7 @@ public:
         consensus.ClarkeQuayHeight = 595738;
         consensus.DakotaHeight = 678000; // 1st March 2021
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
+        consensus.EunosHeight = std::numeric_limits<int>::max(); // 30th March 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -305,6 +306,7 @@ public:
         consensus.ClarkeQuayHeight = 155000;
         consensus.DakotaHeight = 220680;
         consensus.DakotaCrescentHeight = 287700;
+        consensus.EunosHeight = std::numeric_limits<int>::max(); // 30th March 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -454,6 +456,7 @@ public:
         consensus.ClarkeQuayHeight = 0;
         consensus.DakotaHeight = 0;
         consensus.DakotaCrescentHeight = 0;
+        consensus.EunosHeight = 0;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -595,6 +598,7 @@ public:
         consensus.ClarkeQuayHeight = 10000000;
         consensus.DakotaHeight = 10000000;
         consensus.DakotaCrescentHeight = 10000000;
+        consensus.EunosHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -807,6 +811,17 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.DakotaCrescentHeight = static_cast<int>(height);
+    }
+
+    if (gArgs.IsArgSet("-eunosheight")) {
+        int64_t height = gArgs.GetArg("-eunosheight", consensus.EunosHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for Eunos is out of valid range. Use -1 to disable Eunos features.", height));
+        } else if (height == -1) {
+            LogPrintf("Eunos disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.EunosHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;
