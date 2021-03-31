@@ -82,6 +82,7 @@ struct Params {
     int DakotaHeight;
     /** Fifth major fork **/
     int DakotaCrescentHeight;
+    int FUpgradeHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
 
