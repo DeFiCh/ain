@@ -171,6 +171,27 @@ public:
 };
 
 
+struct MNBlockTimeKey
+{
+    uint256 masternodeID;
+    uint32_t blockHeight;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(masternodeID);
+
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(blockHeight));
+            blockHeight = ~blockHeight;
+        } else {
+            uint32_t blockHeight_ = ~blockHeight;
+            READWRITE(WrapBigEndian(blockHeight_));
+        }
+    }
+};
+
 class CMasternodesView : public virtual CStorageView
 {
 public:
@@ -203,6 +224,8 @@ public:
     void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
     boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter);
     void EraseMasternodeLastBlockTime(const uint256 &minter, const uint32_t& blockHeight);
+
+    void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
 
     // tags
     struct ID { static const unsigned char prefix; };

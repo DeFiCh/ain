@@ -76,16 +76,22 @@ UniValue rewardhistoryToJSON(RewardHistoryKey const & key, std::pair<DCT_ID, TAm
     return obj;
 }
 
-UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index, uint256 const & txid, std::string const & type) {
+UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("owner", EncodeDestination(entry.destination));
     obj.pushKV("blockHeight", index->height);
     obj.pushKV("blockHash", index->GetBlockHash().GetHex());
     obj.pushKV("blockTime", index->GetBlockTime());
-    obj.pushKV("type", type);
+    if (pwtx->IsCoinBase()) {
+        obj.pushKV("type", "blockReward");
+    } else if (entry.amount < 0) {
+        obj.pushKV("type", "sent");
+    } else {
+        obj.pushKV("type", "receive");
+    }
     obj.pushKV("txn", (uint64_t) entry.vout);
-    obj.pushKV("txid", txid.ToString());
+    obj.pushKV("txid", pwtx->GetHash().ToString());
     obj.pushKV("amounts", AmountsToJSON({{DCT_ID{0}, entry.amount}}));
     return obj;
 }
@@ -93,9 +99,8 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
 static void searchInWallet(CWallet const * pwallet,
                            CScript const & account,
                            isminetype filter,
-                           std::function<bool(CWalletTx const *)> shouldSkipTx,
-                           std::function<bool(COutputEntry const &)> onSent,
-                           std::function<bool(COutputEntry const &)> onReceive) {
+                           std::function<bool(CBlockIndex const *, CWalletTx const *)> shouldSkipTx,
+                           std::function<bool(COutputEntry const &, CBlockIndex const *, CWalletTx const *)> txEntry) {
 
     CTxDestination destination;
     ExtractDestination(account, destination);
@@ -111,11 +116,12 @@ static void searchInWallet(CWallet const * pwallet,
     for (const auto& tx : txOrdered) {
         auto* pwtx = &tx;
 
-        if (pwtx->IsCoinBase()) {
+        auto index = LookupBlockIndex(pwtx->hashBlock);
+        if (!index || index->height == 0) { // skip genesis block
             continue;
         }
 
-        if (shouldSkipTx(pwtx)) {
+        if (shouldSkipTx(index, pwtx)) {
             continue;
         }
 
@@ -129,7 +135,7 @@ static void searchInWallet(CWallet const * pwallet,
                 continue;
             }
             sent.amount = -sent.amount;
-            if (!onSent(sent)) {
+            if (!txEntry(sent, index, pwtx)) {
                 return;
             }
         }
@@ -141,7 +147,7 @@ static void searchInWallet(CWallet const * pwallet,
             if (IsValidDestination(destination) && destination != recv.destination) {
                 continue;
             }
-            if (!onReceive(recv)) {
+            if (!txEntry(recv, index, pwtx)) {
                 return;
             }
         }
@@ -983,31 +989,17 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     }
 
     if (shouldSearchInWallet) {
-        uint256 txid;
-        CBlockIndex const * index;
-        auto insertEntry = [&](COutputEntry const & entry, std::string const & info) -> bool {
-            auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
-            array.push_back(outputEntryToJSON(entry, index, txid, info));
-            return --count != 0;
-        };
-        searchInWallet(pwallet, account, filter, [&](CWalletTx const * pwtx) -> bool {
-            txid = pwtx->GetHash();
-            if (txs.count(txid)) {
-                return true;
+        count = limit;
+        searchInWallet(pwallet, account, filter,
+            [&](CBlockIndex const * index, CWalletTx const * pwtx) {
+                return txs.count(pwtx->GetHash()) || startBlock > index->height || index->height > maxBlockHeight;
+            },
+            [&](COutputEntry const & entry, CBlockIndex const * index, CWalletTx const * pwtx) {
+                auto& array = ret.emplace(index->height, UniValue::VARR).first->second;
+                array.push_back(outputEntryToJSON(entry, index, pwtx));
+                return --count != 0;
             }
-
-            // Check we have index before progressing, wallet might be reindexing.
-            if (!(index = LookupBlockIndex(pwtx->hashBlock))) {
-                return true;
-            }
-
-            if (startBlock > index->height || index->height > maxBlockHeight) {
-                return true;
-            }
-
-            return false;
-        }, std::bind(insertEntry, std::placeholders::_1, "sent"),
-           std::bind(insertEntry, std::placeholders::_1, "receive"));
+        );
     }
 
     if (!noRewards) {
@@ -1203,25 +1195,15 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     }
 
     if (shouldSearchInWallet) {
-        auto incCount = [&count](COutputEntry const &) { ++count; return true; };
-        searchInWallet(pwallet, owner, filter, [&](CWalletTx const * pwtx) -> bool {
-            if (txs.count(pwtx->GetHash())) {
+        searchInWallet(pwallet, owner, filter,
+            [&](CBlockIndex const * index, CWalletTx const * pwtx) {
+                return txs.count(pwtx->GetHash()) || index->height > currentHeight;
+            },
+            [&count](COutputEntry const &, CBlockIndex const *, CWalletTx const *) {
+                ++count;
                 return true;
             }
-
-            auto index = LookupBlockIndex(pwtx->hashBlock);
-
-            // Check we have index before progressing, wallet might be reindexing.
-            if (!index) {
-                return true;
-            }
-
-            if (index->height > currentHeight) {
-                return true;
-            }
-
-            return false;
-        }, incCount, incCount);
+        );
     }
 
     if (noRewards) {
