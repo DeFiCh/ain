@@ -246,6 +246,11 @@ namespace pos {
         template <typename F>
         bool withSearchInterval(F&& f);
     };
+
+    // Map to store [master node id : last block creation attempt timestamp] for local master nodes
+    static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
+    static std::atomic_bool cs_MNLastBlockCreationAttemptTs(false);
+
 }
 
 #endif // DEFI_MINER_H
