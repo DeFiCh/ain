@@ -217,10 +217,11 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     return generateBlocks(coinbase_script, minterKey, myIDs->first, nGenerate, nMaxTries);
 }
 
+/// @deprecated version of getmininginfo. prefer using getmininginfo
 static UniValue getmintinginfo(const JSONRPCRequest& request)
 {
             RPCHelpMan{"getmintinginfo",
-                "\nReturns a json object containing mining-related information.",
+                "\nDEPRECATED. Prefer using getmininginfo.\nReturns a json object containing mining-related information.",
                 {},
                 RPCResult{
                     "{\n"
@@ -267,6 +268,76 @@ static UniValue getmintinginfo(const JSONRPCRequest& request)
     return obj;
 }
 
+// Returns the mining information of all local masternodes
+static UniValue getmininginfo(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"getmininginfo",
+        "\nReturns a json object containing mining-related information for all local masternodes",
+        {},
+        RPCResult{
+            "{\n"
+            "  \"blocks\": nnn,             (numeric) The current block\n"
+            "  \"currentblockweight\": nnn, (numeric, optional) The block weight of the last assembled block (only present if a block was ever assembled)\n"
+            "  \"currentblocktx\": nnn,     (numeric, optional) The number of block transactions of the last assembled block (only present if a block was ever assembled)\n"
+            "  \"difficulty\": xxx.xxxxx    (numeric) The current difficulty\n"
+            "  \"networkhashps\": nnn,      (numeric) The network hashes per second\n"
+            "  \"pooledtx\": n              (numeric) The size of the mempool\n"
+            "  \"chain\": \"xxxx\",         (string)  current network name as defined in BIP70 (main, test, regtest)\n"
+            "  \"isoperator\": true|false   (boolean) Local master nodes are available or not \n"
+            "  \"masternodes\": []          (array)   an array of objects which includes each master node information\n"
+            "  \"warnings\": \"...\"        (string)  any network and blockchain warnings\n"
+            "}\n"    
+        },
+        RPCExamples{
+            HelpExampleCli("getmininginfo", "")
+            + HelpExampleRpc("getmininginfo", "")
+        },
+    }.Check(request);
+
+    LOCK(cs_main);
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("blocks",           (int)::ChainActive().Height());
+    if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
+    if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
+    obj.pushKV("difficulty",       (double)GetDifficulty(::ChainActive().Tip()));
+    obj.pushKV("networkhashps",    getnetworkhashps(request));
+    obj.pushKV("pooledtx",         (uint64_t)mempool.size());
+    obj.pushKV("chain",            Params().NetworkIDString());
+
+    // get all masternode operators
+    auto mnIds = pcustomcsview->GetOperatorsMulti();
+    obj.pushKV("isoperator", !mnIds.empty());
+
+    UniValue mnArr(UniValue::UniValue::VARR); // masternodes array
+    for (const auto& mnId : mnIds) {
+        UniValue subObj(UniValue::VOBJ);
+
+        subObj.pushKV("masternodeid", mnId.second.GetHex());
+        CMasternode const & node = *pcustomcsview->GetMasternode(mnId.second);
+        auto state = node.GetState();
+        subObj.pushKV("masternodeoperator", node.operatorAuthAddress.GetHex());// NOTE(sp) : Should this also be encoded? not the HEX
+        subObj.pushKV("masternodestate", CMasternode::GetHumanReadableState(state));
+        auto generate = node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE);
+        subObj.pushKV("generate", generate);
+        subObj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);
+
+        if (!generate) {
+            subObj.pushKV("lastblockcreationattempt", "0");
+        } else {
+            // get the last block creation attempt by the master node
+            CLockFreeGuard lock(pos::cs_MNLastBlockCreationAttemptTs);
+            auto lastBlockCreationAttemptTs = pos::mapMNLastBlockCreationAttemptTs[mnId.second];
+            subObj.pushKV("lastblockcreationattempt", (lastBlockCreationAttemptTs != 0) ? FormatISO8601DateTime(lastBlockCreationAttemptTs) : "0");
+        }
+        
+        mnArr.push_back(subObj);
+    }
+
+    obj.pushKV("masternodes", mnArr);
+    obj.pushKV("warnings",         GetWarnings("statusbar"));
+    return obj;
+}
 
 // NOTE: Unlike wallet RPC (which use DFI values), mining RPCs follow GBT (BIP 22) in using satoshi amounts
 static UniValue prioritisetransaction(const JSONRPCRequest& request)
@@ -1011,6 +1082,7 @@ static const CRPCCommand commands[] =
     { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
     { "mining",             "submitblock",            &submitblock,            {"hexdata","dummy"} },
     { "mining",             "submitheader",           &submitheader,           {"hexdata"} },
+    { "mining",             "getmininginfo",          &getmininginfo,          {} },
 
 
     { "generating",         "generatetoaddress",      &generatetoaddress,      {"nblocks","address","maxtries"} },
