@@ -141,13 +141,15 @@ public:
     //! basic properties
     uint256 offerTx; // txid for which offer is this HTLC
     CAmount amount; // amount that is put in HTLC
-    uint256 secretHash;
-    std::string receiverAddress;
+    uint256 hash; // hash for the hash lock part
+    uint32_t timeout; // timeout (absolute in blocks) for timelock part
+    std::string receiverAddress; //address where tokens are sent after claiming HTLC
 
     CICXSubmitDFCHTLC()
         : offerTx(uint256())
         , amount(0)
-        , secretHash()
+        , hash()
+        , timeout(0)
         , receiverAddress("")
     {}
     virtual ~CICXSubmitDFCHTLC() = default;
@@ -158,7 +160,8 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(offerTx);
         READWRITE(amount);
-        READWRITE(secretHash);
+        READWRITE(hash);
+        READWRITE(timeout);
         READWRITE(receiverAddress);
     }
 };
@@ -190,18 +193,20 @@ public:
 class CICXSubmitEXTHTLC
 {
 public:
-    // This tx is acceptance of the offer and evidence of HTLC on DFC in the same time. It is a CustomTx on DFC chain
+    // This tx is acceptance of the offer and evidence of HTLC on external chain in the same time. It is a CustomTx on DFC chain
     //! basic properties
     uint256 offerTx; // txid for which offer is this HTLC
+    uint256 hash; 
     std::string htlcscriptAddress;
     CPubKey ownerPubkey;
-    uint32_t blockTimeout;
+    uint32_t timeout;
 
     CICXSubmitEXTHTLC()
         : offerTx(uint256())
+        , hash()
         , htlcscriptAddress("")
         , ownerPubkey()
-        , blockTimeout(0)
+        , timeout(0)
     {}
     virtual ~CICXSubmitEXTHTLC() = default;
 
@@ -210,9 +215,10 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(offerTx);
+        READWRITE(hash);
         READWRITE(htlcscriptAddress);
         READWRITE(ownerPubkey);
-        READWRITE(blockTimeout);
+        READWRITE(timeout);
     }
 };
 
@@ -247,8 +253,8 @@ public:
     //! basic properties
     uint256 offerTx; // txid for which offer is this HTLC
     CAmount amount; // amount that is put in HTLC
-    uint256 seed;
-    std::string receiverAddress;
+    uint256 seed; // secret for the hash to claim htlc
+    std::string receiverAddress; // address where tokens are sent when claiming HTLC (must be the same as in submitdfchtlc)
 
     CICXClaimDFCHTLC()
         : offerTx(uint256())

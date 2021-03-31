@@ -195,6 +195,9 @@ Res ApplyCustomTx(CCustomCSView & base_mnview, CCoinsViewCache const & coins, CT
             case CustomTxType::ICXMakeOffer:
                 res = ApplyICXMakeOfferTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
                 break;
+            case CustomTxType::ICXSubmitDFCHTLC:
+                res = ApplyICXSubmitDFCHTLCTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
+                break;
             case CustomTxType::ICXCloseOrder:
                 res = ApplyICXCloseOrderTx(mnview, coins, tx, height, metadata, consensusParams, skipAuth);
                 break;
@@ -1636,6 +1639,49 @@ Res ApplyICXMakeOfferTx(CCustomCSView & mnview, CCoinsViewCache const & coins, C
     auto res = mnview.ICXMakeOffer(makeoffer,*order);
     if (!res.ok) {
         return Res::Err("%s %s: %s", __func__, makeoffer.creationTx.GetHex(), res.msg);
+    }
+
+    return Res::Ok();
+}
+
+Res ApplyICXSubmitDFCHTLCTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth, UniValue *rpcInfo)
+{
+    // if ((int)height < consensusParams.EhardforkHeight) { return Res::Err("Order tx before Ehardfork height (block %d)", consensusParams.EhardforkHeight); }
+
+    // Check quick conditions first
+    if (tx.vout.size() != 2) {
+        return Res::Err("%s: %s", __func__, "malformed tx vouts (wrong number of vouts)");
+    }
+
+    CICXSubmitDFCHTLCImplemetation submitdfchtlc;
+    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+    ss >> static_cast<CICXSubmitDFCHTLC &>(submitdfchtlc);
+    if (!ss.empty()) {
+        return Res::Err("%s: deserialization failed: excess %d bytes", __func__, ss.size());
+    }
+    
+    submitdfchtlc.creationTx = tx.GetHash();
+    submitdfchtlc.creationHeight = height;
+
+    auto offer=mnview.GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
+    if (!offer) {
+        return Res::Err("order with creation tx %s does not exists!", submitdfchtlc.offerTx.GetHex());
+    }
+
+    // Return here to avoid balance problems
+    if (rpcInfo) {
+        rpcInfo->pushKV("creationTx", submitdfchtlc.creationTx.GetHex());
+        rpcInfo->pushKV("offerTx", submitdfchtlc.offerTx.GetHex());
+        rpcInfo->pushKV("amount", submitdfchtlc.amount);
+        rpcInfo->pushKV("receiverAddress", submitdfchtlc.receiverAddress);
+        rpcInfo->pushKV("hash", submitdfchtlc.hash.GetHex());
+        rpcInfo->pushKV("timeout", static_cast<int>(submitdfchtlc.timeout));
+        return Res::Ok();
+    }
+    
+    auto res = mnview.ICXSubmitDFCHTLC(submitdfchtlc);
+    if (!res.ok) {
+        return Res::Err("%s %s: %s", __func__, submitdfchtlc.creationTx.GetHex(), res.msg);
     }
 
     return Res::Ok();

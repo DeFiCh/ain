@@ -97,7 +97,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     if (request.params[0].isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
-                           "{\"ownerAddress\",\"tokenFrom\",\"tokenTo\",\"amountFrom\",\"orderPrice\"}");
+                           "{\"tokenFrom|chainFrom\",\"chainTo|tokenTo\",\"ownerAddress\",\"amountFrom\",\"orderPrice\"}");
     }
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
@@ -235,7 +235,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_makeoffer",
-                "\nCreates (and submits to local node and network) a fill order transaction.\n" +
+                "\nCreates (and submits to local node and network) a makeoffer transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"order", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -266,7 +266,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
      }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot make offer while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
@@ -343,6 +343,266 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
             AddCoins(coinview, *optAuthTx, targetHeight);
         const auto res = ApplyICXMakeOfferTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
                                       ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, makeoffer}), Params().GetConsensus());
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+    return signsend(rawTx, pwallet, {})->GetHash().GetHex();
+}
+
+UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"icx_submitdfchtlc",
+                "\nCreates (and submits to local node and network) a dfc htlc transaction.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"htlc", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"offerTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of offer tx for which the htlc is"},
+                            {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "amount in htlc"},
+                            {"receiverAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "address for destination of tokens when htlc is claimed"},
+                            {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "hash of the seed for the hash lock"},
+                            {"timeout", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "timeout (absolute in block) for expiration of htlc"},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("icx_submitdfchtlc", "'{\"offerTx\":\"tokenAddress\","
+                                                        "\"amount\":\"10\",\"hash\":\"\"}'")
+                },
+     }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot submit dfc htlc while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
+    if (request.params[0].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
+                           "{\"offerTx\",\"amount\",\"receiverAddress\",\"hash\"}");
+    }
+    UniValue metaObj = request.params[0].get_obj();
+    UniValue const & txInputs = request.params[1];
+
+    CICXSubmitDFCHTLC submitdfchtlc;
+
+    if (!metaObj["offerTx"].isNull()) {
+        submitdfchtlc.offerTx = uint256S(metaObj["offerTx"].getValStr());
+    }
+    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"offerTx\" must be non-null");
+    if (!metaObj["amount"].isNull()) {
+        submitdfchtlc.amount = AmountFromValue(metaObj["amount"]);
+    }
+    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amount\" must be non-null");
+    if (!metaObj["receiverAddress"].isNull()) {
+        submitdfchtlc.receiverAddress = trim_ws(metaObj["receiverAddress"].getValStr());
+    }
+    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"receiverAddress\" must be non-null");
+    if (!metaObj["hash"].isNull()) {
+        submitdfchtlc.hash = uint256S(metaObj["hash"].getValStr());
+    }
+    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"hash\" must be non-null");
+    if (!metaObj["timeout"].isNull()) {
+        submitdfchtlc.timeout = metaObj["timeout"].get_int();
+    }
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
+        if (!offer)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "offerTx (" + submitdfchtlc.offerTx.GetHex() + ") does not exist");
+
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::ICXSubmitDFCHTLC)
+             << submitdfchtlc;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    CCoinControl coinControl;
+
+    // Return change to auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx,&coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto res = ApplyICXSubmitDFCHTLCTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
+                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, submitdfchtlc}), Params().GetConsensus());
+        if (!res.ok) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
+        }
+    }
+    return signsend(rawTx, pwallet, {})->GetHash().GetHex();
+}
+
+UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"icx_submitexthtlc",
+                "\nCreates (and submits to local node and network) ext htlc transaction.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"htlc", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"offerTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of offer tx for which the htlc is"},
+                            {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "hash used for hash lock part"},
+                            {"htlcScriptAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "script address of external htlc"},
+                            {"ownerPubkey", RPCArg::Type::STR, RPCArg::Optional::NO, "pubkey of the owner who created htlc"},
+                            {"timeout", RPCArg::Type::NUM, RPCArg::Optional::NO, "timeout (absolute in block) for expiration of htlc"},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("icx_submitexthtlc", "'{\"offerTx\":\"tokenAddress\","
+                                                        "\"amount\":\"10\",\"hash\":\"\"}'")
+                },
+     }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot submit ext htlc while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
+    if (request.params[0].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
+                           "{\"offerTx\",\"amount\",\"receiverAddress\",\"hash\"}");
+    }
+    UniValue metaObj = request.params[0].get_obj();
+    UniValue const & txInputs = request.params[1];
+
+    CICXSubmitEXTHTLC submitexthtlc;
+
+    if (!metaObj["offerTx"].isNull()) {
+        submitexthtlc.offerTx = uint256S(metaObj["offerTx"].getValStr());
+    }
+    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"offerTx\" must be non-null");
+    if (!metaObj["hash"].isNull()) {
+        submitexthtlc.hash = uint256S(metaObj["hash"].getValStr());
+    }
+    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"hash\" must be non-null");
+    if (!metaObj["htlcscriptAddress"].isNull()) {
+        submitexthtlc.htlcscriptAddress = trim_ws(metaObj["htlcscriptAddress"].getValStr());
+    }
+    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"htlcscriptAddress\" must be non-null");
+    if (!metaObj["ownerPubkey"].isNull()) {
+        submitexthtlc.ownerPubkey = CPubKey(trim_ws(metaObj["ownerPubkey"].getValStr()).begin(),trim_ws(metaObj["ownerPubkey"].getValStr()).end());
+    }
+    else throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"ownerPubkey\" must be non-null");
+    if (!metaObj["timeout"].isNull()) {
+        submitexthtlc.timeout = metaObj["timeout"].get_int();
+    }
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(submitexthtlc.offerTx);
+        if (!offer)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "offerTx (" + submitexthtlc.offerTx.GetHex() + ") does not exist");
+
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::ICXSubmitEXTHTLC)
+             << submitexthtlc;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    CCoinControl coinControl;
+
+    // Return change to auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx,&coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto res = ApplyICXSubmitEXTHTLCTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
+                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, submitexthtlc}), Params().GetConsensus());
         if (!res.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
         }
