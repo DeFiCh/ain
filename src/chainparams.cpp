@@ -127,6 +127,7 @@ public:
         consensus.EunosKampungHeight = 895743;
         consensus.EunosPayaHeight = 1072000; // Aug 05, 2021.
         consensus.FortCanningHeight = std::numeric_limits<int>::max();
+        consensus.FUpgradeHeight = 11223344;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -347,6 +348,7 @@ public:
         consensus.EunosKampungHeight = consensus.EunosHeight;
         consensus.EunosPayaHeight = 463300;
         consensus.FortCanningHeight = std::numeric_limits<int>::max();
+        consensus.FUpgradeHeight = 287700;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -529,6 +531,9 @@ public:
         consensus.EunosKampungHeight = consensus.EunosHeight;
         consensus.EunosPayaHeight = 300;
         consensus.FortCanningHeight = std::numeric_limits<int>::max();
+        consensus.DakotaHeight = 0;
+        consensus.DakotaCrescentHeight = 0;
+        consensus.FUpgradeHeight = 0;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -703,6 +708,7 @@ public:
         consensus.EunosKampungHeight = 10000000;
         consensus.EunosPayaHeight = 10000000;
         consensus.FortCanningHeight = 10000000;
+        consensus.FUpgradeHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
