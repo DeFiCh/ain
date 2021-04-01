@@ -322,6 +322,10 @@ Res ApplyResignMasternodeTx(CCustomCSView & mnview, CCoinsViewCache const & coin
 
 Res ApplySetForcedRewardAddressTx(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth, UniValue *rpcInfo)
 {
+    if (height < static_cast<uint32_t>(Params().GetConsensus().FUpgradeHeight)) {
+        return Res::Err("%s: block height less than FUpgradeHeight (block %d)", __func__, Params().GetConsensus().FUpgradeHeight);
+    }
+
     SetForcedRewardAddressMessage msg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> msg;
@@ -363,6 +367,10 @@ Res ApplySetForcedRewardAddressTx(CCustomCSView& mnview, CCoinsViewCache const& 
 
 Res ApplyRemoveForcedRewardAddressTx(CCustomCSView& mnview, CCoinsViewCache const& coins, CTransaction const& tx, uint32_t height, const std::vector<unsigned char>& metadata, bool skipAuth, UniValue *rpcInfo)
 {
+    if (height < static_cast<uint32_t>(Params().GetConsensus().FUpgradeHeight)) {
+        return Res::Err("%s: block height less than FUpgradeHeight (block %d)", __func__, Params().GetConsensus().FUpgradeHeight);
+    }
+
     RemoveForcedRewardAddressMessage msg;
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     ss >> msg;

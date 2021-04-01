@@ -801,6 +801,17 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.DakotaHeight = static_cast<int>(height);
     }
 
+    if (gArgs.IsArgSet("-fupgradeheight")) {
+        int64_t height = gArgs.GetArg("-fupgradeheight", consensus.FUpgradeHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for Forced MN upgrade is out of valid range. Use -1 to disable FU features.", height));
+        } else if (height == -1) {
+            LogPrintf("FUpgrade disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.FUpgradeHeight = static_cast<int>(height);
+    }
+
     if (gArgs.IsArgSet("-dakotacrescentheight")) {
         int64_t height = gArgs.GetArg("-dakotacrescentheight", consensus.DakotaCrescentHeight);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {

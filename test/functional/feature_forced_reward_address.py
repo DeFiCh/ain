@@ -14,8 +14,8 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
-            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
+            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fupgradeheight=1'],
+            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fupgradeheight=1'],
         ]
 
     def skip_test_if_missing_module(self):
@@ -108,7 +108,7 @@ class TestForcedRewardAddress(DefiTestFramework):
 
         self.log.info("Restarting node with -gen params...")
         self.stop_node(1)
-        self.restart_node(0, ['-gen', '-masternode_operator='+mn_owner, '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'])
+        self.restart_node(0, ['-gen', '-masternode_operator='+mn_owner, '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fupgradeheight=1'])
 
         self.log.info('Mining blocks...')
         self.nodes[0].generate(300)
@@ -123,7 +123,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         cli_reward_address = self.nodes[0].getnewaddress("", "legacy")
         self.log.info(cli_reward_address)
 
-        self.restart_node(0, ['-gen', '-masternode_operator='+mn_owner, '-rewardaddress='+cli_reward_address, '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'])
+        self.restart_node(0, ['-gen', '-masternode_operator='+mn_owner, '-rewardaddress='+cli_reward_address, '-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fupgradeheight=1'])
 
         cra_unspent = self.list_unspent_tx(self.nodes[0], cli_reward_address)
         cra_amount = self.unspent_amount(self.nodes[0], cli_reward_address)
