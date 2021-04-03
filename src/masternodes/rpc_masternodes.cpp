@@ -368,7 +368,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         auto ownerDest = DecodeDestination(ownerAddress);
         if (ownerDest.which() == 1) {
             ownerAddressID = CKeyID(*boost::get<PKHash>(&ownerDest));
-        } else if (ownerDest.which() == 4) {
+        } else if (ownerDest.which() == WitV0KeyHashType) {
             ownerAddressID = CKeyID(*boost::get<WitnessV0KeyHash>(&ownerDest));
         } else {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid P2PKH address");
@@ -387,7 +387,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         auto operatorDest = DecodeDestination(operatorAddress);
         if (operatorDest.which() == 1) {
             operatorAddressID = CKeyID(*boost::get<PKHash>(&operatorDest));
-        } else if (operatorDest.which() == 4) {
+        } else if (operatorDest.which() == WitV0KeyHashType) {
             operatorAddressID = CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest));
         } else {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid P2PKH address");
