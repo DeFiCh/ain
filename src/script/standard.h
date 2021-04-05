@@ -138,6 +138,15 @@ struct WitnessUnknown
  */
 typedef boost::variant<CNoDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown> CTxDestination;
 
+enum TxDestType {
+    NoDestType,
+    PKHashType,
+    ScriptHashType,
+    WitV0ScriptHashType,
+    WitV0KeyHashType,
+    WitUnknownType
+};
+
 /** Check whether a CTxDestination is a CNoDestination. */
 bool IsValidDestination(const CTxDestination& dest);
 
