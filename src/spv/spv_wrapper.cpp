@@ -236,9 +236,9 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
         for (const auto& entry : wallet->mapAddressBook) {
             if (entry.second.purpose == "spv") {
                 uint160 userHash;
-                if (entry.first.which() == 1) {
+                if (entry.first.which() == PKHashType) {
                     userHash = *boost::get<PKHash>(&entry.first);
-                } else if (entry.first.which() == 4) {
+                } else if (entry.first.which() == WitV0KeyHashType) {
                     userHash = *boost::get<WitnessV0KeyHash>(&entry.first);
                 } else {
                     continue;
