@@ -220,9 +220,12 @@ public:
     struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair
     struct ByPair { static const unsigned char prefix; }; // tokenA+tokenB -> lsTokenID
     struct ByShare { static const unsigned char prefix; }; // lsTokenID+accountID -> {}
-    struct Reward { static const unsigned char prefix; }; // lsTokenID -> CBalances
+    struct ByIDPair { static const unsigned char prefix; }; // lsTokenID -> tokenA+tokenB
+    struct ByPoolSwap { static const unsigned char prefix; };
+    struct ByPoolReward { static const unsigned char prefix; };
     struct ByDailyReward { static const unsigned char prefix; };
-    struct ByPoolHeight { static const unsigned char prefix; };
+    struct ByCustomReward { static const unsigned char prefix; };
+    struct ByTotalLiquidity { static const unsigned char prefix; };
 };
 
 struct CLiquidityMessage {
