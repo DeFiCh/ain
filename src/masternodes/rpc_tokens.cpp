@@ -735,6 +735,155 @@ UniValue minttokens(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue decodecustomtx(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"decodecustomtx",
+        "\nGet detailed information about a DeFiChain custom transaction.\n"
+        "can be enabled to return details for any transaction.",
+        {
+            {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction hex string"},
+            {"iswitness", RPCArg::Type::BOOL, /* default */ "depends on heuristic tests", "Whether the transaction hex is a serialized witness transaction.\n"
+                "If iswitness is not present, heuristic tests will be used in decoding.\n"
+                "If true, only witness deserialization will be tried.\n"
+                "If false, only non-witness deserialization will be tried.\n"
+                "This boolean should reflect whether the transaction has inputs\n"
+                "(e.g. fully valid, or on-chain transactions), if known by the caller."
+            },
+        },
+        RPCResult{
+            "{\n"
+            "  \"type\":               (string) The transaction type.\n"
+            "  \"valid\"               (bool) Whether the transaction was valid.\n"
+            "  \"results\"             (json object) Set of results related to the transaction type\n"
+            "  \"block height\"        (string) The block height containing the transaction.\n"
+            "  \"blockhash\"           (string) The block hash containing the transaction.\n"
+            "  \"confirmations\": n,   (numeric) The number of confirmations for the transaction."
+            "  \"warnings\":           (string) any network and blockchain warnings." 
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("decodecustomtx", "\"hexstring\"")
+            + HelpExampleRpc("decodecustomtx", "\"hexstring\"")
+        },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
+
+    CMutableTransaction mtx;
+
+    bool try_witness = request.params[1].isNull() ? true : request.params[1].get_bool();
+    bool try_no_witness = request.params[1].isNull() ? true : !request.params[1].get_bool();
+
+    if (!DecodeHexTx(mtx, request.params[0].get_str(), try_no_witness, try_witness)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    }
+
+    int nHeight{0};
+    bool actualHeight{false};
+    CustomTxType guess;
+    UniValue txResults(UniValue::VOBJ);
+    Res res{};
+    uint256 hashBlock;
+    CBlockIndex* blockindex{nullptr};
+    CTransactionRef tx = MakeTransactionRef(std::move(mtx));
+    std::string warnings;
+
+    if (tx)
+    {
+        // Search wallet if available
+        std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+        if (wallet) {
+            LOCK(wallet->cs_wallet);
+            if (auto wtx = wallet->GetWalletTx(tx->GetHash()))
+            {
+                hashBlock = wtx->hashBlock;
+            }
+        }
+
+        // No wallet or not a wallet TX, try mempool, txindex
+        if (!wallet || hashBlock.IsNull())
+        {
+            bool f_txindex_ready{false};
+            if (g_txindex) {
+                f_txindex_ready = g_txindex->BlockUntilSyncedToCurrentChain();
+            }
+
+            //get block hash details
+            if (!GetBlockHash(tx->GetHash(), Params().GetConsensus(), hashBlock, blockindex)) {
+                if (!g_txindex) {
+                    warnings = "Failed to find the relavant block. Use -txindex";
+                } else if (!f_txindex_ready) {
+                    warnings = "Failed to find the relavant block. Transactions are still in the process of being indexed.";
+                } else {
+                    warnings = "Failed to find the relavant block";
+                }
+            }
+        }
+
+        LOCK(cs_main);
+        // Found a block hash but no block index yet
+        if (!hashBlock.IsNull() && !blockindex) {
+            blockindex = LookupBlockIndex(hashBlock);
+        }
+
+        // Default to next block height
+        nHeight = ::ChainActive().Height() + 1;
+
+        // Get actual height if blockindex avaiable
+        if (blockindex) {
+            nHeight = blockindex->nHeight;
+            actualHeight = true;
+        }
+
+        // Skip coinbase TXs except for genesis block
+        if ((tx->IsCoinBase() && nHeight > 0)) {
+            return "Coinbase transaction. Not a custom transaction.";
+        }
+
+        if (!GetCustomTXInfo(nHeight, tx, guess, res, txResults)) {
+            return "Not a custom transaction";
+        }
+
+    } else {
+        // Should not get here
+        return "Could not decode the input transaction hexstring.";
+    }
+
+    UniValue result(UniValue::VOBJ);
+
+    result.pushKV("type", ToString(guess));
+    if (!actualHeight) {
+        result.pushKV("valid", res.ok ? true : false);
+    } else {
+        auto undo = pcustomcsview->GetUndo(UndoKey{static_cast<uint32_t>(nHeight), tx->GetHash()});
+        result.pushKV("valid", undo || res.msg == "AutoAuth" ? true : false);
+    }
+
+    if (!res.ok) {
+        result.pushKV("error", res.msg);
+    } else {
+        result.pushKV("results", txResults);
+    }
+
+    if (!hashBlock.IsNull()) {
+        LOCK(cs_main);
+
+        result.pushKV("blockhash", hashBlock.GetHex());
+        if (blockindex) {
+            result.pushKV("blockHeight", blockindex->nHeight);
+            result.pushKV("blockTime", blockindex->GetBlockTime());
+            result.pushKV("confirmations", 1 + ::ChainActive().Height() - blockindex->nHeight);
+        } else {
+            result.pushKV("confirmations", 0);
+        }
+    }
+    else{
+        result.pushKV("warnings", warnings);
+    }
+
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { 
 //  category        name                     actor (function)        params
@@ -745,6 +894,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "gettoken",              &gettoken,              {"key" }},
     {"tokens",      "getcustomtx",           &getcustomtx,           {"txid", "blockhash"}},
     {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
+    {"tokens",      "decodecustomtx",        &decodecustomtx,        {"hexstring","iswitness"}},
 };
 
 void RegisterTokensRPCCommands(CRPCTable& tableRPC) {
