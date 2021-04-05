@@ -60,6 +60,7 @@ enum class CustomTxType : unsigned char
     ICXMakeOffer        = '2',
     ICXSubmitDFCHTLC    = '3',
     ICXSubmitEXTHTLC    = '4',
+    ICXClaimDFCHTLC     = '5',
     ICXCloseOrder       = '6',
 };
 
@@ -95,6 +96,7 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::ICXMakeOffer:        return "ICXMakeOffer";
         case CustomTxType::ICXSubmitDFCHTLC:    return "ICXSubmitDFCHTLC";
         case CustomTxType::ICXSubmitEXTHTLC:    return "ICXSubmitEXTHTLC";
+        case CustomTxType::ICXClaimDFCHTLC:    return "ICXClaimDFCHTLC";
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         default:                                return "None";
     }
@@ -149,6 +151,8 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
 Res ApplyICXCreateOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 Res ApplyICXMakeOfferTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 Res ApplyICXSubmitDFCHTLCTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplyICXSubmitEXTHTLCTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
+Res ApplyICXClaimDFCHTLCTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 Res ApplyICXCloseOrderTx(CCustomCSView & mnview, CCoinsViewCache const & coins, CTransaction const & tx, uint32_t height, std::vector<unsigned char> const & metadata, Consensus::Params const & consensusParams, bool skipAuth = false, UniValue* rpcInfo = nullptr);
 
 bool IsMempooledCustomTxCreate(const CTxMemPool& pool, const uint256 & txid);
