@@ -262,6 +262,8 @@ void UnloadBlockIndex();
 void ThreadScriptCheck(int worker_num);
 /** Retrieve a transaction (from memory pool, or from disk, if possible) */
 bool GetTransaction(const uint256& hash, CTransactionRef& tx, const Consensus::Params& params, uint256& hashBlock, const CBlockIndex* const blockIndex = nullptr);
+/** Retrieve a block hash which includes the transaction hash (from memory pool, or from disk, if possible)*/
+bool GetBlockHash(const uint256& hash, const Consensus::Params& params, uint256& hashBlock, const CBlockIndex* const blockIndex = nullptr);
 /**
  * Find the best known block, and make it the tip of the block chain
  *
