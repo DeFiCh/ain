@@ -61,12 +61,12 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     {
         // check that block minter exists and active at the height of the block
         AssertLockHeld(cs_main);
-        auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(minter);
+        auto optMasternodeID = mnView->GetMasternodeIdByOperator(minter);
         if (!optMasternodeID) {
             return false;
         }
         masternodeID = *optMasternodeID;
-        auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
+        auto nodePtr = mnView->GetMasternode(masternodeID);
         if (!nodePtr || !nodePtr->IsActive(blockHeader.height)) {
             return false;
         }
