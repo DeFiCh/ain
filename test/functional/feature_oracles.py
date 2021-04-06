@@ -26,10 +26,10 @@ class OraclesTest(DefiTestFramework):
         # node2: non foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1']]
 
     def create_tokens(self):
         collateral0 = self.nodes[0].getnewaddress("", "legacy")

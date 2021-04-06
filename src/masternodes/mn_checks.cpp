@@ -1530,8 +1530,8 @@ Res ApplyAppointOracleTx(
         Consensus::Params const &consensusParams,
         bool skipAuth,
         UniValue *rpcInfo) {
-    if ((int) height < consensusParams.BayfrontHeight) {
-        return Res::Err("Appoint oracle tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    if ((int) height < consensusParams.EunosHeight) {
+        return Res::Err("Appoint oracle tx before Eunos height (block %d)", consensusParams.EunosHeight);
     }
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -1575,8 +1575,8 @@ Res ApplyUpdateOracleAppointTx(CCustomCSView &mnview,
                                Consensus::Params const &consensusParams,
                                bool skipAuth,
                                UniValue *rpcInfo) {
-    if ((int) height < consensusParams.BayfrontHeight) {
-        return Res::Err("Update oracle appoint tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    if ((int) height < consensusParams.EunosHeight) {
+        return Res::Err("Appoint oracle tx before Eunos height (block %d)", consensusParams.EunosHeight);
     }
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -1621,8 +1621,8 @@ Res ApplyRemoveOracleAppointTx(
         Consensus::Params const &consensusParams,
         bool skipAuth,
         UniValue *rpcInfo) {
-    if ((int) height < consensusParams.BayfrontHeight) {
-        return Res::Err("Remove oracle appoint tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    if ((int) height < consensusParams.EunosHeight) {
+        return Res::Err("Appoint oracle tx before Eunos height (block %d)", consensusParams.EunosHeight);
     }
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -1652,9 +1652,8 @@ Res ApplySetOracleDataTx(CCustomCSView &mnview,
                          Consensus::Params const &consensusParams,
                          bool skipAuth,
                          UniValue *rpcInfo) {
-    // do we need it in setoracledata?
-    if ((int) height < consensusParams.BayfrontHeight) {
-        return Res::Err("Set oracle data tx before Bayfront height (block %d)", consensusParams.BayfrontHeight);
+    if ((int) height < consensusParams.EunosHeight) {
+        return Res::Err("Appoint oracle tx before Eunos height (block %d)", consensusParams.EunosHeight);
     }
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
