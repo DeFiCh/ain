@@ -894,7 +894,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "gettoken",              &gettoken,              {"key" }},
     {"tokens",      "getcustomtx",           &getcustomtx,           {"txid", "blockhash"}},
     {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
-    {"tokens",      "decodecustomtx",        &decodecustomtx,        {"hexstring","iswitness"}},
+    {"tokens",      "decodecustomtx",        &decodecustomtx,        {"hexstring", "iswitness"}},
 };
 
 void RegisterTokensRPCCommands(CRPCTable& tableRPC) {
