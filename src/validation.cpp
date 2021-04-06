@@ -2367,12 +2367,23 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 cache.CalculateOwnerRewards(owner, pindex->nHeight);
                 return cache.GetBalance(owner, tokenID);
             },
-            [&](CScript const & owner, CTokenAmount amount) {
-                auto res = cache.SubBalance(owner, amount);
-                if (!res) {
-                    LogPrintf("Custom pool rewards: can't subtract balance of %s: %s, height %ld\n", owner.GetHex(), res.msg, pindex->nHeight);
+            [&](CScript const & from, CScript const & to, CTokenAmount amount) {
+                if (!from.empty()) {
+                    auto res = cache.SubBalance(from, amount);
+                    if (!res) {
+                        LogPrintf("Custom pool rewards: can't subtract balance of %s: %s, height %ld\n", from.GetHex(), res.msg, pindex->nHeight);
+                        return res;
+                    }
                 }
-                return res;
+                if (!to.empty()) {
+                    auto res = cache.AddBalance(to, amount);
+                    if (!res) {
+                        LogPrintf("Can't apply reward to %s: %s, %ld\n", to.GetHex(), res.msg, pindex->nHeight);
+                        return res;
+                    }
+                    cache.UpdateBalancesHeight(to, pindex->nHeight + 1);
+                }
+                return Res::Ok();
             },
             pindex->nHeight
         );
