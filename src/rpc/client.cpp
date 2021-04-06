@@ -257,6 +257,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "spv_claimhtlc", 3, "feerate" },
     { "spv_refundhtlc", 2, "feerate" },
+    { "decodecustomtx", 1, "iswitness" },
 };
 // clang-format on
 

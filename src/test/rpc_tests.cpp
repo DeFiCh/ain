@@ -88,8 +88,9 @@ BOOST_AUTO_TEST_CASE(rpc_rawparams)
     //we can only check for type here. Because even if the relevant tx is still not in the system, the type can be returned
     //with an error.
     BOOST_CHECK_EQUAL(find_value(r.get_obj(), "type").get_str(), "PoolSwap");
-
+    BOOST_CHECK_NO_THROW(r = CallRPC(std::string("decodecustomtx ")+txHexString + " true"));
     BOOST_CHECK_THROW(CallRPC(std::string("decodecustomtx ")+txHexString+" extra"), std::runtime_error);
+    BOOST_CHECK_THROW(CallRPC(std::string("decodecustomtx ")+txHexString+" true extra"), std::runtime_error);
 }
 
 BOOST_AUTO_TEST_CASE(rpc_togglenetwork)
