@@ -106,7 +106,7 @@ static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t 
         };
         auto beginHeight = std::max(*height, begin);
         view.CalculatePoolRewards(poolId, onLiquidity, beginHeight, end,
-            [&](CScript const &, uint8_t type, CTokenAmount amount, uint32_t height) {
+            [&](uint8_t type, CTokenAmount amount, uint32_t height) {
                 onReward(height, poolId, type, amount);
                 mnview.AddBalance(owner, amount); // update owner liquidity
             }

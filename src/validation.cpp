@@ -2362,10 +2362,26 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         CCustomCSView cache(mnview);
 
         // hardfork commissions update
-        cache.UpdatePoolCommissions([&](CScript const & owner, DCT_ID tokenID) {
-            cache.CalculateOwnerRewards(owner, pindex->nHeight);
-            return cache.GetBalance(owner, tokenID);
-        }, pindex->nHeight);
+        CAmount distributed = cache.UpdatePoolRewards(
+            [&](CScript const & owner, DCT_ID tokenID) {
+                cache.CalculateOwnerRewards(owner, pindex->nHeight);
+                return cache.GetBalance(owner, tokenID);
+            },
+            [&](CScript const & owner, CTokenAmount amount) {
+                auto res = cache.SubBalance(owner, amount);
+                if (!res) {
+                    LogPrintf("Custom pool rewards: can't subtract balance of %s: %s, height %ld\n", owner.GetHex(), res.msg, pindex->nHeight);
+                }
+                return res;
+            },
+            pindex->nHeight
+        );
+
+        auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);
+        if (!res.ok) {
+            LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, block.height, block.GetHash().ToString());
+        }
+
         // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
         if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
             cache.BayfrontFlagsCleanup();
