@@ -755,20 +755,7 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
         };
         auto beginHeight = std::max(*height, balanceHeight);
         CalculatePoolRewards(poolId, onLiquidity, beginHeight, targetHeight,
-            [&](CScript const & from, uint8_t type, CTokenAmount amount, uint32_t height) {
-                if (!from.empty()) {
-                    auto res = SubBalance(from, amount);
-                    if (!res) {
-                        LogPrintf("Custom pool rewards: can't subtract balance of %s: %s, height %ld\n", from.GetHex(), res.msg, targetHeight);
-                        return; // no funds, no rewards
-                    }
-                } else if (type != uint8_t(RewardType::Commission)) {
-                    auto res = SubCommunityBalance(CommunityAccountType::IncentiveFunding, amount.nValue);
-                    if (!res) {
-                        LogPrintf("Pool rewards: can't subtract community balance: %s, height %ld\n", res.msg, targetHeight);
-                        return;
-                    }
-                }
+            [&](uint8_t, CTokenAmount amount, uint32_t height) {
                 auto res = AddBalance(owner, amount);
                 if (!res) {
                     LogPrintf("Pool rewards: can't update balance of %s: %s, height %ld\n", owner.GetHex(), res.msg, targetHeight);

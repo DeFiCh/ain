@@ -210,55 +210,11 @@ public:
 
     boost::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider);
 
-    void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(CScript const &, uint8_t, CTokenAmount, uint32_t)> onReward);
+    void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(uint8_t, CTokenAmount, uint32_t)> onReward);
 
     Res SetDailyReward(uint32_t height, CAmount reward);
 
-    void UpdatePoolCommissions(std::function<CTokenAmount(CScript const & owner, DCT_ID tokenID)> onGetBalance, int nHeight = 0) {
-
-        bool newRewardCalc = nHeight >= Params().GetConsensus().BayfrontGardensHeight;
-
-        constexpr uint32_t const PRECISION = 10000; // (== 100%) just searching the way to avoid arith256 inflating
-
-        ForEachPoolPair([&] (DCT_ID const & poolId, CPoolPair pool) {
-
-            if (!pool.swapEvent) {
-                return true; // no events, skip to the next pool
-            }
-
-            CAmount distributedFeeA = 0;
-            CAmount distributedFeeB = 0;
-
-            ForEachPoolShare([&] (DCT_ID const & currentId, CScript const & provider, uint32_t height) {
-                if (currentId != poolId) {
-                    return false; // stop
-                }
-                CAmount const liquidity = onGetBalance(provider, poolId).nValue;
-
-                // distribute trading fees
-                if (newRewardCalc) {
-                    distributedFeeA += static_cast<CAmount>((arith_uint256(pool.blockCommissionA) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
-                    distributedFeeB += static_cast<CAmount>((arith_uint256(pool.blockCommissionB) * arith_uint256(liquidity) / arith_uint256(pool.totalLiquidity)).GetLow64());
-                } else {
-                    uint32_t const liqWeight = liquidity * PRECISION / pool.totalLiquidity;
-                    assert (liqWeight < PRECISION);
-                    distributedFeeA += pool.blockCommissionA * liqWeight / PRECISION;
-                    distributedFeeB += pool.blockCommissionB * liqWeight / PRECISION;
-                }
-                return true;
-            }, PoolShareKey{poolId, CScript{}});
-
-            pool.blockCommissionA -= distributedFeeA;
-            pool.blockCommissionB -= distributedFeeB;
-            pool.swapEvent = false;
-
-            auto res = SetPoolPair(poolId, UINT_MAX, pool);
-            if (!res.ok) {
-                LogPrintf("Pool rewards: can't update pool (id=%s) state: %s\n", poolId.ToString(), res.msg);
-            }
-            return true;
-        });
-    }
+    CAmount UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
 
     // tags
     struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair

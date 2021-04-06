@@ -412,7 +412,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
             return mnview.GetBalance(shareAddress[0], idPool).nValue;
         };
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
-            [&](CScript const &, uint8_t type, CTokenAmount amount, uint32_t height) {
+            [&](uint8_t type, CTokenAmount amount, uint32_t height) {
                 switch(type) {
                 case int(RewardType::Rewards):
                     BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
@@ -447,7 +447,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
         pool.swapEvent = true;
         pool.ownerAddress = shareAddress[1];
-        pool.rewards = CBalances{TAmounts{{idPool, COIN}}};
+        pool.rewards = CBalances{TAmounts{{DCT_ID{idPool.v+1}, COIN}}};
         mnview.SetPoolPair(idPool, 8, pool);
         return false;
     });
@@ -457,10 +457,9 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
             return mnview.GetBalance(shareAddress[1], idPool).nValue;
         };
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
-            [&](CScript const & from, uint8_t type, CTokenAmount amount, uint32_t height) {
+            [&](uint8_t type, CTokenAmount amount, uint32_t height) {
                 if (height >= Params().GetConsensus().BayfrontGardensHeight) {
-                    if (!from.empty()) {
-                        BOOST_CHECK(from == shareAddress[1]);
+                    if (amount.nTokenId == DCT_ID{idPool.v+1}) {
                         for (const auto& reward : pool.rewards.balances) {
                             auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(onLiquidity()) / arith_uint256(pool.totalLiquidity)).GetLow64());
                             BOOST_CHECK_EQUAL(amount.nValue, providerReward);
