@@ -255,7 +255,8 @@ public:
         }
 
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-        ss >> obj.poolId;
+        // serialize poolId as raw integer
+        ss >> obj.poolId.v;
         ss >> obj.status;
         ss >> obj.commission;
         ss >> obj.ownerAddress;

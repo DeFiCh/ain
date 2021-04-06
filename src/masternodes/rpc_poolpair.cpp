@@ -713,7 +713,8 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
-             << poolId << status << commission << ownerAddress;
+             // serialize poolId as raw integer
+             << poolId.v << status << commission << ownerAddress;
 
     if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
         metadata << rewards;
@@ -741,7 +742,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolId, status, commission, ownerAddress});
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolId.v, status, commission, ownerAddress});
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CUpdatePoolPairMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
