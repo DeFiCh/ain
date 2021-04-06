@@ -416,9 +416,10 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     return swapped.GetLow64();
 }
 
-CAmount CPoolPairView::UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CTokenAmount)> onTransfer, int nHeight) {
+CAmount CPoolPairView::UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight) {
 
     bool newRewardCalc = nHeight >= Params().GetConsensus().BayfrontGardensHeight;
+    bool newRewardLogic = nHeight >= Params().GetConsensus().EunosHeight;
 
     constexpr uint32_t const PRECISION = 10000; // (== 100%) just searching the way to avoid arith256 inflating
     CAmount totalDistributed = 0;
@@ -427,11 +428,6 @@ CAmount CPoolPairView::UpdatePoolRewards(std::function<CTokenAmount(CScript cons
 
         CAmount distributedFeeA = 0;
         CAmount distributedFeeB = 0;
-
-        uint32_t height = nHeight;
-        PoolHeightKey poolKey = {poolId, height};
-        auto poolReward = ReadValueAt<ByPoolReward, CAmount>(this, poolKey);
-        auto customRewards = ReadValueAt<ByCustomReward, CBalances>(this, poolKey);
 
         auto rewards = pool.rewards;
         for (auto it = rewards.balances.begin(), next_it = it; it != rewards.balances.end(); it = next_it) {
@@ -446,51 +442,89 @@ CAmount CPoolPairView::UpdatePoolRewards(std::function<CTokenAmount(CScript cons
             }
         }
 
+        PoolHeightKey poolKey = {poolId, uint32_t(nHeight)};
+        auto customRewards = ReadValueAt<ByCustomReward, CBalances>(this, poolKey);
+
         if (rewards != customRewards) {
             WriteBy<ByCustomReward>(poolKey, rewards);
         }
 
-        if (pool.totalLiquidity == 0 || (!pool.swapEvent && poolReward == 0 && rewards.balances.empty())) {
-            return true; // no events, skip to the next pool
+        if (!pool.totalLiquidity) {
+            return true;
         }
 
-        ForEachPoolShare([&] (DCT_ID const & currentId, CScript const & provider, uint32_t) {
-            if (currentId != poolId) {
-                return false; // stop
-            }
-            CAmount const liquidity = onGetBalance(provider, poolId).nValue;
+        auto poolReward = ReadValueAt<ByPoolReward, CAmount>(this, poolKey);
 
-            uint32_t const liqWeight = liquidity * PRECISION / pool.totalLiquidity;
-            assert (liqWeight < PRECISION);
+        if (newRewardLogic) {
 
-            // distribute trading fees
             if (pool.swapEvent) {
-                if (newRewardCalc) {
-                    distributedFeeA += liquidityReward(pool.blockCommissionA, liquidity, pool.totalLiquidity);
-                    distributedFeeB += liquidityReward(pool.blockCommissionB, liquidity, pool.totalLiquidity);
-                } else {
-                    distributedFeeA += pool.blockCommissionA * liqWeight / PRECISION;
-                    distributedFeeB += pool.blockCommissionB * liqWeight / PRECISION;
-                }
+                // it clears block commission
+                distributedFeeA = pool.blockCommissionA;
+                distributedFeeB = pool.blockCommissionB;
             }
 
-            // distribute yield farming
-            if (poolReward) {
-                if (newRewardCalc) {
-                    totalDistributed += liquidityReward(poolReward, liquidity, pool.totalLiquidity);
-                } else {
-                    totalDistributed += poolReward * liqWeight / PRECISION;
-                }
-            }
+            // increase by pool block reward
+            totalDistributed += poolReward;
 
             for (const auto& reward : rewards.balances) {
-                if (auto providerReward = liquidityReward(reward.second, liquidity, pool.totalLiquidity)) {
-                    onTransfer(pool.ownerAddress, {reward.first, providerReward});
-                }
+                // subtract pool's owner account by custom block reward
+                onTransfer(pool.ownerAddress, {}, {reward.first, reward.second});
             }
 
-            return true;
-        }, PoolShareKey{poolId, CScript{}});
+        } else {
+            if (!pool.swapEvent && poolReward == 0 && rewards.balances.empty()) {
+                return true; // no events, skip to the next pool
+            }
+
+            ForEachPoolShare([&] (DCT_ID const & currentId, CScript const & provider, uint32_t) {
+                if (currentId != poolId) {
+                    return false; // stop
+                }
+                CAmount const liquidity = onGetBalance(provider, poolId).nValue;
+
+                uint32_t const liqWeight = liquidity * PRECISION / pool.totalLiquidity;
+                assert (liqWeight < PRECISION);
+
+                // distribute trading fees
+                if (pool.swapEvent) {
+                    CAmount feeA, feeB;
+                    if (newRewardCalc) {
+                        feeA = liquidityReward(pool.blockCommissionA, liquidity, pool.totalLiquidity);
+                        feeB = liquidityReward(pool.blockCommissionB, liquidity, pool.totalLiquidity);
+                    } else {
+                        feeA = pool.blockCommissionA * liqWeight / PRECISION;
+                        feeB = pool.blockCommissionB * liqWeight / PRECISION;
+                    }
+                    if (onTransfer({}, provider, {pool.idTokenA, feeA})) {
+                        distributedFeeA += feeA;
+                    }
+                    if (onTransfer({}, provider, {pool.idTokenB, feeB})) {
+                        distributedFeeB += feeB;
+                    }
+                }
+
+                // distribute yield farming
+                if (poolReward) {
+                    CAmount providerReward;
+                    if (newRewardCalc) {
+                        providerReward = liquidityReward(poolReward, liquidity, pool.totalLiquidity);
+                    } else {
+                        providerReward = poolReward * liqWeight / PRECISION;
+                    }
+                    if (onTransfer({}, provider, {DCT_ID{0}, providerReward})) {
+                        totalDistributed += providerReward;
+                    }
+                }
+
+                for (const auto& reward : rewards.balances) {
+                    if (auto providerReward = liquidityReward(reward.second, liquidity, pool.totalLiquidity)) {
+                        onTransfer(pool.ownerAddress, provider, {reward.first, providerReward});
+                    }
+                }
+
+                return true;
+            }, PoolShareKey{poolId, CScript{}});
+        }
 
         if (pool.swapEvent) {
             pool.blockCommissionA -= distributedFeeA;
@@ -523,7 +557,9 @@ boost::optional<uint32_t> CPoolPairView::GetShare(DCT_ID const & poolId, CScript
 
 Res CPoolPairView::SetDailyReward(uint32_t height, CAmount reward) {
     ForEachPoolPair([&](DCT_ID const & id, CPoolPair pool) {
-        WriteBy<ByPoolReward>(PoolHeightKey{id, height}, PoolRewardPerBlock(reward, pool.rewardPct));
+        if (pool.rewardPct != 0) {
+            WriteBy<ByPoolReward>(PoolHeightKey{id, height}, PoolRewardPerBlock(reward, pool.rewardPct));
+        }
         return true;
     });
     WriteBy<ByDailyReward>(PoolHeightKey{{}, height}, reward);

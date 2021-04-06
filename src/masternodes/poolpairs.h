@@ -214,7 +214,7 @@ public:
 
     Res SetDailyReward(uint32_t height, CAmount reward);
 
-    CAmount UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
+    CAmount UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
 
     // tags
     struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair
