@@ -6,6 +6,7 @@
 #define DEFI_SPV_SPV_WRAPPER_H
 
 #include <dbwrapper.h>
+#include <pubkey.h>
 #include <shutdown.h>
 #include <uint256.h>
 
@@ -37,7 +38,7 @@ typedef struct BRTransactionStruct BRTransaction;
 typedef struct BRPeerStruct BRPeer;
 
 class CAnchor;
-class CPubKey;
+class CKeyID;
 class CScript;
 class CWallet;
 class UniValue;
@@ -51,6 +52,15 @@ std::string DecodeSendResult(int result);
 namespace spv
 {
 
+struct HTLCDetails {
+    CPubKey sellerKey;
+    CPubKey buyerKey;
+    uint32_t locktime{0};
+    std::vector<unsigned char> hash;
+};
+
+HTLCDetails GetHTLCDetails(CScript& redeemScript);
+
 typedef std::vector<uint8_t> TBytes;
 
 static const TBytes BtcAnchorMarker = { 'D', 'F', 'A'}; // 0x444641
@@ -60,6 +70,7 @@ uint64_t const P2WSH_DUST = 330; /// 546 p2pkh & 294 p2wpkh (330 p2wsh calc'ed m
 uint64_t const P2PKH_DUST = 546;
 
 extern uint64_t const DEFAULT_BTC_FEERATE;
+extern uint64_t const DEFAULT_BTC_FEE_PER_KB;
 
 using namespace boost::multi_index;
 
@@ -97,6 +108,7 @@ public:
     virtual uint32_t GetLastBlockHeight() const;
     virtual uint32_t GetEstimatedBlockHeight() const;
     uint8_t GetPKHashPrefix() const;
+    uint8_t GetP2SHPrefix() const;
 
     std::vector<BRTransaction *> GetWalletTxs() const;
 
@@ -119,14 +131,24 @@ public:
     // Get time stamp of Bitcoin TX
     uint32_t ReadTxTimestamp(uint256 const & hash);
 
+    // Get block height of Bitcoin TX
+    uint32_t ReadTxBlockHeight(uint256 const & hash);
+
     // Bitcoin Address calls
     std::string AddBitcoinAddress(const CPubKey &new_key);
-    void AddBitcoinHash(const uint160 &userHash);
+    void AddBitcoinHash(const uint160 &userHash, const bool htlc = false);
     std::string DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress);
     int64_t GetBitcoinBalance();
-    virtual UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount);
+    virtual UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, int64_t feeRate);
     UniValue ListTransactions();
+    UniValue GetHTLCReceived(const std::string &addr);
     std::string GetRawTransactions(uint256& hash);
+    void RebuildBloomFilter();
+    UniValue GetAddressPubkey(const CWallet *pwallet, const char *addr); // Used in HTLC creation
+    CKeyID GetAddressKeyID(const char *addr);
+    std::string GetHTLCSeed(uint8_t* md20);
+    UniValue CreateHTLCTransaction(CWallet* const pwallet, const char *scriptAddress, const char *destinationAddress, const std::string& seed, uint64_t feerate, bool seller);
+    uint64_t GetFeeRate();
 
 private:
     virtual void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise);
@@ -223,7 +245,7 @@ public:
     uint32_t GetEstimatedBlockHeight() const override { return lastBlockHeight; } // dummy
 
     void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise) override;
-    UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount) override;
+    UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, int64_t feeRate) override;
 
     uint32_t lastBlockHeight = 0;
     bool isConnected = false;
@@ -244,7 +266,6 @@ struct TxInputData {
 uint64_t EstimateAnchorCost(TBytes const & meta, uint64_t feerate);
 std::vector<CScript> EncapsulateMeta(TBytes const & meta);
 std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> const & inputs, TBytes const & meta, uint64_t feerate);
-TBytes CreateSplitTx(std::string const & hash, int32_t index, uint64_t inputAmount, std::string const & privkey_wif, int parts, int amount);
 TBytes CreateScriptForAddress(char const * address);
 
 }

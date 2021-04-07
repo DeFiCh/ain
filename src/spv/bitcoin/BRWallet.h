@@ -32,6 +32,10 @@
 
 #include <string>
 #include <set>
+#include <vector>
+
+// Convert SPV UInt256 to Bitcoin uint256
+uint256 to_uint256(UInt256 const & i);
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,16 +62,16 @@ inline static int BRUTXOEq(const void *utxo, const void *otherUtxo)
                                   ((const BRUTXO *)utxo)->n == ((const BRUTXO *)otherUtxo)->n));
 }
 
-
-// Convert SPV UInt256 to Bitcoin uint256
-uint256 to_uint256(UInt256 const & i);
-
+// Wallet struct
 typedef struct BRWalletStruct BRWallet;
+
+// Type to hold user addresses added from the DeFi wallet store
+typedef std::set<UInt160, UInt160Compare> BRUserAddresses;
 
 // allocates and populates a BRWallet struct that must be freed by calling BRWalletFree()
 // forkId is 0 for bitcoin, 0x40 for b-cash
 BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId,
-                      std::set<UInt160, UInt160Compare> *userAddresses);
+                      BRUserAddresses *userAddresses, BRUserAddresses *htlcAddresses);
 
 // not thread-safe, set callbacks once after BRWalletNew(), before calling other BRWallet functions
 // info is a void pointer that will be passed along with each callback call
@@ -92,7 +96,7 @@ void BRWalletSetCallbacks(BRWallet *wallet, void *info,
 size_t BRWalletUnusedAddrs(BRWallet *wallet, BRAddress addrs[], uint32_t gapLimit, uint32_t internal);
 
 // Import single uint160 into wallet
-void BRWalletImportAddress(BRWallet *wallet, const uint160& userHash);
+void BRWalletImportAddress(BRWallet *wallet, const uint160& userHash, const bool htlc = false);
 
 // Add Bitcoin public key to SPV wallet from DeFi public key
 bool BRWalletAddSingleAddress(BRWallet *wallet, const uint8_t &pubKey, const size_t pkLen, BRAddress& addr);
@@ -143,11 +147,11 @@ void BRWalletSetFeePerKb(BRWallet *wallet, uint64_t feePerKb);
 
 // returns an unsigned transaction that sends the specified amount from the wallet to the given address
 // result must be freed using BRTransactionFree()
-BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, const char *addr, std::string changeAddress);
+BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, const char *addr, std::string changeAddress, int64_t feeRate);
 
 // returns an unsigned transaction that satisifes the given transaction outputs
 // result must be freed using BRTransactionFree()
-BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput outputs[], size_t outCount, std::string changeAddress);
+BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput outputs[], size_t outCount, std::string changeAddress, int64_t feeRate = 0);
 
 // signs any inputs in tx that can be signed using private keys from the wallet
 // seed is the master private key (wallet seed) corresponding to the master public key given when the wallet was created
@@ -207,6 +211,9 @@ uint64_t BRWalletMinOutputAmountWithFeePerKb(BRWallet *wallet, uint64_t feePerKb
 // maximum amount that can be sent from the wallet to a single address after fees
 uint64_t BRWalletMaxOutputAmount(BRWallet *wallet);
 
+// Check if transaction is spent
+bool BRWalletTxSpent(BRWallet *wallet, const BRTransaction *tx, const uint32_t output, uint256& spent);
+
 // frees memory allocated for wallet, and calls BRTransactionFree() for all registered transactions
 void BRWalletFree(BRWallet *wallet);
 
@@ -222,8 +229,14 @@ int64_t BRBitcoinAmount(int64_t localAmount, double price);
 }
 #endif
 
-// Returns a set of all user related transactions.
+// Get HTLC secret for contract address.
+std::string BRGetHTLCSeed(BRWallet *wallet, const uint8_t *md20);
+
+// Returns a set of all user related TXIDs.
 std::set<std::string> BRListUserTransactions(BRWallet *wallet);
+
+// Returns a vector of all HTLC relates transactions
+std::vector<std::pair<BRTransaction *, size_t> > BRListHTLCReceived(BRWallet *wallet, const UInt160 &addr);
 
 // Returns the raw hex encoded transaction data if found
 std::string BRGetRawTransaction(BRWallet *wallet, UInt256 txHash);

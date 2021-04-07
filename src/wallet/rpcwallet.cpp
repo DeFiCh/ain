@@ -2629,6 +2629,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
             }
 
             if (foundSPV) {
+                spv::pspv->RebuildBloomFilter();
                 spv::pspv->Rescan(std::numeric_limits<int>::max());
             }
         }

@@ -26,6 +26,7 @@
 #define BRTransaction_h
 
 #include "BRKey.h"
+#include "BRAddress.h"
 #include "BRInt.h"
 
 #include <stddef.h>
@@ -36,9 +37,12 @@
 extern "C" {
 #endif
 
+#define TX_VERSION           0x00000001
+#define TX_VERSION_V2        0x00000002
 #define TX_FEE_PER_KB        1000ULL     // standard tx fee per kb of tx size (defid 0.12 default min-relay fee-rate)
 #define TX_OUTPUT_SIZE       34          // estimated size for a typical transaction output
 #define TX_INPUT_SIZE        148         // estimated size for a typical compact pubkey transaction input
+#define TX_HTLC_INPUT_NOSIG  42          // approx. size of input without signature
 #define TX_MIN_OUTPUT_AMOUNT (TX_FEE_PER_KB*3*(TX_OUTPUT_SIZE + TX_INPUT_SIZE)/1000) //no txout can be below this amount
 #define TX_MAX_SIZE          100000      // no tx can be larger than this size in bytes
 #define TX_UNCONFIRMED       INT32_MAX   // block height indicating transaction is unconfirmed
@@ -96,7 +100,7 @@ struct BRTransactionStruct {
 typedef struct BRTransactionStruct BRTransaction;
 
 // returns a newly allocated empty transaction that must be freed by calling BRTransactionFree()
-BRTransaction *BRTransactionNew(void);
+BRTransaction *BRTransactionNew(uint32_t version = TX_VERSION);
 
 // returns a deep copy of tx and that must be freed by calling BRTransactionFree()
 BRTransaction *BRTransactionCopy(const BRTransaction *tx);
@@ -123,6 +127,9 @@ void BRTransactionShuffleOutputs(BRTransaction *tx);
 // size in bytes if signed, or estimated size assuming compact pubkey sigs
 size_t BRTransactionSize(const BRTransaction *tx);
 
+// Calculate size of HTLC transaction
+size_t BRTransactionHTLCSize(const BRTransaction *tx, const size_t sigSize);
+
 // virtual transaction size as defined by BIP141: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki
 size_t BRTransactionVSize(const BRTransaction *tx);
 
@@ -135,7 +142,7 @@ int BRTransactionIsSigned(const BRTransaction *tx);
 // adds signatures to any inputs with NULL signatures that can be signed with any keys
 // forkId is 0 for bitcoin, 0x40 for b-cash, 0x4f for b-gold
 // returns true if tx is signed
-int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCount);
+int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCount, HTLCScriptType htlcType = ScriptTypeNone, const uint8_t* seed = nullptr, const uint8_t* redeemScript = nullptr);
 
 // true if tx meets IsStandard() rules: https://bitcoin.org/en/developer-guide#standard-transactions
 int BRTransactionIsStandard(const BRTransaction *tx);
