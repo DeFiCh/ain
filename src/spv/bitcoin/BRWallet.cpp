@@ -30,6 +30,7 @@
 #include <logging.h>
 #include <util/strencodings.h>
 
+#include <algorithm>
 #include <stdlib.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -926,7 +927,7 @@ int BRWalletAddressIsUsed(BRWallet *wallet, const char *addr)
 
 // returns an unsigned transaction that sends the specified amount from the wallet to the given address
 // result must be freed by calling BRTransactionFree()
-BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, const char *addr, std::string changeAddress, int64_t feeRate)
+BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, const char *addr, std::string changeAddress, uint64_t feeRate)
 {
     BRTxOutput o = BR_TX_OUTPUT_NONE;
 
@@ -940,7 +941,7 @@ BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, cons
 
 // returns an unsigned transaction that satisifes the given transaction outputs
 // result must be freed by calling BRTransactionFree()
-BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput outputs[], size_t outCount, std::string changeAddress, int64_t feeRate)
+BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput outputs[], size_t outCount, std::string changeAddress, uint64_t feeRate)
 {
     BRTransaction *tx, *transaction = BRTransactionNew();
     uint64_t feeAmount, amount = 0, balance = 0, minAmount;
@@ -960,15 +961,10 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
     minAmount = BRWalletMinOutputAmountWithFeePerKb(wallet, MIN_FEE_PER_KB);
 
     wallet->lock.lock();
-    if (feeRate > 1000)
-    {
-        feeAmount = _txFee(feeRate, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
-    }
-    else
-    {
-        feeAmount = _txFee(wallet->feePerKb, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
-    }
 
+    // Set fee to whichever is larger, wallet or argument.
+    feeRate = std::max(feeRate, wallet->feePerKb);
+    feeAmount = _txFee(feeRate, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
 
     // TODO: use up all UTXOs for all used addresses to avoid leaving funds in addresses whose public key is revealed
     // TODO: avoid combining addresses in a single transaction when possible to reduce information leakage
@@ -1019,15 +1015,8 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
 
         balance += tx->outputs[o->n].amount;
 
-        // fee amount after adding a change output
-        if (feeRate > 1000)
-        {
-            feeAmount = _txFee(feeRate, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
-        }
-        else
-        {
-            feeAmount = _txFee(wallet->feePerKb, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
-        }
+        // Recalculate fee after adding outputs
+        feeAmount = _txFee(feeRate, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
 
         // increase fee to round off remaining wallet balance to nearest 100 satoshi
         if (wallet->balance > amount + feeAmount) feeAmount += (wallet->balance - (amount + feeAmount)) % 100;

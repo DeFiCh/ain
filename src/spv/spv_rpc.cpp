@@ -1263,7 +1263,11 @@ static UniValue spv_sendtoaddress(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CAmount feerate = request.params[2].isNull() ? spv::DEFAULT_BTC_FEE_PER_KB : request.params[2].get_int64();
+    uint64_t feerate = request.params[2].isNull() ? spv::DEFAULT_BTC_FEE_PER_KB : request.params[2].get_int64();
+    if (feerate < spv::DEFAULT_BTC_FEERATE)
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Fee size below minimum acceptable amount");
+    }
 
     return spv::pspv->SendBitcoins(pwallet, address, nAmount, feerate);
 }

@@ -616,7 +616,7 @@ void ConvertPrivKeys(std::vector<BRKey> &inputKeys, const CKey &key)
     inputKeys.push_back(inputKey);
 }
 
-UniValue CSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, int64_t feeRate)
+UniValue CSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, uint64_t feeRate)
 {
     if (!BRAddressIsValid(address.c_str())) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
@@ -1330,7 +1330,7 @@ void CFakeSpvWrapper::OnSendRawTx(BRTransaction *tx, std::promise<int> * promise
     }
 }
 
-UniValue CFakeSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, int64_t feeRate)
+UniValue CFakeSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, uint64_t feeRate)
 {
     // Normal TX, pass to parent.
     if (amount != -1) {

@@ -139,7 +139,7 @@ public:
     void AddBitcoinHash(const uint160 &userHash, const bool htlc = false);
     std::string DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress);
     int64_t GetBitcoinBalance();
-    virtual UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, int64_t feeRate);
+    virtual UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, uint64_t feeRate);
     UniValue ListTransactions();
     UniValue GetHTLCReceived(const std::string &addr);
     std::string GetRawTransactions(uint256& hash);
@@ -245,7 +245,7 @@ public:
     uint32_t GetEstimatedBlockHeight() const override { return lastBlockHeight; } // dummy
 
     void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise) override;
-    UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, int64_t feeRate) override;
+    UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, uint64_t feeRate) override;
 
     uint32_t lastBlockHeight = 0;
     bool isConnected = false;
