@@ -2022,18 +2022,24 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         minterKey = pindex->minterKey();
         auto nodeId = mnview.GetMasternodeIdByOperator(minterKey);
         assert(nodeId);
-        auto const & node = *mnview.GetMasternode(*nodeId);
-        if (node.mintedBlocks + 1 != block.mintedBlocks)
+        auto nodePtr = mnview.GetMasternode(*nodeId);
+        if (!nodePtr) {
+            // NOTE(sp): Add branch prediction optimization here?
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("ConnectBlock(): Failed to find masternode %s in the database",
+                                                                           nodeId->ToString()), REJECT_INVALID, "bad-masternode-id");
+        }
+
+        if (nodePtr->mintedBlocks + 1 != block.mintedBlocks)
         {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, error("ConnectBlock(): masternode's %s mintedBlocks should be %d, got %d!",
-                                                                           nodeId->ToString(), node.mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
+                                                                           nodeId->ToString(), nodePtr->mintedBlocks + 1, block.mintedBlocks), REJECT_INVALID, "bad-minted-blocks");
         }
         uint256 stakeModifierPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->stakeModifier;
-        if (block.stakeModifier != pos::ComputeStakeModifier(stakeModifierPrevBlock, node.operatorAuthAddress)) {
+        if (block.stakeModifier != pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress)) {
             return state.Invalid(
                     ValidationInvalidReason::CONSENSUS,
                     error("ConnectBlock(): block's stake Modifier should be %d, got %d!",
-                            block.stakeModifier.ToString(), pos::ComputeStakeModifier(stakeModifierPrevBlock, node.operatorAuthAddress).ToString()),
+                            block.stakeModifier.ToString(), pos::ComputeStakeModifier(stakeModifierPrevBlock, nodePtr->operatorAuthAddress).ToString()),
                     REJECT_INVALID,
                     "bad-minted-blocks");
         }
