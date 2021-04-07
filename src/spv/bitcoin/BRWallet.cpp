@@ -980,7 +980,7 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
         tx = (BRTransaction *)BRSetGet(wallet->allTx, o);
 
         // Exclude HTLC outputs
-        uint8_t* pkh = BRScriptPKH(tx->outputs[o->n].script, tx->outputs[o->n].scriptLen);
+        const uint8_t* pkh = BRScriptPKH(tx->outputs[o->n].script, tx->outputs[o->n].scriptLen);
         UInt160 hash160;
         UIntConvert(pkh, hash160);
 

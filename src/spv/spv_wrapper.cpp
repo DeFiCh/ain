@@ -776,6 +776,14 @@ HTLCDetails GetHTLCDetails(CScript& redeemScript)
 {
     HTLCDetails script;
 
+    uint32_t scriptSize{1 /* OP_IF */ + 1 /* OP_SHA256 */ + 1 /* seed size */ + 32 /* seed */ + 1 /* OP_EQUALVERIFY */ + 1 /* seller size */};
+
+    if (redeemScript.size() < scriptSize)
+    {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect redeemscript length");
+    }
+
+    // Check size field is 32 for seed.
     if (redeemScript[2] != 32)
     {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect seed hash length");
@@ -786,6 +794,12 @@ HTLCDetails GetHTLCDetails(CScript& redeemScript)
     if (sellerLength != CPubKey::PUBLIC_KEY_SIZE && sellerLength != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
     {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Seller pubkey incorrect pubkey length");
+    }
+
+    scriptSize += sellerLength + 1 /* OP_ELSE */ + 1 /* time size */;
+    if (redeemScript.size() < scriptSize)
+    {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect redeemscript length");
     }
 
     script.sellerKey.Set(&redeemScript[37], &redeemScript[37] + sellerLength);
@@ -810,6 +824,12 @@ HTLCDetails GetHTLCDetails(CScript& redeemScript)
     }
     else
     {
+        scriptSize += timeoutLength;
+        if (redeemScript.size() < scriptSize)
+        {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect redeemscript length");
+        }
+
         memcpy(&script.locktime, &redeemScript[39 + sellerLength], timeoutLength);
 
         // If time more than expected reduce to max value
@@ -820,10 +840,23 @@ HTLCDetails GetHTLCDetails(CScript& redeemScript)
         }
     }
 
+    scriptSize += 1 /* OP_CHECKSEQUENCEVERIFY */ + 1 /* OP_DROP */ + 1 /* buyer size*/;
+    if (redeemScript.size() < scriptSize)
+    {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect redeemscript length");
+    }
+
     uint8_t buyerLength = redeemScript[41 + timeoutLength + sellerLength];
     if (buyerLength != CPubKey::PUBLIC_KEY_SIZE && buyerLength != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
     {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Buyer pubkey incorrect pubkey length");
+    }
+
+    // Check redeemscript size is now exact
+    scriptSize += buyerLength + 1 /* OP_ENDIF */ + 1 /* OP_CHECKSIG */;
+    if (redeemScript.size() != scriptSize)
+    {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Incorrect redeemscript length");
     }
 
     script.buyerKey.Set(&redeemScript[42 + timeoutLength + sellerLength], &redeemScript[42 + timeoutLength + sellerLength] + buyerLength);

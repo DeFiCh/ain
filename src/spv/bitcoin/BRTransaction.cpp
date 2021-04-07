@@ -674,6 +674,7 @@ int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCo
     for (i = 0; tx && i < tx->inCount; i++) {
         BRTxInput *input = &tx->inputs[i];
         const uint8_t *hash;
+        UInt160 hash160 = UINT160_ZERO;
 
         if (htlcType == ScriptTypeNone)
         {
@@ -681,7 +682,7 @@ int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCo
         }
         else
         {
-            UInt160 hash160 = BRHTLCScriptPKH(input->script, input->scriptLen, htlcType);
+            hash160 = BRHTLCScriptPKH(input->script, input->scriptLen, htlcType);
             hash = &hash160.u8[0];
         }
         
