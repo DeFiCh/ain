@@ -128,6 +128,11 @@ bool WalletBatch::WriteCScript(const uint160& hash, const CScript& redeemScript)
     return WriteIC(std::make_pair(DBKeys::CSCRIPT, hash), redeemScript, false);
 }
 
+bool WalletBatch::ReadCScript(const uint160& hash, CScript& redeemScript)
+{
+    return m_batch.Read(std::make_pair(DBKeys::CSCRIPT, hash), redeemScript);
+}
+
 bool WalletBatch::WriteWatchOnly(const CScript &dest, const CKeyMetadata& keyMeta)
 {
     if (!WriteIC(std::make_pair(DBKeys::WATCHMETA, dest), keyMeta)) {

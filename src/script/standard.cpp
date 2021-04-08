@@ -322,6 +322,30 @@ CScript GetScriptForWitness(const CScript& redeemscript)
     return GetScriptForDestination(WitnessV0ScriptHash(redeemscript));
 }
 
+CScript GetScriptForHTLC(const CPubKey& seller, const CPubKey& refund, const std::vector<unsigned char> image, uint32_t timeout)
+{
+    CScript script;
+
+    script << OP_IF;
+    script << OP_SHA256 << image << OP_EQUALVERIFY << ToByteVector(seller);
+    script << OP_ELSE;
+
+    if (timeout <= 16)
+    {
+        script << CScript::EncodeOP_N(timeout);
+    }
+    else
+    {
+        script << CScriptNum(timeout);
+    }
+
+    script << OP_CHECKSEQUENCEVERIFY << OP_DROP << ToByteVector(refund);
+    script << OP_ENDIF;
+    script << OP_CHECKSIG;
+
+    return script;
+}
+
 bool IsValidDestination(const CTxDestination& dest) {
     return dest.which() != 0;
 }
