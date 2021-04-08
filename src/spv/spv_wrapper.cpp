@@ -541,7 +541,7 @@ uint32_t CSpvWrapper::ReadTxBlockHeight(uint256 const & hash)
     }
 
     // If not found return the default value of an unconfirmed TX.
-    return std::numeric_limits<uint32_t>::max();
+    return std::numeric_limits<int32_t>::max();
 }
 
 void CSpvWrapper::EraseTx(uint256 const & hash)
