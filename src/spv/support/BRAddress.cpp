@@ -249,8 +249,38 @@ const uint8_t *BRScriptPKH(const uint8_t *script, size_t scriptLen)
     else if (count == 2 && (*elems[0] == OP_0 || (*elems[0] >= OP_1 && *elems[0] <= OP_16)) && *elems[1] == 20) {
         r = BRScriptData(elems[1], &l); // pay-to-witness
     }
-    
+
     return r;
+}
+
+// Returns a UInt160 of the seller's or buyer's address, UINT160_ZERO if not a HTLC
+const UInt160 BRHTLCScriptPKH(const uint8_t *script, size_t scriptLen, HTLCScriptType htlcType)
+{
+    assert(script != NULL || scriptLen == 0);
+    if (! script || scriptLen == 0 || scriptLen > MAX_SCRIPT_LENGTH) return UINT160_ZERO;
+
+    const uint8_t *elems[BRScriptElements(NULL, 0, script, scriptLen)], *r = NULL;
+    size_t l, count = BRScriptElements(elems, sizeof(elems)/sizeof(*elems), script, scriptLen);
+
+    UInt160 hash160 = UINT160_ZERO;
+
+    if (count == 12 && *elems[0] == OP_IF && *elems[1] == OP_SHA256 && *elems[3] == OP_EQUALVERIFY && // HTLC
+             *elems[5] == OP_ELSE && *elems[7] == OP_CHECKSEQUENCEVERIFY && *elems[8] == OP_DROP &&
+             *elems[10] == OP_ENDIF && *elems[11] == OP_CHECKSIG)
+    {
+        if (htlcType == ScriptTypeSeller)
+        {
+            r = BRScriptData(elems[4], &l);
+        }
+        else if (htlcType == ScriptTypeBuyer)
+        {
+            r = BRScriptData(elems[9], &l);
+        }
+
+        BRHash160(&hash160, r, l);
+    }
+
+    return hash160;
 }
 
 // NOTE: It's important here to be permissive with scriptSig (spends) and strict with scriptPubKey (receives). If we
