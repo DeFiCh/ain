@@ -2023,11 +2023,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         auto nodeId = mnview.GetMasternodeIdByOperator(minterKey);
         assert(nodeId);
         auto nodePtr = mnview.GetMasternode(*nodeId);
-        if (!nodePtr) {
-            // NOTE(sp): Add branch prediction optimization here?
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("ConnectBlock(): Failed to find masternode %s in the database",
-                                                                           nodeId->ToString()), REJECT_INVALID, "bad-masternode-id");
-        }
+        assert(nodePtr);
 
         if (nodePtr->mintedBlocks + 1 != block.mintedBlocks)
         {
