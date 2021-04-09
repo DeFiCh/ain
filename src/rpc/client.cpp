@@ -213,6 +213,14 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "accounttoutxos", 1, "to" },
     { "accounttoutxos", 2, "inputs" },
 
+    { "icx_createorder", 0, "order" },
+    { "icx_makeoffer", 0, "offer" },
+    { "icx_submitdfchtlc", 0, "dfchtlc" },
+    { "icx_submitexthtlc", 0, "exthtlc" },
+    { "icx_claimdfchtlc", 0, "claim" },
+    { "icx_listorders", 0, "by" },
+    { "icx_listhtlcs", 0, "by" },
+
     { "spv_sendrawtx", 0, "rawtx" },
     { "spv_createanchor", 0, "inputs" },
     { "spv_createanchor", 2, "send" },

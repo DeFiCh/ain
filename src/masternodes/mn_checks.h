@@ -65,7 +65,7 @@ enum class CustomTxType : unsigned char
 };
 
 inline CustomTxType CustomTxCodeToType(unsigned char ch) {
-    char const txtypes[] = "CRTMNnpuslrUbBaGA";
+    char const txtypes[] = "CRTMNnpuslrUbBaGA123456";
     if (memchr(txtypes, ch, strlen(txtypes)))
         return static_cast<CustomTxType>(ch);
     else
@@ -96,7 +96,7 @@ inline std::string ToString(CustomTxType type) {
         case CustomTxType::ICXMakeOffer:        return "ICXMakeOffer";
         case CustomTxType::ICXSubmitDFCHTLC:    return "ICXSubmitDFCHTLC";
         case CustomTxType::ICXSubmitEXTHTLC:    return "ICXSubmitEXTHTLC";
-        case CustomTxType::ICXClaimDFCHTLC:    return "ICXClaimDFCHTLC";
+        case CustomTxType::ICXClaimDFCHTLC:     return "ICXClaimDFCHTLC";
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         default:                                return "None";
     }

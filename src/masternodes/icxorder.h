@@ -1,6 +1,8 @@
 #ifndef DEFI_MASTERNODES_ICXORDER_H
 #define DEFI_MASTERNODES_ICXORDER_H
 
+#include <tuple>
+
 #include <amount.h>
 #include <pubkey.h>
 #include <uint256.h>
@@ -11,9 +13,12 @@
 class CICXOrder
 {
 public:
-    static const int DEFAULT_ICXORDER_EXPIRY = 2880;
-    static const int ICXORDER_TYPE_INTERNAL = 1;
-    static const int ICXORDER_TYPE_EXTERNAL = 0;
+    static const int DEFAULT_EXPIRY = 2880;
+    static const int TYPE_INTERNAL = 1;
+    static const int TYPE_EXTERNAL = 0;
+    static const int STATUS_OPEN = 0;
+    static const int STATUS_CLOSED = 1;
+    static const int STATUS_EXPIRED = 2;
 
     //! basic properties
     std::string ownerAddress; //address of account asset
@@ -33,11 +38,11 @@ public:
         , idTokenTo({std::numeric_limits<uint32_t>::max()})
         , chainFrom("")
         , chainTo("")
-        , orderType(ICXORDER_TYPE_INTERNAL)
+        , orderType(TYPE_INTERNAL)
         , amountFrom(0)
         , amountToFill(0)
         , orderPrice(0)
-        , expiry(DEFAULT_ICXORDER_EXPIRY)
+        , expiry(DEFAULT_EXPIRY)
     {}
     virtual ~CICXOrder() = default;
 
@@ -66,6 +71,7 @@ public:
     uint256 closeTx;
     int32_t creationHeight; 
     int32_t closeHeight;
+    int32_t expireHeight;
 
     CICXOrderImplemetation()
         : CICXOrder()
@@ -73,6 +79,7 @@ public:
         , closeTx()
         , creationHeight(-1)
         , closeHeight(-1)
+        , expireHeight(-1)
     {}
     ~CICXOrderImplemetation() override = default;
 
@@ -85,23 +92,28 @@ public:
         READWRITE(closeTx);
         READWRITE(creationHeight);
         READWRITE(closeHeight);
+        READWRITE(expireHeight);
     }
 };
 
 class CICXMakeOffer
 {
 public:
+    static const int STATUS_OPEN = 0;
+
     //! basic properties
     uint256 orderTx; // txid for which order is the offer
     CAmount amount; // amount of asset to swap
+    std::string ownerAddress; //address of account asset
     std::string receiveAddress; //address of account asset in case of BTC/DFI
-    std::string receivePubKey; // pubkey for BTC htlc  in case of DFI/BTC
+    std::string receivePubkey; // pubkey for BTC htlc  in case of DFI/BTC
 
     CICXMakeOffer()
         : orderTx(uint256())
         , amount(0)
+        , ownerAddress("")
         , receiveAddress("")
-        , receivePubKey("")
+        , receivePubkey("")
     {}
     virtual ~CICXMakeOffer() = default;
 
@@ -111,8 +123,9 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(orderTx);
         READWRITE(amount);
+        READWRITE(ownerAddress);
         READWRITE(receiveAddress);
-        READWRITE(receivePubKey);
+        READWRITE(receivePubkey);
     }
 };
 
@@ -143,7 +156,11 @@ public:
 class CICXSubmitDFCHTLC
 {
 public:
-    static const int ICXSUBMITDFCHTLC_MAX_TIMEOUT = 1440;
+    static const int DEFAULT_TIMEOUT = 100;
+
+    static const int STATUS_OPEN = 0;
+    static const int STATUS_CLAIMED = 1;
+    static const int STATUS_REFUNDED = 2;
 
     // This tx is acceptance of the offer, HTLC tx and evidence of HTLC on DFC in the same time. It is a CustomTx on DFC chain
     //! basic properties
@@ -160,7 +177,7 @@ public:
         , receivePubKey("")
         , receiveAddress("")
         , hash()
-        , timeout(0)
+        , timeout(DEFAULT_TIMEOUT)
     {}
     virtual ~CICXSubmitDFCHTLC() = default;
 
@@ -183,11 +200,13 @@ public:
     //! tx related properties
     uint256 creationTx;
     int32_t creationHeight; 
+    int32_t expireHeight;
 
     CICXSubmitDFCHTLCImplemetation()
         : CICXSubmitDFCHTLC()
         , creationTx()
         , creationHeight(-1)
+        , expireHeight(-1)
     {}
     ~CICXSubmitDFCHTLCImplemetation() override = default;
 
@@ -198,30 +217,28 @@ public:
         READWRITEAS(CICXSubmitDFCHTLC, *this);
         READWRITE(creationTx);
         READWRITE(creationHeight);
+        READWRITE(expireHeight);
     }
 };
 
 class CICXSubmitEXTHTLC
 {
 public:
-    static const int ICXSUBMITEXTHTLC_MAX_TIMEOUT = 144;
-
     // This tx is acceptance of the offer and evidence of HTLC on external chain in the same time. It is a CustomTx on DFC chain
     //! basic properties
     uint256 offerTx; // txid for which offer is this HTLC
     CAmount amount;
     uint256 hash; 
     std::string htlcscriptAddress;
-    std::string ownerPubkey;
+    std::string refundPubkey;
     uint32_t timeout;
-    
 
     CICXSubmitEXTHTLC()
         : offerTx(uint256())
         , amount(0)
         , hash()
         , htlcscriptAddress("")
-        , ownerPubkey("")
+        , refundPubkey("")
         , timeout(0)
     {}
     virtual ~CICXSubmitEXTHTLC() = default;
@@ -234,7 +251,7 @@ public:
         READWRITE(amount);
         READWRITE(hash);
         READWRITE(htlcscriptAddress);
-        READWRITE(ownerPubkey);
+        READWRITE(refundPubkey);
         READWRITE(timeout);
     }
 };
@@ -268,7 +285,7 @@ class CICXClaimDFCHTLC
 public:
     // This tx is acceptance of the offer, HTLC tx and evidence of HTLC on DFC in the same time. It is a CustomTx on DFC chain
     //! basic properties
-    uint256 dfchtlcTx; // txid for which offer is this HTLC
+    uint256 dfchtlcTx; // txid of claiming DFC HTLC
     CAmount amount; // amount that is put in HTLC
     uint256 seed; // secret for the hash to claim htlc
 
@@ -359,9 +376,15 @@ public:
 class CICXOrderView : public virtual CStorageView {
 public:
     typedef std::pair<DCT_ID,std::string> AssetPair;
-    typedef std::pair<AssetPair,uint256> OrderKey;
+    typedef std::pair<uint8_t,AssetPair> StatusAsset;
+    typedef std::pair<StatusAsset,uint256> OrderKey;
+
     typedef std::pair<uint256,uint256> TxidPairKey;
 
+    typedef std::pair<uint32_t,uint256> StatusTxid;
+    typedef std::pair<StatusTxid,uint256> StatusTxidKey;
+
+    typedef std::pair<uint32_t,uint256> StatusKey;
 
     using CICXOrderImpl = CICXOrderImplemetation;
     using CICXMakeOfferImpl = CICXMakeOfferImplemetation;
@@ -373,24 +396,27 @@ public:
     //Order
     std::unique_ptr<CICXOrderImpl> GetICXOrderByCreationTx(const uint256 & txid) const;
     ResVal<uint256> ICXCreateOrder(const CICXOrderImpl& order);
-    ResVal<uint256> ICXCloseOrderTx(const CICXOrderImpl& order);
-    void ForEachICXOrder(std::function<bool (OrderKey const &, CLazySerialize<CICXOrderImpl>)> callback, AssetPair const & pair=AssetPair());    
+    ResVal<uint256> ICXCloseOrderTx(const CICXOrderImpl& order, const uint8_t);
+    void ForEachICXOrder(std::function<bool (OrderKey const &, uint8_t)> callback, StatusAsset const & pair=StatusAsset());    
+    void ForEachICXOrderExpired(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height=0);    
     
     //MakeOffer
     std::unique_ptr<CICXMakeOfferImpl> GetICXMakeOfferByCreationTx(const uint256 & txid) const;
     ResVal<uint256> ICXMakeOffer(const CICXMakeOfferImpl& makeoffer, const CICXOrderImpl & order);
-    void ForEachICXMakeOffer(std::function<bool (TxidPairKey const &, CLazySerialize<CICXMakeOfferImpl>)> callback, uint256 const & ordertxid=uint256());
+    void ForEachICXMakeOffer(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & ordertxid=uint256());
 
     //SubmitDFCHTLC
     std::unique_ptr<CICXSubmitDFCHTLCImpl> GetICXSubmitDFCHTLCByCreationTx(const uint256 & txid) const;
     ResVal<uint256> ICXSubmitDFCHTLC(const CICXSubmitDFCHTLCImpl& dfchtlc);
-    void ForEachICXSubmitDFCHTLC(std::function<bool (TxidPairKey const &, CLazySerialize<CICXSubmitDFCHTLCImpl>)> callback, uint256 const & ordertxid=uint256());
+    Res ICXRefundDFCHTLC(CICXSubmitDFCHTLCImpl& dfchtlc);
+    void ForEachICXSubmitDFCHTLC(std::function<bool (StatusTxidKey const &, uint8_t)> callback, StatusTxid const & offertxid=StatusTxid());
+    void ForEachICXSubmitDFCHTLCExpired(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height=0);
 
     //SubmitEXTHTLC
     std::unique_ptr<CICXSubmitEXTHTLCImpl> GetICXSubmitEXTHTLCByCreationTx(const uint256 & txid) const;
     ResVal<uint256> ICXSubmitEXTHTLC(const CICXSubmitEXTHTLCImpl& dfchtlc);
-    void ForEachICXSubmitEXTHTLC(std::function<bool (TxidPairKey const &, CLazySerialize<CICXSubmitEXTHTLCImpl>)> callback, uint256 const & ordertxid=uint256());
-
+    void ForEachICXSubmitEXTHTLC(std::function<bool (TxidPairKey const &, CLazySerialize<CICXSubmitEXTHTLCImpl>)> callback, uint256 const & offertxid=uint256());
+    
     //ClaimDFCHTLC
     std::unique_ptr<CICXClaimDFCHTLCImpl> GetICXClaimDFCHTLCByCreationTx(const uint256 & txid) const;
     ResVal<uint256> ICXClaimDFCHTLC(const CICXClaimDFCHTLCImpl& dfchtlc);
@@ -399,14 +425,15 @@ public:
     //CloseOrder
     std::unique_ptr<CICXCloseOrderImpl> GetICXCloseOrderByCreationTx(const uint256 & txid) const;
     ResVal<uint256> ICXCloseOrder(const CICXCloseOrderImpl& closeorder, const CICXOrderImpl& order);
-    void ForEachICXClosedOrder(std::function<bool (OrderKey const &, CLazySerialize<CICXOrderImpl>)> callback, AssetPair const & pair=AssetPair());
 
     struct ICXOrderCreationTx { static const unsigned char prefix; };
     struct ICXOrderKey { static const unsigned char prefix; };
+    struct ICXOrderStatus { static const unsigned char prefix; };
     struct ICXMakeOfferCreationTx { static const unsigned char prefix; };
     struct ICXMakeOfferKey { static const unsigned char prefix; };
     struct ICXSubmitDFCHTLCCreationTx { static const unsigned char prefix; };
     struct ICXSubmitDFCHTLCKey { static const unsigned char prefix; };
+    struct ICXSubmitDFCHTLCStatus { static const unsigned char prefix; };
     struct ICXSubmitEXTHTLCCreationTx { static const unsigned char prefix; };
     struct ICXSubmitEXTHTLCKey { static const unsigned char prefix; };
     struct ICXClaimDFCHTLCCreationTx { static const unsigned char prefix; };

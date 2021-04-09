@@ -2,27 +2,29 @@
 
 /// @attention make sure that it does not overlap with other views !!!
 const unsigned char CICXOrderView::ICXOrderCreationTx           ::prefix = '1';
-const unsigned char CICXOrderView::ICXOrderKey                  ::prefix = '7';
-const unsigned char CICXOrderView::ICXMakeOfferCreationTx       ::prefix = '2';
-const unsigned char CICXOrderView::ICXMakeOfferKey              ::prefix = '8';
-const unsigned char CICXOrderView::ICXSubmitDFCHTLCCreationTx   ::prefix = '3';
-const unsigned char CICXOrderView::ICXSubmitDFCHTLCKey          ::prefix = '3';
-const unsigned char CICXOrderView::ICXSubmitEXTHTLCCreationTx   ::prefix = '4';
-const unsigned char CICXOrderView::ICXSubmitEXTHTLCKey          ::prefix = '4';
-const unsigned char CICXOrderView::ICXClaimDFCHTLCCreationTx    ::prefix = '5';
-const unsigned char CICXOrderView::ICXClaimDFCHTLCKey           ::prefix = '5';
-const unsigned char CICXOrderView::ICXCloseOrderCreationTx      ::prefix = '6';
-const unsigned char CICXOrderView::ICXCloseOrderKey             ::prefix = '6';
+const unsigned char CICXOrderView::ICXOrderKey                  ::prefix = '2';
+const unsigned char CICXOrderView::ICXOrderStatus               ::prefix = 'd';
+const unsigned char CICXOrderView::ICXMakeOfferCreationTx       ::prefix = '3';
+const unsigned char CICXOrderView::ICXMakeOfferKey              ::prefix = '4';
+const unsigned char CICXOrderView::ICXSubmitDFCHTLCCreationTx   ::prefix = '5';
+const unsigned char CICXOrderView::ICXSubmitDFCHTLCKey          ::prefix = '6';
+const unsigned char CICXOrderView::ICXSubmitDFCHTLCStatus       ::prefix = 'c';
+const unsigned char CICXOrderView::ICXSubmitEXTHTLCCreationTx   ::prefix = '7';
+const unsigned char CICXOrderView::ICXSubmitEXTHTLCKey          ::prefix = '8';
+const unsigned char CICXOrderView::ICXClaimDFCHTLCCreationTx    ::prefix = '9';
+const unsigned char CICXOrderView::ICXClaimDFCHTLCKey           ::prefix = '0';
+const unsigned char CICXOrderView::ICXCloseOrderCreationTx      ::prefix = 'a';
+const unsigned char CICXOrderView::ICXCloseOrderKey             ::prefix = 'b';
 
 std::unique_ptr<CICXOrderView::CICXOrderImpl> CICXOrderView::GetICXOrderByCreationTx(const uint256 & txid) const
 {
-    auto assetPair = ReadBy<ICXOrderCreationTx, AssetPair>(txid);
-    if (assetPair)
-    {
-        auto order = ReadBy<ICXOrderKey,CICXOrderImpl>(OrderKey(*assetPair, txid));
+    // auto statusAsset = ReadBy<ICXOrderCreationTx, StatusAsset>(txid);
+    // if (statusAsset)
+    // {
+        auto order = ReadBy<ICXOrderCreationTx,CICXOrderImpl>(txid);
         if (order)
             return MakeUnique<CICXOrderImpl>(*order);
-    }
+    // }
     return (nullptr);
 }
 
@@ -34,34 +36,46 @@ ResVal<uint256> CICXOrderView::ICXCreateOrder(const CICXOrderImpl& order)
     }
 
     AssetPair pair;
-    if (order.orderType) pair={order.idTokenFrom,order.chainTo};
-    else pair={order.idTokenTo,order.chainFrom};
+    if (order.orderType == CICXOrder::TYPE_INTERNAL) pair = {order.idTokenFrom,order.chainTo};
+    else pair = {order.idTokenTo,order.chainFrom};
 
-    OrderKey key(pair, order.creationTx);
-    WriteBy<ICXOrderCreationTx>(order.creationTx, pair);
-    WriteBy<ICXOrderKey>(key, order);
+    OrderKey key({CICXOrder::STATUS_OPEN,pair}, order.creationTx);
+    WriteBy<ICXOrderCreationTx>(order.creationTx, order);
+    WriteBy<ICXOrderKey>(key, 1);
+    uint8_t status = CICXOrder::STATUS_EXPIRED;
+    WriteBy<ICXOrderStatus>(StatusKey(order.creationHeight+order.expiry,order.creationTx),status);
 
     return {order.creationTx, Res::Ok()};
 }
 
-ResVal<uint256> CICXOrderView::ICXCloseOrderTx(const CICXOrderImpl& order)
+ResVal<uint256> CICXOrderView::ICXCloseOrderTx(const CICXOrderImpl& order, const uint8_t status)
 {
-    OrderKey key;
-    if (order.chainFrom.empty()) key={{order.idTokenFrom,order.chainTo},order.creationTx};
-    else key={{order.idTokenTo,order.chainFrom},order.creationTx};
+    AssetPair pair;
+    if (order.chainFrom.empty()) pair={order.idTokenFrom,order.chainTo};
+    else pair={order.idTokenTo,order.chainFrom};
     
+    OrderKey key({CICXOrder::STATUS_OPEN,pair},order.creationTx);
     EraseBy<ICXOrderKey>(key);
-    EraseBy<ICXOrderCreationTx>(order.creationTx); //Should this be erased ???
-    WriteBy<ICXCloseOrderKey>(key, order);
+    key.first.first = status;
+    WriteBy<ICXOrderKey>(key, 1);
+    WriteBy<ICXOrderCreationTx>(order.creationTx, order);
     
     return {order.creationTx, Res::Ok()};
 }
 
-void CICXOrderView::ForEachICXOrder(std::function<bool (OrderKey const &, CLazySerialize<CICXOrderImpl>)> callback, AssetPair const & pair)
+void CICXOrderView::ForEachICXOrder(std::function<bool (OrderKey const &, uint8_t)> callback, StatusAsset const & pair)
 {
     OrderKey start(pair, uint256());
-    ForEach<ICXOrderCreationTx,OrderKey,CICXOrderImpl>([&start,&callback] (OrderKey const &key, CLazySerialize<CICXOrderImpl> order) {
-        return callback(key, order);
+    ForEach<ICXOrderKey,OrderKey,uint8_t>([&start,&callback] (OrderKey const &key, uint8_t i) {
+        return callback(key, i);
+    }, start);
+}
+
+void CICXOrderView::ForEachICXOrderExpired(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height)
+{
+    StatusKey start(height, uint256());
+    ForEach<ICXOrderKey,StatusKey,uint8_t>([&start,&callback] (StatusKey const &key, uint8_t i) {
+        return callback(key, i);
     }, start);
 }
 
@@ -80,27 +94,28 @@ ResVal<uint256> CICXOrderView::ICXMakeOffer(const CICXMakeOfferImpl& makeoffer, 
         return Res::Err("makeoffer with creation tx %s already exists!", makeoffer.creationTx.GetHex());
     }
 
-    WriteBy<ICXMakeOfferCreationTx>(makeoffer.creationTx, order.creationTx);
-    WriteBy<ICXMakeOfferKey>(std::make_pair(order.creationTx,makeoffer.creationTx),makeoffer);
+    WriteBy<ICXMakeOfferCreationTx>(makeoffer.creationTx, makeoffer);
+    WriteBy<ICXMakeOfferKey>(std::make_pair(order.creationTx,makeoffer.creationTx), 1);
 
-    if (order.closeHeight > -1) this->ICXCloseOrderTx(order);
+    if (order.closeHeight > -1) this->ICXCloseOrderTx(order,CICXOrder::STATUS_CLOSED);
     else
     {
         AssetPair pair;
         if (order.orderType) pair={order.idTokenFrom,order.chainTo};
         else pair={order.idTokenTo,order.chainFrom};
-        OrderKey key(pair, order.creationTx);
-        WriteBy<ICXOrderCreationTx>(key, order);
+        OrderKey key({CICXOrder::STATUS_OPEN, pair}, order.creationTx);
+        WriteBy<ICXOrderKey>(key, 1);
+        WriteBy<ICXOrderCreationTx>(order.creationTx, order);
     }
 
     return {makeoffer.creationTx, Res::Ok()};
 }
 
-void CICXOrderView::ForEachICXMakeOffer(std::function<bool (TxidPairKey const &, CLazySerialize<CICXMakeOfferImpl>)> callback, uint256 const & txid)
+void CICXOrderView::ForEachICXMakeOffer(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & txid)
 {
     TxidPairKey start(txid,uint256());
-    ForEach<ICXMakeOfferKey,TxidPairKey,CICXMakeOfferImpl>([&callback] (TxidPairKey const &key, CLazySerialize<CICXMakeOfferImpl> makeoffer) {
-        return callback(key, makeoffer);
+    ForEach<ICXMakeOfferKey,TxidPairKey,uint8_t>([&callback] (TxidPairKey const &key, uint8_t i) {
+        return callback(key, i);
     }, start);
 }
 
@@ -115,21 +130,40 @@ std::unique_ptr<CICXOrderView::CICXSubmitDFCHTLCImpl> CICXOrderView::GetICXSubmi
 ResVal<uint256> CICXOrderView::ICXSubmitDFCHTLC(const CICXSubmitDFCHTLCImpl& submitdfchtlc)
 {
     //this should not happen, but for sure
-    if (GetICXOrderByCreationTx(submitdfchtlc.creationTx)) {
+    if (GetICXSubmitDFCHTLCByCreationTx(submitdfchtlc.creationTx)) {
         return Res::Err("submitdfchtlc with creation tx %s already exists!", submitdfchtlc.creationTx.GetHex());
     }
 
-    WriteBy<ICXSubmitDFCHTLCCreationTx>(submitdfchtlc.creationTx, submitdfchtlc.offerTx);
-    WriteBy<ICXSubmitDFCHTLCKey>(TxidPairKey(submitdfchtlc.offerTx,submitdfchtlc.creationTx), submitdfchtlc);
+    WriteBy<ICXSubmitDFCHTLCCreationTx>(submitdfchtlc.creationTx, submitdfchtlc);
+    WriteBy<ICXSubmitDFCHTLCKey>(StatusTxidKey({CICXSubmitDFCHTLC::STATUS_OPEN,submitdfchtlc.offerTx},submitdfchtlc.creationTx), 1);
+    uint8_t status = CICXSubmitDFCHTLC::STATUS_REFUNDED;
+    WriteBy<ICXSubmitDFCHTLCStatus>(StatusKey(submitdfchtlc.creationHeight+submitdfchtlc.timeout,submitdfchtlc.creationTx),status);
 
     return {submitdfchtlc.creationTx, Res::Ok()};
 }
 
-void CICXOrderView::ForEachICXSubmitDFCHTLC(std::function<bool (TxidPairKey const &, CLazySerialize<CICXSubmitDFCHTLCImpl>)> callback, uint256 const & txid)
+Res CICXOrderView::ICXRefundDFCHTLC(CICXSubmitDFCHTLCImpl& submitdfchtlc)
 {
-    TxidPairKey start(txid,uint256());
-    ForEach<ICXSubmitDFCHTLCCreationTx,TxidPairKey,CICXSubmitDFCHTLCImpl>([&callback] (TxidPairKey const &key, CLazySerialize<CICXSubmitDFCHTLCImpl> submitdfchtlc) {
-        return callback(key, submitdfchtlc);
+    WriteBy<ICXSubmitDFCHTLCCreationTx>(submitdfchtlc.creationTx, submitdfchtlc);
+    EraseBy<ICXSubmitDFCHTLCKey>(StatusTxidKey({CICXSubmitDFCHTLC::STATUS_OPEN,submitdfchtlc.offerTx},submitdfchtlc.creationTx));
+    WriteBy<ICXSubmitDFCHTLCKey>(StatusTxidKey({CICXSubmitDFCHTLC::STATUS_REFUNDED,submitdfchtlc.offerTx},submitdfchtlc.creationTx),1);
+
+    return (Res::Ok());
+}
+
+void CICXOrderView::ForEachICXSubmitDFCHTLC(std::function<bool (StatusTxidKey const &, uint8_t)> callback, StatusTxid const & statustxid)
+{
+    StatusTxidKey start(statustxid,uint256());
+    ForEach<ICXSubmitDFCHTLCKey,StatusTxidKey,uint8_t>([&callback] (StatusTxidKey const &key, uint8_t i) {
+        return callback(key, i);
+    }, start);
+}
+
+void CICXOrderView::ForEachICXSubmitDFCHTLCExpired(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height)
+{
+    StatusKey start(height,uint256());
+    ForEach<ICXSubmitDFCHTLCStatus,StatusKey,uint8_t>([&callback] (StatusKey const &key, uint8_t i) {
+        return callback(key, i);
     }, start);
 }
 
@@ -144,12 +178,12 @@ std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::GetICXSubmi
 ResVal<uint256> CICXOrderView::ICXSubmitEXTHTLC(const CICXSubmitEXTHTLCImpl& submitexthtlc)
 {
     //this should not happen, but for sure
-    if (GetICXOrderByCreationTx(submitexthtlc.creationTx)) {
+    if (GetICXSubmitEXTHTLCByCreationTx(submitexthtlc.creationTx)) {
         return Res::Err("submitexthtlc with creation tx %s already exists!", submitexthtlc.creationTx.GetHex());
     }
 
     WriteBy<ICXSubmitEXTHTLCCreationTx>(submitexthtlc.creationTx, submitexthtlc);
-
+    
     return {submitexthtlc.creationTx, Res::Ok()};
 }
 
@@ -172,12 +206,14 @@ std::unique_ptr<CICXOrderView::CICXClaimDFCHTLCImpl> CICXOrderView::GetICXClaimD
 ResVal<uint256> CICXOrderView::ICXClaimDFCHTLC(const CICXClaimDFCHTLCImpl& claimdfchtlc)
 {
     //this should not happen, but for sure
-    if (GetICXOrderByCreationTx(claimdfchtlc.creationTx)) {
+    if (GetICXClaimDFCHTLCByCreationTx(claimdfchtlc.creationTx)) {
         return Res::Err("claimdfchtlc with creation tx %s already exists!", claimdfchtlc.creationTx.GetHex());
     }
 
     WriteBy<ICXClaimDFCHTLCCreationTx>(claimdfchtlc.creationTx, claimdfchtlc);
-
+    uint8_t status=CICXSubmitDFCHTLC::STATUS_CLAIMED;
+    WriteBy<ICXSubmitDFCHTLCStatus>(StatusKey(claimdfchtlc.creationHeight,claimdfchtlc.dfchtlcTx),status);
+    
     return {claimdfchtlc.creationTx, Res::Ok()};
 }
 
@@ -204,19 +240,7 @@ ResVal<uint256> CICXOrderView::ICXCloseOrder(const CICXCloseOrderImpl& closeorde
         return Res::Err("closeorder with creation tx %s already exists!", closeorder.creationTx.GetHex());
     }
     
-    OrderKey key;
-    if (order.chainFrom.empty()) key={{order.idTokenFrom,order.chainTo},order.creationTx};
-    else key={{order.idTokenTo,order.chainFrom},order.creationTx};
-    
-    WriteBy<ICXCloseOrderCreationTx>(closeorder.creationTx, key);
+    WriteBy<ICXCloseOrderCreationTx>(closeorder.creationTx, closeorder.orderTx);
 
     return {closeorder.creationTx, Res::Ok()};
-}
-
-void CICXOrderView::ForEachICXClosedOrder(std::function<bool (OrderKey const &, CLazySerialize<CICXOrderImpl>)> callback, AssetPair const & pair)
-{
-    OrderKey start(pair,uint256());
-    ForEach<ICXCloseOrderCreationTx,OrderKey,CICXOrderImpl>([&start,&callback] (OrderKey const &key, CLazySerialize<CICXOrderImpl> orderImpl) {
-        return callback(key, orderImpl);
-    }, start);
 }
