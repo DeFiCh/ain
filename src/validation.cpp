@@ -3016,7 +3016,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         auto checkpointIt = checkpoints.lower_bound(pindexConnect->nHeight);
                         auto fallbackCheckpointBlockHeight = (checkpointIt != checkpoints.begin()) ? (--checkpointIt)->first : 0;
 
-                        auto invalidateBlocksTo = [this, &disconnectBlocksTo](const uint256& hash) -> bool {
+                        auto invalidateBlocksTo = [&](const uint256& hash) -> bool {
                             auto index = LookupBlockIndex(hash);
                             return disconnectBlocksTo(index);
                         };

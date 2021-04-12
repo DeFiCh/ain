@@ -217,8 +217,6 @@ public:
         THeight DeFiBlockHeight()const{return anchor.height;}
     };
 
-    
-
     typedef boost::multi_index_container<AnchorRec,
         indexed_by<
             ordered_unique    < tag<AnchorRec::ByBtcTxHash>,  member<AnchorRec, uint256,  &AnchorRec::txHash> >,
