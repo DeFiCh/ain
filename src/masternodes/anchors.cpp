@@ -547,15 +547,16 @@ void CAnchorIndex::CheckPendingAnchors()
         }
 
         uint32_t timestamp = spv::pspv->ReadTxTimestamp(rec.txHash);
+        auto blockHeight = spv::pspv->ReadTxBlockHeight(rec.txHash);
 
-        // Do not delete, TX time still pending.
-        if (timestamp == 0 || timestamp == std::numeric_limits<int32_t>::max()) {
+        // Do not delete, TX time still pending. If block height is set to max we cannot trust the timestamp.
+        if (timestamp == 0 || blockHeight == std::numeric_limits<int32_t>::max()) {
             continue;
         }
 
         // Here we can check new rule that Bitcoin blocktime is three hours more than DeFi anchored block
         if (anchorBlock.nTime > timestamp - Params().GetConsensus().mn.anchoringTimeDepth) {
-            LogPrint(BCLog::ANCHORING, "DeFi anchor time not deep enough. DeFi: %d Bitcoin: %d\n", anchorBlock.nTime, timestamp);
+            LogPrint(BCLog::ANCHORING, "Anchor too new. DeFi: %d Bitcoin: %d Anchor: %s\n", anchorBlock.nTime, timestamp, rec.txHash.ToString());
             deletePending.insert(rec.txHash);
             continue;
         }
