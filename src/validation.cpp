@@ -3030,8 +3030,8 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                                 }
                             }
                         } else {
-                            //get most latest anchor which is lower than  pindexConnect->nHeight
-                            auto fallbackAnchor = panchors->GetMostLatestAtDeFiHeight(pindexConnect->nHeight);
+                            //get latest anchor which is lower than  pindexConnect->nHeight
+                            auto fallbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(pindexConnect->nHeight);
 
                             if (fallbackAnchor && (fallbackAnchor->anchor.height >= fallbackCheckpointBlockHeight))
                             {

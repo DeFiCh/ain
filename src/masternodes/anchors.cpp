@@ -780,7 +780,7 @@ bool CAnchorIndex::DbErase(uint256 const & hash)
     return db->Erase(std::make_pair(DB_ANCHORS, hash));
 }
 
-const CAnchorIndex::AnchorRec* CAnchorIndex::GetMostLatestAtDeFiHeight(THeight blockHeightDeFi) const
+const CAnchorIndex::AnchorRec* CAnchorIndex::GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const
 {
     AssertLockHeld(cs_main);
 

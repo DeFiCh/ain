@@ -262,7 +262,7 @@ public:
     // Used to apply chain context to post-fork anchors which get added to pending.
     void CheckPendingAnchors();
 
-    AnchorRec const * GetMostLatestAtDeFiHeight(THeight blockHeightDeFi) const;
+    AnchorRec const * GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const;
 
 private:
     AnchorIndexImpl anchors;
