@@ -166,6 +166,7 @@ static void SetCheckpoints()
     BRMainNetCheckpoints[27] = { 544320, toUInt256("0000000000000000000a5e9b5e4fbee51f3d53f31f40cd26b8e59ef86acb2ebd"), 1538639362, 0x1725c191 };
     BRMainNetCheckpoints[28] = { 564480, toUInt256("0000000000000000002567dc317da20ddb0d7ef922fe1f9c2375671654f9006c"), 1551026038, 0x172e5b50 };
     BRMainNetCheckpoints[29] = { 584640, toUInt256("0000000000000000000e5af6f531133eb548fe3854486ade75523002a1a27687"), 1562663868, 0x171f0d9b };
+    BRMainNetCheckpoints[30] = { 669312, toUInt256("0000000000000000000beb9d24f999168c79fa58394868f9fcc5367c28f137dc"), 1612578303, 0x170d21b9 };
     /// @attention don't forget to increase both 'n' in BRMainNetCheckpoints[n]
 
     /// @attention block number should be multiple of 2016 !!!
@@ -185,8 +186,8 @@ static void SetCheckpoints()
     BRTestNetCheckpoints[13] = { 1310400, toUInt256("0000000000013b434bbe5668293c92ef26df6d6d4843228e8958f6a3d8101709"), 1527038604, 0x1b0ffff0 };
     BRTestNetCheckpoints[14] = { 1411200, toUInt256("00000000000000008b3baea0c3de24b9333c169e1543874f4202397f5b8502cb"), 1535535770, 0x194ac105 };
     BRTestNetCheckpoints[15] = { 1512000, toUInt256("000000000000024bed9664952a0e1d7cced222160daaa61cf47f4281eaaf1bbd"), 1556081498, 0x1a03f728 }; // added
-
     BRTestNetCheckpoints[16] = { 1610784, toUInt256("000000000000038032aa1f49cd37cf32e48ded45de1b53208be999fffa0333ba"), 1575244826, 0x1a03aeec }; // added
+    BRTestNetCheckpoints[17] = { 1933344, toUInt256("00000000000000318b9b614dd36ca37e6962b1cdd80e4b32245dffce286ec23a"), 1612416242, 0x1934f1c0 };
     /// @attention don't forget to increase both 'n' in BRTestNetCheckpoints[n]
 }
 
@@ -278,7 +279,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
     }
 
     // no need to load|keep peers!!!
-    manager = BRPeerManagerNew(BRGetChainParams(), wallet, 1588291200, blocks.data(), blocks.size(), NULL, 0); // date is 1 May 2020
+    manager = BRPeerManagerNew(BRGetChainParams(), wallet, 1613692800, blocks.data(), blocks.size(), NULL, 0); // date is 19 Feb 2021
 
     // can't wrap member function as static "C" function here:
     BRPeerManagerSetCallbacks(manager, this, syncStarted, syncStopped, txStatusUpdate,
