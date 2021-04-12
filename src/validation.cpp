@@ -3010,13 +3010,43 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                     }
                     state = CValidationState();
                     if (pindexConnect == pindexMostWork) {
-                        // NOTE: Invalidate blocks back to last checkpoint
+                        //checkpoints
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
-                        auto it = checkpoints.lower_bound(pindexConnect->nHeight);
-                        if (it != checkpoints.begin() && (--it)->first > 0) { // it doesn't makes sense backward to genesis
-                            auto index = LookupBlockIndex(it->second);
-                            if (!disconnectBlocksTo(index)) {
-                                return false;
+                        //calculate the latest suitable checkpoint block height
+                        auto checkpointIt = checkpoints.lower_bound(pindexConnect->nHeight);
+                        auto fallbackCheckpointBlockHeight = (checkpointIt != checkpoints.begin()) ? (--checkpointIt)->first : 0;
+
+                        auto invalidateBlocksTo = [this, &disconnectBlocksTo](const uint256& hash) -> bool {
+                            auto index = LookupBlockIndex(hash);
+                            return disconnectBlocksTo(index);
+                        };
+
+                        //check spv and anchors not available
+                        if (!spv::pspv || !panchors) {
+                            // Invalidate blocks back to fallbackCheckpointBlockHeight
+                            if (fallbackCheckpointBlockHeight > 0) { // it doesn't makes sense backward to genesis
+                                if (!invalidateBlocksTo(checkpointIt->second)) {
+                                    return false;
+                                }
+                            }
+                        } else {
+                            //get most latest anchor which is lower than  pindexConnect->nHeight
+                            auto fallbackAnchor = panchors->GetMostLatestAtDeFiHeight(pindexConnect->nHeight);
+
+                            if (fallbackAnchor && (fallbackAnchor->anchor.height >= fallbackCheckpointBlockHeight))
+                            {
+                                // Invalidate blocks back to fallbackkAnchor height
+                                if (!invalidateBlocksTo(fallbackAnchor->anchor.blockHash)) {
+                                    return false;
+                                }
+                            }
+                            else {
+                                //No latest fallbackAnchor, Invalidate blocks back to fallbackCheckpointBlockHeight
+                                if (fallbackCheckpointBlockHeight > 0) { // it doesn't makes sense backward to genesis
+                                    if (!invalidateBlocksTo(checkpointIt->second)) {
+                                        return false;
+                                    }
+                                }
                             }
                         }
                     }
