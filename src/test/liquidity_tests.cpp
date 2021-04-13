@@ -242,10 +242,7 @@ BOOST_AUTO_TEST_CASE(math_liquidity_and_trade)
 
 void SetPoolRewardPct(CCustomCSView & mnview, DCT_ID idPool, CAmount pct)
 {
-    auto optPool = mnview.GetPoolPair(idPool);
-    BOOST_REQUIRE(optPool);
-    optPool->rewardPct = pct;
-    mnview.SetPoolPair(idPool, 1, *optPool);
+    BOOST_REQUIRE(mnview.SetRewardPct(idPool, 1, pct));
 }
 
 void SetPoolTradeFees(CCustomCSView & mnview, DCT_ID idPool, CAmount A, CAmount B)
@@ -274,7 +271,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
 
     }
     // create shares
-    mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CLazySerialize<CPoolPair>) {
+    mnview.ForEachPoolId([&] (DCT_ID const & idPool) {
 //            printf("pool id = %s\n", idPool.ToString().c_str());
         for (int i = 0; i < ProvidersCount; ++i) {
             CScript shareAddress = CScript(idPool.v * ProvidersCount + i);
@@ -303,7 +300,7 @@ BOOST_AUTO_TEST_CASE(math_rewards)
         /// DCT_ID{10} - 0
 
         // set "traded fees" here too, just to estimate proc.load
-        cache.ForEachPoolPair([&] (DCT_ID const & idPool, CLazySerialize<CPoolPair>) {
+        cache.ForEachPoolId([&] (DCT_ID const & idPool) {
             SetPoolTradeFees(cache, idPool, idPool.v * COIN, idPool.v * COIN*2);
             return true;
         });
@@ -373,7 +370,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
     }
 
     // create shares
-    mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CLazySerialize<CPoolPair>) {
+    mnview.ForEachPoolId([&] (DCT_ID const & idPool) {
         for (int i = 0; i < PoolCount; ++i) {
             Res res = AddPoolLiquidity(mnview, idPool, idPool.v*COIN, idPool.v*COIN, shareAddress[i]);
             BOOST_CHECK(res.ok);
@@ -382,12 +379,12 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
     });
 
     mnview.ForEachPoolPair([&] (DCT_ID const & idPool, CPoolPair pool) {
-        pool.rewardPct = COIN/(idPool.v + 1);
         pool.blockCommissionA = idPool.v * COIN;
         pool.blockCommissionB = idPool.v * COIN * 2;
         pool.swapEvent = true;
         pool.ownerAddress = shareAddress[0];
         mnview.SetPoolPair(idPool, 1, pool);
+        mnview.SetRewardPct(idPool, 1, COIN/(idPool.v + 1));
         return true;
     });
 

@@ -185,10 +185,10 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CLazySerialize<CPoolPair> pool) {
+    pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CPoolPair pool) {
         const auto token = pcustomcsview->GetToken(id);
         if (token) {
-            ret.pushKVs(poolToJSON(id, pool.get(), *token, verbose));
+            ret.pushKVs(poolToJSON(id, pool, *token, verbose));
         }
 
         limit--;

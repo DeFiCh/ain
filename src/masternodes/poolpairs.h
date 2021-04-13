@@ -91,13 +91,18 @@ public:
     CPoolPair(CPoolPairMessage const & msg = {}) : CPoolPairMessage(msg) {}
     virtual ~CPoolPair() = default;
 
-    CBalances rewards;
-    CAmount reserveA = 0, reserveB = 0, totalLiquidity = 0;
-    CAmount blockCommissionA = 0, blockCommissionB = 0;
+    // temporary values, not serialized
+    CAmount reserveA = 0;
+    CAmount reserveB = 0;
+    CAmount totalLiquidity = 0;
+    CAmount blockCommissionA = 0;
+    CAmount blockCommissionB = 0;
 
     CAmount rewardPct = 0;       // pool yield farming reward %%
     bool swapEvent = false;
 
+    // serialized
+    CBalances rewards;
     uint256 creationTx;
     uint32_t creationHeight = -1;
 
@@ -130,16 +135,9 @@ public:
         if (!ser_action.ForRead()) ioProofer();
 
         READWRITEAS(CPoolPairMessage, *this);
-        READWRITE(reserveA);
-        READWRITE(reserveB);
-        READWRITE(totalLiquidity);
-        READWRITE(blockCommissionA);
-        READWRITE(blockCommissionB);
-        READWRITE(rewardPct);
-        READWRITE(swapEvent);
+        READWRITE(rewards);
         READWRITE(creationTx);
         READWRITE(creationHeight);
-        READWRITE(rewards);
 
         if (ser_action.ForRead()) ioProofer();
     }
@@ -202,7 +200,8 @@ public:
     boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
     boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 
-    void ForEachPoolPair(std::function<bool(DCT_ID const &, CLazySerialize<CPoolPair>)> callback, DCT_ID const & start = DCT_ID{0});
+    void ForEachPoolId(std::function<bool(DCT_ID const &)> callback, DCT_ID const & start = DCT_ID{0});
+    void ForEachPoolPair(std::function<bool(DCT_ID const &, CPoolPair)> callback, DCT_ID const & start = DCT_ID{0});
     void ForEachPoolShare(std::function<bool(DCT_ID const &, CScript const &, uint32_t)> callback, PoolShareKey const &startKey = {});
 
     Res SetShare(DCT_ID const & poolId, CScript const & provider, uint32_t height);
@@ -213,6 +212,8 @@ public:
     void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(uint8_t, CTokenAmount, uint32_t)> onReward);
 
     Res SetDailyReward(uint32_t height, CAmount reward);
+    Res SetRewardPct(DCT_ID const & poolId, uint32_t height, CAmount rewardPct);
+    bool HasPoolPair(DCT_ID const & poolId) const;
 
     CAmount UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
 
@@ -222,6 +223,8 @@ public:
     struct ByShare { static const unsigned char prefix; }; // lsTokenID+accountID -> {}
     struct ByIDPair { static const unsigned char prefix; }; // lsTokenID -> tokenA+tokenB
     struct ByPoolSwap { static const unsigned char prefix; };
+    struct ByReserves { static const unsigned char prefix; };
+    struct ByRewardPct { static const unsigned char prefix; };
     struct ByPoolReward { static const unsigned char prefix; };
     struct ByDailyReward { static const unsigned char prefix; };
     struct ByCustomReward { static const unsigned char prefix; };
