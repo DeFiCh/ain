@@ -210,11 +210,11 @@ class AnchorRewardsTest (DefiTestFramework):
 
         unrewarded = self.nodes[0].spv_listanchorsunrewarded()
         assert_equal(len(unrewarded), 1)
-        assert_equal(unrewarded[0]['btcHeight'], 1)
-        if unrewarded[0]['btcHash'] != btcHash0:
-            assert_equal(unrewarded[0]['btcHash'], btcHash1)
-        assert_equal(unrewarded[0]['dfiHeight'], 15)
-        assert_equal(unrewarded[0]['dfiHash'], dfiHash)
+        assert_equal(unrewarded[0]['btcBlockHeight'], 1)
+        if unrewarded[0]['btcTxHash'] != btcHash0:
+            assert_equal(unrewarded[0]['btcTxHash'], btcHash1)
+        assert_equal(unrewarded[0]['defiBlockHeight'], 15)
+        assert_equal(unrewarded[0]['defiBlockHash'], dfiHash)
 
         # important to wait here!
         self.sync_blocks(self.nodes[0:2])
