@@ -24,9 +24,11 @@ class PoolSwapTest (DefiTestFramework):
         # node1: secondary tester
         # node2: revert create (all)
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0'],
-        ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0'],
-        ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0']]
+        self.extra_args = [
+            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120'],
+            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120'],
+            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120']
+        ]
 
         # SET parameters for create tokens and pools
         #========================
@@ -48,12 +50,6 @@ class PoolSwapTest (DefiTestFramework):
         # Liquidity:     1 pool * 10 acc = 2 token * 10 acc = 20 tx
         # Set gov:       2 tx
         # PoolSwap:      1 pool * 10 acc = 2 token * 10 acc = 20 tx
-
-        # count_create_pool_tx = self.COUNT_POOLS * 3
-        count_pool_token = self.COUNT_POOLS * 2
-        # count_mint_and_sent = count_pool_token * 4
-        # count_add_liquidity = count_pool_token * self.COUNT_ACCOUNT
-        self.COUNT_POOLSWAP = count_pool_token * self.COUNT_ACCOUNT
 
         # self.COUNT_TX = count_create_pool_tx + count_mint_and_sent + count_add_liquidity + 2 + self.COUNT_POOLSWAP
 
@@ -228,9 +224,6 @@ class PoolSwapTest (DefiTestFramework):
         self.nodes[0].generate(100)
         self.sync_all()
 
-        # Stop node #2 for future revert
-        self.stop_node(2)
-
         owner = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].generate(1)
 
@@ -243,7 +236,7 @@ class PoolSwapTest (DefiTestFramework):
 
         print("Generating pools...")
         self.create_pools(owner)
-        assert_equal(len(self.nodes[0].listtokens({}, False)), self.COUNT_POOLS * 4)
+        assert_equal(len(self.nodes[0].listtokens({}, False)), (3 * self.COUNT_POOLS) + 1)
         assert_equal(len(self.nodes[0].listpoolpairs({}, False)), self.COUNT_POOLS)
         print("Generate " + str(self.COUNT_POOLS) + " pools and " + str(self.COUNT_POOLS * 2) + " tokens")
 
@@ -296,6 +289,9 @@ class PoolSwapTest (DefiTestFramework):
         assert(g2 == {'LP_DAILY_DFI_REWARD': Decimal(self.LP_DAILY_DFI_REWARD)} )
         print("Set governance variables")
 
+        # Stop node #2 for future revert
+        self.stop_node(2)
+
         print("Swapping tokens...")
         start_time = time.time()
         self.poolswap()
@@ -303,25 +299,18 @@ class PoolSwapTest (DefiTestFramework):
         print("Tokens exchanged")
         print("Elapsed time: {} s".format(end_time))
 
-        print("Generating block...")
-        start_time = time.time()
-        self.nodes[0].generate(self.COUNT_POOLSWAP)
-        end_time = time.time() - start_time
-        print("Elapsed time: {} s".format(end_time))
-
         # REVERTING:
         #========================
         print ("Reverting...")
         self.start_node(2)
-        self.nodes[2].generate(20)
+        self.nodes[2].generate(5)
 
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
 
-        #assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold)
-        #assert_equal(self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver)
-
-        #assert_equal(len(self.nodes[0].getrawmempool()), self.COUNT_TX)
+        assert(self.nodes[0].getblockcount() == 120) # eunos
+        print("Swapping tokens after eunos height...")
+        self.poolswap()
 
 
 if __name__ == '__main__':
