@@ -24,14 +24,14 @@
 
 #include "BRTransaction.h"
 #include "BRKey.h"
-#include "BRAddress.h"
 #include "BRArray.h"
 #include <stdlib.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <time.h>
 
-#define TX_VERSION           0x00000001
+#include <util/strencodings.h>
+
 #define TX_LOCKTIME          0x00000000
 #define SIGHASH_ALL          0x01 // default, sign all of the outputs
 #define SIGHASH_NONE         0x02 // sign none of the outputs, I don't care where the bitcoins go
@@ -351,12 +351,12 @@ static size_t _BRTransactionData(const BRTransaction *tx, uint8_t *data, size_t 
 }
 
 // returns a newly allocated empty transaction that must be freed by calling BRTransactionFree()
-BRTransaction *BRTransactionNew(void)
+BRTransaction *BRTransactionNew(uint32_t version)
 {
     BRTransaction *tx = (BRTransaction *)calloc(1, sizeof(*tx));
 
     assert(tx != NULL);
-    tx->version = TX_VERSION;
+    tx->version = version;
     array_new(tx->inputs, 1);
     array_new(tx->outputs, 2);
     tx->lockTime = TX_LOCKTIME;
@@ -585,6 +585,28 @@ size_t BRTransactionSize(const BRTransaction *tx)
     return size + witSize;
 }
 
+size_t BRTransactionHTLCSize(const BRTransaction *tx, const size_t sigSize)
+{
+    BRTxInput *input;
+    size_t size;
+
+    size = (tx) ? 8 + BRVarIntSize(tx->inCount) + BRVarIntSize(tx->outCount) : 0;
+
+    for (size_t i = 0; i < tx->inCount; i++)
+    {
+        input = &tx->inputs[i];
+
+        size += sigSize + TX_HTLC_INPUT_NOSIG;
+    }
+
+    for (size_t i = 0; i < tx->outCount; i++)
+    {
+        size += sizeof(uint64_t) + BRVarIntSize(tx->outputs[i].scriptLen) + tx->outputs[i].scriptLen;
+    }
+
+    return size;
+}
+
 // virtual transaction size as defined by BIP141: https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki
 size_t BRTransactionVSize(const BRTransaction *tx)
 {
@@ -637,7 +659,7 @@ int BRTransactionIsSigned(const BRTransaction *tx)
 // adds signatures to any inputs with NULL signatures that can be signed with any keys
 // forkId is 0 for bitcoin, 0x40 for b-cash, 0x4f for b-gold
 // returns true if tx is signed
-int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCount)
+int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCount, HTLCScriptType htlcType, const uint8_t* seed, const uint8_t *redeemScript)
 {
     UInt160 pkh[keysCount];
     size_t i, j;
@@ -651,17 +673,28 @@ int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCo
     
     for (i = 0; tx && i < tx->inCount; i++) {
         BRTxInput *input = &tx->inputs[i];
-        const uint8_t *hash = BRScriptPKH(input->script, input->scriptLen);
+        const uint8_t *hash;
+        UInt160 hash160 = UINT160_ZERO;
+
+        if (htlcType == ScriptTypeNone)
+        {
+            hash = BRScriptPKH(input->script, input->scriptLen);
+        }
+        else
+        {
+            hash160 = BRHTLCScriptPKH(input->script, input->scriptLen, htlcType);
+            hash = &hash160.u8[0];
+        }
         
         j = 0;
         while (j < keysCount && (! hash || ! UInt160Eq(pkh[j], UInt160Get(hash)))) j++;
         if (j >= keysCount) continue;
-        
+
         const uint8_t *elems[BRScriptElements(NULL, 0, input->script, input->scriptLen)];
         size_t elemsCount = BRScriptElements(elems, sizeof(elems)/sizeof(*elems), input->script, input->scriptLen);
         uint8_t pubKey[BRKeyPubKey(&keys[j], NULL, 0)];
         size_t pkLen = BRKeyPubKey(&keys[j], pubKey, sizeof(pubKey));
-        uint8_t sig[73], script[1 + sizeof(sig) + 1 + sizeof(pubKey)];
+        uint8_t sig[73], script[1 + sizeof(sig) + 1 + (seed ? seed[0] + (htlcType == ScriptTypeSeller ? 1 /* OP_1 */ : 0) + 1 /* pushdata */ + redeemScript[0]: sizeof(pubKey))];
         size_t sigLen, scriptLen;
         UInt256 md = UINT256_ZERO;
         
@@ -689,6 +722,36 @@ int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCo
             BRTxInputSetSignature(input, script, scriptLen);
             BRTxInputSetWitness(input, script, 0);
         }
+        else if (elemsCount == 12 && *elems[0] == OP_IF && *elems[1] == OP_SHA256 && *elems[3] == OP_EQUALVERIFY && // HTLC
+                 *elems[5] == OP_ELSE && *elems[7] == OP_CHECKSEQUENCEVERIFY && *elems[8] == OP_DROP &&
+                 *elems[10] == OP_ENDIF && *elems[11] == OP_CHECKSIG)
+        {
+            uint8_t data[_BRTransactionData(tx, NULL, 0, i, forkId | SIGHASH_ALL)];
+            size_t dataLen = _BRTransactionData(tx, data, sizeof(data), i, forkId | SIGHASH_ALL);
+
+            BRSHA256_2(&md, data, dataLen);
+            sigLen = BRKeySign(&keys[j], sig, sizeof(sig) - 1, md);
+            sig[sigLen++] = forkId | SIGHASH_ALL;
+
+            // Add signature
+            scriptLen = BRScriptPushData(script, sizeof(script), sig, sigLen);
+
+            // Add seed
+            scriptLen += BRScriptPushData(&script[scriptLen], sizeof(script) - scriptLen, &seed[1], seed[0]);
+
+            if (htlcType == ScriptTypeSeller)
+            {
+                // Add OP_1 after seed
+                script[scriptLen] = OP_1;
+                ++scriptLen;
+            }
+
+            // Add redeemscript
+            scriptLen += BRScriptPushData(&script[scriptLen], sizeof(script) - scriptLen, &redeemScript[1], redeemScript[0]);
+
+            BRTxInputSetSignature(input, script, scriptLen);
+            BRTxInputSetWitness(input, script, 0);
+        }
         else { // pay-to-pubkey
             uint8_t data[_BRTransactionData(tx, NULL, 0, i, forkId | SIGHASH_ALL)];
             size_t dataLen = _BRTransactionData(tx, data, sizeof(data), i, forkId | SIGHASH_ALL);
@@ -706,7 +769,7 @@ int BRTransactionSign(BRTransaction *tx, int forkId, BRKey keys[], size_t keysCo
         uint8_t data[BRTransactionSerialize(tx, NULL, 0)];
         size_t len = BRTransactionSerialize(tx, data, sizeof(data));
         BRTransaction *t = BRTransactionParse(data, len);
-        
+
         if (t) tx->txHash = t->txHash, tx->wtxHash = t->wtxHash;
         if (t) BRTransactionFree(t);
         return 1;

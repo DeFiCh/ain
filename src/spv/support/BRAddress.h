@@ -26,9 +26,16 @@
 #define BRAddress_h
 
 #include "BRCrypto.h"
+#include "BRInt.h"
 #include <string.h>
 #include <stddef.h>
 #include <inttypes.h>
+
+enum HTLCScriptType {
+    ScriptTypeNone,
+    ScriptTypeSeller,
+    ScriptTypeBuyer,
+};
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,11 +49,17 @@ extern "C" {
 #define OP_1NEGATE     0x4f
 #define OP_1           0x51
 #define OP_16          0x60
+#define OP_IF          0x63
+#define OP_ELSE        0x67
+#define OP_ENDIF       0x68
+#define OP_DROP        0x75
 #define OP_DUP         0x76
 #define OP_EQUAL       0x87
 #define OP_EQUALVERIFY 0x88
+#define OP_SHA256      0xa8
 #define OP_HASH160     0xa9
 #define OP_CHECKSIG    0xac
+#define OP_CHECKSEQUENCEVERIFY    0xb2
 
 // reads a varint from buf and stores its length in intLen if intLen is non-NULL
 // returns the varint value
@@ -71,6 +84,9 @@ size_t BRScriptPushData(uint8_t *script, size_t scriptLen, const uint8_t *data, 
 
 // returns a pointer to the 20byte pubkey hash, or NULL if none
 const uint8_t *BRScriptPKH(const uint8_t *script, size_t scriptLen);
+
+// Returns a UInt160 of the seller's or buyer's address, UINT160_ZERO if not a HTLC
+const UInt160 BRHTLCScriptPKH(const uint8_t *script, size_t scriptLen, HTLCScriptType htlcType);
     
 typedef struct {
     char s[75];

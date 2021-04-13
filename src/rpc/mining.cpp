@@ -254,12 +254,16 @@ static UniValue getmintinginfo(const JSONRPCRequest& request)
     obj.pushKV("isoperator",       (bool) mnIds);
     if (mnIds) {
         obj.pushKV("masternodeid", mnIds->second.GetHex());
-        CMasternode const & node = *pcustomcsview->GetMasternode(mnIds->second);
-        auto state = node.GetState();
-        obj.pushKV("masternodeoperator", node.operatorAuthAddress.GetHex());
+        auto nodePtr = pcustomcsview->GetMasternode(mnIds->second);
+        if (!nodePtr) {
+            //should not come here if the database has correct data.
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("The masternode %s does not exist", mnIds->second.GetHex()));
+        }
+        auto state = nodePtr->GetState();
+        obj.pushKV("masternodeoperator", nodePtr->operatorAuthAddress.GetHex());
         obj.pushKV("masternodestate", CMasternode::GetHumanReadableState(state));
-        obj.pushKV("generate", node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
-        obj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);
+        obj.pushKV("generate", nodePtr->IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
+        obj.pushKV("mintedblocks", (uint64_t)nodePtr->mintedBlocks);
     }
     obj.pushKV("networkhashps",    getnetworkhashps(request));
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
@@ -305,6 +309,8 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
     obj.pushKV("chain",            Params().NetworkIDString());
 
+    bool genCoins = gArgs.GetBoolArg("-gen", DEFAULT_GENERATE);
+
     // get all masternode operators
     auto mnIds = pcustomcsview->GetOperatorsMulti();
     obj.pushKV("isoperator", !mnIds.empty());
@@ -314,13 +320,17 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
         UniValue subObj(UniValue::VOBJ);
 
         subObj.pushKV("masternodeid", mnId.second.GetHex());
-        CMasternode const & node = *pcustomcsview->GetMasternode(mnId.second);
-        auto state = node.GetState();
-        subObj.pushKV("masternodeoperator", node.operatorAuthAddress.GetHex());// NOTE(sp) : Should this also be encoded? not the HEX
+        auto nodePtr = pcustomcsview->GetMasternode(mnId.second);
+        if (!nodePtr) {
+            //should not come here if the database has correct data.
+            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("The masternode %s does not exist", mnId.second.GetHex()));
+        }
+        auto state = nodePtr->GetState();
+        subObj.pushKV("masternodeoperator", nodePtr->operatorAuthAddress.GetHex());// NOTE(sp) : Should this also be encoded? not the HEX
         subObj.pushKV("masternodestate", CMasternode::GetHumanReadableState(state));
-        auto generate = node.IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE);
+        auto generate = nodePtr->IsActive() && genCoins;
         subObj.pushKV("generate", generate);
-        subObj.pushKV("mintedblocks", (uint64_t)node.mintedBlocks);
+        subObj.pushKV("mintedblocks", (uint64_t)nodePtr->mintedBlocks);
 
         if (!generate) {
             subObj.pushKV("lastblockcreationattempt", "0");
