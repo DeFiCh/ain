@@ -745,7 +745,7 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     if (balanceHeight >= targetHeight) {
         return false;
     }
-    ForEachPoolPair([&] (DCT_ID const & poolId, CLazySerialize<CPoolPair>) {
+    ForEachPoolId([&] (DCT_ID const & poolId) {
         auto height = GetShare(poolId, owner);
         if (!height || *height >= targetHeight) {
             return true; // no share or target height is before a pool share' one
