@@ -2419,6 +2419,22 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
     mnview.SetLastHeight(pindex->nHeight);
 
+    if (fCheckpointsEnabled) {
+        auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
+        auto it = checkpoints.lower_bound(pindex->nHeight);
+        if (it != checkpoints.begin()) {
+            --it;
+            CCustomCSView pruned(mnview);
+            mnview.ForEachUndo([&](UndoKey const & key, CLazySerialize<CUndo>) {
+                if (key.height >= it->first) { // don't erase checkpoint height
+                    return false;
+                }
+                return pruned.DelUndo(key).ok;
+            });
+            pruned.Flush();
+        }
+    }
+
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
     LogPrint(BCLog::BENCH, "    - Index writing: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime5 - nTime4), nTimeIndex * MICRO, nTimeIndex * MILLI / nBlocksTotal);
 
@@ -3007,7 +3023,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         InvalidChainFound(vpindexToConnect.front());
                     }
                     state = CValidationState();
-                    if (pindexConnect == pindexMostWork) {
+                    if (fCheckpointsEnabled && pindexConnect == pindexMostWork) {
                         // NOTE: Invalidate blocks back to last checkpoint
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
                         auto it = checkpoints.lower_bound(pindexConnect->nHeight);
