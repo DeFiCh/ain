@@ -696,9 +696,96 @@ UniValue CSpvWrapper::ListTransactions()
     UniValue result(UniValue::VARR);
     for (const auto& txid : userTransactions)
     {
-        result.push_back(txid);
+        result.push_back(to_uint256(txid->txHash).ToString());
     }
     return result;
+}
+
+struct tallyitem
+{
+    CAmount nAmount{0};
+    int nConf{std::numeric_limits<int>::max()};
+    std::vector<uint256> txids;
+    SPVTxType type;
+};
+
+UniValue CSpvWrapper::ListReceived(int nMinDepth, std::string address)
+{
+    if (!address.empty() && !BRAddressIsValid(address.c_str()))
+    {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    UInt160 addressFilter = UINT160_ZERO;
+    if (!address.empty())
+    {
+        BRAddressHash160(&addressFilter, address.c_str());
+    }
+
+    auto userTransactions = BRListUserTransactions(wallet, addressFilter);
+
+    //UniValue ret(UniValue::VARR);
+    std::map<std::string, tallyitem> mapTally;
+    for (const auto& txid : userTransactions)
+    {
+        int32_t confirmations{0};
+        const auto txHash = to_uint256(txid->txHash);
+        const auto blockHeight = ReadTxBlockHeight(txHash);
+
+        if (blockHeight != std::numeric_limits<int32_t>::max())
+        {
+            confirmations = spv::pspv->GetLastBlockHeight() - blockHeight + 1;
+        }
+
+        if (confirmations < nMinDepth)
+        {
+            continue;
+        }
+
+        for (size_t i{0}; i < txid->outCount; ++i)
+        {
+            const auto txout = txid->outputs[i];
+
+            if (!address.empty() && address != txout.address)
+            {
+                continue;
+            }
+
+            auto mine = IsMine(txout.address);
+            if (mine == SPVTxType::None)
+            {
+                continue;
+            }
+
+            tallyitem& item = mapTally[txout.address];
+            item.type = mine;
+            item.nAmount += txout.amount;
+            item.nConf = std::min(item.nConf, confirmations);
+            item.txids.push_back(txHash);
+        }
+    }
+
+    UniValue ret(UniValue::VARR);
+
+    for (const auto& entry : mapTally)
+    {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("address", entry.first);
+        obj.pushKV("type", entry.second.type == SPVTxType::Bech32 ? "Bech32" : "HTLC");
+        obj.pushKV("amount", ValueFromAmount(entry.second.nAmount));
+        obj.pushKV("confirmations", entry.second.nConf);
+
+        UniValue transactions(UniValue::VARR);
+        for (const uint256& item : entry.second.txids)
+        {
+            transactions.push_back(item.GetHex());
+        }
+        obj.pushKV("txids", transactions);
+
+        ret.push_back(obj);
+    }
+
+    return ret;
 }
 
 UniValue CSpvWrapper::GetHTLCReceived(const std::string& addr)
@@ -766,11 +853,6 @@ std::string CSpvWrapper::GetRawTransactions(uint256& hash)
 std::string CSpvWrapper::GetHTLCSeed(uint8_t* md20)
 {
     return BRGetHTLCSeed(wallet, md20);
-}
-
-uint64_t CSpvWrapper::GetFeeRate()
-{
-    return BRWalletFeePerKb(wallet);
 }
 
 HTLCDetails GetHTLCDetails(CScript& redeemScript)
@@ -943,6 +1025,19 @@ CKeyID CSpvWrapper::GetAddressKeyID(const char *addr)
     }
 
     return key;
+}
+
+SPVTxType CSpvWrapper::IsMine(const char *address)
+{
+    if (address == nullptr || !BRAddressIsValid(address))
+    {
+        return SPVTxType::None;
+    }
+
+    UInt160 addressFilter;
+    BRAddressHash160(&addressFilter, address);
+
+    return BRWalletIsMine(wallet, addressFilter, true);
 }
 
 
