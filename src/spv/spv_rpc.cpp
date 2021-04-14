@@ -799,10 +799,10 @@ UniValue spv_decodehtlcscript(const JSONRPCRequest& request)
         },
         RPCResult{
             "{\n"
-            "  \"sellerkey\"                 (string) Seller public key\n"
-            "  \"buyerkey\"                  (string) Buyer public key\n"
+            "  \"receiverPubkey\"            (string) The public key of the possessor of the seed\n"
+            "  \"ownerPubkey\"               (string) The public key of the recipient of the refund\n"
             "  \"blocks\"                    (number) Locktime in number of blocks\n"
-            "  \"hash\"                      (string) Hash of the seed\n"
+            "  \"hash\"                      (string) Hex-encoded seed hash if no seed provided\n"
             "}\n"
         },
         RPCExamples{
@@ -837,8 +837,8 @@ UniValue spv_createhtlc(const JSONRPCRequest& request)
         "\nCreates a Bitcoin address whose funds can be unlocked with a seed or as a refund.\n"
         "It returns a json object with the address and redeemScript.\n",
         {
-            {"seller_key", RPCArg::Type::STR, RPCArg::Optional::NO, "The public key of the possessor of the seed"},
-            {"refund_key", RPCArg::Type::STR, RPCArg::Optional::NO, "The public key of the recipient of the refund"},
+            {"receiverPubkey", RPCArg::Type::STR, RPCArg::Optional::NO, "The public key of the possessor of the seed"},
+            {"ownerPubkey", RPCArg::Type::STR, RPCArg::Optional::NO, "The public key of the recipient of the refund"},
             {"timeout", RPCArg::Type::STR, RPCArg::Optional::NO, "Timeout of the contract (denominated in blocks) relative to its placement in the blockchain"},
             {"seed", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "SHA256 hash of the seed. If none provided one will be generated"},
         },
