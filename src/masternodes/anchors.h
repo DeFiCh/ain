@@ -214,7 +214,7 @@ public:
         struct ByBtcHeight{};
         struct ByDeFiHeight{};
 
-        THeight DeFiBlockHeight()const{return anchor.height;}
+        THeight DeFiBlockHeight() const {return anchor.height;}
     };
 
     typedef boost::multi_index_container<AnchorRec,
