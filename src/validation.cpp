@@ -3018,38 +3018,21 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         auto checkpointIt = checkpoints.lower_bound(pindexConnect->nHeight);
                         auto fallbackCheckpointBlockHeight = (checkpointIt != checkpoints.begin()) ? (--checkpointIt)->first : 0;
 
-                        auto invalidateBlocksTo = [&](const uint256& hash) -> bool {
-                            auto index = LookupBlockIndex(hash);
-                            return disconnectBlocksTo(index);
-                        };
-
-                        //check spv and anchors not available
-                        if (!spv::pspv || !panchors) {
-                            // Invalidate blocks back to fallbackCheckpointBlockHeight
-                            if (fallbackCheckpointBlockHeight > 0) { // it doesn't makes sense backward to genesis
-                                if (!invalidateBlocksTo(checkpointIt->second)) {
-                                    return false;
-                                }
-                            }
-                        } else {
-                            //get latest anchor which is lower than  pindexConnect->nHeight
+                        CBlockIndex *blockIndex = nullptr;
+                        //check spv and anchors are available and try it first
+                        if (spv::pspv && panchors) {
                             auto fallbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(pindexConnect->nHeight);
-
-                            if (fallbackAnchor && (fallbackAnchor->anchor.height >= fallbackCheckpointBlockHeight))
-                            {
-                                // Invalidate blocks back to fallbackkAnchor height
-                                if (!invalidateBlocksTo(fallbackAnchor->anchor.blockHash)) {
-                                    return false;
-                                }
+                            if (fallbackAnchor && (fallbackAnchor->anchor.height > fallbackCheckpointBlockHeight)) {
+                                blockIndex = LookupBlockIndex(fallbackAnchor->anchor.blockHash);
                             }
-                            else {
-                                //No latest fallbackAnchor, Invalidate blocks back to fallbackCheckpointBlockHeight
-                                if (fallbackCheckpointBlockHeight > 0) { // it doesn't makes sense backward to genesis
-                                    if (!invalidateBlocksTo(checkpointIt->second)) {
-                                        return false;
-                                    }
-                                }
-                            }
+                        }
+                        if (!blockIndex && fallbackCheckpointBlockHeight > 0) {// it doesn't makes sense backward to genesis
+                            blockIndex = LookupBlockIndex(checkpointIt->second);
+                        }
+                        //fallback
+                        if (blockIndex) {
+                            if (!disconnectBlocksTo(blockIndex))
+                                return false;
                         }
                     }
                     fInvalidFound = true;
