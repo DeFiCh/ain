@@ -10,7 +10,6 @@
 #include <pubkey.h>
 #include <serialize.h>
 #include <masternodes/accounts.h>
-#include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/incentivefunding.h>
 #include <masternodes/tokens.h>
@@ -240,7 +239,6 @@ class CCustomCSView
         , public CAnchorRewardsView
         , public CTokensView
         , public CAccountsView
-        , public CAccountsHistoryView
         , public CCommunityBalancesView
         , public CUndosView
         , public CPoolPairView
@@ -284,21 +282,6 @@ public:
     CStorageKV& GetRaw() {
         return DB();
     }
-};
-
-class CAccountsHistoryStorage : public CCustomCSView
-{
-    bool acindex;
-    const uint32_t height;
-    const uint32_t txn;
-    const uint256 txid;
-    const uint8_t type;
-    std::map<CScript, TAmounts> diffs;
-public:
-    CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type);
-    Res AddBalance(CScript const & owner, CTokenAmount amount) override;
-    Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    bool Flush();
 };
 
 std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team);

@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/balances.h>
 #include <masternodes/mn_checks.h>
@@ -984,6 +985,74 @@ public:
 
         return mnview.RevertCreateToken(tx.GetHash());
     }
+
+    Res operator()(const CMintTokensMessage& obj) const {
+        for (const auto& kv : obj.balances) {
+            DCT_ID tokenId = kv.first;
+
+            auto token = mnview.GetToken(tokenId);
+            if (!token) {
+                return Res::Err("token %s does not exist!", tokenId.ToString());
+            }
+            auto tokenImpl = static_cast<const CTokenImplementation&>(*token);
+
+            const Coin& coin = coins.AccessCoin(COutPoint(tokenImpl.creationTx, 1));
+            // notify account changes
+            mnview.AddBalance(coin.out.scriptPubKey, {});
+        }
+        return Res::Ok();
+    }
+
+    Res operator()(const CPoolSwapMessage& obj) const {
+        // notify account changes
+        mnview.AddBalance(obj.to, {});
+        return mnview.SubBalance(obj.from, {});
+    }
+
+    Res operator()(const CLiquidityMessage& obj) const {
+        // notify account changes
+        for (const auto& kv : obj.from) {
+            mnview.SubBalance(kv.first, {});
+        }
+        return mnview.AddBalance(obj.shareAddress, {});
+    }
+
+    Res operator()(const CRemoveLiquidityMessage& obj) const {
+        // notify account changes
+        return mnview.SubBalance(obj.from, {});
+    }
+
+    Res operator()(const CUtxosToAccountMessage& obj) const {
+        // notify account changes
+        for (const auto& account : obj.to) {
+            mnview.AddBalance(account.first, {});
+        }
+        return Res::Ok();
+    }
+
+    Res operator()(const CAccountToUtxosMessage& obj) const {
+        // notify account changes
+        return mnview.SubBalance(obj.from, {});
+    }
+
+    Res operator()(const CAccountToAccountMessage& obj) const {
+        // notify account changes
+        for (const auto& account : obj.to) {
+            mnview.AddBalance(account.first, {});
+        }
+        return mnview.SubBalance(obj.from, {});
+    }
+
+    Res operator()(const CAnyAccountsToAccountsMessage& obj) const {
+        // notify account changes
+        for (const auto& account : obj.to) {
+            mnview.AddBalance(account.first, {});
+        }
+        for (const auto& account : obj.from) {
+            mnview.AddBalance(account.first, {});
+        }
+        return Res::Ok();
+    }
 };
 
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage) {
@@ -1024,21 +1093,38 @@ bool ShouldReturnNonFatalError(const CTransaction& tx, uint32_t height) {
     return it != skippedTx.end() && it->second == tx.GetHash();
 }
 
-Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height) {
+Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView) {
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return Res::Ok();
     }
+    auto res = Res::Ok();
     std::vector<unsigned char> metadata;
     auto txType = GuessCustomTxType(tx, metadata);
-    if (txType == CustomTxType::None) {
-        return Res::Ok();
+    switch(txType)
+    {
+        case CustomTxType::CreateMasternode:
+        case CustomTxType::ResignMasternode:
+        case CustomTxType::CreateToken:
+        case CustomTxType::CreatePoolPair:
+            // Enable these in the future
+        case CustomTxType::None:
+            return res;
+        default:
+            break;
     }
     auto txMessage = customTypeToMessage(txType);
-    auto res = CustomMetadataParse(height, consensus, metadata, txMessage);
-    return !res ? res : CustomTxRevert(mnview, coins, tx, height, consensus, txMessage);
+    CAccountsHistoryEraser view(mnview, height, txn, historyView);
+    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
+        res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
+    }
+    if (!res) {
+        res.msg = strprintf("%sRevertTx: %s", ToString(txType), res.msg);
+        return res;
+    }
+    return (view.Flush(), res);
 }
 
-Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn) {
+Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, const Consensus::Params& consensus, uint32_t height, uint64_t time, uint32_t txn, CAccountsHistoryView* historyView) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) { // genesis contains custom coinbase txs
         return res;
@@ -1049,7 +1135,7 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
     auto txMessage = customTypeToMessage(txType);
-    CAccountsHistoryStorage view(mnview, height, txn, tx.GetHash(), uint8_t(txType));
+    CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), historyView);
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time);
     }

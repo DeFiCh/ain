@@ -7,9 +7,9 @@
 
 #include <amount.h>
 #include <flushablestorage.h>
+#include <masternodes/masternodes.h>
 #include <script/script.h>
 #include <uint256.h>
-
 
 struct AccountHistoryKey {
     CScript owner;
@@ -55,12 +55,51 @@ struct AccountHistoryValue {
 class CAccountsHistoryView : public virtual CStorageView
 {
 public:
-    Res SetAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
+    Res WriteAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
+    Res EraseAccountHistory(AccountHistoryKey const & key);
     void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {});
 
     // tags
     struct ByAccountHistoryKey { static const unsigned char prefix; };
 };
+
+class CAccountHistoryStorage : public CAccountsHistoryView
+{
+public:
+    CAccountHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
+};
+
+class CAccountsHistoryWriter : public CCustomCSView
+{
+    const uint32_t height;
+    const uint32_t txn;
+    const uint256 txid;
+    const uint8_t type;
+    std::map<CScript, TAmounts> diffs;
+    CAccountsHistoryView* historyView;
+
+public:
+    CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CAccountsHistoryView* historyView);
+    Res AddBalance(CScript const & owner, CTokenAmount amount) override;
+    Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    bool Flush();
+};
+
+class CAccountsHistoryEraser : public CCustomCSView
+{
+    const uint32_t height;
+    const uint32_t txn;
+    std::set<CScript> accounts;
+    CAccountsHistoryView* historyView;
+
+public:
+    CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView);
+    Res AddBalance(CScript const & owner, CTokenAmount amount) override;
+    Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    bool Flush();
+};
+
+extern std::unique_ptr<CAccountHistoryStorage> paccountHistoryDB;
 
 static constexpr bool DEFAULT_ACINDEX = true;
 
