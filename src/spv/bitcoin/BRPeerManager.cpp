@@ -1374,7 +1374,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
             assert (NULL != block);
             peer_log(peer, "reorganizing chain from height %" PRIu32 ", new height is %" PRIu32, b->height, block->height);
         
-            BRWalletSetTxUnconfirmedAfter(manager->wallet, b->height, b->blockHash); // mark tx after the join point as unconfirmed
+            BRWalletSetTxUnconfirmedAfter(manager->wallet, b->height); // mark tx after the join point as unconfirmed
 
             b = block;
         

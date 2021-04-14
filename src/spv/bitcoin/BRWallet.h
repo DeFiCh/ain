@@ -185,7 +185,7 @@ void BRWalletUpdateTransactions(BRWallet *wallet, const UInt256 txHashes[], size
                                 uint32_t timestamp, const UInt256 &blockHash);
     
 // marks all transactions confirmed after blockHeight as unconfirmed (useful for chain re-orgs)
-void BRWalletSetTxUnconfirmedAfter(BRWallet *wallet, uint32_t blockHeight, const UInt256& blockHash);
+void BRWalletSetTxUnconfirmedAfter(BRWallet *wallet, uint32_t blockHeight);
 
 // returns the amount received by the wallet from the transaction (total outputs to change and/or receive addresses)
 uint64_t BRWalletAmountReceivedFromTx(BRWallet *wallet, const BRTransaction *tx);

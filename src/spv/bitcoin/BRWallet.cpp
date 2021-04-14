@@ -1360,7 +1360,7 @@ void BRWalletUpdateTransactions(BRWallet *wallet, const UInt256 txHashes[], size
 }
 
 // marks all transactions confirmed after blockHeight as unconfirmed (useful for chain re-orgs)
-void BRWalletSetTxUnconfirmedAfter(BRWallet *wallet, uint32_t blockHeight, const UInt256& blockHash)
+void BRWalletSetTxUnconfirmedAfter(BRWallet *wallet, uint32_t blockHeight)
 {
     size_t i, j, count;
 
