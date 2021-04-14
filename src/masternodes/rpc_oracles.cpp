@@ -100,10 +100,10 @@ UniValue appointoracle(const JSONRPCRequest &request) {
                RPCExamples{
                        HelpExampleCli(
                                "appointoracle",
-                               R"(mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC#1"}, {"currency": "EUR", "token":"ETH#2"]}' 20)")
+                               R"(mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC#1"}, {"currency": "EUR", "token":"ETH#2"}]' 20)")
                        + HelpExampleRpc(
                                "appointoracle",
-                               R"(mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC#1"}, {"currency": "EUR", "token":"ETH#2"]}' 20)")
+                               R"(mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF '[{"currency": "USD", "token": "BTC#1"}, {"currency": "EUR", "token":"ETH#2"}]' 20)")
                },
     }.Check(request);
 
