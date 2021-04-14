@@ -33,11 +33,11 @@ std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
         txNew.vin[0].scriptSig = CScript(); // << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
 
         CTxDestination operatorDest = DecodeDestination(addrs.operatorAddress, *this);
-        assert(operatorDest.which() == 1 || operatorDest.which() == 4);
+        assert(operatorDest.which() == PKHashType || operatorDest.which() == WitV0KeyHashType);
         CTxDestination ownerDest = DecodeDestination(addrs.ownerAddress, *this);
-        assert(ownerDest.which() == 1 || ownerDest.which() == 4);
+        assert(ownerDest.which() == PKHashType || ownerDest.which() == WitV0KeyHashType);
 
-        CKeyID operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest)) ;
+        CKeyID operatorAuthKey = operatorDest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest)) ;
         genesisTeam.insert(operatorAuthKey);
         CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
         metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
@@ -272,6 +272,7 @@ public:
                 {597925, uint256S("0ff2aa3749300e3d0b5bc8d48f9d699bc42e222fe718dc011b33913127087c6d")},
                 {600000, uint256S("79ddf4537e40cb59335a0551e5edc7bd396e6949aa2864c3200ca66f9c455405")},
                 {650000, uint256S("f18d64dd75c53590e833d3068132a65644963d5c5aebb4c73d42cbde8dc28d68")},
+                {757420, uint256S("8d4918be2b2df30175f9e611d9ceb494215b93f2267075ace3f031e784cbccbe")},                
             }
         };
 

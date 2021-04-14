@@ -2616,9 +2616,9 @@ static UniValue loadwallet(const JSONRPCRequest& request)
         for (const auto& entry : wallet->mapAddressBook) {
             if (entry.second.purpose == "spv") {
                 uint160 userHash;
-                if (entry.first.which() == 1) {
+                if (entry.first.which() == PKHashType) {
                     userHash = *boost::get<PKHash>(&entry.first);
-                } else if (entry.first.which() == 4) {
+                } else if (entry.first.which() == WitV0KeyHashType) {
                     userHash = *boost::get<WitnessV0KeyHash>(&entry.first);
                 } else {
                     continue;
@@ -2629,6 +2629,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
             }
 
             if (foundSPV) {
+                spv::pspv->RebuildBloomFilter();
                 spv::pspv->Rescan(std::numeric_limits<int>::max());
             }
         }

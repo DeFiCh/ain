@@ -79,7 +79,7 @@ CKeyID CAnchorAuthMessage::GetSigner() const
 CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestination const & rewardDest)
 {
     // assumed here that all of the auths are uniform, were checked for sigs and consensus has been reached!
-    assert(rewardDest.which() == 1 || rewardDest.which() == 4);
+    assert(rewardDest.which() == PKHashType || rewardDest.which() == WitV0KeyHashType);
 
     if (auths.size() > 0) {
         CAnchor anchor(static_cast<CAnchorData const &> (auths.at(0)));
@@ -87,7 +87,7 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestin
         for (size_t i = 0; i < auths.size(); ++i) {
             anchor.sigs.push_back(auths[i].GetSignature());
         }
-        anchor.rewardKeyID = rewardDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&rewardDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
+        anchor.rewardKeyID = rewardDest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&rewardDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest));
         anchor.rewardKeyType = rewardDest.which();
         return anchor;
     }
@@ -547,15 +547,16 @@ void CAnchorIndex::CheckPendingAnchors()
         }
 
         uint32_t timestamp = spv::pspv->ReadTxTimestamp(rec.txHash);
+        auto blockHeight = spv::pspv->ReadTxBlockHeight(rec.txHash);
 
-        // Do not delete, TX time still pending.
-        if (timestamp == 0 || timestamp == std::numeric_limits<int32_t>::max()) {
+        // Do not delete, TX time still pending. If block height is set to max we cannot trust the timestamp.
+        if (timestamp == 0 || blockHeight == std::numeric_limits<int32_t>::max()) {
             continue;
         }
 
         // Here we can check new rule that Bitcoin blocktime is three hours more than DeFi anchored block
         if (anchorBlock.nTime > timestamp - Params().GetConsensus().mn.anchoringTimeDepth) {
-            LogPrint(BCLog::ANCHORING, "DeFi anchor time not deep enough. DeFi: %d Bitcoin: %d\n", anchorBlock.nTime, timestamp);
+            LogPrint(BCLog::ANCHORING, "Anchor too new. DeFi: %d Bitcoin: %d Anchor: %s\n", anchorBlock.nTime, timestamp, rec.txHash.ToString());
             deletePending.insert(rec.txHash);
             continue;
         }

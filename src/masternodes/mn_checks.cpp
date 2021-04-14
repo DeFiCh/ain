@@ -253,11 +253,11 @@ Res ApplyCreateMasternodeTx(CCustomCSView & mnview, CTransaction const & tx, uin
 
     CTxDestination dest;
     if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
-        if (dest.which() == 1) {
+        if (dest.which() == PKHashType) {
             node.ownerType = 1;
             node.ownerAuthAddress = CKeyID(*boost::get<PKHash>(&dest));
         }
-        else if (dest.which() == 4) {
+        else if (dest.which() == WitV0KeyHashType) {
             node.ownerType = 4;
             node.ownerAuthAddress = CKeyID(*boost::get<WitnessV0KeyHash>(&dest));
         }
