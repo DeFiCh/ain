@@ -3012,14 +3012,27 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                     }
                     state = CValidationState();
                     if (pindexConnect == pindexMostWork) {
-                        // NOTE: Invalidate blocks back to last checkpoint
+                        //checkpoints
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
-                        auto it = checkpoints.lower_bound(pindexConnect->nHeight);
-                        if (it != checkpoints.begin() && (--it)->first > 0) { // it doesn't makes sense backward to genesis
-                            auto index = LookupBlockIndex(it->second);
-                            if (!disconnectBlocksTo(index)) {
-                                return false;
+                        //calculate the latest suitable checkpoint block height
+                        auto checkpointIt = checkpoints.lower_bound(pindexConnect->nHeight);
+                        auto fallbackCheckpointBlockHeight = (checkpointIt != checkpoints.begin()) ? (--checkpointIt)->first : 0;
+
+                        CBlockIndex *blockIndex = nullptr;
+                        //check spv and anchors are available and try it first
+                        if (spv::pspv && panchors) {
+                            auto fallbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(pindexConnect->nHeight);
+                            if (fallbackAnchor && (fallbackAnchor->anchor.height > fallbackCheckpointBlockHeight)) {
+                                blockIndex = LookupBlockIndex(fallbackAnchor->anchor.blockHash);
                             }
+                        }
+                        if (!blockIndex && fallbackCheckpointBlockHeight > 0) {// it doesn't makes sense backward to genesis
+                            blockIndex = LookupBlockIndex(checkpointIt->second);
+                        }
+                        //fallback
+                        if (blockIndex) {
+                            if (!disconnectBlocksTo(blockIndex))
+                                return false;
                         }
                     }
                     fInvalidFound = true;
