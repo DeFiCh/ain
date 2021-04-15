@@ -387,6 +387,8 @@ void SetupServerArgs()
     gArgs.AddArg("-blocksdir=<dir>", "Specify directory to hold blocks subdirectory for *.dat files (default: <datadir>)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #if HAVE_SYSTEM
     gArgs.AddArg("-blocknotify=<cmd>", "Execute command when the best block changes (%s in cmd is replaced by block hash)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-spvblocknotify=<cmd>", "Execute command when the last Bitcoin block changes (%s in cmd is replaced by block hash)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-spvwalletnotify=<cmd>", "Execute command when an SPV Bitcoin wallet transaction changes (%s in cmd is replaced by TxID)", ArgsManager::ALLOW_ANY, OptionsCategory::WALLET);
 #endif
     gArgs.AddArg("-blockreconstructionextratxn=<n>", strprintf("Extra transactions to keep in memory for compact block reconstructions (default: %u)", DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blocksonly", strprintf("Whether to reject transactions from network peers. Transactions from the wallet, RPC and relay whitelisted inbound peers are not affected. (default: %u)", DEFAULT_BLOCKSONLY), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1753,7 +1755,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             spv::pspv.reset();
             if (Params().NetworkIDString() == "regtest") {
                 spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
-            } else if (Params().NetworkIDString() == "test") {
+            } else if (Params().NetworkIDString() == "test" || Params().NetworkIDString() == "devnet") {
                 spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
             } else {
                 spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));

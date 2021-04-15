@@ -26,7 +26,8 @@
 
 #include <string.h>
 #include <inttypes.h>
-//#include <errno.h>
+
+#include <boost/algorithm/string/replace.hpp>
 
 extern RecursiveMutex cs_main;
 
@@ -119,6 +120,12 @@ void saveBlocks(void *info, int replace, BRMerkleBlock *blocks[], size_t blocksC
 //    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSaveBlocks(replace, blocks, blocksCount);
 }
+
+void blockNotify(void *info, const UInt256& blockHash)
+{
+    static_cast<CSpvWrapper *>(info)->OnBlockNotify(blockHash);
+}
+
 void savePeers(void *info, int replace, const BRPeer peers[], size_t peersCount)
 {
     LOCK(cs_spvcallback);
@@ -283,7 +290,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
     // can't wrap member function as static "C" function here:
     BRPeerManagerSetCallbacks(manager, this, syncStarted, syncStopped, txStatusUpdate,
-                              saveBlocks, savePeers, nullptr /*networkIsReachable*/, threadCleanup);
+                              saveBlocks, blockNotify, savePeers, nullptr /*networkIsReachable*/, threadCleanup);
 
 }
 
@@ -407,6 +414,8 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
             LogPrint(BCLog::SPV, "adding anchor to pending %s\n", txHash.ToString());
         }
     }
+
+    OnTxNotify(tx->txHash);
 }
 
 void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
@@ -435,6 +444,8 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
                 LogPrint(BCLog::ANCHORING, "Anchor added/updated %s\n", txHash.ToString());
             }
         }
+
+        OnTxNotify(txHashes[i]);
     }
 }
 
@@ -447,6 +458,8 @@ void CSpvWrapper::OnTxDeleted(UInt256 txHash, int notifyUser, int recommendResca
     LOCK(cs_main);
     panchors->DeleteAnchorByBtcTx(hash);
     panchors->DeletePendingByBtcTx(hash);
+
+    OnTxNotify(txHash);
 
     LogPrint(BCLog::SPV, "tx deleted: %s; notifyUser: %d, recommendRescan: %d\n", hash.ToString(), notifyUser, recommendRescan);
 }
@@ -483,6 +496,39 @@ void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blo
     CommitBatch();
 
     /// @attention don't call ANYTHING that could call back to spv here! cause OnSaveBlocks works under spv lock!!!
+}
+
+void CSpvWrapper::OnBlockNotify(const UInt256& blockHash)
+{
+#if HAVE_SYSTEM
+    if (initialSync)
+    {
+        return;
+    }
+
+    std::string strCmd = gArgs.GetArg("-spvblocknotify", "");
+    if (!strCmd.empty())
+    {
+        boost::replace_all(strCmd, "%s", to_uint256(blockHash).GetHex());
+        std::thread t(runCommand, strCmd);
+        t.detach(); // thread runs free
+    }
+#endif
+}
+
+void CSpvWrapper::OnTxNotify(const UInt256& txHash)
+{
+#if HAVE_SYSTEM
+    // notify an external script when a wallet transaction comes in or is updated
+    std::string strCmd = gArgs.GetArg("-spvwalletnotify", "");
+
+    if (!strCmd.empty())
+    {
+        boost::replace_all(strCmd, "%s", to_uint256(txHash).GetHex());
+        std::thread t(runCommand, strCmd);
+        t.detach(); // thread runs free
+    }
+#endif
 }
 
 void CSpvWrapper::OnSavePeers(int replace, const BRPeer peers[], size_t peersCount)
