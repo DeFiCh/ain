@@ -106,11 +106,12 @@ class TokensBasicTest (DefiTestFramework):
         assert_equal(self.nodes[0].gettoken(createTokenTx), t128)
 
         # Token not found, because not DAT
+        errorString = ''
         try:
             self.nodes[0].gettoken("GOLD")
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Token not found" in errorString)
+        assert(len(errorString) == 0) # we support partial serach in tokens
 
         # Stop node #1 for future revert
         self.stop_node(1)

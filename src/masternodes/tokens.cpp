@@ -53,6 +53,40 @@ boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetTo
     return {};
 }
 
+struct var_uint32 {
+    uint32_t n;
+
+    template<typename Stream>
+    void Serialize(Stream &s) const {
+        WriteVarInt<Stream, VarIntMode::DEFAULT, uint32_t>(s, n);
+    }
+
+    template<typename Stream>
+    void Unserialize(Stream& s) {
+        n = ReadVarInt<Stream, VarIntMode::DEFAULT, uint32_t>(s);
+    }
+};
+
+boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> CTokensView::GetTokenByHint(const std::string & hint) const
+{
+    boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> token;
+    if (hint.empty()) {
+        return token;
+    }
+    ForEach<Symbol, std::string, var_uint32>([&] (std::string const & str, var_uint32 v) {
+        if (str.find(hint) == str.npos) {
+            return true;
+        }
+        // exact match or parital non DAT
+        if (hint.size() == str.size() || str[hint.size()] == '#') {
+            token = std::make_pair(DCT_ID{v.n}, GetToken(DCT_ID{v.n}));
+            return false;
+        }
+        return true;
+    }, hint);
+    return token;
+}
+
 boost::optional<std::pair<DCT_ID, CTokensView::CTokenImpl> > CTokensView::GetTokenByCreationTx(const uint256 & txid) const
 {
     DCT_ID id;
@@ -83,9 +117,9 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
             id = pair->first;
             return MakeUnique<CTokenImpl>(pair->second);
         }
-    }
-    else {
-        auto pair = GetToken(key);
+    } else {
+        // exact match on DAT and #
+        auto pair = key.find('#') == key.npos ? GetTokenByHint(key) : GetToken(key);
         if (pair) {
             id = pair->first;
             return std::move(pair->second);

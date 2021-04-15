@@ -223,6 +223,17 @@ BOOST_AUTO_TEST_CASE(tokens)
         BOOST_REQUIRE(pair->second);
         BOOST_REQUIRE(pair->second->symbol == "DCT2");
     }
+    {   // geuess token by hint
+        auto pair = pcustomcsview->GetTokenByHint("DCT2");
+        BOOST_REQUIRE(pair);
+        BOOST_REQUIRE(pair->first == DCT_ID{129});
+        BOOST_REQUIRE(pair->second);
+        BOOST_REQUIRE(pair->second->symbol == "DCT2");
+    }
+    {   // geuess token by hint
+        auto pair = pcustomcsview->GetTokenByHint("DCT");
+        BOOST_REQUIRE(!pair);
+    }
     {   // search by tx
         auto pair = pcustomcsview->GetTokenByCreationTx(uint256S("0x2222"));
         BOOST_REQUIRE(pair);

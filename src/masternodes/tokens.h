@@ -138,6 +138,7 @@ public:
     using CTokenImpl = CTokenImplementation;
     std::unique_ptr<CToken> GetToken(DCT_ID id) const;
     boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> GetToken(std::string const & symbol) const;
+    boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken>>> GetTokenByHint(const std::string & hint) const;
     // the only possible type of token (with creationTx) is CTokenImpl
     boost::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(uint256 const & txid) const;
     std::unique_ptr<CToken> GetTokenGuessId(const std::string & str, DCT_ID & id) const;
