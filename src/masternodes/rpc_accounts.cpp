@@ -1234,7 +1234,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
 
     LOCK(cs_main);
-    for (auto kv : Params().GetConsensus().nonUtxoBlockSubsidies) {
+    for (auto kv : Params().GetConsensus().newNonUTXOSubsidies) {
         ret.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(pcustomcsview->GetCommunityBalance(kv.first)));
     }
 

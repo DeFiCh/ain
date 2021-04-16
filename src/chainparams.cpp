@@ -109,6 +109,9 @@ public:
         strNetworkID = "main";
         consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for main
         consensus.baseBlockSubsidy = 200 * COIN;
+        consensus.newBaseBlockSubsidy = 40504000000; // 405.04 DFI
+        consensus.emissionReductionPeriod = 32690; // Two weeks
+        consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256(); //("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22");
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
@@ -177,6 +180,23 @@ public:
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
+
+        // New coinbase reward distribution
+        consensus.dist.masternode = 3333; // 33.33%
+        consensus.dist.community = 491; // 4.91%
+        consensus.dist.anchor = 2; // 0.02%
+        consensus.dist.liquidity = 2545; // 25.45%
+        consensus.dist.swap = 1234; // 12.34%
+        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.options = 988; // 9.88%
+        consensus.dist.unallocated = 173; // 1.73%
+
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -294,6 +314,9 @@ public:
         strNetworkID = "test";
         consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for testnet
         consensus.baseBlockSubsidy = 200 * COIN;
+        consensus.newBaseBlockSubsidy = 40504000000;
+        consensus.emissionReductionPeriod = 32690; // Two weeks
+        consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256(); //("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
@@ -362,6 +385,23 @@ public:
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
+
+        // New coinbase reward distribution
+        consensus.dist.masternode = 3333; // 33.33%
+        consensus.dist.community = 491; // 4.91%
+        consensus.dist.anchor = 2; // 0.02%
+        consensus.dist.liquidity = 2545; // 25.45%
+        consensus.dist.swap = 1234; // 12.34%
+        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.options = 988; // 9.88%
+        consensus.dist.unallocated = 173; // 1.73%
+
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
@@ -444,6 +484,9 @@ public:
         strNetworkID = "devnet";
         consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for devnet
         consensus.baseBlockSubsidy = 200 * COIN;
+        consensus.newBaseBlockSubsidy = 40504000000;
+        consensus.emissionReductionPeriod = 32690; // Two weeks
+        consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
@@ -507,6 +550,23 @@ public:
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
+
+        // New coinbase reward distribution
+        consensus.dist.masternode = 3333; // 33.33%
+        consensus.dist.community = 491; // 4.91%
+        consensus.dist.anchor = 2; // 0.02%
+        consensus.dist.liquidity = 2545; // 25.45%
+        consensus.dist.swap = 1234; // 12.34%
+        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.options = 988; // 9.88%
+        consensus.dist.unallocated = 173; // 1.73%
+
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
@@ -586,6 +646,9 @@ public:
         strNetworkID = "regtest";
         consensus.nSubsidyHalvingInterval = 150;
         consensus.baseBlockSubsidy = 50 * COIN;
+        consensus.newBaseBlockSubsidy = 40504000000;
+        consensus.emissionReductionPeriod = 150;
+        consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 500; // BIP34 activated on regtest (Used in functional tests)
         consensus.BIP34Hash = uint256();
@@ -652,6 +715,23 @@ public:
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 50);       // 0.1 per block
+
+        // New coinbase reward distribution
+        consensus.dist.masternode = 3333; // 33.33%
+        consensus.dist.community = 491; // 4.91%
+        consensus.dist.anchor = 2; // 0.02%
+        consensus.dist.liquidity = 2545; // 25.45%
+        consensus.dist.swap = 1234; // 12.34%
+        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.options = 988; // 9.88%
+        consensus.dist.unallocated = 173; // 1.73%
+
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0xfa;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0xbf;
