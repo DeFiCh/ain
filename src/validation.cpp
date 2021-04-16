@@ -3007,10 +3007,16 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
             if (!ConnectTip(state, chainparams, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
                     // The block violates a consensus rule.
-                    if (state.GetReason() != ValidationInvalidReason::BLOCK_MUTATED) {
+                    auto reason = state.GetReason();
+                    state = CValidationState();
+                    if (reason == ValidationInvalidReason::BLOCK_INVALID_HEADER) {
+                        // at this stage only high hash error can be in header
+                        // so just skip that block
+                        continue;
+                    }
+                    if (reason != ValidationInvalidReason::BLOCK_MUTATED) {
                         InvalidChainFound(vpindexToConnect.front());
                     }
-                    state = CValidationState();
                     if (pindexConnect == pindexMostWork) {
                         //checkpoints
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
@@ -4263,7 +4269,9 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
 
         // Ensure that CheckBlock() passes before calling AcceptBlock, as
         // belt-and-suspenders.
-        bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus(), true); // we should check for bad hash block
+        // reverts a011b9db38ce6d3d5c1b67c1e3bad9365b86f2ce
+        // we can end up in isolation banning all other nodes
+        bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus(), false); // false cause we can check pos context only on ConnectBlock
         if (ret) {
             // Store to disk
             ret = ::ChainstateActive().AcceptBlock(pblock, state, chainparams, &pindex, fForceProcessing, nullptr, fNewBlock);
