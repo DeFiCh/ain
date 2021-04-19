@@ -273,7 +273,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
     else if (nHeight >= consensus.AMKHeight) {
         // assume community non-utxo funding:
-        for (auto kv : consensus.nonUtxoBlockSubsidies) {
+        for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
             coinbaseTx.vout[0].nValue -= blockReward * kv.second / COIN;
         }
         // Pinch off foundation share

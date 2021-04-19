@@ -91,6 +91,9 @@ bool CBlockIndexWorkComparator::operator()(const CBlockIndex *pa, const CBlockIn
 
 namespace {
 BlockManager g_blockman;
+
+// Store subsidy at each reduction
+std::map<uint32_t, CAmount> subsidyReductions;
 } // anon namespace
 
 std::unique_ptr<CChainState> g_chainstate;
@@ -1138,9 +1141,16 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
         if (nHeight >= consensusParams.EunosHeight)
         {
             nSubsidy = consensusParams.newBaseBlockSubsidy;
-            int reductions = (nHeight - consensusParams.EunosHeight) / consensusParams.emissionReductionPeriod;
+            const size_t reductions = (nHeight - consensusParams.EunosHeight) / consensusParams.emissionReductionPeriod;
+
+            // See if we already have thie reduction calculated and return if found.
+            if (subsidyReductions.find(reductions) != subsidyReductions.end())
+            {
+                return subsidyReductions[reductions];
+            }
+
             CAmount reductionAmount;
-            for (; reductions > 0; --reductions)
+            for (size_t i = reductions; i > 0; --i)
             {
                 reductionAmount = (nSubsidy * consensusParams.emissionReductionAmount) / 100000;
                 if (!reductionAmount) {
@@ -1150,6 +1160,9 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 
                 nSubsidy -= reductionAmount;
             }
+
+            // Store subsidy.
+            subsidyReductions[reductions] = nSubsidy;
         }
 
         return nSubsidy;
@@ -1969,7 +1982,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         }
         else
         {
-            for (auto kv : consensus.nonUtxoBlockSubsidies) {
+            for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
                 CAmount subsidy = blockReward * kv.second / COIN;
                 Res res = mnview.AddCommunityBalance(kv.first, subsidy);
                 if (!res.ok) {
@@ -1998,7 +2011,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
     {
         if (height >= Params().GetConsensus().EunosHeight)
         {
-            for (auto kv : Params().GetConsensus().newNonUTXOSubsidies)
+            for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
                 mnview.SubCommunityBalance(kv.first, subsidy);
@@ -2006,7 +2019,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
         }
         else
         {
-            for (auto kv : Params().GetConsensus().nonUtxoBlockSubsidies)
+            for (const auto& kv : Params().GetConsensus().nonUtxoBlockSubsidies)
             {
                 CAmount subsidy = blockReward * kv.second / COIN;
                 mnview.SubCommunityBalance(kv.first, subsidy);
