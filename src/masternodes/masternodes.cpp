@@ -768,40 +768,6 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     return UpdateBalancesHeight(owner, targetHeight);
 }
 
-CAccountsHistoryStorage::CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type)
-    : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height), txn(txn), txid(txid), type(type)
-{
-    acindex = gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX);
-}
-
-Res CAccountsHistoryStorage::AddBalance(CScript const & owner, CTokenAmount amount)
-{
-    auto res = CCustomCSView::AddBalance(owner, amount);
-    if (acindex && res.ok && amount.nValue != 0) {
-        diffs[owner][amount.nTokenId] += amount.nValue;
-    }
-    return res;
-}
-
-Res CAccountsHistoryStorage::SubBalance(CScript const & owner, CTokenAmount amount)
-{
-    auto res = CCustomCSView::SubBalance(owner, amount);
-    if (acindex && res.ok && amount.nValue != 0) {
-        diffs[owner][amount.nTokenId] -= amount.nValue;
-    }
-    return res;
-}
-
-bool CAccountsHistoryStorage::Flush()
-{
-    if (acindex) {
-        for (const auto& diff : diffs) {
-            SetAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
-        }
-    }
-    return CCustomCSView::Flush();
-}
-
 std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team)
 {
     AssertLockHeld(cs_main);

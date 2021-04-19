@@ -1,3 +1,4 @@
+#include <masternodes/accountshistory.h>
 #include <masternodes/mn_rpc.h>
 
 std::string tokenAmountString(CTokenAmount const& amount) {
@@ -880,9 +881,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         accounts = request.params[0].getValStr();
     }
 
-    const auto acindex = gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX);
-
-    if (!acindex) {
+    if (!paccountHistoryDB) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for account history");
     }
 
@@ -1036,7 +1035,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     };
 
     AccountHistoryKey startKey{account, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
-    view.ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
+    paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
 
     if (shouldSearchInWallet) {
         count = limit;
@@ -1094,9 +1093,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         accounts = request.params[0].getValStr();
     }
 
-    const auto acindex = gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX);
-
-    if (!acindex) {
+    if (!paccountHistoryDB) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is need for account history");
     }
 
@@ -1203,7 +1200,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     };
 
     AccountHistoryKey startAccountKey{owner, currentHeight, std::numeric_limits<uint32_t>::max()};
-    view.ForEachAccountHistory(shouldContinueToNextAccountHistory, startAccountKey);
+    paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startAccountKey);
 
     if (shouldSearchInWallet) {
         searchInWallet(pwallet, owner, filter,
