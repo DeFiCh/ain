@@ -515,7 +515,7 @@ static void _requestUnrelayedTxGetdataDone(void *info, int success)
             }
             else if (! isPublishing && _BRTxPeerListCount(manager->txRelays, hash) < manager->maxConnectCount) {
                 // set timestamp 0 to mark as unverified
-                BRWalletUpdateTransactions(manager->wallet, &hash, 1, TX_UNCONFIRMED, 0);
+                BRWalletUpdateTransactions(manager->wallet, &hash, 1, TX_UNCONFIRMED, 0, UINT256_ZERO);
             }
         }
     }
@@ -1053,7 +1053,7 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
     
     // set timestamp when tx is verified
     if (tx && relayCount >= manager->maxConnectCount && tx->blockHeight == TX_UNCONFIRMED && tx->timestamp == 0) {
-        BRWalletUpdateTransactions(manager->wallet, &tx->txHash, 1, TX_UNCONFIRMED, (uint32_t)time(NULL));
+        BRWalletUpdateTransactions(manager->wallet, &tx->txHash, 1, TX_UNCONFIRMED, (uint32_t)time(NULL), UINT256_ZERO);
     }
     
     manager->lock.unlock();
@@ -1107,7 +1107,7 @@ static void _peerHasTx(void *info, UInt256 txHash)
 
         // set timestamp when tx is verified
         if (relayCount >= manager->maxConnectCount && tx && tx->blockHeight == TX_UNCONFIRMED && tx->timestamp == 0) {
-            BRWalletUpdateTransactions(manager->wallet, &txHash, 1, TX_UNCONFIRMED, (uint32_t)time(NULL));
+            BRWalletUpdateTransactions(manager->wallet, &txHash, 1, TX_UNCONFIRMED, (uint32_t)time(NULL), UINT256_ZERO);
         }
 
         _BRTxPeerListRemovePeer(manager->txRequests, txHash, peer);
@@ -1134,7 +1134,7 @@ static void _peerRejectedTx(void *info, UInt256 txHash, uint8_t code)
     if (tx) {
         if (_BRTxPeerListRemovePeer(manager->txRelays, txHash, peer) && tx->blockHeight == TX_UNCONFIRMED) {
             // set timestamp 0 to mark tx as unverified
-            BRWalletUpdateTransactions(manager->wallet, &txHash, 1, TX_UNCONFIRMED, 0);
+            BRWalletUpdateTransactions(manager->wallet, &txHash, 1, TX_UNCONFIRMED, 0, UINT256_ZERO);
         }
 
         // if we get rejected for any reason other than double-spend, the peer is likely misconfigured
@@ -1305,7 +1305,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
         
         BRSetAdd(manager->blocks, block);
         manager->lastBlock = block;
-        if (txCount > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, txCount, block->height, txTime);
+        if (txCount > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, txCount, block->height, txTime, block->blockHash);
         if (manager->downloadPeer) BRPeerSetCurrentBlockHeight(manager->downloadPeer, block->height);
             
         if (block->height < manager->estimatedHeight && peer == manager->downloadPeer) {
@@ -1332,7 +1332,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
 
         assert (NULL != b);
         if (BRMerkleBlockEq(b, block)) { // if it's not on a fork, set block heights for its transactions
-            if (txCount > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, txCount, block->height, txTime);
+            if (txCount > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, txCount, block->height, txTime, block->blockHash);
             if (block->height == manager->lastBlock->height) manager->lastBlock = block;
         }
         
@@ -1392,7 +1392,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
                 count = BRMerkleBlockTxHashes(b, txHashes, count);
                 b = (BRMerkleBlock *)BRSetGet(manager->blocks, &b->prevBlock);
                 if (b) timestamp = timestamp/2 + b->timestamp/2;
-                if (count > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, count, height, timestamp);
+                if (count > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, count, height, timestamp, b->blockHash);
             }
         
             manager->lastBlock = block;
