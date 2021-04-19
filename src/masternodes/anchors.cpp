@@ -26,6 +26,7 @@ std::unique_ptr<CAnchorAwaitingConfirms> panchorAwaitingConfirms;
 
 static const char DB_ANCHORS = 'A';
 static const char DB_PENDING = 'p';
+static const char DB_BITCOININDEX = 'Z';  // Bitcoin height to blockhash table
 
 template <typename TContainer>
 bool CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID> const & keys)
@@ -526,7 +527,7 @@ void CAnchorIndex::CheckPendingAnchors()
 {
     AssertLockHeld(cs_main);
 
-    std::set<AnchorRec, decltype(OrderPendingAnchors)> anchorsPending(OrderPendingAnchors);
+    spv::PendingSet anchorsPending(spv::PendingOrder);
     ForEachPending([&anchorsPending](uint256 const &, AnchorRec & rec) {
         anchorsPending.insert(rec);
     });
@@ -546,11 +547,12 @@ void CAnchorIndex::CheckPendingAnchors()
             continue;
         }
 
-        uint32_t timestamp = spv::pspv->ReadTxTimestamp(rec.txHash);
-        auto blockHeight = spv::pspv->ReadTxBlockHeight(rec.txHash);
+        const auto timestamp = spv::pspv->ReadTxTimestamp(rec.txHash);
+        const auto blockHeight = spv::pspv->ReadTxBlockHeight(rec.txHash);
+        const auto blockHash = panchors->ReadBlockHash(rec.btcHeight);
 
         // Do not delete, TX time still pending. If block height is set to max we cannot trust the timestamp.
-        if (timestamp == 0 || blockHeight == std::numeric_limits<int32_t>::max()) {
+        if (timestamp == 0 || blockHeight == std::numeric_limits<int32_t>::max() || blockHash == uint256()) {
             continue;
         }
 
@@ -652,14 +654,7 @@ CAnchorIndex::AnchorRec const * BestOfTwo(CAnchorIndex::AnchorRec const * a1, CA
     if (a2 == nullptr)
         return a1;
 
-    if (a1->anchor.height > a2->anchor.height)
-        return a1;
-    else if (a1->anchor.height < a2->anchor.height)
-        return a2;
-    // if heights are equal, return anchor with less btc tx hash
-    else if (a1->txHash < a2->txHash)
-        return a1;
-    return a2;
+    return spv::PendingOrder(*a1, *a2) ? a1 : a2;
 }
 
 /// @returns true if top active anchor has been changed
@@ -752,6 +747,19 @@ bool CAnchorIndex::DeletePendingByBtcTx(uint256 const & btcTxHash)
     }
 
     return false;
+}
+
+bool CAnchorIndex::WriteBlock(const uint32_t height, const uint256& blockHash)
+{
+    // Store Bitcoin block index
+    return db->Write(std::make_pair(DB_BITCOININDEX, height), blockHash);
+}
+
+uint256 CAnchorIndex::ReadBlockHash(const uint32_t& height)
+{
+    uint256 blockHash;
+    db->Read(std::make_pair(DB_BITCOININDEX, height), blockHash);
+    return blockHash;
 }
 
 void CAnchorIndex::ForEachPending(std::function<void (uint256 const &, AnchorRec &)> callback)
@@ -1151,4 +1159,31 @@ bool GetAnchorEmbeddedData(const CKeyID& data, uint64_t& anchorCreationHeight, s
     memcpy(prefix->data(), &(*(data.begin() + offset)), prefixLength);
 
     return true;
+}
+
+namespace spv
+{
+const PendingOrderType PendingOrder = PendingOrderType([](const CAnchorIndex::AnchorRec& a, const CAnchorIndex::AnchorRec& b)
+{
+    if (a.btcHeight == b.btcHeight)
+    {
+        if (a.anchor.height == b.anchor.height)
+        {
+            if (a.anchor.height >= static_cast<THeight>(Params().GetConsensus().EunosHeight))
+            {
+                const auto blockHash = panchors->ReadBlockHash(a.btcHeight);
+                auto aHash = Hash(a.txHash.begin(), a.txHash.end(), blockHash.begin(), blockHash.end());
+                auto bHash = Hash(b.txHash.begin(), b.txHash.end(), blockHash.begin(), blockHash.end());
+                return aHash < bHash;
+            }
+
+            return a.txHash < b.txHash;
+        }
+
+        // Higher DeFi comes first
+        return a.anchor.height > b.anchor.height;
+    }
+
+    return a.btcHeight < b.btcHeight;
+});
 }

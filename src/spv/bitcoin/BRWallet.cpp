@@ -95,7 +95,7 @@ struct BRWalletStruct {
     void *callbackInfo;
     void (*balanceChanged)(void *info, uint64_t balance);
     void (*txAdded)(void *info, BRTransaction *tx);
-    void (*txUpdated)(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp);
+    void (*txUpdated)(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp, const UInt256& blockHash);
     void (*txDeleted)(void *info, UInt256 txHash, int notifyUser, int recommendRescan);
     boost::mutex lock;
 };
@@ -521,7 +521,7 @@ BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPub
 // info is a void pointer that will be passed along with each callback call
 // void balanceChanged(void *, uint64_t) - called when the wallet balance changes
 // void txAdded(void *, BRTransaction *) - called when transaction is added to the wallet
-// void txUpdated(void *, const UInt256[], size_t, uint32_t, uint32_t)
+// void txUpdated(void *, const UInt256[], size_t, uint32_t, uint32_t, const UInt256&)
 //   - called when the blockHeight or timestamp of previously added transactions are updated
 // void txDeleted(void *, UInt256) - called when a previously added transaction is removed from the wallet
 // NOTE: if a transaction is deleted, and BRWalletAmountSentByTx() is greater than 0, recommend the user do a rescan
@@ -529,7 +529,7 @@ void BRWalletSetCallbacks(BRWallet *wallet, void *info,
                           void (*balanceChanged)(void *info, uint64_t balance),
                           void (*txAdded)(void *info, BRTransaction *tx),
                           void (*txUpdated)(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight,
-                                            uint32_t timestamp),
+                                            uint32_t timestamp, const UInt256& blockHash),
                           void (*txDeleted)(void *info, UInt256 txHash, int notifyUser, int recommendRescan))
 {
     assert(wallet != NULL);
@@ -1319,7 +1319,7 @@ int BRWalletTransactionIsVerified(BRWallet *wallet, const BRTransaction *tx)
 // set the block heights and timestamps for the given transactions
 // use height TX_UNCONFIRMED and timestamp 0 to indicate a tx should remain marked as unverified (not 0-conf safe)
 void BRWalletUpdateTransactions(BRWallet *wallet, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight,
-                                uint32_t timestamp)
+                                uint32_t timestamp, const UInt256& blockHash)
 {
     BRTransaction *tx;
     UInt256 hashes[txCount];
@@ -1356,7 +1356,7 @@ void BRWalletUpdateTransactions(BRWallet *wallet, const UInt256 txHashes[], size
 
     if (needsUpdate) _BRWalletUpdateBalance(wallet);
     wallet->lock.unlock();
-    if (j > 0 && wallet->txUpdated) wallet->txUpdated(wallet->callbackInfo, hashes, j, blockHeight, timestamp);
+    if (j > 0 && wallet->txUpdated) wallet->txUpdated(wallet->callbackInfo, hashes, j, blockHeight, timestamp, blockHash);
 }
 
 // marks all transactions confirmed after blockHeight as unconfirmed (useful for chain re-orgs)
@@ -1380,7 +1380,7 @@ void BRWalletSetTxUnconfirmedAfter(BRWallet *wallet, uint32_t blockHeight)
 
     if (count > 0) _BRWalletUpdateBalance(wallet);
     wallet->lock.unlock();
-    if (count > 0 && wallet->txUpdated) wallet->txUpdated(wallet->callbackInfo, hashes, count, TX_UNCONFIRMED, 0);
+    if (count > 0 && wallet->txUpdated) wallet->txUpdated(wallet->callbackInfo, hashes, count, TX_UNCONFIRMED, 0, UINT256_ZERO);
 }
 
 // returns the amount received by the wallet from the transaction (total outputs to change and/or receive addresses)

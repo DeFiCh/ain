@@ -118,7 +118,7 @@ public:
     /// Wallet callbacks
     void OnBalanceChanged(uint64_t balance);
     void OnTxAdded(BRTransaction *tx);
-    void OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp);
+    void OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp, const UInt256 &blockHash);
     void OnTxDeleted(UInt256 txHash, int notifyUser, int recommendRescan);
     /// Peermanager callbacks
     void OnSyncStarted();
@@ -226,7 +226,7 @@ protected:
 
     void WriteBlock(BRMerkleBlock const * block);
     void WriteTx(BRTransaction const * tx);
-    void UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t timestamp);
+    void UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t timestamp, const uint256 &blockHash);
     void EraseTx(uint256 const & hash);
 };
 
