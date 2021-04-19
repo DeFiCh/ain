@@ -1969,14 +1969,29 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         if (height >= consensus.EunosHeight)
         {
             CAmount subsidy;
-            for (auto kv : consensus.newNonUTXOSubsidies)
+            for (const auto& kv : consensus.newNonUTXOSubsidies)
             {
                 subsidy = CalculateCoinbaseReward(blockReward, kv.second);
-                Res res = mnview.AddCommunityBalance(kv.first, subsidy);
+
+                Res res = Res::Ok();
+
+                // Swap, Futures and Options currently unused and all go to Unallocated (burnt) pot.
+                if (kv.first == CommunityAccountType::Swap ||
+                    kv.first == CommunityAccountType::Futures ||
+                    kv.first == CommunityAccountType::Options)
+                {
+                    res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
+                }
+                else
+                {
+                    res = mnview.AddCommunityBalance(kv.first, subsidy);
+                }
+
                 if (!res.ok)
                 {
                     return Res::ErrDbg("bad-cb-community-rewards", "Cannot take non-UTXO community share from coinbase");
                 }
+
                 nonUtxoTotal += subsidy;
             }
         }
