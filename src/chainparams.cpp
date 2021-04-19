@@ -813,6 +813,17 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.DakotaCrescentHeight = static_cast<int>(height);
     }
 
+    if (gArgs.IsArgSet("-eunosheight")) {
+        int64_t height = gArgs.GetArg("-eunosheight", consensus.EunosHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for Eunos is out of valid range. Use -1 to disable Eunos features.", height));
+        } else if (height == -1) {
+            LogPrintf("Eunos disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.EunosHeight = static_cast<int>(height);
+    }
+
     if (!args.IsArgSet("-vbparams")) return;
 
     for (const std::string& strDeployment : args.GetArgs("-vbparams")) {

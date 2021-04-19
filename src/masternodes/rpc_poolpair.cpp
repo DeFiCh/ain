@@ -34,9 +34,9 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
 
         poolObj.pushKV("rewardPct", ValueFromAmount(pool.rewardPct));
 
-        auto rewards = pcustomcsview->GetPoolCustomReward(id);
-        if (rewards && !rewards->balances.empty()) {
-            for (auto it = rewards->balances.cbegin(), next_it = it; it != rewards->balances.cend(); it = next_it) {
+        auto rewards = pool.rewards;
+        if (!rewards.balances.empty()) {
+            for (auto it = rewards.balances.cbegin(), next_it = it; it != rewards.balances.cend(); it = next_it) {
                 ++next_it;
 
                 // Get token balance
@@ -44,14 +44,14 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
 
                 // Make there's enough to pay reward otherwise remove it
                 if (balance < it->second) {
-                    rewards->balances.erase(it);
+                    rewards.balances.erase(it);
                 }
             }
 
-            if (!rewards->balances.empty()) {
+            if (!rewards.balances.empty()) {
                 UniValue rewardArr(UniValue::VARR);
 
-                for (const auto& reward : rewards->balances) {
+                for (const auto& reward : rewards.balances) {
                     rewardArr.push_back(CTokenAmount{reward.first, reward.second}.ToString());
                 }
 
@@ -185,10 +185,10 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CLazySerialize<CPoolPair> pool) {
+    pcustomcsview->ForEachPoolPair([&](DCT_ID const & id, CPoolPair pool) {
         const auto token = pcustomcsview->GetToken(id);
         if (token) {
-            ret.pushKVs(poolToJSON(id, pool.get(), *token, verbose));
+            ret.pushKVs(poolToJSON(id, pool, *token, verbose));
         }
 
         limit--;
@@ -348,15 +348,11 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyAddPoolLiquidityTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight, ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
-
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLiquidityMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -441,15 +437,11 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyRemovePoolLiquidityTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight, ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg}), Params().GetConsensus());
-
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CRemoveLiquidityMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -607,15 +599,11 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyCreatePoolPairTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolPairMsg, pairSymbol}), Params().GetConsensus());
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolPairMsg, pairSymbol});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreatePoolPairMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -725,7 +713,8 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
-             << poolId << status << commission << ownerAddress;
+             // serialize poolId as raw integer
+             << poolId.v << status << commission << ownerAddress;
 
     if (targetHeight >= Params().GetConsensus().ClarkeQuayHeight) {
         metadata << rewards;
@@ -750,15 +739,11 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyUpdatePoolPairTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                               ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolId, status, commission, ownerAddress}), Params().GetConsensus());
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolId.v, status, commission, ownerAddress});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CUpdatePoolPairMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -862,15 +847,11 @@ UniValue poolswap(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyPoolSwapTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolSwapMsg}), Params().GetConsensus());
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolSwapMsg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CPoolSwapMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -937,7 +918,7 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
 
         CPoolPair pp = poolPair->second;
         res = pp.Swap({poolSwapMsg.idTokenFrom, poolSwapMsg.amountFrom}, poolSwapMsg.maxPrice, [&] (const CTokenAmount &tokenAmount) {
-            auto resPP = mnview_dummy.SetPoolPair(poolPair->first, pp);
+            auto resPP = mnview_dummy.SetPoolPair(poolPair->first, targetHeight, pp);
             if (!resPP.ok) {
                 return Res::Err("%s: %s", base, resPP.msg);
             }
@@ -1024,7 +1005,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
 //    startKey.owner = CScript(0);
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachPoolShare([&](DCT_ID const & poolId, CScript const & provider) {
+    pcustomcsview->ForEachPoolShare([&](DCT_ID const & poolId, CScript const & provider, uint32_t) {
         const CTokenAmount tokenAmount = pcustomcsview->GetBalance(provider, poolId);
         if(tokenAmount.nValue) {
             const auto poolPair = pcustomcsview->GetPoolPair(poolId);

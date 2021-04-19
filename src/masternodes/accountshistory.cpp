@@ -5,93 +5,95 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/accounts.h>
 #include <masternodes/masternodes.h>
-#include <masternodes/rewardhistoryold.h>
 #include <key_io.h>
 
-#include <limits>
+/// @Note it's in own database
+const unsigned char CAccountsHistoryView::ByAccountHistoryKey::prefix = 'h';
 
-/// @attention make sure that it does not overlap with those in masternodes.cpp/tokens.cpp/undos.cpp/accounts.cpp !!!
-const unsigned char CAccountsHistoryView::ByMineAccountHistoryKey::prefix = 'm';
-const unsigned char CAccountsHistoryView::ByAllAccountHistoryKey::prefix = 'h';
-const unsigned char CRewardsHistoryView::ByMineRewardHistoryKey::prefix = 'Q';
-const unsigned char CRewardsHistoryView::ByAllRewardHistoryKey::prefix = 'W';
-
-void CAccountsHistoryView::ForEachMineAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start) const
+void CAccountsHistoryView::ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start)
 {
-    ForEach<ByMineAccountHistoryKey, AccountHistoryKey, AccountHistoryValue>(callback, start);
+    ForEach<ByAccountHistoryKey, AccountHistoryKey, AccountHistoryValue>(callback, start);
 }
 
-Res CAccountsHistoryView::SetMineAccountHistory(const AccountHistoryKey& key, const AccountHistoryValue& value)
+Res CAccountsHistoryView::WriteAccountHistory(const AccountHistoryKey& key, const AccountHistoryValue& value)
 {
-    WriteBy<ByMineAccountHistoryKey>(key, value);
+    WriteBy<ByAccountHistoryKey>(key, value);
     return Res::Ok();
 }
 
-void CAccountsHistoryView::ForEachAllAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start) const
+Res CAccountsHistoryView::EraseAccountHistory(const AccountHistoryKey& key)
 {
-    ForEach<ByAllAccountHistoryKey, AccountHistoryKey, AccountHistoryValue>(callback, start);
-}
-
-Res CAccountsHistoryView::SetAllAccountHistory(const AccountHistoryKey& key, const AccountHistoryValue& value)
-{
-    WriteBy<ByAllAccountHistoryKey>(key, value);
+    EraseBy<ByAccountHistoryKey>(key);
     return Res::Ok();
 }
 
-void CRewardsHistoryView::ForEachMineRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start) const
+CAccountHistoryStorage::CAccountHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory, bool fWipe)
+    : CStorageView(new CStorageLevelDB(dbName, cacheSize, fMemory, fWipe))
 {
-    ForEach<ByMineRewardHistoryKey, RewardHistoryKey, RewardHistoryValue>(callback, start);
 }
 
-Res CRewardsHistoryView::SetMineRewardHistory(const RewardHistoryKey& key, const RewardHistoryValue& value)
+CAccountsHistoryWriter::CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CAccountsHistoryView* historyView)
+    : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height), txn(txn), txid(txid), type(type), historyView(historyView)
 {
-    WriteBy<ByMineRewardHistoryKey>(key, value);
-    return Res::Ok();
 }
 
-void CRewardsHistoryView::ForEachAllRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start) const
+Res CAccountsHistoryWriter::AddBalance(CScript const & owner, CTokenAmount amount)
 {
-    ForEach<ByAllRewardHistoryKey, RewardHistoryKey, RewardHistoryValue>(callback, start);
-}
-
-Res CRewardsHistoryView::SetAllRewardHistory(const RewardHistoryKey& key, const RewardHistoryValue& value)
-{
-    WriteBy<ByAllRewardHistoryKey>(key, value);
-    return Res::Ok();
-}
-
-bool shouldMigrateOldRewardHistory(CCustomCSView & view)
-{
-    auto it = view.GetRaw().NewIterator();
-    try {
-        auto prefix = oldRewardHistoryPrefix;
-        auto oldKey = std::make_pair(prefix, oldRewardHistoryKey{});
-        it->Seek(DbTypeToBytes(oldKey));
-        if (it->Valid() && BytesToDbType(it->Key(), oldKey) && oldKey.first == prefix) {
-            return true;
-        }
-        prefix = CRewardsHistoryView::ByMineRewardHistoryKey::prefix;
-        auto newKey = std::make_pair(prefix, RewardHistoryKey{});
-        it->Seek(DbTypeToBytes(newKey));
-        if (it->Valid() && BytesToDbType(it->Key(), newKey) && newKey.first == prefix) {
-            return false;
-        }
-        prefix = CRewardsHistoryView::ByAllRewardHistoryKey::prefix;
-        newKey = std::make_pair(prefix, RewardHistoryKey{});
-        it->Seek(DbTypeToBytes(newKey));
-        if (it->Valid() && BytesToDbType(it->Key(), newKey) && newKey.first == prefix) {
-            return false;
-        }
-        bool hasOldAccountHistory = false;
-        view.ForEachAllAccountHistory([&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue>) {
-            if (key.txn == std::numeric_limits<uint32_t>::max()) {
-                hasOldAccountHistory = true;
-                return false;
-            }
-            return true;
-        }, { {}, 0, std::numeric_limits<uint32_t>::max() });
-        return hasOldAccountHistory;
-    } catch(...) {
-        return true;
+    auto res = CCustomCSView::AddBalance(owner, amount);
+    if (historyView && res.ok && amount.nValue != 0) {
+        diffs[owner][amount.nTokenId] += amount.nValue;
     }
+    return res;
 }
+
+Res CAccountsHistoryWriter::SubBalance(CScript const & owner, CTokenAmount amount)
+{
+    auto res = CCustomCSView::SubBalance(owner, amount);
+    if (historyView && res.ok && amount.nValue != 0) {
+        diffs[owner][amount.nTokenId] -= amount.nValue;
+    }
+    return res;
+}
+
+bool CAccountsHistoryWriter::Flush()
+{
+    if (historyView) {
+        for (const auto& diff : diffs) {
+            historyView->WriteAccountHistory({diff.first, height, txn}, {txid, type, diff.second});
+        }
+    }
+    return CCustomCSView::Flush();
+}
+
+CAccountsHistoryEraser::CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView)
+    : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height), txn(txn), historyView(historyView)
+{
+}
+
+Res CAccountsHistoryEraser::AddBalance(CScript const & owner, CTokenAmount)
+{
+    if (historyView) {
+        accounts.insert(owner);
+    }
+    return Res::Ok();
+}
+
+Res CAccountsHistoryEraser::SubBalance(CScript const & owner, CTokenAmount)
+{
+    if (historyView) {
+        accounts.insert(owner);
+    }
+    return Res::Ok();
+}
+
+bool CAccountsHistoryEraser::Flush()
+{
+    if (historyView) {
+        for (const auto& account : accounts) {
+            historyView->EraseAccountHistory({account, height, txn});
+        }
+    }
+    return CCustomCSView::Flush();
+}
+
+std::unique_ptr<CAccountHistoryStorage> paccountHistoryDB;

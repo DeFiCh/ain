@@ -105,6 +105,10 @@ struct Params {
     };
     PoS pos;
 
+    uint32_t blocksPerDay() const {
+        static const uint32_t blocks = 60 * 60 * 24 / pos.nTargetSpacing;
+        return blocks;
+    }
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
      * (nTargetTimespan / nTargetSpacing) which is also used for BIP9 deployments.

@@ -166,7 +166,6 @@ DEFI_CORE_H = \
   masternodes/mn_checks.h \
   masternodes/mn_rpc.h \
   masternodes/res.h \
-  masternodes/rewardhistoryold.h \
   masternodes/tokens.h \
   masternodes/poolpairs.h \
   masternodes/undo.h \
@@ -374,8 +373,9 @@ libdefi_server_a_SOURCES = \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
-  masternodes/rpc_masternodes.cpp \
   masternodes/rpc_accounts.cpp \
+  masternodes/rpc_customtx.cpp \
+  masternodes/rpc_masternodes.cpp \
   masternodes/rpc_tokens.cpp \
   masternodes/rpc_poolpair.cpp \
   masternodes/tokens.cpp \

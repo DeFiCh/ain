@@ -14,9 +14,15 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
 
     CAccounts walletAccounts;
 
-    pcustomcsview->ForEachBalance([&](CScript const & owner, CTokenAmount const & balance) {
-        if (IsMineCached(*pwallet, owner) == ISMINE_SPENDABLE) {
-            walletAccounts[owner].Add(balance);
+    CCustomCSView mnview(*pcustomcsview);
+    auto targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    mnview.ForEachAccount([&](CScript const & account) {
+        if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
+            mnview.CalculateOwnerRewards(account, targetHeight);
+            mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
+                return account == owner && walletAccounts[owner].Add(balance);
+            }, {account, DCT_ID{}});
         }
         return true;
     });
@@ -372,6 +378,26 @@ std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion,
     return result;
 }
 
+void execTestTx(const CTransaction& tx, uint32_t height, const std::vector<unsigned char>& metadata, CCustomTxMessage txMessage, const CCoinsViewCache& coins) {
+    auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
+    if (res) {
+        CCustomCSView view(*pcustomcsview);
+        res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage);
+    }
+    if (!res) {
+        std::vector<unsigned char> data;
+        auto txType = GuessCustomTxType(tx, data);
+        if (data != metadata) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "tx <-> metadata mismatch");
+        }
+        if (res.code == CustomTxErrCodes::NotEnoughBalance) {
+            throw JSONRPCError(RPC_INVALID_REQUEST,
+                               strprintf("Test %sTx execution failed: not enough balance on owner's account, call utxostoaccount to increase it.\n%s", ToString(txType), res.msg));
+        }
+        throw JSONRPCError(RPC_INVALID_REQUEST, strprintf("Test %sTx execution failed:\n%s", ToString(txType), res.msg));
+    }
+}
+
 CWallet* GetWallet(const JSONRPCRequest& request) {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
@@ -495,15 +521,10 @@ UniValue setgov(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplySetGovernanceTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                      ToByteVector(varStream), Params().GetConsensus());
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        execTestTx(CTransaction(rawTx), targetHeight, ToByteVector(varStream), CGovernanceMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }

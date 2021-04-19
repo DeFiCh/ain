@@ -25,8 +25,11 @@ public:
     virtual Res Import(UniValue const &) = 0;
     virtual UniValue Export() const = 0;
     /// @todo it looks like Validate+Apply may be redundant. refactor for one?
-    virtual Res Validate(CCustomCSView const &mnview) const = 0;
-    virtual Res Apply(CCustomCSView &mnview) = 0;
+    virtual Res Validate(CCustomCSView const &) const = 0;
+    virtual Res Apply(CCustomCSView &, uint32_t) = 0;
+
+    virtual void Serialize(CVectorWriter& s) const = 0;
+    virtual void Unserialize(VectorReader& s) = 0;
 
     virtual void Serialize(CDataStream& s) const = 0;
     virtual void Unserialize(CDataStream& s) = 0;

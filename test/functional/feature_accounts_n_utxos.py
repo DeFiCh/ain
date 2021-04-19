@@ -187,8 +187,9 @@ class AccountsAndUTXOsTest (DefiTestFramework):
             self.nodes[0].accounttoutxos(accountGold, {accountGold: "100@" + symbolGOLD}, [])
             self.nodes[0].generate(1)
         except JSONRPCException as e:
+            print(e)
             errorString = e.error['message']
-        assert("AccountToUtxos only available for DFI transactions" in errorString)
+        assert("only available for DFI transactions" in errorString)
 
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], initialGold - 100)
         assert_equal(self.nodes[0].getaccount(accountGold, {}, True)[idGold], self.nodes[1].getaccount(accountGold, {}, True)[idGold])

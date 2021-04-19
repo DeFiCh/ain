@@ -5,6 +5,7 @@
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 
 #include <core_io.h> /// ValueFromAmount
+#include <masternodes/masternodes.h> /// CCustomCSView
 #include <rpc/util.h> /// AmountFromValue
 
 
@@ -23,8 +24,7 @@ Res LP_DAILY_DFI_REWARD::Validate(const CCustomCSView &) const
     return Res::Ok();
 }
 
-Res LP_DAILY_DFI_REWARD::Apply(CCustomCSView &)
+Res LP_DAILY_DFI_REWARD::Apply(CCustomCSView & mnview, uint32_t height)
 {
-    // nothing to do
-    return Res::Ok();
+    return mnview.SetDailyReward(height, dailyReward);
 }

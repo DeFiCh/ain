@@ -6,7 +6,6 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/masternodes.h>
-#include <masternodes/rewardhistoryold.h>
 #include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
 
@@ -296,7 +295,7 @@ struct TestBackward {
 const unsigned char TestBackward::prefix = 'B';
 
 
-BOOST_AUTO_TEST_CASE(for_each_order)
+BOOST_AUTO_TEST_CASE(ForEachTest)
 {
     {
         pcustomcsview->WriteBy<TestForward>(TestForward{0}, 1);
@@ -310,7 +309,6 @@ BOOST_AUTO_TEST_CASE(for_each_order)
 
         int test = 1;
         pcustomcsview->ForEach<TestForward, TestForward, int>([&] (TestForward const & key, int value) {
-//            printf("%ld : %d\n", key.n, value);
             BOOST_CHECK(value == test);
             ++test;
             return true;
@@ -326,7 +324,6 @@ BOOST_AUTO_TEST_CASE(for_each_order)
 
         int test = 6;
         pcustomcsview->ForEach<TestBackward, TestBackward, int>([&] (TestBackward const & key, int value) {
-//            printf("%ld : %d\n", key.n, value);
             BOOST_CHECK(value == test);
             --test;
             return true;
@@ -334,70 +331,113 @@ BOOST_AUTO_TEST_CASE(for_each_order)
     }
 }
 
-BOOST_AUTO_TEST_CASE(RewardMigrationTests)
+BOOST_AUTO_TEST_CASE(LowerBoundTest)
 {
     {
         CCustomCSView view(*pcustomcsview);
+        view.WriteBy<TestForward>(TestForward{0}, 1);
+        view.WriteBy<TestForward>(TestForward{1}, 2);
+        view.WriteBy<TestForward>(TestForward{255}, 3);
+        view.WriteBy<TestForward>(TestForward{256}, 4);
+        view.WriteBy<TestForward>(TestForward{((uint16_t)-1) -1}, 5);
+        view.WriteBy<TestForward>(TestForward{(uint16_t)-1}, 6);
+        view.WriteBy<TestForward>(TestForward{((uint32_t)-1) -1}, 7);
+        view.WriteBy<TestForward>(TestForward{((uint32_t)-1)}, 8);
 
-        // Nothing to migrate
-        BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
-
-        view.Write(std::make_pair(oldRewardHistoryPrefix, oldRewardHistoryKey{}), RewardHistoryValue{});
-
-        // we have old prefix and key, should migrate
-        BOOST_CHECK(shouldMigrateOldRewardHistory(view));
-    }
-
-    {
-        CCustomCSView view(*pcustomcsview);
-
-        // Nothing to migrate
-        BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
-
-        view.SetAllRewardHistory(RewardHistoryKey{}, RewardHistoryValue{});
-
-        // we have new prefix and key, should not migrate
-        BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
-    }
-
-    {
-        CCustomCSView view(*pcustomcsview);
-
-        // Nothing to migrate
-        BOOST_CHECK(!shouldMigrateOldRewardHistory(view));
-
-        view.SetAllAccountHistory({ {}, 0, std::numeric_limits<uint32_t>::max() }, {});
-
-        // we have old accounthistory, should migrate
-        BOOST_CHECK(shouldMigrateOldRewardHistory(view));
-    }
-}
-
-BOOST_AUTO_TEST_CASE(AccountHistoryDescOrderTest)
-{
-    CCustomCSView view(*pcustomcsview);
-
-    view.SetAllAccountHistory({ {}, 5021, 0 }, {});
-    view.SetAllAccountHistory({ {}, 5022, 1 }, {});
-    view.SetAllAccountHistory({ {}, 5023, 2 }, {});
-    view.SetAllAccountHistory({ {}, 5024, 3 }, {});
-    view.SetAllAccountHistory({ {}, 5025, 4 }, {});
-    view.SetAllAccountHistory({ {}, 5026, 5 }, {});
-
-    uint32_t startBlock = 5021; // exclude
-    uint32_t maxBlockHeight = 5025;
-    auto blockCount = maxBlockHeight;
-
-    view.ForEachAllAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue) {
-        if (startBlock > key.blockHeight || key.blockHeight > maxBlockHeight) {
-            return true;
+        int test = 4;
+        auto it = view.LowerBound<TestForward>(TestForward{256});
+        while (it.Valid()) {
+            BOOST_CHECK(it.Key().n >= 256);
+            BOOST_CHECK(it.Value().as<int>() == test);
+            test++;
+            it.Next();
         }
+        BOOST_CHECK(test == 9);
+        // go backward
+        test--;
+        it.Seek(TestForward{((uint32_t)-1)});
+        while (it.Valid()) {
+            BOOST_CHECK_EQUAL(it.Value().as<int>(), test);
+            test--;
+            it.Prev();
+        }
+        BOOST_CHECK(test == 0);
 
-        BOOST_CHECK_EQUAL(blockCount, key.blockHeight);
-        --blockCount;
+        CCustomCSView view2(view);
+        view2.WriteBy<TestForward>(TestForward{1}, 11);
+        view2.WriteBy<TestForward>(TestForward{256}, 9);
+        view2.EraseBy<TestForward>(TestForward{255});
 
-        return true;
-    }, { {}, maxBlockHeight, std::numeric_limits<uint32_t>::max() });
+        CCustomCSView view3(view2);
+        view3.EraseBy<TestForward>(TestForward{1});
+
+        it = view3.LowerBound<TestForward>(TestForward{256});
+        BOOST_CHECK(it.Valid());
+        BOOST_CHECK(it.Value().as<int>() == 9);
+        it.Prev();
+        BOOST_CHECK(it.Valid());
+        BOOST_CHECK(it.Value().as<int>() == 1);
+        it.Next();
+        BOOST_CHECK(it.Valid());
+        BOOST_CHECK(it.Value().as<int>() == 9);
+        it.Prev();
+        BOOST_CHECK(it.Valid());
+        BOOST_CHECK(it.Value().as<int>() == 1);
+        it.Prev();
+        BOOST_CHECK(!it.Valid());
+    }
+
+    {
+        CCustomCSView view(*pcustomcsview);
+        view.WriteBy<TestBackward>(TestBackward{0}, 1);
+        view.WriteBy<TestBackward>(TestBackward{1}, 2);
+        view.WriteBy<TestBackward>(TestBackward{255}, 3);
+        view.WriteBy<TestBackward>(TestBackward{256}, 4);
+
+        auto it = view.LowerBound<TestBackward>(TestBackward{254});
+        int test = 2;
+        // go forward (prev in backward)
+        while (it.Valid()) {
+            BOOST_CHECK(it.Value().as<int>() == test);
+            test++;
+            it.Prev();
+        }
+        BOOST_CHECK(test == 5);
+
+        CCustomCSView view2(view);
+        view2.WriteBy<TestBackward>(TestBackward{256}, 5);
+
+        test = 5;
+        it = view2.LowerBound<TestBackward>(TestBackward{257});
+        while (it.Valid()) {
+            BOOST_CHECK(it.Value().as<int>() == test);
+            test == 5 ? test-=2 : test--;
+            it.Next();
+        }
+        BOOST_CHECK(test == 0);
+
+        it.Seek(TestBackward{254});
+        test = 2;
+        // go forward (prev in backward)
+        while (it.Valid()) {
+            BOOST_CHECK(it.Value().as<int>() == test);
+            test == 3 ? test+=2 : test++;
+            it.Prev();
+        }
+        BOOST_CHECK(test == 6);
+
+        it.Seek(TestBackward{255});
+        BOOST_CHECK(it.Valid());
+        it.Prev();
+        BOOST_CHECK(it.Valid());
+        BOOST_CHECK(it.Value().as<int>() == 5);
+        it.Next();
+        BOOST_CHECK(it.Valid());
+        BOOST_CHECK(it.Value().as<int>() == 3);
+        it.Next();
+        BOOST_CHECK(it.Valid());
+        BOOST_CHECK(it.Value().as<int>() == 2);
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

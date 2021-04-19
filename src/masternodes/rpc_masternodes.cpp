@@ -127,12 +127,8 @@ UniValue createmasternode(const JSONRPCRequest& request)
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyCreateMasternodeTx(mnview_dummy, CTransaction(rawTx), targetHeight, uint64_t{0},
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey}));
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateMasterNodeMessage{});
     }
     return signsend(rawTx, pwallet, {})->GetHash().GetHex();
 }
@@ -220,15 +216,11 @@ UniValue resignmasternode(const JSONRPCRequest& request)
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyResignMasternodeTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId}));
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CResignMasterNodeMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }

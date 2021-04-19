@@ -34,9 +34,9 @@ std::string trim_ws(std::string const & str)
 
 std::unique_ptr<CToken> CTokensView::GetToken(DCT_ID id) const
 {
-    auto tokenImpl = ReadBy<ID, CTokenImpl>(WrapVarInt(id.v)); // @todo change serialization of DCT_ID to VarInt by default?
-    if (tokenImpl)
+    if (auto tokenImpl = ReadBy<ID, CTokenImpl>(id)) {
         return MakeUnique<CTokenImpl>(*tokenImpl);
+    }
 
     return {};
 }
@@ -44,10 +44,7 @@ std::unique_ptr<CToken> CTokensView::GetToken(DCT_ID id) const
 boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetToken(const std::string & symbolKey) const
 {
     DCT_ID id;
-    auto varint = WrapVarInt(id.v);
-
-    if (ReadBy<Symbol, std::string>(symbolKey, varint)) {
-//        assert(id >= DCT_ID_START);// ? not needed anymore?
+    if (ReadBy<Symbol, std::string>(symbolKey, id)) {
         return std::make_pair(id, GetToken(id));
     }
     return {};
@@ -56,11 +53,10 @@ boost::optional<std::pair<DCT_ID, std::unique_ptr<CToken> > > CTokensView::GetTo
 boost::optional<std::pair<DCT_ID, CTokensView::CTokenImpl> > CTokensView::GetTokenByCreationTx(const uint256 & txid) const
 {
     DCT_ID id;
-    auto varint = WrapVarInt(id.v);
-    if (ReadBy<CreationTx, uint256>(txid, varint)) {
-        auto tokenImpl = ReadBy<ID, CTokenImpl>(varint);
-        if (tokenImpl)
-            return { std::make_pair(id, std::move(*tokenImpl))};
+    if (ReadBy<CreationTx, uint256>(txid, id)) {
+        if (auto tokenImpl = ReadBy<ID, CTokenImpl>(id)) {
+            return std::make_pair(id, std::move(*tokenImpl));
+        }
     }
     return {};
 }
@@ -71,7 +67,7 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
 
     if (key.empty()) {
         id = DCT_ID{0};
-        return GetToken(DCT_ID{0});
+        return GetToken(id);
     }
     if (ParseUInt32(key, &id.v))
         return GetToken(id);
@@ -83,8 +79,7 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
             id = pair->first;
             return MakeUnique<CTokenImpl>(pair->second);
         }
-    }
-    else {
+    } else {
         auto pair = GetToken(key);
         if (pair) {
             id = pair->first;
@@ -96,13 +91,7 @@ std::unique_ptr<CToken> CTokensView::GetTokenGuessId(const std::string & str, DC
 
 void CTokensView::ForEachToken(std::function<bool (const DCT_ID &, CLazySerialize<CTokenImpl>)> callback, DCT_ID const & start)
 {
-    DCT_ID tokenId = start;
-    auto hint = WrapVarInt(tokenId.v);
-
-    ForEach<ID, CVarInt<VarIntMode::DEFAULT, uint32_t>, CTokenImpl>([&tokenId, &callback] (CVarInt<VarIntMode::DEFAULT, uint32_t> const &, CLazySerialize<CTokenImpl> tokenImpl) {
-        return callback(tokenId, tokenImpl);
-    }, hint);
-
+    ForEach<ID, DCT_ID, CTokenImpl>(callback, start);
 }
 
 Res CTokensView::CreateDFIToken()
@@ -118,9 +107,9 @@ Res CTokensView::CreateDFIToken()
     token.flags |= (uint8_t)CToken::TokenFlags::Finalized;
 
     DCT_ID id{0};
-    WriteBy<ID>(WrapVarInt(id.v), token);
-    WriteBy<Symbol>(token.symbol, WrapVarInt(id.v));
-    WriteBy<CreationTx>(token.creationTx, WrapVarInt(id.v));
+    WriteBy<ID>(id, token);
+    WriteBy<Symbol>(token.symbol, id);
+    WriteBy<CreationTx>(token.creationTx, id);
     return Res::Ok();
 }
 
@@ -152,41 +141,38 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl & token, b
             id = IncrementLastDctId();
             LogPrintf("Warning! Range <DCT_ID_START already filled. Using \"common\" id=%s for new token\n", id.ToString().c_str());
         }
-    }
-    else
+    } else {
         id = IncrementLastDctId();
+    }
 
     std::string symbolKey = token.CreateSymbolKey(id);
 
-    WriteBy<ID>(WrapVarInt(id.v), token);
-    WriteBy<Symbol>(symbolKey, WrapVarInt(id.v));
-    WriteBy<CreationTx>(token.creationTx, WrapVarInt(id.v));
+    WriteBy<ID>(id, token);
+    WriteBy<Symbol>(symbolKey, id);
+    WriteBy<CreationTx>(token.creationTx, id);
     return {id, Res::Ok()};
 }
 
-/// @deprecated used only by tests. rewrite tests
-bool CTokensView::RevertCreateToken(const uint256 & txid)
+Res CTokensView::RevertCreateToken(const uint256 & txid)
 {
     auto pair = GetTokenByCreationTx(txid);
     if (!pair) {
-        LogPrintf("Token creation revert error: token with creation tx %s does not exist!\n", txid.ToString());
-        return false;
+        return Res::Err("Token creation revert error: token with creation tx %s does not exist!\n", txid.ToString());
     }
     DCT_ID id = pair->first;
     auto lastId = ReadLastDctId();
     if (!lastId || (*lastId) != id) {
-        LogPrintf("Token creation revert error: revert sequence broken! (txid = %s, id = %s, LastDctId = %s)\n", txid.ToString(), id.ToString(), (lastId ? lastId->ToString() : DCT_ID{0}.ToString()));
-        return false;
+        return Res::Err("Token creation revert error: revert sequence broken! (txid = %s, id = %s, LastDctId = %s)\n", txid.ToString(), id.ToString(), (lastId ? lastId->ToString() : DCT_ID{0}.ToString()));
     }
     auto const & token = pair->second;
-    EraseBy<ID>(WrapVarInt(id.v));
+    EraseBy<ID>(id);
     EraseBy<Symbol>(token.symbol);
     EraseBy<CreationTx>(token.creationTx);
     DecrementLastDctId();
-    return true;
+    return Res::Ok();
 }
 
-Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isPreBayfront)
+Res CTokensView::UpdateToken(const uint256 &tokenTx, const CToken& newToken, bool isPreBayfront)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
@@ -217,7 +203,7 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isP
             return Res::Err("token with key '%s' already exists!", newSymbolKey);
         }
         EraseBy<Symbol>(oldSymbolKey);
-        WriteBy<Symbol>(newSymbolKey, WrapVarInt(id.v));
+        WriteBy<Symbol>(newSymbolKey, id);
     }
 
     // apply DAT flag and symbol only AFTER dealing with symbol indexes:
@@ -235,7 +221,7 @@ Res CTokensView::UpdateToken(const uint256 &tokenTx, CToken & newToken, bool isP
     if (!oldToken.IsFinalized() && newToken.IsFinalized()) // IsFinalized() itself was checked upthere (with Err)
         oldToken.flags |= (uint8_t)CToken::TokenFlags::Finalized;
 
-    WriteBy<ID>(WrapVarInt(id.v), oldToken);
+    WriteBy<ID>(id, oldToken);
     return Res::Ok();
 }
 
@@ -258,15 +244,14 @@ Res CTokensView::BayfrontFlagsCleanup()
             changed = true;
         }
         if (changed) {
-            DCT_ID dummy = id;
-            WriteBy<ID>(WrapVarInt(dummy.v), token);
+            WriteBy<ID>(id, token);
         }
         return true;
     }, DCT_ID{1}); // start from non-DFI
     return Res::Ok();
 }
 
-Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount, UniValue* rpcInfo)
+Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount)
 {
     auto pair = GetTokenByCreationTx(tokenTx);
     if (!pair) {
@@ -280,12 +265,7 @@ Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount,
     }
     tokenImpl.minted = *resMinted.val;
 
-    // Transaction info for getcustomtx RPC call
-    if (rpcInfo) {
-        rpcInfo->pushKV(std::to_string(pair->first.v), ValueFromAmount(amount));
-    }
-
-    WriteBy<ID>(WrapVarInt(pair->first.v), tokenImpl);
+    WriteBy<ID>(pair->first, tokenImpl);
     return Res::Ok();
 }
 
@@ -300,14 +280,12 @@ DCT_ID CTokensView::IncrementLastDctId()
     return result;
 }
 
-/// @deprecated used only by "revert*". rewrite tests
 DCT_ID CTokensView::DecrementLastDctId()
 {
     auto lastDctId = ReadLastDctId();
     if (lastDctId && *lastDctId >= DCT_ID_START) {
         --(lastDctId->v);
-    }
-    else {
+    } else {
         LogPrintf("Critical fault: trying to decrement nonexistent DCT_ID or it is lower than DCT_ID_START\n");
         assert (false);
     }
@@ -323,5 +301,3 @@ boost::optional<DCT_ID> CTokensView::ReadLastDctId() const
     }
     return {};
 }
-
-
