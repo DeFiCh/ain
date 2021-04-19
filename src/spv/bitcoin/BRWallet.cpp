@@ -30,6 +30,7 @@
 #include <logging.h>
 #include <util/strencodings.h>
 
+#include <algorithm>
 #include <stdlib.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -89,7 +90,8 @@ struct BRWalletStruct {
     int forkId;
     UInt160 *internalChain, *externalChain;
     BRSet *allTx, *invalidTx, *pendingTx, *spentOutputs, *usedPKH, *allPKH;
-    std::set<UInt160, UInt160Compare>* userPKH;
+    BRUserAddresses* userPKH;
+    BRUserAddresses* htlcPKH;
     void *callbackInfo;
     void (*balanceChanged)(void *info, uint64_t balance);
     void (*txAdded)(void *info, BRTransaction *tx);
@@ -180,17 +182,27 @@ static int _BRWalletContainsTx(BRWallet *wallet, const BRTransaction *tx)
     return r;
 }
 
-static int _BRWalletContainsUserTx(BRWallet *wallet, const BRTransaction *tx)
+static int _BRWalletContainsUserTx(BRWallet *wallet, const BRTransaction *tx, const UInt160& addressFilter = UINT160_ZERO, const bool htlc = false)
 {
     int r = 0;
     const uint8_t *pkh;
+    const bool filterOnAddress = !UInt160Eq(UINT160_ZERO, addressFilter);
 
     for (size_t i = 0; ! r && i < tx->outCount; i++) {
         pkh = BRScriptPKH(tx->outputs[i].script, tx->outputs[i].scriptLen);
         if (pkh) {
             UInt160 hash160;
             UIntConvert(pkh, hash160);
-            if (wallet->userPKH->count(hash160)) r = 1;
+            if (BRWalletIsMine(wallet, hash160, htlc) != SPVTxType::None)
+            {
+                // Check if result matches address filter
+                if (filterOnAddress && !UInt160Eq(addressFilter, hash160))
+                {
+                    continue;
+                }
+
+                r = 1;
+            }
         }
     }
 
@@ -202,27 +214,150 @@ static int _BRWalletContainsUserTx(BRWallet *wallet, const BRTransaction *tx)
         if (pkh) {
             UInt160 hash160;
             UIntConvert(pkh, hash160);
-            if (wallet->userPKH->count(hash160)) r = 1;
+            if (BRWalletIsMine(wallet, hash160, htlc) != SPVTxType::None)
+            {
+                // Check if result matches address filter
+                if (filterOnAddress && !UInt160Eq(addressFilter, hash160))
+                {
+                    continue;
+                }
+
+                r = 1;
+            }
         }
     }
 
     return r;
 }
 
-std::set<std::string> BRListUserTransactions(BRWallet *wallet)
+static bool _BRWalletContainsHTLCOutput(BRWallet *wallet, const BRTransaction *tx, size_t &output, const UInt160& addressFilter)
 {
-    std::set<std::string> userTransactions;
+    bool r = false;
+    const uint8_t *pkh;
+
+    for (size_t i = 0; ! r && i < tx->outCount; i++)
+    {
+        pkh = BRScriptPKH(tx->outputs[i].script, tx->outputs[i].scriptLen);
+        if (pkh)
+        {
+            UInt160 hash160;
+            UIntConvert(pkh, hash160);
+            if (wallet->htlcPKH->count(hash160))
+            {
+                // Check if result matches address filter
+                if (!UInt160Eq(UINT160_ZERO, addressFilter) && !UInt160Eq(addressFilter, hash160))
+                {
+                    continue;
+                }
+
+                output = i;
+                r = true;
+            }
+        }
+    }
+
+    return r;
+}
+
+std::string BRGetHTLCSeed(BRWallet *wallet, const uint8_t *md20)
+{
+    std::set<std::string> htlcSends;
+    const uint8_t *pkh;
+    UInt160 htlcAddress;
+    UIntConvert(md20, htlcAddress);
+
+    for (BRTransaction* previous = nullptr; (previous = static_cast<BRTransaction*>(BRSetIterate(wallet->allTx, previous))); )
+    {
+        for (size_t i = 0; i < previous->inCount; ++i)
+        {
+            BRTransaction *t = static_cast<BRTransaction*>(BRSetGet(wallet->allTx, &previous->inputs[i].txHash));
+            uint32_t n = previous->inputs[i].index;
+
+            pkh = (t && n < t->outCount) ? BRScriptPKH(t->outputs[n].script, t->outputs[n].scriptLen) : nullptr;
+            if (pkh)
+            {
+                UInt160 hash160;
+                UIntConvert(pkh, hash160);
+                if (UInt160Eq(htlcAddress, hash160))
+                {
+                    size_t sigLen = previous->inputs[i].sigLen;
+
+                    // Check there is a signature
+                    if (sigLen > 0)
+                    {
+                        size_t startOffset = 1 /* length byte */ + previous->inputs[i].signature[0];
+
+                        if (sigLen > startOffset)
+                        {
+                            size_t secretLength = previous->inputs[i].signature[startOffset];
+                            size_t opCodeByte{startOffset + secretLength + 1};
+
+                            // Check for OP_1 after secret, if missing then this is not the secret.
+                            if (sigLen >= opCodeByte && previous->inputs[i].signature[opCodeByte] == OP_1)
+                            {
+                                return HexStr(previous->inputs[i].signature + startOffset + 1, previous->inputs[i].signature + opCodeByte);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return {};
+}
+
+
+bool BRWalletTxSpent(BRWallet *wallet, const BRTransaction *tx, const uint32_t output, uint256 &spent)
+{
+    for (BRTransaction* previous = nullptr; (previous = static_cast<BRTransaction*>(BRSetIterate(wallet->allTx, previous))); )
+    {
+        for (size_t i{0}; i < previous->inCount; ++i)
+        {
+            if (UInt256Eq(previous->inputs[i].txHash, tx->txHash) && previous->inputs[i].index == output)
+            {
+                spent = to_uint256(previous->txHash);
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+std::set<const BRTransaction*> BRListUserTransactions(BRWallet *wallet, const UInt160& addr)
+{
+    std::set<const BRTransaction*> userTransactions;
     BRTransaction *tx;
 
     for (size_t i = 0; i < array_count(wallet->transactions); ++i) {
         tx = wallet->transactions[i];
 
-        if (_BRWalletContainsUserTx(wallet, tx)) {
-            userTransactions.insert(to_uint256(tx->txHash).ToString());
+        if (_BRWalletContainsUserTx(wallet, tx, addr, true /* HTLC */)) {
+            userTransactions.insert(tx);
         }
     }
 
     return userTransactions;
+}
+
+std::vector<std::pair<BRTransaction*, size_t>> BRListHTLCReceived(BRWallet *wallet, const UInt160& addr)
+{
+    std::vector<std::pair<BRTransaction*, size_t>> htlcTransactions;
+    BRTransaction *tx;
+    size_t output{0};
+
+    for (size_t i = 0; i < array_count(wallet->transactions); ++i)
+    {
+        tx = wallet->transactions[i];
+
+        if (_BRWalletContainsHTLCOutput(wallet, tx, output, addr))
+        {
+            htlcTransactions.emplace_back(tx, output);
+        }
+    }
+
+    return htlcTransactions;
 }
 
 std::string BRGetRawTransaction(BRWallet *wallet, UInt256 txHash)
@@ -317,8 +452,9 @@ static void _BRWalletUpdateBalance(BRWallet *wallet)
         for (j = 0; j < tx->outCount; j++) {
             if (tx->outputs[j].address[0] != '\0') {
                 pkh = BRScriptPKH(tx->outputs[j].script, tx->outputs[j].scriptLen);
-
-                if (pkh && BRSetContains(wallet->allPKH, pkh)) {
+                UInt160 hash160;
+                UIntConvert(pkh, hash160);
+                if (pkh && BRSetContains(wallet->allPKH, pkh) && wallet->htlcPKH->count(hash160) == 0) {
                     BRSetAdd(wallet->usedPKH, (void *)pkh);
                     array_add(wallet->utxos, ((const BRUTXO) { tx->txHash, (uint32_t)j }));
                     balance += tx->outputs[j].amount;
@@ -348,7 +484,7 @@ static void _BRWalletUpdateBalance(BRWallet *wallet)
 // allocates and populates a BRWallet struct which must be freed by calling BRWalletFree()
 // forkId is 0 for bitcoin, 0x40 for b-cash
 BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPubKey mpk, int forkId,
-                      std::set<UInt160, UInt160Compare>* userAddresses)
+                      BRUserAddresses* userAddresses, BRUserAddresses* htlcAddresses)
 {
     BRWallet *wallet = NULL;
     BRTransaction *tx;
@@ -372,6 +508,7 @@ BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPub
     wallet->usedPKH = BRSetNew(_pkhHash, _pkhEq, txCount + 100);
     wallet->allPKH = BRSetNew(_pkhHash, _pkhEq, txCount + 100);
     wallet->userPKH = userAddresses;
+    wallet->htlcPKH = htlcAddresses;
 
     for (size_t i = 0; transactions && i < txCount; i++) {
         tx = transactions[i];
@@ -388,7 +525,7 @@ BRWallet *BRWalletNew(BRTransaction *transactions[], size_t txCount, BRMasterPub
     BRWalletUnusedAddrs(wallet, NULL, SEQUENCE_GAP_LIMIT_EXTERNAL, SEQUENCE_EXTERNAL_CHAIN);
     BRWalletUnusedAddrs(wallet, NULL, SEQUENCE_GAP_LIMIT_INTERNAL, SEQUENCE_INTERNAL_CHAIN);
 
-    if (!wallet->userPKH->empty()) {
+    if (!wallet->userPKH->empty() || !wallet->htlcPKH->empty()) {
         BRWalletAddUserAddresses(wallet);
     }
 
@@ -530,7 +667,7 @@ bool BRWalletAddSingleAddress(BRWallet *wallet, const uint8_t& pubKey, const siz
     return true;
 }
 
-void BRWalletImportAddress(BRWallet *wallet, const uint160& userHash)
+void BRWalletImportAddress(BRWallet *wallet, const uint160& userHash, const bool htlc)
 {
     assert(wallet != nullptr);
     wallet->lock.lock();
@@ -544,7 +681,15 @@ void BRWalletImportAddress(BRWallet *wallet, const uint160& userHash)
 
     size_t count = array_count(chain);
     array_add(chain, hash);
-    wallet->userPKH->insert(hash);
+
+    if (htlc)
+    {
+        wallet->htlcPKH->insert(hash);
+    }
+    else
+    {
+        wallet->userPKH->insert(hash);
+    }
 
     // was chain moved to a new memory location?
     if (chain == origChain)
@@ -578,6 +723,10 @@ void BRWalletAddUserAddresses(BRWallet *wallet) {
     size_t before_count = array_count(chain);
 
     for (const auto& address : *wallet->userPKH) {
+        array_add(chain, address);
+    }
+
+    for (const auto& address : *wallet->htlcPKH) {
         array_add(chain, address);
     }
 
@@ -795,7 +944,7 @@ int BRWalletAddressIsUsed(BRWallet *wallet, const char *addr)
 
 // returns an unsigned transaction that sends the specified amount from the wallet to the given address
 // result must be freed by calling BRTransactionFree()
-BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, const char *addr, std::string changeAddress)
+BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, const char *addr, std::string changeAddress, uint64_t feeRate)
 {
     BRTxOutput o = BR_TX_OUTPUT_NONE;
 
@@ -804,12 +953,12 @@ BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, cons
     assert(addr != NULL && BRAddressIsValid(addr));
     o.amount = amount;
     BRTxOutputSetAddress(&o, addr);
-    return BRWalletCreateTxForOutputs(wallet, &o, 1, changeAddress);
+    return BRWalletCreateTxForOutputs(wallet, &o, 1, changeAddress, feeRate);
 }
 
 // returns an unsigned transaction that satisifes the given transaction outputs
 // result must be freed by calling BRTransactionFree()
-BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput outputs[], size_t outCount, std::string changeAddress)
+BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput outputs[], size_t outCount, std::string changeAddress, uint64_t feeRate)
 {
     BRTransaction *tx, *transaction = BRTransactionNew();
     uint64_t feeAmount, amount = 0, balance = 0, minAmount;
@@ -829,7 +978,10 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
     minAmount = BRWalletMinOutputAmountWithFeePerKb(wallet, MIN_FEE_PER_KB);
 
     wallet->lock.lock();
-    feeAmount = _txFee(wallet->feePerKb, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
+
+    // Set fee to whichever is larger, wallet or argument.
+    feeRate = std::max(feeRate, wallet->feePerKb);
+    feeAmount = _txFee(feeRate, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
 
     // TODO: use up all UTXOs for all used addresses to avoid leaving funds in addresses whose public key is revealed
     // TODO: avoid combining addresses in a single transaction when possible to reduce information leakage
@@ -839,7 +991,13 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
 
         o = &wallet->utxos[i];
         tx = (BRTransaction *)BRSetGet(wallet->allTx, o);
-        if (! tx || o->n >= tx->outCount) continue;
+
+        // Exclude HTLC outputs
+        const uint8_t* pkh = BRScriptPKH(tx->outputs[o->n].script, tx->outputs[o->n].scriptLen);
+        UInt160 hash160;
+        UIntConvert(pkh, hash160);
+
+        if (! tx || o->n >= tx->outCount || wallet->htlcPKH->count(hash160)) continue;
         BRTransactionAddInput(transaction, tx->txHash, o->n, tx->outputs[o->n].amount,
                               tx->outputs[o->n].script, tx->outputs[o->n].scriptLen, NULL, 0, NULL, 0, TXIN_SEQUENCE);
 
@@ -874,8 +1032,8 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
 
         balance += tx->outputs[o->n].amount;
 
-        // fee amount after adding a change output
-        feeAmount = _txFee(wallet->feePerKb, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
+        // Recalculate fee after adding outputs
+        feeAmount = _txFee(feeRate, BRTransactionVSize(transaction) + TX_OUTPUT_SIZE);
 
         // increase fee to round off remaining wallet balance to nearest 100 satoshi
         if (wallet->balance > amount + feeAmount) feeAmount += (wallet->balance - (amount + feeAmount)) % 100;
@@ -1415,6 +1573,21 @@ uint64_t BRWalletMaxOutputAmount(BRWallet *wallet)
     return (amount > fee) ? amount - fee : 0;
 }
 
+SPVTxType BRWalletIsMine(BRWallet *wallet, const UInt160 &hash160, const bool htlc)
+{
+    if (wallet->userPKH->count(hash160))
+    {
+        return SPVTxType::Bech32;
+    }
+
+    if (htlc && wallet->htlcPKH->count(hash160))
+    {
+        return SPVTxType::HTLC;
+    }
+
+    return SPVTxType::None;
+}
+
 static void _setApplyFreeTx(void *info, void *tx)
 {
     BRTransactionFree((BRTransaction *)tx);
@@ -1426,6 +1599,7 @@ void BRWalletFree(BRWallet *wallet)
     assert(wallet != NULL);
     wallet->lock.lock();
     delete wallet->userPKH;
+    delete wallet->htlcPKH;
     BRSetFree(wallet->allPKH);
     BRSetFree(wallet->usedPKH);
     BRSetFree(wallet->invalidTx);

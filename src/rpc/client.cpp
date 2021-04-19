@@ -220,14 +220,14 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "spv_estimateanchorcost", 0, "feerate" },
     { "spv_rescan", 0, "height" },
     { "spv_gettxconfirmations", 0, "txhash" },
-    { "spv_splitutxo", 0, "parts" },
-    { "spv_splitutxo", 1, "amount" },
     { "spv_setlastheight", 0, "height" },
     { "spv_listanchors", 0, "minBtcHeight" },
     { "spv_listanchors", 1, "maxBtcHeight" },
     { "spv_listanchors", 2, "minConfs" },
     { "spv_listanchors", 3, "maxConfs" },
     { "spv_sendtoaddress", 1, "amount" },
+    { "spv_sendtoaddress", 2, "feerate" },
+    { "spv_listreceivedbyaddress", 0, "minconf" },
 
     { "createpoolpair", 0, "metadata" },
     { "createpoolpair", 1, "inputs" },
@@ -251,6 +251,10 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sendtokenstoaddress", 1, "to" },
     { "getanchorteams", 0, "blockHeight" },
     { "getactivemasternodecount", 0, "blockCount" },
+
+    { "spv_claimhtlc", 3, "feerate" },
+
+    { "spv_refundhtlc", 2, "feerate" },
 };
 // clang-format on
 

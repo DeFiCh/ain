@@ -516,7 +516,7 @@ std::string RPCHelpMan::ToString() const
 
 bool RPCArg::IsOptional() const
 {
-    if (m_fallback.which() == 1) {
+    if (m_fallback.which() == PKHashType) {
         return true;
     } else {
         return RPCArg::Optional::NO != boost::get<RPCArg::Optional>(m_fallback);
@@ -565,7 +565,7 @@ std::string RPCArg::ToDescriptionString() const
             // no default case, so the compiler can warn about missing cases
         }
     }
-    if (m_fallback.which() == 1) {
+    if (m_fallback.which() == PKHashType) {
         ret += ", optional, default=" + boost::get<std::string>(m_fallback);
     } else {
         switch (boost::get<RPCArg::Optional>(m_fallback)) {
