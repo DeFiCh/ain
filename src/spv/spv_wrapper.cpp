@@ -1040,6 +1040,10 @@ SPVTxType CSpvWrapper::IsMine(const char *address)
     return BRWalletIsMine(wallet, addressFilter, true);
 }
 
+bool CSpvWrapper::ValidateAddress(const char *address)
+{
+    return BRAddressIsValid(address);
+}
 
 void publishedTxCallback(void *info, int error)
 {
