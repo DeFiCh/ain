@@ -24,10 +24,13 @@ class Dfip8Test(DefiTestFramework):
 
         assert_equal(result['AnchorReward'], Decimal('0.08100800'))
         assert_equal(result['IncentiveFunding'], Decimal('103.08268000'))
-        assert_equal(result['Swap'], Decimal('0'))
-        assert_equal(result['Futures'], Decimal('0'))
-        assert_equal(result['Options'], Decimal('0'))
         assert_equal(result['Burnt'], Decimal('146.98901600'))
+
+        getblock = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        assert_equal(getblock['nonutxo'][0]['AnchorReward'], Decimal('0.08100800'))
+        assert_equal(getblock['nonutxo'][0]['IncentiveFunding'], Decimal('103.08268000'))
+        assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('146.98901600'))
 
         self.nodes[0].generate(9)
 
@@ -35,10 +38,13 @@ class Dfip8Test(DefiTestFramework):
 
         assert_equal(result['AnchorReward'], Decimal('0.81008000'))
         assert_equal(result['IncentiveFunding'], Decimal('1030.82680000'))
-        assert_equal(result['Swap'], Decimal('0'))
-        assert_equal(result['Futures'], Decimal('0'))
-        assert_equal(result['Options'], Decimal('0'))
         assert_equal(result['Burnt'], Decimal('1469.89016000'))
+
+        getblock = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        assert_equal(getblock['nonutxo'][0]['AnchorReward'], Decimal('0.08100800'))
+        assert_equal(getblock['nonutxo'][0]['IncentiveFunding'], Decimal('103.08268000'))
+        assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('146.98901600'))
 
         # First reduction - 150 + 1 Eunos height on regtest
         self.nodes[0].generate(141)
@@ -47,10 +53,13 @@ class Dfip8Test(DefiTestFramework):
 
         assert_equal(result['AnchorReward'], Decimal('12.23086488'))
         assert_equal(result['IncentiveFunding'], Decimal('15563.77556916'))
-        assert_equal(result['Swap'], Decimal('0'))
-        assert_equal(result['Futures'], Decimal('0'))
-        assert_equal(result['Options'], Decimal('0'))
         assert_equal(result['Burnt'], Decimal('22192.90433810'))
+
+        getblock = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        assert_equal(getblock['nonutxo'][0]['AnchorReward'], Decimal('0.07966488'))
+        assert_equal(getblock['nonutxo'][0]['IncentiveFunding'], Decimal('101.37356916'))
+        assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('144.55193810'))
 
         # First reduction plus one
         self.nodes[0].generate(1)
@@ -59,24 +68,28 @@ class Dfip8Test(DefiTestFramework):
 
         assert_equal(result['AnchorReward'], Decimal('12.31052976'))
         assert_equal(result['IncentiveFunding'], Decimal('15665.14913832'))
-        assert_equal(result['Swap'], Decimal('0'))
-        assert_equal(result['Futures'], Decimal('0'))
-        assert_equal(result['Options'], Decimal('0'))
         assert_equal(result['Burnt'], Decimal('22337.45627620'))
+
+        getblock = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        assert_equal(getblock['nonutxo'][0]['AnchorReward'], Decimal('0.07966488'))
+        assert_equal(getblock['nonutxo'][0]['IncentiveFunding'], Decimal('101.37356916'))
+        assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('144.55193810'))
 
         # Ten reductions plus one
         self.nodes[0].generate(1502 - self.nodes[0].getblockcount())
-
-        print(self.nodes[0].getblockcount())
 
         result = self.nodes[0].listcommunitybalances()
 
         assert_equal(result['AnchorReward'], Decimal('112.97249134'))
         assert_equal(result['IncentiveFunding'], Decimal('143757.50365818'))
-        assert_equal(result['Swap'], Decimal('0'))
-        assert_equal(result['Futures'], Decimal('0'))
-        assert_equal(result['Options'], Decimal('0'))
         assert_equal(result['Burnt'], Decimal('204988.59754052'))
+
+        getblock = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        assert_equal(getblock['nonutxo'][0]['AnchorReward'], Decimal('0.06853592'))
+        assert_equal(getblock['nonutxo'][0]['IncentiveFunding'], Decimal('87.21196359'))
+        assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('124.35843451'))
 
 if __name__ == '__main__':
     Dfip8Test().main()

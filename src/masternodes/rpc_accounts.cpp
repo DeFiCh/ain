@@ -1234,7 +1234,14 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
 
     LOCK(cs_main);
-    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
+    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
+    {
+        // Skip these as any unused balance will be burnt.
+        if (kv.first == CommunityAccountType::Swap ||
+            kv.first == CommunityAccountType::Futures ||
+            kv.first == CommunityAccountType::Options) {
+            continue;
+        }
         ret.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(pcustomcsview->GetCommunityBalance(kv.first)));
     }
 
