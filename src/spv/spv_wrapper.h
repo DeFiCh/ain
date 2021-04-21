@@ -143,6 +143,7 @@ public:
     UniValue GetAddressPubkey(const CWallet *pwallet, const char *addr); // Used in HTLC creation
     CKeyID GetAddressKeyID(const char *addr);
     SPVTxType IsMine(const char *address);
+    bool ValidateAddress(const char *address);
 
     // Bitcoin Transaction related calls
     int64_t GetBitcoinBalance();

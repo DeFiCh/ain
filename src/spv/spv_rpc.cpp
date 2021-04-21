@@ -1374,6 +1374,35 @@ static UniValue spv_listreceivedbyaddress(const JSONRPCRequest& request)
     return spv::pspv->ListReceived(nMinDepth, address);
 }
 
+static UniValue spv_validateaddress(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_validateaddress",
+        "\nCheck whether the given Bitcoin address is valid.\n",
+        {
+            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The Bitcoin address to validate"},
+        },
+        RPCResult{
+            "{\n"
+            "  \"isvalid\" : true|false,       (boolean) If the address is valid or not.\n"
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
+            + HelpExampleRpc("spv_validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
+        },
+    }.Check(request);
+
+    if (!spv::pspv)
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    const auto isValid = spv::pspv->ValidateAddress(request.params[0].get_str().c_str());
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("isvalid", isValid);
+    return ret;
+}
+
 
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
@@ -1405,6 +1434,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_decodehtlcscript",       &spv_decodehtlcscript,      { "redeemscript" }  },
   { "spv",      "spv_gethtlcseed",            &spv_gethtlcseed,           { "address" }  },
   { "spv",      "spv_listreceivedbyaddress",  &spv_listreceivedbyaddress, { "minconf", "address_filter" }  },
+  { "spv",      "spv_validateaddress",        &spv_validateaddress,       { "address"}  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
   { "hidden",   "spv_fundaddress",            &spv_fundaddress,           { "address" }  },
 };
