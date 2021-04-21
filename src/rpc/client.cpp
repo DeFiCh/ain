@@ -229,6 +229,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "spv_listanchors", 3, "maxConfs" },
     { "spv_sendtoaddress", 1, "amount" },
     { "spv_sendtoaddress", 2, "feerate" },
+    { "spv_listreceivedbyaddress", 0, "minconf" },
 
     { "createpoolpair", 0, "metadata" },
     { "createpoolpair", 1, "inputs" },
