@@ -1249,7 +1249,7 @@ public:
             
             bool found=false;
             mnview.ForEachICXSubmitDFCHTLC([&found,&submitdfchtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
-                if (key.second != submitdfchtlc.offerTx)
+                if (key.first.second != submitdfchtlc.offerTx)
                     return false;
                 found=true;
                 return false;
@@ -1316,7 +1316,7 @@ public:
             
             bool found=false;
             mnview.ForEachICXSubmitEXTHTLC([&found,&submitexthtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
-                if (key.second != submitexthtlc.offerTx)
+                if (key.first.second != submitexthtlc.offerTx)
                     return false;
                 found=true;
                 return false;
@@ -1346,7 +1346,7 @@ public:
 
             bool found=false;
             mnview.ForEachICXSubmitEXTHTLC([&found,&submitexthtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
-                if (key.second != submitexthtlc.offerTx)
+                if (key.first.second != submitexthtlc.offerTx)
                     return false;
                 found=true;
                 return false;
@@ -1388,12 +1388,12 @@ public:
         }
 
         bool found=false;
-        mnview.ForEachICXSubmitDFCHTLC([&found,&claimdfchtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
-            if (key.first.second != claimdfchtlc.dfchtlcTx) 
+        mnview.ForEachICXSubmitDFCHTLC([&found,&dfchtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
+            if (key.first.first != CICXSubmitDFCHTLC::STATUS_OPEN || key.first.second != dfchtlc->offerTx) 
                 return false;
             found=true;
             return false;
-        },{CICXSubmitDFCHTLC::STATUS_OPEN,claimdfchtlc.dfchtlcTx});
+        },{CICXSubmitDFCHTLC::STATUS_OPEN,dfchtlc->offerTx});
         if (!found)
             return Res::Err("dfc htlc already claimed or refunded!");
 
