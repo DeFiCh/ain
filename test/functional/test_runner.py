@@ -115,6 +115,7 @@ BASE_SCRIPTS = [
     'wallet_keypool_topup.py',
     'feature_fee_estimation.py',
     'feature_dip1.py',
+    'feature_dfip8_communitybalances.py',
     'feature_anchors.py',
     'feature_anchorauths.py',
     'feature_anchor_rewards.py',

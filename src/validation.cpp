@@ -91,6 +91,9 @@ bool CBlockIndexWorkComparator::operator()(const CBlockIndex *pa, const CBlockIn
 
 namespace {
 BlockManager g_blockman;
+
+// Store subsidy at each reduction
+std::map<uint32_t, CAmount> subsidyReductions;
 } // anon namespace
 
 std::unique_ptr<CChainState> g_chainstate;
@@ -1131,15 +1134,45 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 {
-    if (Params().NetworkIDString() != CBaseChainParams::REGTEST)
-        return consensusParams.baseBlockSubsidy;
+    CAmount nSubsidy = consensusParams.baseBlockSubsidy;
+
+    if (Params().NetworkIDString() != CBaseChainParams::REGTEST || consensusParams.EunosHeight == 1)
+    {
+        if (nHeight >= consensusParams.EunosHeight)
+        {
+            nSubsidy = consensusParams.newBaseBlockSubsidy;
+            const size_t reductions = (nHeight - consensusParams.EunosHeight) / consensusParams.emissionReductionPeriod;
+
+            // See if we already have thie reduction calculated and return if found.
+            if (subsidyReductions.find(reductions) != subsidyReductions.end())
+            {
+                return subsidyReductions[reductions];
+            }
+
+            CAmount reductionAmount;
+            for (size_t i = reductions; i > 0; --i)
+            {
+                reductionAmount = (nSubsidy * consensusParams.emissionReductionAmount) / 100000;
+                if (!reductionAmount) {
+                    nSubsidy = 0;
+                    break;
+                }
+
+                nSubsidy -= reductionAmount;
+            }
+
+            // Store subsidy.
+            subsidyReductions[reductions] = nSubsidy;
+        }
+
+        return nSubsidy;
+    }
 
     int halvings = nHeight / consensusParams.nSubsidyHalvingInterval;
     // Force block reward to zero when right shift is undefined.
     if (halvings >= 64)
         return 0;
 
-    CAmount nSubsidy = consensusParams.baseBlockSubsidy;
     // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
     nSubsidy >>= halvings;
     return nSubsidy;
@@ -1895,33 +1928,85 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
     if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
         return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
 
-    if (height >= consensus.AMKHeight) {
-        // check classic UTXO foundation share:
-        if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1 != 0) {
-            CAmount foundationReward = blockReward * consensus.foundationShareDFIP1 / COIN;
+
+    if (height >= consensus.AMKHeight)
+    {
+        CAmount foundationReward{0};
+        if (height >= consensus.EunosHeight)
+        {
+            foundationReward = CalculateCoinbaseReward(blockReward, consensus.dist.community);
+        }
+        else if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1)
+        {
+            foundationReward = blockReward * consensus.foundationShareDFIP1 / COIN;
+        }
+
+        if (foundationReward)
+        {
             bool foundationsRewardfound = false;
-            for (auto txout : tx.vout) {
-                if (txout.scriptPubKey == consensus.foundationShareScript) {
+            for (auto& txout : tx.vout)
+            {
+                if (txout.scriptPubKey == consensus.foundationShareScript)
+                {
                     if (txout.nValue < foundationReward)
+                    {
                         return Res::ErrDbg("bad-cb-foundation-reward", "coinbase doesn't pay proper foundation reward! (actual=%d vs expected=%d", txout.nValue, foundationReward);
+                    }
 
                     foundationsRewardfound = true;
                     break;
                 }
             }
+
             if (!foundationsRewardfound)
+            {
                 return Res::ErrDbg("bad-cb-foundation-reward", "coinbase doesn't pay foundation reward!");
+            }
         }
+
         // count and subtract for non-UTXO community rewards
         CAmount nonUtxoTotal = 0;
-        for (auto kv : consensus.nonUtxoBlockSubsidies) {
-            CAmount subsidy = blockReward * kv.second / COIN;
-            Res res = mnview.AddCommunityBalance(kv.first, subsidy);
-            if (!res.ok) {
-                return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
+        if (height >= consensus.EunosHeight)
+        {
+            CAmount subsidy;
+            for (const auto& kv : consensus.newNonUTXOSubsidies)
+            {
+                subsidy = CalculateCoinbaseReward(blockReward, kv.second);
+
+                Res res = Res::Ok();
+
+                // Swap, Futures and Options currently unused and all go to Unallocated (burnt) pot.
+                if (kv.first == CommunityAccountType::Swap ||
+                    kv.first == CommunityAccountType::Futures ||
+                    kv.first == CommunityAccountType::Options)
+                {
+                    res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
+                }
+                else
+                {
+                    res = mnview.AddCommunityBalance(kv.first, subsidy);
+                }
+
+                if (!res.ok)
+                {
+                    return Res::ErrDbg("bad-cb-community-rewards", "Cannot take non-UTXO community share from coinbase");
+                }
+
+                nonUtxoTotal += subsidy;
             }
-            nonUtxoTotal += subsidy;
         }
+        else
+        {
+            for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
+                CAmount subsidy = blockReward * kv.second / COIN;
+                Res res = mnview.AddCommunityBalance(kv.first, subsidy);
+                if (!res.ok) {
+                    return Res::ErrDbg("bad-cb-community-rewards", "can't take non-UTXO community share from coinbase");
+                }
+                nonUtxoTotal += subsidy;
+            }
+        }
+
         blockReward -= nonUtxoTotal;
     }
 
@@ -1937,10 +2022,23 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
 {
     CAmount blockReward = GetBlockSubsidy(height, Params().GetConsensus());
 
-    if (height >= Params().GetConsensus().AMKHeight) {
-        for (auto kv : Params().GetConsensus().nonUtxoBlockSubsidies) {
-            CAmount subsidy = blockReward * kv.second / COIN;
-            mnview.SubCommunityBalance(kv.first, subsidy);
+    if (height >= Params().GetConsensus().AMKHeight)
+    {
+        if (height >= Params().GetConsensus().EunosHeight)
+        {
+            for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
+            {
+                CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
+                mnview.SubCommunityBalance(kv.first, subsidy);
+            }
+        }
+        else
+        {
+            for (const auto& kv : Params().GetConsensus().nonUtxoBlockSubsidies)
+            {
+                CAmount subsidy = blockReward * kv.second / COIN;
+                mnview.SubCommunityBalance(kv.first, subsidy);
+            }
         }
     }
 }
