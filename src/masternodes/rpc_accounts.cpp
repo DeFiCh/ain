@@ -861,7 +861,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
                                  {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                                   "Filter by token"},
                                  {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                  "Filter by transaction type, supported letter from 'CRTMNnpuslrUbBG'"},
+                                  "Filter by transaction type, supported letter from {CustomTxType}"},
                                  {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                   "Maximum number of records to return, 100 by default"},
                             },
@@ -1075,7 +1075,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
                        {
                             {"no_rewards", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Filter out rewards"},
                             {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by token"},
-                            {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by transaction type, supported letter from 'CRTMNnpuslrUbBG'"},
+                            {"txtype", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Filter by transaction type, supported letter from {CustomTxType}"},
                        },
                    },
                },

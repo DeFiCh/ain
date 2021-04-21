@@ -250,9 +250,11 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sendtokenstoaddress", 1, "to" },
     { "getanchorteams", 0, "blockHeight" },
     { "getactivemasternodecount", 0, "blockCount" },
+    { "appointoracle", 2, "weightage" },
+    { "updateoracle", 3, "weightage" },
+    { "setoracledata", 1, "timestamp" },
 
     { "spv_claimhtlc", 3, "feerate" },
-
     { "spv_refundhtlc", 2, "feerate" },
 };
 // clang-format on

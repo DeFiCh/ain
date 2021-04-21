@@ -47,6 +47,17 @@ class CCustomTxRpcVisitor : public boost::static_visitor<void>
         return info;
     }
 
+    void tokenCurrencyPairInfo(const std::set<CTokenCurrencyPair>& pairs) const {
+        UniValue availablePairs(UniValue::VARR);
+        for (const auto& pair : pairs) {
+            UniValue uniPair(UniValue::VOBJ);
+            uniPair.pushKV("token", pair.first);
+            uniPair.pushKV("currency", pair.second);
+            availablePairs.push_back(uniPair);
+        }
+        rpcInfo.pushKV("availablePairs", availablePairs);
+    }
+
 public:
     CCustomTxRpcVisitor(const CTransaction& tx, uint32_t height, CCustomCSView& mnview, UniValue& rpcInfo)
         : height(height), rpcInfo(rpcInfo), mnview(mnview), tx(tx) {
@@ -176,6 +187,43 @@ public:
         for (const auto& var : obj.govs) {
             rpcInfo.pushKV(var->GetName(), var->Export());
         }
+    }
+
+    void operator()(const CAppointOracleMessage& obj) const {
+        rpcInfo.pushKV("oracleAddress", ScriptToString(obj.oracleAddress));
+        rpcInfo.pushKV("weightage", obj.weightage);
+        tokenCurrencyPairInfo(obj.availablePairs);
+    }
+
+    void operator()(const CUpdateOracleAppointMessage& obj) const {
+        rpcInfo.pushKV("oracleId", obj.oracleId.ToString());
+        rpcInfo.pushKV("oracleAddress", ScriptToString(obj.newOracleAppoint.oracleAddress));
+        rpcInfo.pushKV("weightage", obj.newOracleAppoint.weightage);
+        tokenCurrencyPairInfo(obj.newOracleAppoint.availablePairs);
+    }
+
+    void operator()(const CRemoveOracleAppointMessage& obj) const {
+        rpcInfo.pushKV("oracleId", obj.oracleId.ToString());
+    }
+
+    void operator()(const CSetOracleDataMessage& obj) const {
+        rpcInfo.pushKV("oracleId", obj.oracleId.ToString());
+        rpcInfo.pushKV("timestamp", obj.timestamp);
+
+        UniValue tokenPrices(UniValue::VARR);
+        for (const auto& tokenPice : obj.tokenPrices) {
+            const auto& token = tokenPice.first;
+            for (const auto& price : tokenPice.second) {
+                const auto& currency = price.first;
+                auto amount = price.second;
+
+                UniValue uniPair(UniValue::VOBJ);
+                uniPair.pushKV("currency", currency);
+                uniPair.pushKV("tokenAmount", strprintf("%s@%s", GetDecimaleString(amount), token));
+                tokenPrices.push_back(uniPair);
+            }
+        }
+        rpcInfo.pushKV("tokenPrices", tokenPrices);
     }
 
     void operator()(const CCustomTxMessageNone&) const {
