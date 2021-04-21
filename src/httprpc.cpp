@@ -65,6 +65,8 @@ private:
 static std::string strRPCUserColonPass;
 /* Stored RPC timer interface (for unregistration) */
 static std::unique_ptr<HTTPRPCTimerInterface> httpRPCTimerInterface;
+/* The host to be used for CORS header */
+static std::string corsOriginHost;
 
 static void JSONErrorReply(HTTPRequest* req, const UniValue& objError, const UniValue& id)
 {
@@ -144,8 +146,35 @@ static bool RPCAuthorized(const std::string& strAuth, std::string& strAuthUserna
     return multiUserAuthorized(strUserPass);
 }
 
+static bool CorsHandler(HTTPRequest *req) {
+    auto host = corsOriginHost;
+    // If if it's empty assume cors is disallowed. Do nothing and proceed, 
+    // with request as usual.
+    if (host.empty())
+        return false;
+
+    req->WriteHeader("Access-Control-Allow-Origin", host);
+    req->WriteHeader("Access-Control-Allow-Credentials", "true");
+    req->WriteHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+    req->WriteHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    
+    // If it's a Cors preflight request, short-circuit and return. We have
+    // set what's needed already.
+    if (req->GetRequestMethod() == HTTPRequest::OPTIONS) {
+        req->WriteReply(HTTP_NO_CONTENT);
+        return true;
+    }
+
+    // Indicate to continue with the request as usual
+    return false;
+}
+
 static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
 {
+    // Handle CORS
+    if (CorsHandler(req)) 
+        return true;
+
     // JSONRPC handles only POST
     if (req->GetRequestMethod() != HTTPRequest::POST) {
         req->WriteReply(HTTP_BAD_METHOD, "JSONRPC server handles only POST requests");
@@ -238,6 +267,9 @@ bool StartHTTPRPC()
     LogPrint(BCLog::RPC, "Starting HTTP RPC server\n");
     if (!InitRPCAuthentication())
         return false;
+
+    // Setup Cors origin host name from arg.
+    corsOriginHost = gArgs.GetArg("-rpcallowcors", "");
 
     RegisterHTTPHandler("/", true, HTTPReq_JSONRPC);
     if (g_wallet_init_interface.HasWalletSupport()) {
