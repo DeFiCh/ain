@@ -142,8 +142,9 @@ public:
     std::string DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress);
     UniValue GetAddressPubkey(const CWallet *pwallet, const char *addr); // Used in HTLC creation
     CKeyID GetAddressKeyID(const char *addr);
+    UniValue GetAllAddress();
     SPVTxType IsMine(const char *address);
-    bool ValidateAddress(const char *address);
+    UniValue ValidateAddress(const char *address);
 
     // Bitcoin Transaction related calls
     int64_t GetBitcoinBalance();
