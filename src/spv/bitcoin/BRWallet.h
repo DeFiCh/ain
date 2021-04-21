@@ -235,6 +235,9 @@ int64_t BRBitcoinAmount(int64_t localAmount, double price);
 }
 #endif
 
+// Returns all previously generated user addresses including change
+std::set<std::string> BRWalletAllUserAddrs(BRWallet *wallet);
+
 // Whether an address belongs to the user
 SPVTxType BRWalletIsMine(BRWallet *wallet, const UInt160& hash160, const bool htlc);
 

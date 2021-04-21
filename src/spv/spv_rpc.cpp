@@ -1384,6 +1384,7 @@ static UniValue spv_validateaddress(const JSONRPCRequest& request)
         RPCResult{
             "{\n"
             "  \"isvalid\" : true|false,       (boolean) If the address is valid or not.\n"
+            "  \"ismine\" : true|false,        (boolean) If the address belongs to the wallet.\n"
             "}\n"
         },
         RPCExamples{
@@ -1397,10 +1398,30 @@ static UniValue spv_validateaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
     }
 
-    const auto isValid = spv::pspv->ValidateAddress(request.params[0].get_str().c_str());
-    UniValue ret(UniValue::VOBJ);
-    ret.pushKV("isvalid", isValid);
-    return ret;
+    return spv::pspv->ValidateAddress(request.params[0].get_str().c_str());
+}
+
+static UniValue spv_getalladdresses(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_getalladdresses",
+        "\nReturns all user Bitcoin addresses.\n",
+        {
+        },
+        RPCResult{
+            "\"array\"                  (Array of user addresses)\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_getalladdresses", "")
+            + HelpExampleRpc("spv_getalladdresses", "")
+        },
+    }.Check(request);
+
+    if (!spv::pspv)
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    return spv::pspv->GetAllAddress();
 }
 
 
@@ -1435,6 +1456,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_gethtlcseed",            &spv_gethtlcseed,           { "address" }  },
   { "spv",      "spv_listreceivedbyaddress",  &spv_listreceivedbyaddress, { "minconf", "address_filter" }  },
   { "spv",      "spv_validateaddress",        &spv_validateaddress,       { "address"}  },
+  { "spv",      "spv_getalladdresses",        &spv_getalladdresses,       { }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
   { "hidden",   "spv_fundaddress",            &spv_fundaddress,           { "address" }  },
 };

@@ -1040,9 +1040,23 @@ SPVTxType CSpvWrapper::IsMine(const char *address)
     return BRWalletIsMine(wallet, addressFilter, true);
 }
 
-bool CSpvWrapper::ValidateAddress(const char *address)
+UniValue CSpvWrapper::ValidateAddress(const char *address)
 {
-    return BRAddressIsValid(address);
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("isvalid", BRAddressIsValid(address) == 1);
+    ret.pushKV("ismine", IsMine(address) != SPVTxType::None);
+    return ret;
+}
+
+UniValue CSpvWrapper::GetAllAddress()
+{
+    const auto addresses = BRWalletAllUserAddrs(wallet);
+    UniValue ret(UniValue::VARR);
+    for (const auto& address : addresses)
+    {
+        ret.push_back(address);
+    }
+    return ret;
 }
 
 void publishedTxCallback(void *info, int error)
