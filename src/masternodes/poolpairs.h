@@ -209,7 +209,7 @@ public:
 
     boost::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider);
 
-    void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(uint8_t, CTokenAmount, uint32_t)> onReward);
+    void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward);
 
     Res SetDailyReward(uint32_t height, CAmount reward);
     Res SetRewardPct(DCT_ID const & poolId, uint32_t height, CAmount rewardPct);

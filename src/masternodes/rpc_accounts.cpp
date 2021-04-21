@@ -61,7 +61,7 @@ UniValue accounthistoryToJSON(AccountHistoryKey const & key, AccountHistoryValue
     return obj;
 }
 
-UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID const & poolId, uint8_t type, CTokenAmount amount) {
+UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID const & poolId, RewardType type, CTokenAmount amount) {
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("owner", ScriptToString(owner));
     obj.pushKV("blockHeight", (uint64_t) height);
@@ -69,7 +69,7 @@ UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID cons
         obj.pushKV("blockHash", block->GetBlockHash().GetHex());
         obj.pushKV("blockTime", block->GetBlockTime());
     }
-    obj.pushKV("type", RewardToString(RewardType(type)));
+    obj.pushKV("type", RewardToString(type));
     obj.pushKV("poolID", poolId.ToString());
     obj.pushKV("amounts", tokenAmountString(amount));
     return obj;
@@ -95,7 +95,7 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     return obj;
 }
 
-static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t begin, uint32_t end, std::function<void(uint32_t, DCT_ID, uint8_t, CTokenAmount)> onReward) {
+static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t begin, uint32_t end, std::function<void(uint32_t, DCT_ID, RewardType, CTokenAmount)> onReward) {
     CCustomCSView mnview(view);
     view.ForEachPoolId([&] (DCT_ID const & poolId) {
         auto height = view.GetShare(poolId, owner);
@@ -107,7 +107,7 @@ static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t 
         };
         auto beginHeight = std::max(*height, begin);
         view.CalculatePoolRewards(poolId, onLiquidity, beginHeight, end,
-            [&](uint8_t type, CTokenAmount amount, uint32_t height) {
+            [&](RewardType type, CTokenAmount amount, uint32_t height) {
                 onReward(height, poolId, type, amount);
                 mnview.AddBalance(owner, amount); // update owner liquidity
             }
@@ -1022,7 +1022,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
         if (!noRewards && count) {
             onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
-                [&](int32_t height, DCT_ID poolId, uint8_t type, CTokenAmount amount) {
+                [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
                     auto& array = ret.emplace(height, UniValue::VARR).first->second;
                     array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount));
                     count ? --count : 0;
@@ -1188,7 +1188,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
         if (!noRewards) {
             onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
-                [&](int32_t, DCT_ID, uint8_t, CTokenAmount) {
+                [&](int32_t, DCT_ID, RewardType, CTokenAmount) {
                     ++count;
                 }
             );

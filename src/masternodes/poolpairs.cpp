@@ -207,7 +207,7 @@ void ReadValueMoveToNext(TIterator & it, DCT_ID poolId, ValueType & value, uint3
     }
 }
 
-void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(uint8_t, CTokenAmount, uint32_t)> onReward) {
+void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward) {
     if (begin >= end) {
         return;
     }
@@ -267,7 +267,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             } else { // new calculation
                 providerReward = liquidityReward(poolReward, liquidity, totalLiquidity);
             }
-            onReward(uint8_t(RewardType::Rewards), {DCT_ID{0}, providerReward}, height);
+            onReward(RewardType::Rewards, {DCT_ID{0}, providerReward}, height);
         }
         // commissions
         if (poolSwapHeight == height && poolSwap.swapEvent) {
@@ -280,13 +280,13 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
                 feeA = liquidityReward(poolSwap.blockCommissionA, liquidity, totalLiquidity);
                 feeB = liquidityReward(poolSwap.blockCommissionB, liquidity, totalLiquidity);
             }
-            onReward(uint8_t(RewardType::Commission), {tokenIds->idTokenA, feeA}, height);
-            onReward(uint8_t(RewardType::Commission), {tokenIds->idTokenB, feeB}, height);
+            onReward(RewardType::Commission, {tokenIds->idTokenA, feeA}, height);
+            onReward(RewardType::Commission, {tokenIds->idTokenB, feeB}, height);
         }
         // custom rewards
         for (const auto& reward : customRewards.balances) {
             if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
-                onReward(uint8_t(RewardType::Rewards), {reward.first, providerReward}, height);
+                onReward(RewardType::Rewards, {reward.first, providerReward}, height);
             }
         }
         ++height;
