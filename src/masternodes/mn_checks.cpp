@@ -1452,7 +1452,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
         return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
     }
 
-    auto team = pcustomcsview->GetConfirmTeam(height - 1);
+    auto team = mnview.GetConfirmTeam(height - 1);
     if (!team) {
         return Res::ErrDbg("bad-ar-team", "could not get confirm team for height: %d", height - 1);
     }
