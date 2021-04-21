@@ -409,18 +409,20 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
             return mnview.GetBalance(shareAddress[0], idPool).nValue;
         };
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
-            [&](uint8_t type, CTokenAmount amount, uint32_t height) {
+            [&](RewardType type, CTokenAmount amount, uint32_t height) {
                 switch(type) {
-                case int(RewardType::Rewards):
+                case RewardType::Rewards:
                     BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
                     break;
-                case int(RewardType::Commission):
+                case RewardType::Commission:
                     if (amount.nTokenId == pool.idTokenA) {
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).first);
                     } else {
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).second);
                     }
                     break;
+                default:
+                    BOOST_REQUIRE(false);
                 }
                 mnview.AddBalance(shareAddress[0], amount);
             }
@@ -454,14 +456,14 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
             return mnview.GetBalance(shareAddress[1], idPool).nValue;
         };
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
-            [&](uint8_t type, CTokenAmount amount, uint32_t height) {
+            [&](RewardType type, CTokenAmount amount, uint32_t height) {
                 if (height >= Params().GetConsensus().BayfrontGardensHeight) {
                     if (amount.nTokenId == DCT_ID{idPool.v+1}) {
                         for (const auto& reward : pool.rewards.balances) {
                             auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(onLiquidity()) / arith_uint256(pool.totalLiquidity)).GetLow64());
                             BOOST_CHECK_EQUAL(amount.nValue, providerReward);
                         }
-                    } else if (type == int(RewardType::Rewards)) {
+                    } else if (type == RewardType::Rewards) {
                         BOOST_CHECK_EQUAL(amount.nValue, newRewardCalculation(onLiquidity(), pool));
                     } else if (amount.nTokenId == pool.idTokenA) {
                         BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(onLiquidity(), pool).first);
@@ -469,7 +471,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
                         BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(onLiquidity(), pool).second);
                     }
                 } else {
-                    if (type == int(RewardType::Rewards)) {
+                    if (type == RewardType::Rewards) {
                         BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
                     } else if (amount.nTokenId == pool.idTokenA) {
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).first);
