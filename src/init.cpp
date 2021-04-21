@@ -461,7 +461,7 @@ void SetupServerArgs()
     gArgs.AddArg("-dummypos", "Flag to skip PoS-related checks (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-txnotokens", "Flag to force old tx serialization (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-anchorquorum", "Min quorum size (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 0, unless masternode)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 1)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-criminals", "punishment of criminal nodes (default: 0, regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_resync", "Flag to reset spv database and resync from zero block (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_rescan", "Block height to rescan from (default: 0 = off)", ArgsManager::ALLOW_INT, OptionsCategory::OPTIONS);
@@ -1746,8 +1746,8 @@ bool AppInitMain(InitInterfaces& interfaces)
         panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
         panchors.reset();
 
-        // If users set masternode_operator set SPV default to enabled
-        bool anchorsEnabled{!gArgs.GetArgs("-masternode_operator").empty()};
+        // Enable the anchors and spv by default
+        bool anchorsEnabled = true; 
         panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", anchorsEnabled) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
 
         // load anchors after spv due to spv (and spv height) not set before (no last height yet)
