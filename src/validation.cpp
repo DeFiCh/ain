@@ -2603,6 +2603,48 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, block.height, block.GetHash().ToString());
         }
 
+        // close expired orders, refund all expired DFC HTLCs at this block height
+        {
+            cache.ForEachICXOrderExpired([&](CICXOrderView::StatusKey const & key, uint8_t status) {
+                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
+                auto order = cache.GetICXOrderByCreationTx(key.second);
+                if (order)
+                    cache.ICXCloseOrderTx(*order,status);
+                return true;
+            },pindex->nHeight);
+
+            mnview.ForEachICXSubmitDFCHTLCExpired([&](CICXOrderView::StatusKey const & key, uint8_t i) {
+                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
+
+                auto dfchtlc = mnview.GetICXSubmitDFCHTLCByCreationTx(key.second);
+                if (!dfchtlc)
+                    return (false);
+                auto offer = mnview.GetICXMakeOfferByCreationTx(dfchtlc->offerTx);
+                if (!offer)
+                    return (false);
+                auto order = mnview.GetICXOrderByCreationTx(offer->orderTx);
+                if (!order)
+                    return (false);
+
+                CTokenAmount amount;
+                CScript ownerAddress;
+                amount = {order->idToken,dfchtlc->amount};
+                if (order->orderType == CICXOrder::TYPE_INTERNAL)
+                {
+                    ownerAddress = order->ownerAddress;
+                }
+                else
+                {
+                    ownerAddress = CScript(offer->receiveDestination.begin(),offer->receiveDestination.end());
+                }
+                auto res = mnview.AddBalance(ownerAddress,amount);
+                if (res.ok) 
+                    mnview.ICXRefundDFCHTLC(*dfchtlc);
+
+                return (true);
+            },pindex->nHeight);
+        }
+
         // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
         if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
             cache.BayfrontFlagsCleanup();

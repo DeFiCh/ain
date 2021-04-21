@@ -161,6 +161,7 @@ DEFI_CORE_H = \
   masternodes/govvariables/lp_daily_dfi_reward.h \
   masternodes/govvariables/lp_splits.h \
   masternodes/gv.h \
+  masternodes/icxorder.h \
   masternodes/incentivefunding.h \
   masternodes/masternodes.h \
   masternodes/mn_checks.h \
@@ -371,6 +372,7 @@ libdefi_server_a_SOURCES = \
   masternodes/govvariables/lp_daily_dfi_reward.cpp \
   masternodes/govvariables/lp_splits.cpp \
   masternodes/gv.cpp \
+  masternodes/icxorder.cpp \
   masternodes/incentivefunding.cpp \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
@@ -378,9 +380,10 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_accounts.cpp \
   masternodes/rpc_customtx.cpp \
   masternodes/rpc_masternodes.cpp \
-  masternodes/rpc_tokens.cpp \
-  masternodes/rpc_poolpair.cpp \
+  masternodes/rpc_icxorderbook.cpp \
   masternodes/rpc_oracles.cpp \
+  masternodes/rpc_poolpair.cpp \
+  masternodes/rpc_tokens.cpp \
   masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
   masternodes/undos.cpp \

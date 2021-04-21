@@ -65,6 +65,13 @@ enum class CustomTxType : uint8_t
     RemoveOracleAppoint   = 'h',
     UpdateOracleAppoint   = 't',
     SetOracleData         = 'y',
+    // ICX
+    ICXCreateOrder      = '1',
+    ICXMakeOffer        = '2',
+    ICXSubmitDFCHTLC    = '3',
+    ICXSubmitEXTHTLC    = '4',
+    ICXClaimDFCHTLC     = '5',
+    ICXCloseOrder       = '6',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -91,6 +98,12 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::RemoveOracleAppoint:
         case CustomTxType::UpdateOracleAppoint:
         case CustomTxType::SetOracleData:
+        case CustomTxType::ICXCreateOrder:
+        case CustomTxType::ICXMakeOffer:
+        case CustomTxType::ICXSubmitDFCHTLC:
+        case CustomTxType::ICXSubmitEXTHTLC:
+        case CustomTxType::ICXClaimDFCHTLC:
+        case CustomTxType::ICXCloseOrder:
         case CustomTxType::None:
             return type;
     }
@@ -130,6 +143,12 @@ struct CAppointOracleMessage;
 struct CRemoveOracleAppointMessage;
 struct CUpdateOracleAppointMessage;
 struct CSetOracleDataMessage;
+struct CICXCreateOrderMessage;
+struct CICXMakeOfferMessage;
+struct CICXSubmitDFCHTLCMessage;
+struct CICXSubmitEXTHTLCMessage;
+struct CICXClaimDFCHTLCMessage;
+struct CICXCloseOrderMessage;
 
 struct CCreateMasterNodeMessage {
     char operatorType;
@@ -238,7 +257,13 @@ typedef boost::variant<
     CAppointOracleMessage,
     CRemoveOracleAppointMessage,
     CUpdateOracleAppointMessage,
-    CSetOracleDataMessage
+    CSetOracleDataMessage,
+    CICXCreateOrderMessage,
+    CICXMakeOfferMessage,
+    CICXSubmitDFCHTLCMessage,
+    CICXSubmitEXTHTLCMessage,
+    CICXClaimDFCHTLCMessage,
+    CICXCloseOrderMessage
 > CCustomTxMessage;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);

@@ -49,6 +49,12 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::UpdateOracleAppoint: return "UpdateOracleAppoint";
         case CustomTxType::SetOracleData:       return "SetOracleData";
         case CustomTxType::AutoAuthPrep:        return "AutoAuth";
+        case CustomTxType::ICXCreateOrder:      return "ICXCreateOrder";
+        case CustomTxType::ICXMakeOffer:        return "ICXMakeOffer";
+        case CustomTxType::ICXSubmitDFCHTLC:    return "ICXSubmitDFCHTLC";
+        case CustomTxType::ICXSubmitEXTHTLC:    return "ICXSubmitEXTHTLC";
+        case CustomTxType::ICXClaimDFCHTLC:     return "ICXClaimDFCHTLC";
+        case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -96,28 +102,34 @@ CPubKey GetPubkeyFromScriptSig(CScript const & scriptSig)
 CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     switch (txType)
     {
-    case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};
-    case CustomTxType::ResignMasternode:        return CResignMasterNodeMessage{};
-    case CustomTxType::CreateToken:             return CCreateTokenMessage{};
-    case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
-    case CustomTxType::UpdateTokenAny:          return CUpdateTokenMessage{};
-    case CustomTxType::MintToken:               return CMintTokensMessage{};
-    case CustomTxType::CreatePoolPair:          return CCreatePoolPairMessage{};
-    case CustomTxType::UpdatePoolPair:          return CUpdatePoolPairMessage{};
-    case CustomTxType::PoolSwap:                return CPoolSwapMessage{};
-    case CustomTxType::AddPoolLiquidity:        return CLiquidityMessage{};
-    case CustomTxType::RemovePoolLiquidity:     return CRemoveLiquidityMessage{};
-    case CustomTxType::UtxosToAccount:          return CUtxosToAccountMessage{};
-    case CustomTxType::AccountToUtxos:          return CAccountToUtxosMessage{};
-    case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
-    case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
-    case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
-    case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
-    case CustomTxType::RemoveOracleAppoint:     return CRemoveOracleAppointMessage{};
-    case CustomTxType::UpdateOracleAppoint:     return CUpdateOracleAppointMessage{};
-    case CustomTxType::SetOracleData:           return CSetOracleDataMessage{};
-    case CustomTxType::AutoAuthPrep:            return CCustomTxMessageNone{};
-    case CustomTxType::None:                    return CCustomTxMessageNone{};
+        case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};
+        case CustomTxType::ResignMasternode:        return CResignMasterNodeMessage{};
+        case CustomTxType::CreateToken:             return CCreateTokenMessage{};
+        case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
+        case CustomTxType::UpdateTokenAny:          return CUpdateTokenMessage{};
+        case CustomTxType::MintToken:               return CMintTokensMessage{};
+        case CustomTxType::CreatePoolPair:          return CCreatePoolPairMessage{};
+        case CustomTxType::UpdatePoolPair:          return CUpdatePoolPairMessage{};
+        case CustomTxType::PoolSwap:                return CPoolSwapMessage{};
+        case CustomTxType::AddPoolLiquidity:        return CLiquidityMessage{};
+        case CustomTxType::RemovePoolLiquidity:     return CRemoveLiquidityMessage{};
+        case CustomTxType::UtxosToAccount:          return CUtxosToAccountMessage{};
+        case CustomTxType::AccountToUtxos:          return CAccountToUtxosMessage{};
+        case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
+        case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
+        case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
+        case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
+        case CustomTxType::RemoveOracleAppoint:     return CRemoveOracleAppointMessage{};
+        case CustomTxType::UpdateOracleAppoint:     return CUpdateOracleAppointMessage{};
+        case CustomTxType::SetOracleData:           return CSetOracleDataMessage{};
+        case CustomTxType::AutoAuthPrep:            return CCustomTxMessageNone{};
+        case CustomTxType::ICXCreateOrder:          return CICXCreateOrderMessage{};
+        case CustomTxType::ICXMakeOffer:            return CICXMakeOfferMessage{};
+        case CustomTxType::ICXSubmitDFCHTLC:        return CICXSubmitDFCHTLCMessage{};
+        case CustomTxType::ICXSubmitEXTHTLC:        return CICXSubmitEXTHTLCMessage{};
+        case CustomTxType::ICXClaimDFCHTLC:         return CICXClaimDFCHTLCMessage{};
+        case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
+        case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
 }
@@ -329,6 +341,36 @@ public:
         return !res ? res : serialize(obj);
     }
 
+    Res operator()(CICXCreateOrderMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXMakeOfferMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXSubmitDFCHTLCMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXSubmitEXTHTLCMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXClaimDFCHTLCMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CICXCloseOrderMessage& obj) const {
+        auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
     Res operator()(CCustomTxMessageNone&) const {
         return Res::Ok();
     }
@@ -394,6 +436,14 @@ public:
         || tx.vout[0].nValue < GetTokenCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0}
         || tx.vout[1].nValue != GetTokenCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0}) {
             return Res::Err("malformed tx vouts (wrong creation fee or collateral amount)");
+        }
+        return Res::Ok();
+    }
+
+    Res CheckICXTx() const {
+        if (tx.vout.size() != 2)
+        {
+            return Res::Err("malformed tx vouts ((wrong number of vouts)");
         }
         return Res::Ok();
     }
@@ -1029,6 +1079,406 @@ public:
         return mnview.SetOracleData(obj.oracleId, obj.timestamp, obj.tokenPrices);
     }
 
+    Res operator()(const CICXCreateOrderMessage& obj) const {
+        auto res = CheckICXTx();
+        if (!res) {
+            return res;
+        }
+
+        CICXOrderImplemetation order;
+        static_cast<CICXOrder&>(order) = obj;
+
+        if (order.idToken.v==std::numeric_limits<uint32_t>::max())
+            return Res::Err("%s: %s", __func__, "token assets must be specified");
+        if (order.chain.empty())
+            return Res::Err("%s: %s", __func__, "chain assets must be specified");    
+
+        if (order.orderType == 0) {
+            return Res::Err("invalid order type!");
+        }
+        if (order.orderType == CICXOrder::TYPE_INTERNAL)
+        {
+            auto tokenFrom = mnview.GetToken(order.idToken);
+            if (!tokenFrom) {
+                return Res::Err("%s: %s", __func__, "tokenFrom (" +  tokenFrom->CreateSymbolKey(order.idToken) + ") does not exist!");
+            }
+
+            if (order.ownerAddress.empty())
+                return Res::Err("ownerAddress must be not-null!");
+        }
+        else
+        {
+            auto tokenTo = mnview.GetToken(order.idToken);
+            if (!tokenTo) {
+                            return Res::Err("%s: %s", __func__, "tokenTo id (" +  tokenTo->CreateSymbolKey(order.idToken) + ") does not exist!");
+            }
+        }
+
+        if (order.amountFrom == 0) {
+            return Res::Err("order amountFrom must be greater than 0!");
+        }
+        if (order.orderPrice == 0) {
+            return Res::Err("order price must be greater than 0!");
+        }
+        if (order.amountToFill != order.amountFrom*COIN/order.orderPrice) {
+            return Res::Err("order amountToFill does not equal to amountFrom * orderPrice!");
+        }
+        if (order.expiry == 0) {
+            return Res::Err("order expiry must be greater than 0!");
+        }
+
+        // subtract the balance from tokenFrom to dedicate them for the order
+        if (order.orderType == CICXOrder::TYPE_INTERNAL)
+        {
+            CTokenAmount amount={order.idToken,order.amountFrom};
+            auto res = mnview.SubBalance(order.ownerAddress,amount);
+            if (!res.ok) {
+                return Res::Err("%s: %s", __func__, res.msg);
+            }
+        }
+
+        order.creationTx = tx.GetHash();
+        order.creationHeight = height;
+        order.expireHeight = order.creationHeight + order.expiry;
+
+        return mnview.ICXCreateOrder(order);
+    }
+
+    Res operator()(const CICXMakeOfferMessage& obj) const {
+        auto res = CheckICXTx();
+        if (!res) {
+            return res;
+        }
+
+        CICXMakeOfferImplemetation makeoffer;
+        static_cast<CICXMakeOffer&>(makeoffer) = obj;
+
+        auto order=mnview.GetICXOrderByCreationTx(makeoffer.orderTx);
+        if (!order) {
+            return Res::Err("%s: %s", __func__, "order with creation tx " + makeoffer.orderTx.GetHex() + " does not exists!");
+        }
+
+        if (order->orderType == CICXOrder::TYPE_INTERNAL)
+        {
+            if (makeoffer.receiveDestination.empty())
+                return Res::Err("receiveAddress must not be null!");
+        }
+        else
+        {
+            if (!CPubKey(makeoffer.receiveDestination).IsFullyValid())
+                return Res::Err("%s: %s", __func__, "Invalid receivePubKey, (" + HexStr(makeoffer.receiveDestination) + ") receivePubkey is not a valid pubkey!");
+        }
+
+        if (order->amountToFill < makeoffer.amount) {
+            return Res::Err("%s: %s", __func__, "cannot fill order with that amount, order (" + order->creationTx.GetHex() + ") has less amount to fill!");
+        }
+
+        order->amountToFill -= makeoffer.amount;
+        if (order->amountToFill==0)
+        {
+            order->closeTx=makeoffer.creationTx;
+            order->closeHeight = height;
+        }
+
+        makeoffer.creationTx = tx.GetHash();
+        makeoffer.creationHeight = height;
+        
+        return mnview.ICXMakeOffer(makeoffer,*order);
+    }
+
+    Res operator()(const CICXSubmitDFCHTLCMessage& obj) const {
+        auto res = CheckICXTx();
+        if (!res) {
+            return res;
+        }
+
+        CICXSubmitDFCHTLCImplemetation submitdfchtlc;
+        static_cast<CICXSubmitDFCHTLC&>(submitdfchtlc) = obj;
+
+        auto offer=mnview.GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
+        if (!offer) {
+            return Res::Err("offer with creation tx %s does not exists!", submitdfchtlc.offerTx.GetHex());
+        }
+
+        auto order=mnview.GetICXOrderByCreationTx(offer->orderTx);
+        if (!order) {
+            return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
+        }
+
+        if (submitdfchtlc.hash.IsNull())
+            return Res::Err("Invalid hash, htlc hash is empty and it must be set!");
+        if (submitdfchtlc.timeout == 0)
+            return Res::Err("Invalid timout, must be greater than 0!");
+            
+        if (order->orderType == CICXOrder::TYPE_INTERNAL)
+        {
+            if (submitdfchtlc.amount != offer->amount*order->orderPrice/COIN)
+                return Res::Err("amount in dfc htlc must match the amount necessary for offer amount - %f != %f!", ValueFromAmount(submitdfchtlc.amount).getValStr(), ValueFromAmount(offer->amount*order->orderPrice/COIN).getValStr());
+
+            bool found=false;
+            mnview.ForEachICXSubmitDFCHTLC([&found,&submitdfchtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
+                if (key.first.second != submitdfchtlc.offerTx) 
+                    return false;
+                found=true;
+                return false;
+            },{CICXSubmitDFCHTLC::STATUS_OPEN,submitdfchtlc.offerTx});
+            if (found)
+                return Res::Err("dfc htlc already submitted!");
+
+            found=false;
+
+            mnview.ForEachICXSubmitEXTHTLC([&found,&submitdfchtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
+                if (key.first.second == submitdfchtlc.offerTx)
+                {
+                    found = true;
+                    return (false);
+                }
+                return false;
+            },{CICXSubmitEXTHTLC::STATUS_OPEN,submitdfchtlc.offerTx});
+            if (found)
+                return Res::Err("offer %s needs to have dfc htlc submitted first, but external htlc already submitted!", submitdfchtlc.offerTx.GetHex());
+
+            if (!CPubKey(submitdfchtlc.receiveDestination).IsFullyValid())
+                return Res::Err("Invalid receivePubKey, (" + HexStr(submitdfchtlc.receiveDestination) + ") is not a valid pubkey!");
+        }
+        else
+        {
+            if (submitdfchtlc.amount != offer->amount)
+                return Res::Err("amount in dfc htlc must match the amount in offer - %s != %s!", ValueFromAmount(submitdfchtlc.amount).getValStr(), ValueFromAmount(offer->amount).getValStr());
+            
+            
+            bool found=false;
+            mnview.ForEachICXSubmitDFCHTLC([&found,&submitdfchtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
+                if (key.second != submitdfchtlc.offerTx)
+                    return false;
+                found=true;
+                return false;
+            },{CICXSubmitDFCHTLC::STATUS_OPEN,submitdfchtlc.offerTx});
+            if (found)
+                return Res::Err("dfc htlc already submitted!");
+
+            std::unique_ptr<CICXSubmitEXTHTLCImplemetation> exthtlc;
+            mnview.ForEachICXSubmitEXTHTLC([&](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
+                if (key.first.second == submitdfchtlc.offerTx)
+                {
+                    exthtlc = mnview.GetICXSubmitEXTHTLCByCreationTx(key.second);
+                    return (false);
+                }
+                return false;
+            },{CICXSubmitEXTHTLC::STATUS_OPEN,submitdfchtlc.offerTx});
+            if (!exthtlc)
+                return Res::Err("offer %s needs to have ext htlc submitted first, but no external htlc found!", submitdfchtlc.offerTx.GetHex());
+            if (submitdfchtlc.hash != exthtlc->hash)
+                return Res::Err("Invalid hash, dfc htlc hash is different than extarnal htlc hash!");
+            if (submitdfchtlc.receiveDestination.empty())
+                return Res::Err("Invalid, receiveAddress must not be null!");
+        }
+
+        submitdfchtlc.creationTx = tx.GetHash();
+        submitdfchtlc.creationHeight = height;
+        submitdfchtlc.expireHeight = height + submitdfchtlc.timeout;
+        
+        return mnview.ICXSubmitDFCHTLC(submitdfchtlc);
+    }
+
+    Res operator()(const CICXSubmitEXTHTLCMessage& obj) const {
+        auto res = CheckICXTx();
+        if (!res) {
+            return res;
+        }
+
+        CICXSubmitEXTHTLCImplemetation submitexthtlc;
+        static_cast<CICXSubmitEXTHTLC&>(submitexthtlc) = obj;
+
+        auto offer=mnview.GetICXMakeOfferByCreationTx(submitexthtlc.offerTx);
+        if (!offer) {
+            return Res::Err("order with creation tx %s does not exists!", submitexthtlc.offerTx.GetHex());
+        }
+
+        auto order=mnview.GetICXOrderByCreationTx(offer->orderTx);
+        if (!order) {
+            return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
+        }
+
+        if (submitexthtlc.htlcscriptAddress.empty())
+            return Res::Err("Invalid htlcscriptAddress, htlcscriptAddress is empty and it must be set!");
+        if (submitexthtlc.hash.IsNull())
+            return Res::Err("Invalid hash, htlc hash is empty and it must be set!");
+        if (!submitexthtlc.ownerPubkey.IsFullyValid())
+            return Res::Err("Invalid refundPubkey is not a valid pubkey!");
+        if (submitexthtlc.timeout == 0)
+            return Res::Err("Invalid timout, must be greater than 0!");
+        
+        if (order->orderType==CICXOrder::TYPE_INTERNAL)
+        {
+            if (submitexthtlc.amount != offer->amount)
+                return Res::Err("amount in ext htlc must match the amount in the offer - %s != %s!", ValueFromAmount(submitexthtlc.amount).getValStr(), ValueFromAmount(offer->amount).getValStr());
+            
+            bool found=false;
+            mnview.ForEachICXSubmitEXTHTLC([&found,&submitexthtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
+                if (key.second != submitexthtlc.offerTx)
+                    return false;
+                found=true;
+                return false;
+            },{CICXSubmitDFCHTLC::STATUS_OPEN,submitexthtlc.offerTx});
+            if (found)
+                return Res::Err("ext htlc already submitted!");
+
+            std::unique_ptr<CICXSubmitDFCHTLCImplemetation> dfchtlc;
+            mnview.ForEachICXSubmitDFCHTLC([&](CICXOrderView::StatusTxidKey const & key, uint8_t) {
+                if (key.first.second == submitexthtlc.offerTx)
+                {
+                    dfchtlc = mnview.GetICXSubmitDFCHTLCByCreationTx(key.second);
+                    return (false);
+                }
+                return false;
+            },{CICXSubmitDFCHTLC::STATUS_OPEN,submitexthtlc.offerTx});
+            if (!dfchtlc)
+                return Res::Err("offer %s needs to have dfc htlc submitted first, but no dfc htlc found!", submitexthtlc.offerTx.GetHex());
+
+            if (submitexthtlc.hash != dfchtlc->hash)
+                return Res::Err("Invalid hash, external htlc hash is different than dfc htlc hash! %s != %s",submitexthtlc.hash.GetHex(),dfchtlc->hash.GetHex());
+        }
+        else
+        {
+            if (submitexthtlc.amount != offer->amount*order->orderPrice/COIN)
+                return Res::Err("amount in dfc htlc must match the amount necessary for offer amount - %s != %s!", ValueFromAmount(submitexthtlc.amount).getValStr(), ValueFromAmount(offer->amount*order->orderPrice/COIN).getValStr());
+
+            bool found=false;
+            mnview.ForEachICXSubmitEXTHTLC([&found,&submitexthtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
+                if (key.second != submitexthtlc.offerTx)
+                    return false;
+                found=true;
+                return false;
+            },{CICXSubmitDFCHTLC::STATUS_OPEN,submitexthtlc.offerTx});
+            if (found)
+                return Res::Err("ext htlc already submitted!");
+
+            found=false;
+            mnview.ForEachICXSubmitDFCHTLC([&found,&submitexthtlc](CICXOrderView::StatusTxidKey const & key, uint8_t) {
+                if (key.first.second == submitexthtlc.offerTx)
+                {
+                    found = true;
+                    return (false);
+                }
+                return true;
+            },{CICXSubmitDFCHTLC::STATUS_OPEN,offer->creationTx});
+            if (found)
+                return Res::Err("offer %s needs to have dfc htlc submitted first, but external htlc already submitted!", submitexthtlc.offerTx.GetHex());
+        }
+        
+        submitexthtlc.creationTx = tx.GetHash();
+        submitexthtlc.creationHeight = height;
+
+        return mnview.ICXSubmitEXTHTLC(submitexthtlc);
+    }
+
+    Res operator()(const CICXClaimDFCHTLCMessage& obj) const {
+        auto res = CheckICXTx();
+        if (!res) {
+            return res;
+        }
+
+        CICXClaimDFCHTLCImplemetation claimdfchtlc;
+        static_cast<CICXClaimDFCHTLC&>(claimdfchtlc) = obj;
+
+        auto dfchtlc=mnview.GetICXSubmitDFCHTLCByCreationTx(claimdfchtlc.dfchtlcTx);
+        if (!dfchtlc) {
+            return Res::Err("dfc htlc with creation tx %s does not exists!", claimdfchtlc.dfchtlcTx.GetHex());
+        }
+
+        bool found=false;
+        mnview.ForEachICXSubmitDFCHTLC([&found,&claimdfchtlc](CICXOrderView::StatusTxidKey const & key, uint8_t i) {
+            if (key.first.second != claimdfchtlc.dfchtlcTx) 
+                return false;
+            found=true;
+            return false;
+        },{CICXSubmitDFCHTLC::STATUS_OPEN,claimdfchtlc.dfchtlcTx});
+        if (!found)
+            return Res::Err("dfc htlc already claimed or refunded!");
+
+        uint256 calcHash;
+        std::vector<unsigned char> calcSeedBytes(32);
+        CSHA256()
+            .Write(claimdfchtlc.seed.data(),claimdfchtlc.seed.size())
+            .Finalize(calcSeedBytes.data());
+        calcHash.SetHex(HexStr(calcSeedBytes));
+
+        if (dfchtlc->hash != calcHash)
+            return Res::Err("hash generated from given seed is different than in dfc htlc: %s - %s!", calcHash.GetHex(), dfchtlc->hash.GetHex());
+
+        auto offer=mnview.GetICXMakeOfferByCreationTx(dfchtlc->offerTx);
+        if (!offer) {
+            return Res::Err("offer with creation tx %s does not exists!", dfchtlc->offerTx.GetHex());
+        }
+        auto order=mnview.GetICXOrderByCreationTx(offer->orderTx);
+        if (!order) {
+            return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
+        }
+
+        CTokenAmount amount;
+        CScript ownerAddress;
+        if (order->orderType == CICXOrder::TYPE_INTERNAL)
+        {
+            amount = {order->idToken,dfchtlc->amount};
+            ownerAddress = CScript(offer->receiveDestination.begin(),offer->receiveDestination.end());
+        }
+        else
+        {
+            amount = {order->idToken,dfchtlc->amount};
+            ownerAddress = CScript(dfchtlc->receiveDestination.begin(),dfchtlc->receiveDestination.end());
+        }
+
+        claimdfchtlc.creationTx = tx.GetHash();
+        claimdfchtlc.creationHeight = height;
+        
+        res = mnview.ICXClaimDFCHTLC(claimdfchtlc,*dfchtlc);
+        return !res ? res : mnview.AddBalance(ownerAddress,amount);
+    }
+
+    Res operator()(const CICXCloseOrderMessage& obj) const {
+        auto res = CheckICXTx();
+        if (!res) {
+            return res;
+        }
+
+        CICXCloseOrderImplemetation closeorder;
+        static_cast<CICXCloseOrder&>(closeorder) = obj;
+
+        std::unique_ptr<CICXOrderImplemetation> order;
+        if (!(order = mnview.GetICXOrderByCreationTx(closeorder.orderTx))) {
+            return Res::Err("order with creation tx %s does not exists!", closeorder.orderTx.GetHex());
+        }
+        if (!order->closeTx.IsNull()) {
+            return Res::Err("order with creation tx %s is already closed!", closeorder.orderTx.GetHex());
+        }
+
+        const Coin& auth = coins.AccessCoin(COutPoint(order->creationTx, 1)); // always n=1 output
+        // check auth
+        if (!HasAuth(auth.out.scriptPubKey)) {
+            return Res::Err("%s: %s", __func__, "tx must have at least one input from order owner");
+        }
+
+        order->closeTx = closeorder.creationTx;
+        order->closeHeight = closeorder.creationHeight;
+
+        // add the balance to tokenFrom to return amount that is left from reserve
+        CTokenAmount amount;
+        if (order->orderType == CICXOrder::TYPE_INTERNAL && order->amountToFill > 0)
+        {
+            amount={order->idToken,order->amountToFill};;
+        }
+
+        closeorder.creationTx = tx.GetHash();
+        closeorder.creationHeight = height;
+
+        res = mnview.ICXCloseOrder(closeorder);
+        if (!res)
+            return res;
+        res = mnview.ICXCloseOrderTx(*order,CICXOrder::STATUS_CLOSED);
+        return !res ? res : mnview.AddBalance(order->ownerAddress,amount);
+    }
+
     Res operator()(const CCustomTxMessageNone&) const {
         return Res::Ok();
     }
@@ -1396,7 +1846,8 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
     return { finMsg.btcTxHash, Res::Ok() };
 }
 
-bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid) {
+bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
+{
     CTransactionRef ptx = pool.get(txid);
     if (ptx) {
         std::vector<unsigned char> dummy;

@@ -11,12 +11,13 @@
 #include <serialize.h>
 #include <masternodes/accounts.h>
 #include <masternodes/anchors.h>
+#include <masternodes/icxorder.h>
 #include <masternodes/incentivefunding.h>
+#include <masternodes/gv.h>
+#include <masternodes/oracles.h>
+#include <masternodes/poolpairs.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
-#include <masternodes/poolpairs.h>
-#include <masternodes/oracles.h>
-#include <masternodes/gv.h>
 #include <uint256.h>
 #include <wallet/ismine.h>
 
@@ -246,6 +247,7 @@ class CCustomCSView
         , public CGovView
         , public CAnchorConfirmsView
         , public COracleView
+        , public CICXOrderView
 {
 public:
     // Increase version when underlaying tables are changed
