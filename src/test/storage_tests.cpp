@@ -77,9 +77,15 @@ static std::vector<unsigned char> ToBytes(const char * in)
     return std::vector<unsigned char>(in, in + strlen(in) + 1);
 }
 
+BOOST_AUTO_TEST_CASE(flushableType)
+{
+    CStorageKV & storage = pcustomcsview->GetStorage();
+    BOOST_REQUIRE(dynamic_cast<CFlushableStorageKV*>(&storage));
+}
+
 BOOST_AUTO_TEST_CASE(undo)
 {
-    CStorageKV & base_raw = pcustomcsview->GetRaw();
+    CStorageKV & base_raw = pcustomcsview->GetStorage();
     // place some "old" record
     pcustomcsview->Write("testkey1", "value0");
 
@@ -90,7 +96,7 @@ BOOST_AUTO_TEST_CASE(undo)
     BOOST_CHECK(mnview.Write("testkey2", "value2")); // insert
 
     // construct undo
-    auto& flushable = dynamic_cast<CFlushableStorageKV&>(mnview.GetRaw());
+    auto& flushable = mnview.GetStorage();
     auto undo = CUndo::Construct(base_raw, flushable.GetRaw());
     BOOST_CHECK(undo.before.size() == 2);
     BOOST_CHECK(undo.before.at(ToBytes("testkey1")) == ToBytes("value0"));

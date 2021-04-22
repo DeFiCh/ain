@@ -244,6 +244,7 @@ BASE_SCRIPTS = [
     'feature_blocksdir.py',
     'feature_config_args.py',
     'feature_account_mining.py',
+    'feature_accounts_validation.py',
     'rpc_help.py',
     'feature_help.py',
     'feature_shutdown.py',

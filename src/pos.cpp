@@ -158,14 +158,6 @@ boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const 
         throw std::logic_error{"Only non-complete PoS block templates are accepted"};
     }
 
-    // coinstakeTx
-    CMutableTransaction coinstakeTx{*pblock->vtx[0]};
-
-    // Update coinstakeTx after signing
-    pblock->vtx[0] = MakeTransactionRef(coinstakeTx);
-
-    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-
     bool signingRes = key.SignCompact(pblock->GetHashToSign(), pblock->sig);
     if (!signingRes) {
         return {std::string{} + "Block signing error"};

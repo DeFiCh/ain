@@ -2285,6 +2285,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     CAmount nFees = 0;
     int nInputs = 0;
     int64_t nSigOpsCost = 0;
+    // it's used for account changes by the block
+    // to calculate their merkle root in isolation
+    CCustomCSView accountsView(mnview);
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
     std::vector<PrecomputedTransactionData> txdata;
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
@@ -2297,7 +2300,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
-            if (!Consensus::CheckTxInputs(tx, state, view, &mnview, pindex->nHeight, txfee, chainparams)) {
+            if (!Consensus::CheckTxInputs(tx, state, view, &accountsView, pindex->nHeight, txfee, chainparams)) {
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
                     // PREMATURE_SPEND but we can't return that, as it's not
@@ -2357,7 +2360,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            const auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get());
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get());
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 // we will never fail, but skip, unless transaction mints UTXOs
                 return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
@@ -2433,7 +2436,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
     // chek main coinbase
-    Res res = ApplyGeneralCoinbaseTx(mnview, *block.vtx[0], pindex->nHeight, nFees, chainparams.GetConsensus());
+    Res res = ApplyGeneralCoinbaseTx(accountsView, *block.vtx[0], pindex->nHeight, nFees, chainparams.GetConsensus());
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS,
                              error("ConnectBlock(): %s", res.msg),
@@ -2442,11 +2445,29 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     if (!control.Wait())
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: CheckQueue failed", __func__), REJECT_INVALID, "block-validation-failed");
+
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
     LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
 
     if (fJustCheck)
-        return true;
+        return accountsView.Flush(); // keeps compatibility
+
+    // validates account changes as well
+    if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
+        bool mutated;
+        uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
+        if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot()))
+            return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED, false, REJECT_INVALID, "bad-txnmrklroot", "hashMerkleRoot mismatch");
+
+        // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
+        // of transactions in a block without affecting the merkle root of a block,
+        // while still invalidating it.
+        if (mutated)
+            return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED, false, REJECT_INVALID, "bad-txns-duplicate", "duplicate transaction");
+    }
+
+    // account changes are validated
+    accountsView.Flush();
 
     if (!WriteUndoDataForBlock(blockundo, state, pindex, chainparams))
         return false;
@@ -2502,8 +2523,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         // construct undo
-        auto& flushable = dynamic_cast<CFlushableStorageKV&>(cache.GetRaw());
-        auto undo = CUndo::Construct(mnview.GetRaw(), flushable.GetRaw());
+        auto& flushable = cache.GetStorage();
+        auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
         // flush changes to underlying view
         cache.Flush();
         // write undo
@@ -3148,11 +3169,17 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // at this stage only high hash error can be in header
                         // so just skip that block
                         continue;
+                    } else if (reason == ValidationInvalidReason::BLOCK_MUTATED) {
+                        // prior EunosHeight we shoutdown node on mutated block
+                        if (ShutdownRequested()) {
+                            return false;
+                        }
+                        // now block cannot be part of blockchain either
+                        // but it can be produced by outdated/malicious masternode
+                        // so we should not shoutdown entire network, let's skip it
+                        continue;
                     }
-                    if (reason != ValidationInvalidReason::BLOCK_MUTATED) {
-                        InvalidChainFound(vpindexToConnect.front());
-                    }
-                    state = CValidationState();
+                    InvalidChainFound(vpindexToConnect.front());
                     if (fCheckpointsEnabled && pindexConnect == pindexMostWork) {
                         // NOTE: Invalidate blocks back to last checkpoint
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
@@ -3726,7 +3753,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of stake failed");
 
     // Check the merkle root.
-    if (fCheckMerkleRoot) {
+    // block merkle root is delayed to ConnectBlock to ensure account changes
+    if (fCheckMerkleRoot && block.height < consensusParams.EunosHeight) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != hashMerkleRoot2)
