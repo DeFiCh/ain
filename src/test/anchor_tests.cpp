@@ -239,5 +239,106 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
     BOOST_CHECK(top->txHash == uint256S("bd1"));
 }
 
+// This test will check for the correct functionality of function CAnchorIndex::GetLatestAnchorUpToDeFiHeight()
+BOOST_AUTO_TEST_CASE(Test_GetLatestAnchorUpToDeFiHeight)
+{
+    //create valid setup
+    spv::CFakeSpvWrapper * fspv = static_cast<spv::CFakeSpvWrapper *>(spv::pspv.get());
+
+    LOCK(cs_main);
+
+    auto top = panchors->GetActiveAnchor();
+    BOOST_CHECK(top == nullptr);
+    auto team0 = panchors->GetCurrentTeam(panchors->GetActiveAnchor());
+
+    // no anchors yet. call the GetMostLatestAtDeFiHeight() at DeFi height 20
+    // should return nullptr
+    auto falbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(20);
+    BOOST_CHECK(falbackAnchor == nullptr);
+
+    // add first anchor
+    {
+        CAnchorAuthMessage auth({uint256(), 15, uint256S("def15"), team0});
+        CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
+        BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bc1"), 1, false) == true);
+    }
+
+    fspv->lastBlockHeight = 6; panchors->UpdateLastHeight(fspv->GetLastBlockHeight());
+
+    //confirm the top
+    BOOST_CHECK(panchors->ActivateBestAnchor(true) == true);
+    top = panchors->GetActiveAnchor();
+    BOOST_REQUIRE(top != nullptr);
+    BOOST_CHECK(top->btcHeight == 1);
+    BOOST_CHECK(top->txHash == uint256S("bc1"));
+    BOOST_CHECK(top->anchor.height == 15);
+    BOOST_CHECK(top->anchor.previousAnchor == uint256());
+
+    //call the GetMostLatestAtDeFiHeight() at DeFi height 20
+    falbackAnchor = nullptr;
+    falbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(20);
+
+    //check against the top anchor above.
+    BOOST_REQUIRE(falbackAnchor != nullptr);
+    BOOST_CHECK(falbackAnchor->btcHeight == top->btcHeight);
+    BOOST_CHECK(falbackAnchor->txHash == top->txHash);
+    BOOST_CHECK(falbackAnchor->anchor.height == top->anchor.height);
+    BOOST_CHECK(falbackAnchor->anchor.previousAnchor == top->anchor.previousAnchor);
+    BOOST_CHECK(falbackAnchor->anchor.height < 20);
+
+    //add another anchor at DeFi height 30 and btcHeight 2
+    {
+        CAnchorAuthMessage auth({uint256(), 30, uint256S("def30"), team0});
+        CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
+        BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bc2"), 2, false) == true);
+    }
+    
+    //call the GetMostLatestAtDeFiHeight() at DeFi height 40
+    falbackAnchor = nullptr;
+    falbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(40);
+
+    //check against the last inserted anchor which was at DeFi height 30
+    BOOST_REQUIRE(falbackAnchor != nullptr);
+    BOOST_CHECK(falbackAnchor->btcHeight == 2);
+    BOOST_CHECK(falbackAnchor->txHash == uint256S("bc2"));
+    BOOST_CHECK(falbackAnchor->anchor.height == 30);
+    BOOST_CHECK(falbackAnchor->anchor.height < 40);
+
+    //add another anchor at DeFi height 45 and btcHeight 2 but different btc hash
+    {
+        CAnchorAuthMessage auth({uint256(), 45, uint256S("def45"), team0});
+        CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
+        BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bc3"), 2, false) == true);
+    }
+
+    //call the GetMostLatestAtDeFiHeight() at DeFi height 40
+    falbackAnchor = nullptr;
+    falbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(40);
+
+    //check against the anchor at DeFi height 30 
+    BOOST_REQUIRE(falbackAnchor != nullptr);
+    BOOST_CHECK(falbackAnchor->btcHeight == 2);
+    BOOST_CHECK(falbackAnchor->txHash == uint256S("bc2"));
+    BOOST_CHECK(falbackAnchor->anchor.height == 30);
+    BOOST_CHECK(falbackAnchor->anchor.height < 40);
+
+    //add another anchor at DeFi height 45 and btcHeight 2 but different btc hash
+    {
+        CAnchorAuthMessage auth({uint256(), 45, uint256S("def45"), team0});
+        CAnchor anc = CAnchor::Create({ auth }, CTxDestination(PKHash()));
+        BOOST_CHECK(panchors->AddAnchor(anc, uint256S("bc4"), 2, false) == true);
+    }
+
+    //call the GetMostLatestAtDeFiHeight() at DeFi height 45
+    falbackAnchor = nullptr;
+    falbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(45);
+
+    //check against the anchor at DeFi height 30 
+    BOOST_REQUIRE(falbackAnchor != nullptr);
+    BOOST_CHECK(falbackAnchor->btcHeight == 2);
+    BOOST_CHECK(falbackAnchor->txHash == uint256S("bc2"));
+    BOOST_CHECK(falbackAnchor->anchor.height == 30);
+    BOOST_CHECK(falbackAnchor->anchor.height < 45);
+}
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -37,6 +37,12 @@
 // Convert SPV UInt256 to Bitcoin uint256
 uint256 to_uint256(UInt256 const & i);
 
+enum class SPVTxType {
+    None,
+    HTLC,
+    Bech32
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -229,11 +235,17 @@ int64_t BRBitcoinAmount(int64_t localAmount, double price);
 }
 #endif
 
+// Returns all previously generated user addresses including change
+std::set<std::string> BRWalletAllUserAddrs(BRWallet *wallet);
+
+// Whether an address belongs to the user
+SPVTxType BRWalletIsMine(BRWallet *wallet, const UInt160& hash160, const bool htlc);
+
 // Get HTLC secret for contract address.
 std::string BRGetHTLCSeed(BRWallet *wallet, const uint8_t *md20);
 
 // Returns a set of all user related TXIDs.
-std::set<std::string> BRListUserTransactions(BRWallet *wallet);
+std::set<const BRTransaction *> BRListUserTransactions(BRWallet *wallet, const UInt160& addr = UINT160_ZERO);
 
 // Returns a vector of all HTLC relates transactions
 std::vector<std::pair<BRTransaction *, size_t> > BRListHTLCReceived(BRWallet *wallet, const UInt160 &addr);

@@ -3142,19 +3142,39 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
             if (!ConnectTip(state, chainparams, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
                     // The block violates a consensus rule.
-                    if (state.GetReason() != ValidationInvalidReason::BLOCK_MUTATED) {
+                    auto reason = state.GetReason();
+                    state = CValidationState();
+                    if (reason == ValidationInvalidReason::BLOCK_INVALID_HEADER) {
+                        // at this stage only high hash error can be in header
+                        // so just skip that block
+                        continue;
+                    }
+                    if (reason != ValidationInvalidReason::BLOCK_MUTATED) {
                         InvalidChainFound(vpindexToConnect.front());
                     }
                     state = CValidationState();
                     if (fCheckpointsEnabled && pindexConnect == pindexMostWork) {
                         // NOTE: Invalidate blocks back to last checkpoint
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
-                        auto it = checkpoints.lower_bound(pindexConnect->nHeight);
-                        if (it != checkpoints.begin() && (--it)->first > 0) { // it doesn't makes sense backward to genesis
-                            auto index = LookupBlockIndex(it->second);
-                            if (!disconnectBlocksTo(index)) {
-                                return false;
+                        //calculate the latest suitable checkpoint block height
+                        auto checkpointIt = checkpoints.lower_bound(pindexConnect->nHeight);
+                        auto fallbackCheckpointBlockHeight = (checkpointIt != checkpoints.begin()) ? (--checkpointIt)->first : 0;
+
+                        CBlockIndex *blockIndex = nullptr;
+                        //check spv and anchors are available and try it first
+                        if (spv::pspv && panchors) {
+                            auto fallbackAnchor = panchors->GetLatestAnchorUpToDeFiHeight(pindexConnect->nHeight);
+                            if (fallbackAnchor && (fallbackAnchor->anchor.height > fallbackCheckpointBlockHeight)) {
+                                blockIndex = LookupBlockIndex(fallbackAnchor->anchor.blockHash);
                             }
+                        }
+                        if (!blockIndex && fallbackCheckpointBlockHeight > 0) {// it doesn't makes sense backward to genesis
+                            blockIndex = LookupBlockIndex(checkpointIt->second);
+                        }
+                        //fallback
+                        if (blockIndex) {
+                            if (!disconnectBlocksTo(blockIndex))
+                                return false;
                         }
                     }
                     fInvalidFound = true;
@@ -4385,7 +4405,9 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
 
         // Ensure that CheckBlock() passes before calling AcceptBlock, as
         // belt-and-suspenders.
-        bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus(), true); // we should check for bad hash block
+        // reverts a011b9db38ce6d3d5c1b67c1e3bad9365b86f2ce
+        // we can end up in isolation banning all other nodes
+        bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus(), false); // false cause we can check pos context only on ConnectBlock
         if (ret) {
             // Store to disk
             ret = ::ChainstateActive().AcceptBlock(pblock, state, chainparams, &pindex, fForceProcessing, nullptr, fNewBlock);

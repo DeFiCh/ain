@@ -643,7 +643,7 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
         CKeyID minter;
         if (pindex->GetBlockHeader().ExtractMinterKey(minter)) {
             LOCK(cs_main);
-            auto id = pcustomcsview->GetMasternodeIdByOperator(minter);
+            auto id = GetMasternodeIdByOperator(minter);
             if (id) {
                 masternodeIDs.insert(*id);
             }
@@ -688,7 +688,7 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
 
     {
         LOCK(cs_main);
-        pcustomcsview->SetAnchorTeams(authTeam, confirmTeam, pindexNew->height);
+        SetAnchorTeams(authTeam, confirmTeam, pindexNew->height);
     }
 
     // Debug logging

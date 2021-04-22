@@ -166,6 +166,7 @@ BASE_SCRIPTS = [
     'feature_mine_cached.py',
     'feature_mempool_dakota.py',
     'interface_http.py',
+    'interface_http_cors.py',
     'interface_rpc.py',
     'rpc_psbt.py',
     'rpc_users.py',

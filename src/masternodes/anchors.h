@@ -212,12 +212,16 @@ public:
         // tags for multiindex
         struct ByBtcTxHash{};
         struct ByBtcHeight{};
+        struct ByDeFiHeight{};
+
+        THeight DeFiBlockHeight() const {return anchor.height;}
     };
 
     typedef boost::multi_index_container<AnchorRec,
         indexed_by<
             ordered_unique    < tag<AnchorRec::ByBtcTxHash>,  member<AnchorRec, uint256,  &AnchorRec::txHash> >,
-            ordered_non_unique< tag<AnchorRec::ByBtcHeight>,  member<AnchorRec, THeight,  &AnchorRec::btcHeight> >
+            ordered_non_unique< tag<AnchorRec::ByBtcHeight>,  member<AnchorRec, THeight,  &AnchorRec::btcHeight> >,
+            ordered_non_unique< tag<AnchorRec::ByDeFiHeight>, const_mem_fun<AnchorRec, THeight, &AnchorRec::DeFiBlockHeight> >
         >
     > AnchorIndexImpl;
 
@@ -259,6 +263,8 @@ public:
     // Store and read Bitcoin block hash by height, used in BestOfTwo calculation.
     bool WriteBlock(const uint32_t height, const uint256& blockHash);
     uint256 ReadBlockHash(const uint32_t& height);
+
+    AnchorRec const * GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const;
 
 private:
     AnchorIndexImpl anchors;

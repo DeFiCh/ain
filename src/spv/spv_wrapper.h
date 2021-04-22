@@ -43,6 +43,8 @@ class CScript;
 class CWallet;
 class UniValue;
 
+enum class SPVTxType;
+
 extern const int ENOSPV;
 extern const int EPARSINGTX;
 extern const int ETXNOTSIGNED;
@@ -128,6 +130,10 @@ public:
     void OnSavePeers(int replace, const BRPeer peers[], size_t peersCount);
     void OnThreadCleanup();
 
+    /// Wallet notifications
+    void OnBlockNotify(const UInt256& blockHash);
+    void OnTxNotify(const UInt256& txHash);
+
     // Get time stamp of Bitcoin TX
     uint32_t ReadTxTimestamp(uint256 const & hash);
 
@@ -138,17 +144,24 @@ public:
     std::string AddBitcoinAddress(const CPubKey &new_key);
     void AddBitcoinHash(const uint160 &userHash, const bool htlc = false);
     std::string DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress);
-    int64_t GetBitcoinBalance();
-    virtual UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, uint64_t feeRate);
-    UniValue ListTransactions();
-    UniValue GetHTLCReceived(const std::string &addr);
-    std::string GetRawTransactions(uint256& hash);
-    void RebuildBloomFilter();
     UniValue GetAddressPubkey(const CWallet *pwallet, const char *addr); // Used in HTLC creation
     CKeyID GetAddressKeyID(const char *addr);
+    UniValue GetAllAddress();
+    SPVTxType IsMine(const char *address);
+    UniValue ValidateAddress(const char *address);
+
+    // Bitcoin Transaction related calls
+    int64_t GetBitcoinBalance();
+    std::string GetRawTransactions(uint256& hash);
+    UniValue ListTransactions();
+    UniValue ListReceived(int nMinDepth, std::string address);
+    void RebuildBloomFilter();
+    virtual UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, uint64_t feeRate);
+
+    // Bitcoin HTLC calls
+    UniValue GetHTLCReceived(const std::string &addr);
     std::string GetHTLCSeed(uint8_t* md20);
     UniValue CreateHTLCTransaction(CWallet* const pwallet, const char *scriptAddress, const char *destinationAddress, const std::string& seed, uint64_t feerate, bool seller);
-    uint64_t GetFeeRate();
 
 private:
     virtual void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise);

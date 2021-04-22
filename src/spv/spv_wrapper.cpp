@@ -26,7 +26,8 @@
 
 #include <string.h>
 #include <inttypes.h>
-//#include <errno.h>
+
+#include <boost/algorithm/string/replace.hpp>
 
 extern RecursiveMutex cs_main;
 
@@ -119,6 +120,12 @@ void saveBlocks(void *info, int replace, BRMerkleBlock *blocks[], size_t blocksC
 //    if (ShutdownRequested()) return;
     static_cast<CSpvWrapper *>(info)->OnSaveBlocks(replace, blocks, blocksCount);
 }
+
+void blockNotify(void *info, const UInt256& blockHash)
+{
+    static_cast<CSpvWrapper *>(info)->OnBlockNotify(blockHash);
+}
+
 void savePeers(void *info, int replace, const BRPeer peers[], size_t peersCount)
 {
     LOCK(cs_spvcallback);
@@ -283,7 +290,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
     // can't wrap member function as static "C" function here:
     BRPeerManagerSetCallbacks(manager, this, syncStarted, syncStopped, txStatusUpdate,
-                              saveBlocks, savePeers, nullptr /*networkIsReachable*/, threadCleanup);
+                              saveBlocks, blockNotify, savePeers, nullptr /*networkIsReachable*/, threadCleanup);
 
 }
 
@@ -407,6 +414,8 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
             LogPrint(BCLog::SPV, "adding anchor to pending %s\n", txHash.ToString());
         }
     }
+
+    OnTxNotify(tx->txHash);
 }
 
 void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp, const UInt256& blockHash)
@@ -436,6 +445,8 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
                 LogPrint(BCLog::ANCHORING, "Anchor added/updated %s\n", txHash.ToString());
             }
         }
+
+        OnTxNotify(txHashes[i]);
     }
 }
 
@@ -448,6 +459,8 @@ void CSpvWrapper::OnTxDeleted(UInt256 txHash, int notifyUser, int recommendResca
     LOCK(cs_main);
     panchors->DeleteAnchorByBtcTx(hash);
     panchors->DeletePendingByBtcTx(hash);
+
+    OnTxNotify(txHash);
 
     LogPrint(BCLog::SPV, "tx deleted: %s; notifyUser: %d, recommendRescan: %d\n", hash.ToString(), notifyUser, recommendRescan);
 }
@@ -484,6 +497,39 @@ void CSpvWrapper::OnSaveBlocks(int replace, BRMerkleBlock * blocks[], size_t blo
     CommitBatch();
 
     /// @attention don't call ANYTHING that could call back to spv here! cause OnSaveBlocks works under spv lock!!!
+}
+
+void CSpvWrapper::OnBlockNotify(const UInt256& blockHash)
+{
+#if HAVE_SYSTEM
+    if (initialSync)
+    {
+        return;
+    }
+
+    std::string strCmd = gArgs.GetArg("-spvblocknotify", "");
+    if (!strCmd.empty())
+    {
+        boost::replace_all(strCmd, "%s", to_uint256(blockHash).GetHex());
+        std::thread t(runCommand, strCmd);
+        t.detach(); // thread runs free
+    }
+#endif
+}
+
+void CSpvWrapper::OnTxNotify(const UInt256& txHash)
+{
+#if HAVE_SYSTEM
+    // notify an external script when a wallet transaction comes in or is updated
+    std::string strCmd = gArgs.GetArg("-spvwalletnotify", "");
+
+    if (!strCmd.empty())
+    {
+        boost::replace_all(strCmd, "%s", to_uint256(txHash).GetHex());
+        std::thread t(runCommand, strCmd);
+        t.detach(); // thread runs free
+    }
+#endif
 }
 
 void CSpvWrapper::OnSavePeers(int replace, const BRPeer peers[], size_t peersCount)
@@ -700,9 +746,96 @@ UniValue CSpvWrapper::ListTransactions()
     UniValue result(UniValue::VARR);
     for (const auto& txid : userTransactions)
     {
-        result.push_back(txid);
+        result.push_back(to_uint256(txid->txHash).ToString());
     }
     return result;
+}
+
+struct tallyitem
+{
+    CAmount nAmount{0};
+    int nConf{std::numeric_limits<int>::max()};
+    std::vector<uint256> txids;
+    SPVTxType type;
+};
+
+UniValue CSpvWrapper::ListReceived(int nMinDepth, std::string address)
+{
+    if (!address.empty() && !BRAddressIsValid(address.c_str()))
+    {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    }
+
+    UInt160 addressFilter = UINT160_ZERO;
+    if (!address.empty())
+    {
+        BRAddressHash160(&addressFilter, address.c_str());
+    }
+
+    auto userTransactions = BRListUserTransactions(wallet, addressFilter);
+
+    //UniValue ret(UniValue::VARR);
+    std::map<std::string, tallyitem> mapTally;
+    for (const auto& txid : userTransactions)
+    {
+        int32_t confirmations{0};
+        const auto txHash = to_uint256(txid->txHash);
+        const auto blockHeight = ReadTxBlockHeight(txHash);
+
+        if (blockHeight != std::numeric_limits<int32_t>::max())
+        {
+            confirmations = spv::pspv->GetLastBlockHeight() - blockHeight + 1;
+        }
+
+        if (confirmations < nMinDepth)
+        {
+            continue;
+        }
+
+        for (size_t i{0}; i < txid->outCount; ++i)
+        {
+            const auto txout = txid->outputs[i];
+
+            if (!address.empty() && address != txout.address)
+            {
+                continue;
+            }
+
+            auto mine = IsMine(txout.address);
+            if (mine == SPVTxType::None)
+            {
+                continue;
+            }
+
+            tallyitem& item = mapTally[txout.address];
+            item.type = mine;
+            item.nAmount += txout.amount;
+            item.nConf = std::min(item.nConf, confirmations);
+            item.txids.push_back(txHash);
+        }
+    }
+
+    UniValue ret(UniValue::VARR);
+
+    for (const auto& entry : mapTally)
+    {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("address", entry.first);
+        obj.pushKV("type", entry.second.type == SPVTxType::Bech32 ? "Bech32" : "HTLC");
+        obj.pushKV("amount", ValueFromAmount(entry.second.nAmount));
+        obj.pushKV("confirmations", entry.second.nConf);
+
+        UniValue transactions(UniValue::VARR);
+        for (const uint256& item : entry.second.txids)
+        {
+            transactions.push_back(item.GetHex());
+        }
+        obj.pushKV("txids", transactions);
+
+        ret.push_back(obj);
+    }
+
+    return ret;
 }
 
 UniValue CSpvWrapper::GetHTLCReceived(const std::string& addr)
@@ -770,11 +903,6 @@ std::string CSpvWrapper::GetRawTransactions(uint256& hash)
 std::string CSpvWrapper::GetHTLCSeed(uint8_t* md20)
 {
     return BRGetHTLCSeed(wallet, md20);
-}
-
-uint64_t CSpvWrapper::GetFeeRate()
-{
-    return BRWalletFeePerKb(wallet);
 }
 
 HTLCDetails GetHTLCDetails(CScript& redeemScript)
@@ -949,6 +1077,37 @@ CKeyID CSpvWrapper::GetAddressKeyID(const char *addr)
     return key;
 }
 
+SPVTxType CSpvWrapper::IsMine(const char *address)
+{
+    if (address == nullptr || !BRAddressIsValid(address))
+    {
+        return SPVTxType::None;
+    }
+
+    UInt160 addressFilter;
+    BRAddressHash160(&addressFilter, address);
+
+    return BRWalletIsMine(wallet, addressFilter, true);
+}
+
+UniValue CSpvWrapper::ValidateAddress(const char *address)
+{
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("isvalid", BRAddressIsValid(address) == 1);
+    ret.pushKV("ismine", IsMine(address) != SPVTxType::None);
+    return ret;
+}
+
+UniValue CSpvWrapper::GetAllAddress()
+{
+    const auto addresses = BRWalletAllUserAddrs(wallet);
+    UniValue ret(UniValue::VARR);
+    for (const auto& address : addresses)
+    {
+        ret.push_back(address);
+    }
+    return ret;
+}
 
 void publishedTxCallback(void *info, int error)
 {

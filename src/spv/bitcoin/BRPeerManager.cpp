@@ -202,6 +202,7 @@ struct BRPeerManagerStruct {
     void (*syncStopped)(void *info, int error);
     void (*txStatusUpdate)(void *info);
     void (*saveBlocks)(void *info, int replace, BRMerkleBlock *blocks[], size_t blocksCount);
+    void (*blockNotify)(void *info, const UInt256& blockHash);
     void (*savePeers)(void *info, int replace, const BRPeer peers[], size_t peersCount);
     int (*networkIsReachable)(void *info);
     void (*threadCleanup)(void *info);
@@ -1226,7 +1227,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
         txTime = block->timestamp/2 + prev->timestamp/2;
         block->height = prev->height + 1;
     }
-    
+
     // track the observed bloom filter false positive rate using a low pass filter to smooth out variance
     if (peer == manager->downloadPeer && block->totalTx > 0) {
         for (i = 0; i < txCount; i++) { // wallet tx are not false-positives
@@ -1252,6 +1253,8 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
             _BRPeerManagerUpdateFilter(manager); // rebuild bloom filter when it starts to degrade
         }
     }
+
+    const auto lastBlockHash = manager->lastBlock->blockHash;
 
     // ignore block headers that are newer than one week before earliestKeyTime (it's a header if it has 0 totalTx)
     if (block->totalTx == 0 && block->timestamp + 7*24*60*60 > manager->earliestKeyTime + 2*60*60) {
@@ -1402,6 +1405,12 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
                 _BRPeerManagerLoadMempools(manager);
             }
         }
+    }
+
+    // Has last block changed?
+    if (!UInt256Eq(lastBlockHash, manager->lastBlock->blockHash))
+    {
+        manager->blockNotify(manager->info, manager->lastBlock->blockHash);
     }
    
     if (txHashes != _txHashes) free(txHashes);
@@ -1607,6 +1616,7 @@ BRPeerManager *BRPeerManagerNew(const BRChainParams *params, BRWallet *wallet, u
 // void syncStopped(void *, int) - called when blockchain syncing stops, error is an errno.h code
 // void txStatusUpdate(void *) - called when transaction status may have changed such as when a new block arrives
 // void saveBlocks(void *, int, BRMerkleBlock *[], size_t) - called when blocks should be saved to the persistent store
+// void blockNotify(void *info, const UInt256& blockHash) - Called when chain tip changes
 // - if replace is true, remove any previously saved blocks first
 // void savePeers(void *, int, const BRPeer[], size_t) - called when peers should be saved to the persistent store
 // - if replace is true, remove any previously saved peers first
@@ -1617,6 +1627,7 @@ void BRPeerManagerSetCallbacks(BRPeerManager *manager, void *info,
                                void (*syncStopped)(void *info, int error),
                                void (*txStatusUpdate)(void *info),
                                void (*saveBlocks)(void *info, int replace, BRMerkleBlock *blocks[], size_t blocksCount),
+                               void (*blockNotify)(void *info, const UInt256& blockHash),
                                void (*savePeers)(void *info, int replace, const BRPeer peers[], size_t peersCount),
                                int (*networkIsReachable)(void *info),
                                void (*threadCleanup)(void *info))
@@ -1627,6 +1638,7 @@ void BRPeerManagerSetCallbacks(BRPeerManager *manager, void *info,
     manager->syncStopped = syncStopped;
     manager->txStatusUpdate = txStatusUpdate;
     manager->saveBlocks = saveBlocks;
+    manager->blockNotify = blockNotify;
     manager->savePeers = savePeers;
     manager->networkIsReachable = networkIsReachable;
     manager->threadCleanup = (threadCleanup) ? threadCleanup : _dummyThreadCleanup;

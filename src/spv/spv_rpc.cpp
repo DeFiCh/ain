@@ -1312,6 +1312,109 @@ static UniValue spv_getrawtransaction(const JSONRPCRequest& request)
     return spv::pspv->GetRawTransactions(hash);
 }
 
+static UniValue spv_listreceivedbyaddress(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_listreceivedbyaddress",
+        "\nList balances by receiving address.\n",
+        {
+            {"minconf", RPCArg::Type::NUM, /* default */ "1", "The minimum number of confirmations before payments are included."},
+            {"address_filter", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "If present, only return information on this address."},
+        },
+        RPCResult{
+            "[\n"
+            "  {\n"
+            "    \"address\" : \"receivingaddress\",  (string) The receiving address\n"
+            "    \"type\" : \"type\",                 (string) Address type, Bech32 or HTLC\n"
+            "    \"amount\" : x.xxx,                  (numeric) The total amount in BTC received by the address\n"
+            "    \"confirmations\" : n,               (numeric) The number of confirmations of the most recent transaction included\n"
+            "    \"txids\": [\n"
+            "       \"txid\",                         (string) The ids of transactions received with the address \n"
+            "       ...\n"
+            "    ]\n"
+            "  }\n"
+            "  ,...\n"
+            "]\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_listreceivedbyaddress", "")
+            + HelpExampleCli("spv_listreceivedbyaddress", "6")
+            + HelpExampleRpc("spv_listreceivedbyaddress", "6")
+            + HelpExampleRpc("spv_listreceivedbyaddress", "6, \"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"")
+        },
+    }.Check(request);
+
+    if (!spv::pspv)
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    // Minimum confirmations
+    int nMinDepth = 1;
+    if (!request.params[0].isNull())
+    {
+        nMinDepth = request.params[0].get_int();
+    }
+
+    // Address filter
+    std::string address;
+    if (!request.params[1].isNull())
+    {
+        address = request.params[1].get_str();
+    }
+
+    return spv::pspv->ListReceived(nMinDepth, address);
+}
+
+static UniValue spv_validateaddress(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_validateaddress",
+        "\nCheck whether the given Bitcoin address is valid.\n",
+        {
+            {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The Bitcoin address to validate"},
+        },
+        RPCResult{
+            "{\n"
+            "  \"isvalid\" : true|false,       (boolean) If the address is valid or not.\n"
+            "  \"ismine\" : true|false,        (boolean) If the address belongs to the wallet.\n"
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
+            + HelpExampleRpc("spv_validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
+        },
+    }.Check(request);
+
+    if (!spv::pspv)
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    return spv::pspv->ValidateAddress(request.params[0].get_str().c_str());
+}
+
+static UniValue spv_getalladdresses(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_getalladdresses",
+        "\nReturns all user Bitcoin addresses.\n",
+        {
+        },
+        RPCResult{
+            "\"array\"                  (Array of user addresses)\n"
+        },
+        RPCExamples{
+            HelpExampleCli("spv_getalladdresses", "")
+            + HelpExampleRpc("spv_getalladdresses", "")
+        },
+    }.Check(request);
+
+    if (!spv::pspv)
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    return spv::pspv->GetAllAddress();
+}
+
 
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
@@ -1342,6 +1445,9 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_listhtlcoutputs",        &spv_listhtlcoutputs,       { "address" }  },
   { "spv",      "spv_decodehtlcscript",       &spv_decodehtlcscript,      { "redeemscript" }  },
   { "spv",      "spv_gethtlcseed",            &spv_gethtlcseed,           { "address" }  },
+  { "spv",      "spv_listreceivedbyaddress",  &spv_listreceivedbyaddress, { "minconf", "address_filter" }  },
+  { "spv",      "spv_validateaddress",        &spv_validateaddress,       { "address"}  },
+  { "spv",      "spv_getalladdresses",        &spv_getalladdresses,       { }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
   { "hidden",   "spv_fundaddress",            &spv_fundaddress,           { "address" }  },
 };

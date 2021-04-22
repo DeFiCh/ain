@@ -789,6 +789,15 @@ bool CAnchorIndex::DbErase(uint256 const & hash)
     return db->Erase(std::make_pair(DB_ANCHORS, hash));
 }
 
+const CAnchorIndex::AnchorRec* CAnchorIndex::GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const
+{
+    AssertLockHeld(cs_main);
+
+    auto & index = anchors.get<AnchorRec::ByDeFiHeight>();
+    auto it = index.lower_bound(blockHeightDeFi);
+    return (it != index.begin()) ? &(*(--it)) : nullptr;
+}
+
 /// Validates all except tx confirmations
 bool ValidateAnchor(const CAnchor & anchor)
 {
