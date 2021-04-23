@@ -19,6 +19,9 @@ libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-de
 libminiupnpc-dev libzmq3-dev libqrencode-dev \
 curl cmake
 
+RUN apt-get install gcc-7 g++-7
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7
+
 # For Berkeley DB - but we don't need as we do a depends build.
 # RUN apt install -y libdb-dev
 
