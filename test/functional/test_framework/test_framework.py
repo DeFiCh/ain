@@ -613,7 +613,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             os.rmdir(cache_path('wallets'))  # Remove empty wallets dir
 
             for entry in os.listdir(cache_path()):
-                if entry not in ['chainstate', 'blocks', 'enhancedcs', 'anchors', 'criminals']:  # Only keep chainstate and blocks folder
+                if entry not in ['chainstate', 'blocks', 'enhancedcs', 'anchors', 'criminals', 'history']:  # Only keep chainstate and blocks folder
                     os.remove(cache_path(entry))
 
         for i in range(self.num_nodes):
