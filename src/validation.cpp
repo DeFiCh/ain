@@ -1009,51 +1009,6 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus
     return false;
 }
 
-/**
- * If the transaction hash is found inside a block, the block hash is placed in hashBlock.
- * If blockIndex is provided, the transaction is fetched from the corresponding block and its hash is placed in hashBlock.
- */
-bool GetBlockHash(const uint256& hash, const Consensus::Params& consensusParams, uint256& hashBlock, const CBlockIndex* const blockIndex)
-{
-    CTransactionRef txOut;
-    //try the genesis block
-    for (auto && genesisTx : Params().GenesisBlock().vtx) {
-        if (genesisTx->GetHash() == hash) {
-            // Return genesis tx
-            hashBlock = consensusParams.hashGenesisBlock;
-            txOut = genesisTx;
-            return true;
-        }
-    }
-
-    LOCK(cs_main);
-    if (!blockIndex) {
-        //try mempool and txindex
-        CTransactionRef ptx = mempool.get(hash);
-        if (ptx) {
-            txOut = ptx;
-        }
-
-        if (g_txindex) {
-            return g_txindex->FindTx(hash, hashBlock, txOut);
-        }
-    } else {
-        //Load from disk
-        CBlock block;
-        if (ReadBlockFromDisk(block, blockIndex, consensusParams)) {
-            for (const auto& tx : block.vtx) {
-                if (tx->GetHash() == hash) {
-                    txOut = tx;
-                    hashBlock = blockIndex->GetBlockHash();
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
-}
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // CBlock and CBlockIndex

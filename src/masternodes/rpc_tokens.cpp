@@ -765,11 +765,10 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
 
-    CMutableTransaction mtx;
-
     bool try_witness = request.params[1].isNull() ? true : request.params[1].get_bool();
     bool try_no_witness = request.params[1].isNull() ? true : !request.params[1].get_bool();
 
+    CMutableTransaction mtx;
     if (!DecodeHexTx(mtx, request.params[0].get_str(), try_no_witness, try_witness)) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
@@ -802,13 +801,12 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
         result.pushKV("txid", tx->GetHash().GetHex());
         result.pushKV("type", ToString(guess));
         result.pushKV("valid", res.ok ? true : false); // no actual block height
-
         if (!res.ok) {
             result.pushKV("error", res.msg);
         } else {
             result.pushKV("results", txResults);
         }
-
+        
         return result;
     } else {
         // Should not get here without prior failure.
