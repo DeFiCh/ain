@@ -775,26 +775,23 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
     }
 
     int nHeight{0};
-    bool actualHeight{false};
     CustomTxType guess;
     UniValue txResults(UniValue::VOBJ);
     Res res{};
-    uint256 hashBlock;
-    CBlockIndex* blockindex{nullptr};
     CTransactionRef tx = MakeTransactionRef(std::move(mtx));
     std::string warnings;
 
     if (tx)
     {
         LOCK(cs_main);
-        // Default to next block height
-        nHeight = ::ChainActive().Height() + 1;
+        // Default to INT_MAX
+        nHeight = std::numeric_limits<int>::max();
 
         // Skip coinbase TXs except for genesis block
         if ((tx->IsCoinBase() && nHeight > 0)) {
             return "Coinbase transaction. Not a custom transaction.";
         }
-        //get custom tx info. We pass nHeight as (::ChainActive().Height() + 1),
+        //get custom tx info. We pass nHeight INT_MAX,
         //just to get over hardfork validations. txResults are based on transaction metadata.
         res = RpcInfo(*tx, nHeight, guess, txResults);
         if (guess == CustomTxType::None) {
