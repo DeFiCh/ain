@@ -2605,15 +2605,23 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         // close expired orders, refund all expired DFC HTLCs at this block height
         {
-            cache.ForEachICXOrderExpired([&](CICXOrderView::StatusKey const & key, uint8_t status) {
+            cache.ForEachICXOrderExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
                 if (static_cast<int>(key.first) != pindex->nHeight) return (false);
                 auto order = cache.GetICXOrderByCreationTx(key.second);
                 if (order)
                     cache.ICXCloseOrderTx(*order,status);
                 return true;
             },pindex->nHeight);
+            
+            cache.ForEachICXMakeOfferExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
+                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
+                auto offer = cache.GetICXMakeOfferByCreationTx(key.second);
+                if (offer)
+                    cache.ICXCloseMakeOfferTx(*offer,status);
+                return true;
+            },pindex->nHeight);
 
-            mnview.ForEachICXSubmitDFCHTLCExpired([&](CICXOrderView::StatusKey const & key, uint8_t i) {
+            mnview.ForEachICXSubmitDFCHTLCExpire([&](CICXOrderView::StatusKey const & key, uint8_t i) {
                 if (static_cast<int>(key.first) != pindex->nHeight) return (false);
 
                 auto dfchtlc = mnview.GetICXSubmitDFCHTLCByCreationTx(key.second);
@@ -2635,7 +2643,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 }
                 else
                 {
-                    ownerAddress = CScript(offer->receiveDestination.begin(),offer->receiveDestination.end());
+                    ownerAddress = offer->ownerAddress;
                 }
                 auto res = mnview.AddBalance(ownerAddress,amount);
                 if (res.ok) 
