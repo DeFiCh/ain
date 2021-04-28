@@ -120,6 +120,7 @@ BASE_SCRIPTS = [
     'feature_anchor_rewards.py',
     'feature_anchorauths_pruning.py',
     'feature_autoauth.py',
+    'feature_lock_unspends.py',
     'feature_bitcoin_wallet.py',
     'feature_bitcoin_htlc.py',
     'feature_communitybalance_reorg.py',
