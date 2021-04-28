@@ -2645,10 +2645,25 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 {
                     ownerAddress = offer->ownerAddress;
                 }
-                auto res = mnview.AddBalance(ownerAddress,amount);
+                CScript txidaddr = CScript(offer->creationTx.begin(),offer->creationTx.end());
+                auto res = mnview.SubBalance(txidaddr,amount);
+                if (!res) {
+                    LogPrintf("Can't subtract balance from offer txidaddr: %s\n", res.msg);
+                }
+                if (res.ok)
+                {
+                    res = mnview.AddBalance(ownerAddress,amount);
+                    if (!res) {
+                        LogPrintf("Can't add balance back to owner: %s\n", res.msg);
+                    }
+                }
                 if (res.ok) 
-                    mnview.ICXRefundDFCHTLC(*dfchtlc);
-
+                {
+                    res = mnview.ICXRefundDFCHTLC(*dfchtlc);
+                    if (!res) {
+                        LogPrintf("Can't refund DFC HTLC: %s\n", res.msg);
+                    }
+                }
                 return (true);
             },pindex->nHeight);
         }
