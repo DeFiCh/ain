@@ -100,7 +100,7 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
     return selectedAccountsBalances;
 }
 
-CMutableTransaction fund(CMutableTransaction & mtx, CWallet* const pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control, bool lockUnspents) {
+CMutableTransaction fund(CMutableTransaction & mtx, CWallet* const pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control) {
     CAmount fee_out;
     int change_position = mtx.vout.size();
 
@@ -111,14 +111,18 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWallet* const pwallet, CTra
     }
     // add outputs from possible linked auth tx into 'linkedCoins' pool
     if (optAuthTx) {
+        LOCK(pwallet->cs_wallet);
         for (size_t i = 0; i < optAuthTx->vout.size(); ++i) {
             CTxOut const & out = optAuthTx->vout[i];
-            if (!out.scriptPubKey.IsUnspendable()) { // skip for possible metadata
+            if (!out.scriptPubKey.IsUnspendable() && !pwallet->IsLockedCoin(optAuthTx->GetHash(), i)) { // skip for possible metadata
                 coinControl.m_linkedCoins.emplace(COutPoint(optAuthTx->GetHash(), i), out);
             }
         }
     }
 
+    // we does not honor non locking spends anymore
+    // it ensures auto auth not overlap regular tx inputs
+    const bool lockUnspents = true;
     if (!pwallet->FundTransaction(mtx, fee_out, change_position, strFailReason, lockUnspents, {} /*setSubtractFeeFromOutputs*/, coinControl)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -130,8 +134,9 @@ CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransact
     // assemble prevouts from optional linked tx
     UniValue prevtxs(UniValue::VARR);
     if (optAuthTx) {
+        LOCK(pwallet->cs_wallet);
         for (size_t i = 0; i < optAuthTx->vout.size(); ++i) {
-            if (!optAuthTx->vout[i].scriptPubKey.IsUnspendable()) {
+            if (!optAuthTx->vout[i].scriptPubKey.IsUnspendable() && !pwallet->IsLockedCoin(optAuthTx->GetHash(), i)) {
                 UniValue prevout(UniValue::VOBJ);
                 prevout.pushKV("txid", optAuthTx->GetHash().GetHex());
                 prevout.pushKV("vout", (uint64_t)i);
@@ -274,7 +279,7 @@ CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & a
         // Create output to cover 1KB transaction
         CTxOut authOut(GetMinimumFee(*pwallet, 1000, coinControl, nullptr), auth);
         mtx.vout.push_back(authOut);
-        fund(mtx, pwallet, {}, &coinControl, true /*lockUnspents*/);
+        fund(mtx, pwallet, {}, &coinControl);
 
         // AutoAuthPrep, auth output and change
         if (mtx.vout.size() == 3) {
@@ -293,7 +298,7 @@ CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & a
         mtx.vout.push_back(authOut);
     }
 
-    return fund(mtx, pwallet, {}, &coinControl, true /*lockUnspents*/), sign(mtx, pwallet, {});
+    return fund(mtx, pwallet, {}, &coinControl), sign(mtx, pwallet, {});
 }
 
 static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWallet* const pwallet) {
@@ -357,14 +362,19 @@ std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion,
 
     // at last, create additional tx for missed
     if (!notFoundYet.empty()) {
+        LOCK(pwallet->cs_wallet);
         try {
+            // any selected inputs should be mark as locked
+            for (auto const & in : result) {
+                pwallet->LockCoin(in.prevout);
+            }
             optAuthTx = CreateAuthTx(pwallet, notFoundYet, txVersion); // success or throw
         } catch (const UniValue& objError) {
             throw JSONRPCError(objError["code"].get_int(), "Add-on auth TX failed: " + objError["message"].getValStr());
         }
         // if we are here - we've got signed optional auth tx - add all of the outputs into inputs (to do not miss any coins for sure)
         for (size_t i = 0; i < optAuthTx->vout.size(); ++i) {
-            if (!optAuthTx->vout[i].scriptPubKey.IsUnspendable())
+            if (!optAuthTx->vout[i].scriptPubKey.IsUnspendable() && !pwallet->IsLockedCoin(optAuthTx->GetHash(), i))
                 result.push_back(CTxIn(optAuthTx->GetHash(), i));
         }
     }
