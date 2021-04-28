@@ -81,6 +81,32 @@
   name: kind/dependencies
   description: Pull requests that update a dependency file
 
+# Area
+- color: fbca04
+  name: area/consensus
+- color: fbca04
+  name: area/database
+- color: fbca04
+  name: area/poolpairs
+- color: fbca04
+  name: area/oracles
+- color: fbca04
+  name: area/futures
+- color: fbca04
+  name: area/interchain-exchange
+- color: fbca04
+  name: area/governance
+- color: fbca04
+  name: area/operators
+- color: fbca04
+  name: area/optimisation
+- color: fbca04
+  name: area/tokens
+- color: fbca04
+  name: area/rpc
+- color: fbca04
+  name: area/workflow
+
 # Triage
 - color: b1f488
   name: triage/accepted

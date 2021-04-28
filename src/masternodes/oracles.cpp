@@ -40,7 +40,7 @@ Res COracleView::AppointOracle(const COracleId& oracleId, const COracle& oracle)
 
 Res COracleView::UpdateOracle(const COracleId& oracleId, const COracle& newOracle)
 {
-    COracle oracle;
+    COracle oracle(CAppointOracleMessage{});
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }
@@ -91,7 +91,7 @@ Res COracleView::RemoveOracle(const COracleId& oracleId)
 
 Res COracleView::SetOracleData(const COracleId& oracleId, int64_t timestamp, const CTokenPrices& tokenPrices)
 {
-    COracle oracle;
+    COracle oracle(CAppointOracleMessage{});
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("failed to read oracle %s from database", oracleId.GetHex());
     }
@@ -116,7 +116,7 @@ Res COracleView::SetOracleData(const COracleId& oracleId, int64_t timestamp, con
 
 ResVal<COracle> COracleView::GetOracleData(const COracleId& oracleId) const
 {
-    COracle oracle;
+    COracle oracle(CAppointOracleMessage{});
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }
