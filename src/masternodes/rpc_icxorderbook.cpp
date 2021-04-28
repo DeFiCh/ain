@@ -62,6 +62,8 @@ UniValue icxMakeOfferToJSON(CICXMakeOfferImplemetation const& makeoffer, uint8_t
         orderObj.pushKV("receivePubkey", HexStr(makeoffer.receiveDestination));
     else if (!ScriptToString(CScript(makeoffer.receiveDestination.begin(),makeoffer.receiveDestination.end())).empty())
         orderObj.pushKV("receiveAddress", ScriptToString(CScript(makeoffer.receiveDestination.begin(),makeoffer.receiveDestination.end())));
+    orderObj.pushKV("expireHeight", static_cast<int>(makeoffer.creationHeight + makeoffer.expiry));
+    
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(makeoffer.creationTx.GetHex(), orderObj);
     return ret;
@@ -80,6 +82,7 @@ UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, u
     orderObj.pushKV("timeout", static_cast<int>(dfchtlc.timeout));
     orderObj.pushKV("height", static_cast<int>(dfchtlc.creationHeight));
     orderObj.pushKV("refundHeight", static_cast<int>(dfchtlc.creationHeight + dfchtlc.timeout));
+    
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(dfchtlc.creationTx.GetHex(), orderObj);
     return ret;
@@ -105,7 +108,7 @@ UniValue icxSubmitEXTHTLCToJSON(CICXSubmitEXTHTLCImplemetation const& exthtlc) {
 
 UniValue icxClaimDFCHTLCToJSON(CICXClaimDFCHTLCImplemetation const& claimdfchtlc) {
     UniValue orderObj(UniValue::VOBJ);
-    orderObj.pushKV("type", "CLAIM");
+    orderObj.pushKV("type", "CLAIM DFC");
     orderObj.pushKV("dfchtlcTx", claimdfchtlc.dfchtlcTx.GetHex());
     orderObj.pushKV("seed", HexStr(claimdfchtlc.seed));
     orderObj.pushKV("height", static_cast<int>(claimdfchtlc.creationHeight));
@@ -367,6 +370,8 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
         makeoffer.amount = AmountFromValue(metaObj["amount"]);
     else 
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amount\" must be non-null");
+    
+    if (!metaObj["expiry"].isNull()) makeoffer.expiry = metaObj["expiry"].get_int();
 
     int targetHeight;
     {
