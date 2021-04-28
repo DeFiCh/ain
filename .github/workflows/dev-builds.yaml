@@ -10,7 +10,7 @@ on:
       - develop
       - ci/*
       - v*
-      - '*.[0-9]+.x'
+      - 1.[0-9]+.x
   pull_request:
     branches:
       - master
@@ -18,7 +18,7 @@ on:
       - staging
       - ci/*
       - v*
-      - '*.[0-9]+.x'
+      - 1.[0-9]+.x
 jobs:
 
   linux:
