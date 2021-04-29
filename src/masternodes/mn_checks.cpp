@@ -1244,8 +1244,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
     }
 
     // construct undo
-    auto& flushable = dynamic_cast<CFlushableStorageKV&>(view.GetRaw());
-    auto undo = CUndo::Construct(mnview.GetRaw(), flushable.GetRaw());
+    auto& flushable = view.GetStorage();
+    auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
     // flush changes
     view.Flush();
     // write undo

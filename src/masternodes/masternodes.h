@@ -281,8 +281,11 @@ public:
 
     int GetDbVersion() const;
 
-    CStorageKV& GetRaw() {
-        return DB();
+    uint256 MerkleRoot();
+
+    // we construct it as it
+    CFlushableStorageKV& GetStorage() {
+        return static_cast<CFlushableStorageKV&>(DB());
     }
 };
 

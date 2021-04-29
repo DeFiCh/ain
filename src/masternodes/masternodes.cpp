@@ -8,6 +8,7 @@
 #include <masternodes/mn_checks.h>
 
 #include <chainparams.h>
+#include <consensus/merkle.h>
 #include <net_processing.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
@@ -717,12 +718,12 @@ void CCustomCSView::CreateAndRelayConfirmMessageIfNeed(const CAnchorIndex::Ancho
 
 void CCustomCSView::OnUndoTx(uint256 const & txid, uint32_t height)
 {
-    const auto undo = this->GetUndo(UndoKey{height, txid});
+    const auto undo = GetUndo(UndoKey{height, txid});
     if (!undo) {
         return; // not custom tx, or no changes done
     }
-    CUndo::Revert(this->GetRaw(), *undo); // revert the changes of this tx
-    this->DelUndo(UndoKey{height, txid}); // erase undo data, it served its purpose
+    CUndo::Revert(GetStorage(), *undo); // revert the changes of this tx
+    DelUndo(UndoKey{height, txid}); // erase undo data, it served its purpose
 }
 
 bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
@@ -766,6 +767,19 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     });
 
     return UpdateBalancesHeight(owner, targetHeight);
+}
+
+uint256 CCustomCSView::MerkleRoot() {
+    auto& rawMap = GetStorage().GetRaw();
+    if (rawMap.empty()) {
+        return {};
+    }
+    std::vector<uint256> hashes;
+    for (const auto& it : rawMap) {
+        auto value = it.second ? *it.second : TBytes{};
+        hashes.push_back(Hash2(it.first, value));
+    }
+    return ComputeMerkleRoot(std::move(hashes));
 }
 
 std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team)

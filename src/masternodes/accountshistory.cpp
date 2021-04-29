@@ -33,7 +33,7 @@ CAccountHistoryStorage::CAccountHistoryStorage(const fs::path& dbName, std::size
 }
 
 CAccountsHistoryWriter::CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CAccountsHistoryView* historyView)
-    : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height), txn(txn), txid(txid), type(type), historyView(historyView)
+    : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn), txid(txid), type(type), historyView(historyView)
 {
 }
 
@@ -66,7 +66,7 @@ bool CAccountsHistoryWriter::Flush()
 }
 
 CAccountsHistoryEraser::CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView)
-    : CStorageView(new CFlushableStorageKV(storage.GetRaw())), height(height), txn(txn), historyView(historyView)
+    : CStorageView(new CFlushableStorageKV(static_cast<CStorageKV&>(storage.GetStorage()))), height(height), txn(txn), historyView(historyView)
 {
 }
 
