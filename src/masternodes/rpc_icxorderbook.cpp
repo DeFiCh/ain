@@ -34,7 +34,8 @@ UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t status) {
     orderObj.pushKV("amountFrom", ValueFromAmount(order.amountFrom));
     orderObj.pushKV("amountToFill", ValueFromAmount(order.amountToFill));
     orderObj.pushKV("orderPrice", ValueFromAmount(order.orderPrice));
-    orderObj.pushKV("amountToFillInToAsset", ValueFromAmount(order.amountToFill * order.orderPrice / COIN));
+    CAmount calcedAmount(static_cast<CAmount>((arith_uint256(order.amountToFill) * arith_uint256(order.orderPrice) / arith_uint256(COIN)).GetLow64()));
+    orderObj.pushKV("amountToFillInToAsset", ValueFromAmount(calcedAmount));
     orderObj.pushKV("height", static_cast<int>(order.creationHeight));
     orderObj.pushKV("expireHeight", static_cast<int>(order.creationHeight + order.expiry));
     if (order.closeHeight > -1)
@@ -380,8 +381,8 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",makeoffer.orderTx.GetHex()));
 
-        if (order->amountToFill * order->orderPrice / COIN < makeoffer.amount)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "cannot make offer with that amount, order (" + order->creationTx.GetHex() + ") has less amount to fill!");
+        // if (order->amountToFill * order->orderPrice / COIN < makeoffer.amount)
+        //     throw JSONRPCError(RPC_INVALID_PARAMETER, "cannot make offer with that amount, order (" + order->creationTx.GetHex() + ") has less amount to fill!");
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
@@ -537,9 +538,9 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
-            if (submitdfchtlc.amount * order->orderPrice / COIN != offer->amount)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make dfc htlc with that amount, different amount necessary for offer (%s) - %s != %s!",
-                                offer->creationTx.GetHex(), ValueFromAmount(submitdfchtlc.amount * order->orderPrice / COIN).getValStr(), ValueFromAmount(offer->amount).getValStr()));
+            // if (submitdfchtlc.amount * order->orderPrice / COIN != offer->amount)
+            //     throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make dfc htlc with that amount, different amount necessary for offer (%s) - %s != %s!",
+            //                     offer->creationTx.GetHex(), ValueFromAmount(submitdfchtlc.amount * order->orderPrice / COIN).getValStr(), ValueFromAmount(offer->amount).getValStr()));
 
             if (!metaObj["receivePubkey"].isNull()) {
                 submitdfchtlc.receivePubkey = PublickeyFromString(trim_ws(metaObj["receivePubkey"].getValStr()));
@@ -773,9 +774,9 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
-            if (submitexthtlc.amount * order->orderPrice / COIN != offer->amount )
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make ext htlc with that amount, different amount necessary for offer (%s) - %s != %s!",
-                                offer->creationTx.GetHex(), ValueFromAmount(submitexthtlc.amount * order->orderPrice / COIN).getValStr(), ValueFromAmount(offer->amount).getValStr()));
+            // if (submitexthtlc.amount * order->orderPrice / COIN != offer->amount )
+            //     throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make ext htlc with that amount, different amount necessary for offer (%s) - %s != %s!",
+            //                     offer->creationTx.GetHex(), ValueFromAmount(submitexthtlc.amount * order->orderPrice / COIN).getValStr(), ValueFromAmount(offer->amount).getValStr()));
 
             if (!metaObj["receiveAddress"].isNull())
                 submitexthtlc.receiveAddress=DecodeScript(metaObj["receiveAddress"].getValStr());

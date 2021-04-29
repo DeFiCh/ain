@@ -455,6 +455,35 @@ public:
         return Res::Ok();
     }
 
+    Res ModifyTokenBalance(DCT_ID const & id, CAmount amount, CScript const & from, CScript const & to) const {
+        CTokenAmount tokenAmount({id, amount});
+
+        // if "from" not supplied it will only add balance on "to" address
+        if (!from.empty())
+        {
+            auto res = mnview.SubBalance(from, tokenAmount);
+            if (!res.ok)
+                return Res::Err("%s: %s", __func__, res.msg);
+        }
+        
+        // if "to" not supplied it will only sub balance from "form" address
+        if (!to.empty())
+        {
+            auto res = mnview.AddBalance(to,tokenAmount);
+            if (!res.ok)
+                return Res::Err("%s: %s", __func__, res.msg);
+        }
+        
+        return Res::Ok();
+    }
+
+    Res TakerFeeTransfer(CScript const & from, CScript const & to, CAmount amount) const {
+        DCT_ID idDFI{0};
+        CTokenAmount takerFee({idDFI,amount});
+        
+        return ModifyTokenBalance(idDFI, amount, from, to);
+    }
+
     ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const {
         if (token.destructionTx != uint256{}) {
             return Res::Err("token %s already destroyed at height %i by tx %s", token.symbol,
@@ -1088,9 +1117,8 @@ public:
 
     Res operator()(const CICXCreateOrderMessage& obj) const {
         auto res = CheckICXTx();
-        if (!res) {
+        if (!res)
             return res;
-        }
 
         CICXOrderImplemetation order;
         static_cast<CICXOrder&>(order) = obj;
@@ -1102,61 +1130,47 @@ public:
             return Res::Err("%s: %s", __func__, "token assets must be specified");
         if (order.chain.empty())
             return Res::Err("%s: %s", __func__, "chain assets must be specified");    
-
-        if (order.orderType != CICXOrder::TYPE_INTERNAL && order.orderType != CICXOrder::TYPE_EXTERNAL) {
+        if (order.orderType != CICXOrder::TYPE_INTERNAL && order.orderType != CICXOrder::TYPE_EXTERNAL)
             return Res::Err("invalid order type!");
-        }
+
         if (order.orderType == CICXOrder::TYPE_INTERNAL)
         {
             auto tokenFrom = mnview.GetToken(order.idToken);
-            if (!tokenFrom) {
+            if (!tokenFrom)
                 return Res::Err("%s: %s", __func__, "tokenFrom (" +  tokenFrom->CreateSymbolKey(order.idToken) + ") does not exist!");
-            }
 
             if (order.ownerAddress.empty())
                 return Res::Err("ownerAddress must be not-null!");
 
             // subtract the balance from tokenFrom to dedicate them for the order
-            CTokenAmount amount={order.idToken,order.amountFrom};
-            res = mnview.SubBalance(order.ownerAddress,amount);
-            if (!res.ok) {
+            CScript txidAddr(order.creationTx.begin(), order.creationTx.end());
+            res = ModifyTokenBalance(order.idToken, order.amountFrom, order.ownerAddress, txidAddr);
+            if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
-            }
-            CScript txidaddr(order.creationTx.begin(),order.creationTx.end());
-            res = mnview.AddBalance(txidaddr,amount);
-            if (!res.ok) {
-                return Res::Err("%s: %s", __func__, res.msg);
-            }
         }
         else if (order.orderType == CICXOrder::TYPE_EXTERNAL)
         {
             auto tokenTo = mnview.GetToken(order.idToken);
-            if (!tokenTo) {
-                            return Res::Err("%s: %s", __func__, "tokenTo id (" +  tokenTo->CreateSymbolKey(order.idToken) + ") does not exist!");
-            }
+            if (!tokenTo)
+                return Res::Err("%s: %s", __func__, "tokenTo id (" +  tokenTo->CreateSymbolKey(order.idToken) + ") does not exist!");
         }
 
-        if (order.amountFrom == 0) {
+        if (order.amountFrom == 0)
             return Res::Err("order amountFrom must be greater than 0!");
-        }
-        if (order.amountToFill != order.amountFrom) {
+        if (order.amountToFill != order.amountFrom)
             return Res::Err("order amountToFill does not equal to amountFrom!");
-        }
-        if (order.orderPrice == 0) {
+        if (order.orderPrice == 0)
             return Res::Err("order price must be greater than 0!");
-        }
-        if (order.expiry == 0) {
+        if (order.expiry == 0)
             return Res::Err("order expiry must be greater than 0!");
-        }
 
         return mnview.ICXCreateOrder(order);
     }
 
     Res operator()(const CICXMakeOfferMessage& obj) const {
         auto res = CheckICXTx();
-        if (!res) {
+        if (!res)
             return res;
-        }
 
         CICXMakeOfferImplemetation makeoffer;
         static_cast<CICXMakeOffer&>(makeoffer) = obj;
@@ -1165,17 +1179,30 @@ public:
         makeoffer.creationHeight = height;
 
         auto order=mnview.GetICXOrderByCreationTx(makeoffer.orderTx);
-        if (!order) {
+        if (!order)
             return Res::Err("%s: %s", __func__, "order with creation tx " + makeoffer.orderTx.GetHex() + " does not exists!");
-        }
-        if (order->amountToFill * order->orderPrice / COIN < makeoffer.amount) {
+        
+        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(order->amountToFill) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+        if (calcedAmount < makeoffer.amount)
             return Res::Err("%s: %s", __func__, "cannot fill order with that amount, order (" + order->creationTx.GetHex() + ") has less amount to fill!");
-        }
+
+        CScript txidAddr(makeoffer.creationTx.begin(),makeoffer.creationTx.end());
+        
+        //calculating DFI per BTC
+        auto DFIBTCpair = mnview.GetPoolPair({5});
+        CAmount DFIperBTC = (arith_uint256(DFIBTCpair->reserveB) * arith_uint256(COIN) / DFIBTCpair->reserveA).GetLow64();
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
             if (makeoffer.receiveDestination.empty())
                 return Res::Err("receiveAddress must not be null!");
+            
+            // calculating and locking takerFee in offer txidaddr
+            makeoffer.takerFee = (arith_uint256(makeoffer.amount) * CICXMakeOffer::TAKER_FEE_PER_BTC * arith_uint256(DFIperBTC)).GetLow64();
+            CScript receiveAddress(makeoffer.receiveDestination.begin(), makeoffer.receiveDestination.end());
+            res = TakerFeeTransfer(receiveAddress, txidAddr, makeoffer.takerFee);
+            if (!res.ok)
+                return Res::Err("%s: %s", __func__, res.msg);
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
@@ -1185,16 +1212,16 @@ public:
                 return Res::Err("%s: %s", __func__, "Invalid receivePubKey, (" + HexStr(makeoffer.receiveDestination) + ") receivePubkey is not a valid pubkey!");
 
             // subtract the balance from tokenTo to dedicate them for the offer
-            CTokenAmount amount={order->idToken,makeoffer.amount};
-            res = mnview.SubBalance(makeoffer.ownerAddress,amount);
-            if (!res.ok) {
+            res = ModifyTokenBalance(order->idToken, makeoffer.amount, makeoffer.ownerAddress, txidAddr);
+            if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
-            }
-            CScript txidaddr(makeoffer.creationTx.begin(),makeoffer.creationTx.end());
-            res = mnview.AddBalance(txidaddr,amount);
-            if (!res.ok) {
+
+            // calculating and locking takerFee in offer txidaddr
+            CAmount BTCAmount(static_cast<CAmount>((arith_uint256(makeoffer.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+            makeoffer.takerFee = (arith_uint256(BTCAmount) * CICXMakeOffer::TAKER_FEE_PER_BTC * arith_uint256(DFIperBTC)).GetLow64();
+            res = TakerFeeTransfer(makeoffer.ownerAddress, txidAddr, makeoffer.takerFee);
+            if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
-            }
         }
 
         return mnview.ICXMakeOffer(makeoffer);
@@ -1213,13 +1240,11 @@ public:
         submitdfchtlc.creationHeight = height;
 
         auto offer=mnview.GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
-        if (!offer) {
+        if (!offer)
             return Res::Err("offer with creation tx %s does not exists!", submitdfchtlc.offerTx.GetHex());
-        }
         auto order=mnview.GetICXOrderByCreationTx(offer->orderTx);
-        if (!order) {
+        if (!order)
             return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
-        }
 
         if (submitdfchtlc.hash.IsNull())
             return Res::Err("Invalid hash, htlc hash is empty and it must be set!");
@@ -1228,44 +1253,54 @@ public:
         if (submitdfchtlc.receiveAddress.empty())
             return Res::Err("Invalid, receiveAddress in htlc must be destination where tokens go on claim!");
             
-        CScript txidaddr;
+        CScript txidAddr;
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
-            if (submitdfchtlc.amount * order->orderPrice / COIN != offer->amount)
-                return Res::Err("amount in dfc htlc must match the amount necessary for offer amount - %f != %f!", ValueFromAmount(submitdfchtlc.amount * order->orderPrice / COIN).getValStr(), ValueFromAmount(offer->amount).getValStr());
+            CAmount calcedAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+            if (calcedAmount != offer->amount)
+                return Res::Err("amount in dfc htlc must match the amount necessary for offer amount - %f != %f!",
+                        ValueFromAmount(calcedAmount).getValStr(), ValueFromAmount(offer->amount).getValStr());
 
             if (!submitdfchtlc.receivePubkey.IsFullyValid())
                 return Res::Err("Invalid receivePubKey, (" + HexStr(submitdfchtlc.receivePubkey) + ") is not a valid pubkey!");
 
-            txidaddr = CScript(order->creationTx.begin(),order->creationTx.end());
+            txidAddr = CScript(order->creationTx.begin(),order->creationTx.end());
+
+            // burn DFI for takerFee==makerDeposit
+            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
+
+            // takerFee
+            res = TakerFeeTransfer(offerTxidAddr, consensus.burnAddress, offer->takerFee);
+            if (!res.ok)
+                return Res::Err("%s: %s", __func__, res.msg);
+
+            // makerFee
+            res = TakerFeeTransfer(order->ownerAddress, consensus.burnAddress, offer->takerFee);
+            if (!res.ok)
+                return Res::Err("%s: %s", __func__, res.msg);
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
             if (submitdfchtlc.amount != offer->amount)
-                return Res::Err("amount in dfc htlc must match the amount in offer - %s != %s!", ValueFromAmount(submitdfchtlc.amount).getValStr(), ValueFromAmount(offer->amount).getValStr());
+                return Res::Err("amount in dfc htlc must match the amount in offer - %s != %s!",
+                        ValueFromAmount(submitdfchtlc.amount).getValStr(), ValueFromAmount(offer->amount).getValStr());
 
-            txidaddr = CScript(offer->creationTx.begin(),offer->creationTx.end());
+            txidAddr = CScript(offer->creationTx.begin(), offer->creationTx.end());
         }
-        // subtract the balance from tokenTo to dedicate them for the offer
-        CTokenAmount amount={order->idToken,submitdfchtlc.amount};
-        res = mnview.SubBalance(txidaddr,amount);
-        if (!res.ok) {
-            return Res::Err("%s: %s", __func__, res.msg);
-        }
-        CScript htlctxidaddr(submitdfchtlc.creationTx.begin(),submitdfchtlc.creationTx.end());
-        res = mnview.AddBalance(htlctxidaddr,amount);
-        if (!res.ok) {
-            return Res::Err("%s: %s", __func__, res.msg);
-        }
+
+        // subtract the balance from order/offer txidaddr and dedicate them for the dfc htlc
+        CScript htlcTxidAddr(submitdfchtlc.creationTx.begin(), submitdfchtlc.creationTx.end());
+        res = ModifyTokenBalance(order->idToken, submitdfchtlc.amount, txidAddr, htlcTxidAddr);
+            if (!res.ok)
+                return Res::Err("%s: %s", __func__, res.msg);
         
         return mnview.ICXSubmitDFCHTLC(submitdfchtlc);
     }
 
     Res operator()(const CICXSubmitEXTHTLCMessage& obj) const {
         auto res = CheckICXTx();
-        if (!res) {
+        if (!res)
             return res;
-        }
 
         CICXSubmitEXTHTLCImplemetation submitexthtlc;
         static_cast<CICXSubmitEXTHTLC&>(submitexthtlc) = obj;
@@ -1274,13 +1309,11 @@ public:
         submitexthtlc.creationHeight = height;
 
         auto offer=mnview.GetICXMakeOfferByCreationTx(submitexthtlc.offerTx);
-        if (!offer) {
+        if (!offer)
             return Res::Err("order with creation tx %s does not exists!", submitexthtlc.offerTx.GetHex());
-        }
         auto order=mnview.GetICXOrderByCreationTx(offer->orderTx);
-        if (!order) {
+        if (!order)
             return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
-        }
 
         if (submitexthtlc.htlcscriptAddress.empty())
             return Res::Err("Invalid htlcscriptAddress, htlcscriptAddress is empty and it must be set!");
@@ -1294,12 +1327,28 @@ public:
         if (order->orderType==CICXOrder::TYPE_INTERNAL)
         {
             if (submitexthtlc.amount != offer->amount)
-                return Res::Err("amount in ext htlc must match the amount in the offer - %s != %s!", ValueFromAmount(submitexthtlc.amount).getValStr(), ValueFromAmount(offer->amount).getValStr());
+                return Res::Err("amount in ext htlc must match the amount in the offer - %s != %s!",
+                        ValueFromAmount(submitexthtlc.amount).getValStr(), ValueFromAmount(offer->amount).getValStr());
         }
         else if (order->orderType==CICXOrder::TYPE_EXTERNAL)
         {
-            if (submitexthtlc.amount * order->orderPrice / COIN != offer->amount)
-                return Res::Err("amount in dfc htlc must match the amount necessary for offer amount - %s != %s!", ValueFromAmount(submitexthtlc.amount * order->orderPrice / COIN).getValStr(), ValueFromAmount(offer->amount).getValStr());
+            CAmount calcedAmount(static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+            if (calcedAmount != offer->amount)
+                return Res::Err("amount in dfc htlc must match the amount necessary for offer amount - %s != %s!",
+                        ValueFromAmount(calcedAmount).getValStr(), ValueFromAmount(offer->amount).getValStr());
+            
+            // burn DFI for takerFee==makerDeposit
+            CScript offerTxidAddr(offer->creationTx.begin(),offer->creationTx.end());
+
+            // takerFee
+            res = TakerFeeTransfer(offerTxidAddr, consensus.burnAddress, offer->takerFee);
+            if (!res.ok)
+                return Res::Err("%s: %s", __func__, res.msg);
+
+            // makerFee
+            res = TakerFeeTransfer(submitexthtlc.receiveAddress, consensus.burnAddress, offer->takerFee);
+            if (!res.ok)
+                return Res::Err("%s: %s", __func__, res.msg);
         }
 
         return mnview.ICXSubmitEXTHTLC(submitexthtlc);
@@ -1307,9 +1356,8 @@ public:
 
     Res operator()(const CICXClaimDFCHTLCMessage& obj) const {
         auto res = CheckICXTx();
-        if (!res) {
+        if (!res)
             return res;
-        }
 
         CICXClaimDFCHTLCImplemetation claimdfchtlc;
         static_cast<CICXClaimDFCHTLC&>(claimdfchtlc) = obj;
@@ -1318,9 +1366,8 @@ public:
         claimdfchtlc.creationHeight = height;
         
         auto dfchtlc=mnview.GetICXSubmitDFCHTLCByCreationTx(claimdfchtlc.dfchtlcTx);
-        if (!dfchtlc) {
+        if (!dfchtlc)
             return Res::Err("dfc htlc with creation tx %s does not exists!", claimdfchtlc.dfchtlcTx.GetHex());
-        }
 
         bool found=false;
         mnview.ForEachICXSubmitDFCHTLCOpen([&found,&dfchtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
@@ -1343,25 +1390,36 @@ public:
             return Res::Err("hash generated from given seed is different than in dfc htlc: %s - %s!", calcHash.GetHex(), dfchtlc->hash.GetHex());
 
         auto offer=mnview.GetICXMakeOfferByCreationTx(dfchtlc->offerTx);
-        if (!offer) {
+        if (!offer)
             return Res::Err("offer with creation tx %s does not exists!", dfchtlc->offerTx.GetHex());
-        }
         auto order=mnview.GetICXOrderByCreationTx(offer->orderTx);
-        if (!order) {
+        if (!order)
             return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
-        }
 
-        CTokenAmount amount;
-        CScript htlctxidaddr(dfchtlc->creationTx.begin(),dfchtlc->creationTx.end());
-        amount = {order->idToken,dfchtlc->amount};
+        // claim DFC HTLC to receiveAddress
+        CScript htlcTxidAddr(dfchtlc->creationTx.begin(),dfchtlc->creationTx.end());        
+        res = ModifyTokenBalance(order->idToken, dfchtlc->amount, htlcTxidAddr, dfchtlc->receiveAddress);
+        if (!res.ok)
+            return Res::Err("%s: %s", __func__, res.msg);
+
+        DCT_ID DFIToken({CICXOrder::DFI_TOKEN_ID});
+        // refund makerDeposit
+        res = ModifyTokenBalance(DFIToken, offer->takerFee, CScript(), order->ownerAddress);
+        if (!res.ok)
+            return Res::Err("%s: %s", __func__, res.msg);
         
-        res = mnview.SubBalance(htlctxidaddr,amount);
-        if (!res.ok) {
+        // makerIncentive
+        res = ModifyTokenBalance(DFIToken, offer->takerFee * 25 / 100, CScript(), order->ownerAddress);
+        if (!res.ok)
             return Res::Err("%s: %s", __func__, res.msg);
-        }
-        res = mnview.AddBalance(dfchtlc->receiveAddress,amount);
-        if (!res.ok) {
-            return Res::Err("%s: %s", __func__, res.msg);
+        
+        // makerBonus
+        DCT_ID BTC;
+        if (mnview.GetTokenGuessId(CICXOrder::CHAIN_BTC,BTC) && order->idToken == BTC && order->chain == CICXOrder::CHAIN_BTC)
+        {
+            res = ModifyTokenBalance(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
+            if (!res.ok)
+                return Res::Err("%s: %s", __func__, res.msg);
         }
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
@@ -1370,7 +1428,8 @@ public:
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
-            order->amountToFill -= dfchtlc->amount * COIN / order->orderPrice;
+            CAmount calcedAmount(static_cast<CAmount>((arith_uint256(dfchtlc->amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+            order->amountToFill -= calcedAmount;
         }
 
         if (order->amountToFill==0)
@@ -1378,18 +1437,17 @@ public:
             order->closeTx=claimdfchtlc.creationTx;
             order->closeHeight = height;
             res = mnview.ICXCloseOrderTx(*order, CICXOrder::STATUS_FILLED);
-            if (!res.ok) {
+            if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
         }
-        }
+        
         return mnview.ICXClaimDFCHTLC(claimdfchtlc,*order);
     }
 
     Res operator()(const CICXCloseOrderMessage& obj) const {
         auto res = CheckICXTx();
-        if (!res) {
+        if (!res)
             return res;
-        }
 
         CICXCloseOrderImplemetation closeorder;
         static_cast<CICXCloseOrder&>(closeorder) = obj;
@@ -1416,30 +1474,24 @@ public:
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL && order->amountToFill > 0)
         {
-            // subtract the balance from txidaddr and return to owner
-            CTokenAmount amount={order->idToken,order->amountToFill};
-            CScript txidaddr(order->creationTx.begin(),order->creationTx.end());
-            res = mnview.AddBalance(txidaddr,amount);
-            if (!res.ok) {
+            // subtract the balance from txidAddr and return to owner
+            CScript txidAddr(order->creationTx.begin(),order->creationTx.end());
+            res = ModifyTokenBalance(order->idToken, order->amountToFill, txidAddr, order->ownerAddress);
+            if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
-            }
-            res = mnview.SubBalance(order->ownerAddress,amount);
-            if (!res.ok) {
-                return Res::Err("%s: %s", __func__, res.msg);
-            }
         }
 
         res = mnview.ICXCloseOrder(closeorder);
         if (!res)
             return res;
+
         return mnview.ICXCloseOrderTx(*order,CICXOrder::STATUS_CLOSED);
     }
 
     Res operator()(const CICXCloseOfferMessage& obj) const {
         auto res = CheckICXTx();
-        if (!res) {
+        if (!res)
             return res;
-        }
 
         CICXCloseOfferImplemetation closeoffer;
         static_cast<CICXCloseOffer&>(closeoffer) = obj;
@@ -1448,39 +1500,29 @@ public:
         closeoffer.creationHeight = height;
 
         std::unique_ptr<CICXMakeOfferImplemetation> offer;
-        if (!(offer = mnview.GetICXMakeOfferByCreationTx(closeoffer.offerTx))) {
+        if (!(offer = mnview.GetICXMakeOfferByCreationTx(closeoffer.offerTx)))
             return Res::Err("order with creation tx %s does not exists!", closeoffer.offerTx.GetHex());
-        }
         std::unique_ptr<CICXOrderImplemetation> order;
-        if (!(order = mnview.GetICXOrderByCreationTx(offer->orderTx))) {
+        if (!(order = mnview.GetICXOrderByCreationTx(offer->orderTx)))
             return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
-        }
-        if (!offer->closeTx.IsNull()) {
+        if (!offer->closeTx.IsNull())
             return Res::Err("order with creation tx %s is already closed!", closeoffer.offerTx.GetHex());
-        }
 
         const Coin& auth = coins.AccessCoin(COutPoint(offer->creationTx, 1)); // always n=1 output
         // check auth
-        if (!HasAuth(auth.out.scriptPubKey)) {
+        if (!HasAuth(auth.out.scriptPubKey))
             return Res::Err("%s: %s", __func__, "tx must have at least one input from order owner");
-        }
 
         offer->closeTx = closeoffer.creationTx;
         offer->closeHeight = closeoffer.creationHeight;
 
         if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
-            // subtract the balance from txidaddr and return to owner
-            CTokenAmount amount={order->idToken,offer->amount};
-            CScript txidaddr(offer->creationTx.begin(),offer->creationTx.end());
-            res = mnview.SubBalance(txidaddr,amount);
-            if (!res.ok) {
+            // subtract the balance from txidAddr and return to owner
+            CScript txidAddr(offer->creationTx.begin(),offer->creationTx.end());
+            res = ModifyTokenBalance(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
+            if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
-            }
-            res = mnview.AddBalance(offer->ownerAddress,amount);
-            if (!res.ok) {
-                return Res::Err("%s: %s", __func__, res.msg);
-            }
         }
 
         res = mnview.ICXCloseOffer(closeoffer);

@@ -2643,14 +2643,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (offer)
                 {
                     auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
+                    CScript txidAddr(offer->creationTx.begin(),offer->creationTx.end());
 
                     if (order && order->orderType == CICXOrder::TYPE_EXTERNAL)
                     {
                         CTokenAmount amount({order->idToken,offer->amount});
-                        CScript txidaddr = CScript(offer->creationTx.begin(),offer->creationTx.end());
-                        auto res = cache.SubBalance(txidaddr,amount);
+                        auto res = cache.SubBalance(txidAddr,amount);
                         if (!res)
-                            LogPrintf("Can't subtract balance from offer txidaddr: %s\n", res.msg);
+                            LogPrintf("Can't subtract balance from offer txidAddr: %s\n", res.msg);
                         if (res.ok)
                         {
                             res = cache.AddBalance(offer->ownerAddress,amount);
@@ -2658,6 +2658,18 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                 LogPrintf("Can't add balance back to owner: %s\n", res.msg);
                         }
                     }
+
+                    DCT_ID idDFI{0};
+                    CTokenAmount takerFee({idDFI,offer->takerFee});
+                    auto res = cache.SubBalance(txidAddr,takerFee);
+                    if (!res)
+                        LogPrintf("Can't subtract takerFee from offer txidAddr: %s\n", res.msg);
+                    if (res.ok)
+                    {
+                        res = cache.AddBalance(offer->ownerAddress,takerFee);
+                        if (!res)
+                            LogPrintf("Can't refund takerFee back to owner: %s\n", res.msg);
+                    }                
 
                     if (res.ok)
                     {

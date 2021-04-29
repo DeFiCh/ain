@@ -21,6 +21,8 @@ public:
     static const uint8_t STATUS_CLOSED;
     static const uint8_t STATUS_FILLED;
     static const uint8_t STATUS_EXPIRED;
+    static const uint8_t DFI_TOKEN_ID;
+    static const std::string CHAIN_BTC;
 
     //! basic properties
     uint8_t orderType; //is maker buying or selling DFC asset to know which htlc to come first
@@ -108,6 +110,7 @@ public:
     static const uint8_t STATUS_OPEN;
     static const uint8_t STATUS_CLOSED;
     static const uint8_t STATUS_EXPIRED;
+    static const int64_t TAKER_FEE_PER_BTC;
 
     //! basic properties
     uint256 orderTx; // txid for which order is the offer
@@ -115,6 +118,7 @@ public:
     std::vector<uint8_t> receiveDestination; // address or pubkey of receiving asset
     CScript ownerAddress; // address of token asset in case of EXT/DFC order
     uint32_t expiry; // when the offer exipres in number of blocks
+    CAmount takerFee;
 
     CICXMakeOffer()
         : orderTx(uint256())

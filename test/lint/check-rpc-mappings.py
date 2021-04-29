@@ -24,6 +24,7 @@ SOURCES = [
     "src/masternodes/rpc_tokens.cpp",
     "src/masternodes/rpc_poolpair.cpp",
     "src/masternodes/rpc_oracles.cpp",
+    "src/masternodes/rpc_icxorderbook.cpp",
     "src/spv/spv_rpc.cpp",
 ]
 # Source file (relative to root) containing conversion mapping

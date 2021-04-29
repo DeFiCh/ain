@@ -241,16 +241,16 @@ public:
             rpcInfo.pushKV("chainFrom", obj.chain);
             rpcInfo.pushKV("tokenTo", token->CreateSymbolKey(obj.idToken));
         }
-        rpcInfo.pushKV("amountFrom", obj.amountFrom);
-        rpcInfo.pushKV("amountToFill", obj.amountToFill);
-        rpcInfo.pushKV("orderPrice", obj.orderPrice);
+        rpcInfo.pushKV("amountFrom", ValueFromAmount(obj.amountFrom));
+        rpcInfo.pushKV("amountToFill", ValueFromAmount(obj.amountToFill));
+        rpcInfo.pushKV("orderPrice", ValueFromAmount(obj.orderPrice));
         rpcInfo.pushKV("expiry", static_cast<int>(obj.expiry));
     }
 
     void operator()(const CICXMakeOfferMessage& obj) const {
         auto order = mnview.GetICXOrderByCreationTx(obj.orderTx);
         rpcInfo.pushKV("orderTx", obj.orderTx.GetHex());
-        rpcInfo.pushKV("amount", obj.amount); 
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.amount)); 
         if (order->orderType == order->TYPE_INTERNAL)
             rpcInfo.pushKV("receiveAddress", ScriptToString(CScript(obj.receiveDestination.begin(),obj.receiveDestination.end())));
         else
@@ -266,7 +266,7 @@ public:
         auto offer = mnview.GetICXMakeOfferByCreationTx(obj.offerTx);
         auto order = mnview.GetICXOrderByCreationTx(offer->orderTx);
         rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
-        rpcInfo.pushKV("amount", obj.amount);
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.amount));
         rpcInfo.pushKV("receiveAddress", ScriptToString(obj.receiveAddress));
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
             rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
@@ -278,7 +278,7 @@ public:
         auto offer = mnview.GetICXMakeOfferByCreationTx(obj.offerTx);
         auto order = mnview.GetICXOrderByCreationTx(offer->orderTx);
         rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
-        rpcInfo.pushKV("amount", obj.amount);
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.amount));
         if (order->orderType == CICXOrder::TYPE_EXTERNAL)
                     rpcInfo.pushKV("receiveAddress", ScriptToString(obj.receiveAddress));
         rpcInfo.pushKV("hash", obj.hash.GetHex());

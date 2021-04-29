@@ -29,11 +29,14 @@ const uint8_t CICXOrder::STATUS_OPEN = 0;
 const uint8_t CICXOrder::STATUS_CLOSED = 1;
 const uint8_t CICXOrder::STATUS_FILLED = 2;
 const uint8_t CICXOrder::STATUS_EXPIRED = 3;
+const uint8_t CICXOrder::DFI_TOKEN_ID = 0;
+const std::string CICXOrder::CHAIN_BTC = "BTC";
 
 const uint32_t CICXMakeOffer::DEFAULT_EXPIRY = 100;
 const uint8_t CICXMakeOffer::STATUS_OPEN = 0;
 const uint8_t CICXMakeOffer::STATUS_CLOSED = 1;
 const uint8_t CICXMakeOffer::STATUS_EXPIRED = 2;
+const int64_t CICXMakeOffer::TAKER_FEE_PER_BTC = 0.1;
 
 const uint32_t CICXSubmitDFCHTLC::DEFAULT_TIMEOUT = 100;
 const uint8_t CICXSubmitDFCHTLC::STATUS_OPEN = 0;
