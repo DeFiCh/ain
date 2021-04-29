@@ -366,6 +366,34 @@ static UniValue setmocktime(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
+static UniValue setmockcheckpoint(const JSONRPCRequest& request)
+{
+            RPCHelpMan{"setmockcheckpoint",
+                "\nSet checkpoint record (-regtest only)\n",
+                {
+                    {"height", RPCArg::Type::NUM, RPCArg::Optional::NO, "block height"},
+                    {"blockhash", RPCArg::Type::STR, RPCArg::Optional::NO, "block hash"},
+                },
+                RPCResults{},
+                RPCExamples{""},
+            }.Check(request);
+
+    if (!Params().MineBlocksOnDemand())
+        throw std::runtime_error("setmockcheckpoint for regression testing (-regtest mode) only");
+
+
+    LOCK(cs_main);
+
+    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VSTR});
+
+    int height = request.params[0].get_int();
+    uint256 hash = ParseHashV(request.params[1], "blockhash");
+
+    const_cast<MapCheckpoints&>(Params().Checkpoints().mapCheckpoints).emplace(height, hash);
+
+    return NullUniValue;
+}
+
 static UniValue RPCLockedMemoryInfo()
 {
     LockedPool::Stats stats = LockedPoolManager::Instance().stats();
@@ -567,6 +595,7 @@ static const CRPCCommand commands[] =
 
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            {"timestamp"}},
+    { "hidden",             "setmockcheckpoint",      &setmockcheckpoint,      {"height","blockhash"}},
     { "hidden",             "echo",                   &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
     { "hidden",             "echojson",               &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
 };
