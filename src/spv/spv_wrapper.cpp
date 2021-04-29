@@ -687,10 +687,11 @@ UniValue CSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, 
     auto dest = GetDestinationForKey(new_key, OutputType::BECH32);
     pwallet->SetAddressBook(dest, "spv", "spv");
 
-    BRTransaction *tx = BRWalletCreateTransaction(wallet, static_cast<uint64_t>(amount), address.c_str(), changeAddress, feeRate);
+    std::string errorMsg;
+    BRTransaction *tx = BRWalletCreateTransaction(wallet, static_cast<uint64_t>(amount), address.c_str(), changeAddress, feeRate, errorMsg);
 
     if (tx == nullptr) {
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, errorMsg);
     }
 
     std::vector<BRKey> inputKeys;
@@ -1109,6 +1110,11 @@ UniValue CSpvWrapper::GetAllAddress()
     return ret;
 }
 
+uint64_t CSpvWrapper::GetFeeRate()
+{
+    return BRWalletFeePerKb(wallet);
+}
+
 void publishedTxCallback(void *info, int error)
 {
     LogPrint(BCLog::SPV, "publishedTxCallback: %s\n", strerror(error));
@@ -1230,6 +1236,7 @@ UniValue CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const char* 
 
     // Calculate and set fee
     int64_t sigSize = 73 /* sig */ + 1 /* sighash */ + seedBytes.size() + 1 /* OP_1 || size */ + 1 /* pushdata */ + script.size();
+    feerate = std::max(feerate, BRWalletFeePerKb(wallet));
     CAmount const minFee = BRTransactionHTLCSize(tx, sigSize) * feerate / TX_FEE_PER_KB;
 
     if (inputTotal < minFee + static_cast<CAmount>(P2PKH_DUST))

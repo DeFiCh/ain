@@ -1753,7 +1753,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         // Enable the anchors and spv by default
         bool anchorsEnabled = true; 
-        panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", anchorsEnabled) && gArgs.GetBoolArg("-spv_resync", false) /*fReset || fReindexChainState*/);
+        panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", anchorsEnabled) && gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
 
         // load anchors after spv due to spv (and spv height) not set before (no last height yet)
         if (gArgs.GetBoolArg("-spv", anchorsEnabled)) {
@@ -1761,9 +1761,9 @@ bool AppInitMain(InitInterfaces& interfaces)
             if (Params().NetworkIDString() == "regtest") {
                 spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
             } else if (Params().NetworkIDString() == "test" || Params().NetworkIDString() == "devnet") {
-                spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
+                spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
             } else {
-                spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", false));
+                spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
             }
         }
         panchors->Load();
