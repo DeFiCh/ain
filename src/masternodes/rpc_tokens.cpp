@@ -735,6 +735,85 @@ UniValue minttokens(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue decodecustomtx(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"decodecustomtx",
+        "\nGet detailed information about a DeFiChain custom transaction.\n",
+        {
+            {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction hex string"},
+            {"iswitness", RPCArg::Type::BOOL, /* default */ "depends on heuristic tests", "Whether the transaction hex is a serialized witness transaction.\n"
+                "If iswitness is not present, heuristic tests will be used in decoding.\n"
+                "If true, only witness deserialization will be tried.\n"
+                "If false, only non-witness deserialization will be tried.\n"
+                "This boolean should reflect whether the transaction has inputs\n"
+                "(e.g. fully valid, or on-chain transactions), if known by the caller."
+            },
+        },
+        RPCResult{
+            "{\n"
+            "  \"txid\":               (string) The transaction id.\n"
+            "  \"type\":               (string) The transaction type.\n"
+            "  \"valid\"               (bool) Whether the transaction was valid.\n"
+            "  \"results\"             (json object) Set of results related to the transaction type\n"
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("decodecustomtx", "\"hexstring\"")
+            + HelpExampleRpc("decodecustomtx", "\"hexstring\"")
+        },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
+
+    bool try_witness = request.params[1].isNull() ? true : request.params[1].get_bool();
+    bool try_no_witness = request.params[1].isNull() ? true : !request.params[1].get_bool();
+
+    CMutableTransaction mtx;
+    if (!DecodeHexTx(mtx, request.params[0].get_str(), try_no_witness, try_witness)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    }
+
+    int nHeight{0};
+    CustomTxType guess;
+    UniValue txResults(UniValue::VOBJ);
+    Res res{};
+    CTransactionRef tx = MakeTransactionRef(std::move(mtx));
+    std::string warnings;
+
+    if (tx)
+    {
+        LOCK(cs_main);
+        // Default to INT_MAX
+        nHeight = std::numeric_limits<int>::max();
+
+        // Skip coinbase TXs except for genesis block
+        if ((tx->IsCoinBase() && nHeight > 0)) {
+            return "Coinbase transaction. Not a custom transaction.";
+        }
+        //get custom tx info. We pass nHeight INT_MAX,
+        //just to get over hardfork validations. txResults are based on transaction metadata.
+        res = RpcInfo(*tx, nHeight, guess, txResults);
+        if (guess == CustomTxType::None) {
+            return "Not a custom transaction";
+        }
+
+        UniValue result(UniValue::VOBJ);
+        result.pushKV("txid", tx->GetHash().GetHex());
+        result.pushKV("type", ToString(guess));
+        result.pushKV("valid", res.ok ? true : false); // no actual block height
+        if (!res.ok) {
+            result.pushKV("error", res.msg);
+        } else {
+            result.pushKV("results", txResults);
+        }
+        
+        return result;
+    } else {
+        // Should not get here without prior failure.
+        return "Could not decode the input transaction hexstring.";
+    }
+}
+
 static const CRPCCommand commands[] =
 { 
 //  category        name                     actor (function)        params
@@ -745,6 +824,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "gettoken",              &gettoken,              {"key" }},
     {"tokens",      "getcustomtx",           &getcustomtx,           {"txid", "blockhash"}},
     {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
+    {"tokens",      "decodecustomtx",        &decodecustomtx,        {"hexstring", "iswitness"}},
 };
 
 void RegisterTokensRPCCommands(CRPCTable& tableRPC) {
