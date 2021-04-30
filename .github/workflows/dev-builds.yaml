@@ -33,7 +33,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
         with:
-          driver-opts: network=host
+          driver: docker
 
       - name: Build image
         run: ./make.sh docker-release-git
