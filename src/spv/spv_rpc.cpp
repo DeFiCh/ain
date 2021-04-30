@@ -1415,6 +1415,29 @@ static UniValue spv_getalladdresses(const JSONRPCRequest& request)
     return spv::pspv->GetAllAddress();
 }
 
+static UniValue spv_getfeerate(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_getfeerate",
+               "\nReturns current fee rate in Sats per KB.\n",
+               {
+               },
+               RPCResult{
+                       "nnnn                  (Fee rate)\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("spv_getfeerate", "")
+                       + HelpExampleRpc("spv_getfeerate", "")
+               },
+    }.Check(request);
+
+    if (!spv::pspv)
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    return spv::pspv->GetFeeRate();
+}
+
 
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
@@ -1448,6 +1471,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_listreceivedbyaddress",  &spv_listreceivedbyaddress, { "minconf", "address_filter" }  },
   { "spv",      "spv_validateaddress",        &spv_validateaddress,       { "address"}  },
   { "spv",      "spv_getalladdresses",        &spv_getalladdresses,       { }  },
+  { "spv",      "spv_getfeerate",             &spv_getfeerate,            { }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
   { "hidden",   "spv_fundaddress",            &spv_fundaddress,           { "address" }  },
 };

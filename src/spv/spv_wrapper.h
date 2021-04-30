@@ -152,6 +152,7 @@ public:
 
     // Bitcoin Transaction related calls
     int64_t GetBitcoinBalance();
+    uint64_t GetFeeRate();
     std::string GetRawTransactions(uint256& hash);
     UniValue ListTransactions();
     UniValue ListReceived(int nMinDepth, std::string address);
