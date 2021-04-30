@@ -955,7 +955,7 @@ int BRWalletAddressIsUsed(BRWallet *wallet, const char *addr)
 
 // returns an unsigned transaction that sends the specified amount from the wallet to the given address
 // result must be freed by calling BRTransactionFree()
-BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, const char *addr, std::string changeAddress, uint64_t feeRate)
+BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, const char *addr, std::string changeAddress, uint64_t feeRate, std::string& errorMsg)
 {
     BRTxOutput o = BR_TX_OUTPUT_NONE;
 
@@ -964,12 +964,12 @@ BRTransaction *BRWalletCreateTransaction(BRWallet *wallet, uint64_t amount, cons
     assert(addr != NULL && BRAddressIsValid(addr));
     o.amount = amount;
     BRTxOutputSetAddress(&o, addr);
-    return BRWalletCreateTxForOutputs(wallet, &o, 1, changeAddress, feeRate);
+    return BRWalletCreateTxForOutputs(wallet, &o, 1, changeAddress, errorMsg, feeRate);
 }
 
 // returns an unsigned transaction that satisifes the given transaction outputs
 // result must be freed by calling BRTransactionFree()
-BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput outputs[], size_t outCount, std::string changeAddress, uint64_t feeRate)
+BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput outputs[], size_t outCount, std::string changeAddress, std::string& errorMsg, uint64_t feeRate)
 {
     BRTransaction *tx, *transaction = BRTransactionNew();
     uint64_t feeAmount, amount = 0, balance = 0, minAmount;
@@ -1015,9 +1015,10 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
         if (BRTransactionVSize(transaction) + TX_OUTPUT_SIZE > TX_MAX_SIZE) { // transaction size-in-bytes too large
             BRTransactionFree(transaction);
             transaction = NULL;
+            errorMsg = "Transaction too large";
 
             // check for sufficient total funds before building a smaller transaction
-            if (wallet->balance < amount + _txFee(wallet->feePerKb, 10 + array_count(wallet->utxos)*TX_INPUT_SIZE +
+            if (wallet->balance < amount + _txFee(feeRate, 10 + array_count(wallet->utxos)*TX_INPUT_SIZE +
                                                   (outCount + 1)*TX_OUTPUT_SIZE)) {
                 break;
             }
@@ -1032,9 +1033,9 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
                 }
 
                 newOutputs[outCount - 1].amount -= amount + feeAmount - balance; // reduce last output amount
-                transaction = BRWalletCreateTxForOutputs(wallet, newOutputs, outCount, changeAddress);
+                transaction = BRWalletCreateTxForOutputs(wallet, newOutputs, outCount, changeAddress, errorMsg);
             }
-            else transaction = BRWalletCreateTxForOutputs(wallet, outputs, outCount - 1, changeAddress); // remove last output
+            else transaction = BRWalletCreateTxForOutputs(wallet, outputs, outCount - 1, changeAddress, errorMsg); // remove last output
 
             balance = amount = feeAmount = 0;
             wallet->lock.lock();
@@ -1059,6 +1060,13 @@ BRTransaction *BRWalletCreateTxForOutputs(BRWallet *wallet, const BRTxOutput out
     if (transaction && (outCount < 1 || balance < amount + feeAmount)) { // no outputs/insufficient funds
         BRTransactionFree(transaction);
         transaction = NULL;
+        if (outCount < 1 ) {
+            errorMsg = "No transaction outputs";
+        } else if (balance < amount) {
+            errorMsg = "Insufficient funds";
+        } else if (balance < amount + feeAmount) {
+            errorMsg = "Insufficient funds to cover fee";
+        }
     }
     else if (transaction && balance - (amount + feeAmount) > minAmount) { // add change output
         BRWalletUnusedAddrs(wallet, &addr, 1, 1);
@@ -1529,7 +1537,8 @@ uint64_t BRWalletFeeForTxAmount(BRWallet *wallet, uint64_t amount)
     maxAmount = BRWalletMaxOutputAmount(wallet);
     o.amount = (amount < maxAmount) ? amount : maxAmount;
     BRTxOutputSetScript(&o, dummyScript, sizeof(dummyScript)); // unspendable dummy scriptPubKey
-    tx = BRWalletCreateTxForOutputs(wallet, &o, 1, {});
+    std::string errorMsg;
+    tx = BRWalletCreateTxForOutputs(wallet, &o, 1, {}, errorMsg);
 
     if (tx) {
         fee = BRWalletFeeForTx(wallet, tx);
