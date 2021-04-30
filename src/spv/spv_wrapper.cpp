@@ -683,10 +683,11 @@ UniValue CSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, 
     auto dest = GetDestinationForKey(new_key, OutputType::BECH32);
     pwallet->SetAddressBook(dest, "spv", "spv");
 
-    BRTransaction *tx = BRWalletCreateTransaction(wallet, static_cast<uint64_t>(amount), address.c_str(), changeAddress, feeRate);
+    std::string errorMsg;
+    BRTransaction *tx = BRWalletCreateTransaction(wallet, static_cast<uint64_t>(amount), address.c_str(), changeAddress, feeRate, errorMsg);
 
     if (tx == nullptr) {
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, errorMsg);
     }
 
     std::vector<BRKey> inputKeys;
