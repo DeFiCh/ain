@@ -43,6 +43,24 @@ jobs:
       with:
         name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
         path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+        
+    # Linux build additionally pushes the docker images to docker hub on successful build
+    - name: Tag dockerhub build
+      if: ${{ github.repository == 'DeFiCh/ain' }}
+      run: >
+        docker tag defichain-x86_64-pc-linux-gnu:${{ env.BUILD_VERSION }}
+        defichain-x86_64-pc-linux-gnu:dockerhub-latest
+    - uses: docker/build-push-action@3e7a4f6646880c6f63758d73ac32392d323eaf8f
+    # Make sure to only build on ain repo. Also add in additional restrictions here if needed to
+    # make sure we don't push unnecessary images to docker
+      if: ${{ github.repository == 'DeFiCh/ain' }}
+      with:
+        username: ${{ secrets.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+        path: ./contrib/dockerfiles/dockerhub
+        dockerfile: ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile
+        repository: defi/defichain
+        tags: latest,${{ env.BUILD_VERSION }}
 
   windows:
     runs-on: ${{ matrix.os }}
