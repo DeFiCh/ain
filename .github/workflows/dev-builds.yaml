@@ -60,7 +60,7 @@ jobs:
         path: ./contrib/dockerfiles/dockerhub
         dockerfile: ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile
         repository: defi/defichain
-        tags: latest,${{ env.BUILD_VERSION }}
+        tags: ${{ env.BUILD_VERSION }}
 
   windows:
     runs-on: ${{ matrix.os }}
