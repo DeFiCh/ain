@@ -5,25 +5,25 @@
 #include <base58.h>
 #include <chainparams.h>
 #include <core_io.h>
-#include <rpc/client.h>
 #include <rpc/server.h>
 #include <rpc/protocol.h>
 #include <rpc/util.h>
 #include <masternodes/anchors.h>
-#include <masternodes/masternodes.h>
 #include <masternodes/mn_rpc.h>
 #include <spv/btctransaction.h>
 #include <spv/spv_wrapper.h>
 #include <univalue/include/univalue.h>
 
 //#ifdef ENABLE_WALLET
-#include <wallet/coincontrol.h>
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 //#endif
 
 #include <stdexcept>
 #include <future>
+
+// Minimum allowed block count in HTLC contract
+const uint32_t HTLC_MINIMUM_BLOCK_COUNT{9};
 
 UniValue spv_sendrawtx(const JSONRPCRequest& request)
 {
@@ -829,6 +829,43 @@ UniValue spv_decodehtlcscript(const JSONRPCRequest& request)
     return result;
 }
 
+CPubKey PublickeyFromString(const std::string &pubkey)
+{
+    if (!IsHex(pubkey) || (pubkey.length() != 66 && pubkey.length() != 130))
+    {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key: " + pubkey);
+    }
+
+    return HexToPubKey(pubkey);
+}
+
+CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t& blocks, std::vector<unsigned char>& image)
+{
+    CPubKey seller_key = PublickeyFromString(request.params[0].get_str());
+    CPubKey refund_key = PublickeyFromString(request.params[1].get_str());
+
+    {
+        UniValue timeout;
+        if (!timeout.read(std::string("[") + request.params[2].get_str() + std::string("]")) || !timeout.isArray() || timeout.size() != 1)
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, "Error parsing JSON: " + request.params[3].get_str());
+        }
+
+        blocks = timeout[0].get_int();
+    }
+
+    if (blocks >= CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG)
+    {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid block denominated relative timeout");
+    }
+    else if (blocks < HTLC_MINIMUM_BLOCK_COUNT)
+    {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Timeout below minimum of " + std::to_string(HTLC_MINIMUM_BLOCK_COUNT));
+    }
+
+    return GetScriptForHTLC(seller_key, refund_key, image, blocks);
+}
+
 UniValue spv_createhtlc(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
@@ -839,7 +876,7 @@ UniValue spv_createhtlc(const JSONRPCRequest& request)
         {
             {"receiverPubkey", RPCArg::Type::STR, RPCArg::Optional::NO, "The public key of the possessor of the seed"},
             {"ownerPubkey", RPCArg::Type::STR, RPCArg::Optional::NO, "The public key of the recipient of the refund"},
-            {"timeout", RPCArg::Type::STR, RPCArg::Optional::NO, "Timeout of the contract (denominated in blocks) relative to its placement in the blockchain"},
+            {"timeout", RPCArg::Type::STR, RPCArg::Optional::NO, "Timeout of the contract (denominated in blocks) relative to its placement in the blockchain. Minimum " + std::to_string(HTLC_MINIMUM_BLOCK_COUNT) + "."},
             {"seed", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "SHA256 hash of the seed. If none provided one will be generated"},
         },
         RPCResult{

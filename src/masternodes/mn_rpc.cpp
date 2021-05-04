@@ -380,39 +380,6 @@ CWallet* GetWallet(const JSONRPCRequest& request) {
     return pwallet;
 }
 
-CPubKey PublickeyFromString(const std::string &pubkey)
-{
-    if (!IsHex(pubkey) || (pubkey.length() != 66 && pubkey.length() != 130))
-    {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key: " + pubkey);
-    }
-
-    return HexToPubKey(pubkey);
-}
-
-CScript CreateScriptForHTLC(const JSONRPCRequest& request, uint32_t& blocks, std::vector<unsigned char>& image)
-{
-    CPubKey seller_key = PublickeyFromString(request.params[0].get_str());
-    CPubKey refund_key = PublickeyFromString(request.params[1].get_str());
-
-    {
-        UniValue timeout;
-        if (!timeout.read(std::string("[") + request.params[2].get_str() + std::string("]")) || !timeout.isArray() || timeout.size() != 1)
-        {
-            throw JSONRPCError(RPC_TYPE_ERROR, "Error parsing JSON: " + request.params[3].get_str());
-        }
-
-        blocks = timeout[0].get_int();
-    }
-
-    if (blocks >= CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG)
-    {
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid block denominated relative timeout");
-    }
-
-    return GetScriptForHTLC(seller_key, refund_key, image, blocks);
-}
-
 UniValue setgov(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
