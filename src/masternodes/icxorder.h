@@ -23,6 +23,7 @@ public:
     static const uint8_t STATUS_EXPIRED;
     static const uint8_t DFI_TOKEN_ID;
     static const std::string CHAIN_BTC;
+    static const std::string TOKEN_BTC;
 
     //! basic properties
     uint8_t orderType; //is maker buying or selling DFC asset to know which htlc to come first
@@ -107,6 +108,7 @@ class CICXMakeOffer
 {
 public:
     static const uint32_t DEFAULT_EXPIRY; // default period in blocks after offer automatically expires
+    static const uint32_t MAKER_DEPOSIT_REFUND_TIMEOUT; // minimum period in DFC blocks in which 2nd HTLC must be created, otherwise makerDeposit is refunded to maker
     static const uint8_t STATUS_OPEN;
     static const uint8_t STATUS_CLOSED;
     static const uint8_t STATUS_EXPIRED;
@@ -126,6 +128,7 @@ public:
         , receiveDestination()
         , ownerAddress()
         , expiry(DEFAULT_EXPIRY)
+        , takerFee(0)
     {}
 
     virtual ~CICXMakeOffer() = default;
@@ -139,6 +142,7 @@ public:
         READWRITE(receiveDestination);
         READWRITE(ownerAddress);
         READWRITE(expiry);
+        READWRITE(takerFee);
     }
 };
 
@@ -191,6 +195,7 @@ public:
     static const uint8_t STATUS_OPEN;
     static const uint8_t STATUS_CLAIMED;
     static const uint8_t STATUS_REFUNDED;
+    static const uint8_t STATUS_EXPIRED;
 
     // This tx is acceptance of the offer, HTLC tx and evidence of HTLC on DFC in the same time. It is a CustomTx on DFC chain
     //! basic properties
@@ -263,7 +268,10 @@ struct CICXSubmitDFCHTLCMessage : public CICXSubmitDFCHTLC {
 class CICXSubmitEXTHTLC
 {
 public:
+    static const uint32_t DEFAULT_TIMEOUT; // default period in blocks after htlc timeouts and makerDeposit can be 
     static const uint8_t STATUS_OPEN;
+    static const uint8_t STATUS_EXPIRED;
+
 
     // This tx is acceptance of the offer and evidence of HTLC on external chain in the same time. It is a CustomTx on DFC chain
     //! basic properties
@@ -506,6 +514,8 @@ struct CICXCloseOfferMessage : public CICXCloseOffer {
 
 class CICXOrderView : public virtual CStorageView {
 public:
+    static const CAmount DEFAULT_DFI_BTC_PRICE;
+
     typedef std::pair<DCT_ID,std::string> AssetPair;
     typedef std::pair<AssetPair,uint256> OrderKey;
     typedef std::pair<uint256,uint256> TxidPairKey;
@@ -539,7 +549,7 @@ public:
     //SubmitDFCHTLC
     std::unique_ptr<CICXSubmitDFCHTLCImpl> GetICXSubmitDFCHTLCByCreationTx(uint256 const & txid) const;
     ResVal<uint256> ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & dfchtlc);
-    Res ICXRefundDFCHTLC(CICXSubmitDFCHTLCImpl const & dfchtlc);
+    Res ICXCloseDFCHTLC(CICXSubmitDFCHTLCImpl const & dfchtlc, uint8_t const);
     void ForEachICXSubmitDFCHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitDFCHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitDFCHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
@@ -548,7 +558,8 @@ public:
     std::unique_ptr<CICXSubmitEXTHTLCImpl> GetICXSubmitEXTHTLCByCreationTx(uint256 const & txid) const;
     ResVal<uint256> ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & dfchtlc);
     void ForEachICXSubmitEXTHTLC(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
-   
+    void ForEachICXSubmitEXTHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
+    
     //ClaimDFCHTLC
     std::unique_ptr<CICXClaimDFCHTLCImpl> GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const;
     ResVal<uint256> ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, CICXOrderImpl const & order);
@@ -561,6 +572,10 @@ public:
     //CloseOrder
     std::unique_ptr<CICXCloseOfferImpl> GetICXCloseOfferByCreationTx(uint256 const & txid) const;
     ResVal<uint256> ICXCloseOffer(CICXCloseOfferImpl const & closeoffer);
+
+    Res ICXSetDFIBTCPoolPairId(uint32_t const height, DCT_ID const & poolId);
+    DCT_ID ICXGetDFIBTCPoolPairId(uint32_t const height);
+
 
     struct ICXOrderCreationTx { static const unsigned char prefix; };
     struct ICXMakeOfferCreationTx { static const unsigned char prefix; };
@@ -582,6 +597,9 @@ public:
     struct ICXOrderStatus { static const unsigned char prefix; };
     struct ICXOfferStatus { static const unsigned char prefix; };
     struct ICXSubmitDFCHTLCStatus { static const unsigned char prefix; };
+    struct ICXSubmitEXTHTLCStatus { static const unsigned char prefix; };
+
+    struct ICXDFIBTCPoolPairId { static const unsigned char prefix; };
 };
 
 #endif // DEFI_MASTERNODES_ICXORDER_H

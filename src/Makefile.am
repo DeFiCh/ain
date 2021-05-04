@@ -158,6 +158,7 @@ DEFI_CORE_H = \
   masternodes/communityaccounttypes.h \
   masternodes/criminals.h \
   masternodes/factory.h \
+  masternodes/govvariables/icx_dfibtc_poolpair.h \
   masternodes/govvariables/lp_daily_dfi_reward.h \
   masternodes/govvariables/lp_splits.h \
   masternodes/gv.h \
@@ -369,6 +370,7 @@ libdefi_server_a_SOURCES = \
   masternodes/anchors.cpp \
   masternodes/criminals.cpp \
   masternodes/oracles.cpp \
+  masternodes/govvariables/icx_dfibtc_poolpair.cpp \
   masternodes/govvariables/lp_daily_dfi_reward.cpp \
   masternodes/govvariables/lp_splits.cpp \
   masternodes/gv.cpp \
