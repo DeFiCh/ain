@@ -175,6 +175,12 @@ struct Params {
     };
     SpvParams spv;
 
+    struct OperatorParams {
+        CAmount creationFee;
+        int operatorNameMaxLen;
+        int operatorURLMaxLen;
+    } oprtr;
+
     std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
     std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;
 };

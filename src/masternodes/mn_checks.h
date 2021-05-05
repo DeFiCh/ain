@@ -10,6 +10,7 @@
 #include <consensus/tx_check.h>
 #include <vector>
 #include <cstring>
+#include <masternodes/operators.h>
 
 #include <boost/variant.hpp>
 
@@ -65,6 +66,9 @@ enum class CustomTxType : uint8_t
     RemoveOracleAppoint   = 'h',
     UpdateOracleAppoint   = 't',
     SetOracleData         = 'y',
+    // operators
+    CreateOperator        = 'O',
+    UpdateOperator        = 'Z',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -91,6 +95,8 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::RemoveOracleAppoint:
         case CustomTxType::UpdateOracleAppoint:
         case CustomTxType::SetOracleData:
+        case CustomTxType::CreateOperator:
+        case CustomTxType::UpdateOperator:
         case CustomTxType::None:
             return type;
     }
@@ -238,7 +244,9 @@ typedef boost::variant<
     CAppointOracleMessage,
     CRemoveOracleAppointMessage,
     CUpdateOracleAppointMessage,
-    CSetOracleDataMessage
+    CSetOracleDataMessage,
+    CCreateOperatorMessage,
+    CUpdateOperatorMessage
 > CCustomTxMessage;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);

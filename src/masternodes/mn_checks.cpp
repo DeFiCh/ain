@@ -7,6 +7,7 @@
 #include <masternodes/balances.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/oracles.h>
+#include <masternodes/operators.h>
 #include <masternodes/res.h>
 
 #include <arith_uint256.h>
@@ -49,6 +50,8 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::UpdateOracleAppoint: return "UpdateOracleAppoint";
         case CustomTxType::SetOracleData:       return "SetOracleData";
         case CustomTxType::AutoAuthPrep:        return "AutoAuth";
+        case CustomTxType::CreateOperator:      return "CreateOperator";
+        case CustomTxType::UpdateOperator:      return "UpdateOperator";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -117,6 +120,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     case CustomTxType::UpdateOracleAppoint:     return CUpdateOracleAppointMessage{};
     case CustomTxType::SetOracleData:           return CSetOracleDataMessage{};
     case CustomTxType::AutoAuthPrep:            return CCustomTxMessageNone{};
+    case CustomTxType::CreateOperator:          return CCreateOperatorMessage{};
+    case CustomTxType::UpdateOperator:          return CUpdateOperatorMessage{};
     case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -326,6 +331,18 @@ public:
 
     Res operator()(CSetOracleDataMessage& obj) const {
         auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CCreateOperatorMessage& obj) const {
+        //auto res = isPostEunosFork();
+        auto res = Res::Ok();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CUpdateOperatorMessage& obj) const {
+        //auto res = isPostEunosFork();
+        auto res = Res::Ok();
         return !res ? res : serialize(obj);
     }
 
@@ -1027,6 +1044,17 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
         return mnview.SetOracleData(obj.oracleId, obj.timestamp, obj.tokenPrices);
+    }
+
+    Res operator()(const CCreateOperatorMessage& obj) const {
+        return mnview.CreateOperator(tx.GetHash(), COperator(obj));
+    }
+
+    Res operator()(const CUpdateOperatorMessage& obj) const {
+        if (!HasAuth(obj.newOperator.operatorAddress)) {
+            return Res::Err("tx must have at least one input from operator owner");
+        }
+        return mnview.UpdateOperator(obj.operatorId, COperator(obj.newOperator));
     }
 
     Res operator()(const CCustomTxMessageNone&) const {

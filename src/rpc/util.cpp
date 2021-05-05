@@ -39,6 +39,15 @@ void RPCTypeCheckArgument(const UniValue& value, const UniValueType& typeExpecte
     }
 }
 
+void RPCStringArgumentLengthCheck(const UniValue& value, int maxLength) {
+    if (value.type() != UniValue::VSTR)
+        throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Expected type %s, got %s", uvTypeName(UniValue::VSTR), uvTypeName(value.type())));
+
+    if (value.get_str().size() > maxLength) {
+        throw JSONRPCError(RPC_LENGTH_ERROR, strprintf("Expected max length %d, got %s", maxLength, value.get_str().size()));
+    }
+}
+
 void RPCTypeCheckObj(const UniValue& o,
     const std::map<std::string, UniValueType>& typesExpected,
     bool fAllowNull,

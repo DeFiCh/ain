@@ -5,6 +5,7 @@
 #include <masternodes/mn_checks.h>
 #include <primitives/transaction.h>
 #include <univalue.h>
+#include <masternodes/operators.h>
 
 #include <boost/variant/apply_visitor.hpp>
 #include <boost/variant/static_visitor.hpp>
@@ -224,6 +225,19 @@ public:
             }
         }
         rpcInfo.pushKV("tokenPrices", tokenPrices);
+    }
+
+    void operator()(const CCreateOperatorMessage& obj) const {
+        rpcInfo.pushKV("operatorAddress", ScriptToString(obj.operatorAddress));
+        rpcInfo.pushKV("name", obj.operatorName);
+        rpcInfo.pushKV("url", obj.operatorURL);
+    }
+
+    void operator()(const CUpdateOperatorMessage& obj) const {
+        rpcInfo.pushKV("operatorId", obj.operatorId.ToString());
+        rpcInfo.pushKV("operatorAddress", ScriptToString(obj.newOperator.operatorAddress));
+        rpcInfo.pushKV("name", obj.newOperator.operatorName);
+        rpcInfo.pushKV("url", obj.newOperator.operatorURL);
     }
 
     void operator()(const CCustomTxMessageNone&) const {

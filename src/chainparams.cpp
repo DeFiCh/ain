@@ -309,6 +309,11 @@ public:
             /* nTxCount */ 1091894,
             /* dTxRate  */ 0.1841462153145931
         };
+
+        //Operator params
+        consensus.oprtr.creationFee = 10 * COIN;
+        consensus.oprtr.operatorNameMaxLen = 15;
+        consensus.oprtr.operatorURLMaxLen = 30;
     }
 };
 
@@ -482,6 +487,11 @@ public:
             /* nTxCount */ 178351,
             /* dTxRate  */ 0.03842042178237066
         };
+
+        //Operator params
+        consensus.oprtr.creationFee = 10 * COIN;
+        consensus.oprtr.operatorNameMaxLen = 15;
+        consensus.oprtr.operatorURLMaxLen = 30;
     }
 };
 
@@ -647,6 +657,11 @@ public:
             /* nTxCount */ 0,
             /* dTxRate  */ 0
         };
+
+        //Operator params
+        consensus.oprtr.creationFee = 10 * COIN;
+        consensus.oprtr.operatorNameMaxLen = 15;
+        consensus.oprtr.operatorURLMaxLen = 30;
     }
 };
 
@@ -822,6 +837,11 @@ public:
             0,
             0
         };
+
+        //Operator params
+        consensus.oprtr.creationFee = 10 * COIN;
+        consensus.oprtr.operatorNameMaxLen = 15;
+        consensus.oprtr.operatorURLMaxLen = 30;
     }
 
     /**

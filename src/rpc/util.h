@@ -51,6 +51,11 @@ void RPCTypeCheck(const UniValue& params,
  */
 void RPCTypeCheckArgument(const UniValue& value, const UniValueType& typeExpected);
 
+/**
+ * Length check string argument; throws JSONRPCError if invalid length.
+ */
+void RPCStringArgumentLengthCheck(const UniValue& value, int maxLength);
+
 /*
   Check for expected keys/value types in an Object.
 */
