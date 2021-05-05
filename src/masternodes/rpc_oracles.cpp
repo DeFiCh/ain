@@ -49,11 +49,7 @@ namespace {
         return std::make_pair(token, currency);
     }
 
-    std::set<CTokenCurrencyPair> DecodeTokenCurrencyPairs(const std::string& data) {
-        UniValue values{UniValue::VARR};
-        if (!values.read(data)) {
-            throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode token-currency pairs");
-        }
+    std::set<CTokenCurrencyPair> DecodeTokenCurrencyPairs(const UniValue& values) {
 
         if (!values.isArray()) {
             throw JSONRPCError(RPC_INVALID_REQUEST, "data is not array");
@@ -79,7 +75,16 @@ UniValue appointoracle(const JSONRPCRequest &request) {
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "oracle address",},
-                       {"pricefeeds", RPCArg::Type::STR, RPCArg::Optional::NO, "list of allowed token-currency pairs"},
+                       {"pricefeeds", RPCArg::Type::ARR, RPCArg::Optional::NO, "list of allowed token-currency pairs",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
+                                         {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
+                                 },
+                                },
+                        },
+                       },
                        {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                         {
@@ -106,7 +111,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     }.Check(request);
 
     RPCTypeCheck(request.params,
-                 {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM}, false);
+                 {UniValue::VSTR, UniValue::VARR, UniValue::VNUM}, false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -116,22 +121,11 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode
-    CScript script;
-    try {
-        script = DecodeScript(request.params[0].getValStr());
-    } catch(...) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse address");
-    }
+    CScript script = DecodeScript(request.params[0].get_str());
 
-    std::string allowedPairsStr = request.params[1].getValStr();
-    auto allowedPairs = DecodeTokenCurrencyPairs(allowedPairsStr);
+    auto allowedPairs = DecodeTokenCurrencyPairs(request.params[1]);
 
-    uint32_t weightage;
-    try {
-        weightage = std::stoul(request.params[2].getValStr());
-    } catch (...) {
-        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode weightage");
-    }
+    auto weightage = request.params[2].get_int();
 
     if (weightage > oraclefields::MaxWeightage || weightage < oraclefields::MinWeightage) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "the weightage value is out of bounds");
@@ -195,7 +189,16 @@ UniValue updateoracle(const JSONRPCRequest& request) {
                {
                        {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle id"},
                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "oracle address",},
-                       {"pricefeeds", RPCArg::Type::STR, RPCArg::Optional::NO, "list of allowed token-currency pairs"},
+                       {"pricefeeds", RPCArg::Type::ARR, RPCArg::Optional::NO, "list of allowed token-currency pairs",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
+                                         {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
+                                 },
+                                },
+                        },
+                       },
                        {"weightage", RPCArg::Type::NUM, RPCArg::Optional::NO, "oracle weightage"},
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
                         {
@@ -222,7 +225,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     }.Check(request);
 
     RPCTypeCheck(request.params,
-                 {UniValue::VSTR, UniValue::VSTR, UniValue::VSTR, UniValue::VNUM},
+                 {UniValue::VSTR, UniValue::VSTR, UniValue::VARR, UniValue::VNUM},
                  false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
@@ -236,24 +239,13 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
     // decode address
-    CScript script;
-    try {
-        script = DecodeScript(request.params[1].getValStr());
-    } catch(...) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to parse address");
-    }
+    CScript script = DecodeScript(request.params[1].get_str());
 
     // decode allowed token-currency pairs
-    std::string allowedPairsStr = request.params[2].getValStr();
-    auto allowedPairs = DecodeTokenCurrencyPairs(allowedPairsStr);
+    auto allowedPairs = DecodeTokenCurrencyPairs(request.params[2]);
 
     // decode weightage
-    uint32_t weightage;
-    try {
-        weightage = std::stoul(request.params[3].getValStr());
-    } catch (...) {
-        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode weightage");
-    }
+    auto weightage = request.params[3].get_int();
 
     if (weightage > oraclefields::MaxWeightage || weightage < oraclefields::MinWeightage) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, "the weightage value is out of bounds");
@@ -410,8 +402,16 @@ UniValue setoracledata(const JSONRPCRequest &request) {
                {
                        {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle hex id",},
                        {"timestamp", RPCArg::Type::NUM, RPCArg::Optional::NO, "balances timestamp",},
-                       {"prices", RPCArg::Type::STR, RPCArg::Optional::NO,
+                       {"prices", RPCArg::Type::ARR, RPCArg::Optional::NO,
                         "tokens raw prices:the array of price and token strings in price@token format. ",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
+                                    {"tokenAmount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount@token"},
+                                },
+                            },
+                        },
                        },
                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
@@ -445,7 +445,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     }.Check(request);
 
     RPCTypeCheck(request.params,
-                 {UniValue::VSTR, UniValue::VNUM, UniValue::VSTR},
+                 {UniValue::VSTR, UniValue::VNUM, UniValue::VARR},
                  false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
@@ -459,25 +459,14 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
     // decode timestamp
-    int64_t timestamp;
-    try {
-        timestamp = std::stoll(request.params[1].getValStr());
-    } catch (...) {
-        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode timestamp");
+    int64_t timestamp = request.params[1].get_int64();
+
+    if (timestamp <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative or zero");
     }
 
-    if (0 == timestamp) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be ze");
-    }
     // decode prices
-    UniValue prices{UniValue::VARR};
-    if (!prices.read(request.params[2].getValStr())) {
-        throw JSONRPCError(RPC_TRANSACTION_ERROR, "failed to decode prices");
-    }
-
-    if (!prices.isArray()) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "data is not array");
-    }
+    auto const & prices = request.params[2];
 
     CMutableTransaction rawTx{};
     CTransactionRef optAuthTx;
@@ -701,8 +690,13 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                "\nReturns latest raw price updates through all the oracles for specified token and currency , \n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"request", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                        "request in json-form, containing currency and token names"},
+                       {"request", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED,
+                        "request in json-form, containing currency and token names",
+                        {
+                            {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
+                            {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
+                        },
+                       },
                },
                RPCResult{
                        "\"json\"                  (string) Array of json objects containing full information about token prices\n"
@@ -715,31 +709,21 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
-    bool useAllFeeds = false;
-    UniValue data{UniValue::VOBJ};
-
-    if (request.params.empty()) {
-        useAllFeeds = true;
-    } else if (!data.read(request.params[0].getValStr())) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to read input json");
-    }
-
-    LOCK(cs_main);
-
-    CCustomCSView mnview(*pcustomcsview);
-
-    auto &chain = pwallet->chain();
-    auto lock = chain.lock();
+    RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
 
     boost::optional<CTokenCurrencyPair> tokenPair;
-    if (!useAllFeeds) {
-        tokenPair = DecodeTokenCurrencyPair(data);
+
+    if (!request.params.empty()) {
+        tokenPair = DecodeTokenCurrencyPair(request.params[0]);
     }
+
+    auto lock = pwallet->chain().lock();
 
     auto optHeight = lock->getHeight();
     int lastHeight = optHeight ? *optHeight : 0;
     auto lastBlockTime = lock->getBlockTime(lastHeight);
+
+    CCustomCSView mnview(*pcustomcsview);
 
     UniValue result(UniValue::VARR);
     mnview.ForEachOracle([&](const COracleId& oracleId, COracle oracle) {
@@ -853,8 +837,13 @@ UniValue getprice(const JSONRPCRequest &request) {
                "The only argument is a json-form request containing token and currency names." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                       {"request", RPCArg::Type::STR, RPCArg::Optional::NO,
-                        "request in json-form, containing currency and token names, both are mandatory"},
+                       {"request", RPCArg::Type::OBJ, RPCArg::Optional::NO,
+                        "request in json-form, containing currency and token names, both are mandatory",
+                        {
+                            {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
+                            {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
+                        },
+                       },
                },
                RPCResult{
                        "\"string\"                  (string) aggregated price if\n"
@@ -866,26 +855,17 @@ UniValue getprice(const JSONRPCRequest &request) {
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+    RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
 
-    LOCK(cs_main);
+    auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
-    CCustomCSView view(*pcustomcsview);
-
-    UniValue data{UniValue::VOBJ};
-    if (!data.read(request.params[0].getValStr())) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "failed to read input json");
-    }
-
-    auto tokenPair = DecodeTokenCurrencyPair(data);
-
-    auto &chain = pwallet->chain();
-    auto lock = chain.lock();
+    auto lock = pwallet->chain().lock();
 
     auto optHeight = lock->getHeight();
     int lastHeight = optHeight ? *optHeight : 0;
     auto lastBlockTime = lock->getBlockTime(lastHeight);
 
+    CCustomCSView view(*pcustomcsview);
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
     return ValueFromAmount(result);
 }
@@ -917,17 +897,13 @@ UniValue listprices(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {}, false);
 
-    LOCK(cs_main);
-
-    CCustomCSView view(*pcustomcsview);
-
-    auto &chain = pwallet->chain();
-    auto lock = chain.lock();
+    auto lock = pwallet->chain().lock();
 
     auto optHeight = lock->getHeight();
     int lastHeight = optHeight ? *optHeight : 0;
     auto lastBlockTime = lock->getBlockTime(lastHeight);
 
+    CCustomCSView view(*pcustomcsview);
     return GetAllAggregatePrices(view, lastBlockTime);
 }
 
