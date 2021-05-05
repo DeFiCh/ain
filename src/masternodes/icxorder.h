@@ -112,7 +112,7 @@ public:
     static const uint8_t STATUS_OPEN;
     static const uint8_t STATUS_CLOSED;
     static const uint8_t STATUS_EXPIRED;
-    static const int64_t TAKER_FEE_PER_BTC;
+    static const int64_t DEFAULT_TAKER_FEE_PER_BTC;
 
     //! basic properties
     uint256 orderTx; // txid for which order is the offer
@@ -191,7 +191,8 @@ struct CICXMakeOfferMessage : public CICXMakeOffer {
 class CICXSubmitDFCHTLC
 {
 public:
-    static const uint32_t DEFAULT_TIMEOUT; // default period in blocks after htlc automatically timeouts and funds are returned to owner
+    static const uint32_t MINIMUM_TIMEOUT; // minimum period in blocks after htlc automatically timeouts and funds are returned to owner when it is first htlc
+    static const uint32_t MINIMUM_2ND_TIMEOUT; // minimum period in blocks after htlc automatically timeouts and funds are returned to owner when it is second htlc
     static const uint8_t STATUS_OPEN;
     static const uint8_t STATUS_CLAIMED;
     static const uint8_t STATUS_REFUNDED;
@@ -212,7 +213,7 @@ public:
         , receiveAddress()
         , receivePubkey()
         , hash()
-        , timeout(DEFAULT_TIMEOUT)
+        , timeout(MINIMUM_TIMEOUT)
     {}
 
     virtual ~CICXSubmitDFCHTLC() = default;
@@ -268,7 +269,8 @@ struct CICXSubmitDFCHTLCMessage : public CICXSubmitDFCHTLC {
 class CICXSubmitEXTHTLC
 {
 public:
-    static const uint32_t DEFAULT_TIMEOUT; // default period in blocks after htlc timeouts and makerDeposit can be 
+    static const uint32_t MINIMUM_TIMEOUT; // default period in blocks after htlc timeouts when it is first htlc
+    static const uint32_t MINIMUM_2ND_TIMEOUT; // default period in blocks after htlc timeouts when it is second htlc
     static const uint8_t STATUS_OPEN;
     static const uint8_t STATUS_EXPIRED;
 
@@ -515,6 +517,8 @@ struct CICXCloseOfferMessage : public CICXCloseOffer {
 class CICXOrderView : public virtual CStorageView {
 public:
     static const CAmount DEFAULT_DFI_BTC_PRICE;
+    static const std::string ICX_DFIBTC_POOLPAIR;
+    static const std::string ICX_TAKERFEE_PER_BTC;
 
     typedef std::pair<DCT_ID,std::string> AssetPair;
     typedef std::pair<AssetPair,uint256> OrderKey;
@@ -573,9 +577,13 @@ public:
     std::unique_ptr<CICXCloseOfferImpl> GetICXCloseOfferByCreationTx(uint256 const & txid) const;
     ResVal<uint256> ICXCloseOffer(CICXCloseOfferImpl const & closeoffer);
 
+    // ICX_DFIBTC_POOLPAIR
     Res ICXSetDFIBTCPoolPairId(uint32_t const height, DCT_ID const & poolId);
     DCT_ID ICXGetDFIBTCPoolPairId(uint32_t const height);
 
+    // ICX_TAKERFEE_PER_BTC
+    Res ICXSetTakerFeePerBTC(uint32_t const height, CAmount const & poolId);
+    CAmount ICXGetTakerFeePerBTC(uint32_t const height);
 
     struct ICXOrderCreationTx { static const unsigned char prefix; };
     struct ICXMakeOfferCreationTx { static const unsigned char prefix; };
@@ -599,7 +607,7 @@ public:
     struct ICXSubmitDFCHTLCStatus { static const unsigned char prefix; };
     struct ICXSubmitEXTHTLCStatus { static const unsigned char prefix; };
 
-    struct ICXDFIBTCPoolPairId { static const unsigned char prefix; };
+    struct ICXVariables { static const unsigned char prefix; };
 };
 
 #endif // DEFI_MASTERNODES_ICXORDER_H

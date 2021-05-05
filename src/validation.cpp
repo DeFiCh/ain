@@ -2693,7 +2693,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     {
                         CTokenAmount makerDeposit;
                         makerDeposit = {{0}, offer->takerFee};
-                        res = cache.AddBalance(order->ownerAddress,makerDeposit);
+                        auto res = cache.AddBalance(order->ownerAddress,makerDeposit);
                         if (!res)
                             LogPrintf("Can't refund makerDeposit back to owner: %s\n", res.msg);
                         refund = true;
@@ -2761,7 +2761,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     {
                         CTokenAmount makerDeposit;
                         makerDeposit = {{0}, offer->takerFee};
-                        res = cache.AddBalance(order->ownerAddress,makerDeposit);
+                        auto res = cache.AddBalance(order->ownerAddress,makerDeposit);
                         if (!res)
                             LogPrintf("Can't refund makerDeposit back to owner: %s\n", res.msg);
                     }

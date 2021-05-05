@@ -477,10 +477,9 @@ public:
         return Res::Ok();
     }
 
-    Res TakerFeeTransfer(CScript const & from, CScript const & to, CAmount amount) const {
-        DCT_ID idDFI{0};
-        CTokenAmount takerFee({idDFI,amount});
-        
+    Res ICXFeeTransfer(CScript const & from, CScript const & to, CAmount amount) const {
+        DCT_ID idDFI({0});
+
         return ModifyTokenBalance(idDFI, amount, from, to);
     }
 
@@ -1202,10 +1201,10 @@ public:
             // calculating and locking takerFee in offer txidaddr
             if (DFIperBTC)
             {
-                makeoffer.takerFee = (arith_uint256(makeoffer.amount) * arith_uint256(CICXMakeOffer::TAKER_FEE_PER_BTC) / arith_uint256(COIN)
+                makeoffer.takerFee = (arith_uint256(makeoffer.amount) * arith_uint256(mnview.ICXGetTakerFeePerBTC(height)) / arith_uint256(COIN)
                         * arith_uint256(DFIperBTC) / arith_uint256(COIN)).GetLow64();
                 CScript receiveAddress(makeoffer.receiveDestination.begin(), makeoffer.receiveDestination.end());
-                res = TakerFeeTransfer(receiveAddress, txidAddr, makeoffer.takerFee);
+                res = ICXFeeTransfer(receiveAddress, txidAddr, makeoffer.takerFee);
                 if (!res.ok)
                     return Res::Err("%s: %s", __func__, res.msg);
             }
@@ -1221,9 +1220,9 @@ public:
             if (DFIperBTC)
             {
                 CAmount BTCAmount(static_cast<CAmount>((arith_uint256(makeoffer.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
-                makeoffer.takerFee = (arith_uint256(BTCAmount) * arith_uint256(CICXMakeOffer::TAKER_FEE_PER_BTC) / arith_uint256(COIN)
+                makeoffer.takerFee = (arith_uint256(BTCAmount) * arith_uint256(mnview.ICXGetTakerFeePerBTC(height)) / arith_uint256(COIN)
                         * arith_uint256(DFIperBTC) / arith_uint256(COIN)).GetLow64();
-                res = TakerFeeTransfer(makeoffer.ownerAddress, txidAddr, makeoffer.takerFee);
+                res = ICXFeeTransfer(makeoffer.ownerAddress, txidAddr, makeoffer.takerFee);
                 if (!res.ok)
                     return Res::Err("%s: %s", __func__, res.msg);
             }
@@ -1275,12 +1274,12 @@ public:
             CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
 
             // burn takerFee
-            res = TakerFeeTransfer(offerTxidAddr, consensus.burnAddress, offer->takerFee);
+            res = ICXFeeTransfer(offerTxidAddr, consensus.burnAddress, offer->takerFee);
             if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
 
             // burn makerFee
-            res = TakerFeeTransfer(order->ownerAddress, consensus.burnAddress, offer->takerFee);
+            res = ICXFeeTransfer(order->ownerAddress, consensus.burnAddress, offer->takerFee);
             if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
         }
@@ -1346,12 +1345,12 @@ public:
             CScript offerTxidAddr(offer->creationTx.begin(),offer->creationTx.end());
 
             // takerFee
-            res = TakerFeeTransfer(offerTxidAddr, consensus.burnAddress, offer->takerFee);
+            res = ICXFeeTransfer(offerTxidAddr, consensus.burnAddress, offer->takerFee);
             if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
 
             // makerFee
-            res = TakerFeeTransfer(submitexthtlc.receiveAddress, consensus.burnAddress, offer->takerFee);
+            res = ICXFeeTransfer(submitexthtlc.receiveAddress, consensus.burnAddress, offer->takerFee);
             if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
         }

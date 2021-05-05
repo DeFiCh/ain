@@ -280,7 +280,7 @@ public:
         if (!obj.receiveAddress.empty())
             rpcInfo.pushKV("receiveAddress", ScriptToString(obj.receiveAddress));
         rpcInfo.pushKV("hash", obj.hash.GetHex());
-        rpcInfo.pushKV("htlcscriptAddress", obj.htlcscriptAddress);
+        rpcInfo.pushKV("htlcScriptAddress", obj.htlcscriptAddress);
         rpcInfo.pushKV("ownerPubkey", HexStr(obj.ownerPubkey));
         rpcInfo.pushKV("timeout", static_cast<int>(obj.timeout));
     }

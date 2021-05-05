@@ -1,5 +1,6 @@
 #include <masternodes/icxorder.h>
 #include <rpc/util.h> /// AmountFromValue
+#include <core_io.h> /// ValueFromAmount
 
 /// @attention make sure that it does not overlap with other views !!!
 const unsigned char CICXOrderView::ICXOrderCreationTx           ::prefix = '1';
@@ -24,7 +25,7 @@ const unsigned char CICXOrderView::ICXOfferStatus               ::prefix = 0x0A;
 const unsigned char CICXOrderView::ICXSubmitDFCHTLCStatus       ::prefix = 0x0B;
 const unsigned char CICXOrderView::ICXSubmitEXTHTLCStatus       ::prefix = 0x0C;
 
-const unsigned char CICXOrderView::ICXDFIBTCPoolPairId          ::prefix = 0x0F;
+const unsigned char CICXOrderView::ICXVariables                 ::prefix = 0x0F;
 
 const uint32_t CICXOrder::DEFAULT_EXPIRY = 2880;
 const uint8_t CICXOrder::TYPE_INTERNAL = 1;
@@ -42,18 +43,23 @@ const uint32_t CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT = 100;
 const uint8_t CICXMakeOffer::STATUS_OPEN = 0;
 const uint8_t CICXMakeOffer::STATUS_CLOSED = 1;
 const uint8_t CICXMakeOffer::STATUS_EXPIRED = 2;
-const CAmount CICXMakeOffer::TAKER_FEE_PER_BTC = AmountFromValue(0.1);
+const CAmount CICXMakeOffer::DEFAULT_TAKER_FEE_PER_BTC = AmountFromValue(0.003);
 
-const uint32_t CICXSubmitDFCHTLC::DEFAULT_TIMEOUT = 500;
+const uint32_t CICXSubmitDFCHTLC::MINIMUM_TIMEOUT = 500;
+const uint32_t CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT = 250;
 const uint8_t CICXSubmitDFCHTLC::STATUS_OPEN = 0;
 const uint8_t CICXSubmitDFCHTLC::STATUS_CLAIMED = 1;
 const uint8_t CICXSubmitDFCHTLC::STATUS_REFUNDED = 2;
 const uint8_t CICXSubmitDFCHTLC::STATUS_EXPIRED = 3;
 
+const uint32_t CICXSubmitEXTHTLC::MINIMUM_TIMEOUT = 30;
+const uint32_t CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT = 15;
 const uint8_t CICXSubmitEXTHTLC::STATUS_OPEN = 0;
 const uint8_t CICXSubmitEXTHTLC::STATUS_EXPIRED = 3;
 
 const CAmount CICXOrderView::DEFAULT_DFI_BTC_PRICE = 15000;
+const std::string CICXOrderView::ICX_DFIBTC_POOLPAIR = "ICX_DFIBTC_POOLPAIR";
+const std::string CICXOrderView::ICX_TAKERFEE_PER_BTC = "ICX_TAKERFEE_PER_BTC";
 
 std::unique_ptr<CICXOrderView::CICXOrderImpl> CICXOrderView::GetICXOrderByCreationTx(uint256 const & txid) const
 {
@@ -337,7 +343,7 @@ ResVal<uint256> CICXOrderView::ICXCloseOffer(CICXCloseOfferImpl const & closeoff
 
 Res CICXOrderView::ICXSetDFIBTCPoolPairId(uint32_t const height, DCT_ID const & poolId)
 {
-    WriteBy<ICXDFIBTCPoolPairId>(height, poolId);
+    WriteBy<ICXVariables>(ICX_DFIBTC_POOLPAIR, std::to_string(poolId.v));
 
     return Res::Ok();
 }
@@ -345,14 +351,46 @@ Res CICXOrderView::ICXSetDFIBTCPoolPairId(uint32_t const height, DCT_ID const & 
 DCT_ID CICXOrderView::ICXGetDFIBTCPoolPairId(uint32_t const start)
 {
     DCT_ID poolPairId = {std::numeric_limits<uint32_t>::max()};
-    ForEach<ICXDFIBTCPoolPairId,uint32_t,DCT_ID>([&](uint32_t height, DCT_ID id) {
-        if (height <= start)
-        {
-            poolPairId = id;
-            return true;
-        }
-        return (false);
-    });
+    
+    auto id = ReadBy<ICXVariables, std::string, std::string>(ICX_DFIBTC_POOLPAIR);
+    if (id)
+        poolPairId.v = std::stoi(*id);
+    
+    // ForEach<ICXVariables,std::string,std::string>([&](std::string key, std::string value) {
+    //     if (key == ICX_DFIBTC_POOLPAIR)
+    //     {
+    //         poolPairId.v = std::stoi(value);
+    //         return false;
+    //     }
+    //     return true;
+    // });
 
     return (poolPairId);
+}
+
+Res CICXOrderView::ICXSetTakerFeePerBTC(uint32_t const height, CAmount const & amount)
+{
+    WriteBy<ICXVariables>(ICX_TAKERFEE_PER_BTC, ValueFromAmount(amount).getValStr());
+
+    return Res::Ok();
+}
+
+CAmount CICXOrderView::ICXGetTakerFeePerBTC(uint32_t const start)
+{
+    CAmount takerFeePerBTC = CICXMakeOffer::DEFAULT_TAKER_FEE_PER_BTC;
+    
+    auto fee = ReadBy<ICXVariables, std::string, std::string>(ICX_TAKERFEE_PER_BTC);
+    if (fee)
+        takerFeePerBTC =  AmountFromValue(*fee);
+
+    // ForEach<ICXVariables,std::string,std::string>([&](std::string key, std::string value) {
+    //     if (key == ICX_TAKERFEE_PER_BTC)
+    //     {
+    //         takerFeePerBTC = AmountFromValue(value);
+    //         return false;
+    //     }
+    //     return true;
+    // });
+
+    return (takerFeePerBTC);
 }

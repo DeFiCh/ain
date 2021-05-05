@@ -98,9 +98,9 @@ UniValue icxSubmitEXTHTLCToJSON(CICXSubmitEXTHTLCImplemetation const& exthtlc) {
     if (!exthtlc.receiveAddress.empty())
         orderObj.pushKV("receiveAddress",ScriptToString(exthtlc.receiveAddress));
     orderObj.pushKV("hash", exthtlc.hash.GetHex());
-    orderObj.pushKV("htlcscriptAddress", exthtlc.htlcscriptAddress);
+    orderObj.pushKV("htlcScriptAddress", exthtlc.htlcscriptAddress);
     orderObj.pushKV("ownerPubkey", HexStr(exthtlc.ownerPubkey));
-    orderObj.pushKV("externalTimeout", static_cast<int>(exthtlc.timeout));
+    orderObj.pushKV("timeout", static_cast<int>(exthtlc.timeout));
     orderObj.pushKV("height", static_cast<int>(exthtlc.creationHeight));
 
     UniValue ret(UniValue::VOBJ);
@@ -134,7 +134,8 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
                             {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address of tokens in case of DFC/EXT order"},
                             {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO, "tokenFrom coins amount"},
                             {"orderPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Price per unit"},
-                            {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the order expires (Default: 2880 blocks)"},
+                            {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the order expires (Default: "
+                                + std::to_string(CICXOrder::DEFAULT_EXPIRY) + " blocks)"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -158,7 +159,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
                                                         "\"amountFrom\":\"10\",\"orderPrice\":\"10\"}'")
                         + HelpExampleCli("icx_createorder", "'{\"chainFrom\":\"BTC\",\"tokenTo\":\"SILVER#129\","
                                                         "\"amountFrom\":\"5\",\"orderPrice\":\"0.01\","
-                                                        "\"expiry\":\"120\"}'")
+                                                        "\"expiry\":\"1000\"}'")
                 },
      }.Check(request);
 
@@ -215,7 +216,8 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"orderPrice\" must be non-null");
     
-    if (!metaObj["expiry"].isNull()) order.expiry = metaObj["expiry"].get_int();
+    if (!metaObj["expiry"].isNull())
+        order.expiry = metaObj["expiry"].get_int();
 
     if (tokenFromSymbol.empty() && order.chain.empty())
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, either \"tokenFrom\" or \"chainFrom\" must be non-null. [tokenFrom,chainTo] or [chainFrom,tokenTo]");
@@ -226,6 +228,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
         order.orderType = CICXOrder::TYPE_INTERNAL;
     else
         order.orderType = CICXOrder::TYPE_EXTERNAL;
+    
 
     int targetHeight;
     {
@@ -309,7 +312,8 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
                             {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address of tokens in case of EXT/DFC order"},
                             {"receiveAddress", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "address for receiving DFC tokens in case of DFC/EXT order type"},
                             {"receivePubkey", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of EXT/DFC order type"},
-                            {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the offer expires (Default: 10 blocks)"},
+                            {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the offer expires (Default: " 
+                                + std::to_string(CICXMakeOffer::DEFAULT_EXPIRY) + " blocks)"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -464,7 +468,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                             {"receiveAddress", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "address that receives DFC tokens when HTLC is claimed"},
                             {"receivePubkey", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of DFC/EXT order type"},
                             {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "hash of seed used for the hash lock part"},
-                            {"timeout", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "timeout (absolute in blocks) for expiration of htlc (Default: 10)"},
+                            {"timeout", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "timeout (absolute in blocks) for expiration of htlc"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -533,6 +537,8 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
         auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",offer->orderTx.GetHex()));
+        
+        targetHeight = ::ChainActive().Height() + 1;
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
@@ -571,8 +577,8 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offer (%s) needs to have dfc htlc submitted first, but external htlc already submitted!",
                         submitdfchtlc.offerTx.GetHex()));
             
-            if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::DEFAULT_TIMEOUT)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitDFCHTLC::DEFAULT_TIMEOUT - 1));
+            if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_TIMEOUT)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitDFCHTLC::MINIMUM_TIMEOUT - 1));
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
@@ -609,9 +615,12 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                             submitdfchtlc.offerTx.GetHex()));
             if (submitdfchtlc.hash != exthtlc->hash)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid hash, dfc htlc hash is different than extarnal htlc hash!");
+            if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT - 1));
+            if (submitdfchtlc.timeout > (exthtlc->creationHeight + exthtlc->timeout) - targetHeight)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must not be greater than expiration period of 1st htlc - %d", (exthtlc->creationHeight + exthtlc->timeout) - targetHeight));
         }
 
-        targetHeight = ::ChainActive().Height() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -747,6 +756,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",offer->orderTx.GetHex()));
         
+        targetHeight = ::ChainActive().Height() + 1;
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
@@ -779,6 +789,10 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
             if (submitexthtlc.hash != dfchtlc->hash)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid hash, external htlc hash is different than dfc htlc hash! - %s != %s!",
                         submitexthtlc.hash.GetHex(),dfchtlc->hash.GetHex()));
+            if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT - 1));
+            if (submitexthtlc.timeout > (dfchtlc->creationHeight + dfchtlc->timeout) - targetHeight)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must not be greater than expiration period of 1st htlc - %d", (dfchtlc->creationHeight + dfchtlc->timeout) - targetHeight));
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
@@ -815,9 +829,9 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
             if (found)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offer (%s) needs to have dfc htlc submitted first, but external htlc already submitted!",
                         submitexthtlc.offerTx.GetHex()));
-        }        
-        
-        targetHeight = ::ChainActive().Height() + 1;
+            if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_TIMEOUT)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_TIMEOUT - 1));
+        }         
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
