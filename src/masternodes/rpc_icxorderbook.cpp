@@ -1,6 +1,6 @@
 #include <masternodes/mn_rpc.h>
 
-UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t status) {
+UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const status) {
     UniValue orderObj(UniValue::VOBJ);
     UniValue ret(UniValue::VOBJ);
 
@@ -52,7 +52,7 @@ UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t status) {
     return (ret);
 }
 
-UniValue icxMakeOfferToJSON(CICXMakeOfferImplemetation const& makeoffer, uint8_t status) {
+UniValue icxMakeOfferToJSON(CICXMakeOfferImplemetation const& makeoffer, uint8_t const status) {
     UniValue orderObj(UniValue::VOBJ);
     orderObj.pushKV("orderTx", makeoffer.orderTx.GetHex());
     orderObj.pushKV("status", status == CICXMakeOffer::STATUS_OPEN ? "OPEN" : status == CICXMakeOffer::STATUS_CLOSED ? "CLOSED" : "EXPIRED");
@@ -71,10 +71,20 @@ UniValue icxMakeOfferToJSON(CICXMakeOfferImplemetation const& makeoffer, uint8_t
     return ret;
 }
 
-UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, uint8_t status) {
+UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, uint8_t const status) {
     UniValue orderObj(UniValue::VOBJ);
     orderObj.pushKV("type", "DFC");
-    orderObj.pushKV("status", status == CICXSubmitDFCHTLC::STATUS_OPEN ? "OPEN" : status == CICXSubmitDFCHTLC::STATUS_CLAIMED ? "CLAIMED" : "REFUNDED");
+    switch (status)
+    {
+        case 0: orderObj.pushKV("status", "OPEN");
+                break;
+        case 1: orderObj.pushKV("status", "CLAIMED");
+                break;
+        case 2: orderObj.pushKV("status", "REFUNDED");
+                break;
+        case 3: orderObj.pushKV("status", "EXPIRED");
+                break;
+    }
     orderObj.pushKV("offerTx", dfchtlc.offerTx.GetHex());
     orderObj.pushKV("amount", ValueFromAmount(dfchtlc.amount));
     orderObj.pushKV("receiveAddress",ScriptToString(dfchtlc.receiveAddress));
@@ -90,9 +100,10 @@ UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, u
     return ret;
 }
 
-UniValue icxSubmitEXTHTLCToJSON(CICXSubmitEXTHTLCImplemetation const& exthtlc) {
+UniValue icxSubmitEXTHTLCToJSON(CICXSubmitEXTHTLCImplemetation const& exthtlc, uint8_t const status) {
     UniValue orderObj(UniValue::VOBJ);
     orderObj.pushKV("type", "EXTERNAL");
+    status == CICXSubmitEXTHTLC::STATUS_OPEN ? orderObj.pushKV("status", "OPEN") : orderObj.pushKV("status", "EXPIRED");
     orderObj.pushKV("offerTx", exthtlc.offerTx.GetHex());
     orderObj.pushKV("amount", ValueFromAmount(exthtlc.amount));
     if (!exthtlc.receiveAddress.empty())
@@ -565,7 +576,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "dfc htlc already submitted!");
 
             found = false;
-            pcustomcsview->ForEachICXSubmitEXTHTLC([&found, &submitdfchtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
+            pcustomcsview->ForEachICXSubmitEXTHTLCOpen([&found, &submitdfchtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
                 if (key.first == submitdfchtlc.offerTx)
                 {
                     found = true;
@@ -602,7 +613,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "dfc htlc already submitted!");
 
             std::unique_ptr<CICXSubmitEXTHTLCImplemetation> exthtlc;
-            pcustomcsview->ForEachICXSubmitEXTHTLC([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
+            pcustomcsview->ForEachICXSubmitEXTHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
                 if (key.first == submitdfchtlc.offerTx)
                 {
                     exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
@@ -765,7 +776,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
                                 offer->creationTx.GetHex(), ValueFromAmount(submitexthtlc.amount).getValStr(), ValueFromAmount(offer->amount).getValStr()));
 
             bool found = false;
-            pcustomcsview->ForEachICXSubmitEXTHTLC([&found, &submitexthtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
+            pcustomcsview->ForEachICXSubmitEXTHTLCOpen([&found, &submitexthtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
                 if (key.first != submitexthtlc.offerTx)
                     return false;
                 found = true;
@@ -808,7 +819,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", metaObj["receiveAddress"].getValStr()));
 
             bool found = false;
-            pcustomcsview->ForEachICXSubmitEXTHTLC([&found, &submitexthtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
+            pcustomcsview->ForEachICXSubmitEXTHTLCOpen([&found, &submitexthtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
                 if (key.first != submitexthtlc.offerTx)
                     return false;
                 found = true;
@@ -1430,12 +1441,24 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
         limit--;
         return limit != 0;
     }, offerTxid);
-    pcustomcsview->ForEachICXSubmitEXTHTLC([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
+    if (closed)
+    {
+        pcustomcsview->ForEachICXSubmitEXTHTLCClose([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
+            if (key.first != offerTxid)
+                return false;
+            auto exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
+            if (exthtlc)
+                ret.pushKVs(icxSubmitEXTHTLCToJSON(*exthtlc, status));
+            limit--;
+            return limit != 0;
+        }, offerTxid);
+    }
+    pcustomcsview->ForEachICXSubmitEXTHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
         if (key.first != offerTxid)
             return false;
         auto exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
         if (exthtlc)
-            ret.pushKVs(icxSubmitEXTHTLCToJSON(*exthtlc));
+            ret.pushKVs(icxSubmitEXTHTLCToJSON(*exthtlc, status));
         limit--;
         return limit != 0;
     }, offerTxid);

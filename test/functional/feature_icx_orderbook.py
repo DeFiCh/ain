@@ -175,6 +175,7 @@ class PoolLiquidityTest (DefiTestFramework):
 
         assert_equal(len(hltcs), 1)
         assert_equal(hltcs[dfhtlcTx]["type"], 'DFC')
+        assert_equal(hltcs[dfhtlcTx]["status"], 'OPEN')
         assert_equal(hltcs[dfhtlcTx]["offerTx"], offerTx)
         assert_equal(hltcs[dfhtlcTx]["amount"], Decimal('15.00000000'))
         assert_equal(hltcs[dfhtlcTx]["receiveAddress"], accountBTC)
@@ -197,6 +198,7 @@ class PoolLiquidityTest (DefiTestFramework):
 
         assert_equal(len(hltcs), 2)
         assert_equal(hltcs[exthtlcTx]["type"], 'EXTERNAL')
+        assert_equal(hltcs[exthtlcTx]["status"], 'OPEN')
         assert_equal(hltcs[exthtlcTx]["offerTx"], offerTx)
         assert_equal(hltcs[exthtlcTx]["amount"], Decimal('0.15000000'))
         assert_equal(hltcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
@@ -213,12 +215,17 @@ class PoolLiquidityTest (DefiTestFramework):
         self.nodes[1].generate(1)
         self.sync_all([self.nodes[0], self.nodes[1]])
 
-        hltcs = self.nodes[0].icx_listhtlcs({"offerTx": offerTx})
+        hltcs = self.nodes[0].icx_listhtlcs({
+                                    "offerTx": offerTx,
+                                    "closed": True})
 
-        assert_equal(len(hltcs), 2)
+        assert_equal(len(hltcs), 3)
         assert_equal(hltcs[claimTx]["type"], 'CLAIM DFC')
         assert_equal(hltcs[claimTx]["dfchtlcTx"], dfhtlcTx)
         assert_equal(hltcs[claimTx]["seed"], 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef')
+
+        assert_equal(hltcs[dfhtlcTx]["status"], 'CLAIMED')
+
 
         assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeClaim + Decimal(15.00000000))
 

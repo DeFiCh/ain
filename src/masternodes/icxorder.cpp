@@ -17,13 +17,14 @@ const unsigned char CICXOrderView::ICXMakeOfferOpenKey          ::prefix = 0x03;
 const unsigned char CICXOrderView::ICXMakeOfferCloseKey         ::prefix = 0x04;
 const unsigned char CICXOrderView::ICXSubmitDFCHTLCOpenKey      ::prefix = 0x05;
 const unsigned char CICXOrderView::ICXSubmitDFCHTLCCloseKey     ::prefix = 0x06;
-const unsigned char CICXOrderView::ICXSubmitEXTHTLCKey          ::prefix = 0x07;
-const unsigned char CICXOrderView::ICXClaimDFCHTLCKey           ::prefix = 0x08;
+const unsigned char CICXOrderView::ICXSubmitEXTHTLCOpenKey      ::prefix = 0x07;
+const unsigned char CICXOrderView::ICXSubmitEXTHTLCCloseKey     ::prefix = 0x08;
+const unsigned char CICXOrderView::ICXClaimDFCHTLCKey           ::prefix = 0x09;
 
-const unsigned char CICXOrderView::ICXOrderStatus               ::prefix = 0x09;
-const unsigned char CICXOrderView::ICXOfferStatus               ::prefix = 0x0A;
-const unsigned char CICXOrderView::ICXSubmitDFCHTLCStatus       ::prefix = 0x0B;
-const unsigned char CICXOrderView::ICXSubmitEXTHTLCStatus       ::prefix = 0x0C;
+const unsigned char CICXOrderView::ICXOrderStatus               ::prefix = 0x0A;
+const unsigned char CICXOrderView::ICXOfferStatus               ::prefix = 0x0B;
+const unsigned char CICXOrderView::ICXSubmitDFCHTLCStatus       ::prefix = 0x0C;
+const unsigned char CICXOrderView::ICXSubmitEXTHTLCStatus       ::prefix = 0x0D;
 
 const unsigned char CICXOrderView::ICXVariables                 ::prefix = 0x0F;
 
@@ -245,16 +246,32 @@ ResVal<uint256> CICXOrderView::ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & su
     }
 
     WriteBy<ICXSubmitEXTHTLCCreationTx>(submitexthtlc.creationTx, submitexthtlc);
-    WriteBy<ICXSubmitEXTHTLCKey>(TxidPairKey(submitexthtlc.offerTx, submitexthtlc.creationTx), CICXSubmitEXTHTLC::STATUS_OPEN);
+    WriteBy<ICXSubmitEXTHTLCOpenKey>(TxidPairKey(submitexthtlc.offerTx, submitexthtlc.creationTx), CICXSubmitEXTHTLC::STATUS_OPEN);
     WriteBy<ICXSubmitDFCHTLCStatus>(StatusKey(submitexthtlc.creationHeight + CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT, submitexthtlc.creationTx), CICXSubmitEXTHTLC::STATUS_EXPIRED);
     
     return {submitexthtlc.creationTx, Res::Ok()};
 }
 
-void CICXOrderView::ForEachICXSubmitEXTHTLC(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid)
+Res CICXOrderView::ICXCloseEXTHTLC(CICXSubmitEXTHTLCImpl const & submitexthtlc, uint8_t const status)
+{
+    WriteBy<ICXSubmitEXTHTLCCreationTx>(submitexthtlc.creationTx, submitexthtlc);
+    EraseBy<ICXSubmitEXTHTLCOpenKey>(TxidPairKey(submitexthtlc.offerTx, submitexthtlc.creationTx));
+    WriteBy<ICXSubmitEXTHTLCCloseKey>(TxidPairKey(submitexthtlc.offerTx, submitexthtlc.creationTx), status);
+    WriteBy<ICXSubmitDFCHTLCStatus>(StatusKey(submitexthtlc.creationHeight + CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT, submitexthtlc.creationTx), CICXSubmitEXTHTLC::STATUS_EXPIRED);
+    
+    return (Res::Ok());
+}
+
+void CICXOrderView::ForEachICXSubmitEXTHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid)
 {
     TxidPairKey start(offertxid, uint256());
-    ForEach<ICXSubmitEXTHTLCKey,TxidPairKey,uint8_t>(callback, start);
+    ForEach<ICXSubmitEXTHTLCOpenKey,TxidPairKey,uint8_t>(callback, start);
+}
+
+void CICXOrderView::ForEachICXSubmitEXTHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid)
+{
+    TxidPairKey start(offertxid, uint256());
+    ForEach<ICXSubmitEXTHTLCCloseKey,TxidPairKey,uint8_t>(callback, start);
 }
 
 void CICXOrderView::ForEachICXSubmitEXTHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height)
@@ -355,15 +372,6 @@ DCT_ID CICXOrderView::ICXGetDFIBTCPoolPairId(uint32_t const start)
     auto id = ReadBy<ICXVariables, std::string, std::string>(ICX_DFIBTC_POOLPAIR);
     if (id)
         poolPairId.v = std::stoi(*id);
-    
-    // ForEach<ICXVariables,std::string,std::string>([&](std::string key, std::string value) {
-    //     if (key == ICX_DFIBTC_POOLPAIR)
-    //     {
-    //         poolPairId.v = std::stoi(value);
-    //         return false;
-    //     }
-    //     return true;
-    // });
 
     return (poolPairId);
 }
@@ -382,15 +390,6 @@ CAmount CICXOrderView::ICXGetTakerFeePerBTC(uint32_t const start)
     auto fee = ReadBy<ICXVariables, std::string, std::string>(ICX_TAKERFEE_PER_BTC);
     if (fee)
         takerFeePerBTC =  AmountFromValue(*fee);
-
-    // ForEach<ICXVariables,std::string,std::string>([&](std::string key, std::string value) {
-    //     if (key == ICX_TAKERFEE_PER_BTC)
-    //     {
-    //         takerFeePerBTC = AmountFromValue(value);
-    //         return false;
-    //     }
-    //     return true;
-    // });
 
     return (takerFeePerBTC);
 }

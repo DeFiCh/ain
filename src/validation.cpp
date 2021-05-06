@@ -2681,7 +2681,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (status == CICXSubmitDFCHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_INTERNAL)
                 {
                     std::unique_ptr<CICXSubmitEXTHTLCImplemetation> exthtlc;
-                    cache.ForEachICXSubmitEXTHTLC([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
+                    cache.ForEachICXSubmitEXTHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
                         if (key.first == dfchtlc->offerTx)
                         {
                             exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
@@ -2764,8 +2764,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         auto res = cache.AddBalance(order->ownerAddress,makerDeposit);
                         if (!res)
                             LogPrintf("Can't refund makerDeposit back to owner: %s\n", res.msg);
+                        if (res.ok)
+                        {
+                            cache.ICXCloseEXTHTLC(*exthtlc, status);
+                            if (!res)
+                                LogPrintf("Can't close ext htlc: %s\n", res.msg);
+                        }
                     }
                 }
+                
+                return true;
             }, pindex->nHeight);
         }
 

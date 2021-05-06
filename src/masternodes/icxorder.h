@@ -561,7 +561,9 @@ public:
     //SubmitEXTHTLC
     std::unique_ptr<CICXSubmitEXTHTLCImpl> GetICXSubmitEXTHTLCByCreationTx(uint256 const & txid) const;
     ResVal<uint256> ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & dfchtlc);
-    void ForEachICXSubmitEXTHTLC(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
+    Res ICXCloseEXTHTLC(CICXSubmitEXTHTLCImpl const & exthtlc, uint8_t const);
+    void ForEachICXSubmitEXTHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
+    void ForEachICXSubmitEXTHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitEXTHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
     
     //ClaimDFCHTLC
@@ -599,7 +601,8 @@ public:
     struct ICXMakeOfferCloseKey { static const unsigned char prefix; };
     struct ICXSubmitDFCHTLCOpenKey { static const unsigned char prefix; };
     struct ICXSubmitDFCHTLCCloseKey { static const unsigned char prefix; };
-    struct ICXSubmitEXTHTLCKey { static const unsigned char prefix; };
+    struct ICXSubmitEXTHTLCOpenKey { static const unsigned char prefix; };
+    struct ICXSubmitEXTHTLCCloseKey { static const unsigned char prefix; };
     struct ICXClaimDFCHTLCKey { static const unsigned char prefix; };
     
     struct ICXOrderStatus { static const unsigned char prefix; };
