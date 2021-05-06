@@ -1408,6 +1408,20 @@ void InitScriptExecutionCache() {
             (nElems*sizeof(uint256)) >>20, (nMaxCacheSize*2)>>20, nElems);
 }
 
+bool CheckBurnSpend(const CTransaction &tx, const CCoinsViewCache &inputs)
+{
+    Coin coin;
+    for(size_t i = 0; i < tx.vin.size(); ++i)
+    {
+        if (inputs.GetCoin(tx.vin[i].prevout, coin) && coin.out.scriptPubKey == Params().GetConsensus().burnAddress)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 /**
  * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
  * This does not modify the UTXO set.
@@ -1427,6 +1441,11 @@ void InitScriptExecutionCache() {
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
+    if (!CheckBurnSpend(tx, inputs))
+    {
+        return(state.Invalid(ValidationInvalidReason::CONSENSUS, error("CheckBurnSpend: Trying to spend burnt outputs"), REJECT_INVALID, "burnt-output"));
+    }
+
     if (!tx.IsCoinBase())
     {
         if (pvChecks)
@@ -1662,6 +1681,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         assert(nodeId);
     }
 
+    std::vector<AccountHistoryKey> eraseBurnEntries;
+
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = *(block.vtx[i]);
@@ -1736,6 +1757,12 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 if (!is_spent || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || is_coinbase != coin.fCoinBase) {
                     fClean = false; // transaction output mismatch
                 }
+
+                // Check for burn outputs
+                if (tx.vout[o].scriptPubKey == Params().GetConsensus().burnAddress)
+                {
+                    eraseBurnEntries.push_back({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
+                }
             }
         }
 
@@ -1758,11 +1785,45 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         // process transactions revert for masternodes
         mnview.OnUndoTx(tx.GetHash(), (uint32_t) pindex->nHeight);
-        auto res = RevertCustomTx(mnview, view, tx, Params().GetConsensus(), (uint32_t) pindex->nHeight, i, paccountHistoryDB.get());
+        auto res = RevertCustomTx(mnview, view, tx, Params().GetConsensus(), (uint32_t) pindex->nHeight, i, paccountHistoryDB.get(), pburnHistoryDB.get());
         if (!res) {
             LogPrintf("%s\n", res.msg);
         }
     }
+
+    // Remove burn balance transfers
+    if (pindex->nHeight == Params().GetConsensus().EunosHeight)
+    {
+        uint32_t lastTxOut;
+        auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
+        {
+            if (key.owner != Params().GetConsensus().burnAddress) {
+                return false;
+            }
+
+            if (key.blockHeight != Params().GetConsensus().EunosHeight) {
+                return false;
+            }
+
+            lastTxOut = key.txn;
+
+            return false;
+        };
+
+        AccountHistoryKey startKey({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), std::numeric_limits<uint32_t>::max()});
+        pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
+
+        for (uint32_t i = block.vtx.size(); i <= lastTxOut; ++i) {
+            pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), i});
+        }
+    }
+
+    // Erase any UTXO burns
+    for (const auto& entries : eraseBurnEntries)
+    {
+        pburnHistoryDB->EraseAccountHistory(entries);
+    }
+
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
@@ -2049,6 +2110,24 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 static int64_t nBlocksTotal = 0;
 
+// Holds position for burn TXs appended to block in burn history
+static std::vector<CTransactionRef>::size_type nPhantomBurnTx{0};
+
+static std::map<CScript, CBalances> mapBurnAmounts;
+
+static uint32_t GetNextBurnPosition() {
+    return nPhantomBurnTx++;
+}
+
+// Burn non-transaction amounts, that is burns that are not sent directly to the burn address
+// in a account or UTXO transaction. When parsing TXs via ConnectBlock that result in a burn
+// from an account in this way call the function below. This will add the burn to the map to
+// be added to the burn index as a phantom TX appended to the end of the connecting block.
+Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts)
+{
+    return mapBurnAmounts[from].AddBalances(amounts.balances);
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2059,6 +2138,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(pindex);
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
+    nPhantomBurnTx = block.vtx.size();
 
     // Check it again in case a previous version let a bad block in
     // NOTE: We don't currently (re-)invoke ContextualCheckBlock() or
@@ -2276,6 +2356,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
 
+    std::vector<std::pair<AccountHistoryKey, AccountHistoryValue>> writeBurnEntries;
     std::vector<int> prevheights;
     CAmount nFees = 0;
     int nInputs = 0;
@@ -2355,7 +2436,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get());
+            const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get(), pburnHistoryDB.get());
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 // we will never fail, but skip, unless transaction mints UTXOs
                 return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
@@ -2418,6 +2499,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connected finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), block.height);
                 }
+            }
+        }
+
+        // Search for burn outputs
+        for (uint32_t j = 0; j < tx.vout.size(); ++j)
+        {
+            if (tx.vout[j].scriptPubKey == Params().GetConsensus().burnAddress)
+            {
+                writeBurnEntries.push_back({{Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), i},
+                                            {block.vtx[i]->GetHash(), static_cast<uint8_t>(CustomTxType::None), {{DCT_ID{0}, tx.vout[j].nValue}}}});
             }
         }
 
@@ -2517,6 +2608,66 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             cache.BayfrontFlagsCleanup();
         }
 
+        if (pindex->nHeight == chainparams.GetConsensus().EunosHeight)
+        {
+            // Move funds from old burn address to new one
+            CBalances burnAmounts;
+            cache.ForEachBalance([&burnAmounts](CScript const & owner, CTokenAmount balance) {
+                if (owner != Params().GetConsensus().retiredBurnAddress) {
+                    return false;
+                }
+
+                burnAmounts.Add({balance.nTokenId, balance.nValue});
+
+                return true;
+            }, BalanceKey{chainparams.GetConsensus().retiredBurnAddress, DCT_ID{}});
+
+            AddNonTxToBurnIndex(chainparams.GetConsensus().retiredBurnAddress, burnAmounts);
+
+            // Zero foundation balances
+            for (const auto& script : chainparams.GetConsensus().accountDestruction)
+            {
+                CBalances zeroAmounts;
+                cache.ForEachBalance([&zeroAmounts, script](CScript const & owner, CTokenAmount balance) {
+                    if (owner != script) {
+                        return false;
+                    }
+
+                    zeroAmounts.Add({balance.nTokenId, balance.nValue});
+
+                    return true;
+                }, BalanceKey{script, DCT_ID{}});
+
+                cache.SubBalances(script, zeroAmounts);
+            }
+        }
+
+        // Add any non-Tx burns to index as phantom Txs
+        for (const auto& item : mapBurnAmounts)
+        {
+            for (const auto& subItem : item.second.balances)
+            {
+                // If amount cannot be deducted then burn skipped.
+                auto result = cache.SubBalance(item.first, {subItem.first, subItem.second});
+                if (result.ok)
+                {
+                    cache.AddBalance(chainparams.GetConsensus().burnAddress, {subItem.first, subItem.second});
+
+                    // Add transfer as additional TX in block
+                    pburnHistoryDB->WriteAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), GetNextBurnPosition()},
+                                                        {uint256{}, static_cast<uint8_t>(CustomTxType::AccountToAccount), {{subItem.first, subItem.second}}});
+                }
+                else // Log burn failure
+                {
+                    CTxDestination dest;
+                    ExtractDestination(item.first, dest);
+                    LogPrintf("Burn failed: %s Address: %s Token: %d Amount: %d\n", result.msg, EncodeDestination(dest), subItem.first.v, subItem.second);
+                }
+            }
+        }
+
+        mapBurnAmounts.clear();
+
         // construct undo
         auto& flushable = cache.GetStorage();
         auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
@@ -2526,6 +2677,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!undo.before.empty()) {
             mnview.SetUndo(UndoKey{static_cast<uint32_t>(pindex->nHeight), uint256() }, undo); // "zero hash"
         }
+    }
+
+    // Write any UTXO burns
+    for (const auto& entries : writeBurnEntries)
+    {
+        pburnHistoryDB->WriteAccountHistory(entries.first, entries.second);
     }
 
     if (!fIsFakeNet) {
@@ -2807,6 +2964,9 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
             if (paccountHistoryDB) {
                 paccountHistoryDB->Discard();
             }
+            if (pburnHistoryDB) {
+                pburnHistoryDB->Discard();
+            }
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
         bool flushed = view.Flush() && mnview.Flush();
@@ -2815,6 +2975,9 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
         // flush history
         if (paccountHistoryDB) {
             paccountHistoryDB->Flush();
+        }
+        if (pburnHistoryDB) {
+            pburnHistoryDB->Flush();
         }
 
         if (!disconnectedConfirms.empty()) {
@@ -2966,6 +3129,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             if (paccountHistoryDB) {
                 paccountHistoryDB->Discard();
             }
+            if (pburnHistoryDB) {
+                pburnHistoryDB->Discard();
+            }
             return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), FormatStateMessage(state));
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
@@ -2976,6 +3142,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         // flush history
         if (paccountHistoryDB) {
             paccountHistoryDB->Flush();
+        }
+        if (pburnHistoryDB) {
+            pburnHistoryDB->Flush();
         }
 
         // anchor rewards re-voting etc...
