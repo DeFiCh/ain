@@ -51,7 +51,7 @@ class OraclesTest(DefiTestFramework):
         return decimal.Decimal(amount), token
 
     def assert_compare_oracle_data(self, oracle_data_json, oracle_id=None, oracle_address=None,
-                                   price_feeds: str = None, weightage=None, token_prices: str = None):
+                                   price_feeds=None, weightage=None, token_prices=None):
         if oracle_id is not None:
             if not oracle_id == oracle_data_json['oracleid']:
                 raise Exception("oracleids don't match")
@@ -66,23 +66,21 @@ class OraclesTest(DefiTestFramework):
                 raise Exception("weightages are not equal")
 
         if price_feeds is not None:
-            price_feeds_proto = json.loads(price_feeds)
-            if not type(price_feeds_proto) is list:
+            if not type(price_feeds) is list:
                 raise Exception("price feeds is not list")
 
-            if not sorted(price_feeds_proto, key=self.cmp_price_feed) == \
+            if not sorted(price_feeds, key=self.cmp_price_feed) == \
                    sorted(oracle_data_json['priceFeeds'], key=self.cmp_price_feed):
                 raise Exception("price feeds don't match")
 
         if token_prices is not None:
             token_prices_json = oracle_data_json['tokenPrices']
-            token_prices_proto = json.loads(token_prices)
-            for item in token_prices_proto:
+            for item in token_prices:
                 amount, token = self.parse_token_amount(item['tokenAmount'])
                 item['token'] = token
                 item['amount'] = amount
             tpjs = sorted(token_prices_json, key=self.cmp_price_feed)
-            tpps = sorted(token_prices_proto, key=self.cmp_price_feed)
+            tpps = sorted(token_prices, key=self.cmp_price_feed)
 
             if not functools.reduce(
                     lambda x, y: x and y,
@@ -132,7 +130,7 @@ class OraclesTest(DefiTestFramework):
         assert (send_money_tx2['amount'] == decimal.Decimal(50))
 
         # === appoint oracles ===
-        price_feeds1 = '[{"currency": "USD", "token": "GOLD"}, {"currency": "USD", "token": "PT"}]'
+        price_feeds1 = [{"currency": "USD", "token": "GOLD"}, {"currency": "USD", "token": "PT"}]
 
         # check that only founder can appoint oracles
         assert_raises_rpc_error(-5, 'Need foundation member authorization',
@@ -144,7 +142,7 @@ class OraclesTest(DefiTestFramework):
         all_oracles = self.nodes[1].listoracles()
         assert_equal(all_oracles, [oracle_id1])
 
-        price_feeds2 = '[{"currency": "EUR", "token": "PT"}, {"currency": "EUR", "token": "GOLD"}]'
+        price_feeds2 = [{"currency": "EUR", "token": "PT"}, {"currency": "EUR", "token": "GOLD"}]
         oracle_id2 = self.nodes[0].appointoracle(oracle_address2, price_feeds2, 15)
 
         self.synchronize(node=0)
@@ -173,7 +171,7 @@ class OraclesTest(DefiTestFramework):
 
         # === re-create oracle2 ===
 
-        price_feeds2 = '[{"currency": "EUR", "token": "GOLD"}, {"currency": "EUR", "token": "PT"}]'
+        price_feeds2 = [{"currency": "EUR", "token": "GOLD"}, {"currency": "EUR", "token": "PT"}]
         oracle_id2 = self.nodes[0].appointoracle(oracle_address2, price_feeds2, 15)
 
         self.synchronize(node=0)
@@ -183,14 +181,14 @@ class OraclesTest(DefiTestFramework):
                                         oracle_id=oracle_id1,
                                         weightage=10,
                                         price_feeds=price_feeds1,
-                                        token_prices='[]'   # no prices yet
+                                        token_prices=[]   # no prices yet
                                         )
 
         self.assert_compare_oracle_data(oracle_data_json=self.nodes[1].getoracledata(oracle_id2),
                                         oracle_id=oracle_id2,
                                         weightage=15,
                                         price_feeds=price_feeds2,
-                                        token_prices='[]'   # no prices yet
+                                        token_prices=[]   # no prices yet
                                         )
 
         all_oracles = self.nodes[1].listoracles()
@@ -198,19 +196,18 @@ class OraclesTest(DefiTestFramework):
 
         # === check get price in case when no live oracles are available ===
         assert_raises_rpc_error(-1, 'no live oracles for specified request',
-                                self.nodes[1].getprice, '{"currency": "USD", "token": "GOLD"}')
+                                self.nodes[1].getprice, {"currency": "USD", "token": "GOLD"})
         assert_raises_rpc_error(-1, 'no live oracles for specified request',
-                                self.nodes[1].getprice, '{"currency": "USD", "token": "PT"}')
+                                self.nodes[1].getprice, {"currency": "USD", "token": "PT"})
         assert_raises_rpc_error(-1, 'no live oracles for specified request',
-                                self.nodes[1].getprice, '{"currency": "EUR", "token": "GOLD"}')
+                                self.nodes[1].getprice, {"currency": "EUR", "token": "GOLD"})
         assert_raises_rpc_error(-1, 'no live oracles for specified request',
-                                self.nodes[1].getprice, '{"currency": "EUR", "token": "PT"}')
+                                self.nodes[1].getprice, {"currency": "EUR", "token": "PT"})
 
         timestamp = calendar.timegm(time.gmtime())
 
         # === set oracle data, simple case ===
-        oracle1_prices = '[{"currency": "USD", "tokenAmount": "10.1@PT"}, ' \
-                         '{"currency": "USD", "tokenAmount": "5@GOLD"}]'
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "10.1@PT"}, {"currency": "USD", "tokenAmount": "5@GOLD"}]
         self.nodes[2].setoracledata(oracle_id1, timestamp, oracle1_prices)
 
         self.synchronize(node=2)
@@ -222,17 +219,18 @@ class OraclesTest(DefiTestFramework):
 
         # decimals are not strict values, so we need to look how small is the difference
         assert (math.isclose(
-            self.nodes[1].getprice('{"currency":"USD", "token":"PT"}'), decimal.Decimal(10.1)))
+            self.nodes[1].getprice({"currency":"USD", "token":"PT"}), decimal.Decimal(10.1)))
 
         assert (math.isclose(
-            self.nodes[1].getprice('{"currency":"USD", "token":"GOLD"}'), decimal.Decimal(5)))
+            self.nodes[1].getprice({"currency":"USD", "token":"GOLD"}), decimal.Decimal(5)))
 
-        price_feeds1 = '''
-            [{"currency": "USD", "token": "PT"},
-             {"currency": "EUR", "token": "PT"},
-             {"currency": "EUR", "token": "GOLD"},
-             {"currency": "USD", "token": "GOLD"}]
-        '''
+        price_feeds1 = [
+            {"currency": "USD", "token": "PT"},
+            {"currency": "EUR", "token": "PT"},
+            {"currency": "EUR", "token": "GOLD"},
+            {"currency": "USD", "token": "GOLD"}
+        ]
+
         self.nodes[0].updateoracle(oracle_id1, oracle_address1, price_feeds1, 20)
 
         # check that only founder can appoint oracles
@@ -277,24 +275,23 @@ class OraclesTest(DefiTestFramework):
 
         # === check get prices methods complex case ===
 
-        oracle1_prices = '[{"currency": "USD", "tokenAmount": "11.5@PT"},' \
-                         '{"currency": "EUR", "tokenAmount": "5@GOLD"}]'
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "11.5@PT"}, {"currency": "EUR", "tokenAmount": "5@GOLD"}]
 
         self.nodes[2].setoracledata(oracle_id1, timestamp, oracle1_prices)
 
-        oracle2_prices = '[{"currency": "EUR", "tokenAmount": "4@GOLD"}]'
+        oracle2_prices = [{"currency": "EUR", "tokenAmount": "4@GOLD"}]
 
         self.nodes[2].setoracledata(oracle_id2, timestamp, oracle2_prices)
 
         self.synchronize(node=2)
 
         # === set missing data ===
-        price_feeds2 = '''
-            [{"currency": "USD", "token": "PT"},
-             {"currency": "EUR", "token": "PT"},
-             {"currency": "EUR", "token": "GOLD"},
-             {"currency": "USD", "token": "GOLD"}]
-        '''
+        price_feeds2 = [
+            {"currency": "USD", "token": "PT"},
+            {"currency": "EUR", "token": "PT"},
+            {"currency": "EUR", "token": "GOLD"},
+            {"currency": "USD", "token": "GOLD"}
+        ]
 
         self.nodes[0].updateoracle(oracle_id2, oracle_address2, price_feeds2, 25)
 
@@ -302,16 +299,18 @@ class OraclesTest(DefiTestFramework):
 
         # === we have no valid oracle values for PT#129 in EUR ===
         assert_raises_rpc_error(-1, 'no live oracles for specified request',
-                                self.nodes[1].getprice, '{"currency": "EUR", "token": "PT"}')
+                                self.nodes[1].getprice, {"currency": "EUR", "token": "PT"})
 
-        self.nodes[2].setoracledata(oracle_id2, timestamp,
-                                          '[{"currency":"USD", "tokenAmount":"10@GOLD"},'
-                                          '{"currency":"EUR", "tokenAmount":"7@PT"}]')
+        self.nodes[2].setoracledata(oracle_id2, timestamp, [
+                                    {"currency":"USD", "tokenAmount":"10@GOLD"},
+                                    {"currency":"EUR", "tokenAmount":"7@PT"}])
 
-        token_prices1 = '[{"currency":"USD", "tokenAmount":"11@GOLD"}, ' \
-                        '{"currency":"EUR", "tokenAmount":"8@PT"}, ' \
-                        '{"currency":"EUR", "tokenAmount":"10@GOLD"}, ' \
-                        '{"currency":"USD", "tokenAmount":"7@PT"}]'
+        token_prices1 = [
+            {"currency":"USD", "tokenAmount":"11@GOLD"},
+            {"currency":"EUR", "tokenAmount":"8@PT"},
+            {"currency":"EUR", "tokenAmount":"10@GOLD"},
+            {"currency":"USD", "tokenAmount":"7@PT"}
+        ]
 
         self.nodes[2].setoracledata(oracle_id1, timestamp, token_prices1)
 
@@ -323,16 +322,18 @@ class OraclesTest(DefiTestFramework):
                                         token_prices=token_prices1)
 
         # === check expired price feed ===
-        token_prices1 = '[{"currency":"USD", "tokenAmount":"11@GOLD"}, ' \
-                        '{"currency":"EUR", "tokenAmount":"8@PT"}, ' \
-                        '{"currency":"EUR", "tokenAmount":"10@GOLD"}, ' \
-                        '{"currency":"USD", "tokenAmount":"7@PT"}]'
+        token_prices1 = [
+            {"currency":"USD", "tokenAmount":"11@GOLD"},
+            {"currency":"EUR", "tokenAmount":"8@PT"},
+            {"currency":"EUR", "tokenAmount":"10@GOLD"},
+            {"currency":"USD", "tokenAmount":"7@PT"}
+        ]
 
         self.nodes[2].setoracledata(oracle_id1, timestamp - 7200, token_prices1)
 
         self.synchronize(node=2, full=True)
 
-        pt_in_usd_raw_prices = self.nodes[1].listlatestrawprices('{"currency":"USD", "token":"PT"}')
+        pt_in_usd_raw_prices = self.nodes[1].listlatestrawprices({"currency":"USD", "token":"PT"})
 
         assert_equal(len(pt_in_usd_raw_prices), 1)
         assert_equal(pt_in_usd_raw_prices[0]['state'], 'expired')
@@ -343,11 +344,11 @@ class OraclesTest(DefiTestFramework):
 
         assert_raises_rpc_error(-32600, 'oracle <{}> not found'.format(invalid_oracle_id),
                                 self.nodes[0].updateoracle,
-                                invalid_oracle_id, oracle_address2, '[{"currency":"USD", "token":"PT#129"}]', 15)
+                                invalid_oracle_id, oracle_address2, [{"currency":"USD", "token":"PT"}], 15)
 
         assert_raises_rpc_error(-32600, 'oracle <{}> not found'.format(invalid_oracle_id),
                                 self.nodes[0].setoracledata,
-                                invalid_oracle_id, timestamp, '[{"currency":"USD", "tokenAmount":"10@PT#129"}]')
+                                invalid_oracle_id, timestamp, [{"currency":"USD", "tokenAmount":"10@PT"}])
 
         self.nodes[0].removeoracle(oracle_id1)
         self.nodes[0].removeoracle(oracle_id2)
