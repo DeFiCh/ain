@@ -653,6 +653,7 @@ UniValue listanchors(const JSONRPCRequest& request)
     }.Check(request);
 
     auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
     auto confirms = pcustomcsview->CAnchorConfirmsView::GetAnchorConfirmData();
 

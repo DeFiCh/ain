@@ -208,6 +208,7 @@ std::string ScriptToString(CScript const& script) {
 
 int chainHeight(interfaces::Chain::Lock& locked_chain)
 {
+    LOCK(locked_chain.mutex());
     if (auto height = locked_chain.getHeight())
         return *height;
     return 0;
@@ -252,7 +253,7 @@ static boost::optional<CTxIn> GetAuthInputOnly(CWallet* const pwallet, CTxDestin
     cctl.m_tokenFilter = {DCT_ID{0}};
 
     auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
+    LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
     pwallet->AvailableCoins(*locked_chain, vecOutputs, true, &cctl, 1, MAX_MONEY, MAX_MONEY, 1);
 

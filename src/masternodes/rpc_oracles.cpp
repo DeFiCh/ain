@@ -717,11 +717,12 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         tokenPair = DecodeTokenCurrencyPair(request.params[0]);
     }
 
-    auto lock = pwallet->chain().lock();
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
-    auto optHeight = lock->getHeight();
+    auto optHeight = locked_chain->getHeight();
     int lastHeight = optHeight ? *optHeight : 0;
-    auto lastBlockTime = lock->getBlockTime(lastHeight);
+    auto lastBlockTime = locked_chain->getBlockTime(lastHeight);
 
     CCustomCSView mnview(*pcustomcsview);
 
@@ -859,11 +860,12 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
-    auto lock = pwallet->chain().lock();
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
-    auto optHeight = lock->getHeight();
+    auto optHeight = locked_chain->getHeight();
     int lastHeight = optHeight ? *optHeight : 0;
-    auto lastBlockTime = lock->getBlockTime(lastHeight);
+    auto lastBlockTime = locked_chain->getBlockTime(lastHeight);
 
     CCustomCSView view(*pcustomcsview);
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
@@ -897,11 +899,12 @@ UniValue listprices(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {}, false);
 
-    auto lock = pwallet->chain().lock();
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
-    auto optHeight = lock->getHeight();
+    auto optHeight = locked_chain->getHeight();
     int lastHeight = optHeight ? *optHeight : 0;
-    auto lastBlockTime = lock->getBlockTime(lastHeight);
+    auto lastBlockTime = locked_chain->getBlockTime(lastHeight);
 
     CCustomCSView view(*pcustomcsview);
     return GetAllAggregatePrices(view, lastBlockTime);
