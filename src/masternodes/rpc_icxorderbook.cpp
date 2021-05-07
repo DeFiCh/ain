@@ -382,6 +382,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"expiry\" must be greater than %d", CICXMakeOffer::DEFAULT_EXPIRY - 1));
 
     int targetHeight;
+    CScript authScript;
     {
         LOCK(cs_main);
         auto order = pcustomcsview->GetICXOrderByCreationTx(makeoffer.orderTx);
@@ -394,20 +395,21 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
             if (!metaObj["receiveAddress"].isNull()) {
-                CScript dest=DecodeScript(metaObj["receiveAddress"].getValStr());
-                makeoffer.receiveDestination = std::vector<uint8_t>(dest.begin(),dest.end());
+                authScript=DecodeScript(metaObj["receiveAddress"].getValStr());
+                makeoffer.receiveDestination = std::vector<uint8_t>(authScript.begin(),authScript.end());
             }
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"receiveAddress\" must be non-null");
             if (!::IsMine(*pwallet, DecodeDestination(metaObj["receiveAddress"].getValStr())))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", metaObj["receiveAddress"].getValStr()));
         }
-        else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
-        {
-            if (!metaObj["ownerAddress"].isNull())
-                makeoffer.ownerAddress = DecodeScript(metaObj["ownerAddress"].getValStr());
-            else
-                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"ownerAddress\" must be non-null");
+        else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
+            if (!metaObj["ownerAddress"].isNull()) {
+                authScript = DecodeScript(metaObj["ownerAddress"].getValStr());
+                makeoffer.ownerAddress = authScript;
+            } else {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"ownerAddress\" must be non-null");
+            }
             if (!::IsMine(*pwallet, DecodeDestination(metaObj["ownerAddress"].getValStr())))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", metaObj["ownerAddress"].getValStr()));
             
@@ -435,7 +437,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
+    std::set<CScript> auths{authScript};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
@@ -1151,6 +1153,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
     closeoffer.offerTx = uint256S(request.params[0].getValStr());
 
     int targetHeight;
+    CScript owner;
     {
         LOCK(cs_main);
 
@@ -1159,6 +1162,12 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "OfferTx (" + closeoffer.offerTx.GetHex() + ") does not exist");
         if (!offer->closeTx.IsNull()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,"OfferTx (" + closeoffer.offerTx.GetHex() + " is already closed!");
+        }
+
+        if (!offer->ownerAddress.empty()) {
+            owner = offer->ownerAddress;
+        } else {
+            owner = CScript(offer->receiveDestination.begin(), offer->receiveDestination.end());
         }
 
         targetHeight = ::ChainActive().Height() + 1;
@@ -1175,7 +1184,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
+    std::set<CScript> auths{owner};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
@@ -1471,6 +1480,7 @@ static const CRPCCommand commands[] =
 //  --------------- ----------------------       ---------------------   ----------
     {"icxorderbook",   "icx_createorder",        &icxcreateorder,        {"order"}},
     {"icxorderbook",   "icx_makeoffer",          &icxmakeoffer,          {"offer"}},
+    {"icxorderbook",   "icx_closeoffer",         &icxcloseoffer,         {"offerTx"}},
     {"icxorderbook",   "icx_submitdfchtlc",      &icxsubmitdfchtlc,      {"dfchtlc"}},
     {"icxorderbook",   "icx_submitexthtlc",      &icxsubmitexthtlc,      {"exthtlc"}},
     {"icxorderbook",   "icx_claimdfchtlc",       &icxclaimdfchtlc,       {"claim"}},

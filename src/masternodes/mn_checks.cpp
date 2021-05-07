@@ -1183,7 +1183,7 @@ public:
         
         CAmount calcedAmount(static_cast<CAmount>((arith_uint256(order->amountToFill) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
         if (calcedAmount < makeoffer.amount)
-            return Res::Err("%s: %s", __func__, "cannot fill order with that amount, order (" + order->creationTx.GetHex() + ") has less amount to fill!");
+            makeoffer.amount = calcedAmount;
 
         CScript txidAddr(makeoffer.creationTx.begin(),makeoffer.creationTx.end());
         
@@ -1436,6 +1436,7 @@ public:
             order->amountToFill -= calcedAmount;
         }
 
+        // Order fulfilled, close order.
         if (order->amountToFill==0)
         {
             order->closeTx=claimdfchtlc.creationTx;
@@ -1444,7 +1445,19 @@ public:
             if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
         }
-        
+
+        // Close offer
+        CICXCloseOfferImplemetation closeoffer;
+        closeoffer.creationTx = tx.GetHash();
+        closeoffer.creationHeight = height;
+        closeoffer.offerTx = dfchtlc->offerTx;
+        res = mnview.ICXCloseOffer(closeoffer);
+        if (!res)
+            return res;
+        res = mnview.ICXCloseMakeOfferTx(*offer, CICXMakeOffer::STATUS_CLOSED);
+        if (!res)
+            return res;
+
         res = mnview.ICXClaimDFCHTLC(claimdfchtlc,*order);
         if (!res.ok)
                 return Res::Err("%s: %s", __func__, res.msg);
@@ -1508,17 +1521,17 @@ public:
 
         std::unique_ptr<CICXMakeOfferImplemetation> offer;
         if (!(offer = mnview.GetICXMakeOfferByCreationTx(closeoffer.offerTx)))
-            return Res::Err("order with creation tx %s does not exists!", closeoffer.offerTx.GetHex());
+            return Res::Err("offer with creation tx %s does not exists!", closeoffer.offerTx.GetHex());
         std::unique_ptr<CICXOrderImplemetation> order;
         if (!(order = mnview.GetICXOrderByCreationTx(offer->orderTx)))
             return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
         if (!offer->closeTx.IsNull())
-            return Res::Err("order with creation tx %s is already closed!", closeoffer.offerTx.GetHex());
+            return Res::Err("offer with creation tx %s is already closed!", closeoffer.offerTx.GetHex());
 
         const Coin& auth = coins.AccessCoin(COutPoint(offer->creationTx, 1)); // always n=1 output
         // check auth
         if (!HasAuth(auth.out.scriptPubKey))
-            return Res::Err("%s: %s", __func__, "tx must have at least one input from order owner");
+            return Res::Err("%s: %s", __func__, "tx must have at least one input from offer owner");
 
         offer->closeTx = closeoffer.creationTx;
         offer->closeHeight = closeoffer.creationHeight;
