@@ -251,6 +251,8 @@ BASE_SCRIPTS = [
     'feature_shutdown.py',
     'feature_oracles.py',
     'rpc_getmininginfo.py',
+    'feature_burn_address.py',
+    'feature_eunos_balances.py',
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]

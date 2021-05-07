@@ -1609,6 +1609,9 @@ bool AppInitMain(InitInterfaces& interfaces)
                     paccountHistoryDB = MakeUnique<CAccountHistoryStorage>(GetDataDir() / "history", nCustomCacheSize, false, fReset || fReindexChainState);
                 }
 
+                pburnHistoryDB.reset();
+                pburnHistoryDB = MakeUnique<CBurnHistoryStorage>(GetDataDir() / "burn", nCustomCacheSize, false, fReset || fReindexChainState);
+
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!::ChainstateActive().CoinsDB().Upgrade()) {

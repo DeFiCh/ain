@@ -58,6 +58,7 @@ struct Params {
     CScript foundationShareScript;
     uint32_t foundationShare;
     std::set<CScript> foundationMembers;
+    std::set<CScript> accountDestruction;
     /* Block hash that is excepted from BIP16 enforcement */
     uint256 BIP16Exception;
     /** Block height and hash at which BIP34 becomes active */
@@ -89,6 +90,10 @@ struct Params {
     int EunosHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
+    /** Trackable burn address */
+    CScript burnAddress;
+    /** Previous burn address to transfer tokens from */
+    CScript retiredBurnAddress;
 
     /** Struct to hold percentages for coinbase distribution.
      *  Percentages are calculated out of 10000 */

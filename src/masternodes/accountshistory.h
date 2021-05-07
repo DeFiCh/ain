@@ -69,6 +69,12 @@ public:
     CAccountHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 
+class CBurnHistoryStorage : public CAccountsHistoryView
+{
+public:
+    CBurnHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
+};
+
 class CAccountsHistoryWriter : public CCustomCSView
 {
     const uint32_t height;
@@ -76,12 +82,15 @@ class CAccountsHistoryWriter : public CCustomCSView
     const uint256 txid;
     const uint8_t type;
     std::map<CScript, TAmounts> diffs;
+    std::map<CScript, TAmounts> burnDiffs;
     CAccountsHistoryView* historyView;
+    CAccountsHistoryView* burnView;
 
 public:
-    CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CAccountsHistoryView* historyView);
+    CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView);
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    Res AddFeeBurn(CScript const & owner, CAmount amount);
     bool Flush();
 };
 
@@ -90,16 +99,19 @@ class CAccountsHistoryEraser : public CCustomCSView
     const uint32_t height;
     const uint32_t txn;
     std::set<CScript> accounts;
+    std::set<CScript> burnAccounts;
     CAccountsHistoryView* historyView;
+    CAccountsHistoryView* burnView;
 
 public:
-    CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView);
+    CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView);
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
     bool Flush();
 };
 
 extern std::unique_ptr<CAccountHistoryStorage> paccountHistoryDB;
+extern std::unique_ptr<CBurnHistoryStorage> pburnHistoryDB;
 
 static constexpr bool DEFAULT_ACINDEX = true;
 

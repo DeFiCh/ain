@@ -35,6 +35,7 @@
 #include <vector>
 
 class CAnchorConfirmMessage;
+struct CBalances;
 class CChainState;
 class CDoubleSignFact;
 class CCustomCSView;
@@ -243,6 +244,8 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
  */
 bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& block, CValidationState& state, const CChainParams& chainparams, const CBlockIndex** ppindex = nullptr, CBlockHeader* first_invalid = nullptr) LOCKS_EXCLUDED(cs_main);
 
+/** Check if transaction is trying to spend a burnt output */
+bool CheckBurnSpend(const CTransaction &tx, const CCoinsViewCache &inputs);
 /** Open a block file (blk?????.dat) */
 FILE* OpenBlockFile(const FlatFilePos &pos, bool fReadOnly = false);
 /** Translation to a filesystem path */
@@ -818,5 +821,7 @@ inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t
 {
     return (blockReward  * percentage) / 10000;
 }
+
+Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts);
 
 #endif // DEFI_VALIDATION_H
