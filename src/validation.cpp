@@ -2138,7 +2138,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(pindex);
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
+
+    // Reset phanton TX to block TX count
     nPhantomBurnTx = block.vtx.size();
+
+    // Wipe burn map, we only want TXs added during ConnectBlock
+    mapBurnAmounts.clear();
 
     // Check it again in case a previous version let a bad block in
     // NOTE: We don't currently (re-)invoke ContextualCheckBlock() or

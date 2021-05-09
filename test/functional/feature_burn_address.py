@@ -152,7 +152,7 @@ class BurnAddressTest(DefiTestFramework):
         result = self.nodes[0].getburninfo()
         assert_equal(result['address'], burn_address)
         assert_equal(result['amount'], Decimal('12.99988640'))
-        assert_equal(result['tokens'][0], '1.00000000@DFI')
+        assert_equal(result['tokens'][0], '2.00000000@DFI')
         assert_equal(result['tokens'][1], '100.00000000@GOLD#128')
         assert_equal(result['feeburn'], Decimal('2.00000000'))
 

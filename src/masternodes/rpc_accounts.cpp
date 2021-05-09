@@ -1560,7 +1560,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     CAmount burntDFI{0};
     CAmount burntFee{0};
-    std::map<uint32_t, CAmount> burntTokens;
+    CBalances burntTokens;
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
         const auto & value = valueLazy.get();
@@ -1583,7 +1583,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
         // Token burn
         for (auto const & diff : value.diff) {
-            burntTokens.insert({diff.first.v, diff.second});
+            burntTokens.Add({diff.first, diff.second});
         }
 
         return true;
@@ -1596,7 +1596,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     result.pushKV("address", ScriptToString(Params().GetConsensus().burnAddress));
     result.pushKV("amount", ValueFromAmount(burntDFI));
     UniValue tokens(UniValue::VARR);
-    for (const auto& item : burntTokens)
+    for (const auto& item : burntTokens.balances)
     {
         tokens.push_back(tokenAmountString({{item.first}, item.second}));
     }

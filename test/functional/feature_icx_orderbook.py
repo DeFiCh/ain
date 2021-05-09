@@ -22,6 +22,9 @@ class ICXOrderbookTest (DefiTestFramework):
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
+        # Burn address
+        burn_address = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
+
         print("Generating initial chain...")
         self.nodes[0].generate(25)
         self.sync_blocks()
@@ -151,6 +154,13 @@ class ICXOrderbookTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        # Check burn
+        assert_equal(self.nodes[0].getburninfo()['tokens'][0], "0.02000000@DFI")
+        result = self.nodes[0].listburnhistory()
+        assert_equal(result[0]['owner'], burn_address)
+        assert_equal(result[0]['type'], 'ICXSubmitDFCHTLC')
+        assert_equal(result[0]['amounts'][0], '0.02000000@DFI')
+
         hltcs = self.nodes[0].icx_listhtlcs({"offerTx": offerTx})
 
         assert_equal(len(hltcs), 1)
@@ -257,6 +267,13 @@ class ICXOrderbookTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        # Check burn
+        assert_equal(self.nodes[0].getburninfo()['tokens'][0], "0.03000000@DFI")
+        result = self.nodes[0].listburnhistory()
+        assert_equal(result[0]['owner'], burn_address)
+        assert_equal(result[0]['type'], 'ICXSubmitDFCHTLC')
+        assert_equal(result[0]['amounts'][0], '0.01000000@DFI')
 
         hltcs = self.nodes[0].icx_listhtlcs({"offerTx": offerTx})
 
