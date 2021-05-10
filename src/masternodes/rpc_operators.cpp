@@ -94,7 +94,7 @@ UniValue createoperator(const JSONRPCRequest& request)
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
-    CCreateOperatorMessage msg{std::move(ownerScript), operatorName, operatorURL, state};
+    CCreateOperatorMessage msg{ownerScript, operatorName, operatorURL, state};
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

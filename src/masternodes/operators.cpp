@@ -33,10 +33,11 @@ Res COperatorView::UpdateOperator(const COperatorId& operatorId, const COperator
         return Res::Err("operator <%s> not found", operatorId.GetHex());
     }
 
+    //move everithing one by one(if possible) for the clarity.
     opertr.operatorAddress = std::move(newOperator.operatorAddress);
-    opertr.operatorName = newOperator.operatorName;
-    opertr.operatorURL = newOperator.operatorURL;
-    opertr.operatorState = newOperator.operatorState;
+    opertr.operatorName = std::move(newOperator.operatorName);
+    opertr.operatorURL = std::move(newOperator.operatorURL);
+    opertr.operatorState = std::move(newOperator.operatorState);
 
     // write
     if (!WriteBy<ById>(operatorId, opertr)) {

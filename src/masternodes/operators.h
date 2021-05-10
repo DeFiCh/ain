@@ -33,9 +33,9 @@ struct CCreateOperatorMessage {
     uint8_t operatorState{0};
 
     CCreateOperatorMessage(CScript operatorAddress_, std::string operatorName_, std::string operatorURL_, OperatorState operatorState_)
-                            :  operatorAddress(operatorAddress_)
-                            ,  operatorName(operatorName_)
-                            ,  operatorURL(operatorURL_)
+                            :  operatorAddress(std::forward<CScript>(operatorAddress_))
+                            ,  operatorName(std::forward<std::string>(operatorName_))
+                            ,  operatorURL(std::forward<std::string>(operatorURL_))
                             ,  operatorState(static_cast<uint8_t>(operatorState_))
     {}
 
@@ -60,7 +60,7 @@ struct CUpdateOperatorMessage {
     CUpdateOperatorMessage() = default;
 
     CUpdateOperatorMessage(COperatorId operatorId_, CCreateOperatorMessage newOperator_) 
-                            : operatorId(operatorId_), newOperator(newOperator_)
+                            : operatorId(std::forward<COperatorId>(operatorId_)), newOperator(std::forward<CCreateOperatorMessage>(newOperator_))
     {}
 
     ADD_SERIALIZE_METHODS;
