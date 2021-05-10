@@ -6,7 +6,7 @@
 #include <rpc/protocol.h>
 #include <chainparams.h>
 
-const unsigned char COperatorView::ById::prefix = 'Z'; // the big Z for Operator, big O is already taken by Oracle
+const unsigned char COperatorView::ById::prefix = '0'; // the 0 (zero) for Operator
 
 CAmount GetOperatorCreationFee(int)
 {
@@ -36,6 +36,7 @@ Res COperatorView::UpdateOperator(const COperatorId& operatorId, const COperator
     opertr.operatorAddress = std::move(newOperator.operatorAddress);
     opertr.operatorName = newOperator.operatorName;
     opertr.operatorURL = newOperator.operatorURL;
+    opertr.operatorState = newOperator.operatorState;
 
     // write
     if (!WriteBy<ById>(operatorId, opertr)) {

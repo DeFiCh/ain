@@ -18,10 +18,10 @@
 
 using COperatorId = uint256;
 
-enum OperatorState {
+enum class OperatorState : uint8_t {
     INVALID,
     DRAFT,
-    ACTIVE,
+    ACTIVE
 };
 
 CAmount GetOperatorCreationFee(int height);
@@ -30,7 +30,16 @@ struct CCreateOperatorMessage {
     CScript operatorAddress;
     std::string operatorName;
     std::string operatorURL;
-    // OperatorState operatorState;
+    uint8_t operatorState{0};
+
+    CCreateOperatorMessage(CScript operatorAddress_, std::string operatorName_, std::string operatorURL_, OperatorState operatorState_)
+                            :  operatorAddress(operatorAddress_)
+                            ,  operatorName(operatorName_)
+                            ,  operatorURL(operatorURL_)
+                            ,  operatorState(static_cast<uint8_t>(operatorState_))
+    {}
+
+    CCreateOperatorMessage() = default;
 
     ADD_SERIALIZE_METHODS;
 
@@ -40,13 +49,19 @@ struct CCreateOperatorMessage {
         READWRITE(operatorAddress);
         READWRITE(operatorName);
         READWRITE(operatorURL);
-        // READWRITE(operatorState);
+        READWRITE(operatorState);
     }
 };
 
 struct CUpdateOperatorMessage {
     COperatorId operatorId;
     CCreateOperatorMessage newOperator;
+
+    CUpdateOperatorMessage() = default;
+
+    CUpdateOperatorMessage(COperatorId operatorId_, CCreateOperatorMessage newOperator_) 
+                            : operatorId(operatorId_), newOperator(newOperator_)
+    {}
 
     ADD_SERIALIZE_METHODS;
 

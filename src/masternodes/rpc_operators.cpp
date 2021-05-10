@@ -20,6 +20,15 @@ OperatorState GetOperatorState(std::string state) {
         return OperatorState::INVALID;
 }
 
+std::string GetOperatorStateString(uint8_t state) {
+    switch (state) {
+        case 2      : return "ACTIVE"; break;
+        case 1      : return "DRAFT"; break;
+        default     : return "INVALID"; break;
+
+    }
+}
+
 // creates an operator
 UniValue createoperator(const JSONRPCRequest& request)
 {
@@ -85,8 +94,7 @@ UniValue createoperator(const JSONRPCRequest& request)
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
-    //CCreateOperatorMessage msg{std::move(ownerScript), operatorName, operatorURL, state};
-    CCreateOperatorMessage msg{std::move(ownerScript), operatorName, operatorURL};
+    CCreateOperatorMessage msg{std::move(ownerScript), operatorName, operatorURL, state};
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -190,7 +198,7 @@ UniValue updateoperator(const JSONRPCRequest& request) {
 
     CUpdateOperatorMessage msg{
             operatorId,
-            CCreateOperatorMessage{ownerScript, operatorName, operatorURL}
+            CCreateOperatorMessage{ownerScript, operatorName, operatorURL, operatorState}
     };
 
     // encode

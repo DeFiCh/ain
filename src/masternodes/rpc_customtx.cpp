@@ -11,6 +11,7 @@
 #include <boost/variant/static_visitor.hpp>
 
 extern std::string ScriptToString(CScript const& script);
+extern std::string GetOperatorStateString(uint8_t state);
 
 class CCustomTxRpcVisitor : public boost::static_visitor<void>
 {
@@ -231,6 +232,7 @@ public:
         rpcInfo.pushKV("operatorAddress", ScriptToString(obj.operatorAddress));
         rpcInfo.pushKV("name", obj.operatorName);
         rpcInfo.pushKV("url", obj.operatorURL);
+        rpcInfo.pushKV("state", GetOperatorStateString(obj.operatorState));
     }
 
     void operator()(const CUpdateOperatorMessage& obj) const {
@@ -238,6 +240,7 @@ public:
         rpcInfo.pushKV("operatorAddress", ScriptToString(obj.newOperator.operatorAddress));
         rpcInfo.pushKV("name", obj.newOperator.operatorName);
         rpcInfo.pushKV("url", obj.newOperator.operatorURL);
+        rpcInfo.pushKV("state", GetOperatorStateString(obj.newOperator.operatorState));
     }
 
     void operator()(const CCustomTxMessageNone&) const {
