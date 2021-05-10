@@ -24,7 +24,6 @@ class BurnAddressTest(DefiTestFramework):
 
         # Burn address
         burn_address = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
-        burn_scriptpubkey = self.nodes[0].getaddressinfo(burn_address)['scriptPubKey']
         self.nodes[0].importprivkey("93ViFmLeJVgKSPxWGQHmSdT5RbeGDtGW4bsiwQM2qnQyucChMqQ")
 
         # Test masternode creation fee burn
