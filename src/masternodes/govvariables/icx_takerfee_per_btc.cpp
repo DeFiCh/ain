@@ -21,11 +21,11 @@ UniValue ICX_TAKERFEE_PER_BTC::Export() const {
 Res ICX_TAKERFEE_PER_BTC::Validate(const CCustomCSView &mnview) const
 {
     if (takerFeePerBTC <= 0)
-            return Res::Err("takerFeePerBTC cannot be 0 or less");
+        return Res::Err("takerFeePerBTC cannot be 0 or less");
     return Res::Ok();
 }
 
-Res ICX_TAKERFEE_PER_BTC::Apply(CCustomCSView & mnview, uint32_t height)
+Res ICX_TAKERFEE_PER_BTC::Apply(CCustomCSView & mnview, uint32_t)
 {
-    return mnview.ICXSetTakerFeePerBTC(height, takerFeePerBTC);
+    return mnview.ICXSetTakerFeePerBTC(takerFeePerBTC);
 }

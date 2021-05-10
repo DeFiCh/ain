@@ -535,13 +535,13 @@ public:
 
     //Order
     std::unique_ptr<CICXOrderImpl> GetICXOrderByCreationTx(uint256 const & txid) const;
-    ResVal<uint256> ICXCreateOrder(CICXOrderImpl const & order);
+    Res ICXCreateOrder(CICXOrderImpl const & order);
     Res ICXUpdateOrder(CICXOrderImpl const & order);
     Res ICXCloseOrderTx(CICXOrderImpl const & order, uint8_t const);
     void ForEachICXOrderOpen(std::function<bool (OrderKey const &, uint8_t)> callback, AssetPair const & pair = AssetPair());    
     void ForEachICXOrderClose(std::function<bool (OrderKey const &, uint8_t)> callback, AssetPair const & pair = AssetPair());    
     void ForEachICXOrderExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);    
-    
+
     //MakeOffer
     std::unique_ptr<CICXMakeOfferImpl> GetICXMakeOfferByCreationTx(uint256 const & txid) const;
     ResVal<uint256> ICXMakeOffer(CICXMakeOfferImpl const & makeoffer);
@@ -565,7 +565,7 @@ public:
     void ForEachICXSubmitEXTHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitEXTHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitEXTHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
-    
+
     //ClaimDFCHTLC
     std::unique_ptr<CICXClaimDFCHTLCImpl> GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const;
     ResVal<uint256> ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, CICXOrderImpl const & order);
@@ -579,13 +579,9 @@ public:
     std::unique_ptr<CICXCloseOfferImpl> GetICXCloseOfferByCreationTx(uint256 const & txid) const;
     ResVal<uint256> ICXCloseOffer(CICXCloseOfferImpl const & closeoffer);
 
-    // ICX_DFIBTC_POOLPAIR
-    Res ICXSetDFIBTCPoolPairId(uint32_t const height, DCT_ID const & poolId);
-    DCT_ID ICXGetDFIBTCPoolPairId(uint32_t const height);
-
     // ICX_TAKERFEE_PER_BTC
-    Res ICXSetTakerFeePerBTC(uint32_t const height, CAmount const & poolId);
-    CAmount ICXGetTakerFeePerBTC(uint32_t const height);
+    Res ICXSetTakerFeePerBTC(CAmount amount);
+    CAmount ICXGetTakerFeePerBTC();
 
     struct ICXOrderCreationTx { static const unsigned char prefix; };
     struct ICXMakeOfferCreationTx { static const unsigned char prefix; };
@@ -594,7 +590,7 @@ public:
     struct ICXClaimDFCHTLCCreationTx { static const unsigned char prefix; };
     struct ICXCloseOrderCreationTx { static const unsigned char prefix; };
     struct ICXCloseOfferCreationTx { static const unsigned char prefix; };
-    
+
     struct ICXOrderOpenKey { static const unsigned char prefix; };
     struct ICXOrderCloseKey { static const unsigned char prefix; };
     struct ICXMakeOfferOpenKey { static const unsigned char prefix; };
@@ -604,7 +600,7 @@ public:
     struct ICXSubmitEXTHTLCOpenKey { static const unsigned char prefix; };
     struct ICXSubmitEXTHTLCCloseKey { static const unsigned char prefix; };
     struct ICXClaimDFCHTLCKey { static const unsigned char prefix; };
-    
+
     struct ICXOrderStatus { static const unsigned char prefix; };
     struct ICXOfferStatus { static const unsigned char prefix; };
     struct ICXSubmitDFCHTLCStatus { static const unsigned char prefix; };

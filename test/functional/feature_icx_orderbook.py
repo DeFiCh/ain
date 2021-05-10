@@ -95,7 +95,6 @@ class ICXOrderbookTest (DefiTestFramework):
 
         assert_equal(len(self.nodes[0].getaccount(accountDFI, {}, True)), 2)
 
-        result = self.nodes[0].setgov({"ICX_DFIBTC_POOLPAIR":int(idDFIBTC)})
 
         self.nodes[0].generate(1)
 
@@ -103,8 +102,6 @@ class ICXOrderbookTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        result = self.nodes[0].getgov("ICX_DFIBTC_POOLPAIR")
-        # assert_equal(idDFIBTC, result["ICX_DFIBTC_POOLPAIR"])
 
         # Open and close an order
         orderTx = self.nodes[0].icx_createorder({

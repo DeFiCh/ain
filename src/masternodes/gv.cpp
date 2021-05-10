@@ -3,7 +3,6 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternodes/gv.h>
-#include <masternodes/govvariables/icx_dfibtc_poolpair.h>
 #include <masternodes/govvariables/icx_takerfee_per_btc.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/govvariables/lp_splits.h>
