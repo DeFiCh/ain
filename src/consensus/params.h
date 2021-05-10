@@ -88,6 +88,8 @@ struct Params {
     int DakotaCrescentHeight;
     /** Sixth major fork **/
     int EunosHeight;
+    /** Seventh major fork **/
+    int FUpgradeHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
     /** Trackable burn address */

@@ -67,8 +67,8 @@ enum class CustomTxType : uint8_t
     UpdateOracleAppoint   = 't',
     SetOracleData         = 'y',
     // operators
-    CreateOperator        = 'O',
-    UpdateOperator        = 'Z',
+    CreateOperator        = '0', // zero, ascii 48
+    UpdateOperator        = '1',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {

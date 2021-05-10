@@ -163,6 +163,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
+    Res isPostFUpgradeFork() const {
+        if(static_cast<int>(height) < consensus.FUpgradeHeight) {
+            return Res::Err("called before FUpgrade height");
+        }
+        return Res::Ok();
+    }
+
     template<typename T>
     Res serialize(T& obj) const {
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -335,14 +342,12 @@ public:
     }
 
     Res operator()(CCreateOperatorMessage& obj) const {
-        //auto res = isPostEunosFork();
-        auto res = Res::Ok();
+        auto res = isPostFUpgradeFork();
         return !res ? res : serialize(obj);
     }
 
     Res operator()(CUpdateOperatorMessage& obj) const {
-        //auto res = isPostEunosFork();
-        auto res = Res::Ok();
+        auto res = isPostFUpgradeFork();
         return !res ? res : serialize(obj);
     }
 

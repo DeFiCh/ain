@@ -471,6 +471,7 @@ void SetupServerArgs()
     gArgs.AddArg("-dakotaheight", "Dakota fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-dakotacrescentheight", "DakotaCrescent fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-eunosheight", "Eunos fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-fupgradeheight", "FUpgrade fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
