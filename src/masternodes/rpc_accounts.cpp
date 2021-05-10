@@ -255,7 +255,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                        HelpExampleCli("listaccounts", "")
                        + HelpExampleRpc("listaccounts", "'{}' false")
                        + HelpExampleRpc("listaccounts", "'{\"start\":\"a914b12ecde1759f792e0228e4fa6d262902687ca7eb87@0\","
-                                                      "\"limit\":1000"
+                                                      "\"limit\":100"
                                                       "}'")
                },
     }.Check(request);
@@ -298,7 +298,6 @@ UniValue listaccounts(const JSONRPCRequest& request) {
         isMineOnly = request.params[3].get_bool();
     }
 
-
     UniValue ret(UniValue::VARR);
 
     LOCK(cs_main);
@@ -310,16 +309,13 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             return false;
         }
 
-        if (isMineOnly) {
-            if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
-                mnview.CalculateOwnerRewards(account, targetHeight);
-            } else {
-                return true;
-            }
-        } else {
-            mnview.CalculateOwnerRewards(account, targetHeight);
+        if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
+            return true;
         }
 
+        mnview.CalculateOwnerRewards(account, targetHeight);
+
+        // output the relavant balances only for account
         mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
             if (account != owner) {
                 return false;
@@ -329,7 +325,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
         }, {account, start.tokenID});
 
         return limit != 0;
-    });
+    }, start.owner);
 
     return ret;
 }
