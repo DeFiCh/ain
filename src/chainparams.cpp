@@ -313,7 +313,7 @@ public:
         };
 
         //Operator params
-        consensus.oprtr.creationFee = 10 * COIN;
+        consensus.oprtr.creationFee = 1000 * COIN;
         consensus.oprtr.operatorNameMaxLen = 15;
         consensus.oprtr.operatorURLMaxLen = 30;
     }
@@ -492,7 +492,7 @@ public:
         };
 
         //Operator params
-        consensus.oprtr.creationFee = 10 * COIN;
+        consensus.oprtr.creationFee = 1000 * COIN;
         consensus.oprtr.operatorNameMaxLen = 15;
         consensus.oprtr.operatorURLMaxLen = 30;
     }
