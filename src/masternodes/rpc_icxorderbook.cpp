@@ -142,7 +142,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
                         {
                             {"tokenFrom|chainFrom", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Symbol or id of selling token/chain"},
                             {"chainTo|tokenTo", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Symbol or id of buying chain/token"},
-                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address of tokens in case of DFC/EXT order"},
+                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Owner of order and address of tokens in case of DFC/EXT order"},
                             {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO, "tokenFrom coins amount"},
                             {"orderPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Price per unit"},
                             {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the order expires (Default: "
@@ -189,8 +189,21 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
 
+    CScript authScript;
     CICXOrder order;
     std::string tokenFromSymbol, tokenToSymbol;
+
+    if (!metaObj["ownerAddress"].isNull()) {
+        order.ownerAddress = DecodeScript(metaObj["ownerAddress"].getValStr());
+        authScript = order.ownerAddress;
+    } else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           R"(Invalid parameters, argument "ownerAddress" must be specified)");
+    }
+    if (!::IsMine(*pwallet, DecodeDestination(metaObj["ownerAddress"].getValStr()))) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           strprintf("Address (%s) is not owned by the wallet", metaObj["ownerAddress"].getValStr()));
+    }
 
     if (!metaObj["tokenFrom"].isNull()) {
         tokenFromSymbol = trim_ws(metaObj["tokenFrom"].getValStr());
@@ -199,14 +212,6 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
             order.chain = trim_ws(metaObj["chainTo"].getValStr());
         else
             throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"chainTo\" must be non-null if \"tokenFrom\" specified");
-
-        if (!metaObj["ownerAddress"].isNull())
-            order.ownerAddress = DecodeScript(metaObj["ownerAddress"].getValStr());
-        else
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"ownerAddress\" must be non-null if \"tokenFrom\" specified");
-       
-        if (!::IsMine(*pwallet, DecodeDestination(metaObj["ownerAddress"].getValStr())))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", metaObj["ownerAddress"].getValStr()));
     }
     else if (!metaObj["chainFrom"].isNull()) {
         order.chain = trim_ws(metaObj["chainFrom"].getValStr());
@@ -280,7 +285,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
+    std::set<CScript> auths{authScript};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
@@ -288,12 +293,10 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Return change to auth address
-    if (auths.size() == 1) {
-        CTxDestination dest;
-        ExtractDestination(*auths.cbegin(), dest);
-        if (IsValidDestination(dest))
-            coinControl.destChange = dest;
-    }
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
 
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
@@ -445,12 +448,10 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Return change to auth address
-    if (auths.size() == 1) {
-        CTxDestination dest;
-        ExtractDestination(*auths.cbegin(), dest);
-        if (IsValidDestination(dest))
-            coinControl.destChange = dest;
-    }
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
 
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
@@ -478,7 +479,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                         {
                             {"offerTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of offer tx for which the htlc is"},
                             {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "amount in htlc"},
-                            {"receiveAddress", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "address that receives DFC tokens when HTLC is claimed"},
+                            {"receiveAddress", RPCArg::Type::NUM, RPCArg::Optional::NO, "address that receives DFC tokens when HTLC is claimed"},
                             {"receivePubkey", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of DFC/EXT order type"},
                             {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "hash of seed used for the hash lock part"},
                             {"timeout", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "timeout (absolute in blocks) for expiration of htlc"},
@@ -1054,6 +1055,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
     closeorder.orderTx = uint256S(request.params[0].getValStr());
 
     int targetHeight;
+    CScript owner;
     {
         LOCK(cs_main);
         auto order = pcustomcsview->GetICXOrderByCreationTx(closeorder.orderTx);
@@ -1062,7 +1064,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
         if (!order->closeTx.IsNull()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,"orderTx (" + closeorder.orderTx.GetHex() + " is already closed!");
         }
-
+        owner = order->ownerAddress;
         targetHeight = ::ChainActive().Height() + 1;
     }
 
@@ -1077,7 +1079,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
+    std::set<CScript> auths{owner};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
@@ -1085,12 +1087,10 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Return change to auth address
-    if (auths.size() == 1) {
-        CTxDestination dest;
-        ExtractDestination(*auths.cbegin(), dest);
-        if (IsValidDestination(dest))
-            coinControl.destChange = dest;
-    }
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
 
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
@@ -1192,12 +1192,10 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Return change to auth address
-    if (auths.size() == 1) {
-        CTxDestination dest;
-        ExtractDestination(*auths.cbegin(), dest);
-        if (IsValidDestination(dest))
-            coinControl.destChange = dest;
-    }
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
 
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 

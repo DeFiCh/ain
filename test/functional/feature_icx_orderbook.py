@@ -16,8 +16,8 @@ class ICXOrderbookTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=50', '-txindex=1']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -106,6 +106,38 @@ class ICXOrderbookTest (DefiTestFramework):
         result = self.nodes[0].getgov("ICX_DFIBTC_POOLPAIR")
         # assert_equal(idDFIBTC, result["ICX_DFIBTC_POOLPAIR"])
 
+        # Open and close an order
+        orderTx = self.nodes[0].icx_createorder({
+                                    'tokenFrom': idDFI,
+                                    'chainTo': "BTC",
+                                    'amountFrom': 15,
+                                    'ownerAddress': accountDFI,
+                                    'orderPrice':0.01})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Check order exist
+        order = self.nodes[0].icx_listorders()
+        assert_equal(len(order), 1)
+
+        # Close order
+        closeOrder = self.nodes[0].icx_closeorder(orderTx)
+        rawCloseOrder = self.nodes[0].getrawtransaction(closeOrder, 1)
+        authTx = self.nodes[0].getrawtransaction(rawCloseOrder['vin'][0]['txid'], 1)
+        found = False
+        for vout in authTx['vout']:
+            if 'addresses' in vout['scriptPubKey'] and vout['scriptPubKey']['addresses'][0] == accountDFI:
+                found = True
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        order = self.nodes[0].icx_listorders()
+
+        assert_equal(len(order), 0)
+
+        # Open and close an order
         orderTx = self.nodes[0].icx_createorder({
                                     'tokenFrom': idDFI,
                                     'chainTo': "BTC",
