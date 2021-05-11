@@ -113,6 +113,7 @@ struct Params {
     struct PoS {
         uint256 diffLimit;
         int64_t nTargetTimespan;
+        int64_t nTargetTimespanV2;
         int64_t nTargetSpacing;
         int64_t nStakeMinAge;
         int64_t nStakeMaxAge;
@@ -120,10 +121,10 @@ struct Params {
         bool fNoRetargeting;
 
         int64_t DifficultyAdjustmentInterval() const { return nTargetTimespan / nTargetSpacing; }
+        int64_t DifficultyAdjustmentIntervalV2() const { return nTargetTimespanV2 / nTargetSpacing; }
 
         arith_uint256 interestAtoms = arith_uint256{10000000000000000ull};
         bool allowMintingWithoutPeers;
-        int coinstakeMaturity = 500;
     };
     PoS pos;
 
