@@ -44,7 +44,7 @@ int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParam
 
     // Updating time can change work required on testnet:
     if (consensusParams.pos.fAllowMinDifficultyBlocks)
-        pblock->nBits = pos::GetNextWorkRequired(pindexPrev, pblock, consensusParams.pos);
+        pblock->nBits = pos::GetNextWorkRequired(pindexPrev, pblock, consensusParams);
 
     return nNewTime - nOldTime;
 }
@@ -314,7 +314,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, consensus, pindexPrev);
-    pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock, consensus.pos);
+    pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock, consensus);
     pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);

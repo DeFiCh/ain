@@ -4074,7 +4074,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
 
     // Check proof of work
     const Consensus::Params& consensusParams = params.GetConsensus();
-    if (block.nBits != pos::GetNextWorkRequired(pindexPrev, &block, consensusParams.pos))
+    if (block.nBits != pos::GetNextWorkRequired(pindexPrev, &block, consensusParams))
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "bad-diffbits", "incorrect proof of work");
 
     // Check against checkpoints
