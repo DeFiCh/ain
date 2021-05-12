@@ -734,7 +734,7 @@ namespace pos {
             pblock->height = tip->nHeight + 1;
             pblock->mintedBlocks = mintedBlocks + 1;
             pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
-            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID);
+            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID, pblock->height);
 
             // No record. No stake blocks or post-fork createmastnode TX, use fork time.
             if (!stakerBlockTime)

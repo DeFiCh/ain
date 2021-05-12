@@ -382,7 +382,7 @@ void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const u
     WriteBy<Staker>(MNBlockTimeKey{*nodeId, blockHeight}, time);
 }
 
-boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKeyID & minter)
+boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height)
 {
     auto nodeId = GetMasternodeIdByOperator(minter);
     assert(nodeId);
@@ -398,7 +398,7 @@ boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKey
 
         // Get first result only and exit
         return false;
-    }, MNBlockTimeKey{*nodeId, std::numeric_limits<uint32_t>::max()});
+    }, MNBlockTimeKey{*nodeId, height - 1});
 
     if (time)
     {

@@ -159,7 +159,7 @@ public:
     Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
 
     void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
-    boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter);
+    boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height);
     void EraseMasternodeLastBlockTime(const uint256 &minter, const uint32_t& blockHeight);
 
     void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
