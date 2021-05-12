@@ -95,13 +95,13 @@ class ICXOrderbookTest (DefiTestFramework):
 
         assert_equal(len(self.nodes[0].getaccount(accountDFI, {}, True)), 2)
 
+        self.nodes[0].setgov({"ICX_TAKERFEE_PER_BTC":Decimal('0.001')})
 
         self.nodes[0].generate(1)
 
-        result = self.nodes[0].setgov({"ICX_TAKERFEE_PER_BTC":Decimal('0.001')})
+        result = self.nodes[0].getgov("ICX_TAKERFEE_PER_BTC")
 
-        self.nodes[0].generate(1)
-
+        assert_equal(result["ICX_TAKERFEE_PER_BTC"], Decimal('0.001'))
 
         # Open and close an order
         orderTx = self.nodes[0].icx_createorder({
@@ -110,30 +110,31 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'ownerAddress': accountDFI,
                                     'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
                                     'amountFrom': 15,
-                                    'orderPrice':0.01})
+                                    'orderPrice':0.01})["result"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         # Check order exist
         order = self.nodes[0].icx_listorders()
-        assert_equal(len(order), 1)
+        assert_equal(len(order), 2)
 
         # Close order
-        closeOrder = self.nodes[0].icx_closeorder(orderTx)
+        closeOrder = self.nodes[0].icx_closeorder(orderTx)["result"]
         rawCloseOrder = self.nodes[0].getrawtransaction(closeOrder, 1)
         authTx = self.nodes[0].getrawtransaction(rawCloseOrder['vin'][0]['txid'], 1)
         found = False
         for vout in authTx['vout']:
             if 'addresses' in vout['scriptPubKey'] and vout['scriptPubKey']['addresses'][0] == accountDFI:
                 found = True
+        assert(found)
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         order = self.nodes[0].icx_listorders()
 
-        assert_equal(len(order), 0)
+        assert_equal(len(order), 1)
 
         # Open and close an order
         orderTx = self.nodes[0].icx_createorder({
@@ -142,14 +143,14 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'ownerAddress': accountDFI,
                                     'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
                                     'amountFrom': 15,
-                                    'orderPrice':0.01})
+                                    'orderPrice':0.01})["result"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         order = self.nodes[0].icx_listorders()
 
-        assert_equal(len(order), 1)
+        assert_equal(len(order), 2)
         assert_equal(order[orderTx]["tokenFrom"], symbolDFI)
         assert_equal(order[orderTx]["chainTo"], "BTC")
         assert_equal(order[orderTx]["ownerAddress"], accountDFI)
@@ -162,14 +163,14 @@ class ICXOrderbookTest (DefiTestFramework):
         offerTx = self.nodes[1].icx_makeoffer({
                                     'orderTx': orderTx,
                                     'amount': 0.10,
-                                    'ownerAddress': accountBTC})
+                                    'ownerAddress': accountBTC})["result"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
 
-        assert_equal(len(offer), 1)
+        assert_equal(len(offer), 2)
         assert_equal(offer[offerTx]["orderTx"], orderTx)
         assert_equal(offer[offerTx]["amount"], Decimal('0.10000000'))
         assert_equal(offer[offerTx]["ownerAddress"], accountBTC)
@@ -179,7 +180,7 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'offerTx': offerTx,
                                     'amount': 10,
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})
+                                    'timeout': 500})["result"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -193,7 +194,7 @@ class ICXOrderbookTest (DefiTestFramework):
 
         hltcs = self.nodes[0].icx_listhtlcs({"offerTx": offerTx})
 
-        assert_equal(len(hltcs), 1)
+        assert_equal(len(hltcs), 2)
         assert_equal(hltcs[dfhtlcTx]["type"], 'DFC')
         assert_equal(hltcs[dfhtlcTx]["status"], 'OPEN')
         assert_equal(hltcs[dfhtlcTx]["offerTx"], offerTx)
@@ -208,14 +209,14 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 15})
+                                    'timeout': 15})["result"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         hltcs = self.nodes[0].icx_listhtlcs({"offerTx": offerTx})
 
-        assert_equal(len(hltcs), 2)
+        assert_equal(len(hltcs), 3)
         assert_equal(hltcs[exthtlcTx]["type"], 'EXTERNAL')
         assert_equal(hltcs[exthtlcTx]["status"], 'OPEN')
         assert_equal(hltcs[exthtlcTx]["offerTx"], offerTx)
@@ -230,7 +231,7 @@ class ICXOrderbookTest (DefiTestFramework):
 
         claimTx = self.nodes[1].icx_claimdfchtlc({
                                     'dfchtlcTx': dfhtlcTx,
-                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})
+                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["result"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -239,7 +240,7 @@ class ICXOrderbookTest (DefiTestFramework):
                                     "offerTx": offerTx,
                                     "closed": True})
 
-        assert_equal(len(hltcs), 3)
+        assert_equal(len(hltcs), 4)
         assert_equal(hltcs[claimTx]["type"], 'CLAIM DFC')
         assert_equal(hltcs[claimTx]["dfchtlcTx"], dfhtlcTx)
         assert_equal(hltcs[claimTx]["seed"], 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef')
@@ -250,7 +251,7 @@ class ICXOrderbookTest (DefiTestFramework):
 
         # Make sure offer is closed
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
-        assert_equal(len(offer), 0)
+        assert_equal(len(offer), 1)
 
         # Verify closed offer
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx, "closed": True})
@@ -262,7 +263,7 @@ class ICXOrderbookTest (DefiTestFramework):
         # Check partial order remaining
         order = self.nodes[0].icx_listorders()
 
-        assert_equal(len(order), 1)
+        assert_equal(len(order), 2)
         assert_equal(order[orderTx]["tokenFrom"], symbolDFI)
         assert_equal(order[orderTx]["chainTo"], "BTC")
         assert_equal(order[orderTx]["ownerAddress"], accountDFI)
@@ -276,13 +277,13 @@ class ICXOrderbookTest (DefiTestFramework):
         offerTx = self.nodes[1].icx_makeoffer({
                                     'orderTx': orderTx,
                                     'amount': 0.10,
-                                    'ownerAddress': accountBTC})
+                                    'ownerAddress': accountBTC})["result"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
-        assert_equal(len(offer), 1)
+        assert_equal(len(offer), 2)
         assert_equal(offer[offerTx]["orderTx"], orderTx)
         assert_equal(offer[offerTx]["amount"], Decimal('0.05000000'))
         assert_equal(offer[offerTx]["ownerAddress"], accountBTC)
@@ -292,7 +293,7 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'offerTx': offerTx,
                                     'amount': 5,
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})
+                                    'timeout': 500})["result"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -306,7 +307,7 @@ class ICXOrderbookTest (DefiTestFramework):
 
         hltcs = self.nodes[0].icx_listhtlcs({"offerTx": offerTx})
 
-        assert_equal(len(hltcs), 1)
+        assert_equal(len(hltcs), 2)
         assert_equal(hltcs[dfhtlcTx]["type"], 'DFC')
         assert_equal(hltcs[dfhtlcTx]["status"], 'OPEN')
         assert_equal(hltcs[dfhtlcTx]["offerTx"], offerTx)
@@ -321,14 +322,14 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 15})
+                                    'timeout': 15})["result"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
         hltcs = self.nodes[0].icx_listhtlcs({"offerTx": offerTx})
 
-        assert_equal(len(hltcs), 2)
+        assert_equal(len(hltcs), 3)
         assert_equal(hltcs[exthtlcTx]["type"], 'EXTERNAL')
         assert_equal(hltcs[exthtlcTx]["status"], 'OPEN')
         assert_equal(hltcs[exthtlcTx]["offerTx"], offerTx)
@@ -343,7 +344,7 @@ class ICXOrderbookTest (DefiTestFramework):
 
         claimTx = self.nodes[1].icx_claimdfchtlc({
                                     'dfchtlcTx': dfhtlcTx,
-                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})
+                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["result"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -352,7 +353,7 @@ class ICXOrderbookTest (DefiTestFramework):
                                     "offerTx": offerTx,
                                     "closed": True})
 
-        assert_equal(len(hltcs), 3)
+        assert_equal(len(hltcs), 4)
         assert_equal(hltcs[claimTx]["type"], 'CLAIM DFC')
         assert_equal(hltcs[claimTx]["dfchtlcTx"], dfhtlcTx)
         assert_equal(hltcs[claimTx]["seed"], 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef')
@@ -363,9 +364,9 @@ class ICXOrderbookTest (DefiTestFramework):
 
         # Make sure offer and order are now closed
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
-        assert_equal(len(offer), 0)
+        assert_equal(len(offer), 1)
         order = self.nodes[0].icx_listorders()
-        assert_equal(len(offer), 0)
+        assert_equal(len(offer), 1)
 
 if __name__ == '__main__':
     ICXOrderbookTest().main()

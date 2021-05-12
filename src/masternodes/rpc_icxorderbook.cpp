@@ -2,11 +2,11 @@
 
 UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const status) {
     UniValue orderObj(UniValue::VOBJ);
-    UniValue ret(UniValue::VOBJ);
 
     auto token = pcustomcsview->GetToken(order.idToken);
         if (!token)
-            return (ret);
+            return (UniValue::VNULL);
+
     switch (status)
     {
         case 0: orderObj.pushKV("status", "OPEN");
@@ -49,6 +49,7 @@ UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const statu
         orderObj.pushKV("expired", true);
     }
 
+    UniValue ret(UniValue::VOBJ);
     ret.pushKV(order.creationTx.GetHex(), orderObj);
     return (ret);
 }
@@ -66,16 +67,16 @@ UniValue icxMakeOfferToJSON(CICXMakeOfferImplemetation const& makeoffer, uint8_t
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(makeoffer.creationTx.GetHex(), orderObj);
-    return ret;
+    return (ret);
 }
 
 UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, uint8_t const status) {
     auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(dfchtlc.offerTx);
     if (!offer)
-        return UniValue::VNULL;
+        return (UniValue::VNULL);
     auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
     if (!order)
-        return UniValue::VNULL;
+        return (UniValue::VNULL);
 
     UniValue orderObj(UniValue::VOBJ);
     orderObj.pushKV("type", "DFC");
@@ -109,16 +110,16 @@ UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, u
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(dfchtlc.creationTx.GetHex(), orderObj);
-    return ret;
+    return (ret);
 }
 
 UniValue icxSubmitEXTHTLCToJSON(CICXSubmitEXTHTLCImplemetation const& exthtlc, uint8_t const status) {
     auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(exthtlc.offerTx);
     if (!offer)
-        return UniValue::VNULL;
+        return (UniValue::VNULL);
     auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
     if (!order)
-        return UniValue::VNULL;
+        return (UniValue::VNULL);
 
     UniValue orderObj(UniValue::VOBJ);
     orderObj.pushKV("type", "EXTERNAL");
@@ -143,7 +144,7 @@ UniValue icxSubmitEXTHTLCToJSON(CICXSubmitEXTHTLCImplemetation const& exthtlc, u
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(exthtlc.creationTx.GetHex(), orderObj);
-    return ret;
+    return (ret);
 }
 
 UniValue icxClaimDFCHTLCToJSON(CICXClaimDFCHTLCImplemetation const& claimdfchtlc) {
@@ -155,14 +156,14 @@ UniValue icxClaimDFCHTLCToJSON(CICXClaimDFCHTLCImplemetation const& claimdfchtlc
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(claimdfchtlc.creationTx.GetHex(), orderObj);
-    return ret;
+    return (ret);
 }
 
 UniValue icxcreateorder(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_createorder",
-                "\nCreates (and submits to local node and network) a order creation transaction.\n" +
+                "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCreates (and submits to local node and network) a order creation transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"order", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
@@ -199,6 +200,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
                         + HelpExampleCli("icx_createorder", "'{\"chainFrom\":\"BTC\",\"tokenTo\":\"SILVER#129\","
                                                         "\"amountFrom\":\"5\",\"orderPrice\":\"0.01\","
                                                         "\"expiry\":\"1000\"}'")
+                        + "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n"
                 },
      }.Check(request);
 
@@ -346,14 +348,17 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
         const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, order});
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXCreateOrderMessage{}, coinview);
     }
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    return ret;
 }
 
 UniValue icxmakeoffer(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_makeoffer",
-                "\nCreates (and submits to local node and network) a makeoffer transaction.\n" +
+                "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCreates (and submits to local node and network) a makeoffer transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"offer", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -386,6 +391,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
                                                         "\receiveAddress\":\"<address>\",}'")
                         + HelpExampleCli("icx_makeoffer", "'{\"orderTx\":\"txid\",\"amount\":\"10\","
                                                         "\"ownerAddress\":\"<address>\",\"receivePubkey\":\"<pubkey>\"}'")
+                        + "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n"
                 },
      }.Check(request);
 
@@ -493,14 +499,18 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, makeoffer});
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXMakeOfferMessage{}, coinview);
     }
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    return ret;
 }
 
 UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_submitdfchtlc",
-                "\nCreates (and submits to local node and network) a dfc htlc transaction.\n" +
+                "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCreates (and submits to local node and network) a dfc htlc transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"htlc", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -529,6 +539,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                 RPCExamples{
                         HelpExampleCli("icx_submitdfchtlc", "'{\"offerTx\":\"<txid>\",\"amount\":\"10\","
                                                         "\"receiveAddress\":\"<address>\",\"hash\":\"<hash>\",\"timeout\":\"50\"}'")
+                        + "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n"
                 },
      }.Check(request);
 
@@ -657,14 +668,18 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, submitdfchtlc});
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXSubmitDFCHTLCMessage{}, coinview);
     }
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    return ret;
 }
 
 UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_submitexthtlc",
-                "\nCreates (and submits to local node and network) ext htlc transaction.\n" +
+                "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCreates (and submits to local node and network) ext htlc transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"htlc", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -696,6 +711,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
                         HelpExampleCli("icx_submitexthtlc", "'{\"offerTx\":\"<txid>\",\"amount\":\"1\""
                                                         "\"htlcScriptAddress\":\"<script_address>\",\"hash\":\"<hash>\""
                                                         "\"ownerPubkey\":\"<pubkey>\",\"timeout\":\"20\"}'")
+                        + "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n"
                 },
      }.Check(request);
 
@@ -830,14 +846,18 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, submitexthtlc});
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXSubmitEXTHTLCMessage{}, coinview);
     }
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    return ret;
 }
 
 UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_claimdfchtlc",
-                "\nCreates (and submits to local node and network) a dfc htlc transaction.\n" +
+                "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCreates (and submits to local node and network) a dfc htlc transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"htlc", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -863,6 +883,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                         HelpExampleCli("icx_claimdfchtlc", "'{\"dfchtlcTx\":\"<txid>>\",\"seed\":\"<seed>\"}'")
+                        + "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n"
                 },
      }.Check(request);
 
@@ -949,14 +970,17 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXClaimDFCHTLCMessage{}, coinview);
     }
 
-    return signsend(rawTx, pwallet, {})->GetHash().GetHex();
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    return ret;
 }
 
 UniValue icxcloseorder(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_closeorder",
-                "\nCloses (and submits to local node and network) order transaction.\n" +
+                "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCloses (and submits to local node and network) order transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"orderTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of maker order"},
@@ -978,6 +1002,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                         HelpExampleCli("closeorder", "'{\"orderTx\":\"<txid>>\"}'")
+                        + "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n"
                 },
      }.Check(request);
 
@@ -1047,14 +1072,18 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, closeorder});
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXCloseOrderMessage{}, coinview);
     }
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    return ret;
 }
 
 UniValue icxcloseoffer(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_closeoffer",
-                "\nCloses (and submits to local node and network) offer transaction.\n" +
+                "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCloses (and submits to local node and network) offer transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"offerTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of maker offer"},
@@ -1076,6 +1105,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                         HelpExampleCli("closeOffer", "'{\"offerTx\":\"<txid>>\"}'")
+                        + "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n"
                 },
      }.Check(request);
 
@@ -1148,12 +1178,16 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, closeoffer});
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXCloseOfferMessage{}, coinview);
     }
-    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    return ret;
 }
 
 UniValue icxgetorder(const JSONRPCRequest& request) {
     RPCHelpMan{"icx_getorder",
-                "\nReturn information about order or fillorder.\n",
+                "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nReturn information about order or fillorder.\n",
                 {
                     {"orderTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of createorder or fulfillorder tx"},
                 },
@@ -1163,6 +1197,7 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                     HelpExampleCli("icx_getorder", "'{\"orderTx\":\"<txid>>\"}'")
+                    + "\EXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n"
                 },
      }.Check(request);
 
@@ -1171,21 +1206,30 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 1 must be non-null and expected as \"orderTx\"}");
 
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("EXPERIMENTAL warning:", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+
     uint256 orderTxid= uint256S(request.params[0].getValStr());
     auto order = pcustomcsview->GetICXOrderByCreationTx(orderTxid);
     if (order)
-        return icxOrderToJSON(*order,-1);
+    {
+        ret.pushKVs(icxOrderToJSON(*order,-1));
+        return ret;
+    }
 
     auto fillorder = pcustomcsview->GetICXMakeOfferByCreationTx(orderTxid);
     if (fillorder)
-        return icxMakeOfferToJSON(*fillorder,-1);
+    {
+        ret.pushKVs(icxMakeOfferToJSON(*fillorder,-1));
+        return ret;
+    }
 
     throw JSONRPCError(RPC_INVALID_PARAMETER, "orderTx (" + orderTxid.GetHex() + ") does not exist");
 }
 
 UniValue icxlistorders(const JSONRPCRequest& request) {
     RPCHelpMan{"icx_listorders",
-                "\nReturn information about orders.\n",
+                "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nReturn information about orders.\n",
                 {
                         {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                             {
@@ -1206,6 +1250,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
                         + HelpExampleCli("icx_listorders", "'{\"token\":\"GOLD#128\",\"chain\":\"BTC\"}'")
                         + HelpExampleCli("icx_listorders", "'{\"chain\":\"BTC\",\"token\":\"SILVER#129\",\"closed\":true}'")
                         + HelpExampleCli("icx_listorders", "'{\"orderTx\":\"<txid>>\"}'")
+                        + "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n"
                 }
      }.Check(request);
 
@@ -1234,6 +1279,8 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
     }
 
     UniValue ret(UniValue::VOBJ);
+    ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+
     if (idToken.v != std::numeric_limits<uint32_t>::max())
     {
         DCT_ID prefix;
@@ -1292,7 +1339,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
 
 UniValue icxlisthtlcs(const JSONRPCRequest& request) {
     RPCHelpMan{"icx_listhtlcs",
-                "\nReturn information about orders.\n",
+                "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nReturn information about orders.\n",
                 {
                         {"by", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                             {
@@ -1310,6 +1357,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                         HelpExampleCli("icx_listorders", "'{\"offerTx\":\"<txid>\"}'")
+                        + "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n"
 
                 }
      }.Check(request);
@@ -1336,6 +1384,8 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
         limit = (size_t) byObj["limit"].get_int64();
 
     UniValue ret(UniValue::VOBJ);
+    ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+
     auto dfchtlclambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
         if (key.first != offerTxid)
             return false;
