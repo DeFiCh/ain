@@ -22,15 +22,16 @@ UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const statu
     {
         orderObj.pushKV("type", "INTERNAL");
         orderObj.pushKV("tokenFrom", token->CreateSymbolKey(order.idToken));
-        orderObj.pushKV("chainTo", order.chain);
-        orderObj.pushKV("ownerAddress", ScriptToString(order.ownerAddress));
+        orderObj.pushKV("chainTo", CICXOrder::CHAIN_BTC);
+        orderObj.pushKV("receivePubkey", HexStr(order.receivePubkey));
     }
     else if (order.orderType == CICXOrder::TYPE_EXTERNAL)
     {
         orderObj.pushKV("type", "EXTERNAL");
-        orderObj.pushKV("chainFrom",order.chain);
+        orderObj.pushKV("chainFrom",CICXOrder::CHAIN_BTC);
         orderObj.pushKV("tokenTo", token->CreateSymbolKey(order.idToken));
     }
+    orderObj.pushKV("ownerAddress", ScriptToString(order.ownerAddress));
     orderObj.pushKV("amountFrom", ValueFromAmount(order.amountFrom));
     orderObj.pushKV("amountToFill", ValueFromAmount(order.amountToFill));
     orderObj.pushKV("orderPrice", ValueFromAmount(order.orderPrice));
@@ -47,7 +48,7 @@ UniValue icxOrderToJSON(CICXOrderImplemetation const& order, uint8_t const statu
     {
         orderObj.pushKV("expired", true);
     }
-    
+
     ret.pushKV(order.creationTx.GetHex(), orderObj);
     return (ret);
 }
@@ -57,21 +58,25 @@ UniValue icxMakeOfferToJSON(CICXMakeOfferImplemetation const& makeoffer, uint8_t
     orderObj.pushKV("orderTx", makeoffer.orderTx.GetHex());
     orderObj.pushKV("status", status == CICXMakeOffer::STATUS_OPEN ? "OPEN" : status == CICXMakeOffer::STATUS_CLOSED ? "CLOSED" : "EXPIRED");
     orderObj.pushKV("amount", ValueFromAmount(makeoffer.amount));
-    if (!makeoffer.ownerAddress.empty())
-        orderObj.pushKV("ownerAddress",ScriptToString(makeoffer.ownerAddress));
-    if (CPubKey(makeoffer.receiveDestination).IsFullyValid())
-        orderObj.pushKV("receivePubkey", HexStr(makeoffer.receiveDestination));
-    else if (!ScriptToString(CScript(makeoffer.receiveDestination.begin(),makeoffer.receiveDestination.end())).empty())
-        orderObj.pushKV("receiveAddress", ScriptToString(CScript(makeoffer.receiveDestination.begin(),makeoffer.receiveDestination.end())));
+    orderObj.pushKV("ownerAddress",ScriptToString(makeoffer.ownerAddress));
+    if (makeoffer.receivePubkey.IsValid())
+        orderObj.pushKV("receivePubkey", HexStr(makeoffer.receivePubkey));
     orderObj.pushKV("takerFee", ValueFromAmount(makeoffer.takerFee));
     orderObj.pushKV("expireHeight", static_cast<int>(makeoffer.creationHeight + makeoffer.expiry));
-    
+
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(makeoffer.creationTx.GetHex(), orderObj);
     return ret;
 }
 
 UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, uint8_t const status) {
+    auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(dfchtlc.offerTx);
+    if (!offer)
+        return UniValue::VNULL;
+    auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
+    if (!order)
+        return UniValue::VNULL;
+
     UniValue orderObj(UniValue::VOBJ);
     orderObj.pushKV("type", "DFC");
     switch (status)
@@ -87,27 +92,49 @@ UniValue icxSubmitDFCHTLCToJSON(CICXSubmitDFCHTLCImplemetation const& dfchtlc, u
     }
     orderObj.pushKV("offerTx", dfchtlc.offerTx.GetHex());
     orderObj.pushKV("amount", ValueFromAmount(dfchtlc.amount));
-    orderObj.pushKV("receiveAddress",ScriptToString(dfchtlc.receiveAddress));
-    if (dfchtlc.receivePubkey.IsFullyValid())
-        orderObj.pushKV("receivePubkey", HexStr(dfchtlc.receivePubkey));
+    if (order->orderType == CICXOrder::TYPE_INTERNAL)
+    {
+        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(dfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+        orderObj.pushKV("amountInEXTAsset", ValueFromAmount(calcedAmount));
+    }
+    else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
+    {
+        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(dfchtlc.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+        orderObj.pushKV("amountInEXTAsset", ValueFromAmount(calcedAmount));
+    }
     orderObj.pushKV("hash", dfchtlc.hash.GetHex());
     orderObj.pushKV("timeout", static_cast<int>(dfchtlc.timeout));
     orderObj.pushKV("height", static_cast<int>(dfchtlc.creationHeight));
     orderObj.pushKV("refundHeight", static_cast<int>(dfchtlc.creationHeight + dfchtlc.timeout));
-    
+
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(dfchtlc.creationTx.GetHex(), orderObj);
     return ret;
 }
 
 UniValue icxSubmitEXTHTLCToJSON(CICXSubmitEXTHTLCImplemetation const& exthtlc, uint8_t const status) {
+    auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(exthtlc.offerTx);
+    if (!offer)
+        return UniValue::VNULL;
+    auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
+    if (!order)
+        return UniValue::VNULL;
+
     UniValue orderObj(UniValue::VOBJ);
     orderObj.pushKV("type", "EXTERNAL");
     status == CICXSubmitEXTHTLC::STATUS_OPEN ? orderObj.pushKV("status", "OPEN") : orderObj.pushKV("status", "EXPIRED");
     orderObj.pushKV("offerTx", exthtlc.offerTx.GetHex());
     orderObj.pushKV("amount", ValueFromAmount(exthtlc.amount));
-    if (!exthtlc.receiveAddress.empty())
-        orderObj.pushKV("receiveAddress",ScriptToString(exthtlc.receiveAddress));
+    if (order->orderType == CICXOrder::TYPE_INTERNAL)
+    {
+        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(exthtlc.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+        orderObj.pushKV("amountInDFCAsset", ValueFromAmount(calcedAmount));
+    }
+    else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
+    {
+        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(exthtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+        orderObj.pushKV("amountInDFCAsset", ValueFromAmount(calcedAmount));
+    }
     orderObj.pushKV("hash", exthtlc.hash.GetHex());
     orderObj.pushKV("htlcScriptAddress", exthtlc.htlcscriptAddress);
     orderObj.pushKV("ownerPubkey", HexStr(exthtlc.ownerPubkey));
@@ -142,7 +169,8 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
                         {
                             {"tokenFrom|chainFrom", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Symbol or id of selling token/chain"},
                             {"chainTo|tokenTo", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Symbol or id of buying chain/token"},
-                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Owner of order and address of tokens in case of DFC/EXT order"},
+                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Address of DFI token for fees and selling tokens in case of DFC/BTC order type"},
+                            {"receivePubkey", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of EXT/DFC order type"},
                             {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO, "tokenFrom coins amount"},
                             {"orderPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Price per unit"},
                             {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the order expires (Default: "
@@ -200,51 +228,51 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            R"(Invalid parameters, argument "ownerAddress" must be specified)");
     }
-    if (!::IsMine(*pwallet, DecodeDestination(metaObj["ownerAddress"].getValStr()))) {
+    if (!::IsMine(*pwallet, order.ownerAddress)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            strprintf("Address (%s) is not owned by the wallet", metaObj["ownerAddress"].getValStr()));
     }
 
+    if (metaObj["tokenFrom"].isNull() && metaObj["chainFrom"].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, either \"tokenFrom\" or \"chainFrom\" must not be both null - [tokenFrom,chainTo] or [chainFrom,tokenTo].");
+
     if (!metaObj["tokenFrom"].isNull()) {
         tokenFromSymbol = trim_ws(metaObj["tokenFrom"].getValStr());
 
-        if (!metaObj["chainTo"].isNull())
-            order.chain = trim_ws(metaObj["chainTo"].getValStr());
-        else
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"chainTo\" must be non-null if \"tokenFrom\" specified");
+        if (metaObj["chainTo"].isNull() && trim_ws(metaObj["chainTo"].getValStr()) != "BTC")
+            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"chainTo\" must be \"BTC\" if \"tokenFrom\" specified");
     }
     else if (!metaObj["chainFrom"].isNull()) {
-        order.chain = trim_ws(metaObj["chainFrom"].getValStr());
+        if (trim_ws(metaObj["chainFrom"].getValStr()) != "BTC")
+            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"chainFrom\" must be \"BTC\" if \"tokenTo\" specified");
 
-        if (!metaObj["tokenTo"].isNull()) 
+        if (!metaObj["tokenTo"].isNull())
             tokenToSymbol = trim_ws(metaObj["tokenTo"].getValStr());
         else
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"tokenTo\" must be non-null if \"chainFrom\" specified");
+            throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"tokenTo\" must not be null if \"chainFrom\" specified");
     }
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"tokenFrom\" or \"chainFrom\" must be non-null");
     if (!metaObj["amountFrom"].isNull())
         order.amountToFill = order.amountFrom = AmountFromValue(metaObj["amountFrom"]);
     else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amountFrom\" must be non-null");
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amountFrom\" must not be null");
     if (!metaObj["orderPrice"].isNull())
         order.orderPrice = AmountFromValue(metaObj["orderPrice"]);
     else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"orderPrice\" must be non-null");
-    
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"orderPrice\" must not be null");
+
     if (!metaObj["expiry"].isNull())
         order.expiry = metaObj["expiry"].get_int();
 
-    if (tokenFromSymbol.empty() && order.chain.empty())
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, either \"tokenFrom\" or \"chainFrom\" must be non-null. [tokenFrom,chainTo] or [chainFrom,tokenTo]");
     if (!tokenFromSymbol.empty() && !tokenToSymbol.empty())
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, \"tokenFrom\" and \"tokenTo\" cannot be set in the same time. [tokenFrom,chainTo] or [chainFrom,tokenTo]");
-    
+
     if (!tokenFromSymbol.empty())
         order.orderType = CICXOrder::TYPE_INTERNAL;
     else
         order.orderType = CICXOrder::TYPE_EXTERNAL;
-    
+
 
     int targetHeight;
     {
@@ -258,6 +286,15 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
             if (!token)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenFromSymbol));
             order.idToken = idToken;
+
+            if (!metaObj["receivePubkey"].isNull())
+            {
+                order.receivePubkey = PublickeyFromString(trim_ws(metaObj["receivePubkey"].getValStr()));
+                if (!order.receivePubkey.IsFullyValid())
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"receivePubKey\" is not a valid pubkey");
+            }
+            else
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"receivePubKey\" must not be null");
 
             CTokenAmount balance = pcustomcsview->GetBalance(order.ownerAddress,idToken);
             if (balance.nValue < order.amountFrom)
@@ -323,10 +360,9 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
                         {
                             {"orderTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of order tx for which is the offer"},
                             {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "amount fulfilling the order"},
-                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address of tokens in case of EXT/DFC order"},
-                            {"receiveAddress", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "address for receiving DFC tokens in case of DFC/EXT order type"},
+                            {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Address of DFI token and for receiving tokens in case of EXT/DFC order"},
                             {"receivePubkey", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of EXT/DFC order type"},
-                            {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the offer expires (Default: " 
+                            {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the offer expires (Default: "
                                 + std::to_string(CICXMakeOffer::DEFAULT_EXPIRY) + " blocks)"},
                         },
                     },
@@ -369,62 +405,54 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
     UniValue const & txInputs = request.params[1];
 
     CICXMakeOffer makeoffer;
+    CScript authScript;
 
     if (!metaObj["orderTx"].isNull())
         makeoffer.orderTx = uint256S(metaObj["orderTx"].getValStr());
     else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"orderTx\" must be non-null");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"orderTx\" must be non-null");
     if (!metaObj["amount"].isNull())
         makeoffer.amount = AmountFromValue(metaObj["amount"]);
-    else 
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amount\" must be non-null");
-    
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"amount\" must be non-null");
+
+    if (!metaObj["ownerAddress"].isNull()) {
+        makeoffer.ownerAddress = DecodeScript(metaObj["ownerAddress"].getValStr());
+        authScript = makeoffer.ownerAddress;
+    }
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"ownerAddress\" must be specified");
+    if (!::IsMine(*pwallet, makeoffer.ownerAddress))
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           strprintf("Address (%s) is not owned by the wallet", metaObj["ownerAddress"].getValStr()));
+
     if (!metaObj["expiry"].isNull()) makeoffer.expiry = metaObj["expiry"].get_int();
 
     if (makeoffer.expiry < CICXMakeOffer::DEFAULT_EXPIRY)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"expiry\" must be greater than %d", CICXMakeOffer::DEFAULT_EXPIRY - 1));
 
     int targetHeight;
-    CScript authScript;
     {
         LOCK(cs_main);
         auto order = pcustomcsview->GetICXOrderByCreationTx(makeoffer.orderTx);
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",makeoffer.orderTx.GetHex()));
 
-        // if (order->amountToFill * order->orderPrice / COIN < makeoffer.amount)
-        //     throw JSONRPCError(RPC_INVALID_PARAMETER, "cannot make offer with that amount, order (" + order->creationTx.GetHex() + ") has less amount to fill!");
-
-        if (order->orderType == CICXOrder::TYPE_INTERNAL)
+        if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
-            if (!metaObj["receiveAddress"].isNull()) {
-                authScript=DecodeScript(metaObj["receiveAddress"].getValStr());
-                makeoffer.receiveDestination = std::vector<uint8_t>(authScript.begin(),authScript.end());
-            }
-            else
-                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"receiveAddress\" must be non-null");
-            if (!::IsMine(*pwallet, DecodeDestination(metaObj["receiveAddress"].getValStr())))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", metaObj["receiveAddress"].getValStr()));
-        }
-        else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
-            if (!metaObj["ownerAddress"].isNull()) {
-                authScript = DecodeScript(metaObj["ownerAddress"].getValStr());
-                makeoffer.ownerAddress = authScript;
-            } else {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"ownerAddress\" must be non-null");
-            }
-            if (!::IsMine(*pwallet, DecodeDestination(metaObj["ownerAddress"].getValStr())))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", metaObj["ownerAddress"].getValStr()));
-            
             CTokenAmount balance = pcustomcsview->GetBalance(makeoffer.ownerAddress,order->idToken);
             if (balance.nValue < makeoffer.amount)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!", 
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!",
                         pcustomcsview->GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(makeoffer.ownerAddress)));
-            
+
             if (!metaObj["receivePubkey"].isNull())
-                makeoffer.receiveDestination = ParseHex(trim_ws(metaObj["receivePubkey"].getValStr()));
+            {
+                makeoffer.receivePubkey = PublickeyFromString(trim_ws(metaObj["receivePubkey"].getValStr()));
+                if (!makeoffer.receivePubkey.IsFullyValid())
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"receivePubKey\" is not a valid pubkey");
+            }
             else
-                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"receivePubKey\" must be non-null");
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"receivePubKey\" must be non-null");
         }
         targetHeight = ::ChainActive().Height() + 1;
     }
@@ -479,8 +507,6 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                         {
                             {"offerTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of offer tx for which the htlc is"},
                             {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "amount in htlc"},
-                            {"receiveAddress", RPCArg::Type::NUM, RPCArg::Optional::NO, "address that receives DFC tokens when HTLC is claimed"},
-                            {"receivePubkey", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of DFC/EXT order type"},
                             {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "hash of seed used for the hash lock part"},
                             {"timeout", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "timeout (absolute in blocks) for expiration of htlc"},
                         },
@@ -531,18 +557,15 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
         submitdfchtlc.amount = AmountFromValue(metaObj["amount"]);
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amount\" must be non-null");
-    if (!metaObj["receiveAddress"].isNull())
-        submitdfchtlc.receiveAddress = DecodeScript(metaObj["receiveAddress"].getValStr());
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"receiveAddress\" must be non-null");
     if (!metaObj["hash"].isNull())
         submitdfchtlc.hash = uint256S(metaObj["hash"].getValStr());
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"hash\" must be non-null");
     if (!metaObj["timeout"].isNull())
         submitdfchtlc.timeout = metaObj["timeout"].get_int();
-    
+
     int targetHeight;
+    CScript authScript;
     {
         LOCK(cs_main);
         auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
@@ -551,82 +574,43 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
         auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",offer->orderTx.GetHex()));
-        
+
         targetHeight = ::ChainActive().Height() + 1;
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
-            // if (submitdfchtlc.amount * order->orderPrice / COIN != offer->amount)
-            //     throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make dfc htlc with that amount, different amount necessary for offer (%s) - %s != %s!",
-            //                     offer->creationTx.GetHex(), ValueFromAmount(submitdfchtlc.amount * order->orderPrice / COIN).getValStr(), ValueFromAmount(offer->amount).getValStr()));
+            authScript = order->ownerAddress;
 
-            if (!metaObj["receivePubkey"].isNull()) {
-                submitdfchtlc.receivePubkey = PublickeyFromString(trim_ws(metaObj["receivePubkey"].getValStr()));
-                if (!submitdfchtlc.receivePubkey.IsFullyValid())
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"receivePubKey\" is not a valid pubkey");
-            }
-            else
-                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"receivePubKey\" must be non-null");
-
-            bool found = false;
-            pcustomcsview->ForEachICXSubmitDFCHTLCOpen([&found, &submitdfchtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
-                if (key.first != submitdfchtlc.offerTx) 
-                    return false;
-                found = true;
-                return false;
-            }, submitdfchtlc.offerTx);
-            if (found)
+            if (pcustomcsview->HasICXSubmitDFCHTLCOpen(submitdfchtlc.offerTx))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "dfc htlc already submitted!");
-
-            found = false;
-            pcustomcsview->ForEachICXSubmitEXTHTLCOpen([&found, &submitdfchtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
-                if (key.first == submitdfchtlc.offerTx)
-                {
-                    found = true;
-                    return (false);
-                }
-                return false;
-            }, submitdfchtlc.offerTx);
-            if (found)
+            if (pcustomcsview->HasICXSubmitEXTHTLCOpen(submitdfchtlc.offerTx))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offer (%s) needs to have dfc htlc submitted first, but external htlc already submitted!",
                         submitdfchtlc.offerTx.GetHex()));
-            
+
             if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_TIMEOUT)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitDFCHTLC::MINIMUM_TIMEOUT - 1));
+
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
+            authScript = offer->ownerAddress;
+
             CTokenAmount balance = pcustomcsview->GetBalance(offer->ownerAddress,order->idToken);
             if (balance.nValue < offer->amount)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!", 
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!",
                         pcustomcsview->GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(offer->ownerAddress)));
 
             if (submitdfchtlc.amount != offer->amount)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make dfc htlc with that amount, different amount necessary for offer (%s) - %s != %s!",
                                 offer->creationTx.GetHex(), ValueFromAmount(submitdfchtlc.amount).getValStr(), ValueFromAmount(offer->amount).getValStr()));
 
-            bool found = false;
-            pcustomcsview->ForEachICXSubmitDFCHTLCOpen([&found, &submitdfchtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
-                if (key.first != submitdfchtlc.offerTx)
-                    return false;
-                found = true;
-                return false;
-            }, submitdfchtlc.offerTx);
-            if (found)
+            if (pcustomcsview->HasICXSubmitDFCHTLCOpen(submitdfchtlc.offerTx))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "dfc htlc already submitted!");
-
-            std::unique_ptr<CICXSubmitEXTHTLCImplemetation> exthtlc;
-            pcustomcsview->ForEachICXSubmitEXTHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
-                if (key.first == submitdfchtlc.offerTx)
-                {
-                    exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
-                    return (false);
-                }
-                return false;
-            }, submitdfchtlc.offerTx);
+            auto exthtlc = pcustomcsview->HasICXSubmitEXTHTLCOpen(submitdfchtlc.offerTx);
             if (!exthtlc)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offer (%s) needs to have ext htlc submitted first, but no external htlc found!",
                             submitdfchtlc.offerTx.GetHex()));
+
             if (submitdfchtlc.hash != exthtlc->hash)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid hash, dfc htlc hash is different than extarnal htlc hash!");
             if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT)
@@ -648,7 +632,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
+    std::set<CScript> auths{authScript};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
@@ -656,12 +640,10 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Return change to auth address
-    if (auths.size() == 1) {
-        CTxDestination dest;
-        ExtractDestination(*auths.cbegin(), dest);
-        if (IsValidDestination(dest))
-            coinControl.destChange = dest;
-    }
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
 
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
@@ -689,7 +671,6 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
                         {
                             {"offerTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of offer tx for which the htlc is"},
                             {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "amount in htlc"},
-                            {"receiveAddress", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "address for receiving DFC tokens in case of EXT/BTC order type"},
                             {"htlcScriptAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "script address of external htlc"},
                             {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "hash of seed used for the hash lock part"},
                             {"ownerPubkey", RPCArg::Type::STR, RPCArg::Optional::NO, "pubkey of the owner to which the funds are refunded if HTLC timeouts"},
@@ -761,6 +742,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"timeout\" must be non-null");
 
     int targetHeight;
+    CScript authScript;
     {
         LOCK(cs_main);
         auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(submitexthtlc.offerTx);
@@ -769,37 +751,24 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
         auto order = pcustomcsview->GetICXOrderByCreationTx(offer->orderTx);
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",offer->orderTx.GetHex()));
-        
+
         targetHeight = ::ChainActive().Height() + 1;
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
+            authScript = offer->ownerAddress;
+
             if (submitexthtlc.amount != offer->amount)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make ext htlc with that amount, different amount necessary for offer (%s) - %s != %s!",
                                 offer->creationTx.GetHex(), ValueFromAmount(submitexthtlc.amount).getValStr(), ValueFromAmount(offer->amount).getValStr()));
 
-            bool found = false;
-            pcustomcsview->ForEachICXSubmitEXTHTLCOpen([&found, &submitexthtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
-                if (key.first != submitexthtlc.offerTx)
-                    return false;
-                found = true;
-                return false;
-            }, submitexthtlc.offerTx);
-            if (found)
+            if (pcustomcsview->HasICXSubmitEXTHTLCOpen(submitexthtlc.offerTx))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "ext htlc already submitted!");
-
-            std::unique_ptr<CICXSubmitDFCHTLCImplemetation> dfchtlc;
-            pcustomcsview->ForEachICXSubmitDFCHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t) {
-                if (key.first == submitexthtlc.offerTx)
-                {
-                    dfchtlc = pcustomcsview->GetICXSubmitDFCHTLCByCreationTx(key.second);
-                    return (false);
-                }
-                return false;
-            }, submitexthtlc.offerTx);
+            auto dfchtlc = pcustomcsview->HasICXSubmitDFCHTLCOpen(submitexthtlc.offerTx);
             if (!dfchtlc)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offer (%s) needs to have dfc htlc submitted first, but no dfc htlc found!",
                         submitexthtlc.offerTx.GetHex()));
+
             if (submitexthtlc.hash != dfchtlc->hash)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid hash, external htlc hash is different than dfc htlc hash! - %s != %s!",
                         submitexthtlc.hash.GetHex(),dfchtlc->hash.GetHex()));
@@ -810,42 +779,17 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
-            // if (submitexthtlc.amount * order->orderPrice / COIN != offer->amount )
-            //     throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make ext htlc with that amount, different amount necessary for offer (%s) - %s != %s!",
-            //                     offer->creationTx.GetHex(), ValueFromAmount(submitexthtlc.amount * order->orderPrice / COIN).getValStr(), ValueFromAmount(offer->amount).getValStr()));
+            authScript = order->ownerAddress;
 
-            if (!metaObj["receiveAddress"].isNull())
-                submitexthtlc.receiveAddress=DecodeScript(metaObj["receiveAddress"].getValStr());
-            else
-                throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"receiveAddress\" must be non-null");
-            if (!::IsMine(*pwallet, DecodeDestination(metaObj["receiveAddress"].getValStr())))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", metaObj["receiveAddress"].getValStr()));
-
-            bool found = false;
-            pcustomcsview->ForEachICXSubmitEXTHTLCOpen([&found, &submitexthtlc](CICXOrderView::TxidPairKey const & key, uint8_t i) {
-                if (key.first != submitexthtlc.offerTx)
-                    return false;
-                found = true;
-                return false;
-            }, submitexthtlc.offerTx);
-            if (found)
+            if (pcustomcsview->HasICXSubmitEXTHTLCOpen(submitexthtlc.offerTx))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "ext htlc already submitted!");
-
-            found = false;
-            pcustomcsview->ForEachICXSubmitDFCHTLCOpen([&found, &submitexthtlc](CICXOrderView::TxidPairKey const & key, uint8_t) {
-                if (key.first == submitexthtlc.offerTx)
-                {
-                    found = true;
-                    return (false);
-                }
-                return true;
-            }, submitexthtlc.offerTx);
-            if (found)
+            if (pcustomcsview->HasICXSubmitDFCHTLCOpen(submitexthtlc.offerTx))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offer (%s) needs to have dfc htlc submitted first, but external htlc already submitted!",
                         submitexthtlc.offerTx.GetHex()));
+
             if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_TIMEOUT)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_TIMEOUT - 1));
-        }         
+        }
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -859,7 +803,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
+    std::set<CScript> auths{authScript};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
@@ -870,7 +814,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
     if (auths.size() == 1) {
         CTxDestination dest;
         ExtractDestination(*auths.cbegin(), dest);
-        if (IsValidDestination(dest)) 
+        if (IsValidDestination(dest))
             coinControl.destChange = dest;
     }
 
@@ -964,7 +908,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
 
         if (dfchtlc->hash != calcHash)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "hash generated from given seed is different than in dfc htlc: " + calcHash.GetHex() + " - " + dfchtlc->hash.GetHex());
-        
+
         targetHeight = ::ChainActive().Height() + 1;
     }
 
@@ -987,12 +931,10 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
     CCoinControl coinControl;
 
     // Return change to auth address
-    if (auths.size() == 1) {
-        CTxDestination dest;
-        ExtractDestination(*auths.cbegin(), dest);
-        if (IsValidDestination(dest))
-            coinControl.destChange = dest;
-    }
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
 
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
@@ -1006,6 +948,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, claimdfchtlc});
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXClaimDFCHTLCMessage{}, coinview);
     }
+
     return signsend(rawTx, pwallet, {})->GetHash().GetHex();
 }
 
@@ -1029,7 +972,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
                         },
                     },
                 },
-                
+
                 RPCResult{
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
@@ -1127,7 +1070,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
                         },
                     },
                 },
-                
+
                 RPCResult{
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
@@ -1164,11 +1107,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,"OfferTx (" + closeoffer.offerTx.GetHex() + " is already closed!");
         }
 
-        if (!offer->ownerAddress.empty()) {
-            owner = offer->ownerAddress;
-        } else {
-            owner = CScript(offer->receiveDestination.begin(), offer->receiveDestination.end());
-        }
+        owner = offer->ownerAddress;
 
         targetHeight = ::ChainActive().Height() + 1;
     }
@@ -1223,7 +1162,7 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
                     "{...}     (object) Json object with order information\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("icx_getorder", "'{\"orderTx\":\"<txid>>\"}'")     
+                    HelpExampleCli("icx_getorder", "'{\"orderTx\":\"<txid>>\"}'")
                 },
      }.Check(request);
 
@@ -1236,12 +1175,12 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
     auto order = pcustomcsview->GetICXOrderByCreationTx(orderTxid);
     if (order)
         return icxOrderToJSON(*order,-1);
-    
+
     auto fillorder = pcustomcsview->GetICXMakeOfferByCreationTx(orderTxid);
     if (fillorder)
         return icxMakeOfferToJSON(*fillorder,-1);
 
-    throw JSONRPCError(RPC_INVALID_PARAMETER, "orderTx (" + orderTxid.GetHex() + ") does not exist");    
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "orderTx (" + orderTxid.GetHex() + ") does not exist");
 }
 
 UniValue icxlistorders(const JSONRPCRequest& request) {
@@ -1288,7 +1227,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
 
     DCT_ID idToken = {std::numeric_limits<uint32_t>::max()};
     if (!tokenSymbol.empty() && !chain.empty())
-    {        
+    {
         auto token1 = pcustomcsview->GetTokenGuessId(tokenSymbol, idToken);
         if (!token1)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
@@ -1297,78 +1236,57 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
     if (idToken.v != std::numeric_limits<uint32_t>::max())
     {
-        CICXOrderView::AssetPair prefix;
-        prefix.first = idToken;
-        prefix.second = chain;
+        DCT_ID prefix;
+        prefix = idToken;
+
+        auto orderkeylambda = [&](CICXOrderView::OrderKey const & key, uint8_t status) {
+            if (key.first != prefix)
+                return (false);
+            auto order = pcustomcsview->GetICXOrderByCreationTx(key.second);
+            if (order)
+                ret.pushKVs(icxOrderToJSON(*order, status));
+            limit--;
+            return limit != 0;
+        };
 
         if (closed)
-        {
-            pcustomcsview->ForEachICXOrderClose([&](CICXOrderView::OrderKey const & key, uint8_t status) {
-                if (key.first != prefix)
-                    return (false);
-                auto order = pcustomcsview->GetICXOrderByCreationTx(key.second);
-                if (order)
-                    ret.pushKVs(icxOrderToJSON(*order, status));
-                limit--;
-                return limit != 0;
-            }, prefix);
-        }
-        else 
-        {
-            pcustomcsview->ForEachICXOrderOpen([&](CICXOrderView::OrderKey const & key, uint8_t status) {
-                if (key.first != prefix)
-                    return (false);
-                auto order = pcustomcsview->GetICXOrderByCreationTx(key.second);
-                if (order)
-                    ret.pushKVs(icxOrderToJSON(*order, status));
-                limit--;
-                return limit != 0;
-            }, prefix);
-        }
+            pcustomcsview->ForEachICXOrderClose(orderkeylambda, prefix);
+        else
+            pcustomcsview->ForEachICXOrderOpen(orderkeylambda, prefix);
+
         return ret;
     }
     else if (!orderTxid.IsNull())
     {
+        auto offerkeylambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
+            if (key.first != orderTxid)
+                return (false);
+            auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(key.second);
+            if (offer)
+                ret.pushKVs(icxMakeOfferToJSON(*offer, status));
+            limit--;
+            return limit != 0;
+        };
         if (closed)
-        {
-            pcustomcsview->ForEachICXMakeOfferClose([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
-                if (key.first != orderTxid)
-                    return (false);
-                auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(key.second);
-                if (offer)
-                    ret.pushKVs(icxMakeOfferToJSON(*offer, status));
-                limit--;
-                return limit != 0;
-            }, orderTxid);
-        }
+            pcustomcsview->ForEachICXMakeOfferClose(offerkeylambda, orderTxid);
         else
-        {
-            pcustomcsview->ForEachICXMakeOfferOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
-                if (key.first != orderTxid)
-                    return (false);
-                auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(key.second);
-                if (offer)
-                    ret.pushKVs(icxMakeOfferToJSON(*offer, status));
-                limit--;
-                return limit != 0;
-            }, orderTxid);
-        }
+            pcustomcsview->ForEachICXMakeOfferOpen(offerkeylambda, orderTxid);
+
         return ret;
     }
+
+    auto orderlambda = [&](CICXOrderView::OrderKey const & key, uint8_t status) {
+        auto order = pcustomcsview->GetICXOrderByCreationTx(key.second);
+        if (order) ret.pushKVs(icxOrderToJSON(*order, status));
+        limit--;
+        return limit != 0;
+    };
+
     if (closed)
-        pcustomcsview->ForEachICXOrderClose([&](CICXOrderView::OrderKey const & key, uint8_t status) {
-            auto order = pcustomcsview->GetICXOrderByCreationTx(key.second);
-            if (order) ret.pushKVs(icxOrderToJSON(*order, status));
-            limit--;
-            return limit != 0;
-        });
+        pcustomcsview->ForEachICXOrderClose(orderlambda);
     else
-        pcustomcsview->ForEachICXOrderOpen([&](CICXOrderView::OrderKey const & key, uint8_t status) {
-            auto order = pcustomcsview->GetICXOrderByCreationTx(key.second);
-            if (order) ret.pushKVs(icxOrderToJSON(*order, status));
-            limit--;
-            return limit != 0;
-        });
+        pcustomcsview->ForEachICXOrderOpen(orderlambda);
+
     return ret;
 }
 
@@ -1382,7 +1300,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
                                 {"limit",  RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Maximum number of orders to return (default: 20)"},
                                 {"refunded", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Display refunded HTLC (default: false)"},
                                 {"claimed",  RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Display claimed HTLCs (default: false)"},
-                                
+
                             },
                         },
                 },
@@ -1392,7 +1310,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                         HelpExampleCli("icx_listorders", "'{\"offerTx\":\"<txid>\"}'")
-                    
+
                 }
      }.Check(request);
 
@@ -1401,23 +1319,42 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
                            "{\"offerTx\"}");
-   
+
     size_t limit = 20;
     uint256 offerTxid;
     bool closed = false;
-    
+
     UniValue byObj = request.params[0].get_obj();
     if (!byObj["offerTx"].isNull())
         offerTxid = uint256S(byObj["offerTx"].getValStr());
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"offerTx\" must be non-null");
-    
+
     if (!byObj["closed"].isNull())
         closed = byObj["closed"].get_bool();
     if (!byObj["limit"].isNull())
         limit = (size_t) byObj["limit"].get_int64();
-    
+
     UniValue ret(UniValue::VOBJ);
+    auto dfchtlclambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
+        if (key.first != offerTxid)
+            return false;
+        auto dfchtlc = pcustomcsview->GetICXSubmitDFCHTLCByCreationTx(key.second);
+        if (dfchtlc)
+            ret.pushKVs(icxSubmitDFCHTLCToJSON(*dfchtlc,status));
+        limit--;
+        return limit != 0;
+    };
+    auto exthtlclambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
+        if (key.first != offerTxid)
+            return false;
+        auto exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
+        if (exthtlc)
+            ret.pushKVs(icxSubmitEXTHTLCToJSON(*exthtlc, status));
+        limit--;
+        return limit != 0;
+    };
+
     pcustomcsview->ForEachICXClaimDFCHTLC([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
         if (key.first != offerTxid)
             return false;
@@ -1427,53 +1364,20 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
         limit--;
         return limit != 0;
     }, offerTxid);
+
     if (closed)
-    {
-        pcustomcsview->ForEachICXSubmitDFCHTLCClose([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
-            if (key.first != offerTxid)
-                return false;
-            auto dfchtlc = pcustomcsview->GetICXSubmitDFCHTLCByCreationTx(key.second);
-            if (dfchtlc)
-                ret.pushKVs(icxSubmitDFCHTLCToJSON(*dfchtlc,status));
-            limit--;
-            return limit != 0;
-        }, offerTxid);
-    }
-    pcustomcsview->ForEachICXSubmitDFCHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
-        if (key.first != offerTxid)
-            return false;
-        auto dfchtlc = pcustomcsview->GetICXSubmitDFCHTLCByCreationTx(key.second);
-        if (dfchtlc)
-            ret.pushKVs(icxSubmitDFCHTLCToJSON(*dfchtlc,status));
-        limit--;
-        return limit != 0;
-    }, offerTxid);
+        pcustomcsview->ForEachICXSubmitDFCHTLCClose(dfchtlclambda, offerTxid);
+    pcustomcsview->ForEachICXSubmitDFCHTLCOpen(dfchtlclambda, offerTxid);
+
     if (closed)
-    {
-        pcustomcsview->ForEachICXSubmitEXTHTLCClose([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
-            if (key.first != offerTxid)
-                return false;
-            auto exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
-            if (exthtlc)
-                ret.pushKVs(icxSubmitEXTHTLCToJSON(*exthtlc, status));
-            limit--;
-            return limit != 0;
-        }, offerTxid);
-    }
-    pcustomcsview->ForEachICXSubmitEXTHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
-        if (key.first != offerTxid)
-            return false;
-        auto exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
-        if (exthtlc)
-            ret.pushKVs(icxSubmitEXTHTLCToJSON(*exthtlc, status));
-        limit--;
-        return limit != 0;
-    }, offerTxid);
+        pcustomcsview->ForEachICXSubmitEXTHTLCClose(exthtlclambda, offerTxid);
+    pcustomcsview->ForEachICXSubmitEXTHTLCOpen(exthtlclambda, offerTxid);
+
     return ret;
 }
 
 static const CRPCCommand commands[] =
-{ 
+{
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
     {"icxorderbook",   "icx_createorder",        &icxcreateorder,        {"order"}},

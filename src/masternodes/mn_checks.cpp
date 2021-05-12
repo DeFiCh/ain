@@ -1140,11 +1140,11 @@ public:
         if (!mnview.GetToken(order.idToken))
             return Res::Err("token %s does not exist!", order.idToken.ToString());
 
+        if (order.ownerAddress.empty())
+            return Res::Err("ownerAddress must not be null!");
+
         if (order.orderType == CICXOrder::TYPE_INTERNAL)
         {
-            if (order.ownerAddress.empty())
-                return Res::Err("ownerAddress must be not-null!");
-
             // subtract the balance from tokenFrom to dedicate them for the order
             CScript txidAddr(order.creationTx.begin(), order.creationTx.end());
             auto res = ICXTransfer(order.idToken, order.amountFrom, order.ownerAddress, txidAddr);
@@ -1173,6 +1173,9 @@ public:
         if (calcAmount < makeoffer.amount)
             makeoffer.amount = calcAmount;
 
+        if (makeoffer.ownerAddress.empty())
+                return Res::Err("ownerAddress must not be null!");
+
         CScript txidAddr(makeoffer.creationTx.begin(), makeoffer.creationTx.end());
 
         //calculating DFI per BTC
@@ -1180,24 +1183,16 @@ public:
         CAmount DFIperBTC = (arith_uint256(DFIBTCPoolPair.reserveA) * arith_uint256(COIN) / DFIBTCPoolPair.reserveB).GetLow64();
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
-            if (makeoffer.receiveDestination.empty())
-                return Res::Err("receiveAddress must not be null!");
-
             // calculating and locking takerFee in offer txidaddr
             makeoffer.takerFee = (arith_uint256(makeoffer.amount) * arith_uint256(mnview.ICXGetTakerFeePerBTC()) / arith_uint256(COIN)
                                 * arith_uint256(DFIperBTC) / arith_uint256(COIN)).GetLow64();
-            CScript receiveAddress(makeoffer.receiveDestination.begin(), makeoffer.receiveDestination.end());
+            CScript receiveAddress(makeoffer.ownerAddress.begin(), makeoffer.ownerAddress.end());
             res = ICXTransfer(DCT_ID{0}, makeoffer.takerFee, receiveAddress, txidAddr);
             if (!res)
                 return res;
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
-            if (makeoffer.ownerAddress.empty())
-                return Res::Err("ownerAddress must be not-null!");
-            if (!CPubKey(makeoffer.receiveDestination).IsFullyValid())
-                return Res::Err("Invalid receivePubKey, (" + HexStr(makeoffer.receiveDestination) + ") receivePubkey is not a valid pubkey!");
-
             // calculating and locking takerFee in offer txidaddr
             CAmount BTCAmount(static_cast<CAmount>((arith_uint256(makeoffer.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
             makeoffer.takerFee = (arith_uint256(BTCAmount) * arith_uint256(mnview.ICXGetTakerFeePerBTC()) / arith_uint256(COIN)
@@ -1233,13 +1228,15 @@ public:
         CScript srcAddr;
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
+            // check auth
+            if (!HasAuth(order->ownerAddress)) {
+                return Res::Err("tx must have at least one input from order owner");
+            }
+
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (calcAmount != offer->amount)
                 return Res::Err("amount in dfc htlc must match the amount necessary for offer amount - %f != %f!",
                                 GetDecimaleString(calcAmount), GetDecimaleString(offer->amount));
-
-            if (!submitdfchtlc.receivePubkey.IsFullyValid())
-                return Res::Err("Invalid receivePubKey, (" + HexStr(submitdfchtlc.receivePubkey) + ") is not a valid pubkey!");
 
             srcAddr = CScript(order->creationTx.begin(),order->creationTx.end());
 
@@ -1258,6 +1255,11 @@ public:
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
+            // check auth
+            if (!HasAuth(offer->ownerAddress)) {
+                return Res::Err("tx must have at least one input from offer owner");
+            }
+
             if (submitdfchtlc.amount != offer->amount)
                 return Res::Err("amount in dfc htlc must match the amount in offer - %s != %s!",
                                 GetDecimaleString(submitdfchtlc.amount), GetDecimaleString(offer->amount));
@@ -1265,7 +1267,7 @@ public:
             srcAddr = offer->ownerAddress;
         }
 
-        // subtract the balance from order/offer txidaddr and dedicate them for the dfc htlc
+        // subtract the balance from order txidaddr or offer owner address and dedicate them for the dfc htlc
         CScript htlcTxidAddr(submitdfchtlc.creationTx.begin(), submitdfchtlc.creationTx.end());
         res = ICXTransfer(order->idToken, submitdfchtlc.amount, srcAddr, htlcTxidAddr);
         if (!res)
@@ -1295,12 +1297,22 @@ public:
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
+            // check auth
+            if (!HasAuth(offer->ownerAddress)) {
+                return Res::Err("tx must have at least one input from offer owner");
+            }
+
             if (submitexthtlc.amount != offer->amount)
                 return Res::Err("amount in ext htlc must match the amount in the offer - %s != %s!",
                                 GetDecimaleString(submitexthtlc.amount), GetDecimaleString(offer->amount));
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
+            // check auth
+            if (!HasAuth(order->ownerAddress)) {
+                return Res::Err("tx must have at least one input from order owner");
+            }
+
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (calcAmount != offer->amount)
                 return Res::Err("amount in dfc htlc must match the amount necessary for offer amount - %s != %s!",
@@ -1315,7 +1327,7 @@ public:
                 return res;
 
             // makerFee
-            res = ICXTransfer(DCT_ID{0}, offer->takerFee, submitexthtlc.receiveAddress, consensus.burnAddress);
+            res = ICXTransfer(DCT_ID{0}, offer->takerFee, order->ownerAddress, consensus.burnAddress);
             if (!res)
                 return res;
         }
@@ -1367,7 +1379,10 @@ public:
 
         // claim DFC HTLC to receiveAddress
         CScript htlcTxidAddr(dfchtlc->creationTx.begin(),dfchtlc->creationTx.end());
-        res = ICXTransfer(order->idToken, dfchtlc->amount, htlcTxidAddr, dfchtlc->receiveAddress);
+        if (order->orderType == CICXOrder::TYPE_INTERNAL)
+            res = ICXTransfer(order->idToken, dfchtlc->amount, htlcTxidAddr, offer->ownerAddress);
+        else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
+            res = ICXTransfer(order->idToken, dfchtlc->amount, htlcTxidAddr, order->ownerAddress);
         if (!res)
             return res;
 
@@ -1383,7 +1398,7 @@ public:
 
         // maker bonus only on fair dBTC/BTC (1:1) trades for now
         DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
-        if (order->idToken == BTC && order->chain == CICXOrder::CHAIN_BTC && order->orderPrice == COIN)
+        if (order->idToken == BTC && order->orderPrice == COIN)
         {
             res = ICXTransfer(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
             if (!res)
@@ -1448,9 +1463,8 @@ public:
             return Res::Err("order with creation tx %s is already closed!", closeorder.orderTx.GetHex());
         }
 
-        const Coin& auth = coins.AccessCoin(COutPoint(order->creationTx, 1)); // always n=1 output
         // check auth
-        if (!HasAuth(auth.out.scriptPubKey)) {
+        if (!HasAuth(order->ownerAddress)) {
             return Res::Err("tx must have at least one input from order owner");
         }
 
@@ -1497,7 +1511,7 @@ public:
 
         const Coin& auth = coins.AccessCoin(COutPoint(offer->creationTx, 1)); // always n=1 output
         // check auth
-        if (!HasAuth(auth.out.scriptPubKey))
+        if (!HasAuth(offer->ownerAddress))
             return Res::Err("tx must have at least one input from offer owner");
 
         offer->closeTx = closeoffer.creationTx;

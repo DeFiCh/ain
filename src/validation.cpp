@@ -2640,7 +2640,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 }
                 return true;
             },pindex->nHeight);
-            
+
             cache.ForEachICXMakeOfferExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
                 if (static_cast<int>(key.first) != pindex->nHeight) return (false);
                 auto offer = cache.GetICXMakeOfferByCreationTx(key.second);
@@ -2657,7 +2657,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         res = cache.AddBalance(offer->ownerAddress,takerFee);
                         if (!res)
                             LogPrintf("Can't refund takerFee back to owner: %s\n", res.msg);
-                    }                
+                    }
                     if (res.ok)
                     {
                         res = cache.ICXCloseMakeOfferTx(*offer,status);
@@ -2690,7 +2690,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         if (key.first == dfchtlc->offerTx)
                         {
                             exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
-                            return (false);
+                            return false;
                         }
                         return false;
                     }, dfchtlc->offerTx);
@@ -2758,7 +2758,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         if (key.first == exthtlc->offerTx)
                         {
                             dfchtlc = pcustomcsview->GetICXSubmitDFCHTLCByCreationTx(key.second);
-                            return (false);
+                            return false;
                         }
                         return false;
                     }, exthtlc->offerTx);
@@ -2777,7 +2777,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         }
                     }
                 }
-                
+
                 return true;
             }, pindex->nHeight);
         }

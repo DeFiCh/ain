@@ -107,8 +107,9 @@ class ICXOrderbookTest (DefiTestFramework):
         orderTx = self.nodes[0].icx_createorder({
                                     'tokenFrom': idDFI,
                                     'chainTo': "BTC",
-                                    'amountFrom': 15,
                                     'ownerAddress': accountDFI,
+                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+                                    'amountFrom': 15,
                                     'orderPrice':0.01})
 
         self.nodes[0].generate(1)
@@ -138,8 +139,9 @@ class ICXOrderbookTest (DefiTestFramework):
         orderTx = self.nodes[0].icx_createorder({
                                     'tokenFrom': idDFI,
                                     'chainTo': "BTC",
-                                    'amountFrom': 15,
                                     'ownerAddress': accountDFI,
+                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+                                    'amountFrom': 15,
                                     'orderPrice':0.01})
 
         self.nodes[0].generate(1)
@@ -150,16 +152,17 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(len(order), 1)
         assert_equal(order[orderTx]["tokenFrom"], symbolDFI)
         assert_equal(order[orderTx]["chainTo"], "BTC")
+        assert_equal(order[orderTx]["ownerAddress"], accountDFI)
+        assert_equal(order[orderTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
         assert_equal(order[orderTx]["amountFrom"], Decimal('15'))
         assert_equal(order[orderTx]["amountToFill"], Decimal('15'))
         assert_equal(order[orderTx]["orderPrice"], Decimal('0.01000000'))
         assert_equal(order[orderTx]["amountToFillInToAsset"], Decimal('0.1500000'))
-        assert_equal(order[orderTx]["ownerAddress"], accountDFI)
 
         offerTx = self.nodes[1].icx_makeoffer({
                                     'orderTx': orderTx,
                                     'amount': 0.10,
-                                    'receiveAddress': accountBTC})
+                                    'ownerAddress': accountBTC})
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -169,14 +172,12 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(len(offer), 1)
         assert_equal(offer[offerTx]["orderTx"], orderTx)
         assert_equal(offer[offerTx]["amount"], Decimal('0.10000000'))
-        assert_equal(offer[offerTx]["receiveAddress"], accountBTC)
+        assert_equal(offer[offerTx]["ownerAddress"], accountBTC)
         assert_equal(offer[offerTx]["takerFee"], Decimal('0.01000000'))
 
         dfhtlcTx = self.nodes[0].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 10,
-                                    'receiveAddress': accountBTC,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'timeout': 500})
 
@@ -197,8 +198,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(hltcs[dfhtlcTx]["status"], 'OPEN')
         assert_equal(hltcs[dfhtlcTx]["offerTx"], offerTx)
         assert_equal(hltcs[dfhtlcTx]["amount"], Decimal('10.00000000'))
-        assert_equal(hltcs[dfhtlcTx]["receiveAddress"], accountBTC)
-        assert_equal(hltcs[dfhtlcTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
+        assert_equal(hltcs[dfhtlcTx]["amountInEXTAsset"], Decimal('0.10000000'))
         assert_equal(hltcs[dfhtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(hltcs[dfhtlcTx]["timeout"], 500)
 
@@ -220,6 +220,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(hltcs[exthtlcTx]["status"], 'OPEN')
         assert_equal(hltcs[exthtlcTx]["offerTx"], offerTx)
         assert_equal(hltcs[exthtlcTx]["amount"], Decimal('0.10000000'))
+        assert_equal(hltcs[exthtlcTx]["amountInDFCAsset"], Decimal('10.00000000'))
         assert_equal(hltcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(hltcs[exthtlcTx]["htlcScriptAddress"], '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N')
         assert_equal(hltcs[exthtlcTx]["ownerPubkey"], '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
@@ -255,7 +256,7 @@ class ICXOrderbookTest (DefiTestFramework):
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx, "closed": True})
         assert_equal(offer[offerTx]["orderTx"], orderTx)
         assert_equal(offer[offerTx]["amount"], Decimal('0.10000000'))
-        assert_equal(offer[offerTx]["receiveAddress"], accountBTC)
+        assert_equal(offer[offerTx]["ownerAddress"], accountBTC)
         assert_equal(offer[offerTx]["takerFee"], Decimal('0.01000000'))
 
         # Check partial order remaining
@@ -264,17 +265,18 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(len(order), 1)
         assert_equal(order[orderTx]["tokenFrom"], symbolDFI)
         assert_equal(order[orderTx]["chainTo"], "BTC")
+        assert_equal(order[orderTx]["ownerAddress"], accountDFI)
+        assert_equal(order[orderTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
         assert_equal(order[orderTx]["amountFrom"], Decimal('15'))
         assert_equal(order[orderTx]["amountToFill"], Decimal('5'))
         assert_equal(order[orderTx]["orderPrice"], Decimal('0.01000000'))
         assert_equal(order[orderTx]["amountToFillInToAsset"], Decimal('0.0500000'))
-        assert_equal(order[orderTx]["ownerAddress"], accountDFI)
 
         # Make offer for more than is available to test partial fill
         offerTx = self.nodes[1].icx_makeoffer({
                                     'orderTx': orderTx,
                                     'amount': 0.10,
-                                    'receiveAddress': accountBTC})
+                                    'ownerAddress': accountBTC})
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -283,14 +285,12 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(len(offer), 1)
         assert_equal(offer[offerTx]["orderTx"], orderTx)
         assert_equal(offer[offerTx]["amount"], Decimal('0.05000000'))
-        assert_equal(offer[offerTx]["receiveAddress"], accountBTC)
+        assert_equal(offer[offerTx]["ownerAddress"], accountBTC)
         assert_equal(offer[offerTx]["takerFee"], Decimal('0.00500000'))
 
         dfhtlcTx = self.nodes[0].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 5,
-                                    'receiveAddress': accountBTC,
-                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'timeout': 500})
 
@@ -311,8 +311,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(hltcs[dfhtlcTx]["status"], 'OPEN')
         assert_equal(hltcs[dfhtlcTx]["offerTx"], offerTx)
         assert_equal(hltcs[dfhtlcTx]["amount"], Decimal('5.00000000'))
-        assert_equal(hltcs[dfhtlcTx]["receiveAddress"], accountBTC)
-        assert_equal(hltcs[dfhtlcTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
+        assert_equal(hltcs[dfhtlcTx]["amountInEXTAsset"], Decimal('0.05000000'))
         assert_equal(hltcs[dfhtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(hltcs[dfhtlcTx]["timeout"], 500)
 
@@ -334,6 +333,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(hltcs[exthtlcTx]["status"], 'OPEN')
         assert_equal(hltcs[exthtlcTx]["offerTx"], offerTx)
         assert_equal(hltcs[exthtlcTx]["amount"], Decimal('0.05000000'))
+        assert_equal(hltcs[exthtlcTx]["amountInDFCAsset"], Decimal('5.00000000'))
         assert_equal(hltcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(hltcs[exthtlcTx]["htlcScriptAddress"], '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N')
         assert_equal(hltcs[exthtlcTx]["ownerPubkey"], '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')

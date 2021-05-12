@@ -35,7 +35,6 @@ const uint8_t CICXOrder::STATUS_OPEN = 0;
 const uint8_t CICXOrder::STATUS_CLOSED = 1;
 const uint8_t CICXOrder::STATUS_FILLED = 2;
 const uint8_t CICXOrder::STATUS_EXPIRED = 3;
-const uint8_t CICXOrder::DFI_TOKEN_ID = 0;
 const std::string CICXOrder::CHAIN_BTC = "BTC";
 const std::string CICXOrder::TOKEN_BTC = "BTC";
 
@@ -75,8 +74,6 @@ Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
         return Res::Err("order with creation tx %s already exists!", order.creationTx.GetHex());
     }
 
-    if (order.chain.empty())
-        return Res::Err("chain assets must be specified");
     if (order.orderType != CICXOrder::TYPE_INTERNAL && order.orderType != CICXOrder::TYPE_EXTERNAL)
         return Res::Err("invalid order type!");
     if (order.amountFrom == 0)
@@ -88,7 +85,7 @@ Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
     if (order.expiry == 0)
         return Res::Err("order expiry must be greater than 0!");
 
-    OrderKey key({order.idToken,order.chain}, order.creationTx);
+    OrderKey key(order.idToken, order.creationTx);
     WriteBy<ICXOrderCreationTx>(order.creationTx, order);
     WriteBy<ICXOrderOpenKey>(key, CICXOrder::STATUS_OPEN);
     WriteBy<ICXOrderStatus>(StatusKey(order.creationHeight + order.expiry, order.creationTx), CICXOrder::STATUS_EXPIRED);
@@ -103,7 +100,7 @@ Res CICXOrderView::ICXUpdateOrder(CICXOrderImpl const & order)
         return Res::Err("order with creation tx %s doesn't exists!", order.creationTx.GetHex());
     }
 
-    OrderKey key({order.idToken,order.chain}, order.creationTx);
+    OrderKey key(order.idToken, order.creationTx);
     WriteBy<ICXOrderCreationTx>(order.creationTx, order);
 
     return (Res::Ok());
@@ -112,7 +109,7 @@ Res CICXOrderView::ICXUpdateOrder(CICXOrderImpl const & order)
 Res CICXOrderView::ICXCloseOrderTx(CICXOrderImpl const & order, uint8_t const status)
 {
     WriteBy<ICXOrderCreationTx>(order.creationTx, order);
-    OrderKey key({order.idToken,order.chain}, order.creationTx);
+    OrderKey key(order.idToken, order.creationTx);
     EraseBy<ICXOrderOpenKey>(key);
     WriteBy<ICXOrderCloseKey>(key, status);
     EraseBy<ICXOrderStatus>(StatusKey(order.creationHeight + order.expiry, order.creationTx));
@@ -120,15 +117,15 @@ Res CICXOrderView::ICXCloseOrderTx(CICXOrderImpl const & order, uint8_t const st
     return (Res::Ok());
 }
 
-void CICXOrderView::ForEachICXOrderOpen(std::function<bool (OrderKey const &, uint8_t)> callback, AssetPair const & pair)
+void CICXOrderView::ForEachICXOrderOpen(std::function<bool (OrderKey const &, uint8_t)> callback, DCT_ID const & id)
 {
-    OrderKey start(pair, uint256());
+    OrderKey start(id, uint256());
     ForEach<ICXOrderOpenKey,OrderKey,uint8_t>(callback, start);
 }
 
-void CICXOrderView::ForEachICXOrderClose(std::function<bool (OrderKey const &, uint8_t)> callback, AssetPair const & pair)
+void CICXOrderView::ForEachICXOrderClose(std::function<bool (OrderKey const &, uint8_t)> callback, DCT_ID const & id)
 {
-    OrderKey start(pair, uint256());
+    OrderKey start(id, uint256());
     ForEach<ICXOrderCloseKey,OrderKey,uint8_t>(callback, start);
 }
 
@@ -207,8 +204,6 @@ ResVal<uint256> CICXOrderView::ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & su
         return Res::Err("Invalid hash, htlc hash is empty and it must be set!");
     if (submitdfchtlc.timeout == 0)
         return Res::Err("Invalid timeout, must be greater than 0!");
-    if (submitdfchtlc.receiveAddress.empty())
-        return Res::Err("Invalid, receiveAddress in htlc must be destination where tokens go on claim!");
 
     WriteBy<ICXSubmitDFCHTLCCreationTx>(submitdfchtlc.creationTx, submitdfchtlc);
     WriteBy<ICXSubmitDFCHTLCOpenKey>(TxidPairKey(submitdfchtlc.offerTx, submitdfchtlc.creationTx), CICXSubmitDFCHTLC::STATUS_OPEN);
@@ -246,6 +241,19 @@ void CICXOrderView::ForEachICXSubmitDFCHTLCExpire(std::function<bool (StatusKey 
 {
     StatusKey start(height, uint256());
     ForEach<ICXSubmitDFCHTLCStatus, StatusKey, uint8_t>(callback, start);
+}
+
+std::unique_ptr<CICXOrderView::CICXSubmitDFCHTLCImpl> CICXOrderView::HasICXSubmitDFCHTLCOpen(uint256 const & offertxid)
+{
+    std::unique_ptr<CICXSubmitDFCHTLCImpl> dfchtlc;
+    this->ForEachICXSubmitDFCHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
+        if (key.first != offertxid)
+            return false;
+        dfchtlc = this->GetICXSubmitDFCHTLCByCreationTx(key.second);;
+        return false;
+    }, offertxid);
+
+    return (dfchtlc);
 }
 
 std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::GetICXSubmitEXTHTLCByCreationTx(const uint256 & txid) const
@@ -307,6 +315,19 @@ void CICXOrderView::ForEachICXSubmitEXTHTLCExpire(std::function<bool (StatusKey 
     ForEach<ICXSubmitEXTHTLCStatus, StatusKey, uint8_t>(callback, start);
 }
 
+std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::HasICXSubmitEXTHTLCOpen(uint256 const & offertxid)
+{
+    std::unique_ptr<CICXSubmitEXTHTLCImpl> exthtlc;
+    this->ForEachICXSubmitEXTHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
+        if (key.first != offertxid)
+            return false;
+        exthtlc = GetICXSubmitEXTHTLCByCreationTx(key.second);
+        return false;
+    }, offertxid);
+
+    return (exthtlc);
+}
+
 std::unique_ptr<CICXOrderView::CICXClaimDFCHTLCImpl> CICXOrderView::GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const
 {
     auto claimdfchtlc = ReadBy<ICXClaimDFCHTLCCreationTx,CICXClaimDFCHTLCImpl>(txid);
@@ -330,9 +351,9 @@ ResVal<uint256> CICXOrderView::ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & clai
     WriteBy<ICXClaimDFCHTLCCreationTx>(claimdfchtlc.creationTx, claimdfchtlc);
     WriteBy<ICXClaimDFCHTLCKey>(TxidPairKey(dfchtlc->offerTx, claimdfchtlc.creationTx),CICXSubmitDFCHTLC::STATUS_CLAIMED);
 
-    if (order.amountToFill != 0) 
+    if (order.amountToFill != 0)
     {
-        OrderKey key({order.idToken,order.chain}, order.creationTx);
+        OrderKey key(order.idToken, order.creationTx);
         WriteBy<ICXOrderCreationTx>(order.creationTx, order);
     }
 

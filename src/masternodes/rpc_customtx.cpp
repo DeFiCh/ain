@@ -228,19 +228,21 @@ public:
 
     void operator()(const CICXCreateOrderMessage& obj) const {
         auto token = mnview.GetToken(obj.idToken);
-        if (obj.orderType == obj.TYPE_INTERNAL) 
+        if (obj.orderType == obj.TYPE_INTERNAL)
         {
             rpcInfo.pushKV("type","DFC");
             rpcInfo.pushKV("tokenFrom", token->CreateSymbolKey(obj.idToken));
-            rpcInfo.pushKV("chainto", obj.chain);
-            rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
+            rpcInfo.pushKV("chainto", CICXOrder::CHAIN_BTC);
         }
         else if (obj.orderType == obj.TYPE_INTERNAL)
         {
             rpcInfo.pushKV("type","EXTERNAL");
-            rpcInfo.pushKV("chainFrom", obj.chain);
+            rpcInfo.pushKV("chainFrom", CICXOrder::CHAIN_BTC);
             rpcInfo.pushKV("tokenTo", token->CreateSymbolKey(obj.idToken));
+            rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
+
         }
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
         rpcInfo.pushKV("amountFrom", ValueFromAmount(obj.amountFrom));
         rpcInfo.pushKV("amountToFill", ValueFromAmount(obj.amountToFill));
         rpcInfo.pushKV("orderPrice", ValueFromAmount(obj.orderPrice));
@@ -251,14 +253,11 @@ public:
 
     void operator()(const CICXMakeOfferMessage& obj) const {
         rpcInfo.pushKV("orderTx", obj.orderTx.GetHex());
-        rpcInfo.pushKV("amount", ValueFromAmount(obj.amount)); 
-        if (!obj.ownerAddress.empty())
-            rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
-        if (CPubKey(obj.receiveDestination).IsFullyValid())
-            rpcInfo.pushKV("receivePubkey", HexStr(obj.receiveDestination)); 
-        else if (!ScriptToString(CScript(obj.receiveDestination.begin(),obj.receiveDestination.end())).empty())
-            rpcInfo.pushKV("receiveAddress", ScriptToString(CScript(obj.receiveDestination.begin(),obj.receiveDestination.end())));
-        rpcInfo.pushKV("takerFee", ValueFromAmount(obj.takerFee)); 
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.amount));
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
+        if (obj.receivePubkey.IsFullyValid())
+            rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
+        rpcInfo.pushKV("takerFee", ValueFromAmount(obj.takerFee));
         rpcInfo.pushKV("expiry", static_cast<int>(obj.expiry));
     }
 
@@ -266,9 +265,6 @@ public:
         rpcInfo.pushKV("type", "DFC");
         rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
         rpcInfo.pushKV("amount", ValueFromAmount(obj.amount));
-        rpcInfo.pushKV("receiveAddress", ScriptToString(obj.receiveAddress));
-        if (obj.receivePubkey.IsFullyValid())
-            rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
         rpcInfo.pushKV("hash", obj.hash.GetHex());
         rpcInfo.pushKV("timeout", static_cast<int>(obj.timeout));
     }
@@ -277,8 +273,6 @@ public:
         rpcInfo.pushKV("type", "EXTERNAL");
         rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
         rpcInfo.pushKV("amount", ValueFromAmount(obj.amount));
-        if (!obj.receiveAddress.empty())
-            rpcInfo.pushKV("receiveAddress", ScriptToString(obj.receiveAddress));
         rpcInfo.pushKV("hash", obj.hash.GetHex());
         rpcInfo.pushKV("htlcScriptAddress", obj.htlcscriptAddress);
         rpcInfo.pushKV("ownerPubkey", HexStr(obj.ownerPubkey));
@@ -290,7 +284,7 @@ public:
         rpcInfo.pushKV("dfchtlcTx", obj.dfchtlcTx.GetHex());
         rpcInfo.pushKV("seed", HexStr(obj.seed));
     }
-    
+
     void operator()(const CICXCloseOrderMessage& obj) const {
         rpcInfo.pushKV("orderTx", obj.orderTx.GetHex());
     }
