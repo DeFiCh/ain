@@ -4468,19 +4468,13 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     CTeamView::CTeam team;
     int teamChange = tip->nHeight;
     auto const teamDakota = pcustomcsview->GetAuthTeam(tip->height);
-
-    bool newAnchorLogic{tip->height >= static_cast<uint64_t>(consensus.DakotaHeight)};
-    if (newAnchorLogic) {
-        if (!teamDakota || teamDakota->empty()) {
-            return;
-        }
-        team = *teamDakota;
-
-        // Calc how far back team changes, do not generate auths below that height.
-        teamChange = teamChange % Params().GetConsensus().mn.anchoringTeamChange;
-    } else {
-        team = panchors->GetCurrentTeam(topAnchor);
+    if (!teamDakota || teamDakota->empty()) {
+        return;
     }
+    team = *teamDakota;
+
+    // Calc how far back team changes, do not generate auths below that height.
+    teamChange = teamChange % Params().GetConsensus().mn.anchoringTeamChange;
 
     uint64_t topAnchorHeight = topAnchor ? static_cast<uint64_t>(topAnchor->anchor.height) : 0;
     // we have no need to ask for auths at all if we have topAnchor higher than current chain
@@ -4518,16 +4512,14 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
 
         int anchorHeight = static_cast<int>(pindex->height) - consensus.mn.anchoringFrequency;
 
-        if (newAnchorLogic) {
-            // Get anchor block from specified time depth
-            while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + consensus.mn.anchoringTimeDepth > pindex->nTime) {
-                --anchorHeight;
-            }
+        // Get anchor block from specified time depth
+        while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + consensus.mn.anchoringTimeDepth > pindex->nTime) {
+            --anchorHeight;
+        }
 
-            // Rollback to height consistent with anchoringFrequency
-            while (anchorHeight > 0 && anchorHeight % consensus.mn.anchoringFrequency != 0) {
-                --anchorHeight;
-            }
+        // Rollback to height consistent with anchoringFrequency
+        while (anchorHeight > 0 && anchorHeight % consensus.mn.anchoringFrequency != 0) {
+            --anchorHeight;
         }
 
         if (anchorHeight <= 0 || (topAnchor && topAnchor->anchor.height >= (THeight)anchorHeight)) { // important to check prev anchor height!
@@ -4536,25 +4528,21 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
 
         auto const anchorBlock = ::ChainActive()[anchorHeight];
 
-        // Create next team or data to find team if new logic
+        // Create team data
         CTeamView::CTeam team;
-        if (newAnchorLogic) {
-            std::vector<unsigned char> teamDetailsVector;
+        std::vector<unsigned char> teamDetailsVector;
 
-            // Embed height and partial hash into CKeyID to find team later and validate chain
-            size_t prefixLength{CKeyID().size() - spv::BtcAnchorMarker.size() - sizeof(uint64_t)};
-            std::vector<unsigned char> hashPrefix{pindex->GetBlockHash().begin(), pindex->GetBlockHash().begin() + prefixLength};
-            teamDetailsVector.insert(teamDetailsVector.end(), spv::BtcAnchorMarker.begin(), spv::BtcAnchorMarker.end()); // 3 Bytes
-            uint64_t anchorCreationHeight = pindex->height;
-            teamDetailsVector.insert(teamDetailsVector.end(), reinterpret_cast<unsigned char*>(&anchorCreationHeight),
-                                     reinterpret_cast<unsigned char*>(&anchorCreationHeight) + sizeof(uint64_t)); // 8 Bytes
-            teamDetailsVector.insert(teamDetailsVector.end(), hashPrefix.begin(), hashPrefix.end()); // 9 Bytes
+        // Embed height and partial hash into CKeyID to find team later and validate chain
+        size_t prefixLength{CKeyID().size() - spv::BtcAnchorMarker.size() - sizeof(uint64_t)};
+        std::vector<unsigned char> hashPrefix{pindex->GetBlockHash().begin(), pindex->GetBlockHash().begin() + prefixLength};
+        teamDetailsVector.insert(teamDetailsVector.end(), spv::BtcAnchorMarker.begin(), spv::BtcAnchorMarker.end()); // 3 Bytes
+        uint64_t anchorCreationHeight = pindex->height;
+        teamDetailsVector.insert(teamDetailsVector.end(), reinterpret_cast<unsigned char*>(&anchorCreationHeight),
+                                 reinterpret_cast<unsigned char*>(&anchorCreationHeight) + sizeof(uint64_t)); // 8 Bytes
+        teamDetailsVector.insert(teamDetailsVector.end(), hashPrefix.begin(), hashPrefix.end()); // 9 Bytes
 
-            CKeyID teamDetails{uint160{teamDetailsVector}};
-            team.insert(teamDetails);
-        } else {
-            team = pcustomcsview->CalcNextTeam(anchorBlock->stakeModifier);
-        }
+        CKeyID teamDetails{uint160{teamDetailsVector}};
+        team.insert(teamDetails);
 
         // trying to create and sign new auth
         CAnchorAuthMessage auth({topAnchor ? topAnchor->txHash : uint256(), static_cast<THeight>(anchorHeight), anchorBlock->GetBlockHash(), team});
