@@ -120,22 +120,32 @@ UniValue createmasternode(const JSONRPCRequest& request)
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
-    if (request.params.size() > 2) {
-        rawTx.vin = GetInputs(request.params[2].get_array());
+    CTransactionRef optAuthTx;
+    auto scriptOwner = GetScriptForDestination(ownerDest);
+    std::set<CScript> auths{scriptOwner};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+
+    // Return change to owner address
+    CCoinControl coinControl;
+    if (IsValidDestination(ownerDest)) {
+        coinControl.destChange = ownerDest;
     }
 
     rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(targetHeight), scriptMeta));
-    rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(targetHeight), GetScriptForDestination(ownerDest)));
+    rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(targetHeight), scriptOwner));
 
-    fund(rawTx, pwallet, {});
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
     {
         LOCK(cs_main);
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coins, *optAuthTx, targetHeight);
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateMasterNodeMessage{});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateMasterNodeMessage{}, coins);
     }
-    return signsend(rawTx, pwallet, {})->GetHash().GetHex();
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue resignmasternode(const JSONRPCRequest& request)
