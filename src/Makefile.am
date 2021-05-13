@@ -22,7 +22,7 @@ endif
 LIBDEFI_SPV=libdefi_spv.a
 SPV_INCLUDES=-I. -I./spv -I./spv/support -I./spv/bitcoin -I./spv/bcash
 
-DEFI_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS)
+DEFI_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
 DEFI_INCLUDES += $(UNIVALUE_CFLAGS)
@@ -663,7 +663,7 @@ defid_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+defid_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
 # defi-cli binary #
 defi_cli_SOURCES = defi-cli.cpp
@@ -681,7 +681,7 @@ defi_cli_LDADD = \
   $(LIBDEFI_UTIL) \
   $(LIBDEFI_CRYPTO)
 
-defi_cli_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
+defi_cli_LDADD += $(BOOST_LIBS) $(EVENT_LIBS)
 #
 
 # defi-tx binary #
@@ -702,7 +702,7 @@ defi_tx_LDADD = \
   $(LIBDEFI_CRYPTO) \
   $(LIBSECP256K1)
 
-defi_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+defi_tx_LDADD += $(BOOST_LIBS)
 #
 
 # defi-wallet binary #
@@ -730,7 +730,7 @@ defi_wallet_LDADD = \
   $(LIBSECP256K1) \
   $(LIBUNIVALUE)
 
-defi_wallet_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS) $(ZMQ_LIBS)
+defi_wallet_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS) $(ZMQ_LIBS)
 #
 
 # deficonsensus library #
