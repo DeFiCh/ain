@@ -2685,15 +2685,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
                 if (status == CICXSubmitDFCHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_INTERNAL)
                 {
-                    std::unique_ptr<CICXSubmitEXTHTLCImplemetation> exthtlc;
-                    cache.ForEachICXSubmitEXTHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
-                        if (key.first == dfchtlc->offerTx)
-                        {
-                            exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
-                            return false;
-                        }
-                        return false;
-                    }, dfchtlc->offerTx);
+                    auto exthtlc = cache.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx);
                     if (!exthtlc)
                     {
                         CTokenAmount makerDeposit;
@@ -2753,15 +2745,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
                 if (status == CICXSubmitEXTHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_INTERNAL)
                 {
-                    std::unique_ptr<CICXSubmitDFCHTLCImplemetation> dfchtlc;
-                    cache.ForEachICXSubmitDFCHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
-                        if (key.first == exthtlc->offerTx)
-                        {
-                            dfchtlc = pcustomcsview->GetICXSubmitDFCHTLCByCreationTx(key.second);
-                            return false;
-                        }
-                        return false;
-                    }, exthtlc->offerTx);
+                    auto dfchtlc = cache.HasICXSubmitEXTHTLCOpen(exthtlc->offerTx);
                     if (!dfchtlc)
                     {
                         CTokenAmount makerDeposit;

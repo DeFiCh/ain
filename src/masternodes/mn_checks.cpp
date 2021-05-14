@@ -495,6 +495,11 @@ public:
         return std::move(pair->second);
     }
 
+    CAmount GetDFIperBTC() const {
+        auto DFIBTCPoolPair = GetDFIBTCPoolPair();
+        return (arith_uint256(DFIBTCPoolPair.reserveA) * arith_uint256(COIN) / DFIBTCPoolPair.reserveB).GetLow64();
+    }
+
     ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const {
         if (token.destructionTx != uint256{}) {
             return Res::Err("token %s already destroyed at height %i by tx %s", token.symbol,
@@ -1169,23 +1174,16 @@ public:
         if (!order)
             return Res::Err("order with creation tx " + makeoffer.orderTx.GetHex() + " does not exists!");
 
-        CAmount calcAmount(static_cast<CAmount>((arith_uint256(order->amountToFill) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-        if (calcAmount < makeoffer.amount)
-            makeoffer.amount = calcAmount;
-
         if (makeoffer.ownerAddress.empty())
                 return Res::Err("ownerAddress must not be null!");
 
         CScript txidAddr(makeoffer.creationTx.begin(), makeoffer.creationTx.end());
 
-        //calculating DFI per BTC
-        auto DFIBTCPoolPair = GetDFIBTCPoolPair();
-        CAmount DFIperBTC = (arith_uint256(DFIBTCPoolPair.reserveA) * arith_uint256(COIN) / DFIBTCPoolPair.reserveB).GetLow64();
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
             // calculating and locking takerFee in offer txidaddr
             makeoffer.takerFee = (arith_uint256(makeoffer.amount) * arith_uint256(mnview.ICXGetTakerFeePerBTC()) / arith_uint256(COIN)
-                                * arith_uint256(DFIperBTC) / arith_uint256(COIN)).GetLow64();
+                                * arith_uint256(GetDFIperBTC()) / arith_uint256(COIN)).GetLow64();
             CScript receiveAddress(makeoffer.ownerAddress.begin(), makeoffer.ownerAddress.end());
             res = ICXTransfer(DCT_ID{0}, makeoffer.takerFee, receiveAddress, txidAddr);
             if (!res)
@@ -1196,7 +1194,7 @@ public:
             // calculating and locking takerFee in offer txidaddr
             CAmount BTCAmount(static_cast<CAmount>((arith_uint256(makeoffer.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
             makeoffer.takerFee = (arith_uint256(BTCAmount) * arith_uint256(mnview.ICXGetTakerFeePerBTC()) / arith_uint256(COIN)
-                                * arith_uint256(DFIperBTC) / arith_uint256(COIN)).GetLow64();
+                                * arith_uint256(GetDFIperBTC()) / arith_uint256(COIN)).GetLow64();
             res = ICXTransfer(DCT_ID{0}, makeoffer.takerFee, makeoffer.ownerAddress, txidAddr);
             if (!res)
                 return res;
@@ -1233,22 +1231,36 @@ public:
                 return Res::Err("tx must have at least one input from order owner");
             }
 
-            CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-            if (calcAmount != offer->amount)
-                return Res::Err("amount in dfc htlc must match the amount necessary for offer amount - %f != %f!",
-                                GetDecimaleString(calcAmount), GetDecimaleString(offer->amount));
-
             srcAddr = CScript(order->creationTx.begin(),order->creationTx.end());
 
-            // burn DFI for takerFee == makerDeposit
+            // burn DFI for takerFee and makerDeposit
             CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
+
+            auto takerFee = offer->takerFee;
+            CAmount calcAmount(static_cast<CAmount>((arith_uint256(offer->amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+            if (submitdfchtlc.amount < calcAmount)
+            {
+                //calculating adjusted takerFee
+                CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+                takerFee = (arith_uint256(BTCAmount) * arith_uint256(mnview.ICXGetTakerFeePerBTC()) / arith_uint256(COIN)
+                                * arith_uint256(GetDFIperBTC()) / arith_uint256(COIN)).GetLow64();
+
+                // refund the rest of locked takerFee
+                res = ICXTransfer(DCT_ID{0}, offer->takerFee-takerFee, offerTxidAddr, offer->ownerAddress);
+                if (!res)
+                    return res;
+
+                // update the offer with adjusted takerFee
+                offer->takerFee = takerFee;
+                mnview.ICXUpdateMakeOffer(*offer);
+            }
 
             // burn takerFee
             res = ICXTransfer(DCT_ID{0}, offer->takerFee, offerTxidAddr, consensus.burnAddress);
             if (!res)
                 return res;
 
-            // burn makerFee
+            // burn makerDeposit
             res = ICXTransfer(DCT_ID{0}, offer->takerFee, order->ownerAddress, consensus.burnAddress);
             if (!res)
                 return res;
@@ -1256,13 +1268,8 @@ public:
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
             // check auth
-            if (!HasAuth(offer->ownerAddress)) {
+            if (!HasAuth(offer->ownerAddress))
                 return Res::Err("tx must have at least one input from offer owner");
-            }
-
-            if (submitdfchtlc.amount != offer->amount)
-                return Res::Err("amount in dfc htlc must match the amount in offer - %s != %s!",
-                                GetDecimaleString(submitdfchtlc.amount), GetDecimaleString(offer->amount));
 
             srcAddr = offer->ownerAddress;
         }
@@ -1298,28 +1305,35 @@ public:
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
             // check auth
-            if (!HasAuth(offer->ownerAddress)) {
+            if (!HasAuth(offer->ownerAddress))
                 return Res::Err("tx must have at least one input from offer owner");
-            }
-
-            if (submitexthtlc.amount != offer->amount)
-                return Res::Err("amount in ext htlc must match the amount in the offer - %s != %s!",
-                                GetDecimaleString(submitexthtlc.amount), GetDecimaleString(offer->amount));
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
             // check auth
-            if (!HasAuth(order->ownerAddress)) {
+            if (!HasAuth(order->ownerAddress))
                 return Res::Err("tx must have at least one input from order owner");
-            }
 
-            CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-            if (calcAmount != offer->amount)
-                return Res::Err("amount in dfc htlc must match the amount necessary for offer amount - %s != %s!",
-                                GetDecimaleString(calcAmount), GetDecimaleString(offer->amount));
-
-            // burn DFI for takerFee==makerDeposit
+            // burn DFI for takerFee and makerDeposit
             CScript offerTxidAddr(offer->creationTx.begin(),offer->creationTx.end());
+
+            auto takerFee = offer->takerFee;
+            CAmount calcAmount(static_cast<CAmount>((arith_uint256(offer->amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+            if (submitexthtlc.amount < calcAmount)
+            {
+                //calculating adjusted takerFee
+                takerFee = (arith_uint256(submitexthtlc.amount) * arith_uint256(mnview.ICXGetTakerFeePerBTC()) / arith_uint256(COIN)
+                            * arith_uint256(GetDFIperBTC()) / arith_uint256(COIN)).GetLow64();
+
+                // refund the rest of locked takerFee
+                res = ICXTransfer(DCT_ID{0}, offer->takerFee-takerFee, offerTxidAddr, offer->ownerAddress);
+                if (!res)
+                    return res;
+
+                // update the offer with adjusted takerFee
+                offer->takerFee = takerFee;
+                mnview.ICXUpdateMakeOffer(*offer);
+            }
 
             // takerFee
             res = ICXTransfer(DCT_ID{0}, offer->takerFee, offerTxidAddr, consensus.burnAddress);
@@ -1426,13 +1440,6 @@ public:
         }
 
         // Close offer
-        CICXCloseOfferImplemetation closeoffer;
-        closeoffer.creationTx = tx.GetHash();
-        closeoffer.creationHeight = height;
-        closeoffer.offerTx = dfchtlc->offerTx;
-        res = mnview.ICXCloseOffer(closeoffer);
-        if (!res)
-            return res;
         res = mnview.ICXCloseMakeOfferTx(*offer, CICXMakeOffer::STATUS_CLOSED);
         if (!res)
             return res;
@@ -1509,7 +1516,6 @@ public:
         if (!offer->closeTx.IsNull())
             return Res::Err("offer with creation tx %s is already closed!", closeoffer.offerTx.GetHex());
 
-        const Coin& auth = coins.AccessCoin(COutPoint(offer->creationTx, 1)); // always n=1 output
         // check auth
         if (!HasAuth(offer->ownerAddress))
             return Res::Err("tx must have at least one input from offer owner");

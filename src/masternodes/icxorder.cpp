@@ -157,6 +157,13 @@ ResVal<uint256> CICXOrderView::ICXMakeOffer(CICXMakeOfferImpl const & makeoffer)
     return {makeoffer.creationTx, Res::Ok()};
 }
 
+Res CICXOrderView::ICXUpdateMakeOffer(CICXMakeOfferImpl const & makeoffer)
+{
+    WriteBy<ICXMakeOfferCreationTx>(makeoffer.creationTx, makeoffer);
+
+    return (Res::Ok());
+}
+
 Res CICXOrderView::ICXCloseMakeOfferTx(CICXMakeOfferImpl const & makeoffer, uint8_t const status)
 {
     TxidPairKey key(makeoffer.orderTx,makeoffer.creationTx);
@@ -246,13 +253,9 @@ void CICXOrderView::ForEachICXSubmitDFCHTLCExpire(std::function<bool (StatusKey 
 std::unique_ptr<CICXOrderView::CICXSubmitDFCHTLCImpl> CICXOrderView::HasICXSubmitDFCHTLCOpen(uint256 const & offertxid)
 {
     std::unique_ptr<CICXSubmitDFCHTLCImpl> dfchtlc;
-    this->ForEachICXSubmitDFCHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
-        if (key.first != offertxid)
-            return false;
-        dfchtlc = this->GetICXSubmitDFCHTLCByCreationTx(key.second);;
-        return false;
-    }, offertxid);
-
+    auto it = LowerBound<ICXSubmitDFCHTLCOpenKey>(TxidPairKey{offertxid,uint256()});
+    if (it.Valid() && it.Key().first == offertxid)
+        dfchtlc = GetICXSubmitDFCHTLCByCreationTx(it.Key().second);
     return (dfchtlc);
 }
 
@@ -318,12 +321,9 @@ void CICXOrderView::ForEachICXSubmitEXTHTLCExpire(std::function<bool (StatusKey 
 std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::HasICXSubmitEXTHTLCOpen(uint256 const & offertxid)
 {
     std::unique_ptr<CICXSubmitEXTHTLCImpl> exthtlc;
-    this->ForEachICXSubmitEXTHTLCOpen([&](CICXOrderView::TxidPairKey const & key, uint8_t i) {
-        if (key.first != offertxid)
-            return false;
-        exthtlc = GetICXSubmitEXTHTLCByCreationTx(key.second);
-        return false;
-    }, offertxid);
+    auto it = LowerBound<ICXSubmitEXTHTLCOpenKey>(TxidPairKey{offertxid,uint256()});
+    if (it.Valid() && it.Key().first == offertxid)
+        exthtlc = GetICXSubmitEXTHTLCByCreationTx(it.Key().second);
 
     return (exthtlc);
 }

@@ -468,6 +468,7 @@ public:
     //MakeOffer
     std::unique_ptr<CICXMakeOfferImpl> GetICXMakeOfferByCreationTx(uint256 const & txid) const;
     ResVal<uint256> ICXMakeOffer(CICXMakeOfferImpl const & makeoffer);
+    Res ICXUpdateMakeOffer(CICXMakeOfferImpl const & makeoffer);
     Res ICXCloseMakeOfferTx(CICXMakeOfferImpl const & order, uint8_t const);
     void ForEachICXMakeOfferOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & ordertxid = uint256());
     void ForEachICXMakeOfferClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & ordertxid = uint256());
