@@ -255,13 +255,14 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                        HelpExampleCli("listaccounts", "")
                        + HelpExampleRpc("listaccounts", "'{}' false")
                        + HelpExampleRpc("listaccounts", "'{\"start\":\"a914b12ecde1759f792e0228e4fa6d262902687ca7eb87@0\","
-                                                      "\"limit\":1000"
+                                                      "\"limit\":100"
                                                       "}'")
                },
     }.Check(request);
 
     // parse pagination
     size_t limit = 100;
+    DCT_ID startId = {};
     BalanceKey start = {};
     bool including_start = true;
     {
@@ -273,6 +274,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
                 start = decodeBalanceKey(paginationObj["start"].get_str());
+                startId = start.tokenID;
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -298,7 +300,6 @@ UniValue listaccounts(const JSONRPCRequest& request) {
         isMineOnly = request.params[3].get_bool();
     }
 
-
     UniValue ret(UniValue::VARR);
 
     LOCK(cs_main);
@@ -306,20 +307,14 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     auto targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
-        if (!start.owner.empty() && start.owner != account) {
-            return false;
+
+        if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
+            return true;
         }
 
-        if (isMineOnly) {
-            if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
-                mnview.CalculateOwnerRewards(account, targetHeight);
-            } else {
-                return true;
-            }
-        } else {
-            mnview.CalculateOwnerRewards(account, targetHeight);
-        }
+        mnview.CalculateOwnerRewards(account, targetHeight);
 
+        // output the relavant balances only for account
         mnview.ForEachBalance([&](CScript const & owner, CTokenAmount balance) {
             if (account != owner) {
                 return false;
@@ -328,8 +323,9 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             return --limit != 0;
         }, {account, start.tokenID});
 
+        start.tokenID = startId; // reset to start id
         return limit != 0;
-    });
+    }, start.owner);
 
     return ret;
 }
