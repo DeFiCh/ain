@@ -124,19 +124,18 @@ public:
         consensus.ClarkeQuayHeight = 595738;
         consensus.DakotaHeight = 678000; // 1st March 2021
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
-        consensus.EunosHeight = std::numeric_limits<int>::max();
+        consensus.EunosHeight = 887000; // 31st May 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
 //        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30; // seconds
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
         consensus.pos.nStakeMinAge = 0;
         consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
         consensus.pos.fNoRetargeting = false; // only for regtest
-
-        consensus.pos.coinstakeMaturity = 100;
 
         consensus.pos.allowMintingWithoutPeers = false; // don't mint if no peers connected
 
@@ -336,19 +335,18 @@ public:
         consensus.ClarkeQuayHeight = 155000;
         consensus.DakotaHeight = 220680;
         consensus.DakotaCrescentHeight = 287700;
-        consensus.EunosHeight = std::numeric_limits<int>::max();
+        consensus.EunosHeight = 424000; // 17th May 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
 //        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30;
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
         consensus.pos.nStakeMinAge = 0;
         consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = false;
         consensus.pos.fNoRetargeting = false; // only for regtest
-
-        consensus.pos.coinstakeMaturity = 100;
 
         consensus.pos.allowMintingWithoutPeers = true;
 
@@ -514,12 +512,11 @@ public:
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30;
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
         consensus.pos.nStakeMinAge = 0;
         consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = false;
         consensus.pos.fNoRetargeting = false; // only for regtest
-
-        consensus.pos.coinstakeMaturity = 100;
 
         consensus.pos.allowMintingWithoutPeers = true;
 
@@ -549,6 +546,9 @@ public:
 
         consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
         consensus.mn.anchoringTeamChange = 120; // Number of blocks
+
+        consensus.token.creationFee = 100 * COIN;
+        consensus.token.collateralAmount = 1 * COIN;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY"; /// @note devnet matter
@@ -678,13 +678,12 @@ public:
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.pos.nTargetTimespanV2 = 14 * 24 * 60 * 60; // two weeks
         consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.nStakeMinAge = 0;
         consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = true; // only for regtest
         consensus.pos.fNoRetargeting = true; // only for regtest
-
-        consensus.pos.coinstakeMaturity = 100;
 
         consensus.pos.allowMintingWithoutPeers = true; // don't mint if no peers connected
 

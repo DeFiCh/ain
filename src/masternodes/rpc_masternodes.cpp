@@ -25,7 +25,12 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
         obj.pushKV("banTx", node.banTx.GetHex());
         obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
-        obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), node, GetTime()).getdouble());
+        int height;
+        {
+            LOCK(cs_main);
+            height = ChainActive().Height();
+        }
+        obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), node, height, GetTime()).getdouble());
 
         /// @todo add unlock height and|or real resign height
         ret.pushKV(nodeId.GetHex(), obj);

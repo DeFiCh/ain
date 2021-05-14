@@ -83,11 +83,11 @@ Res CAccountsView::SubBalances(CScript const & owner, CBalances const & balances
     return Res::Ok();
 }
 
-void CAccountsView::ForEachAccount(std::function<bool(CScript const &)> callback)
+void CAccountsView::ForEachAccount(std::function<bool(CScript const &)> callback, CScript const & start)
 {
     ForEach<ByHeightKey, CScript, uint32_t>([&callback] (CScript const & owner, CLazySerialize<uint32_t>) {
         return callback(owner);
-    });
+    }, start);
 }
 
 Res CAccountsView::UpdateBalancesHeight(CScript const & owner, uint32_t height)

@@ -145,7 +145,6 @@ DEFI_CORE_H = \
   init.h \
   interfaces/chain.h \
   interfaces/handler.h \
-  interfaces/node.h \
   key.h \
   key_io.h \
   dbwrapper.h \
@@ -362,7 +361,6 @@ libdefi_server_a_SOURCES = \
   index/blockfilterindex.cpp \
   index/txindex.cpp \
   interfaces/chain.cpp \
-  interfaces/node.cpp \
   init.cpp \
   dbwrapper.cpp \
   masternodes/accounts.cpp \

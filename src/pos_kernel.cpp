@@ -16,7 +16,7 @@ namespace pos {
         return Hash(ss.begin(), ss.end());
     }
 
-    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const CMasternode& node, const int64_t coinstakeTime, const int64_t stakersBlockTime)
+    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const CMasternode& node, const int64_t coinstakeTime, const int64_t height, const int64_t stakersBlockTime)
     {
         // Default to min age
         int64_t nTimeTx{params.pos.nStakeMinAge};
@@ -29,7 +29,7 @@ namespace pos {
         else
         {
             // Lookup stored valid blocktime. no optional value indicate no previous staked block.
-            if (auto lastBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress))
+            if (auto lastBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress, height))
             {
                 // Choose whatever is smaller, time since last stake or max age.
                 nTimeTx = std::min(coinstakeTime - *lastBlockTime, params.pos.nStakeMaxAge);
@@ -70,7 +70,7 @@ namespace pos {
                 return false;
             }
 
-            arith_uint256 coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, stakersBlockTime);
+            arith_uint256 coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, height, stakersBlockTime);
 
             // Increase target by coinDayWeight.
             return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(height) ) ) ) <= targetProofOfStake * coinDayWeight;
