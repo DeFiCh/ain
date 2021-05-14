@@ -87,7 +87,6 @@ class AccountsValidatingTest(DefiTestFramework):
         node1.generate(1)
         self.sync_all()
         addressInfo = node1.getaddressinfo(account3)
-        accountkey3 = addressInfo["scriptPubKey"] + "@0" #key of the second account
         accounts = node.listaccounts()
         #make sure we have three account in the system
         assert_equal(len(accounts), 3)
