@@ -421,6 +421,8 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(len(offer), 1)
         order = self.nodes[0].icx_listorders()
         assert_equal(len(offer), 1)
+        order = self.nodes[0].icx_listorders({"closed": True})
+        assert_equal(order[orderTx]["status"], 'FILLED')
 
         # --------------------------------------------------------------------------------
         # BTC/DFI scenario
@@ -554,11 +556,14 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(len(offer), 1)
         order = self.nodes[0].icx_listorders()
         assert_equal(len(offer), 1)
+        order = self.nodes[0].icx_listorders({"closed": True})
+        assert_equal(order[orderTx]["status"], 'FILLED')
 
         # DFI/BTC scenario expiration test
         # Open an order
 
-        beforeOrderDFI = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
+        beforeOrderDFI0 = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
+        beforeOrderDFI1 = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         orderTxDFI = self.nodes[0].icx_createorder({
                                     'tokenFrom': idDFI,
@@ -586,7 +591,7 @@ class ICXOrderbookTest (DefiTestFramework):
         offer = self.nodes[0].icx_listorders({"orderTx": orderTxDFI})
         assert_equal(len(offer), 2)
 
-        self.nodes[0].generate(10)
+        self.nodes[1].generate(10)
 
         assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer)
 
@@ -659,7 +664,7 @@ class ICXOrderbookTest (DefiTestFramework):
         offer = self.nodes[0].icx_listorders({"orderTx": orderTxBTC})
         assert_equal(len(offer), 2)
 
-        self.nodes[0].generate(10)
+        self.nodes[1].generate(10)
 
         assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer)
 
@@ -710,16 +715,64 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[exthtlcTx]["status"], 'EXPIRED')
         assert_equal(offer[offerTx]["status"], 'EXPIRED')
 
-        self.nodes[0].generate(2767)
+
+        orderTx = self.nodes[0].icx_createorder({
+                                    'tokenFrom': idDFI,
+                                    'chainTo': "BTC",
+                                    'ownerAddress': accountDFI,
+                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+                                    'amountFrom': 15,
+                                    'orderPrice':0.01})["result"]
+
+        self.nodes[0].generate(1)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeOrderDFI)
+        offerTx = self.nodes[1].icx_makeoffer({
+                                    'orderTx': orderTx,
+                                    'amount': 0.1,
+                                    'ownerAddress': accountBTC})["result"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 10,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'timeout': 500})["result"]
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        exthtlcTx = self.nodes[1].icx_submitexthtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 0.1,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+                                    'timeout': 15})["result"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+
+        self.nodes[0].generate(2880)
+        self.sync_blocks()
+
+        # everything back to beforeOrderDFI0 balance minus one makerDeposit (0.01) for last order
+        assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeOrderDFI0 - Decimal('0.01000000'))
+        # everything back to beforeOrderDFI1 balance minus one 3x takerFees (0.01 - 0.1 - 0.01)
+        assert_equal(self.nodes[0].getaccount(accountBTC, {}, True)[idDFI], beforeOrderDFI1 - Decimal('0.12000000'))
 
         order = self.nodes[0].icx_listorders({"closed": True})
 
         assert_equal(order[orderTxDFI]["status"], 'EXPIRED')
         assert_equal(order[orderTxBTC]["status"], 'EXPIRED')
+        assert_equal(order[orderTx]["status"], 'EXPIRED')
 
+        htlcs = self.nodes[0].icx_listhtlcs({
+                                    "offerTx": offerTx,
+                                    "closed": True})
+        assert_equal(htlcs[dfchtlcTx]["status"], 'REFUNDED')
 
 if __name__ == '__main__':
     ICXOrderbookTest().main()

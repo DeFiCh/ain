@@ -587,6 +587,9 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
 
         targetHeight = ::ChainActive().Height() + 1;
 
+        if (order->creationHeight + order->expiry < targetHeight + submitdfchtlc.timeout)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "order will expire before dfc htlc expires!");
+
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
             authScript = order->ownerAddress;
@@ -774,6 +777,9 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",offer->orderTx.GetHex()));
 
         targetHeight = ::ChainActive().Height() + 1;
+
+        if (order->creationHeight + order->expiry < targetHeight + (submitexthtlc.timeout * 6 / 100))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "order will expire before ext htlc expires!");
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {

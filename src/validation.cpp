@@ -2618,7 +2618,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     Res res = Res::Ok();
                     if (order->orderType == CICXOrder::TYPE_INTERNAL)
                     {
-                        CTokenAmount amount({order->idToken,order->amountFrom});
+                        CTokenAmount amount({order->idToken,order->amountToFill});
                         CScript txidaddr = CScript(order->creationTx.begin(),order->creationTx.end());
                         res = cache.SubBalance(txidaddr,amount);
                         if (!res)
