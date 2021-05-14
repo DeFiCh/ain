@@ -129,7 +129,7 @@ UniValue icxSubmitEXTHTLCToJSON(CICXSubmitEXTHTLCImplemetation const& exthtlc, u
 
     UniValue orderObj(UniValue::VOBJ);
     orderObj.pushKV("type", "EXTERNAL");
-    status == CICXSubmitEXTHTLC::STATUS_OPEN ? orderObj.pushKV("status", "OPEN") : orderObj.pushKV("status", "EXPIRED");
+    orderObj.pushKV("status", status == CICXSubmitEXTHTLC::STATUS_OPEN ? "OPEN" : status == CICXSubmitEXTHTLC::STATUS_CLOSED ? "CLOSED" : "EXPIRED");
     orderObj.pushKV("offerTx", exthtlc.offerTx.GetHex());
     orderObj.pushKV("amount", ValueFromAmount(exthtlc.amount));
     if (order->orderType == CICXOrder::TYPE_INTERNAL)

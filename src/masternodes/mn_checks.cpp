@@ -1226,6 +1226,9 @@ public:
         CScript srcAddr;
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
+            if (!mnview.HasICXMakeOfferOpen(offer->orderTx, submitdfchtlc.offerTx))
+                return Res::Err("offerTx (%s) has expired", submitdfchtlc.offerTx.GetHex());
+
             // check auth
             if (!HasAuth(order->ownerAddress)) {
                 return Res::Err("tx must have at least one input from order owner");
@@ -1310,6 +1313,9 @@ public:
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
+            if (!mnview.HasICXMakeOfferOpen(offer->orderTx, submitexthtlc.offerTx))
+                return Res::Err("offerTx (%s) has expired", submitexthtlc.offerTx.GetHex());
+
             // check auth
             if (!HasAuth(order->ownerAddress))
                 return Res::Err("tx must have at least one input from order owner");
@@ -1391,6 +1397,10 @@ public:
         if (!order)
             return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
 
+        auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx);
+        if (!exthtlc)
+            return Res::Err("cannot claim, external htlc for this offer does not exists or expired!");
+
         // claim DFC HTLC to receiveAddress
         CScript htlcTxidAddr(dfchtlc->creationTx.begin(),dfchtlc->creationTx.end());
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
@@ -1439,15 +1449,18 @@ public:
                 return res;
         }
 
+        res = mnview.ICXClaimDFCHTLC(claimdfchtlc,*order);
+        if (!res)
+            return res;
         // Close offer
         res = mnview.ICXCloseMakeOfferTx(*offer, CICXMakeOffer::STATUS_CLOSED);
         if (!res)
             return res;
-
-        res = mnview.ICXClaimDFCHTLC(claimdfchtlc,*order);
+        res = mnview.ICXCloseDFCHTLC(*dfchtlc,CICXSubmitDFCHTLC::STATUS_CLAIMED);
         if (!res)
             return res;
-        return mnview.ICXCloseDFCHTLC(*dfchtlc,CICXSubmitDFCHTLC::STATUS_CLAIMED);
+
+        return mnview.ICXCloseEXTHTLC(*exthtlc,CICXSubmitEXTHTLC::STATUS_CLOSED);
     }
 
     Res operator()(const CICXCloseOrderMessage& obj) const {

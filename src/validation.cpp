@@ -2644,12 +2644,21 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             cache.ForEachICXMakeOfferExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
                 if (static_cast<int>(key.first) != pindex->nHeight) return (false);
                 auto offer = cache.GetICXMakeOfferByCreationTx(key.second);
-                if (offer)
+                if (!offer)
+                    return true;
+                auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
+                if (!order)
+                    return true;
+
+                CScript txidAddr(offer->creationTx.begin(),offer->creationTx.end());
+                DCT_ID idDFI{0};
+                CTokenAmount takerFee({idDFI,offer->takerFee});
+                Res res = Res::Ok();
+
+                if ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.HasICXSubmitDFCHTLCOpen(offer->creationTx)) ||
+                    (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.HasICXSubmitEXTHTLCOpen(offer->creationTx)))
                 {
-                    CScript txidAddr(offer->creationTx.begin(),offer->creationTx.end());
-                    DCT_ID idDFI{0};
-                    CTokenAmount takerFee({idDFI,offer->takerFee});
-                    auto res = cache.SubBalance(txidAddr,takerFee);
+                    res = cache.SubBalance(txidAddr,takerFee);
                     if (!res)
                         LogPrintf("Can't subtract takerFee from offer txidAddr: %s\n", res.msg);
                     if (res.ok)
@@ -2658,15 +2667,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         if (!res)
                             LogPrintf("Can't refund takerFee back to owner: %s\n", res.msg);
                     }
-                    if (res.ok)
-                    {
-                        res = cache.ICXCloseMakeOfferTx(*offer,status);
-                        if (!res)
-                            LogPrintf("Can't close offer tx: %s\n", res.msg);
-                    }
                 }
+                if (res.ok)
+                {
+                    res = cache.ICXCloseMakeOfferTx(*offer,status);
+                    if (!res)
+                        LogPrintf("Can't close offer tx: %s\n", res.msg);
+                }
+
                 return true;
-            },pindex->nHeight);
+            }, pindex->nHeight);
 
             cache.ForEachICXSubmitDFCHTLCExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
                 if (static_cast<int>(key.first) != pindex->nHeight) return (false);
@@ -2705,7 +2715,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     CScript ownerAddress;
                     amount = {order->idToken, dfchtlc->amount};
                     if (order->orderType == CICXOrder::TYPE_INTERNAL)
-                        ownerAddress = order->ownerAddress;
+                        ownerAddress = CScript(order->creationTx.begin(),order->creationTx.end());
                     else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
                         ownerAddress = offer->ownerAddress;
 
@@ -2728,7 +2738,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 }
 
                 return true;
-            },pindex->nHeight);
+            }, pindex->nHeight);
 
             cache.ForEachICXSubmitEXTHTLCExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
                 if (static_cast<int>(key.first) != pindex->nHeight) return (false);
@@ -2742,10 +2752,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
                 if (!order)
                     return true;
-
-                if (status == CICXSubmitEXTHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_INTERNAL)
+                if (status == CICXSubmitEXTHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_EXTERNAL)
                 {
-                    auto dfchtlc = cache.HasICXSubmitEXTHTLCOpen(exthtlc->offerTx);
+                    auto dfchtlc = cache.HasICXSubmitDFCHTLCOpen(exthtlc->offerTx);
                     if (!dfchtlc)
                     {
                         CTokenAmount makerDeposit;
