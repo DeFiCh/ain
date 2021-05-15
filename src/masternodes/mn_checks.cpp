@@ -557,6 +557,10 @@ public:
             return res;
         }
 
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().EunosHeight) && !HasAuth(tx.vout[1].scriptPubKey)) {
+            return Res::Err("masternode creation needs owner auth");
+        }
+
         CMasternode node;
         CTxDestination dest;
         if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
