@@ -635,8 +635,8 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                         submitdfchtlc.hash.GetHex(),exthtlc->hash.GetHex()));
             if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT - 1));
-            if (submitdfchtlc.timeout >= (exthtlc->creationHeight + (exthtlc->timeout * CICXSubmitDFCHTLC::DFC_BLOCKS_PER_HOUR / CICXSubmitEXTHTLC::BTC_BLOCKS_PER_HOUR )) - targetHeight)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc - %d", exthtlc->timeout));
+            if (submitdfchtlc.timeout >= (exthtlc->creationHeight + (exthtlc->timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS)) - targetHeight)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc in DFI blocks"));
         }
     }
 
@@ -778,7 +778,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
 
         targetHeight = ::ChainActive().Height() + 1;
 
-        if (order->creationHeight + order->expiry < targetHeight + (submitexthtlc.timeout * CICXSubmitDFCHTLC::DFC_BLOCKS_PER_HOUR / CICXSubmitEXTHTLC::BTC_BLOCKS_PER_HOUR))
+        if (order->creationHeight + order->expiry < targetHeight + (submitexthtlc.timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS))
             throw JSONRPCError(RPC_INVALID_PARAMETER, "order will expire before ext htlc expires!");
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
@@ -802,8 +802,8 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
                         submitexthtlc.hash.GetHex(),dfchtlc->hash.GetHex()));
             if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT - 1));
-            if (submitexthtlc.timeout * CICXSubmitDFCHTLC::DFC_BLOCKS_PER_HOUR / CICXSubmitEXTHTLC::BTC_BLOCKS_PER_HOUR >= (dfchtlc->creationHeight + dfchtlc->timeout) - targetHeight)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc - %d", submitexthtlc.timeout));
+            if (submitexthtlc.timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS >= (dfchtlc->creationHeight + dfchtlc->timeout) - targetHeight)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc in DFC blocks"));
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {

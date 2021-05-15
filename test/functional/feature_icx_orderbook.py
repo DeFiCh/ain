@@ -207,7 +207,7 @@ class ICXOrderbookTest (DefiTestFramework):
         self.nodes[1].generate(1)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.01000000'))
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.01000000'))
 
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
 
@@ -465,7 +465,7 @@ class ICXOrderbookTest (DefiTestFramework):
         self.nodes[1].generate(1)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.30000000'))
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.30000000'))
 
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
 

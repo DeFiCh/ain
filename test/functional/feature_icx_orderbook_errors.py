@@ -35,7 +35,8 @@ class ICXOrderbookErrorTest (DefiTestFramework):
 
         self.nodes[1].createtoken({
             "symbol": "BTC",
-            "name": "BTC DFI token",
+            "name": "BTC token",
+            "isDAT": True,
             "collateralAddress": self.nodes[1].get_genesis_keys().ownerAuthAddress
         })
 
@@ -43,7 +44,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
         self.sync_blocks()
 
         symbolDFI = "DFI"
-        symbolBTC = "BTC#" + self.get_id_token("BTC")
+        symbolBTC = "BTC"
 
         self.nodes[1].minttokens("2@" + symbolBTC)
 
@@ -102,6 +103,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
 
         assert_equal(result["ICX_TAKERFEE_PER_BTC"], Decimal('0.001'))
 
+        # DFI/BTC scenario
         # unexistant token for create order
         try:
             self.nodes[0].icx_createorder({
@@ -337,7 +339,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 30})
+                                    'timeout': 25})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc" in errorString)
@@ -382,7 +384,224 @@ class ICXOrderbookErrorTest (DefiTestFramework):
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
         assert_equal(len(offer), 1)
         order = self.nodes[0].icx_listorders()
+        assert_equal(len(order), 1)
+        order = self.nodes[0].icx_listorders({"closed": True})
+        assert_equal(len(order), 2)
+        assert_equal(order[orderTx]["status"], 'FILLED')
+
+        # BTC/DFI scenario
+        # unexistant token for create order
+        try:
+            self.nodes[0].icx_createorder({
+                                    'chainFrom': "BTC",
+                                    'tokenTo': "DOGE",
+                                    'ownerAddress': accountDFI,
+                                    'amountFrom': 0.01,
+                                    'orderPrice': 100})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Token DOGE does not exist!" in errorString)
+
+        # wrong chain for create order
+        try:
+            self.nodes[0].icx_createorder({
+                                    'chainFrom': "LTC",
+                                    'tokenTo': idDFI,
+                                    'ownerAddress': accountDFI,
+                                    'amountFrom': 0.01,
+                                    'orderPrice': 100})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Invalid parameters, argument \"chainFrom\" must be \"BTC\" if \"tokenTo\" specified" in errorString)
+
+        # wrong address for DFI for create order
+        try:
+            self.nodes[0].icx_createorder({
+                                    'chainFrom': "BTC",
+                                    'tokenTo': idDFI,
+                                    'ownerAddress': accountBTC,
+                                    'amountFrom': 0.01,
+                                    'orderPrice': 100})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Address ("+accountBTC+") is not owned by the wallet" in errorString)
+
+        orderTx = self.nodes[0].icx_createorder({
+                                    'chainFrom': "BTC",
+                                    'tokenTo': idDFI,
+                                    'ownerAddress': accountDFI,
+                                    'amountFrom': 0.01,
+                                    'orderPrice': 100})["txid"]
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # unexistent orderTx
+        try:
+            self.nodes[1].icx_makeoffer({
+                                    'orderTx': "76432beb2a667efe4858b4e1ec93979b621c51c76abaab2434892655dd152e3d",
+                                    'amount': 1,
+                                    'ownerAddress': accountBTC,
+                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("orderTx (76432beb2a667efe4858b4e1ec93979b621c51c76abaab2434892655dd152e3d) does not exist" in errorString)
+
+        # invalid ownerAddress
+        try:
+            self.nodes[1].icx_makeoffer({
+                                    'orderTx': orderTx,
+                                    'amount': 1,
+                                    'ownerAddress': accountDFI,
+                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Address ("+accountDFI+") is not owned by the wallet" in errorString)
+
+        # invalid receivePublikey
+        try:
+            self.nodes[1].icx_makeoffer({
+                                    'orderTx': orderTx,
+                                    'amount': 1,
+                                    'ownerAddress': accountBTC,
+                                    'receivePubkey': '000000000000000000000000000000000000000000000000000000000000000000'})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Invalid public key" in errorString)
+
+        offerTx = self.nodes[1].icx_makeoffer({
+                                    'orderTx': orderTx,
+                                    'amount': 1,
+                                    'ownerAddress': accountBTC,
+                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})["txid"]
+
+        self.nodes[1].utxostoaccount({accountBTC: "1@" + symbolDFI})
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        # dfc htlc cannot be first htlc
+        try:
+            self.nodes[1].icx_submitdfchtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 1,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'timeout': 500})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("offer ("+ offerTx + ") needs to have ext htlc submitted first, but no external htlc found" in errorString)
+
+        # more amount
+        try:
+            self.nodes[0].icx_submitexthtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 0.1,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+                                    'timeout': 30})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("cannot make ext htlc with that amount, amount must be lower or equal the amount in offer" in errorString)
+
+        # timeout less than minimum
+        try:
+            self.nodes[0].icx_submitexthtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 0.01,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+                                    'timeout': 29})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Invalid parameters, argument \"timeout\" must be greater than 29" in errorString)
+
+        exthtlcTx = self.nodes[0].icx_submitexthtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 0.01,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+                                    'timeout': 30})["txid"]
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # less amount
+        try:
+            self.nodes[1].icx_submitdfchtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 0.5,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'timeout': 500})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("cannot make dfc htlc with that amount, amount must be equal to calculated exthtlc amount" in errorString)
+
+        # more amount
+        try:
+            self.nodes[1].icx_submitdfchtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 2,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'timeout': 500})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("cannot make dfc htlc with that amount, amount must be equal to calculated exthtlc amount" in errorString)
+
+        # wrong timeout
+        try:
+            self.nodes[1].icx_submitdfchtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 1,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'timeout': 601})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc in DFI" in errorString)
+
+        dfchtlcTx = self.nodes[1].icx_submitdfchtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 1,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'timeout': 500})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        # wrong dfchtlcTx
+        try:
+            self.nodes[0].icx_claimdfchtlc({
+                                    'dfchtlcTx': "76432beb2a667efe4858b4e1ec93979b621c51c76abaab2434892655dd152e3d",
+                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("dfchtlcTx (76432beb2a667efe4858b4e1ec93979b621c51c76abaab2434892655dd152e3d) does not exist" in errorString)
+
+        # wrong seed
+        try:
+            self.nodes[0].icx_claimdfchtlc({
+                                    'dfchtlcTx': dfchtlcTx,
+                                    'seed': 'f75a61ad8f7a6e0ab7000000000d4523a9b534571e4e92e0c4610c6a6784ccef'})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("hash generated from given seed is different than in dfc htlc" in errorString)
+
+        claimTx = self.nodes[0].icx_claimdfchtlc({
+                                    'dfchtlcTx': dfchtlcTx,
+                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Make sure offer and order are now closed
+        offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
         assert_equal(len(offer), 1)
+        order = self.nodes[0].icx_listorders()
+        assert_equal(len(order), 1)
+        order = self.nodes[0].icx_listorders({"closed": True})
+        assert_equal(len(order), 3)
+        assert_equal(order[orderTx]["status"], 'FILLED')
 
 if __name__ == '__main__':
     ICXOrderbookErrorTest().main()

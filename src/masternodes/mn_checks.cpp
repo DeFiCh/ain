@@ -491,8 +491,6 @@ public:
     CPoolPair GetBTCDFIPoolPair() const {
         auto BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
         auto pair = mnview.GetPoolPair(BTC, DCT_ID{0});
-        if (!pair)
-            pair = mnview.GetPoolPair(DCT_ID{0}, BTC);
         assert(pair);
         return std::move(pair->second);
     }
