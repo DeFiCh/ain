@@ -173,7 +173,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'ownerAddress': accountDFI,
                                     'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
                                     'amountFrom': 1,
-                                    'orderPrice':0.01})["result"]
+                                    'orderPrice':0.01})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -214,7 +214,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
         offerTx = self.nodes[1].icx_makeoffer({
                                     'orderTx': orderTx,
                                     'amount': 0.01,
-                                    'ownerAddress': accountBTC})["result"]
+                                    'ownerAddress': accountBTC})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -272,7 +272,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'offerTx': offerTx,
                                     'amount': 1,
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})["result"]
+                                    'timeout': 500})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -348,7 +348,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 15})["result"]
+                                    'timeout': 15})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -373,7 +373,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
 
         claimTx = self.nodes[1].icx_claimdfchtlc({
                                     'dfchtlcTx': dfchtlcTx,
-                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["result"]
+                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()

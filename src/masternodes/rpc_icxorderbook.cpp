@@ -352,7 +352,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     }
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -501,7 +501,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -635,7 +635,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                         submitdfchtlc.hash.GetHex(),exthtlc->hash.GetHex()));
             if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT - 1));
-            if (submitdfchtlc.timeout >= (exthtlc->creationHeight + (exthtlc->timeout * 100 / 6 )) - targetHeight)
+            if (submitdfchtlc.timeout >= (exthtlc->creationHeight + (exthtlc->timeout * CICXSubmitDFCHTLC::DFC_BLOCKS_PER_HOUR / CICXSubmitEXTHTLC::BTC_BLOCKS_PER_HOUR )) - targetHeight)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc - %d", exthtlc->timeout));
         }
     }
@@ -679,7 +679,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -778,7 +778,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
 
         targetHeight = ::ChainActive().Height() + 1;
 
-        if (order->creationHeight + order->expiry < targetHeight + (submitexthtlc.timeout * 6 / 100))
+        if (order->creationHeight + order->expiry < targetHeight + (submitexthtlc.timeout * CICXSubmitDFCHTLC::DFC_BLOCKS_PER_HOUR / CICXSubmitEXTHTLC::BTC_BLOCKS_PER_HOUR))
             throw JSONRPCError(RPC_INVALID_PARAMETER, "order will expire before ext htlc expires!");
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
@@ -802,7 +802,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
                         submitexthtlc.hash.GetHex(),dfchtlc->hash.GetHex()));
             if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT - 1));
-            if (submitexthtlc.timeout * 100 / 6 >= (dfchtlc->creationHeight + dfchtlc->timeout) - targetHeight)
+            if (submitexthtlc.timeout * CICXSubmitDFCHTLC::DFC_BLOCKS_PER_HOUR / CICXSubmitEXTHTLC::BTC_BLOCKS_PER_HOUR >= (dfchtlc->creationHeight + dfchtlc->timeout) - targetHeight)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc - %d", submitexthtlc.timeout));
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
@@ -866,7 +866,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -989,7 +989,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -1092,7 +1092,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -1198,7 +1198,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("result",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 

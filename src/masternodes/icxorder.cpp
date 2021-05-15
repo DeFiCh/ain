@@ -47,6 +47,7 @@ const CAmount CICXMakeOffer::DEFAULT_TAKER_FEE_PER_BTC = AmountFromValue(0.003);
 
 const uint32_t CICXSubmitDFCHTLC::MINIMUM_TIMEOUT = 500;
 const uint32_t CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT = 250;
+const uint32_t CICXSubmitDFCHTLC::DFC_BLOCKS_PER_HOUR = 100;
 const uint8_t CICXSubmitDFCHTLC::STATUS_OPEN = 0;
 const uint8_t CICXSubmitDFCHTLC::STATUS_CLAIMED = 1;
 const uint8_t CICXSubmitDFCHTLC::STATUS_REFUNDED = 2;
@@ -54,6 +55,7 @@ const uint8_t CICXSubmitDFCHTLC::STATUS_EXPIRED = 3;
 
 const uint32_t CICXSubmitEXTHTLC::MINIMUM_TIMEOUT = 30;
 const uint32_t CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT = 15;
+const uint32_t CICXSubmitEXTHTLC::BTC_BLOCKS_PER_HOUR = 6;
 const uint8_t CICXSubmitEXTHTLC::STATUS_OPEN = 0;
 const uint8_t CICXSubmitEXTHTLC::STATUS_CLOSED = 1;
 const uint8_t CICXSubmitEXTHTLC::STATUS_EXPIRED = 3;

@@ -488,16 +488,20 @@ public:
         return res;
     }
 
-    CPoolPair GetDFIBTCPoolPair() const {
+    CPoolPair GetBTCDFIPoolPair() const {
         auto BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
-        auto pair = mnview.GetPoolPair(DCT_ID{0}, BTC);
+        auto pair = mnview.GetPoolPair(BTC, DCT_ID{0});
+        if (!pair)
+            pair = mnview.GetPoolPair(DCT_ID{0}, BTC);
         assert(pair);
         return std::move(pair->second);
     }
 
     CAmount GetDFIperBTC() const {
-        auto DFIBTCPoolPair = GetDFIBTCPoolPair();
-        return (arith_uint256(DFIBTCPoolPair.reserveA) * arith_uint256(COIN) / DFIBTCPoolPair.reserveB).GetLow64();
+        auto BTCDFIPoolPair = GetBTCDFIPoolPair();
+        if (BTCDFIPoolPair.idTokenA == DCT_ID({0}))
+            return (arith_uint256(BTCDFIPoolPair.reserveA) * arith_uint256(COIN) / BTCDFIPoolPair.reserveB).GetLow64();
+        return (arith_uint256(BTCDFIPoolPair.reserveB) * arith_uint256(COIN) / BTCDFIPoolPair.reserveA).GetLow64();
     }
 
     ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const {

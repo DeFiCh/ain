@@ -2619,7 +2619,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     if (order->orderType == CICXOrder::TYPE_INTERNAL)
                     {
                         CTokenAmount amount({order->idToken,order->amountToFill});
-                        CScript txidaddr = CScript(order->creationTx.begin(),order->creationTx.end());
+                        CScript txidaddr = CScript(order->creationTx.begin(), order->creationTx.end());
                         res = cache.SubBalance(txidaddr,amount);
                         if (!res)
                             LogPrintf("Can't subtract balance from order txidaddr: %s\n", res.msg);

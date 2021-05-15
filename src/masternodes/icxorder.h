@@ -171,6 +171,7 @@ class CICXSubmitDFCHTLC
 public:
     static const uint32_t MINIMUM_TIMEOUT; // minimum period in blocks after htlc automatically timeouts and funds are returned to owner when it is first htlc
     static const uint32_t MINIMUM_2ND_TIMEOUT; // minimum period in blocks after htlc automatically timeouts and funds are returned to owner when it is second htlc
+    static const uint32_t DFC_BLOCKS_PER_HOUR; // number of blocks per hour
     static const uint8_t STATUS_OPEN;
     static const uint8_t STATUS_CLAIMED;
     static const uint8_t STATUS_REFUNDED;
@@ -236,6 +237,7 @@ class CICXSubmitEXTHTLC
 public:
     static const uint32_t MINIMUM_TIMEOUT; // default period in blocks after htlc timeouts when it is first htlc
     static const uint32_t MINIMUM_2ND_TIMEOUT; // default period in blocks after htlc timeouts when it is second htlc
+    static const uint32_t BTC_BLOCKS_PER_HOUR; // number of blocks per hour
     static const uint8_t STATUS_OPEN;
     static const uint8_t STATUS_CLOSED;
     static const uint8_t STATUS_EXPIRED;
