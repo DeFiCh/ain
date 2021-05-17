@@ -24,30 +24,21 @@ public:
     static const std::string CHAIN_BTC;
     static const std::string TOKEN_BTC; // name of BTC token on DFC
 
-    uint8_t orderType; //is maker buying or selling DFC asset to know which htlc to come first
-    DCT_ID idToken; // used for DFT/BTC
+    uint8_t orderType = 0; //is maker buying or selling DFC asset to know which htlc to come first
+    DCT_ID idToken{UINT_MAX}; // used for DFT/BTC
     CScript ownerAddress; //address for DFI token for fees, and in case of DFC/BTC order for DFC asset
     CPubKey receivePubkey; // address of BTC pubkey in case of BTC/DFC order
-    CAmount amountFrom; // amount of asset that is sold
-    CAmount amountToFill; // how much is left to fill the order
-    CAmount orderPrice; // price of asset buying in asset selling
-    uint32_t expiry; // when the order exipres in number of blocks
-
-    CICXOrder()
-        : orderType(0)
-        , idToken({std::numeric_limits<uint32_t>::max()})
-        , amountFrom(0)
-        , amountToFill(0)
-        , orderPrice(0)
-        , expiry(DEFAULT_EXPIRY)
-    {}
+    CAmount amountFrom = 0; // amount of asset that is sold
+    CAmount amountToFill = 0; // how much is left to fill the order
+    CAmount orderPrice = 0; // price of asset buying in asset selling
+    uint32_t expiry = DEFAULT_EXPIRY; // when the order exipres in number of blocks
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(orderType);
-        READWRITE(VARINT(idToken.v));
+        READWRITE(idToken);
         READWRITE(ownerAddress);
         READWRITE(receivePubkey);
         READWRITE(amountFrom);
@@ -62,14 +53,8 @@ class CICXOrderImplemetation : public CICXOrder
 public:
     uint256 creationTx;
     uint256 closeTx;
-    int32_t creationHeight;
-    int32_t closeHeight;
-
-    CICXOrderImplemetation()
-        : CICXOrder()
-        , creationHeight(-1)
-        , closeHeight(-1)
-    {}
+    int32_t creationHeight = -1;
+    int32_t closeHeight = -1;
 
     ADD_SERIALIZE_METHODS;
 
@@ -104,17 +89,11 @@ public:
     static const int64_t DEFAULT_TAKER_FEE_PER_BTC;
 
     uint256 orderTx; // txid for which order is the offer
-    CAmount amount; // amount of asset to swap
+    CAmount amount = 0; // amount of asset to swap
     CScript ownerAddress; //address for DFI token for fees, and in case of BTC/DFC order for DFC asset
     CPubKey receivePubkey; // address or BTC pubkey in case of DFC/BTC order
-    uint32_t expiry; // when the offer exipres in number of blocks
-    CAmount takerFee;
-
-    CICXMakeOffer()
-        : amount(0)
-        , expiry(DEFAULT_EXPIRY)
-        , takerFee(0)
-    {}
+    uint32_t expiry = DEFAULT_EXPIRY; // when the offer exipres in number of blocks
+    CAmount takerFee = 0;
 
     ADD_SERIALIZE_METHODS;
 
@@ -134,15 +113,8 @@ class CICXMakeOfferImplemetation : public CICXMakeOffer
 public:
     uint256 creationTx;
     uint256 closeTx;
-    int32_t creationHeight;
-    int32_t closeHeight;
-
-
-    CICXMakeOfferImplemetation()
-        : CICXMakeOffer()
-        , creationHeight(-1)
-        , closeHeight(-1)
-    {}
+    int32_t creationHeight = -1;
+    int32_t closeHeight = -1;
 
     ADD_SERIALIZE_METHODS;
 
@@ -178,16 +150,9 @@ public:
 
     // This tx is acceptance of the offer, HTLC tx and evidence of HTLC on DFC in the same time. It is a CustomTx on DFC chain
     uint256 offerTx; // txid for which offer is this HTLC
-    CAmount amount; // amount that is put in HTLC
+    CAmount amount = 0; // amount that is put in HTLC
     uint256 hash; // hash for the hash lock part
-    uint32_t timeout; // timeout (absolute in blocks) for timelock part
-
-    CICXSubmitDFCHTLC()
-        : offerTx(uint256())
-        , amount(0)
-        , hash()
-        , timeout(MINIMUM_TIMEOUT)
-    {}
+    uint32_t timeout = MINIMUM_TIMEOUT; // timeout (absolute in blocks) for timelock part
 
     ADD_SERIALIZE_METHODS;
 
@@ -204,12 +169,7 @@ class CICXSubmitDFCHTLCImplemetation : public CICXSubmitDFCHTLC
 {
 public:
     uint256 creationTx;
-    int32_t creationHeight;
-
-    CICXSubmitDFCHTLCImplemetation()
-        : CICXSubmitDFCHTLC()
-        , creationHeight(-1)
-    {}
+    int32_t creationHeight = -1;
 
     ADD_SERIALIZE_METHODS;
 
@@ -241,19 +201,13 @@ public:
     static const uint8_t STATUS_CLOSED;
     static const uint8_t STATUS_EXPIRED;
 
-
     // This tx is acceptance of the offer and evidence of HTLC on external chain in the same time. It is a CustomTx on DFC chain
     uint256 offerTx; // txid for which offer is this HTLC
-    CAmount amount;
+    CAmount amount = 0;
     uint256 hash;
     std::string htlcscriptAddress;
     CPubKey ownerPubkey;
-    uint32_t timeout;
-
-    CICXSubmitEXTHTLC()
-        : amount(0)
-        , timeout(0)
-    {}
+    uint32_t timeout = 0;
 
     ADD_SERIALIZE_METHODS;
 
@@ -272,12 +226,7 @@ class CICXSubmitEXTHTLCImplemetation : public CICXSubmitEXTHTLC
 {
 public:
     uint256 creationTx;
-    int32_t creationHeight;
-
-    CICXSubmitEXTHTLCImplemetation()
-        : CICXSubmitEXTHTLC()
-        , creationHeight(-1)
-    {}
+    int32_t creationHeight = -1;
 
     ADD_SERIALIZE_METHODS;
 
@@ -305,9 +254,6 @@ public:
     uint256 dfchtlcTx; // txid of claiming DFC HTLC
     std::vector<unsigned char> seed; // secret for the hash to claim htlc
 
-    CICXClaimDFCHTLC()
-    {}
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -321,12 +267,7 @@ class CICXClaimDFCHTLCImplemetation : public CICXClaimDFCHTLC
 {
 public:
     uint256 creationTx;
-    int32_t creationHeight;
-
-    CICXClaimDFCHTLCImplemetation()
-        : CICXClaimDFCHTLC()
-        , creationHeight(-1)
-    {}
+    int32_t creationHeight = -1;
 
     ADD_SERIALIZE_METHODS;
 
@@ -353,9 +294,6 @@ class CICXCloseOrder
 public:
     uint256 orderTx; //txid of order which will be closed
 
-    CICXCloseOrder()
-    {}
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -368,12 +306,7 @@ class CICXCloseOrderImplemetation : public CICXCloseOrder
 {
 public:
     uint256 creationTx;
-    int32_t creationHeight;
-
-    CICXCloseOrderImplemetation()
-        : CICXCloseOrder()
-        , creationHeight(-1)
-    {}
+    int32_t creationHeight = -1;
 
     ADD_SERIALIZE_METHODS;
 
@@ -400,9 +333,6 @@ class CICXCloseOffer
 public:
     uint256 offerTx; //txid of offer which will be closed
 
-    CICXCloseOffer()
-    {}
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -415,12 +345,7 @@ class CICXCloseOfferImplemetation : public CICXCloseOffer
 {
 public:
     uint256 creationTx;
-    int32_t creationHeight;
-
-    CICXCloseOfferImplemetation()
-        : CICXCloseOffer()
-        , creationHeight(-1)
-    {}
+    int32_t creationHeight = -1;
 
     ADD_SERIALIZE_METHODS;
 
@@ -446,9 +371,9 @@ class CICXOrderView : public virtual CStorageView {
 public:
     static const CAmount DEFAULT_DFI_BTC_PRICE;
 
-    typedef std::pair<DCT_ID,uint256> OrderKey;
-    typedef std::pair<uint256,uint256> TxidPairKey;
-    typedef std::pair<uint32_t,uint256> StatusKey;
+    using OrderKey = std::pair<DCT_ID, uint256>;
+    using TxidPairKey = std::pair<uint256, uint256>;
+    using StatusKey = std::pair<uint32_t, uint256>;
 
     using CICXOrderImpl = CICXOrderImplemetation;
     using CICXMakeOfferImpl = CICXMakeOfferImplemetation;
@@ -469,7 +394,7 @@ public:
 
     //MakeOffer
     std::unique_ptr<CICXMakeOfferImpl> GetICXMakeOfferByCreationTx(uint256 const & txid) const;
-    ResVal<uint256> ICXMakeOffer(CICXMakeOfferImpl const & makeoffer);
+    Res ICXMakeOffer(CICXMakeOfferImpl const & makeoffer);
     Res ICXUpdateMakeOffer(CICXMakeOfferImpl const & makeoffer);
     Res ICXCloseMakeOfferTx(CICXMakeOfferImpl const & order, uint8_t const);
     void ForEachICXMakeOfferOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & ordertxid = uint256());
@@ -479,7 +404,7 @@ public:
 
     //SubmitDFCHTLC
     std::unique_ptr<CICXSubmitDFCHTLCImpl> GetICXSubmitDFCHTLCByCreationTx(uint256 const & txid) const;
-    ResVal<uint256> ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & dfchtlc);
+    Res ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & dfchtlc);
     Res ICXCloseDFCHTLC(CICXSubmitDFCHTLCImpl const & dfchtlc, uint8_t const);
     void ForEachICXSubmitDFCHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitDFCHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
@@ -488,7 +413,7 @@ public:
 
     //SubmitEXTHTLC
     std::unique_ptr<CICXSubmitEXTHTLCImpl> GetICXSubmitEXTHTLCByCreationTx(uint256 const & txid) const;
-    ResVal<uint256> ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & dfchtlc);
+    Res ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & dfchtlc);
     Res ICXCloseEXTHTLC(CICXSubmitEXTHTLCImpl const & exthtlc, uint8_t const);
     void ForEachICXSubmitEXTHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
     void ForEachICXSubmitEXTHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
@@ -497,16 +422,16 @@ public:
 
     //ClaimDFCHTLC
     std::unique_ptr<CICXClaimDFCHTLCImpl> GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const;
-    ResVal<uint256> ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, CICXOrderImpl const & order);
+    Res ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, CICXOrderImpl const & order);
     void ForEachICXClaimDFCHTLC(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
 
     //CloseOrder
     std::unique_ptr<CICXCloseOrderImpl> GetICXCloseOrderByCreationTx(uint256 const & txid) const;
-    ResVal<uint256> ICXCloseOrder(CICXCloseOrderImpl const & closeorder);
+    Res ICXCloseOrder(CICXCloseOrderImpl const & closeorder);
 
     //CloseOrder
     std::unique_ptr<CICXCloseOfferImpl> GetICXCloseOfferByCreationTx(uint256 const & txid) const;
-    ResVal<uint256> ICXCloseOffer(CICXCloseOfferImpl const & closeoffer);
+    Res ICXCloseOffer(CICXCloseOfferImpl const & closeoffer);
 
     // ICX_TAKERFEE_PER_BTC
     Res ICXSetTakerFeePerBTC(CAmount amount);

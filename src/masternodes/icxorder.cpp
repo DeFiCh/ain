@@ -66,16 +66,14 @@ std::unique_ptr<CICXOrderView::CICXOrderImpl> CICXOrderView::GetICXOrderByCreati
     auto order = ReadBy<ICXOrderCreationTx,CICXOrderImpl>(txid);
     if (order)
         return MakeUnique<CICXOrderImpl>(*order);
-    return (nullptr);
+    return {};
 }
 
 Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
 {
     //this should not happen, but for sure
-    if (GetICXOrderByCreationTx(order.creationTx)) {
+    if (GetICXOrderByCreationTx(order.creationTx))
         return Res::Err("order with creation tx %s already exists!", order.creationTx.GetHex());
-    }
-
     if (order.orderType != CICXOrder::TYPE_INTERNAL && order.orderType != CICXOrder::TYPE_EXTERNAL)
         return Res::Err("invalid order type!");
     if (order.amountFrom == 0)
@@ -84,7 +82,7 @@ Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
         return Res::Err("order amountToFill does not equal to amountFrom!");
     if (order.orderPrice == 0)
         return Res::Err("order price must be greater than 0!");
-    if (order.expiry == 0)
+    if (order.expiry <= 0)
         return Res::Err("order expiry must be greater than 0!");
 
     OrderKey key(order.idToken, order.creationTx);
@@ -98,14 +96,13 @@ Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
 Res CICXOrderView::ICXUpdateOrder(CICXOrderImpl const & order)
 {
     //this should not happen, but for sure
-    if (!GetICXOrderByCreationTx(order.creationTx)) {
+    if (!GetICXOrderByCreationTx(order.creationTx))
         return Res::Err("order with creation tx %s doesn't exists!", order.creationTx.GetHex());
-    }
 
     OrderKey key(order.idToken, order.creationTx);
     WriteBy<ICXOrderCreationTx>(order.creationTx, order);
 
-    return (Res::Ok());
+    return Res::Ok();
 }
 
 Res CICXOrderView::ICXCloseOrderTx(CICXOrderImpl const & order, uint8_t const status)
@@ -116,25 +113,22 @@ Res CICXOrderView::ICXCloseOrderTx(CICXOrderImpl const & order, uint8_t const st
     WriteBy<ICXOrderCloseKey>(key, status);
     EraseBy<ICXOrderStatus>(StatusKey(order.creationHeight + order.expiry, order.creationTx));
 
-    return (Res::Ok());
+    return Res::Ok();
 }
 
 void CICXOrderView::ForEachICXOrderOpen(std::function<bool (OrderKey const &, uint8_t)> callback, DCT_ID const & id)
 {
-    OrderKey start(id, uint256());
-    ForEach<ICXOrderOpenKey,OrderKey,uint8_t>(callback, start);
+    ForEach<ICXOrderOpenKey, OrderKey, uint8_t>(callback, OrderKey{id, {}});
 }
 
 void CICXOrderView::ForEachICXOrderClose(std::function<bool (OrderKey const &, uint8_t)> callback, DCT_ID const & id)
 {
-    OrderKey start(id, uint256());
-    ForEach<ICXOrderCloseKey,OrderKey,uint8_t>(callback, start);
+    ForEach<ICXOrderCloseKey, OrderKey, uint8_t>(callback, OrderKey{id, {}});
 }
 
 void CICXOrderView::ForEachICXOrderExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height)
 {
-    StatusKey start(height, uint256());
-    ForEach<ICXOrderStatus,StatusKey,uint8_t>(callback, start);
+    ForEach<ICXOrderStatus, StatusKey, uint8_t>(callback, StatusKey{height, {}});
 }
 
 std::unique_ptr<CICXOrderView::CICXMakeOfferImpl> CICXOrderView::GetICXMakeOfferByCreationTx(uint256 const & txid) const
@@ -142,28 +136,29 @@ std::unique_ptr<CICXOrderView::CICXMakeOfferImpl> CICXOrderView::GetICXMakeOffer
     auto makeoffer = ReadBy<ICXMakeOfferCreationTx,CICXMakeOfferImpl>(txid);
     if (makeoffer)
         return MakeUnique<CICXMakeOfferImpl>(*makeoffer);
-    return (nullptr);
+    return {};
 }
 
-ResVal<uint256> CICXOrderView::ICXMakeOffer(CICXMakeOfferImpl const & makeoffer)
+Res CICXOrderView::ICXMakeOffer(CICXMakeOfferImpl const & makeoffer)
 {
     //this should not happen, but for sure
-    if (GetICXMakeOfferByCreationTx(makeoffer.creationTx)) {
+    if (GetICXMakeOfferByCreationTx(makeoffer.creationTx))
         return Res::Err("makeoffer with creation tx %s already exists!", makeoffer.creationTx.GetHex());
-    }
+    if (makeoffer.expiry < CICXMakeOffer::DEFAULT_EXPIRY)
+        return Res::Err("makeoffer expiry must be greater than %d!", int(CICXMakeOffer::DEFAULT_EXPIRY));
 
     WriteBy<ICXMakeOfferCreationTx>(makeoffer.creationTx, makeoffer);
     WriteBy<ICXMakeOfferOpenKey>(TxidPairKey(makeoffer.orderTx, makeoffer.creationTx), CICXMakeOffer::STATUS_OPEN);
     WriteBy<ICXOfferStatus>(StatusKey(makeoffer.creationHeight + makeoffer.expiry, makeoffer.creationTx), CICXMakeOffer::STATUS_EXPIRED);
 
-    return {makeoffer.creationTx, Res::Ok()};
+    return Res::Ok();
 }
 
 Res CICXOrderView::ICXUpdateMakeOffer(CICXMakeOfferImpl const & makeoffer)
 {
     WriteBy<ICXMakeOfferCreationTx>(makeoffer.creationTx, makeoffer);
 
-    return (Res::Ok());
+    return Res::Ok();
 }
 
 Res CICXOrderView::ICXCloseMakeOfferTx(CICXMakeOfferImpl const & makeoffer, uint8_t const status)
@@ -173,34 +168,30 @@ Res CICXOrderView::ICXCloseMakeOfferTx(CICXMakeOfferImpl const & makeoffer, uint
     WriteBy<ICXMakeOfferCloseKey>(key, status);
     EraseBy<ICXOfferStatus>(StatusKey(makeoffer.creationHeight + makeoffer.expiry, makeoffer.creationTx));
 
-    return (Res::Ok());
+    return Res::Ok();
 }
 
 void CICXOrderView::ForEachICXMakeOfferOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & txid)
 {
-    TxidPairKey start(txid, uint256());
-    ForEach<ICXMakeOfferOpenKey,TxidPairKey,uint8_t>(callback, start);
+    ForEach<ICXMakeOfferOpenKey, TxidPairKey, uint8_t>(callback, TxidPairKey{txid, {}});
 }
 
 void CICXOrderView::ForEachICXMakeOfferClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & txid)
 {
-    TxidPairKey start(txid, uint256());
-    ForEach<ICXMakeOfferCloseKey,TxidPairKey,uint8_t>(callback, start);
+    ForEach<ICXMakeOfferCloseKey, TxidPairKey, uint8_t>(callback, TxidPairKey{txid, {}});
 }
 
 void CICXOrderView::ForEachICXMakeOfferExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height)
 {
-    StatusKey start(height, uint256());
-    ForEach<ICXOfferStatus,StatusKey,uint8_t>(callback, start);
+    ForEach<ICXOfferStatus, StatusKey, uint8_t>(callback, StatusKey{height, {}});
 }
 
 std::unique_ptr<CICXOrderView::CICXMakeOfferImpl> CICXOrderView::HasICXMakeOfferOpen(uint256 const & ordertxid, uint256 const & offertxid)
 {
-    std::unique_ptr<CICXMakeOfferImpl> offer;
     auto it = LowerBound<ICXMakeOfferOpenKey>(TxidPairKey{ordertxid, offertxid});
     if (it.Valid() && it.Key().first == ordertxid && it.Key().second == offertxid)
-        offer = GetICXMakeOfferByCreationTx(it.Key().second);
-    return (offer);
+        return GetICXMakeOfferByCreationTx(it.Key().second);
+    return {};
 }
 
 std::unique_ptr<CICXOrderView::CICXSubmitDFCHTLCImpl> CICXOrderView::GetICXSubmitDFCHTLCByCreationTx(uint256 const & txid) const
@@ -208,16 +199,14 @@ std::unique_ptr<CICXOrderView::CICXSubmitDFCHTLCImpl> CICXOrderView::GetICXSubmi
     auto submitdfchtlc = ReadBy<ICXSubmitDFCHTLCCreationTx,CICXSubmitDFCHTLCImpl>(txid);
     if (submitdfchtlc)
         return MakeUnique<CICXSubmitDFCHTLCImpl>(*submitdfchtlc);
-    return (nullptr);
+    return {};
 }
 
-ResVal<uint256> CICXOrderView::ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & submitdfchtlc)
+Res CICXOrderView::ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & submitdfchtlc)
 {
     //this should not happen, but for sure
-    if (GetICXSubmitDFCHTLCByCreationTx(submitdfchtlc.creationTx)) {
+    if (GetICXSubmitDFCHTLCByCreationTx(submitdfchtlc.creationTx))
         return Res::Err("submitdfchtlc with creation tx %s already exists!", submitdfchtlc.creationTx.GetHex());
-    }
-
     if (submitdfchtlc.hash.IsNull())
         return Res::Err("Invalid hash, htlc hash is empty and it must be set!");
     if (submitdfchtlc.timeout == 0)
@@ -228,7 +217,7 @@ ResVal<uint256> CICXOrderView::ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & su
     WriteBy<ICXSubmitDFCHTLCStatus>(StatusKey(submitdfchtlc.creationHeight + CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT, submitdfchtlc.creationTx), CICXSubmitDFCHTLC::STATUS_EXPIRED);
     WriteBy<ICXSubmitDFCHTLCStatus>(StatusKey(submitdfchtlc.creationHeight + submitdfchtlc.timeout, submitdfchtlc.creationTx), CICXSubmitDFCHTLC::STATUS_REFUNDED);
 
-    return {submitdfchtlc.creationTx, Res::Ok()};
+    return Res::Ok();
 }
 
 Res CICXOrderView::ICXCloseDFCHTLC(CICXSubmitDFCHTLCImpl const & submitdfchtlc, uint8_t const status)
@@ -240,34 +229,30 @@ Res CICXOrderView::ICXCloseDFCHTLC(CICXSubmitDFCHTLCImpl const & submitdfchtlc, 
     EraseBy<ICXSubmitDFCHTLCStatus>(StatusKey(submitdfchtlc.creationHeight + CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT, submitdfchtlc.creationTx));
     EraseBy<ICXSubmitDFCHTLCStatus>(StatusKey(submitdfchtlc.creationHeight + submitdfchtlc.timeout, submitdfchtlc.creationTx));
 
-    return (Res::Ok());
+    return Res::Ok();
 }
 
 void CICXOrderView::ForEachICXSubmitDFCHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid)
 {
-    TxidPairKey start(offertxid, uint256());
-    ForEach<ICXSubmitDFCHTLCOpenKey, TxidPairKey, uint8_t>(callback, start);
+    ForEach<ICXSubmitDFCHTLCOpenKey, TxidPairKey, uint8_t>(callback, TxidPairKey{offertxid, {}});
 }
 
 void CICXOrderView::ForEachICXSubmitDFCHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid)
 {
-    TxidPairKey start(offertxid,uint256());
-    ForEach<ICXSubmitDFCHTLCCloseKey, TxidPairKey, uint8_t>(callback, start);
+    ForEach<ICXSubmitDFCHTLCCloseKey, TxidPairKey, uint8_t>(callback, TxidPairKey{offertxid, {}});
 }
 
 void CICXOrderView::ForEachICXSubmitDFCHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height)
 {
-    StatusKey start(height, uint256());
-    ForEach<ICXSubmitDFCHTLCStatus, StatusKey, uint8_t>(callback, start);
+    ForEach<ICXSubmitDFCHTLCStatus, StatusKey, uint8_t>(callback, StatusKey{height, {}});
 }
 
 std::unique_ptr<CICXOrderView::CICXSubmitDFCHTLCImpl> CICXOrderView::HasICXSubmitDFCHTLCOpen(uint256 const & offertxid)
 {
-    std::unique_ptr<CICXSubmitDFCHTLCImpl> dfchtlc;
-    auto it = LowerBound<ICXSubmitDFCHTLCOpenKey>(TxidPairKey{offertxid,uint256()});
+    auto it = LowerBound<ICXSubmitDFCHTLCOpenKey>(TxidPairKey{offertxid, {}});
     if (it.Valid() && it.Key().first == offertxid)
-        dfchtlc = GetICXSubmitDFCHTLCByCreationTx(it.Key().second);
-    return (dfchtlc);
+        return GetICXSubmitDFCHTLCByCreationTx(it.Key().second);
+    return {};
 }
 
 std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::GetICXSubmitEXTHTLCByCreationTx(const uint256 & txid) const
@@ -275,16 +260,14 @@ std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::GetICXSubmi
     auto submitexthtlc = ReadBy<ICXSubmitEXTHTLCCreationTx,CICXSubmitEXTHTLCImpl>(txid);
     if (submitexthtlc)
         return MakeUnique<CICXSubmitEXTHTLCImpl>(*submitexthtlc);
-    return (nullptr);
+    return {};
 }
 
-ResVal<uint256> CICXOrderView::ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & submitexthtlc)
+Res CICXOrderView::ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & submitexthtlc)
 {
     //this should not happen, but for sure
-    if (GetICXSubmitEXTHTLCByCreationTx(submitexthtlc.creationTx)) {
+    if (GetICXSubmitEXTHTLCByCreationTx(submitexthtlc.creationTx))
         return Res::Err("submitexthtlc with creation tx %s already exists!", submitexthtlc.creationTx.GetHex());
-    }
-
     if (submitexthtlc.htlcscriptAddress.empty())
         return Res::Err("Invalid htlcscriptAddress, htlcscriptAddress is empty and it must be set!");
     if (submitexthtlc.hash.IsNull())
@@ -297,7 +280,7 @@ ResVal<uint256> CICXOrderView::ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & su
     WriteBy<ICXSubmitEXTHTLCCreationTx>(submitexthtlc.creationTx, submitexthtlc);
     WriteBy<ICXSubmitEXTHTLCOpenKey>(TxidPairKey(submitexthtlc.offerTx, submitexthtlc.creationTx), CICXSubmitEXTHTLC::STATUS_OPEN);
     WriteBy<ICXSubmitEXTHTLCStatus>(StatusKey(submitexthtlc.creationHeight + CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT, submitexthtlc.creationTx), CICXSubmitEXTHTLC::STATUS_EXPIRED);
-    return {submitexthtlc.creationTx, Res::Ok()};
+    return Res::Ok();
 }
 
 Res CICXOrderView::ICXCloseEXTHTLC(CICXSubmitEXTHTLCImpl const & submitexthtlc, uint8_t const status)
@@ -307,35 +290,30 @@ Res CICXOrderView::ICXCloseEXTHTLC(CICXSubmitEXTHTLCImpl const & submitexthtlc, 
     WriteBy<ICXSubmitEXTHTLCCloseKey>(TxidPairKey(submitexthtlc.offerTx, submitexthtlc.creationTx), status);
     EraseBy<ICXSubmitEXTHTLCStatus>(StatusKey(submitexthtlc.creationHeight + CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT, submitexthtlc.creationTx));
 
-    return (Res::Ok());
+    return Res::Ok();
 }
 
 void CICXOrderView::ForEachICXSubmitEXTHTLCOpen(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid)
 {
-    TxidPairKey start(offertxid, uint256());
-    ForEach<ICXSubmitEXTHTLCOpenKey,TxidPairKey,uint8_t>(callback, start);
+    ForEach<ICXSubmitEXTHTLCOpenKey,TxidPairKey,uint8_t>(callback, TxidPairKey{offertxid, {}});
 }
 
 void CICXOrderView::ForEachICXSubmitEXTHTLCClose(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid)
 {
-    TxidPairKey start(offertxid, uint256());
-    ForEach<ICXSubmitEXTHTLCCloseKey,TxidPairKey,uint8_t>(callback, start);
+    ForEach<ICXSubmitEXTHTLCCloseKey, TxidPairKey, uint8_t>(callback, TxidPairKey{offertxid, {}});
 }
 
 void CICXOrderView::ForEachICXSubmitEXTHTLCExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height)
 {
-    StatusKey start(height, uint256());
-    ForEach<ICXSubmitEXTHTLCStatus, StatusKey, uint8_t>(callback, start);
+    ForEach<ICXSubmitEXTHTLCStatus, StatusKey, uint8_t>(callback, StatusKey{height, {}});
 }
 
 std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::HasICXSubmitEXTHTLCOpen(uint256 const & offertxid)
 {
-    std::unique_ptr<CICXSubmitEXTHTLCImpl> exthtlc;
-    auto it = LowerBound<ICXSubmitEXTHTLCOpenKey>(TxidPairKey{offertxid,uint256()});
+    auto it = LowerBound<ICXSubmitEXTHTLCOpenKey>(TxidPairKey{offertxid, {}});
     if (it.Valid() && it.Key().first == offertxid)
-        exthtlc = GetICXSubmitEXTHTLCByCreationTx(it.Key().second);
-
-    return (exthtlc);
+        return GetICXSubmitEXTHTLCByCreationTx(it.Key().second);
+    return {};
 }
 
 std::unique_ptr<CICXOrderView::CICXClaimDFCHTLCImpl> CICXOrderView::GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const
@@ -343,37 +321,31 @@ std::unique_ptr<CICXOrderView::CICXClaimDFCHTLCImpl> CICXOrderView::GetICXClaimD
     auto claimdfchtlc = ReadBy<ICXClaimDFCHTLCCreationTx,CICXClaimDFCHTLCImpl>(txid);
     if (claimdfchtlc)
         return MakeUnique<CICXClaimDFCHTLCImpl>(*claimdfchtlc);
-    return (nullptr);
+    return {};
 }
 
-ResVal<uint256> CICXOrderView::ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, CICXOrderImpl const & order)
+Res CICXOrderView::ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, CICXOrderImpl const & order)
 {
     //this should not happen, but for sure
-    if (GetICXClaimDFCHTLCByCreationTx(claimdfchtlc.creationTx)) {
+    if (GetICXClaimDFCHTLCByCreationTx(claimdfchtlc.creationTx))
         return Res::Err("claimdfchtlc with creation tx %s already exists!", claimdfchtlc.creationTx.GetHex());
-    }
 
     auto dfchtlc = GetICXSubmitDFCHTLCByCreationTx(claimdfchtlc.dfchtlcTx);
-    if (!dfchtlc) {
+    if (!dfchtlc)
         return Res::Err("submitdfchtlc tx %s cannot be found!", claimdfchtlc.dfchtlcTx.GetHex());
-    }
 
     WriteBy<ICXClaimDFCHTLCCreationTx>(claimdfchtlc.creationTx, claimdfchtlc);
     WriteBy<ICXClaimDFCHTLCKey>(TxidPairKey(dfchtlc->offerTx, claimdfchtlc.creationTx),CICXSubmitDFCHTLC::STATUS_CLAIMED);
 
     if (order.amountToFill != 0)
-    {
-        OrderKey key(order.idToken, order.creationTx);
         WriteBy<ICXOrderCreationTx>(order.creationTx, order);
-    }
 
-    return {claimdfchtlc.creationTx, Res::Ok()};
+    return Res::Ok();
 }
 
 void CICXOrderView::ForEachICXClaimDFCHTLC(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid)
 {
-    TxidPairKey start(offertxid, uint256());
-    ForEach<ICXClaimDFCHTLCKey,TxidPairKey,uint8_t>(callback, start);
+     ForEach<ICXClaimDFCHTLCKey, TxidPairKey, uint8_t>(callback, TxidPairKey{offertxid, {}});
 }
 
 std::unique_ptr<CICXOrderView::CICXCloseOrderImpl> CICXOrderView::GetICXCloseOrderByCreationTx(uint256 const & txid) const
@@ -381,19 +353,18 @@ std::unique_ptr<CICXOrderView::CICXCloseOrderImpl> CICXOrderView::GetICXCloseOrd
     auto closeorderImpl = ReadBy<ICXCloseOrderCreationTx, CICXCloseOrderImpl>(txid);
     if (closeorderImpl)
         return MakeUnique<CICXCloseOrderImpl>(*closeorderImpl);
-    return (nullptr);
+    return {};
 }
 
-ResVal<uint256> CICXOrderView::ICXCloseOrder(CICXCloseOrderImpl const & closeorder)
+Res CICXOrderView::ICXCloseOrder(CICXCloseOrderImpl const & closeorder)
 {
     //this should not happen, but for sure
-    if (GetICXCloseOrderByCreationTx(closeorder.creationTx)) {
+    if (GetICXCloseOrderByCreationTx(closeorder.creationTx))
         return Res::Err("closeorder with creation tx %s already exists!", closeorder.creationTx.GetHex());
-    }
 
     WriteBy<ICXCloseOrderCreationTx>(closeorder.creationTx, closeorder.orderTx);
 
-    return {closeorder.creationTx, Res::Ok()};
+    return Res::Ok();
 }
 
 std::unique_ptr<CICXOrderView::CICXCloseOfferImpl> CICXOrderView::GetICXCloseOfferByCreationTx(uint256 const & txid) const
@@ -401,19 +372,18 @@ std::unique_ptr<CICXOrderView::CICXCloseOfferImpl> CICXOrderView::GetICXCloseOff
     auto closeofferImpl = ReadBy<ICXCloseOfferCreationTx, CICXCloseOfferImpl>(txid);
     if (closeofferImpl)
         return MakeUnique<CICXCloseOfferImpl>(*closeofferImpl);
-    return (nullptr);
+    return {};
 }
 
-ResVal<uint256> CICXOrderView::ICXCloseOffer(CICXCloseOfferImpl const & closeoffer)
+Res CICXOrderView::ICXCloseOffer(CICXCloseOfferImpl const & closeoffer)
 {
     //this should not happen, but for sure
-    if (GetICXCloseOrderByCreationTx(closeoffer.creationTx)) {
+    if (GetICXCloseOrderByCreationTx(closeoffer.creationTx))
         return Res::Err("closeooffer with creation tx %s already exists!", closeoffer.creationTx.GetHex());
-    }
 
     WriteBy<ICXCloseOfferCreationTx>(closeoffer.creationTx, closeoffer.offerTx);
 
-    return {closeoffer.creationTx, Res::Ok()};
+    return Res::Ok();
 }
 
 Res CICXOrderView::ICXSetTakerFeePerBTC(CAmount amount)
