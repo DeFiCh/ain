@@ -257,9 +257,9 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 500})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("cannot make dfc htlc with that amount, amount must be lower or equal the amount in offer" in errorString)
+        assert("amount must be lower or equal the offer one" in errorString)
 
-        # wrong timeout
+        # timeout less than minimum
         try:
             self.nodes[0].icx_submitdfchtlc({
                                     'offerTx': offerTx,
@@ -268,7 +268,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 499})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid parameters, argument \"timeout\" must be greater than 499" in errorString)
+        assert("timeout must be greater than 499" in errorString)
 
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
                                     'offerTx': offerTx,
@@ -278,6 +278,18 @@ class ICXOrderbookErrorTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        # dfc htlc already submitted
+        try:
+            self.nodes[0].icx_submitdfchtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 1,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'timeout': 500})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("dfc htlc already submitted" in errorString)
+
 
         # less amount
         try:
@@ -290,7 +302,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 15})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("cannot make ext htlc with that amount, amount must be equal to calculated dfchtlc amount - 0.00100000 != 0.01000000" in errorString)
+        assert("amount must be equal to calculated dfchtlc amount" in errorString)
 
         # more amount
         try:
@@ -303,7 +315,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 15})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("cannot make ext htlc with that amount, amount must be equal to calculated dfchtlc amount - 0.10000000 != 0.01000000" in errorString)
+        assert("amount must be equal to calculated dfchtlc amount" in errorString)
 
         # different hash
         try:
@@ -329,7 +341,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 10})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid parameters, argument \"timeout\" must be greater than 14" in errorString)
+        assert("timeout must be greater than 14" in errorString)
 
         # timeout more than expiration of dfc htlc
         try:
@@ -339,10 +351,10 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 25})
+                                    'timeout': 32})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc" in errorString)
+        assert("timeout must be less than expiration period of 1st htlc in DFC blocks" in errorString)
 
         exthtlcTx = self.nodes[1].icx_submitexthtlc({
                                     'offerTx': offerTx,
@@ -362,7 +374,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("dfchtlcTx (76432beb2a667efe4858b4e1ec93979b621c51c76abaab2434892655dd152e3d) does not exist" in errorString)
+        assert("dfc htlc with creation tx 76432beb2a667efe4858b4e1ec93979b621c51c76abaab2434892655dd152e3d does not exists" in errorString)
 
         # wrong seed
         try:
@@ -501,7 +513,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 30})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("cannot make ext htlc with that amount, amount must be lower or equal the amount in offer" in errorString)
+        assert("amount must be lower or equal the offer one" in errorString)
 
         # timeout less than minimum
         try:
@@ -514,7 +526,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 29})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid parameters, argument \"timeout\" must be greater than 29" in errorString)
+        assert("timeout must be greater than 29" in errorString)
 
         exthtlcTx = self.nodes[0].icx_submitexthtlc({
                                     'offerTx': offerTx,
@@ -527,13 +539,26 @@ class ICXOrderbookErrorTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        # ext htlc already submitted
+        try:
+            self.nodes[0].icx_submitexthtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 0.01,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+                                    'timeout': 30})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("ext htlc already submitted" in errorString)
+
         # less amount
         try:
             self.nodes[1].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 0.5,
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})
+                                    'timeout': 400})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("cannot make dfc htlc with that amount, amount must be equal to calculated exthtlc amount" in errorString)
@@ -544,27 +569,38 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'offerTx': offerTx,
                                     'amount': 2,
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})
+                                    'timeout': 400})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("cannot make dfc htlc with that amount, amount must be equal to calculated exthtlc amount" in errorString)
 
-        # wrong timeout
+        # timeout less than minimum
         try:
             self.nodes[1].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 1,
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 601})
+                                    'timeout': 249})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc in DFI" in errorString)
+        assert("timeout must be greater than 249" in errorString)
+
+        # timeout more than expiration of ext htlc
+        try:
+            self.nodes[1].icx_submitdfchtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 1,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'timeout': 500})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("timeout must be less than expiration period of 1st htlc in DFI blocks" in errorString)
 
         dfchtlcTx = self.nodes[1].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 1,
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})["txid"]
+                                    'timeout': 450})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -576,7 +612,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("dfchtlcTx (76432beb2a667efe4858b4e1ec93979b621c51c76abaab2434892655dd152e3d) does not exist" in errorString)
+        assert("dfc htlc with creation tx 76432beb2a667efe4858b4e1ec93979b621c51c76abaab2434892655dd152e3d does not exists" in errorString)
 
         # wrong seed
         try:

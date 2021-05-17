@@ -54,7 +54,8 @@ const uint8_t CICXSubmitDFCHTLC::STATUS_EXPIRED = 3;
 
 const uint32_t CICXSubmitEXTHTLC::MINIMUM_TIMEOUT = 30;
 const uint32_t CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT = 15;
-const uint32_t CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS = 20;
+// constant for calculating BTC block period in DFI block period per hour (BTC estimated to 6 blocks/h, DFI to 96 blocks/h)
+const uint32_t CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS = 16;
 const uint8_t CICXSubmitEXTHTLC::STATUS_OPEN = 0;
 const uint8_t CICXSubmitEXTHTLC::STATUS_CLOSED = 1;
 const uint8_t CICXSubmitEXTHTLC::STATUS_EXPIRED = 3;
@@ -82,7 +83,7 @@ Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
         return Res::Err("order amountToFill does not equal to amountFrom!");
     if (order.orderPrice == 0)
         return Res::Err("order price must be greater than 0!");
-    if (order.expiry <= 0)
+    if (order.expiry == 0)
         return Res::Err("order expiry must be greater than 0!");
 
     OrderKey key(order.idToken, order.creationTx);
@@ -131,6 +132,15 @@ void CICXOrderView::ForEachICXOrderExpire(std::function<bool (StatusKey const &,
     ForEach<ICXOrderStatus, StatusKey, uint8_t>(callback, StatusKey{height, {}});
 }
 
+std::unique_ptr<CICXOrderView::CICXOrderImpl> CICXOrderView::HasICXOrderOpen(DCT_ID const & tokenId, uint256 const & ordertxid)
+{
+    auto it = LowerBound<ICXOrderOpenKey>(OrderKey{tokenId, ordertxid});
+    if (it.Valid() && it.Key().first == tokenId && it.Key().second == ordertxid)
+        return GetICXOrderByCreationTx(it.Key().second);
+    return {};
+}
+
+
 std::unique_ptr<CICXOrderView::CICXMakeOfferImpl> CICXOrderView::GetICXMakeOfferByCreationTx(uint256 const & txid) const
 {
     auto makeoffer = ReadBy<ICXMakeOfferCreationTx,CICXMakeOfferImpl>(txid);
@@ -144,8 +154,10 @@ Res CICXOrderView::ICXMakeOffer(CICXMakeOfferImpl const & makeoffer)
     //this should not happen, but for sure
     if (GetICXMakeOfferByCreationTx(makeoffer.creationTx))
         return Res::Err("makeoffer with creation tx %s already exists!", makeoffer.creationTx.GetHex());
-    if (makeoffer.expiry < CICXMakeOffer::DEFAULT_EXPIRY)
-        return Res::Err("makeoffer expiry must be greater than %d!", int(CICXMakeOffer::DEFAULT_EXPIRY));
+    if (makeoffer.amount == 0)
+        return Res::Err("offer amount must be greater than 0!");
+    if (makeoffer.expiry == 0)
+        return Res::Err("offer expiry must be greater than 0!");
 
     WriteBy<ICXMakeOfferCreationTx>(makeoffer.creationTx, makeoffer);
     WriteBy<ICXMakeOfferOpenKey>(TxidPairKey(makeoffer.orderTx, makeoffer.creationTx), CICXMakeOffer::STATUS_OPEN);
@@ -207,6 +219,8 @@ Res CICXOrderView::ICXSubmitDFCHTLC(CICXSubmitDFCHTLCImpl const & submitdfchtlc)
     //this should not happen, but for sure
     if (GetICXSubmitDFCHTLCByCreationTx(submitdfchtlc.creationTx))
         return Res::Err("submitdfchtlc with creation tx %s already exists!", submitdfchtlc.creationTx.GetHex());
+    if (submitdfchtlc.amount == 0)
+        return Res::Err("Invalid amount, must be greater than 0!");
     if (submitdfchtlc.hash.IsNull())
         return Res::Err("Invalid hash, htlc hash is empty and it must be set!");
     if (submitdfchtlc.timeout == 0)
@@ -268,6 +282,8 @@ Res CICXOrderView::ICXSubmitEXTHTLC(CICXSubmitEXTHTLCImpl const & submitexthtlc)
     //this should not happen, but for sure
     if (GetICXSubmitEXTHTLCByCreationTx(submitexthtlc.creationTx))
         return Res::Err("submitexthtlc with creation tx %s already exists!", submitexthtlc.creationTx.GetHex());
+    if (submitexthtlc.amount == 0)
+        return Res::Err("Invalid amount, must be greater than 0!");
     if (submitexthtlc.htlcscriptAddress.empty())
         return Res::Err("Invalid htlcscriptAddress, htlcscriptAddress is empty and it must be set!");
     if (submitexthtlc.hash.IsNull())
@@ -324,18 +340,14 @@ std::unique_ptr<CICXOrderView::CICXClaimDFCHTLCImpl> CICXOrderView::GetICXClaimD
     return {};
 }
 
-Res CICXOrderView::ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, CICXOrderImpl const & order)
+Res CICXOrderView::ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, uint256 const & offertxid, CICXOrderImpl const & order)
 {
     //this should not happen, but for sure
     if (GetICXClaimDFCHTLCByCreationTx(claimdfchtlc.creationTx))
         return Res::Err("claimdfchtlc with creation tx %s already exists!", claimdfchtlc.creationTx.GetHex());
 
-    auto dfchtlc = GetICXSubmitDFCHTLCByCreationTx(claimdfchtlc.dfchtlcTx);
-    if (!dfchtlc)
-        return Res::Err("submitdfchtlc tx %s cannot be found!", claimdfchtlc.dfchtlcTx.GetHex());
-
     WriteBy<ICXClaimDFCHTLCCreationTx>(claimdfchtlc.creationTx, claimdfchtlc);
-    WriteBy<ICXClaimDFCHTLCKey>(TxidPairKey(dfchtlc->offerTx, claimdfchtlc.creationTx),CICXSubmitDFCHTLC::STATUS_CLAIMED);
+    WriteBy<ICXClaimDFCHTLCKey>(TxidPairKey(offertxid, claimdfchtlc.creationTx),CICXSubmitDFCHTLC::STATUS_CLAIMED);
 
     if (order.amountToFill != 0)
         WriteBy<ICXOrderCreationTx>(order.creationTx, order);

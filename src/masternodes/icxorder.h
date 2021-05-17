@@ -391,6 +391,7 @@ public:
     void ForEachICXOrderOpen(std::function<bool (OrderKey const &, uint8_t)> callback, DCT_ID const & pair = {0});
     void ForEachICXOrderClose(std::function<bool (OrderKey const &, uint8_t)> callback, DCT_ID const & pair = {0});
     void ForEachICXOrderExpire(std::function<bool (StatusKey const &, uint8_t)> callback, uint32_t const & height = 0);
+    std::unique_ptr<CICXOrderImpl> HasICXOrderOpen(DCT_ID const & tokenId, uint256 const & ordertxid);
 
     //MakeOffer
     std::unique_ptr<CICXMakeOfferImpl> GetICXMakeOfferByCreationTx(uint256 const & txid) const;
@@ -422,7 +423,7 @@ public:
 
     //ClaimDFCHTLC
     std::unique_ptr<CICXClaimDFCHTLCImpl> GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const;
-    Res ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, CICXOrderImpl const & order);
+    Res ICXClaimDFCHTLC(CICXClaimDFCHTLCImpl const & claimdfchtlc, uint256 const & offertxid, CICXOrderImpl const & order);
     void ForEachICXClaimDFCHTLC(std::function<bool (TxidPairKey const &, uint8_t)> callback, uint256 const & offertxid = uint256());
 
     //CloseOrder

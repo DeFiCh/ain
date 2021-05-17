@@ -181,7 +181,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
                             {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO, "tokenFrom coins amount"},
                             {"orderPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Price per unit"},
                             {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the order expires (Default: "
-                                + std::to_string(CICXOrder::DEFAULT_EXPIRY) + " blocks)"},
+                                + std::to_string(CICXOrder::DEFAULT_EXPIRY) + " DFI blocks)"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -350,7 +350,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     }
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid", signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -368,7 +368,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
                             {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Address of DFI token and for receiving tokens in case of EXT/DFC order"},
                             {"receivePubkey", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of EXT/DFC order type"},
                             {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the offer expires (Default: "
-                                + std::to_string(CICXMakeOffer::DEFAULT_EXPIRY) + " blocks)"},
+                                + std::to_string(CICXMakeOffer::DEFAULT_EXPIRY) + " DFI blocks)"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -446,17 +446,17 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
 
         if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
+            if (!metaObj["receivePubkey"].isNull())
+                makeoffer.receivePubkey = PublickeyFromString(trim_ws(metaObj["receivePubkey"].getValStr()));
+            else
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"receivePubkey\" must be non-null");
+
             CTokenAmount balance = pcustomcsview->GetBalance(makeoffer.ownerAddress,order->idToken);
             if (balance.nValue < makeoffer.amount)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!",
                         pcustomcsview->GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(makeoffer.ownerAddress)));
-
-            if (!metaObj["receivePubkey"].isNull())
-                makeoffer.receivePubkey = PublickeyFromString(trim_ws(metaObj["receivePubkey"].getValStr()));
-
-            else
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"receivePubkey\" must be non-null");
         }
+
         targetHeight = ::ChainActive().Height() + 1;
     }
 
@@ -499,7 +499,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid", signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -515,7 +515,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
                             {"offerTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of offer tx for which the htlc is"},
                             {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "amount in htlc"},
                             {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "hash of seed used for the hash lock part"},
-                            {"timeout", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "timeout (absolute in blocks) for expiration of htlc"},
+                            {"timeout", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "timeout (absolute in blocks) for expiration of htlc in DFI blocks"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -587,29 +587,9 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",offer->orderTx.GetHex()));
 
-        targetHeight = ::ChainActive().Height() + 1;
-
-        if (order->creationHeight + order->expiry < targetHeight + submitdfchtlc.timeout)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "order will expire before dfc htlc expires!");
-
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
             authScript = order->ownerAddress;
-
-            CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-            if (calcAmount > offer->amount)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make dfc htlc with that amount, amount must be lower or equal the amount in offer - %s > %s",
-                                ValueFromAmount(calcAmount).getValStr(), ValueFromAmount(offer->amount).getValStr()));
-
-            if (pcustomcsview->HasICXSubmitDFCHTLCOpen(submitdfchtlc.offerTx))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "dfc htlc already submitted!");
-
-            if (pcustomcsview->HasICXSubmitEXTHTLCOpen(submitdfchtlc.offerTx))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offer (%s) needs to have dfc htlc submitted first, but external htlc already submitted!",
-                        submitdfchtlc.offerTx.GetHex()));
-
-            if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_TIMEOUT)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitDFCHTLC::MINIMUM_TIMEOUT - 1));
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
@@ -619,30 +599,9 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
             if (balance.nValue < offer->amount)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!",
                         pcustomcsview->GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(offer->ownerAddress)));
-
-            if (pcustomcsview->HasICXSubmitDFCHTLCOpen(submitdfchtlc.offerTx))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "dfc htlc already submitted!");
-
-            auto exthtlc = pcustomcsview->HasICXSubmitEXTHTLCOpen(submitdfchtlc.offerTx);
-            if (!exthtlc)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offer (%s) needs to have ext htlc submitted first, but no external htlc found!",
-                            submitdfchtlc.offerTx.GetHex()));
-
-            CAmount calcedAmount(static_cast<CAmount>((arith_uint256(exthtlc->amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-            if (submitdfchtlc.amount != calcedAmount)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make dfc htlc with that amount, amount must be equal to calculated exthtlc amount - %s != %s",
-                                ValueFromAmount(submitdfchtlc.amount).getValStr(), ValueFromAmount(calcedAmount).getValStr()));
-
-            if (submitdfchtlc.hash != exthtlc->hash)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid hash, dfc htlc hash is different than extarnal htlc hash - %s != %s",
-                        submitdfchtlc.hash.GetHex(),exthtlc->hash.GetHex()));
-
-            if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT - 1));
-
-            if (submitdfchtlc.timeout >= (exthtlc->creationHeight + (exthtlc->timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS)) - targetHeight)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc in DFI blocks"));
         }
+
+        targetHeight = ::ChainActive().Height() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -684,7 +643,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid", signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -702,7 +661,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
                             {"htlcScriptAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "script address of external htlc"},
                             {"hash", RPCArg::Type::STR, RPCArg::Optional::NO, "hash of seed used for the hash lock part"},
                             {"ownerPubkey", RPCArg::Type::STR, RPCArg::Optional::NO, "pubkey of the owner to which the funds are refunded if HTLC timeouts"},
-                            {"timeout", RPCArg::Type::NUM, RPCArg::Optional::NO, "timeout (absolute in block) for expiration of external htlc"},
+                            {"timeout", RPCArg::Type::NUM, RPCArg::Optional::NO, "timeout (absolute in block) for expiration of external htlc in external chain blocks"},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -787,57 +746,16 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
         if (!order)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("orderTx (%s) does not exist",offer->orderTx.GetHex()));
 
-        targetHeight = ::ChainActive().Height() + 1;
-
-        if (order->creationHeight + order->expiry < targetHeight + (submitexthtlc.timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "order will expire before ext htlc expires!");
-
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
             authScript = offer->ownerAddress;
-
-            if (pcustomcsview->HasICXSubmitEXTHTLCOpen(submitexthtlc.offerTx))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "ext htlc already submitted!");
-
-            auto dfchtlc = pcustomcsview->HasICXSubmitDFCHTLCOpen(submitexthtlc.offerTx);
-            if (!dfchtlc)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offer (%s) needs to have dfc htlc submitted first, but no dfc htlc found!",
-                                                                    submitexthtlc.offerTx.GetHex()));
-
-            CAmount calcAmount(static_cast<CAmount>((arith_uint256(dfchtlc->amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-            if (submitexthtlc.amount != calcAmount)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make ext htlc with that amount, amount must be equal to calculated dfchtlc amount - %s != %s",
-                                                                    ValueFromAmount(submitexthtlc.amount).getValStr(), ValueFromAmount(calcAmount).getValStr()));
-
-            if (submitexthtlc.hash != dfchtlc->hash)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid hash, external htlc hash is different than dfc htlc hash - %s != %s",
-                                                                    submitexthtlc.hash.GetHex(),dfchtlc->hash.GetHex()));
-
-            if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT - 1));
-
-            if (submitexthtlc.timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS >= (dfchtlc->creationHeight + dfchtlc->timeout) - targetHeight)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be less than expiration period of 1st htlc in DFC blocks"));
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
             authScript = order->ownerAddress;
-
-            CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-            if (calcAmount > offer->amount)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("cannot make ext htlc with that amount, amount must be lower or equal the amount in offer - %s > %s",
-                                ValueFromAmount(calcAmount).getValStr(), ValueFromAmount(offer->amount).getValStr()));
-
-            if (pcustomcsview->HasICXSubmitEXTHTLCOpen(submitexthtlc.offerTx))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "ext htlc already submitted!");
-
-            if (pcustomcsview->HasICXSubmitDFCHTLCOpen(submitexthtlc.offerTx))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offer (%s) needs to have dfc htlc submitted first, but external htlc already submitted!",
-                        submitexthtlc.offerTx.GetHex()));
-
-            if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_TIMEOUT)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"timeout\" must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_TIMEOUT - 1));
         }
+
+        targetHeight = ::ChainActive().Height() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -881,7 +799,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid", signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -949,19 +867,6 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
     int targetHeight;
     {
         LOCK(cs_main);
-        auto dfchtlc = pcustomcsview->GetICXSubmitDFCHTLCByCreationTx(claimdfchtlc.dfchtlcTx);
-        if (!dfchtlc)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "dfchtlcTx (" + claimdfchtlc.dfchtlcTx.GetHex() + ") does not exist");
-
-        std::vector<unsigned char> calcSeedBytes(32);
-        uint256 calcHash;
-        CSHA256()
-            .Write(claimdfchtlc.seed.data(),claimdfchtlc.seed.size())
-            .Finalize(calcSeedBytes.data());
-        calcHash.SetHex(HexStr(calcSeedBytes));
-
-        if (dfchtlc->hash != calcHash)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "hash generated from given seed is different than in dfc htlc: " + calcHash.GetHex() + " - " + dfchtlc->hash.GetHex());
 
         targetHeight = ::ChainActive().Height() + 1;
     }
@@ -1005,7 +910,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid", signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -1110,7 +1015,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid", signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
@@ -1216,7 +1121,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
-    ret.pushKV("txid",signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
+    ret.pushKV("txid", signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
     return ret;
 }
 
