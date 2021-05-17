@@ -561,7 +561,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 400})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("cannot make dfc htlc with that amount, amount must be equal to calculated exthtlc amount" in errorString)
+        assert("amount must be equal to calculated exthtlc amount" in errorString)
 
         # more amount
         try:
@@ -572,7 +572,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 400})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("cannot make dfc htlc with that amount, amount must be equal to calculated exthtlc amount" in errorString)
+        assert("amount must be equal to calculated exthtlc amount" in errorString)
 
         # timeout less than minimum
         try:

@@ -434,9 +434,6 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
     if (!metaObj["expiry"].isNull())
         makeoffer.expiry = metaObj["expiry"].get_int();
 
-    if (makeoffer.expiry < CICXMakeOffer::DEFAULT_EXPIRY)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameters, argument \"expiry\" must be greater than %d", CICXMakeOffer::DEFAULT_EXPIRY - 1));
-
     int targetHeight;
     {
         LOCK(cs_main);

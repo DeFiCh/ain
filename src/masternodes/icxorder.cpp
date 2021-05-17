@@ -83,8 +83,8 @@ Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
         return Res::Err("order amountToFill does not equal to amountFrom!");
     if (order.orderPrice == 0)
         return Res::Err("order price must be greater than 0!");
-    if (order.expiry == 0)
-        return Res::Err("order expiry must be greater than 0!");
+    if (order.expiry < CICXOrder::DEFAULT_EXPIRY)
+        return Res::Err("order expiry must be greater than %d!", CICXOrder::DEFAULT_EXPIRY);
 
     OrderKey key(order.idToken, order.creationTx);
     WriteBy<ICXOrderCreationTx>(order.creationTx, order);
@@ -156,8 +156,8 @@ Res CICXOrderView::ICXMakeOffer(CICXMakeOfferImpl const & makeoffer)
         return Res::Err("makeoffer with creation tx %s already exists!", makeoffer.creationTx.GetHex());
     if (makeoffer.amount == 0)
         return Res::Err("offer amount must be greater than 0!");
-    if (makeoffer.expiry == 0)
-        return Res::Err("offer expiry must be greater than 0!");
+    if (makeoffer.expiry < CICXMakeOffer::DEFAULT_EXPIRY)
+        return Res::Err("offer expiry must be greater than %d!", CICXMakeOffer::DEFAULT_EXPIRY);
 
     WriteBy<ICXMakeOfferCreationTx>(makeoffer.creationTx, makeoffer);
     WriteBy<ICXMakeOfferOpenKey>(TxidPairKey(makeoffer.orderTx, makeoffer.creationTx), CICXMakeOffer::STATUS_OPEN);

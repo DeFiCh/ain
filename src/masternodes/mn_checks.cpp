@@ -1292,10 +1292,9 @@ public:
             if (!exthtlc)
                 return Res::Err("offer (%s) needs to have ext htlc submitted first, but no external htlc found!", submitdfchtlc.offerTx.GetHex());
 
-            CAmount calcedAmount(static_cast<CAmount>((arith_uint256(exthtlc->amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-            if (submitdfchtlc.amount != calcedAmount)
-                return Res::Err("cannot make dfc htlc with that amount, amount must be equal to calculated exthtlc amount - %s != %s",
-                                ValueFromAmount(submitdfchtlc.amount).getValStr(), ValueFromAmount(calcedAmount).getValStr());
+            CAmount calcAmount(static_cast<CAmount>((arith_uint256(exthtlc->amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+            if (submitdfchtlc.amount != calcAmount)
+                return Res::Err("amount must be equal to calculated dfchtlc amount");
 
             if (submitdfchtlc.hash != exthtlc->hash)
                 return Res::Err("Invalid hash, dfc htlc hash is different than extarnal htlc hash - %s != %s",
@@ -1344,7 +1343,7 @@ public:
             if (!HasAuth(offer->ownerAddress))
                 return Res::Err("tx must have at least one input from offer owner");
 
-            auto dfchtlc = pcustomcsview->HasICXSubmitDFCHTLCOpen(submitexthtlc.offerTx);
+            auto dfchtlc = mnview.HasICXSubmitDFCHTLCOpen(submitexthtlc.offerTx);
             if (!dfchtlc)
                 return Res::Err("offer (%s) needs to have dfc htlc submitted first, but no dfc htlc found!", submitexthtlc.offerTx.GetHex());
 
