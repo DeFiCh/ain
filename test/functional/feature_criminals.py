@@ -30,17 +30,6 @@ class CriminalsTest (DefiTestFramework):
     def setup_network(self):
         self.setup_nodes()
 
-        # for i in range(self.num_nodes - 1):
-        #     connect_nodes_bi(self.nodes, i, i + 1)
-        # self.sync_all()
-
-    def dumphashes(self, nodes=None, block = None):
-        if nodes is None:
-            nodes = range(self.num_nodes)
-        for i in nodes:
-            bl = self.nodes[i].getblockcount() if block is None else block
-            print ("Node%d: [%d] %s" % (i, bl, self.nodes[i].getblockhash(bl)))
-
     def erase_node(self, n):
         os.remove(os.path.join(self.nodes[n].datadir, 'regtest', 'wallets', 'wallet.dat'))
         shutil.rmtree(os.path.join(self.nodes[n].datadir, 'regtest', 'blocks'))
@@ -83,7 +72,7 @@ class CriminalsTest (DefiTestFramework):
         self.nodes[2].generate(5)
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks(self.nodes[0:3])
-        # self.dumphashes()
+
         assert_equal(self.nodes[1].listmasternodes()[node0id]['state'], "ENABLED")
         assert_equal(self.nodes[1].listcriminalproofs(), proof)
 
