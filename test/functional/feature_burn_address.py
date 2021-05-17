@@ -106,10 +106,8 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result[0]['type'], 'AccountToAccount')
         assert_equal(result[0]['amounts'][0], '1.00000000@DFI')
 
-        # Auto auth from failed accounttoaccount
-        assert_equal(result[1]['owner'], 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG')
-        assert_equal(result[1]['type'], 'None')
-        assert_equal(result[1]['amounts'][0], '0.99988640@DFI')
+        # Auto auth burnt amount
+        auth_burn_amount = result[1]['amounts'][0][0:10]
 
         # Send to burn address with accounttoutxos
         self.nodes[0].accounttoutxos(funded_address, {burn_address:"2@0"})
@@ -150,7 +148,7 @@ class BurnAddressTest(DefiTestFramework):
         # Test output of getburninfo
         result = self.nodes[0].getburninfo()
         assert_equal(result['address'], burn_address)
-        assert_equal(result['amount'], Decimal('12.99988640'))
+        assert_equal(result['amount'], Decimal('12.00000000') + Decimal(auth_burn_amount))
         assert_equal(result['tokens'][0], '1.00000000@DFI')
         assert_equal(result['tokens'][1], '100.00000000@GOLD#128')
         assert_equal(result['feeburn'], Decimal('2.00000000'))
