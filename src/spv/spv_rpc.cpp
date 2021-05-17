@@ -553,9 +553,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
             item.pushKV("previousAnchor", prev->previousAnchor.ToString());
             item.pushKV("blockHeight", static_cast<int>(prev->height));
             item.pushKV("blockHash", prev->blockHash.ToString());
-            if (anchorCreationHeight != 0) {
-                item.pushKV("creationHeight", static_cast<int>(anchorCreationHeight));
-            }
+            item.pushKV("creationHeight", static_cast<int>(anchorCreationHeight));
             item.pushKV("signers", (uint64_t)signers.size());
 
             UniValue signees(UniValue::VARR);
@@ -606,9 +604,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
         item.pushKV("previousAnchor", prev->previousAnchor.ToString());
         item.pushKV("blockHeight", static_cast<int>(prev->height));
         item.pushKV("blockHash", prev->blockHash.ToString());
-        if (anchorCreationHeight != 0) {
-            item.pushKV("creationHeight", static_cast<int>(anchorCreationHeight));
-        }
+        item.pushKV("creationHeight", static_cast<int>(anchorCreationHeight));
         item.pushKV("signers", (uint64_t)signers.size());
 
         UniValue signees(UniValue::VARR);

@@ -25,9 +25,9 @@ class PoolSwapTest (DefiTestFramework):
         # node2: revert create (all)
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120'],
-            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120'],
-            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120']
+            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120', '-subsidytest=1']
         ]
 
         # SET parameters for create tokens and pools
@@ -71,6 +71,7 @@ class PoolSwapTest (DefiTestFramework):
             "collateralAddress": address
         }, [])
         self.nodes[0].generate(1)
+        self.sync_blocks()
         self.tokens.append(symbol)
 
     def create_pool(self, tokenA, tokenB, owner):
@@ -82,6 +83,7 @@ class PoolSwapTest (DefiTestFramework):
             "ownerAddress": owner
         }, []))
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
     def create_pools(self, owner):
         for i in range(self.COUNT_POOLS):
@@ -100,6 +102,7 @@ class PoolSwapTest (DefiTestFramework):
             self.nodes[0].generate(1)
             self.nodes[0].minttokens(mint_amount + "@" + self.get_id_token(item), [])
             self.nodes[0].generate(1)
+            self.sync_blocks()
         return mint_amount
 
     def send_tokens(self, owner):
@@ -117,6 +120,7 @@ class PoolSwapTest (DefiTestFramework):
                 self.nodes[0].generate(1)
                 self.nodes[0].accounttoaccount(owner, outputs, [])
                 self.nodes[0].generate(1)
+                self.sync_blocks()
 
     def add_pools_liquidity(self, owner):
         for item in range(self.COUNT_POOLS):
@@ -143,6 +147,7 @@ class PoolSwapTest (DefiTestFramework):
                         self.accounts[idx]: [amountA, amountB]
                     }, self.accounts[idx], [])
                 self.nodes[0].generate(1)
+                self.sync_blocks()
 
     def slope_swap(self, unswapped, poolFrom, poolTo):
         swapped = poolTo - (poolTo * poolFrom / (poolFrom + unswapped))
@@ -151,7 +156,7 @@ class PoolSwapTest (DefiTestFramework):
 
         return (poolFrom, poolTo)
 
-    def poolswap(self):
+    def poolswap(self, nodes):
         for item in range(self.COUNT_POOLS):
             tokenA = "GOLD" + str(item)
             tokenB = "SILVER" + str(item)
@@ -165,6 +170,7 @@ class PoolSwapTest (DefiTestFramework):
                 for idx in range(start, end):
                     self.nodes[0].sendmany("", { self.accounts[idx] : 0.02 })
                 self.nodes[0].generate(1)
+                self.sync_blocks(nodes)
 
                 amount = random.randint(1, self.AMOUNT_TOKEN // 2)
                 amountsB = {}
@@ -187,6 +193,7 @@ class PoolSwapTest (DefiTestFramework):
                         "tokenTo": str(self.get_id_token(tokenA)),
                     }, [])
                 self.nodes[0].generate(1)
+                self.sync_blocks(nodes)
 
                 for idx in range(start, end):
                     liquidity = self.nodes[0].getaccount(self.accounts[idx], {}, True)[idPool]
@@ -222,10 +229,9 @@ class PoolSwapTest (DefiTestFramework):
         print("Generating initial chain...")
 
         self.nodes[0].generate(100)
-        self.sync_all()
-
         owner = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # START
         #========================
@@ -280,6 +286,7 @@ class PoolSwapTest (DefiTestFramework):
         self.nodes[0].setgov({ "LP_SPLITS": obj })
         self.nodes[0].setgov({ "LP_DAILY_DFI_REWARD": self.LP_DAILY_DFI_REWARD })
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         g1 = self.nodes[0].getgov("LP_SPLITS")
         for i in range(self.COUNT_POOLS):
@@ -294,7 +301,8 @@ class PoolSwapTest (DefiTestFramework):
 
         print("Swapping tokens...")
         start_time = time.time()
-        self.poolswap()
+        nodes = self.nodes[0:2]
+        self.poolswap(nodes)
         end_time = time.time() - start_time
         print("Tokens exchanged")
         print("Elapsed time: {} s".format(end_time))
@@ -309,8 +317,12 @@ class PoolSwapTest (DefiTestFramework):
         self.sync_blocks()
 
         assert(self.nodes[0].getblockcount() == 120) # eunos
+
+        self.LP_DAILY_DFI_REWARD = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")['LP_DAILY_DFI_REWARD']
+        assert_equal(self.LP_DAILY_DFI_REWARD, Decimal('103.08268000'))
+
         print("Swapping tokens after eunos height...")
-        self.poolswap()
+        self.poolswap(self.nodes)
 
 
 if __name__ == '__main__':

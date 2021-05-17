@@ -12,7 +12,7 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import \
-    connect_nodes, disconnect_nodes
+    connect_nodes, disconnect_nodes, assert_equal
 from decimal import Decimal
 
 
@@ -21,16 +21,11 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-subsidytest=1']]
 
 
     def run_test(self):
-        # fast check for debug
-        print (self.nodes[0].getgov("LP_SPLITS"))
-        print (self.nodes[0].getgov("LP_DAILY_DFI_REWARD"))
-        # return
-
         print("Generating initial chain...")
         self.setup_tokens()
 
@@ -200,6 +195,35 @@ class GovsetTest (DefiTestFramework):
             and pool2['rewardPct'] == Decimal('0.40000000')
             and pool3['rewardPct'] == Decimal('0.10000000'))
 
+        # Generate to Eunos hard fork
+        self.nodes[0].clearmempool()
+        self.nodes[0].generate(200 - self.nodes[0].getblockcount())
+
+        # Try and set LP_DAILY_DFI_REWARD manually
+        try:
+            self.nodes[0].setgov({ "LP_DAILY_DFI_REWARD": 100})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Cannot be set manually after Eunos hard fork" in errorString)
+
+        # Check new subsidy
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('103.08268000'))
+
+        # Roll back
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        # Check subsidy restored
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('35.50000000'))
+
+        # Move to second reduction and check reward
+        self.nodes[0].generate(151)
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('101.37356916'))
+
+        # Rollback from second reduction
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        # Check subsidy restored
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('103.08268000'))
 
 if __name__ == '__main__':
     GovsetTest ().main ()

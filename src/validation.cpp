@@ -1131,14 +1131,15 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 {
     CAmount nSubsidy = consensusParams.baseBlockSubsidy;
 
-    if (Params().NetworkIDString() != CBaseChainParams::REGTEST || consensusParams.EunosHeight == 1)
+    if (Params().NetworkIDString() != CBaseChainParams::REGTEST ||
+            (Params().NetworkIDString() == CBaseChainParams::REGTEST && gArgs.GetBoolArg("-subsidytest", false)))
     {
         if (nHeight >= consensusParams.EunosHeight)
         {
             nSubsidy = consensusParams.newBaseBlockSubsidy;
             const size_t reductions = (nHeight - consensusParams.EunosHeight) / consensusParams.emissionReductionPeriod;
 
-            // See if we already have thie reduction calculated and return if found.
+            // See if we already have this reduction calculated and return if found.
             if (subsidyReductions.find(reductions) != subsidyReductions.end())
             {
                 return subsidyReductions[reductions];
@@ -2085,7 +2086,18 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
             for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
-                mnview.SubCommunityBalance(kv.first, subsidy);
+
+                // Remove Swap, Futures and Options balances from Unallocated
+                if (kv.first == CommunityAccountType::Swap ||
+                    kv.first == CommunityAccountType::Futures ||
+                    kv.first == CommunityAccountType::Options)
+                {
+                    mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
+                }
+                else
+                {
+                    mnview.SubCommunityBalance(kv.first, subsidy);
+                }
             }
         }
         else
@@ -2575,6 +2587,27 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     { // old data pruning and other (some processing made for the whole block)
         // make all changes to the new cache/snapshot to make it possible to take a diff later:
         CCustomCSView cache(mnview);
+
+        // Hard coded LP_DAILY_DFI_REWARD change
+        if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
+        {
+            const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::IncentiveFunding);
+            if (incentivePair != chainparams.GetConsensus().newNonUTXOSubsidies.end())
+            {
+                CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus()), incentivePair->second);
+                // Change daily LP reward if it has changed
+                auto var = cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName());
+                if (var) {
+                    // Cast to avoid UniValue in GovVariable Export/Import
+                    auto lpVar = dynamic_cast<LP_DAILY_DFI_REWARD*>(var.get());
+                    if (lpVar && lpVar->dailyReward != subsidy) {
+                        lpVar->dailyReward = subsidy;
+                        lpVar->Apply(cache, pindex->nHeight);
+                        cache.SetVariable(*lpVar);
+                    }
+                }
+            }
+        }
 
         // hardfork commissions update
         CAmount distributed = cache.UpdatePoolRewards(
@@ -4634,19 +4667,13 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
     CTeamView::CTeam team;
     int teamChange = tip->nHeight;
     auto const teamDakota = pcustomcsview->GetAuthTeam(tip->height);
-
-    bool newAnchorLogic{tip->height >= static_cast<uint64_t>(consensus.DakotaHeight)};
-    if (newAnchorLogic) {
-        if (!teamDakota || teamDakota->empty()) {
-            return;
-        }
-        team = *teamDakota;
-
-        // Calc how far back team changes, do not generate auths below that height.
-        teamChange = teamChange % Params().GetConsensus().mn.anchoringTeamChange;
-    } else {
-        team = panchors->GetCurrentTeam(topAnchor);
+    if (!teamDakota || teamDakota->empty()) {
+        return;
     }
+    team = *teamDakota;
+
+    // Calc how far back team changes, do not generate auths below that height.
+    teamChange = teamChange % Params().GetConsensus().mn.anchoringTeamChange;
 
     uint64_t topAnchorHeight = topAnchor ? static_cast<uint64_t>(topAnchor->anchor.height) : 0;
     // we have no need to ask for auths at all if we have topAnchor higher than current chain
@@ -4684,16 +4711,14 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
 
         int anchorHeight = static_cast<int>(pindex->height) - consensus.mn.anchoringFrequency;
 
-        if (newAnchorLogic) {
-            // Get anchor block from specified time depth
-            while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + consensus.mn.anchoringTimeDepth > pindex->nTime) {
-                --anchorHeight;
-            }
+        // Get anchor block from specified time depth
+        while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + consensus.mn.anchoringTimeDepth > pindex->nTime) {
+            --anchorHeight;
+        }
 
-            // Rollback to height consistent with anchoringFrequency
-            while (anchorHeight > 0 && anchorHeight % consensus.mn.anchoringFrequency != 0) {
-                --anchorHeight;
-            }
+        // Rollback to height consistent with anchoringFrequency
+        while (anchorHeight > 0 && anchorHeight % consensus.mn.anchoringFrequency != 0) {
+            --anchorHeight;
         }
 
         if (anchorHeight <= 0 || (topAnchor && topAnchor->anchor.height >= (THeight)anchorHeight)) { // important to check prev anchor height!
@@ -4702,25 +4727,21 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
 
         auto const anchorBlock = ::ChainActive()[anchorHeight];
 
-        // Create next team or data to find team if new logic
+        // Create team data
         CTeamView::CTeam team;
-        if (newAnchorLogic) {
-            std::vector<unsigned char> teamDetailsVector;
+        std::vector<unsigned char> teamDetailsVector;
 
-            // Embed height and partial hash into CKeyID to find team later and validate chain
-            size_t prefixLength{CKeyID().size() - spv::BtcAnchorMarker.size() - sizeof(uint64_t)};
-            std::vector<unsigned char> hashPrefix{pindex->GetBlockHash().begin(), pindex->GetBlockHash().begin() + prefixLength};
-            teamDetailsVector.insert(teamDetailsVector.end(), spv::BtcAnchorMarker.begin(), spv::BtcAnchorMarker.end()); // 3 Bytes
-            uint64_t anchorCreationHeight = pindex->height;
-            teamDetailsVector.insert(teamDetailsVector.end(), reinterpret_cast<unsigned char*>(&anchorCreationHeight),
-                                     reinterpret_cast<unsigned char*>(&anchorCreationHeight) + sizeof(uint64_t)); // 8 Bytes
-            teamDetailsVector.insert(teamDetailsVector.end(), hashPrefix.begin(), hashPrefix.end()); // 9 Bytes
+        // Embed height and partial hash into CKeyID to find team later and validate chain
+        size_t prefixLength{CKeyID().size() - spv::BtcAnchorMarker.size() - sizeof(uint64_t)};
+        std::vector<unsigned char> hashPrefix{pindex->GetBlockHash().begin(), pindex->GetBlockHash().begin() + prefixLength};
+        teamDetailsVector.insert(teamDetailsVector.end(), spv::BtcAnchorMarker.begin(), spv::BtcAnchorMarker.end()); // 3 Bytes
+        uint64_t anchorCreationHeight = pindex->height;
+        teamDetailsVector.insert(teamDetailsVector.end(), reinterpret_cast<unsigned char*>(&anchorCreationHeight),
+                                 reinterpret_cast<unsigned char*>(&anchorCreationHeight) + sizeof(uint64_t)); // 8 Bytes
+        teamDetailsVector.insert(teamDetailsVector.end(), hashPrefix.begin(), hashPrefix.end()); // 9 Bytes
 
-            CKeyID teamDetails{uint160{teamDetailsVector}};
-            team.insert(teamDetails);
-        } else {
-            team = pcustomcsview->CalcNextTeam(anchorBlock->stakeModifier);
-        }
+        CKeyID teamDetails{uint160{teamDetailsVector}};
+        team.insert(teamDetails);
 
         // trying to create and sign new auth
         CAnchorAuthMessage auth({topAnchor ? topAnchor->txHash : uint256(), static_cast<THeight>(anchorHeight), anchorBlock->GetBlockHash(), team});
