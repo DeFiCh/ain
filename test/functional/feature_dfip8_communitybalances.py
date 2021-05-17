@@ -14,10 +14,9 @@ class Dfip8Test(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-eunosheight=1']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-eunosheight=1', '-subsidytest=1']]
 
     def run_test(self):
-
         self.nodes[0].generate(1)
 
         result = self.nodes[0].listcommunitybalances()
@@ -62,6 +61,35 @@ class Dfip8Test(DefiTestFramework):
         assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('144.55193810'))
 
         # First reduction plus one
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].listcommunitybalances()
+
+        assert_equal(result['AnchorReward'], Decimal('12.31052976'))
+        assert_equal(result['IncentiveFunding'], Decimal('15665.14913832'))
+        assert_equal(result['Burnt'], Decimal('22337.45627620'))
+
+        getblock = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        assert_equal(getblock['nonutxo'][0]['AnchorReward'], Decimal('0.07966488'))
+        assert_equal(getblock['nonutxo'][0]['IncentiveFunding'], Decimal('101.37356916'))
+        assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('144.55193810'))
+
+        # Invalidate a block and test rollback
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        result = self.nodes[0].listcommunitybalances()
+
+        assert_equal(result['AnchorReward'], Decimal('12.23086488'))
+        assert_equal(result['IncentiveFunding'], Decimal('15563.77556916'))
+        assert_equal(result['Burnt'], Decimal('22192.90433810'))
+
+        getblock = self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        assert_equal(getblock['nonutxo'][0]['AnchorReward'], Decimal('0.07966488'))
+        assert_equal(getblock['nonutxo'][0]['IncentiveFunding'], Decimal('101.37356916'))
+        assert_equal(getblock['nonutxo'][0]['Burnt'], Decimal('144.55193810'))
+
+        #Go forward again to first reduction
         self.nodes[0].generate(1)
 
         result = self.nodes[0].listcommunitybalances()
