@@ -353,7 +353,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
             errorString = e.error['message']
         assert("timeout must be less than expiration period of 1st htlc in DFC blocks" in errorString)
 
-        exthtlcTx = self.nodes[1].icx_submitexthtlc({
+        self.nodes[1].icx_submitexthtlc({
                                     'offerTx': offerTx,
                                     'amount': 0.01,
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
@@ -382,7 +382,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
             errorString = e.error['message']
         assert("hash generated from given seed is different than in dfc htlc" in errorString)
 
-        claimTx = self.nodes[1].icx_claimdfchtlc({
+        self.nodes[1].icx_claimdfchtlc({
                                     'dfchtlcTx': dfchtlcTx,
                                     'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
 
