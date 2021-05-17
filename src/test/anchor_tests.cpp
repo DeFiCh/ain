@@ -109,7 +109,7 @@ BOOST_AUTO_TEST_CASE(best_anchor_activation_logic)
 
     auto top = panchors->GetActiveAnchor();
     BOOST_CHECK(top == nullptr);
-    auto team0 = panchors->GetCurrentTeam(panchors->GetActiveAnchor());
+    CAnchorData::CTeam team0;
 
     // Stage 1. Same btc height. The very first, no prevs (btc height = 1)
     // create first anchor
@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE(Test_GetLatestAnchorUpToDeFiHeight)
 
     auto top = panchors->GetActiveAnchor();
     BOOST_CHECK(top == nullptr);
-    auto team0 = panchors->GetCurrentTeam(panchors->GetActiveAnchor());
+    CAnchorData::CTeam team0;
 
     // no anchors yet. call the GetMostLatestAtDeFiHeight() at DeFi height 20
     // should return nullptr

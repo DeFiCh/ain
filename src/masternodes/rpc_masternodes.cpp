@@ -667,23 +667,12 @@ UniValue listanchors(const JSONRPCRequest& request)
         CTxDestination rewardDest = item.rewardKeyType == 1 ? CTxDestination(PKHash(item.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(item.rewardKeyID));
         UniValue entry(UniValue::VOBJ);
         entry.pushKV("anchorHeight", static_cast<int>(item.anchorHeight));
-        if (item.dfiBlockHash != uint256()) {
-            entry.pushKV("anchorHash", item.dfiBlockHash.ToString());
-        }
+        entry.pushKV("anchorHash", item.dfiBlockHash.ToString());
         entry.pushKV("rewardAddress", EncodeDestination(rewardDest));
-        if (defiHash) {
-            entry.pushKV("dfiRewardHash", defiHash->ToString());
-        }
-        if (item.btcTxHeight != 0) {
-            entry.pushKV("btcAnchorHeight", static_cast<int>(item.btcTxHeight));
-        }
+        entry.pushKV("dfiRewardHash", defiHash->ToString());
+        entry.pushKV("btcAnchorHeight", static_cast<int>(item.btcTxHeight));
         entry.pushKV("btcAnchorHash", item.btcTxHash.ToString());
-
-        if (item.dfiBlockHash != uint256() && item.btcTxHeight != 0) {
-            entry.pushKV("confirmSignHash", item.GetSignHash().ToString());
-        } else {
-            entry.pushKV("confirmSignHash", static_cast<const CAnchorConfirmData &>(item).GetSignHash().ToString());
-        }
+        entry.pushKV("confirmSignHash", item.GetSignHash().ToString());
 
         result.push_back(entry);
     }

@@ -238,7 +238,6 @@ public:
     bool DeleteAnchorByBtcTx(uint256 const & btcTxHash);
 
     CAnchorData::CTeam GetNextTeam(uint256 const & btcPrevTx) const;
-    CAnchorData::CTeam GetCurrentTeam(AnchorRec const * anchor) const;
 
     AnchorRec const * GetAnchorByBtcTx(uint256 const & txHash) const;
 
