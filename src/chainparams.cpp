@@ -124,7 +124,7 @@ public:
         consensus.ClarkeQuayHeight = 595738;
         consensus.DakotaHeight = 678000; // 1st March 2021
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
-        consensus.EunosHeight = 887000; // 31st May 2021
+        consensus.EunosHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -335,7 +335,7 @@ public:
         consensus.ClarkeQuayHeight = 155000;
         consensus.DakotaHeight = 220680;
         consensus.DakotaCrescentHeight = 287700;
-        consensus.EunosHeight = 424000; // 17th May 2021
+        consensus.EunosHeight = 428000; // 19th May 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
