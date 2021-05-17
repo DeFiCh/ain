@@ -24,9 +24,6 @@ class ICXOrderbookErrorTest (DefiTestFramework):
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
-        # Burn address
-        burn_address = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
-
         print("Generating initial chain...")
         self.nodes[0].generate(25)
         self.sync_blocks()
@@ -528,7 +525,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
             errorString = e.error['message']
         assert("timeout must be greater than 29" in errorString)
 
-        exthtlcTx = self.nodes[0].icx_submitexthtlc({
+        self.nodes[0].icx_submitexthtlc({
                                     'offerTx': offerTx,
                                     'amount': 0.01,
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
@@ -623,7 +620,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
             errorString = e.error['message']
         assert("hash generated from given seed is different than in dfc htlc" in errorString)
 
-        claimTx = self.nodes[0].icx_claimdfchtlc({
+        self.nodes[0].icx_claimdfchtlc({
                                     'dfchtlcTx': dfchtlcTx,
                                     'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
 
