@@ -33,6 +33,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/govvariables/lp_daily_dfi_reward -> masternodes/gv -> masternodes/govvariables/lp_daily_dfi_reward"
     "masternodes/govvariables/lp_daily_dfi_reward -> masternodes/masternodes -> validation -> masternodes/govvariables/lp_daily_dfi_reward"
     "masternodes/govvariables/lp_splits -> masternodes/gv -> masternodes/govvariables/lp_splits"
+    "masternodes/govvariables/icx_takerfee_per_btc -> masternodes/gv -> masternodes/govvariables/icx_takerfee_per_btc"
     "masternodes/masternodes -> masternodes/mn_checks -> masternodes/masternodes"
     "masternodes/masternodes -> validation -> pos -> masternodes/masternodes"
     "masternodes/masternodes -> validation -> masternodes/masternodes"

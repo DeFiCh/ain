@@ -226,6 +226,73 @@ public:
         rpcInfo.pushKV("tokenPrices", tokenPrices);
     }
 
+    void operator()(const CICXCreateOrderMessage& obj) const {
+        auto token = mnview.GetToken(obj.idToken);
+        if (obj.orderType == obj.TYPE_INTERNAL)
+        {
+            rpcInfo.pushKV("type","DFC");
+            rpcInfo.pushKV("tokenFrom", token->CreateSymbolKey(obj.idToken));
+            rpcInfo.pushKV("chainto", CICXOrder::CHAIN_BTC);
+        }
+        else if (obj.orderType == obj.TYPE_INTERNAL)
+        {
+            rpcInfo.pushKV("type","EXTERNAL");
+            rpcInfo.pushKV("chainFrom", CICXOrder::CHAIN_BTC);
+            rpcInfo.pushKV("tokenTo", token->CreateSymbolKey(obj.idToken));
+            rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
+
+        }
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
+        rpcInfo.pushKV("amountFrom", ValueFromAmount(obj.amountFrom));
+        rpcInfo.pushKV("amountToFill", ValueFromAmount(obj.amountToFill));
+        rpcInfo.pushKV("orderPrice", ValueFromAmount(obj.orderPrice));
+        CAmount calcedAmount(static_cast<CAmount>((arith_uint256(obj.amountToFill) * arith_uint256(obj.orderPrice) / arith_uint256(COIN)).GetLow64()));
+        rpcInfo.pushKV("amountToFillInToAsset", ValueFromAmount(calcedAmount));
+        rpcInfo.pushKV("expiry", static_cast<int>(obj.expiry));
+    }
+
+    void operator()(const CICXMakeOfferMessage& obj) const {
+        rpcInfo.pushKV("orderTx", obj.orderTx.GetHex());
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.amount));
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
+        if (obj.receivePubkey.IsFullyValid())
+            rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
+        rpcInfo.pushKV("takerFee", ValueFromAmount(obj.takerFee));
+        rpcInfo.pushKV("expiry", static_cast<int>(obj.expiry));
+    }
+
+    void operator()(const CICXSubmitDFCHTLCMessage& obj) const {
+        rpcInfo.pushKV("type", "DFC");
+        rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.amount));
+        rpcInfo.pushKV("hash", obj.hash.GetHex());
+        rpcInfo.pushKV("timeout", static_cast<int>(obj.timeout));
+    }
+
+    void operator()(const CICXSubmitEXTHTLCMessage& obj) const {
+        rpcInfo.pushKV("type", "EXTERNAL");
+        rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.amount));
+        rpcInfo.pushKV("hash", obj.hash.GetHex());
+        rpcInfo.pushKV("htlcScriptAddress", obj.htlcscriptAddress);
+        rpcInfo.pushKV("ownerPubkey", HexStr(obj.ownerPubkey));
+        rpcInfo.pushKV("timeout", static_cast<int>(obj.timeout));
+    }
+
+    void operator()(const CICXClaimDFCHTLCMessage& obj) const {
+        rpcInfo.pushKV("type", "CLAIM DFC");
+        rpcInfo.pushKV("dfchtlcTx", obj.dfchtlcTx.GetHex());
+        rpcInfo.pushKV("seed", HexStr(obj.seed));
+    }
+
+    void operator()(const CICXCloseOrderMessage& obj) const {
+        rpcInfo.pushKV("orderTx", obj.orderTx.GetHex());
+    }
+
+    void operator()(const CICXCloseOfferMessage& obj) const {
+        rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };

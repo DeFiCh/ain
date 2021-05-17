@@ -2150,7 +2150,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(pindex);
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
+
+    // Reset phanton TX to block TX count
     nPhantomBurnTx = block.vtx.size();
+
+    // Wipe burn map, we only want TXs added during ConnectBlock
+    mapBurnAmounts.clear();
 
     // Check it again in case a previous version let a bad block in
     // NOTE: We don't currently (re-)invoke ContextualCheckBlock() or
@@ -2634,6 +2639,167 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);
         if (!res.ok) {
             LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, block.height, block.GetHash().ToString());
+        }
+
+        // close expired orders, refund all expired DFC HTLCs at this block height
+        {
+            cache.ForEachICXOrderExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
+                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
+                auto order = cache.GetICXOrderByCreationTx(key.second);
+                if (order)
+                {
+                    Res res = Res::Ok();
+                    if (order->orderType == CICXOrder::TYPE_INTERNAL)
+                    {
+                        CTokenAmount amount{order->idToken, order->amountToFill};
+                        CScript txidaddr(order->creationTx.begin(), order->creationTx.end());
+                        res = cache.SubBalance(txidaddr, amount);
+                        if (!res)
+                            LogPrintf("Can't subtract balance from order txidaddr: %s\n", res.msg);
+                        else
+                        {
+                            res = cache.AddBalance(order->ownerAddress, amount);
+                            if (!res)
+                                LogPrintf("Can't add balance back to owner: %s\n", res.msg);
+                        }
+                    }
+
+                    if (res.ok)
+                    {
+                        res = cache.ICXCloseOrderTx(*order, status);
+                        if (!res)
+                            LogPrintf("Can't close order tx: %s\n", res.msg);
+                    }
+                }
+                return true;
+            },pindex->nHeight);
+
+            cache.ForEachICXMakeOfferExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
+                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
+                auto offer = cache.GetICXMakeOfferByCreationTx(key.second);
+                if (!offer)
+                    return true;
+                auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
+                if (!order)
+                    return true;
+
+                CScript txidAddr(offer->creationTx.begin(),offer->creationTx.end());
+                CTokenAmount takerFee{DCT_ID{0}, offer->takerFee};
+                Res res = Res::Ok();
+
+                if ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.HasICXSubmitDFCHTLCOpen(offer->creationTx)) ||
+                    (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.HasICXSubmitEXTHTLCOpen(offer->creationTx)))
+                {
+                    res = cache.SubBalance(txidAddr,takerFee);
+                    if (!res)
+                        LogPrintf("Can't subtract takerFee from offer txidAddr: %s\n", res.msg);
+                    else
+                    {
+                        res = cache.AddBalance(offer->ownerAddress,takerFee);
+                        if (!res)
+                            LogPrintf("Can't refund takerFee back to owner: %s\n", res.msg);
+                    }
+                }
+                if (res.ok)
+                {
+                    res = cache.ICXCloseMakeOfferTx(*offer,status);
+                    if (!res)
+                        LogPrintf("Can't close offer tx: %s\n", res.msg);
+                }
+
+                return true;
+            }, pindex->nHeight);
+
+            cache.ForEachICXSubmitDFCHTLCExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
+                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
+
+                auto dfchtlc = cache.GetICXSubmitDFCHTLCByCreationTx(key.second);
+                if (!dfchtlc)
+                    return true;
+                auto offer = cache.GetICXMakeOfferByCreationTx(dfchtlc->offerTx);
+                if (!offer)
+                    return true;
+                auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
+                if (!order)
+                    return true;
+
+                bool refund = false;
+
+                if (status == CICXSubmitDFCHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_INTERNAL)
+                {
+                    if (!cache.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx))
+                    {
+                        CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
+                        auto res = cache.AddBalance(order->ownerAddress, makerDeposit);
+                        if (!res)
+                            LogPrintf("Can't refund makerDeposit back to owner: %s\n", res.msg);
+                        refund = true;
+                    }
+                }
+                else if (status == CICXSubmitDFCHTLC::STATUS_REFUNDED)
+                    refund = true;
+
+                if (refund)
+                {
+                    CScript ownerAddress;
+                    CTokenAmount amount = {order->idToken, dfchtlc->amount};
+                    if (order->orderType == CICXOrder::TYPE_INTERNAL)
+                        ownerAddress = CScript(order->creationTx.begin(), order->creationTx.end());
+                    else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
+                        ownerAddress = offer->ownerAddress;
+
+                    CScript txidaddr = CScript(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
+                    auto res = cache.SubBalance(txidaddr, amount);
+                    if (!res)
+                        LogPrintf("Can't subtract balance from dfc htlc txidaddr: %s\n", res.msg);
+                    else
+                    {
+                        res = cache.AddBalance(ownerAddress, amount);
+                        if (!res)
+                            LogPrintf("Can't add balance from dfc htlc back to owner: %s\n", res.msg);
+                    }
+                    if (res.ok)
+                    {
+                        res = cache.ICXCloseDFCHTLC(*dfchtlc, status);
+                        if (!res)
+                            LogPrintf("Can't refund dfc htlc: %s\n", res.msg);
+                    }
+                }
+
+                return true;
+            }, pindex->nHeight);
+
+            cache.ForEachICXSubmitEXTHTLCExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
+                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
+
+                auto exthtlc = cache.GetICXSubmitEXTHTLCByCreationTx(key.second);
+                if (!exthtlc)
+                    return true;
+                auto offer = cache.GetICXMakeOfferByCreationTx(exthtlc->offerTx);
+                if (!offer)
+                    return true;
+                auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
+                if (!order)
+                    return true;
+                if (status == CICXSubmitEXTHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_EXTERNAL)
+                {
+                    if (!cache.HasICXSubmitDFCHTLCOpen(exthtlc->offerTx))
+                    {
+                        CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
+                        auto res = cache.AddBalance(order->ownerAddress, makerDeposit);
+                        if (!res)
+                            LogPrintf("Can't refund makerDeposit back to owner: %s\n", res.msg);
+                        else
+                        {
+                            cache.ICXCloseEXTHTLC(*exthtlc, status);
+                            if (!res)
+                                LogPrintf("Can't close ext htlc: %s\n", res.msg);
+                        }
+                    }
+                }
+
+                return true;
+            }, pindex->nHeight);
         }
 
         // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
