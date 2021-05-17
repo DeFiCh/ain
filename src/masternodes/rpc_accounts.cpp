@@ -262,7 +262,6 @@ UniValue listaccounts(const JSONRPCRequest& request) {
 
     // parse pagination
     size_t limit = 100;
-    DCT_ID startId = {};
     BalanceKey start = {};
     bool including_start = true;
     {
@@ -274,7 +273,6 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
                 start = decodeBalanceKey(paginationObj["start"].get_str());
-                startId = start.tokenID;
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -323,7 +321,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             return --limit != 0;
         }, {account, start.tokenID});
 
-        start.tokenID = startId; // reset to start id
+        start.tokenID = DCT_ID{}; // reset to start id
         return limit != 0;
     }, start.owner);
 
