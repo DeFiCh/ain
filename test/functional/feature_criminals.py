@@ -41,10 +41,6 @@ class CriminalsTest (DefiTestFramework):
             bl = self.nodes[i].getblockcount() if block is None else block
             print ("Node%d: [%d] %s" % (i, bl, self.nodes[i].getblockhash(bl)))
 
-    def dumpheights(self):
-        print ("Heights:", self.nodes[0].getblockcount(), "\t", self.nodes[1].getblockcount(), "\t", self.nodes[2].getblockcount())
-        # pass
-
     def erase_node(self, n):
         os.remove(os.path.join(self.nodes[n].datadir, 'regtest', 'wallets', 'wallet.dat'))
         shutil.rmtree(os.path.join(self.nodes[n].datadir, 'regtest', 'blocks'))
@@ -82,7 +78,6 @@ class CriminalsTest (DefiTestFramework):
         assert_equal(self.nodes[1].listmasternodes()[node0id]['state'], "PRE_BANNED")
         # proofs cleared:
         assert_equal(len(self.nodes[1].listcriminalproofs()), 0)
-        # self.dumpheights()
 
         print ("Test revert of ban tx")
         self.nodes[2].generate(5)
