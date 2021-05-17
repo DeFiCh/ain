@@ -34,7 +34,8 @@ class TokensAuthChange(DefiTestFramework):
         decTx = self.nodes[0].getrawtransaction(tx)
         customTx = self.nodes[0].decodecustomtx(decTx)
         vouts = 2
-        if customTx['type'] == 'ResignMasternode': vouts = 3
+        if customTx['type'] == 'ResignMasternode':
+            vouts = 3
         assert_equal(len(auth_tx['vout']), vouts)
 
         # Two outputs, single input and change to auth address on final TX
