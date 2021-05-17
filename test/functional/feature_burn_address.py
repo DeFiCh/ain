@@ -65,6 +65,11 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result[0]['type'], 'CreateToken')
         assert_equal(result[0]['amounts'][0], '1.00000000@DFI')
 
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['amount'], Decimal('0.00000000'))
+        assert_equal(len(result['tokens']), 0)
+        assert_equal(result['feeburn'], Decimal('2.00000000'))
+
         # Mint tokens
         self.nodes[0].minttokens(["100@128"])
         self.nodes[0].generate(1)
@@ -79,6 +84,11 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result[0]['type'], 'AccountToAccount')
         assert_equal(result[0]['amounts'][0], '100.00000000@GOLD#128')
 
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['amount'], Decimal('0.00000000'))
+        assert_equal(result['tokens'][0], '100.00000000@GOLD#128')
+        assert_equal(result['feeburn'], Decimal('2.00000000'))
+
         # Track utxostoaccount burn
         self.nodes[0].utxostoaccount({burn_address:"1@0"})
         self.nodes[0].generate(1)
@@ -88,6 +98,12 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result[0]['owner'], 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG')
         assert_equal(result[0]['type'], 'UtxosToAccount')
         assert_equal(result[0]['amounts'][0], '1.00000000@DFI')
+
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['amount'], Decimal('0.00000000'))
+        assert_equal(result['tokens'][0], '1.00000000@DFI')
+        assert_equal(result['tokens'][1], '100.00000000@GOLD#128')
+        assert_equal(result['feeburn'], Decimal('2.00000000'))
 
         # Try and spend from burn address account
         try:
@@ -109,6 +125,12 @@ class BurnAddressTest(DefiTestFramework):
         # Auto auth burnt amount
         auth_burn_amount = result[1]['amounts'][0][0:10]
 
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['amount'], Decimal('0.00000000') + Decimal(auth_burn_amount))
+        assert_equal(result['tokens'][0], '2.00000000@DFI')
+        assert_equal(result['tokens'][1], '100.00000000@GOLD#128')
+        assert_equal(result['feeburn'], Decimal('2.00000000'))
+
         # Send to burn address with accounttoutxos
         self.nodes[0].accounttoutxos(funded_address, {burn_address:"2@0"})
         self.nodes[0].generate(1)
@@ -117,6 +139,12 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result[0]['owner'], 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG')
         assert_equal(result[0]['type'], 'None')
         assert_equal(result[0]['amounts'][0], '2.00000000@DFI')
+
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['amount'], Decimal('2.00000000') + Decimal(auth_burn_amount))
+        assert_equal(result['tokens'][0], '2.00000000@DFI')
+        assert_equal(result['tokens'][1], '100.00000000@GOLD#128')
+        assert_equal(result['feeburn'], Decimal('2.00000000'))
 
         # Send utxo to burn address
         txid = self.nodes[0].sendtoaddress(burn_address, 10)
@@ -128,6 +156,12 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(result[0]['owner'], 'mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG')
         assert_equal(result[0]['type'], 'None')
         assert_equal(result[0]['amounts'][0], '10.00000000@DFI')
+
+        result = self.nodes[0].getburninfo()
+        assert_equal(result['amount'], Decimal('12.00000000') + Decimal(auth_burn_amount))
+        assert_equal(result['tokens'][0], '2.00000000@DFI')
+        assert_equal(result['tokens'][1], '100.00000000@GOLD#128')
+        assert_equal(result['feeburn'], Decimal('2.00000000'))
 
         # Spend TX from burn address
         for outputs in decodedtx['vout']:
@@ -147,9 +181,8 @@ class BurnAddressTest(DefiTestFramework):
 
         # Test output of getburninfo
         result = self.nodes[0].getburninfo()
-        assert_equal(result['address'], burn_address)
         assert_equal(result['amount'], Decimal('12.00000000') + Decimal(auth_burn_amount))
-        assert_equal(result['tokens'][0], '1.00000000@DFI')
+        assert_equal(result['tokens'][0], '2.00000000@DFI')
         assert_equal(result['tokens'][1], '100.00000000@GOLD#128')
         assert_equal(result['feeburn'], Decimal('2.00000000'))
 
@@ -187,7 +220,6 @@ class BurnAddressTest(DefiTestFramework):
         assert_equal(len(result), 0)
 
         result = self.nodes[0].getburninfo()
-        assert_equal(result['address'], burn_address)
         assert_equal(result['amount'], Decimal('0.0'))
         assert_equal(len(result['tokens']), 0)
 
