@@ -123,8 +123,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // update last block creation attempt ts for the master node
     {
-        CLockFreeGuard lock(pos::cs_MNLastBlockCreationAttemptTs);
-        pos::mapMNLastBlockCreationAttemptTs[myIDs->second] = GetTime();
+        CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
+        pos::Staker::mapMNLastBlockCreationAttemptTs[myIDs->second] = GetTime();
     }
 
     CBlockIndex* pindexPrev = ::ChainActive().Tip();
@@ -657,6 +657,11 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
 }
 
 namespace pos {
+
+    //initialize static variables here
+    std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
+    std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
+
     Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
             if(!g_connman)
