@@ -3516,28 +3516,21 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // at this stage only high hash error can be in header
                         // so just skip that block
                         continue;
-                    } else if (reason == ValidationInvalidReason::BLOCK_MUTATED) {
+                    }
+                    fContinue = false;
+                    fInvalidFound = true;
+                    InvalidChainFound(vpindexToConnect.front());
+                    if (reason == ValidationInvalidReason::BLOCK_MUTATED) {
                         // prior EunosHeight we shoutdown node on mutated block
                         if (ShutdownRequested()) {
                             return false;
                         }
                         // now block cannot be part of blockchain either
                         // but it can be produced by outdated/malicious masternode
-                        // so we should not shoutdown entire network, let's skip it
-                        continue;
-                    } else if (reason == ValidationInvalidReason::CONSENSUS) {
-                        if (pindexConnect->nHeight == chainparams.GetConsensus().EunosHeight) {
-                            auto strReason = state.GetRejectReason();
-                            // we have situation when old masternode will generate a block
-                            // that has coinbase higher than post Eunos fork
-                            // that block is invalid, let's keep waiting for the choosen one
-                            if (strReason.find("bad-cb-amount") != strReason.npos) {
-                                continue;
-                            }
-                        }
+                        // so we should not shoutdown entire network
                     }
-                    InvalidChainFound(vpindexToConnect.front());
-                    if (fCheckpointsEnabled && pindexConnect == pindexMostWork) {
+                    if (pindexConnect->nHeight < chainparams.GetConsensus().EunosHeight
+                    && fCheckpointsEnabled && pindexConnect == pindexMostWork) {
                         // NOTE: Invalidate blocks back to last checkpoint
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
                         //calculate the latest suitable checkpoint block height
@@ -3561,8 +3554,6 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                                 return false;
                         }
                     }
-                    fInvalidFound = true;
-                    fContinue = false;
                     break;
                 } else {
                     // A system error occurred (disk space, database error, ...).
