@@ -3505,11 +3505,11 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
 
         // Connect new blocks.
         for (CBlockIndex *pindexConnect : reverse_iterate(vpindexToConnect)) {
+            state = CValidationState();
             if (!ConnectTip(state, chainparams, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
                     // The block violates a consensus rule.
                     auto reason = state.GetReason();
-                    state = CValidationState();
                     if (reason == ValidationInvalidReason::BLOCK_INVALID_HEADER) {
                         // at this stage only high hash error can be in header
                         // so just skip that block
@@ -3523,6 +3523,16 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // but it can be produced by outdated/malicious masternode
                         // so we should not shoutdown entire network, let's skip it
                         continue;
+                    } else if (reason == ValidationInvalidReason::CONSENSUS) {
+                        if (pindexConnect->nHeight >= chainparams.GetConsensus().EunosHeight) {
+                            auto strReason = state.GetRejectReason();
+                            // we have situation when old masternode will generate a block
+                            // that has coinbase higher than post Eunos fork
+                            // that block is invalid, let's keep waiting for the choosen one
+                            if (strReason.find("bad-cb-amount") != strReason.npos) {
+                                continue;
+                            }
+                        }
                     }
                     InvalidChainFound(vpindexToConnect.front());
                     if (fCheckpointsEnabled && pindexConnect == pindexMostWork) {
