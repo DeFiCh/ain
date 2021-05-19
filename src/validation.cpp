@@ -2559,8 +2559,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
-        if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot()))
-            return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED, false, REJECT_INVALID, "bad-txnmrklroot", "hashMerkleRoot mismatch");
+        if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot())) {
+            LogPrintf("bad-txnmrklroot Height %s Block %s\n", pindex->nHeight, block.ToString());
+            // return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED, false, REJECT_INVALID, "bad-txnmrklroot", "hashMerkleRoot mismatch");
+        }
 
         // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
         // of transactions in a block without affecting the merkle root of a block,
