@@ -3526,7 +3526,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // so we should not shoutdown entire network, let's skip it
                         continue;
                     } else if (reason == ValidationInvalidReason::CONSENSUS) {
-                        if (pindexConnect->nHeight >= chainparams.GetConsensus().EunosHeight) {
+                        if (pindexConnect->nHeight == chainparams.GetConsensus().EunosHeight) {
                             auto strReason = state.GetRejectReason();
                             // we have situation when old masternode will generate a block
                             // that has coinbase higher than post Eunos fork
