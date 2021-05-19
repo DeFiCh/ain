@@ -2644,83 +2644,77 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         // close expired orders, refund all expired DFC HTLCs at this block height
+        if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
         {
             cache.ForEachICXOrderExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
-                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
-                auto order = cache.GetICXOrderByCreationTx(key.second);
-                if (order)
-                {
-                    Res res = Res::Ok();
-                    if (order->orderType == CICXOrder::TYPE_INTERNAL)
-                    {
-                        CTokenAmount amount{order->idToken, order->amountToFill};
-                        CScript txidaddr(order->creationTx.begin(), order->creationTx.end());
-                        res = cache.SubBalance(txidaddr, amount);
-                        if (!res)
-                            LogPrintf("Can't subtract balance from order txidaddr: %s\n", res.msg);
-                        else
-                        {
-                            res = cache.AddBalance(order->ownerAddress, amount);
-                            if (!res)
-                                LogPrintf("Can't add balance back to owner: %s\n", res.msg);
-                        }
-                    }
 
-                    if (res.ok)
-                    {
-                        res = cache.ICXCloseOrderTx(*order, status);
-                        if (!res)
-                            LogPrintf("Can't close order tx: %s\n", res.msg);
-                    }
+                if (static_cast<int>(key.first) != pindex->nHeight)
+                    return false;
+
+                auto order = cache.GetICXOrderByCreationTx(key.second);
+                if (!order)
+                    return true;
+
+                if (order->orderType == CICXOrder::TYPE_INTERNAL)
+                {
+                    CTokenAmount amount{order->idToken, order->amountToFill};
+                    CScript txidaddr(order->creationTx.begin(), order->creationTx.end());
+                    auto res = cache.SubBalance(txidaddr, amount);
+                    if (!res)
+                        LogPrintf("Can't subtract balance from order txidaddr: %s\n", res.msg);
+                    else
+                        cache.AddBalance(order->ownerAddress, amount);
                 }
+
+                cache.ICXCloseOrderTx(*order, status);
+
                 return true;
             },pindex->nHeight);
 
             cache.ForEachICXMakeOfferExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
-                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
+
+                if (static_cast<int>(key.first) != pindex->nHeight)
+                    return false;
+
                 auto offer = cache.GetICXMakeOfferByCreationTx(key.second);
                 if (!offer)
                     return true;
+
                 auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
                 if (!order)
                     return true;
 
                 CScript txidAddr(offer->creationTx.begin(),offer->creationTx.end());
                 CTokenAmount takerFee{DCT_ID{0}, offer->takerFee};
-                Res res = Res::Ok();
 
                 if ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.HasICXSubmitDFCHTLCOpen(offer->creationTx)) ||
                     (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.HasICXSubmitEXTHTLCOpen(offer->creationTx)))
                 {
-                    res = cache.SubBalance(txidAddr,takerFee);
+                    auto res = cache.SubBalance(txidAddr,takerFee);
                     if (!res)
                         LogPrintf("Can't subtract takerFee from offer txidAddr: %s\n", res.msg);
                     else
-                    {
-                        res = cache.AddBalance(offer->ownerAddress,takerFee);
-                        if (!res)
-                            LogPrintf("Can't refund takerFee back to owner: %s\n", res.msg);
-                    }
+                        cache.AddBalance(offer->ownerAddress, takerFee);
                 }
-                if (res.ok)
-                {
-                    res = cache.ICXCloseMakeOfferTx(*offer,status);
-                    if (!res)
-                        LogPrintf("Can't close offer tx: %s\n", res.msg);
-                }
+
+                cache.ICXCloseMakeOfferTx(*offer, status);
 
                 return true;
             }, pindex->nHeight);
 
             cache.ForEachICXSubmitDFCHTLCExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
-                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
+
+                if (static_cast<int>(key.first) != pindex->nHeight)
+                    return false;
 
                 auto dfchtlc = cache.GetICXSubmitDFCHTLCByCreationTx(key.second);
                 if (!dfchtlc)
                     return true;
+
                 auto offer = cache.GetICXMakeOfferByCreationTx(dfchtlc->offerTx);
                 if (!offer)
                     return true;
+
                 auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
                 if (!order)
                     return true;
@@ -2732,9 +2726,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     if (!cache.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx))
                     {
                         CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
-                        auto res = cache.AddBalance(order->ownerAddress, makerDeposit);
-                        if (!res)
-                            LogPrintf("Can't refund makerDeposit back to owner: %s\n", res.msg);
+                        cache.AddBalance(order->ownerAddress, makerDeposit);
                         refund = true;
                     }
                 }
@@ -2744,59 +2736,49 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (refund)
                 {
                     CScript ownerAddress;
-                    CTokenAmount amount = {order->idToken, dfchtlc->amount};
                     if (order->orderType == CICXOrder::TYPE_INTERNAL)
                         ownerAddress = CScript(order->creationTx.begin(), order->creationTx.end());
                     else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
                         ownerAddress = offer->ownerAddress;
 
+                    CTokenAmount amount{order->idToken, dfchtlc->amount};
                     CScript txidaddr = CScript(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
                     auto res = cache.SubBalance(txidaddr, amount);
                     if (!res)
                         LogPrintf("Can't subtract balance from dfc htlc txidaddr: %s\n", res.msg);
                     else
-                    {
-                        res = cache.AddBalance(ownerAddress, amount);
-                        if (!res)
-                            LogPrintf("Can't add balance from dfc htlc back to owner: %s\n", res.msg);
-                    }
-                    if (res.ok)
-                    {
-                        res = cache.ICXCloseDFCHTLC(*dfchtlc, status);
-                        if (!res)
-                            LogPrintf("Can't refund dfc htlc: %s\n", res.msg);
-                    }
+                        cache.AddBalance(ownerAddress, amount);
+
+                    cache.ICXCloseDFCHTLC(*dfchtlc, status);
                 }
 
                 return true;
             }, pindex->nHeight);
 
             cache.ForEachICXSubmitEXTHTLCExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
-                if (static_cast<int>(key.first) != pindex->nHeight) return (false);
+
+                if (static_cast<int>(key.first) != pindex->nHeight)
+                    return false;
 
                 auto exthtlc = cache.GetICXSubmitEXTHTLCByCreationTx(key.second);
                 if (!exthtlc)
                     return true;
+
                 auto offer = cache.GetICXMakeOfferByCreationTx(exthtlc->offerTx);
                 if (!offer)
                     return true;
+
                 auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
                 if (!order)
                     return true;
+
                 if (status == CICXSubmitEXTHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_EXTERNAL)
                 {
                     if (!cache.HasICXSubmitDFCHTLCOpen(exthtlc->offerTx))
                     {
                         CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
-                        auto res = cache.AddBalance(order->ownerAddress, makerDeposit);
-                        if (!res)
-                            LogPrintf("Can't refund makerDeposit back to owner: %s\n", res.msg);
-                        else
-                        {
-                            cache.ICXCloseEXTHTLC(*exthtlc, status);
-                            if (!res)
-                                LogPrintf("Can't close ext htlc: %s\n", res.msg);
-                        }
+                        cache.AddBalance(order->ownerAddress, makerDeposit);
+                        cache.ICXCloseEXTHTLC(*exthtlc, status);
                     }
                 }
 
@@ -3525,11 +3507,11 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
 
         // Connect new blocks.
         for (CBlockIndex *pindexConnect : reverse_iterate(vpindexToConnect)) {
+            state = CValidationState();
             if (!ConnectTip(state, chainparams, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
                     // The block violates a consensus rule.
                     auto reason = state.GetReason();
-                    state = CValidationState();
                     if (reason == ValidationInvalidReason::BLOCK_INVALID_HEADER) {
                         // at this stage only high hash error can be in header
                         // so just skip that block
@@ -3543,6 +3525,16 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // but it can be produced by outdated/malicious masternode
                         // so we should not shoutdown entire network, let's skip it
                         continue;
+                    } else if (reason == ValidationInvalidReason::CONSENSUS) {
+                        if (pindexConnect->nHeight >= chainparams.GetConsensus().EunosHeight) {
+                            auto strReason = state.GetRejectReason();
+                            // we have situation when old masternode will generate a block
+                            // that has coinbase higher than post Eunos fork
+                            // that block is invalid, let's keep waiting for the choosen one
+                            if (strReason.find("bad-cb-amount") != strReason.npos) {
+                                continue;
+                            }
+                        }
                     }
                     InvalidChainFound(vpindexToConnect.front());
                     if (fCheckpointsEnabled && pindexConnect == pindexMostWork) {
