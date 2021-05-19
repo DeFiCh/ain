@@ -1197,7 +1197,7 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
         return count != 0;
     };
 
-    AccountHistoryKey startKey{Params().GetConsensus().burnAddress, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
+    AccountHistoryKey startKey{{}, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
     pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
 
     UniValue slice(UniValue::VARR);
@@ -1583,7 +1583,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         return true;
     };
 
-    AccountHistoryKey startKey{Params().GetConsensus().burnAddress, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()};
+    AccountHistoryKey startKey{{}, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()};
     pburnHistoryDB->ForEachAccountHistory(calcBurn, startKey);
 
     UniValue result(UniValue::VOBJ);
