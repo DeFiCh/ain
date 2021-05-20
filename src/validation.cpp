@@ -2455,9 +2455,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get(), pburnHistoryDB.get());
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
-                // we will never fail, but skip, unless transaction mints UTXOs
-                return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
-                             tx.GetHash().ToString(), res.msg);
+                if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
+                                               tx.GetHash().ToString(), res.msg), REJECT_CUSTOMTX, "bad-custom-tx");
+                } else {
+                    // we will never fail, but skip, unless transaction mints UTXOs
+                    return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
+                                tx.GetHash().ToString(), res.msg);
+                }
             }
             // log
             if (!fJustCheck && !res.msg.empty()) {
@@ -3529,8 +3535,9 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // but it can be produced by outdated/malicious masternode
                         // so we should not shoutdown entire network
                     }
-                    if (pindexConnect->nHeight < chainparams.GetConsensus().EunosHeight
-                    && fCheckpointsEnabled && pindexConnect == pindexMostWork) {
+                    if (fCheckpointsEnabled && pindexConnect == pindexMostWork
+                    && (pindexConnect->nHeight < chainparams.GetConsensus().EunosHeight
+                    || state.GetRejectCode() == REJECT_CUSTOMTX)) {
                         // NOTE: Invalidate blocks back to last checkpoint
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
                         //calculate the latest suitable checkpoint block height
