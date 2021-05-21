@@ -597,8 +597,15 @@ public:
         return Res::Ok();
     }
 
+    // we need proxy view to prevent add/sub balance record
+    void CalculateOwnerRewards(const CScript& owner) const {
+        CCustomCSView view(mnview);
+        view.CalculateOwnerRewards(owner, height);
+        view.Flush();
+    }
+
     Res subBalanceDelShares(const CScript& owner, const CBalances& balance) const {
-        mnview.CalculateOwnerRewards(owner, height);
+        CalculateOwnerRewards(owner);
         auto res = mnview.SubBalances(owner, balance);
         if (!res) {
             return Res::ErrCode(CustomTxErrCodes::NotEnoughBalance, res.msg);
@@ -607,7 +614,7 @@ public:
     }
 
     Res addBalanceSetShares(const CScript& owner, const CBalances& balance) const {
-        mnview.CalculateOwnerRewards(owner, height);
+        CalculateOwnerRewards(owner);
         auto res = mnview.AddBalances(owner, balance);
         return !res ? res : setShares(owner, balance.balances);
     }
@@ -801,7 +808,7 @@ public:
             if (!minted) {
                 return minted;
             }
-            mnview.CalculateOwnerRewards(*mintable.val, height);
+            CalculateOwnerRewards(*mintable.val);
             auto res = mnview.AddBalance(*mintable.val, CTokenAmount{kv.first, kv.second});
             if (!res) {
                 return res;
@@ -908,8 +915,8 @@ public:
             if (!res) {
                 return res;
             }
-            mnview.CalculateOwnerRewards(obj.from, height);
-            mnview.CalculateOwnerRewards(obj.to, height);
+            CalculateOwnerRewards(obj.from);
+            CalculateOwnerRewards(obj.to);
             res = mnview.SubBalance(obj.from, {obj.idTokenFrom, obj.amountFrom});
             return !res ? res : mnview.AddBalance(obj.to, tokenAmount);
         }, static_cast<int>(height));
@@ -941,7 +948,7 @@ public:
         }
 
         for (const auto& kv : obj.from) {
-            mnview.CalculateOwnerRewards(kv.first, height);
+            CalculateOwnerRewards(kv.first);
             auto res = mnview.SubBalances(kv.first, kv.second);
             if (!res) {
                 return res;
@@ -997,7 +1004,7 @@ public:
 
         auto res = pool.RemoveLiquidity(amount.nValue, [&] (CAmount amountA, CAmount amountB) {
 
-            mnview.CalculateOwnerRewards(from, height);
+            CalculateOwnerRewards(from);
             CBalances balances{TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}};
             return mnview.AddBalances(from, balances);
         });
