@@ -111,7 +111,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     }.Check(request);
 
     RPCTypeCheck(request.params,
-                 {UniValue::VSTR, UniValue::VARR, UniValue::VNUM}, false);
+                 {UniValue::VSTR, UniValue::VARR, UniValue::VNUM, UniValue::VARR}, false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -225,7 +225,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     }.Check(request);
 
     RPCTypeCheck(request.params,
-                 {UniValue::VSTR, UniValue::VSTR, UniValue::VARR, UniValue::VNUM},
+                 {UniValue::VSTR, UniValue::VSTR, UniValue::VARR, UniValue::VNUM, UniValue::VARR},
                  false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
@@ -331,7 +331,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR}, false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
@@ -445,7 +445,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     }.Check(request);
 
     RPCTypeCheck(request.params,
-                 {UniValue::VSTR, UniValue::VNUM, UniValue::VARR},
+                 {UniValue::VSTR, UniValue::VNUM, UniValue::VARR, UniValue::VARR},
                  false);
 
     if (pwallet->chain().isInitialBlockDownload()) {
@@ -911,10 +911,10 @@ static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
 //  -------------   ---------------------    --------------------    ----------
-    {"oracles",     "appointoracle",         &appointoracle,          {"address", "pricefeeds", "weightage"}},
-    {"oracles",     "removeoracle",          &removeoracle,           {"oracleid"}},
-    {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "pricefeeds", "weightage"}},
-    {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices"}},
+    {"oracles",     "appointoracle",         &appointoracle,          {"address", "pricefeeds", "weightage", "inputs"}},
+    {"oracles",     "removeoracle",          &removeoracle,           {"oracleid", "inputs"}},
+    {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
+    {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices", "inputs"}},
     {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
     {"oracles",     "listoracles",           &listoracles,                 {}},
     {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request"}},
