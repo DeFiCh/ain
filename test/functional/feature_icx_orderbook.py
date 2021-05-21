@@ -116,6 +116,8 @@ class ICXOrderbookTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
+
         offerTx = self.nodes[1].icx_makeoffer({
                                     'orderTx': orderTx,
                                     'amount': 0.10,
@@ -124,11 +126,13 @@ class ICXOrderbookTest (DefiTestFramework):
         self.nodes[1].generate(1)
         self.sync_blocks()
 
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.01000000'))
+
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
 
         assert_equal(len(offer), 2)
 
-        # Close order
+        # Close offer
         closeOrder = self.nodes[1].icx_closeoffer(offerTx)["txid"]
         rawCloseOrder = self.nodes[1].getrawtransaction(closeOrder, 1)
         authTx = self.nodes[1].getrawtransaction(rawCloseOrder['vin'][0]['txid'], 1)
@@ -140,6 +144,8 @@ class ICXOrderbookTest (DefiTestFramework):
 
         self.nodes[1].generate(1)
         self.sync_blocks()
+
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer)
 
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
 
@@ -754,7 +760,6 @@ class ICXOrderbookTest (DefiTestFramework):
 
         self.nodes[1].generate(1)
         self.sync_blocks()
-
 
         self.nodes[0].generate(2880)
         self.sync_blocks()

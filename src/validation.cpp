@@ -2668,7 +2668,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     if (!res)
                         LogPrintf("Can't subtract balance from order txidaddr: %s\n", res.msg);
                     else
+                    {
+                        cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);
                         cache.AddBalance(order->ownerAddress, amount);
+                    }
                 }
 
                 cache.ICXCloseOrderTx(*order, status);
@@ -2699,7 +2702,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     if (!res)
                         LogPrintf("Can't subtract takerFee from offer txidAddr: %s\n", res.msg);
                     else
+                    {
+                        cache.CalculateOwnerRewards(offer->ownerAddress,pindex->nHeight);
                         cache.AddBalance(offer->ownerAddress, takerFee);
+                    }
                 }
 
                 cache.ICXCloseMakeOfferTx(*offer, status);
@@ -2731,6 +2737,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     if (!cache.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx))
                     {
                         CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
+                        cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);
                         cache.AddBalance(order->ownerAddress, makerDeposit);
                         refund = true;
                     }
@@ -2752,7 +2759,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     if (!res)
                         LogPrintf("Can't subtract balance from dfc htlc txidaddr: %s\n", res.msg);
                     else
+                    {
+                        cache.CalculateOwnerRewards(ownerAddress,pindex->nHeight);
                         cache.AddBalance(ownerAddress, amount);
+                    }
 
                     cache.ICXCloseDFCHTLC(*dfchtlc, status);
                 }
@@ -2782,6 +2792,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     if (!cache.HasICXSubmitDFCHTLCOpen(exthtlc->offerTx))
                     {
                         CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
+                        cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);
                         cache.AddBalance(order->ownerAddress, makerDeposit);
                         cache.ICXCloseEXTHTLC(*exthtlc, status);
                     }
