@@ -2455,9 +2455,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get(), pburnHistoryDB.get());
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
-                // we will never fail, but skip, unless transaction mints UTXOs
-                return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
-                             tx.GetHash().ToString(), res.msg);
+                if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
+                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                         error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
+                                               tx.GetHash().ToString(), res.msg), REJECT_CUSTOMTX, "bad-custom-tx");
+                } else {
+                    // we will never fail, but skip, unless transaction mints UTXOs
+                    return error("ConnectBlock(): ApplyCustomTx on %s failed with %s",
+                                tx.GetHash().ToString(), res.msg);
+                }
             }
             // log
             if (!fJustCheck && !res.msg.empty()) {
@@ -3516,28 +3522,22 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // at this stage only high hash error can be in header
                         // so just skip that block
                         continue;
-                    } else if (reason == ValidationInvalidReason::BLOCK_MUTATED) {
+                    }
+                    fContinue = false;
+                    fInvalidFound = true;
+                    InvalidChainFound(vpindexToConnect.front());
+                    if (reason == ValidationInvalidReason::BLOCK_MUTATED) {
                         // prior EunosHeight we shoutdown node on mutated block
                         if (ShutdownRequested()) {
                             return false;
                         }
                         // now block cannot be part of blockchain either
                         // but it can be produced by outdated/malicious masternode
-                        // so we should not shoutdown entire network, let's skip it
-                        continue;
-                    } else if (reason == ValidationInvalidReason::CONSENSUS) {
-                        if (pindexConnect->nHeight == chainparams.GetConsensus().EunosHeight) {
-                            auto strReason = state.GetRejectReason();
-                            // we have situation when old masternode will generate a block
-                            // that has coinbase higher than post Eunos fork
-                            // that block is invalid, let's keep waiting for the choosen one
-                            if (strReason.find("bad-cb-amount") != strReason.npos) {
-                                continue;
-                            }
-                        }
+                        // so we should not shoutdown entire network
                     }
-                    InvalidChainFound(vpindexToConnect.front());
-                    if (fCheckpointsEnabled && pindexConnect == pindexMostWork) {
+                    if (fCheckpointsEnabled && pindexConnect == pindexMostWork
+                    && (pindexConnect->nHeight < chainparams.GetConsensus().EunosHeight
+                    || state.GetRejectCode() == REJECT_CUSTOMTX)) {
                         // NOTE: Invalidate blocks back to last checkpoint
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
                         //calculate the latest suitable checkpoint block height
@@ -3561,8 +3561,6 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                                 return false;
                         }
                     }
-                    fInvalidFound = true;
-                    fContinue = false;
                     break;
                 } else {
                     // A system error occurred (disk space, database error, ...).
