@@ -241,6 +241,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
     CCustomCSView mnview(*pcustomcsview);
+    UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     addPackageTxs(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
 
     int64_t nTime1 = GetTimeMicros();
@@ -313,7 +314,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-    UpdateTime(pblock, consensus, pindexPrev);
     pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock, consensus);
     pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
 
@@ -599,7 +599,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight);
+                auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime);
 
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
