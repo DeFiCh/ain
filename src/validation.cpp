@@ -2566,8 +2566,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot())) {
-            LogPrintf("bad-txnmrklroot Height %s Block %s\n", pindex->nHeight, block.ToString());
-            // return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED, false, REJECT_INVALID, "bad-txnmrklroot", "hashMerkleRoot mismatch");
+            return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED, false, REJECT_INVALID, "bad-txnmrklroot", "hashMerkleRoot mismatch");
         }
 
         // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
@@ -4106,7 +4105,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // redundant with the call in AcceptBlockHeader.
     if (!fIsFakeNet && fCheckPOS && !pos::ContextualCheckProofOfStake(block, consensusParams, pcustomcsview.get()))
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of stake failed");
-/*
+
     // Check the merkle root.
     // block merkle root is delayed to ConnectBlock to ensure account changes
     if (fCheckMerkleRoot && block.height < consensusParams.EunosHeight) {
@@ -4121,7 +4120,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if (mutated)
             return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED, false, REJECT_INVALID, "bad-txns-duplicate", "duplicate transaction");
     }
-*/
+
     // All potential-corruption validation must be done before we do any
     // transaction validation, as otherwise we may mark the header as invalid
     // because we receive the wrong transactions for it.
