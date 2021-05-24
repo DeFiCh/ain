@@ -84,10 +84,10 @@ struct Params {
     int ClarkeQuayHeight;
     /** Fourth major fork **/
     int DakotaHeight;
-    /** Fifth major fork **/
     int DakotaCrescentHeight;
-    /** Sixth major fork **/
+    /** Fifth major fork **/
     int EunosHeight;
+    int EunosSimsHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
     /** Trackable burn address */
@@ -150,7 +150,8 @@ struct Params {
         CAmount collateralAmountDakota;
         int activationDelay;
         int resignDelay; // same delay for criminal ban
-        int historyFrame;
+        int newActivationDelay;
+        int newResignDelay; // same delay for criminal ban
         int anchoringTeamSize;
         int anchoringFrequency; // create every Nth block
 
