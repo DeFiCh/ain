@@ -44,7 +44,7 @@ int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParam
 
     // Updating time can change work required on testnet:
     if (consensusParams.pos.fAllowMinDifficultyBlocks)
-        pblock->nBits = pos::GetNextWorkRequired(pindexPrev, pblock, consensusParams.pos);
+        pblock->nBits = pos::GetNextWorkRequired(pindexPrev, pblock, consensusParams);
 
     return nNewTime - nOldTime;
 }
@@ -123,15 +123,16 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // update last block creation attempt ts for the master node
     {
-        CLockFreeGuard lock(pos::cs_MNLastBlockCreationAttemptTs);
-        pos::mapMNLastBlockCreationAttemptTs[myIDs->second] = GetTime();
+        CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
+        pos::Staker::mapMNLastBlockCreationAttemptTs[myIDs->second] = GetTime();
     }
 
     CBlockIndex* pindexPrev = ::ChainActive().Tip();
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
+    auto consensus = chainparams.GetConsensus();
 
-    pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
+    pblock->nVersion = ComputeBlockVersion(pindexPrev, consensus);
     // -regtest only: allow overriding block.nVersion with
     // -blockversion=N to test forking scenarios
     if (chainparams.MineBlocksOnDemand())
@@ -153,7 +154,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // not activated.
     // TODO: replace this with a call to main to assess validity of a mempool
     // transaction (which in most cases can be a no-op).
-    fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
+    fIncludeWitness = IsWitnessEnabled(pindexPrev, consensus);
 
     const auto txVersion = GetTransactionVersion(nHeight);
 
@@ -167,7 +168,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     bool createAnchorReward{false};
 
     // No new anchors until we hit fork height, no new confirms should be found before fork.
-    if (pindexPrev->nHeight >= chainparams.GetConsensus().DakotaHeight && confirms.size() > 0) {
+    if (pindexPrev->nHeight >= consensus.DakotaHeight && confirms.size() > 0) {
 
         // Make sure anchor block height and hash exist in chain.
         CBlockIndex* anchorIndex = ::ChainActive()[confirms[0].anchorHeight];
@@ -239,7 +240,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
-    addPackageTxs(nPackagesSelected, nDescendantsUpdated, nHeight);
+    CCustomCSView mnview(*pcustomcsview);
+    UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
+    addPackageTxs(nPackagesSelected, nDescendantsUpdated, nHeight, mnview);
 
     int64_t nTime1 = GetTimeMicros();
 
@@ -253,19 +256,33 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    CAmount blockReward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    CAmount blockReward = GetBlockSubsidy(nHeight, consensus);
     coinbaseTx.vout[0].nValue = nFees + blockReward;
 
-    if (nHeight >= chainparams.GetConsensus().AMKHeight) {
+    if (nHeight >= consensus.EunosHeight)
+    {
+        coinbaseTx.vout.resize(2);
+
+        // Explicitly set miner reward
+        coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
+
+        // Community payment always expected
+        coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
+        coinbaseTx.vout[1].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
+
+        LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
+                 __func__, blockReward, coinbaseTx.vout[0].nValue, coinbaseTx.vout[1].nValue);
+    }
+    else if (nHeight >= consensus.AMKHeight) {
         // assume community non-utxo funding:
-        for (auto kv : chainparams.GetConsensus().nonUtxoBlockSubsidies) {
+        for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
             coinbaseTx.vout[0].nValue -= blockReward * kv.second / COIN;
         }
         // Pinch off foundation share
-        if (!chainparams.GetConsensus().foundationShareScript.empty() && chainparams.GetConsensus().foundationShareDFIP1 != 0) {
+        if (!consensus.foundationShareScript.empty() && consensus.foundationShareDFIP1 != 0) {
             coinbaseTx.vout.resize(2);
-            coinbaseTx.vout[1].scriptPubKey = chainparams.GetConsensus().foundationShareScript;
-            coinbaseTx.vout[1].nValue = blockReward * chainparams.GetConsensus().foundationShareDFIP1 / COIN; // the main difference is that new FS is a %% from "base" block reward and no fees involved
+            coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
+            coinbaseTx.vout[1].nValue = blockReward * consensus.foundationShareDFIP1 / COIN; // the main difference is that new FS is a %% from "base" block reward and no fees involved
             coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
 
             LogPrint(BCLog::STAKING, "%s: post AMK logic, foundation share %d\n", __func__, coinbaseTx.vout[1].nValue);
@@ -273,11 +290,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
     else { // pre-AMK logic:
         // Pinch off foundation share
-        CAmount foundationsReward = coinbaseTx.vout[0].nValue * chainparams.GetConsensus().foundationShare / 100;
-        if (!chainparams.GetConsensus().foundationShareScript.empty() && chainparams.GetConsensus().foundationShare != 0) {
+        CAmount foundationsReward = coinbaseTx.vout[0].nValue * consensus.foundationShare / 100;
+        if (!consensus.foundationShareScript.empty() && consensus.foundationShare != 0) {
             if (pcustomcsview->GetFoundationsDebt() < foundationsReward) {
                 coinbaseTx.vout.resize(2);
-                coinbaseTx.vout[1].scriptPubKey = chainparams.GetConsensus().foundationShareScript;
+                coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
                 coinbaseTx.vout[1].nValue = foundationsReward - pcustomcsview->GetFoundationsDebt();
                 coinbaseTx.vout[0].nValue -= coinbaseTx.vout[1].nValue;
 
@@ -290,15 +307,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
 
-    pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
+    pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, consensus);
     pblocktemplate->vTxFees[0] = -nFees;
 
     LogPrint(BCLog::STAKING, "CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-    UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-    pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus().pos);
+    pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock, consensus);
     pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
@@ -308,6 +324,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
     int64_t nTime2 = GetTimeMicros();
+
+    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+    if (nHeight >= chainparams.GetConsensus().EunosHeight) {
+        // includes coinbase account changes
+        ApplyGeneralCoinbaseTx(mnview, *(pblock->vtx[0]), nHeight, nFees, chainparams.GetConsensus());
+        pblock->hashMerkleRoot = Hash2(pblock->hashMerkleRoot, mnview.MerkleRoot());
+    }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
 
@@ -434,7 +457,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // Each time through the loop, we compare the best transaction in
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -459,7 +482,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     std::set<uint256> checkedTX;
 
     // Copy of the view
-    CCustomCSView view(*pcustomcsview);
+    CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
 
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
@@ -569,12 +592,14 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                 continue;
             }
 
+            AddCoins(coins, tx, nHeight);
+
             std::vector<unsigned char> metadata;
             CustomTxType txType = GuessCustomTxType(tx, metadata);
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                auto res = ApplyCustomTx(view, ::ChainstateActive().CoinsTip(), tx, chainparams.GetConsensus(), nHeight, uint64_t{0}, 0, false, true);
+                auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime);
 
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
@@ -632,6 +657,11 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
 }
 
 namespace pos {
+
+    //initialize static variables here
+    std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
+    std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
+
     Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
             if(!g_connman)
@@ -709,7 +739,7 @@ namespace pos {
             pblock->height = tip->nHeight + 1;
             pblock->mintedBlocks = mintedBlocks + 1;
             pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
-            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID);
+            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID, pblock->height);
 
             // No record. No stake blocks or post-fork createmastnode TX, use fork time.
             if (!stakerBlockTime)

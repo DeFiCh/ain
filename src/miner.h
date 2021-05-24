@@ -180,7 +180,7 @@ private:
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
@@ -241,16 +241,17 @@ namespace pos {
         };
 
         Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args);
+
+        // declaration static variables
+        // Map to store [master node id : last block creation attempt timestamp] for local master nodes
+        static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
+        static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
+
     private:
         CBlockIndex* getTip();
         template <typename F>
         bool withSearchInterval(F&& f);
     };
-
-    // Map to store [master node id : last block creation attempt timestamp] for local master nodes
-    static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
-    static std::atomic_bool cs_MNLastBlockCreationAttemptTs(false);
-
 }
 
 #endif // DEFI_MINER_H

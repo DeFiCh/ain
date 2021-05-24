@@ -18,15 +18,16 @@ using MapKV = std::map<TBytes, Optional<TBytes>>;
 
 template<typename T>
 static TBytes DbTypeToBytes(const T& value) {
-    CDataStream stream(SER_DISK, CLIENT_VERSION);
+    TBytes bytes;
+    CVectorWriter stream(SER_DISK, CLIENT_VERSION, bytes, 0);
     stream << value;
-    return TBytes(stream.begin(), stream.end());
+    return bytes;
 }
 
 template<typename T>
 static bool BytesToDbType(const TBytes& bytes, T& value) {
     try {
-        CDataStream stream(bytes, SER_DISK, CLIENT_VERSION);
+        VectorReader stream(SER_DISK, CLIENT_VERSION, bytes, 0);
         stream >> value;
 //        assert(stream.size() == 0); // will fail with partial key matching
     }
@@ -42,6 +43,7 @@ public:
     virtual ~CStorageKVIterator() = default;
     virtual void Seek(const TBytes& key) = 0;
     virtual void Next() = 0;
+    virtual void Prev() = 0;
     virtual bool Valid() = 0;
     virtual TBytes Key() = 0;
     virtual TBytes Value() = 0;
@@ -57,6 +59,7 @@ public:
     virtual bool Read(const TBytes& key, TBytes& value) const = 0;
     virtual std::unique_ptr<CStorageKVIterator> NewIterator() = 0;
     virtual size_t SizeEstimate() const = 0;
+    virtual void Discard() = 0;
     virtual bool Flush() = 0;
 };
 
@@ -66,15 +69,13 @@ struct RawTBytes {
     std::reference_wrapper<T> ref;
 
     template<typename Stream>
-    void Serialize(Stream& os) const
-    {
+    void Serialize(Stream& os) const {
         auto& val = ref.get();
         os.write((char*)val.data(), val.size());
     }
 
     template<typename Stream>
-    void Unserialize(Stream& is)
-    {
+    void Unserialize(Stream& is) {
         auto& val = ref.get();
         val.resize(is.size());
         is.read((char*)val.data(), is.size());
@@ -82,8 +83,7 @@ struct RawTBytes {
 };
 
 template<typename T>
-inline RawTBytes<T> refTBytes(T& val)
-{
+inline RawTBytes<T> refTBytes(T& val) {
     return RawTBytes<T>{val};
 }
 
@@ -97,7 +97,12 @@ public:
     void Seek(const TBytes& key) override {
         it->Seek(refTBytes(key)); // lower_bound in fact
     }
-    void Next() override { it->Next(); }
+    void Next() override {
+        it->Next();
+    }
+    void Prev() override {
+        it->Prev();
+    }
     bool Valid() override {
         return it->Valid();
     }
@@ -130,6 +135,7 @@ public:
         return true;
     }
     bool Erase(const TBytes& key) override {
+        begin.empty() ? (begin = key) : (end = key);
         batch.Erase(refTBytes(key));
         return true;
     }
@@ -140,7 +146,18 @@ public:
     bool Flush() override { // Commit batch
         auto result = db.WriteBatch(batch);
         batch.Clear();
+        // prevent db fragmentation
+        if (!begin.empty() && !end.empty()) {
+            db.CompactRange(refTBytes(begin), refTBytes(end));
+        }
+        end.clear();
+        begin.clear();
         return result;
+    }
+    void Discard() override {
+        end.clear();
+        begin.clear();
+        batch.Clear();
     }
     size_t SizeEstimate() const override {
         return batch.SizeEstimate();
@@ -148,8 +165,13 @@ public:
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
         return MakeUnique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db.NewIterator()));
     }
+    bool IsEmpty() {
+        return db.IsEmpty();
+    }
 
 private:
+    TBytes end;
+    TBytes begin;
     CDBWrapper db;
     CDBBatch batch;
 };
@@ -159,80 +181,83 @@ private:
 // Flushable Key-Value Storage Iterator
 class CFlushableStorageKVIterator : public CStorageKVIterator {
 public:
-    explicit CFlushableStorageKVIterator(std::unique_ptr<CStorageKVIterator>&& pIt_, MapKV& map_) : pIt{std::move(pIt_)}, map(map_) {
-        inited = parentOk = mapOk = useMap = false;
+    explicit CFlushableStorageKVIterator(std::unique_ptr<CStorageKVIterator>&& pIt, MapKV& map) : map(map), pIt(std::move(pIt)) {
+        itState = Invalid;
     }
     CFlushableStorageKVIterator(const CFlushableStorageKVIterator&) = delete;
     ~CFlushableStorageKVIterator() override = default;
 
     void Seek(const TBytes& key) override {
-        prevKey.clear();
         pIt->Seek(key);
-        parentOk = pIt->Valid();
-        mIt = map.lower_bound(key);
-        mapOk = mIt != map.end();
-        inited = true;
-        Next();
+        mIt = Advance(map.lower_bound(key), map.end(), std::greater<TBytes>{}, {});
     }
     void Next() override {
-        if (!inited) throw std::runtime_error("Iterator wasn't inited.");
-
-        if (!prevKey.empty()) {
-            useMap ? nextMap() : nextParent();
+        assert(Valid());
+        mIt = Advance(mIt, map.end(), std::greater<TBytes>{}, Key());
+    }
+    void Prev() override {
+        assert(Valid());
+        auto tmp = mIt;
+        if (tmp != map.end()) {
+            ++tmp;
         }
-
-        while (mapOk || parentOk) {
-            if (mapOk) {
-                while (mapOk && (!parentOk || mIt->first <= pIt->Key())) {
-                    bool ok = false;
-
-                    if (mIt->second) {
-                        ok = prevKey.empty() || mIt->first > prevKey;
-                    } else {
-                        prevKey = mIt->first;
-                    }
-                    if (ok) {
-                        useMap = true;
-                        prevKey = mIt->first;
-                        return;
-                    }
-                    nextMap();
-                }
-            }
-            if (parentOk) {
-                if (prevKey.empty() || pIt->Key() > prevKey) {
-                    useMap = false;
-                    prevKey = pIt->Key();
-                    return;
-                }
-                nextParent();
-            }
+        auto it = std::reverse_iterator<decltype(tmp)>(tmp);
+        auto end = Advance(it, map.rend(), std::less<TBytes>{}, Key());
+        if (end == map.rend()) {
+            mIt = map.begin();
+        } else {
+            auto offset = mIt == map.end() ? 1 : 0;
+            std::advance(mIt, -std::distance(it, end) - offset);
         }
     }
     bool Valid() override {
-        return mapOk || parentOk;
+        return itState != Invalid;
     }
     TBytes Key() override {
-        return useMap ? mIt->first : pIt->Key();
+        assert(Valid());
+        return itState == Map ? mIt->first : pIt->Key();
     }
     TBytes Value() override {
-        return useMap ? *mIt->second : pIt->Value();
+        assert(Valid());
+        return itState == Map ? *mIt->second : pIt->Value();
     }
 private:
-    void nextMap() {
-        mapOk = mapOk && ++mIt != map.end();
+    template<typename TIterator, typename Compare>
+    TIterator Advance(TIterator it, TIterator end, Compare comp, TBytes prevKey) {
+
+        while (it != end || pIt->Valid()) {
+            while (it != end && (!pIt->Valid() || !comp(it->first, pIt->Key()))) {
+                if (prevKey.empty() || comp(it->first, prevKey)) {
+                    if (it->second) {
+                        itState = Map;
+                        return it;
+                    } else {
+                        prevKey = it->first;
+                    }
+                }
+                ++it;
+            }
+            if (pIt->Valid()) {
+                if (prevKey.empty() || comp(pIt->Key(), prevKey)) {
+                    itState = Parent;
+                    return it;
+                }
+                NextParent(it);
+            }
+        }
+        itState = Invalid;
+        return it;
     }
-    void nextParent() {
-        parentOk = parentOk && (pIt->Next(), pIt->Valid());
+    void NextParent(MapKV::const_iterator&) {
+        pIt->Next();
     }
-    bool inited;
-    bool useMap;
-    std::unique_ptr<CStorageKVIterator> pIt;
-    bool parentOk;
+    void NextParent(std::reverse_iterator<MapKV::const_iterator>&) {
+        pIt->Prev();
+    }
     const MapKV& map;
     MapKV::const_iterator mIt;
-    bool mapOk;
-    TBytes prevKey;
+    std::unique_ptr<CStorageKVIterator> pIt;
+    enum IteratorState { Invalid, Map, Parent } itState;
 };
 
 // Flushable Key-Value Storage
@@ -281,6 +306,9 @@ public:
         changed.clear();
         return true;
     }
+    void Discard() override {
+        changed.clear();
+    }
     size_t SizeEstimate() const override {
         return memusage::DynamicUsage(changed);
     }
@@ -298,27 +326,92 @@ private:
 };
 
 template<typename T>
-class CLazySerialize
-{
+class CLazySerialize {
     Optional<T> value;
-    CStorageKVIterator& it;
+    std::unique_ptr<CStorageKVIterator>& it;
 
 public:
     CLazySerialize(const CLazySerialize&) = default;
-    explicit CLazySerialize(CStorageKVIterator& it) : it(it) {}
+    explicit CLazySerialize(std::unique_ptr<CStorageKVIterator>& it) : it(it) {}
 
-    operator T()
-    {
+    operator T() & {
         return get();
     }
-
-    const T& get()
-    {
+    operator T() && {
+        get();
+        return std::move(*value);
+    }
+    const T& get() {
         if (!value) {
             value = T{};
-            BytesToDbType(it.Value(), *value);
+            BytesToDbType(it->Value(), *value);
         }
         return *value;
+    }
+};
+
+template<typename By, typename KeyType>
+class CStorageIteratorWrapper {
+    bool valid = false;
+    std::pair<uint8_t, KeyType> key;
+    std::unique_ptr<CStorageKVIterator> it;
+
+    void UpdateValidity() {
+        valid = it->Valid() && BytesToDbType(it->Key(), key) && key.first == By::prefix;
+    }
+
+    struct Resolver {
+        std::unique_ptr<CStorageKVIterator>& it;
+
+        template<typename T>
+        inline operator CLazySerialize<T>() {
+            return CLazySerialize<T>{it};
+        }
+        template<typename T>
+        inline T as() {
+            return CLazySerialize<T>{it};
+        }
+        template<typename T>
+        inline operator T() {
+            return as<T>();
+        }
+    };
+
+public:
+    CStorageIteratorWrapper(CStorageIteratorWrapper&&) = default;
+    CStorageIteratorWrapper(std::unique_ptr<CStorageKVIterator> it) : it(std::move(it)) {}
+
+    CStorageIteratorWrapper& operator=(CStorageIteratorWrapper&& other) {
+        valid = other.valid;
+        it = std::move(other.it);
+        key = std::move(other.key);
+        return *this;
+    }
+    bool Valid() {
+        return valid;
+    }
+    const KeyType& Key() {
+        assert(Valid());
+        return key.second;
+    }
+    Resolver Value() {
+        assert(Valid());
+        return Resolver{it};
+    }
+    void Next() {
+        assert(Valid());
+        it->Next();
+        UpdateValidity();
+    }
+    void Prev() {
+        assert(Valid());
+        it->Prev();
+        UpdateValidity();
+    }
+    void Seek(const KeyType& newKey) {
+        key = std::make_pair(By::prefix, newKey);
+        it->Seek(DbTypeToBytes(key));
+        UpdateValidity();
     }
 };
 
@@ -376,24 +469,25 @@ public:
             return {result};
         return {};
     }
-
+    template<typename By, typename KeyType>
+    CStorageIteratorWrapper<By, KeyType> LowerBound(KeyType const & key) {
+        CStorageIteratorWrapper<By, KeyType> it{DB().NewIterator()};
+        it.Seek(key);
+        return it;
+    }
     template<typename By, typename KeyType, typename ValueType>
-    bool ForEach(std::function<bool(KeyType const &, CLazySerialize<ValueType>)> callback, KeyType const & start = KeyType()) const {
-        auto& self = const_cast<CStorageView&>(*this);
-        auto key = std::make_pair(By::prefix, start);
-
-        auto it = self.DB().NewIterator();
-        for(it->Seek(DbTypeToBytes(key)); it->Valid() && BytesToDbType(it->Key(), key) && key.first == By::prefix; it->Next()) {
+    void ForEach(std::function<bool(KeyType const &, CLazySerialize<ValueType>)> callback, KeyType const & start = {}) {
+        for(auto it = LowerBound<By>(start); it.Valid(); it.Next()) {
             boost::this_thread::interruption_point();
 
-            if (!callback(key.second, CLazySerialize<ValueType>(*it)))
+            if (!callback(it.Key(), it.Value())) {
                 break;
+            }
         }
-        return true;
     }
 
     bool Flush() { return DB().Flush(); }
-
+    void Discard() { DB().Discard(); }
     size_t SizeEstimate() const { return DB().SizeEstimate(); }
 
 protected:

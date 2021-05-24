@@ -10,13 +10,14 @@
 #include <pubkey.h>
 #include <serialize.h>
 #include <masternodes/accounts.h>
-#include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/icxorder.h>
 #include <masternodes/incentivefunding.h>
+#include <masternodes/gv.h>
+#include <masternodes/oracles.h>
+#include <masternodes/poolpairs.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
-#include <masternodes/poolpairs.h>
-#include <masternodes/gv.h>
 #include <uint256.h>
 #include <wallet/ismine.h>
 
@@ -32,9 +33,8 @@ class CBlockIndex;
 class CTransaction;
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
-int GetMnActivationDelay();
-int GetMnResignDelay();
-int GetMnHistoryFrame();
+int GetMnActivationDelay(int height);
+int GetMnResignDelay(int height);
 CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
@@ -79,9 +79,9 @@ public:
     CMasternode();
 
     State GetState() const;
-    State GetState(int h) const;
+    State GetState(int height) const;
     bool IsActive() const;
-    bool IsActive(int h) const;
+    bool IsActive(int height) const;
 
     static std::string GetHumanReadableState(State state);
 
@@ -155,11 +155,11 @@ public:
 
     Res CreateMasternode(uint256 const & nodeId, CMasternode const & node);
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
-//    void UnCreateMasternode(uint256 const & nodeId);
-//    void UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
+    Res UnCreateMasternode(uint256 const & nodeId);
+    Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
 
     void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
-    boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter);
+    boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height);
     void EraseMasternodeLastBlockTime(const uint256 &minter, const uint32_t& blockHeight);
 
     void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
@@ -240,15 +240,18 @@ class CCustomCSView
         , public CAnchorRewardsView
         , public CTokensView
         , public CAccountsView
-        , public CAccountsHistoryView
-        , public CRewardsHistoryView
         , public CCommunityBalancesView
         , public CUndosView
         , public CPoolPairView
         , public CGovView
         , public CAnchorConfirmsView
+        , public COracleView
+        , public CICXOrderView
 {
 public:
+    // Increase version when underlaying tables are changed
+    static constexpr const int DbVersion = 1;
+
     CCustomCSView() = default;
 
     CCustomCSView(CStorageKV & st)
@@ -273,36 +276,18 @@ public:
 
     bool CanSpend(const uint256 & txId, int height) const;
 
-    CStorageKV& GetRaw() {
-        return DB();
+    bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
+
+    void SetDbVersion(int version);
+
+    int GetDbVersion() const;
+
+    uint256 MerkleRoot();
+
+    // we construct it as it
+    CFlushableStorageKV& GetStorage() {
+        return static_cast<CFlushableStorageKV&>(DB());
     }
-};
-
-class CAccountsHistoryStorage : public CCustomCSView
-{
-    int acindex;
-    const uint32_t height;
-    const uint32_t txn;
-    const uint256 txid;
-    const uint8_t type;
-    std::map<CScript, TAmounts> diffs;
-public:
-    CAccountsHistoryStorage(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type);
-    Res AddBalance(CScript const & owner, CTokenAmount amount) override;
-    Res SubBalance(CScript const & owner, CTokenAmount amount) override;
-    bool Flush();
-};
-
-class CRewardsHistoryStorage : public CCustomCSView
-{
-    int acindex;
-    const uint32_t height;
-    std::map<std::pair<CScript, uint8_t>, std::map<DCT_ID, TAmounts>> diffs;
-    using CCustomCSView::AddBalance;
-public:
-    CRewardsHistoryStorage(CCustomCSView & storage, uint32_t height);
-    Res AddBalance(CScript const & owner, DCT_ID poolID, uint8_t type, CTokenAmount amount);
-    bool Flush();
 };
 
 std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team);

@@ -1,4 +1,4 @@
-# How to run a Defichain masternode
+# How to run a DeFiChain masternode
 
 ## Introduction
 

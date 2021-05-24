@@ -129,3 +129,6 @@ dist/
 
 # spv
 !src/spv/Makefile
+
+# VSCode extension LocalHistory
+.history

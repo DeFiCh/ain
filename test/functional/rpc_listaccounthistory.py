@@ -7,15 +7,20 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import assert_equal
+from test_framework.util import (
+    assert_equal,
+    connect_nodes_bi
+)
 
 class TokensRPCListAccountHistory(DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2
+        self.num_nodes = 3
         self.setup_clean_chain = True
         self.extra_args = [
-        ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
-        ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50']]
+            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
+            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
+            ['-acindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50'],
+        ]
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -34,6 +39,9 @@ class TokensRPCListAccountHistory(DefiTestFramework):
 
         # Make sure there's an extra token
         assert_equal(len(self.nodes[0].listtokens()), num_tokens + 1)
+
+        # Stop node #2 for future revert
+        self.stop_node(2)
 
         # Get token ID
         list_tokens = self.nodes[0].listtokens()
@@ -76,6 +84,21 @@ class TokensRPCListAccountHistory(DefiTestFramework):
 
         result = self.nodes[1].listaccounthistory()
         assert_equal(result, [])
+
+        # REVERTING:
+        #========================
+        self.start_node(2)
+        self.nodes[2].generate(2)
+
+        connect_nodes_bi(self.nodes, 1, 2)
+        self.sync_blocks()
+
+        # Get node 1 results
+        results = self.nodes[1].listaccounthistory(collateral_a)
+
+        # Expect mint token TX to be reverted
+        assert_equal(len(results), 0)
+        assert_equal(self.nodes[1].accounthistorycount(collateral_a), 0)
 
 if __name__ == '__main__':
     TokensRPCListAccountHistory().main ()

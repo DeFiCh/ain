@@ -70,7 +70,7 @@ struct DCT_ID {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(v);
+        READWRITE(VARINT(v));
     }
 };
 
@@ -110,11 +110,7 @@ struct CTokenAmount { // simple std::pair is less informative
     CAmount nValue;
 
     std::string ToString() const {
-        const bool sign = nValue < 0;
-        const int64_t n_abs = (sign ? -nValue : nValue);
-        const int64_t quotient = n_abs / COIN;
-        const int64_t remainder = n_abs % COIN;
-        return strprintf("%s%d.%08d@%d", sign ? "-" : "", quotient, remainder, nTokenId.v);
+        return strprintf("%s@%d", GetDecimaleString(nValue), nTokenId.v);
     }
 
     Res Add(CAmount amount) {
@@ -125,7 +121,7 @@ struct CTokenAmount { // simple std::pair is less informative
         // add
         auto sumRes = SafeAdd(this->nValue, amount);
         if (!sumRes.ok) {
-            return sumRes.res();
+            return std::move(sumRes);
         }
         this->nValue = *sumRes.val;
         return Res::Ok();
@@ -162,7 +158,7 @@ struct CTokenAmount { // simple std::pair is less informative
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(VARINT(nTokenId.v));
+        READWRITE(nTokenId);
         READWRITE(nValue);
     }
 

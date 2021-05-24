@@ -102,7 +102,7 @@ class PoolPairTest (DefiTestFramework):
         }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Error, there is already a poolpairwith same tokens, but different poolId" in errorString)
+        assert("Error, there is already a poolpair with same tokens, but different poolId" in errorString)
 
         # Creating another one
         trPP = self.nodes[0].createpoolpair({

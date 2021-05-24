@@ -10,6 +10,10 @@ enum class CommunityAccountType : unsigned char
     None = 0,
     IncentiveFunding    = 'I', // or 'yield farming' - source of community rewards for LP (Liquidity Pools)
     AnchorReward        = 'A',
+    Swap                = 'S',
+    Futures             = 'F',
+    Options             = 'O',
+    Unallocated         = 'U',
 };
 
 #endif //DEFI_MASTERNODES_COMMUNITYACCOUNTTYPES_H

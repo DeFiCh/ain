@@ -15,7 +15,7 @@ Res LP_SPLITS::Import(const UniValue & val) {
     for (const std::string& key : val.getKeys()) {
         const auto id = DCT_ID::FromString(key);
         if (!id.ok) {
-            return Res::Err(id.msg);
+            return id;
         }
         splits.emplace(*id.val, AmountFromValue(val[key]));//todo: AmountFromValue
     }
@@ -33,9 +33,7 @@ UniValue LP_SPLITS::Export() const {
 Res LP_SPLITS::Validate(const CCustomCSView & mnview) const {
     CAmount total{0};
     for (auto const & kv : splits) {
-        auto pool = mnview.GetPoolPair(kv.first);
-
-        if (!pool)
+        if (!mnview.HasPoolPair(kv.first))
             return Res::Err("pool with id=%s not found", kv.first.ToString());
 
         if (kv.second < 0 || kv.second > COIN)
@@ -49,16 +47,16 @@ Res LP_SPLITS::Validate(const CCustomCSView & mnview) const {
     return Res::Ok();
 }
 
-Res LP_SPLITS::Apply(CCustomCSView & mnview) {
-    mnview.ForEachPoolPair([&] (const DCT_ID poolId, CPoolPair pool) {
+Res LP_SPLITS::Apply(CCustomCSView & mnview, uint32_t height) {
+    mnview.ForEachPoolId([&] (DCT_ID poolId) {
         // we ought to reset previous value:
-        pool.rewardPct = 0;
+        CAmount rewardPct = 0;
         auto it = splits.find(poolId);
         if (it != splits.end()) {
-            pool.rewardPct = it->second;
+            rewardPct = it->second;
         }
 
-        mnview.SetPoolPair(poolId, pool);
+        mnview.SetRewardPct(poolId, height, rewardPct);
         return true;
     });
     return Res::Ok();

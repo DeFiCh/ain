@@ -118,7 +118,7 @@ class TokensMintingTest (DefiTestFramework):
             self.sync_blocks()
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("AccountToUtxos only available for DFI transactions" in errorString)
+        assert("only available for DFI transactions" in errorString)
 
 if __name__ == '__main__':
     TokensMintingTest ().main ()

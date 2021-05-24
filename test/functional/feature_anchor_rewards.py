@@ -10,8 +10,8 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import assert_equal, \
-    connect_nodes_bi, disconnect_nodes, wait_until
+from test_framework.util import assert_equal, connect_nodes_bi, \
+    disconnect_nodes, wait_until, assert_raises_rpc_error
 
 from decimal import Decimal
 import time
@@ -120,6 +120,65 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[0].spv_setlastheight(1)
         self.nodes[1].spv_setlastheight(1)
 
+        # Check errors
+        assert_raises_rpc_error(None, "Not enough money", self.nodes[1].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': 3,
+                'amount': 1000,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        # Check some params:
+        assert_raises_rpc_error(None, "Expected type array, got object", self.nodes[1].spv_createanchor,
+            {
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': 3,
+                'amount': 2262303,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }, "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        assert_raises_rpc_error(None, "txid must be of length 64", self.nodes[1].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963aa",
+                'vout': 3,
+                'amount': 2262303,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        assert_raises_rpc_error(None, "value is not an integer", self.nodes[1].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': "aa",
+                'amount': 2262303,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        assert_raises_rpc_error(None, "Can't parse WIF privkey", self.nodes[1].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': 3,
+                'amount': 2262303,
+                'privkey': "1_cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        assert_raises_rpc_error(None, "does not refer to a P2PKH or P2WPKH address", self.nodes[1].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': 3,
+                'amount': 2262303,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "__mgsE1SqrcfUhvuYuRjqy6rQCKmcCVKNhMu")
+
+        assert_raises_rpc_error(None, "does not refer to a P2PKH or P2WPKH address", self.nodes[1].spv_createanchor,
+            [{
+                'txid': "a0d5a294be3cde6a8bddab5815b8c4cb1b2ebf2c2b8a4018205d6f8c576e8963",
+                'vout': 3,
+                'amount': 2262303,
+                'privkey': "cStbpreCo2P4nbehPXZAAM3gXXY1sAphRfEhj7ADaLx8i2BmxvEP"
+            }], "")
+
+        # Test anchor creations
         rewardAddress0 = self.nodes[0].getnewaddress("", "legacy")
         rewardAddress1 = self.nodes[0].getnewaddress("", "legacy")
 
@@ -200,6 +259,7 @@ class AnchorRewardsTest (DefiTestFramework):
         self.nodes[1].spv_setlastheight(6)
 
         anchors = self.nodes[0].spv_listanchors()
+        print(anchors)
         assert_equal(anchors[0]['confirmations'], 6) # Bitcoin confirmations
         if anchors[0]['active']:
             activeAnc = anchors[0]
@@ -210,11 +270,11 @@ class AnchorRewardsTest (DefiTestFramework):
 
         unrewarded = self.nodes[0].spv_listanchorsunrewarded()
         assert_equal(len(unrewarded), 1)
-        assert_equal(unrewarded[0]['btcHeight'], 1)
-        if unrewarded[0]['btcHash'] != btcHash0:
-            assert_equal(unrewarded[0]['btcHash'], btcHash1)
-        assert_equal(unrewarded[0]['dfiHeight'], 15)
-        assert_equal(unrewarded[0]['dfiHash'], dfiHash)
+        assert_equal(unrewarded[0]['btcBlockHeight'], 1)
+        if unrewarded[0]['btcTxHash'] != btcHash0:
+            assert_equal(unrewarded[0]['btcTxHash'], btcHash1)
+        assert_equal(unrewarded[0]['defiBlockHeight'], 15)
+        assert_equal(unrewarded[0]['defiBlockHash'], dfiHash)
 
         # important to wait here!
         self.sync_blocks(self.nodes[0:2])

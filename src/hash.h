@@ -89,6 +89,20 @@ inline uint256 Hash(const T1 p1begin, const T1 p1end,
     return result;
 }
 
+/** Compute the 256-bit hash of a container. */
+template<typename T>
+inline uint256 Hash(const T& c)
+{
+    return Hash(c.begin(), c.end());
+}
+
+/** Compute the 256-bit hash of two containers. */
+template<typename T>
+inline uint256 Hash2(const T& c1, const T& c2)
+{
+    return Hash(c1.begin(), c1.end(), c2.begin(), c2.end());
+}
+
 /** Compute the 160-bit hash an object. */
 template<typename T1>
 inline uint160 Hash160(const T1 pbegin, const T1 pend)

@@ -594,7 +594,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
                 staged.insert(mapTx.project<0>(it));
                 continue;
             }
-            auto res = ApplyCustomTx(viewDuplicate, mempoolDuplicate, tx, Params().GetConsensus(), nBlockHeight, 0, uint64_t{0}, false);
+            auto res = ApplyCustomTx(viewDuplicate, mempoolDuplicate, tx, Params().GetConsensus(), nBlockHeight);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
                 staged.insert(mapTx.project<0>(it));
@@ -638,6 +638,7 @@ static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& m
     CValidationState state;
     CAmount txfee = 0;
     bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, mnview, spendheight, txfee, chainparams);
+    fCheckResult = fCheckResult && CheckBurnSpend(tx, mempoolDuplicate);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, std::numeric_limits<int>::max());
 }
