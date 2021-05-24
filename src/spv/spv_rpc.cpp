@@ -1471,6 +1471,34 @@ static UniValue spv_getfeerate(const JSONRPCRequest& request)
     return spv::pspv->GetFeeRate();
 }
 
+static UniValue spv_getpeers(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"spv_getpeers",
+               "\nReturns info on connected peers.\n",
+               {
+               },
+               RPCResult{
+                 "X {                                (Peer number)\n"
+                       "  address: xxx.xxx.xxx.xxx          (IP Address)\n"
+                       "  timestamp: nnn                    (time)\n"
+                       "  flags: nnn                        (flags)\n"
+                       "  services: nnn                     (services)\n"
+                       "}\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("spv_getpeers", "")
+                       + HelpExampleRpc("spv_getpeers", "")
+               },
+    }.Check(request);
+
+    if (!spv::pspv)
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    return spv::pspv->GetPeers();
+}
+
 
 static const CRPCCommand commands[] =
 { //  category          name                        actor (function)            params
@@ -1505,6 +1533,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_validateaddress",        &spv_validateaddress,       { "address"}  },
   { "spv",      "spv_getalladdresses",        &spv_getalladdresses,       { }  },
   { "spv",      "spv_getfeerate",             &spv_getfeerate,            { }  },
+  { "spv",      "spv_getpeers",               &spv_getpeers,              { }  },
   { "hidden",   "spv_setlastheight",          &spv_setlastheight,         { "height" }  },
   { "hidden",   "spv_fundaddress",            &spv_fundaddress,           { "address" }  },
 };
