@@ -610,6 +610,26 @@ void CSpvWrapper::WriteBlock(const BRMerkleBlock * block)
     BatchWrite(std::make_pair(DB_SPVBLOCKS, to_uint256(block->blockHash)), std::make_pair(buf, block->height));
 }
 
+UniValue CSpvWrapper::GetPeers()
+{
+    auto peerInfo = BRGetPeers(manager);
+
+    UniValue result(UniValue::VOBJ);
+
+    for (const auto& peer : peerInfo)
+    {
+        UniValue obj(UniValue::VOBJ);
+        for (const auto& json : peer.second)
+        {
+            obj.pushKV(json.first, json.second);
+        }
+
+        result.pushKV(std::to_string(peer.first), obj);
+    }
+
+    return result;
+}
+
 std::string CSpvWrapper::AddBitcoinAddress(const CPubKey& new_key)
 {
     BRAddress addr = BR_ADDRESS_NONE;

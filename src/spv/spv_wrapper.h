@@ -140,6 +140,9 @@ public:
     // Get block height of Bitcoin TX
     uint32_t ReadTxBlockHeight(uint256 const & hash);
 
+    // Bitcoin networking calls
+    UniValue GetPeers();
+
     // Bitcoin Address calls
     std::string AddBitcoinAddress(const CPubKey &new_key);
     void AddBitcoinHash(const uint160 &userHash, const bool htlc = false);

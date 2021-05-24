@@ -988,7 +988,7 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
     size_t relayCount = 0;
     
     manager->lock.lock();
-    LogPrint(BCLog::SPV_NET, "Peer: %s relayed tx: %s\n", BRPeerHostString(peer), u256hex(tx->txHash));
+    peer_log(peer, "relayed tx: %s", u256hex(tx->txHash));
     
     UInt256 hash = tx->txHash;
     for (size_t i = array_count(manager->publishedTx); i > 0; i--) { // see if tx is in list of published tx
@@ -1075,7 +1075,7 @@ static void _peerHasTx(void *info, UInt256 txHash)
     
     manager->lock.lock();
     tx = BRWalletTransactionForHash(manager->wallet, txHash);
-    LogPrint(BCLog::SPV_NET, "Peer: %s has tx: %s\n", BRPeerHostString(peer), u256hex(txHash));
+    peer_log(peer, "has tx: %s", u256hex(txHash));
 
     for (size_t i = array_count(manager->publishedTx); i > 0; i--) { // see if tx is in list of published tx
         if (UInt256Eq(manager->publishedTxHashes[i - 1], txHash)) {
@@ -1673,6 +1673,27 @@ BRPeerStatus BRPeerManagerConnectStatus(BRPeerManager *manager)
 
     manager->lock.unlock();
     return status;
+}
+
+std::map<int, std::vector<std::pair<std::string, std::string>>> BRGetPeers(BRPeerManager *manager)
+{
+    std::map<int, std::vector<std::pair<std::string, std::string>>> mapPeerInfo;
+
+    for (size_t i = array_count(manager->connectedPeers); i > 0; i--)
+    {
+        auto peer = manager->connectedPeers[i - 1];
+        if (BRPeerConnectStatus(peer) != BRPeerStatusConnected)
+            continue;
+
+        std::vector<std::pair<std::string, std::string>> peerInfo;
+        peerInfo.emplace_back("address", BRPeerHostString(peer) + ":" + std::to_string(peer->port));
+        peerInfo.emplace_back("timestamp", std::to_string(peer->timestamp));
+        peerInfo.emplace_back("flags", std::to_string(peer->flags));
+        peerInfo.emplace_back("services", strprintf("%016x", peer->services));
+        mapPeerInfo.emplace(i - 1, peerInfo);
+    }
+
+    return mapPeerInfo;
 }
 
 // connect to bitcoin peer-to-peer network (also call this whenever networkIsReachable() status changes)

@@ -1426,7 +1426,7 @@ uint64_t BRPeerFeePerKb(BRPeer *peer)
 void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const char *type)
 {
     if (msgLen > MAX_MSG_LENGTH) {
-        LogPrint(BCLog::SPV_NET, "Peer: %s failed to send %s, length %ld is too long\n", BRPeerHostString(peer), type, msgLen);
+        peer_log(peer, "failed to send %s, length %zu is too long", type, msgLen);
     }
     else {
         BRPeerContext *ctx = (BRPeerContext *)peer;
@@ -1447,7 +1447,7 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
         memcpy(&buf[off], hash, sizeof(uint32_t));
         off += sizeof(uint32_t);
         memcpy(&buf[off], msg, msgLen);
-        LogPrint(BCLog::SPV_NET, "Peer: %s sending: %s\n", BRPeerHostString(peer), type);
+        peer_log(peer, "sending %s", type);
         msgLen = 0;
         socket = _peerGetSocket(ctx);
         if (socket == INVALID_SOCKET) error = ENOTCONN;
@@ -1462,7 +1462,7 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
         }
         
         if (error) {
-            LogPrint(BCLog::SPV_NET, "Peer: %s send message error: %s, %s\n", BRPeerHostString(peer), type, strerror(error));
+            peer_log(peer, "%s", strerror(error));
             BRPeerDisconnect(peer);
         }
     }
