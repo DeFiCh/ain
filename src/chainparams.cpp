@@ -124,7 +124,7 @@ public:
         consensus.ClarkeQuayHeight = 595738;
         consensus.DakotaHeight = 678000; // 1st March 2021
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
-        consensus.EunosHeight = std::numeric_limits<int>::max();
+        consensus.EunosHeight = 894000; // 3rd June 2021
         consensus.EunosSimsHeight = consensus.EunosHeight;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
