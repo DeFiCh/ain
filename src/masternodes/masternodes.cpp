@@ -48,19 +48,22 @@ const unsigned char CTeamView::ConfirmTeam    ::prefix = DB_MN_CONFIRM_TEAM;
 std::unique_ptr<CCustomCSView> pcustomcsview;
 std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 
-int GetMnActivationDelay()
+int GetMnActivationDelay(int height)
 {
-    return Params().GetConsensus().mn.activationDelay;
+    if (height < Params().GetConsensus().EunosSimsHeight) {
+        return Params().GetConsensus().mn.activationDelay;
+    }
+
+    return Params().GetConsensus().mn.newActivationDelay;
 }
 
-int GetMnResignDelay()
+int GetMnResignDelay(int height)
 {
-    return Params().GetConsensus().mn.resignDelay;
-}
+    if (height < Params().GetConsensus().EunosSimsHeight) {
+        return Params().GetConsensus().mn.resignDelay;
+    }
 
-int GetMnHistoryFrame()
-{
-    return Params().GetConsensus().mn.historyFrame;
+    return Params().GetConsensus().mn.newResignDelay;
 }
 
 CAmount GetMnCollateralAmount(int height)
@@ -107,25 +110,25 @@ CMasternode::State CMasternode::GetState() const
     return GetState(::ChainActive().Height());
 }
 
-CMasternode::State CMasternode::GetState(int h) const
+CMasternode::State CMasternode::GetState(int height) const
 {
     assert (banHeight == -1 || resignHeight == -1); // mutually exclusive!: ban XOR resign
 
     if (resignHeight == -1 && banHeight == -1) { // enabled or pre-enabled
         // Special case for genesis block
-        if (creationHeight == 0 || h >= creationHeight + GetMnActivationDelay()) {
+        if (creationHeight == 0 || height >= creationHeight + GetMnActivationDelay(height)) {
             return State::ENABLED;
         }
         return State::PRE_ENABLED;
     }
     if (resignHeight != -1) { // pre-resigned or resigned
-        if (h < resignHeight + GetMnResignDelay()) {
+        if (height < resignHeight + GetMnResignDelay(height)) {
             return State::PRE_RESIGNED;
         }
         return State::RESIGNED;
     }
     if (banHeight != -1) { // pre-banned or banned
-        if (h < banHeight + GetMnResignDelay()) {
+        if (height < banHeight + GetMnResignDelay(height)) {
             return State::PRE_BANNED;
         }
         return State::BANNED;
@@ -138,9 +141,9 @@ bool CMasternode::IsActive() const
     return IsActive(::ChainActive().Height());
 }
 
-bool CMasternode::IsActive(int h) const
+bool CMasternode::IsActive(int height) const
 {
-    State state = GetState(h);
+    State state = GetState(height);
     return state == ENABLED || state == PRE_RESIGNED || state == PRE_BANNED;
 }
 

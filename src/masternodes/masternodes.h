@@ -33,9 +33,8 @@ class CBlockIndex;
 class CTransaction;
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
-int GetMnActivationDelay();
-int GetMnResignDelay();
-int GetMnHistoryFrame();
+int GetMnActivationDelay(int height);
+int GetMnResignDelay(int height);
 CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
@@ -80,9 +79,9 @@ public:
     CMasternode();
 
     State GetState() const;
-    State GetState(int h) const;
+    State GetState(int height) const;
     bool IsActive() const;
-    bool IsActive(int h) const;
+    bool IsActive(int height) const;
 
     static std::string GetHumanReadableState(State state);
 

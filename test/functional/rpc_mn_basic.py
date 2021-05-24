@@ -177,8 +177,24 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         signedTx = self.nodes[0].signrawtransactionwithwallet(cmTx)
         assert_equal(signedTx['complete'], True)
         assert_raises_rpc_error(-26, 'masternode creation needs owner auth', self.nodes[0].sendrawtransaction, signedTx['hex'])
-        self.nodes[0].createmasternode(self.nodes[0].getnewaddress("", "legacy"))
+
+        # Test new register delay
+        mnTx = self.nodes[0].createmasternode(self.nodes[0].getnewaddress("", "legacy"))
         self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "PRE_ENABLED")
+        self.nodes[0].generate(19)
+        assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "PRE_ENABLED")
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "ENABLED")
+
+        # Test new resign delay
+        self.nodes[0].resignmasternode(mnTx)
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].listmasternodes()[mnTx]['state'], "PRE_RESIGNED")
+        self.nodes[0].generate(39)
+        assert_equal(self.nodes[0].listmasternodes()[mnTx]['state'], "PRE_RESIGNED")
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].listmasternodes()[mnTx]['state'], "RESIGNED")
 
 if __name__ == '__main__':
     MasternodesRpcBasicTest ().main ()

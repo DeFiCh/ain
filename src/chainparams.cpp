@@ -125,6 +125,7 @@ public:
         consensus.DakotaHeight = 678000; // 1st March 2021
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
         consensus.EunosHeight = std::numeric_limits<int>::max();
+        consensus.EunosSimsHeight = consensus.EunosHeight;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -155,11 +156,12 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
+        consensus.mn.newActivationDelay = 1008;
         consensus.mn.resignDelay = 60;
+        consensus.mn.newResignDelay = 2 * consensus.mn.newActivationDelay;
         consensus.mn.creationFee = 10 * COIN;
         consensus.mn.collateralAmount = 1000000 * COIN;
         consensus.mn.collateralAmountDakota = 20000 * COIN;
-        consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
 
@@ -336,6 +338,7 @@ public:
         consensus.DakotaHeight = 220680;
         consensus.DakotaCrescentHeight = 287700;
         consensus.EunosHeight = 427040; // 21st May 2021
+        consensus.EunosSimsHeight = 435800; // 24th May 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -366,11 +369,12 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
+        consensus.mn.newActivationDelay = 1008;
         consensus.mn.resignDelay = 60;
+        consensus.mn.newResignDelay = 2 * consensus.mn.newActivationDelay;
         consensus.mn.creationFee = 10 * COIN;
         consensus.mn.collateralAmount = 1000000 * COIN;
         consensus.mn.collateralAmountDakota = 20000 * COIN;
-        consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
 
@@ -513,6 +517,7 @@ public:
         consensus.DakotaHeight = 10;
         consensus.DakotaCrescentHeight = 10;
         consensus.EunosHeight = 10;
+        consensus.EunosSimsHeight = 10;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -541,11 +546,12 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
+        consensus.mn.newActivationDelay = 1008;
         consensus.mn.resignDelay = 60;
+        consensus.mn.newResignDelay = 2 * consensus.mn.newActivationDelay;
         consensus.mn.creationFee = 10 * COIN;
         consensus.mn.collateralAmount = 1000000 * COIN;
         consensus.mn.collateralAmountDakota = 20000 * COIN;
-        consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
 
@@ -680,6 +686,7 @@ public:
         consensus.DakotaHeight = 10000000;
         consensus.DakotaCrescentHeight = 10000000;
         consensus.EunosHeight = 10000000;
+        consensus.EunosSimsHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -708,11 +715,12 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
+        consensus.mn.newActivationDelay = 20;
         consensus.mn.resignDelay = 10;
+        consensus.mn.newResignDelay = 2 * consensus.mn.newActivationDelay;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.collateralAmountDakota = 2 * COIN;
-        consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 3;
         consensus.mn.anchoringFrequency = 15;
 
@@ -927,6 +935,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.EunosHeight = static_cast<int>(height);
+        consensus.EunosSimsHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;
