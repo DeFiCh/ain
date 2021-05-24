@@ -886,7 +886,7 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
     SOCKET sock = INVALID_SOCKET;
 
     ctx->lock.lock();
-    sock = ctx->socket = socket(domain, SOCK_STREAM, 0);
+    sock = ctx->socket = socket(domain, SOCK_STREAM, IPPROTO_TCP);
     ctx->lock.unlock();
 
     if (sock == INVALID_SOCKET) {
@@ -912,11 +912,10 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
 #endif
 
 #ifdef WIN32
-        // I cant make it work with non-blocking sockets. Blocking is less effective, but it works
-//        u_long nOne = 1;
-//        if (ioctlsocket(sock, FIONBIO, &nOne) == SOCKET_ERROR) {
-//            r = 0; // in win it is blocked by default, unblock
-//        }
+        u_long nBlock = 1; // Non-Blocking
+        if (ioctlsocket(sock, FIONBIO, &nBlock) == SOCKET_ERROR) {
+            r = 0;
+        }
 #else
         arg = fcntl(sock, F_GETFL, NULL);
         if (arg < 0 || fcntl(sock, F_SETFL, arg | O_NONBLOCK) == SOCKET_ERROR) r = 0; // temporarily set socket non-blocking
@@ -939,12 +938,19 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
             ((struct sockaddr_in *)&addr)->sin_port = htons(peer->port);
             addrLen = sizeof(struct sockaddr_in);
         }
-        
-        if (connect(sock, (struct sockaddr *)&addr, addrLen) == SOCKET_ERROR) {
-            err = WSAGetLastError();
-        }
 
-        if (err == WSAEINPROGRESS) {  // WSAEALREADY && WSAEWOULDBLOCK is for win (but I rather cant make it work with non-blocking sockets)
+#ifdef WIN32
+        if (connect(sock, (struct sockaddr *)&addr, addrLen) == SOCKET_ERROR) err = WSAGetLastError();
+#else
+        if (connect(sock, (struct sockaddr *)&addr, addrLen) < 0) err = errno;
+#endif
+
+        // Connection in progress.
+#ifdef WIN32
+        if (err == WSAEINPROGRESS || err == WSAEWOULDBLOCK || err == WSAEINVAL) {
+#else
+        if (err == EINPROGRESS) {
+#endif
             err = 0;
             optLen = sizeof(err);
             tv.tv_sec = timeout;
@@ -968,10 +974,7 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
 
         if (r) peer_log(peer, "socket connected");
 
-#ifdef WIN32
-//        u_long nZero = 0;
-//        ioctlsocket(sock, FIONBIO, &nZero);
-#else
+#ifndef WIN32
         fcntl(sock, F_SETFL, arg); // restore socket non-blocking status
 #endif
     }

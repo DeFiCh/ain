@@ -37,7 +37,11 @@
 extern "C" {
 #endif
 
+#ifdef WIN32
+#define PEER_MAX_CONNECTIONS 1
+#else
 #define PEER_MAX_CONNECTIONS 3
+#endif
 
 typedef struct BRPeerManagerStruct BRPeerManager;
 
