@@ -1,8 +1,7 @@
-name: OSS
+name: Governance
 
 on:
   pull_request_target:
-    branches: [ master, main ]
     types: [ synchronize, opened, labeled, unlabeled ]
   issues:
     types: [ opened, labeled, unlabeled ]
@@ -11,10 +10,10 @@ on:
 
 jobs:
   main:
-    name: Governance
+    name: OSS
     runs-on: ubuntu-latest
     steps:
-      - uses: DeFiCh/oss-governance-bot@v2
+      - uses: DeFiCh/oss-governance-bot@833b5984684295040d750c1970d05dc8beaa8724
         with:
           github-token: ${{ secrets.DEFICHAIN_BOT_GITHUB_TOKEN }}
 
