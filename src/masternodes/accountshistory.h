@@ -7,9 +7,9 @@
 
 #include <amount.h>
 #include <flushablestorage.h>
+#include <masternodes/masternodes.h>
 #include <script/script.h>
 #include <uint256.h>
-
 
 struct AccountHistoryKey {
     CScript owner;
@@ -52,62 +52,67 @@ struct AccountHistoryValue {
     }
 };
 
-struct RewardHistoryKey {
-    CScript owner;
-    uint32_t blockHeight;
-    uint8_t category;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(owner);
-
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(blockHeight));
-            blockHeight = ~blockHeight;
-        }
-        else {
-            uint32_t blockHeight_ = ~blockHeight;
-            READWRITE(WrapBigEndian(blockHeight_));
-        }
-
-        READWRITE(category);
-    }
-};
-
-using RewardHistoryValue = std::map<DCT_ID, TAmounts>;
-
 class CAccountsHistoryView : public virtual CStorageView
 {
 public:
-    Res SetMineAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
-    Res SetAllAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
-    void ForEachMineAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {}) const;
-    void ForEachAllAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {}) const;
+    Res WriteAccountHistory(AccountHistoryKey const & key, AccountHistoryValue const & value);
+    Res EraseAccountHistory(AccountHistoryKey const & key);
+    void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {});
 
     // tags
-    struct ByMineAccountHistoryKey { static const unsigned char prefix; };
-    struct ByAllAccountHistoryKey { static const unsigned char prefix; };
+    struct ByAccountHistoryKey { static const unsigned char prefix; };
 };
 
-class CRewardsHistoryView : public virtual CStorageView
+class CAccountHistoryStorage : public CAccountsHistoryView
 {
 public:
-    Res SetMineRewardHistory(RewardHistoryKey const & key, RewardHistoryValue const & value);
-    Res SetAllRewardHistory(RewardHistoryKey const & key, RewardHistoryValue const & value);
-    void ForEachMineRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start = {}) const;
-    void ForEachAllRewardHistory(std::function<bool(RewardHistoryKey const &, CLazySerialize<RewardHistoryValue>)> callback, RewardHistoryKey const & start = {}) const;
-
-    // tags
-    struct ByMineRewardHistoryKey { static const unsigned char prefix; };
-    struct ByAllRewardHistoryKey { static const unsigned char prefix; };
+    CAccountHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
 };
 
-static constexpr bool DEFAULT_ACINDEX = false;
-static constexpr bool DEFAULT_ACINDEX_MINEONLY = true;
+class CBurnHistoryStorage : public CAccountsHistoryView
+{
+public:
+    CBurnHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
+};
 
-class CCustomCSView;
-bool shouldMigrateOldRewardHistory(CCustomCSView & view);
+class CAccountsHistoryWriter : public CCustomCSView
+{
+    const uint32_t height;
+    const uint32_t txn;
+    const uint256 txid;
+    const uint8_t type;
+    std::map<CScript, TAmounts> diffs;
+    std::map<CScript, TAmounts> burnDiffs;
+    CAccountsHistoryView* historyView;
+    CAccountsHistoryView* burnView;
+
+public:
+    CAccountsHistoryWriter(CCustomCSView & storage, uint32_t height, uint32_t txn, const uint256& txid, uint8_t type, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView);
+    Res AddBalance(CScript const & owner, CTokenAmount amount) override;
+    Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    Res AddFeeBurn(CScript const & owner, CAmount amount);
+    bool Flush();
+};
+
+class CAccountsHistoryEraser : public CCustomCSView
+{
+    const uint32_t height;
+    const uint32_t txn;
+    std::set<CScript> accounts;
+    std::set<CScript> burnAccounts;
+    CAccountsHistoryView* historyView;
+    CAccountsHistoryView* burnView;
+
+public:
+    CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView);
+    Res AddBalance(CScript const & owner, CTokenAmount amount) override;
+    Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    bool Flush();
+};
+
+extern std::unique_ptr<CAccountHistoryStorage> paccountHistoryDB;
+extern std::unique_ptr<CBurnHistoryStorage> pburnHistoryDB;
+
+static constexpr bool DEFAULT_ACINDEX = true;
 
 #endif //DEFI_MASTERNODES_ACCOUNTSHISTORY_H

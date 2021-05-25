@@ -14,6 +14,10 @@ struct Res
 
     Res() = delete;
 
+    operator bool() const {
+        return ok;
+    }
+
     template<typename... Args>
     static Res Err(std::string const & err, const Args&... args) {
         return Res{false, tfm::format(err, args...), 0, {} };
@@ -69,15 +73,19 @@ struct ResVal : public Res
         assert(this->ok); // if value if provided, then it's never an error
     }
 
-    Res res() const {
-        return *this;
+    operator bool() const {
+        return ok;
+    }
+
+    operator T() const {
+        assert(ok);
+        return *val;
     }
 
     template <typename F>
-    T ValOrException(F&& _throw) const {
+    T ValOrException(F&& func) const {
         if (!ok) {
-            _throw(code, msg);
-            throw std::logic_error{msg}; // shouldn't be reachable because of _throw
+            throw func(code, msg);
         }
         return *val;
     }

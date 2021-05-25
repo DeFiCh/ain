@@ -37,7 +37,11 @@
 extern "C" {
 #endif
 
+#ifdef WIN32
+#define PEER_MAX_CONNECTIONS 1
+#else
 #define PEER_MAX_CONNECTIONS 3
+#endif
 
 typedef struct BRPeerManagerStruct BRPeerManager;
 
@@ -73,6 +77,9 @@ void BRPeerManagerSetFixedPeer(BRPeerManager *manager, UInt128 address, uint16_t
 
 // current connect status
 BRPeerStatus BRPeerManagerConnectStatus(BRPeerManager *manager);
+
+// Get connected peer info
+std::map<int, std::vector<std::pair<std::string, std::string>>> BRGetPeers(BRPeerManager *manager);
 
 // connect to bitcoin peer-to-peer network (also call this whenever networkIsReachable() status changes)
 void BRPeerManagerConnect(BRPeerManager *manager);

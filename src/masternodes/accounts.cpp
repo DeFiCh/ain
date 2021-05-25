@@ -6,8 +6,9 @@
 
 /// @attention make sure that it does not overlap with those in masternodes.cpp/tokens.cpp/undos.cpp/accounts.cpp !!!
 const unsigned char CAccountsView::ByBalanceKey::prefix = 'a';
+const unsigned char CAccountsView::ByHeightKey::prefix = 'b';
 
-void CAccountsView::ForEachBalance(std::function<bool(CScript const &, CTokenAmount const &)> callback, BalanceKey const & start) const
+void CAccountsView::ForEachBalance(std::function<bool(CScript const &, CTokenAmount const &)> callback, BalanceKey const & start)
 {
     ForEach<ByBalanceKey, BalanceKey, CAmount>([&callback] (BalanceKey const & key, CAmount val) {
         return callback(key.owner, CTokenAmount{key.tokenID, val});
@@ -82,3 +83,22 @@ Res CAccountsView::SubBalances(CScript const & owner, CBalances const & balances
     return Res::Ok();
 }
 
+void CAccountsView::ForEachAccount(std::function<bool(CScript const &)> callback, CScript const & start)
+{
+    ForEach<ByHeightKey, CScript, uint32_t>([&callback] (CScript const & owner, CLazySerialize<uint32_t>) {
+        return callback(owner);
+    }, start);
+}
+
+Res CAccountsView::UpdateBalancesHeight(CScript const & owner, uint32_t height)
+{
+    WriteBy<ByHeightKey>(owner, height);
+    return Res::Ok();
+}
+
+uint32_t CAccountsView::GetBalancesHeight(CScript const & owner)
+{
+    uint32_t height;
+    bool ok = ReadBy<ByHeightKey>(owner, height);
+    return ok ? height : 0;
+}

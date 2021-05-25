@@ -31,6 +31,11 @@ void RegisterPoolpairRPCCommands(CRPCTable &tableRPC);
 void RegisterMNBlockchainRPCCommands(CRPCTable &tableRPC);
 /** Register SPV (anchoring) RPC commands */
 void RegisterSpvRPCCommands(CRPCTable &tableRPC);
+/** Register oracles RPC commands */
+void RegisterOraclesRPCCommands(CRPCTable &tableRPC);
+/** Register ICX orderbook RPC commands */
+void RegisterICXOrderbookRPCCommands(CRPCTable &tableRPC);
+
 
 static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
 {
@@ -45,6 +50,8 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
     RegisterPoolpairRPCCommands(t);
     RegisterMNBlockchainRPCCommands(t);
     RegisterSpvRPCCommands(t);
+    RegisterOraclesRPCCommands(t);
+    RegisterICXOrderbookRPCCommands(t);
 }
 
 #endif // DEFI_RPC_REGISTER_H

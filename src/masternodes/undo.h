@@ -26,7 +26,7 @@ struct UndoKey {
 };
 
 struct CUndo {
-    std::map<TBytes, boost::optional<TBytes>> before;
+    MapKV before;
 
     static CUndo Construct(CStorageKV const & before, MapKV const & diff) {
         CUndo result;

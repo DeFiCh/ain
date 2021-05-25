@@ -25,7 +25,12 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
         obj.pushKV("banTx", node.banTx.GetHex());
         obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
-        obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), node, GetTime()).getdouble());
+        int height;
+        {
+            LOCK(cs_main);
+            height = ChainActive().Height();
+        }
+        obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), node, height, GetTime()).getdouble());
 
         /// @todo add unlock height and|or real resign height
         ret.pushKV(nodeId.GetHex(), obj);
@@ -115,26 +120,32 @@ UniValue createmasternode(const JSONRPCRequest& request)
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
-    if (request.params.size() > 2) {
-        rawTx.vin = GetInputs(request.params[2].get_array());
+    CTransactionRef optAuthTx;
+    auto scriptOwner = GetScriptForDestination(ownerDest);
+    std::set<CScript> auths{scriptOwner};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+
+    // Return change to owner address
+    CCoinControl coinControl;
+    if (IsValidDestination(ownerDest)) {
+        coinControl.destChange = ownerDest;
     }
 
     rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(targetHeight), scriptMeta));
-    rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(targetHeight), GetScriptForDestination(ownerDest)));
+    rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(targetHeight), scriptOwner));
 
-    fund(rawTx, pwallet, {});
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        const auto res = ApplyCreateMasternodeTx(mnview_dummy, CTransaction(rawTx), targetHeight, uint64_t{0},
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey}));
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateMasterNodeMessage{}, coins);
     }
-    return signsend(rawTx, pwallet, {})->GetHash().GetHex();
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue resignmasternode(const JSONRPCRequest& request)
@@ -143,7 +154,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
     RPCHelpMan{"resignmasternode",
                "\nCreates (and submits to local node and network) a transaction resigning your masternode. Collateral will be unlocked after " +
-               std::to_string(GetMnResignDelay()) + " blocks.\n"
+               std::to_string(GetMnResignDelay(::ChainActive().Height())) + " blocks.\n"
                                                     "The last optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's must belong to the MN's owner (collateral) address" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -220,15 +231,11 @@ UniValue resignmasternode(const JSONRPCRequest& request)
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyResignMasternodeTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId}));
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CResignMasterNodeMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -660,23 +667,12 @@ UniValue listanchors(const JSONRPCRequest& request)
         CTxDestination rewardDest = item.rewardKeyType == 1 ? CTxDestination(PKHash(item.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(item.rewardKeyID));
         UniValue entry(UniValue::VOBJ);
         entry.pushKV("anchorHeight", static_cast<int>(item.anchorHeight));
-        if (item.dfiBlockHash != uint256()) {
-            entry.pushKV("anchorHash", item.dfiBlockHash.ToString());
-        }
+        entry.pushKV("anchorHash", item.dfiBlockHash.ToString());
         entry.pushKV("rewardAddress", EncodeDestination(rewardDest));
-        if (defiHash) {
-            entry.pushKV("dfiRewardHash", defiHash->ToString());
-        }
-        if (item.btcTxHeight != 0) {
-            entry.pushKV("btcAnchorHeight", static_cast<int>(item.btcTxHeight));
-        }
+        entry.pushKV("dfiRewardHash", defiHash->ToString());
+        entry.pushKV("btcAnchorHeight", static_cast<int>(item.btcTxHeight));
         entry.pushKV("btcAnchorHash", item.btcTxHash.ToString());
-
-        if (item.dfiBlockHash != uint256() && item.btcTxHeight != 0) {
-            entry.pushKV("confirmSignHash", item.GetSignHash().ToString());
-        } else {
-            entry.pushKV("confirmSignHash", static_cast<const CAnchorConfirmData &>(item).GetSignHash().ToString());
-        }
+        entry.pushKV("confirmSignHash", item.GetSignHash().ToString());
 
         result.push_back(entry);
     }

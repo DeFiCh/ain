@@ -238,7 +238,6 @@ public:
     bool DeleteAnchorByBtcTx(uint256 const & btcTxHash);
 
     CAnchorData::CTeam GetNextTeam(uint256 const & btcPrevTx) const;
-    CAnchorData::CTeam GetCurrentTeam(AnchorRec const * anchor) const;
 
     AnchorRec const * GetAnchorByBtcTx(uint256 const & txHash) const;
 
@@ -259,6 +258,10 @@ public:
 
     // Used to apply chain context to post-fork anchors which get added to pending.
     void CheckPendingAnchors();
+
+    // Store and read Bitcoin block hash by height, used in BestOfTwo calculation.
+    bool WriteBlock(const uint32_t height, const uint256& blockHash);
+    uint256 ReadBlockHash(const uint32_t& height);
 
     AnchorRec const * GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const;
 
@@ -507,20 +510,6 @@ bool ContextualValidateAnchor(const CAnchorData& anchor, CBlockIndex &anchorBloc
 // Get info from data embedded into CAnchorData::nextTeam
 bool GetAnchorEmbeddedData(const CKeyID& data, uint64_t& anchorCreationHeight, std::shared_ptr<std::vector<unsigned char>>& prefix);
 
-// Comparator to organise by Bitcoin height, anchor height or TX hash
-const auto OrderPendingAnchors = [](const CAnchorIndex::AnchorRec& a, const CAnchorIndex::AnchorRec& b) {
-    if (a.btcHeight == b.btcHeight) {
-        if (a.anchor.height == b.anchor.height) {
-            return a.txHash < b.txHash;
-        }
-
-        // Higher DeFi height wins
-        return a.anchor.height > b.anchor.height;
-    }
-
-    return a.btcHeight < b.btcHeight;
-};
-
 // Selects "best" of two anchors at the equal btc height (prevs must be checked before)
 CAnchorIndex::AnchorRec const* BestOfTwo(CAnchorIndex::AnchorRec const* a1, CAnchorIndex::AnchorRec const* a2);
 
@@ -528,5 +517,13 @@ CAnchorIndex::AnchorRec const* BestOfTwo(CAnchorIndex::AnchorRec const* a1, CAnc
 extern std::unique_ptr<CAnchorAuthIndex> panchorauths;
 extern std::unique_ptr<CAnchorIndex> panchors;
 extern std::unique_ptr<CAnchorAwaitingConfirms> panchorAwaitingConfirms;
+
+namespace spv
+{
+// Define comparator and set to hold pending anchors
+using PendingOrderType = std::function<bool (const CAnchorIndex::AnchorRec&, const CAnchorIndex::AnchorRec&)>;
+using PendingSet = std::set<CAnchorIndex::AnchorRec, PendingOrderType>;
+extern const PendingOrderType PendingOrder;
+}
 
 #endif // DEFI_MASTERNODES_ANCHORS_H

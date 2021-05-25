@@ -119,6 +119,7 @@ def print_usage():
     print('python3 ' + sys.argv[0] + ' AddressStartString')
     print('Mainnet address start with string from 8F ~ 8d')
     print('Testnet address start with string from 73 ~ 7R')
+    print('Regtest address start with string from mf ~ n4')
     print('The address start string cannot contain these characters: 0OIl')
     print('For example:')
     print('  python3 gen_burn_addr.py 8addressForBurn')
@@ -129,6 +130,9 @@ def check_start_range(fst2):
         return True
 
     if fst2 >= '8F' and fst2 <= '8d':
+        return True
+
+    if fst2 >= 'mf' and fst2 <= 'n4':
         return True
 
     return False
@@ -170,6 +174,7 @@ if __name__ == '__main__':
         print('Address start is not correct!')
         print('Mainnet address start with string from 8F ~ 8d')
         print('Testnet address start with string from 73 ~ 7R')
+        print('Regtest address start with string from mf ~ n4')
         sys.exit(0)
 
     anotherString = startString + "X" * (34 - len(startString))

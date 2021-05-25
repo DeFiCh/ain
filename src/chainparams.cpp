@@ -109,6 +109,9 @@ public:
         strNetworkID = "main";
         consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for main
         consensus.baseBlockSubsidy = 200 * COIN;
+        consensus.newBaseBlockSubsidy = 40504000000; // 405.04 DFI
+        consensus.emissionReductionPeriod = 32690; // Two weeks
+        consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256(); //("0x00000000000002dc756eebf4f49723ed8d30cc28a5f108eb94b1ba88ac4f9c22");
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
@@ -121,18 +124,19 @@ public:
         consensus.ClarkeQuayHeight = 595738;
         consensus.DakotaHeight = 678000; // 1st March 2021
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
+        consensus.EunosHeight = 894000; // 3rd June 2021
+        consensus.EunosSimsHeight = consensus.EunosHeight;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
 //        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30; // seconds
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
         consensus.pos.nStakeMinAge = 0;
         consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = false; // only for regtest
         consensus.pos.fNoRetargeting = false; // only for regtest
-
-        consensus.pos.coinstakeMaturity = 100;
 
         consensus.pos.allowMintingWithoutPeers = false; // don't mint if no peers connected
 
@@ -152,11 +156,12 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
+        consensus.mn.newActivationDelay = 1008;
         consensus.mn.resignDelay = 60;
+        consensus.mn.newResignDelay = 2 * consensus.mn.newActivationDelay;
         consensus.mn.creationFee = 10 * COIN;
         consensus.mn.collateralAmount = 1000000 * COIN;
         consensus.mn.collateralAmountDakota = 20000 * COIN;
-        consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
 
@@ -176,6 +181,23 @@ public:
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
+
+        // New coinbase reward distribution
+        consensus.dist.masternode = 3333; // 33.33%
+        consensus.dist.community = 491; // 4.91%
+        consensus.dist.anchor = 2; // 0.02%
+        consensus.dist.liquidity = 2545; // 25.45%
+        consensus.dist.swap = 1234; // 12.34%
+        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.options = 988; // 9.88%
+        consensus.dist.unallocated = 173; // 1.73%
+
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -213,6 +235,10 @@ public:
         consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination("8bL7jZe2Nk5EhqFA6yuf8HPre3M6eewkqj", *this)));
         consensus.foundationMembers.insert(GetScriptForDestination(DecodeDestination("8UhqhhiwtUuEqCD7HsekUsgYRuz115eLiQ", *this)));
 
+        consensus.accountDestruction.clear();
+        consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("dJEbxbfufyPF14SC93yxiquECEfq4YSd9L", *this)));
+        consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("8UAhRuUFCyFUHEPD7qvtj8Zy2HxF5HH5nb", *this)));
+
         // owner base58, operator base58
         vMasternodes.push_back({"8PuErAcazqccCVzRcc8vJ3wFaZGm4vFbLe", "8J846CKFF83Jcj5m4EReJmxiaJ6Jy1Y6Ea"});
         vMasternodes.push_back({"8RPZm7SVUNhGN1RgGY3R92rvRkZBwETrCX", "8bzHwhaF2MaVs4owRvpWtZQVug3mKuJji2"});
@@ -234,6 +260,9 @@ public:
                 sum_initdist += out.nValue;
             assert(sum_initdist == 588000000 * COIN);
         }
+
+        consensus.burnAddress = GetScriptForDestination(DecodeDestination("8defichainBurnAddressXXXXXXXdRQkSm", *this));
+        consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("8defichainDSTBurnAddressXXXXaCAuTq", *this));
 
         genesis = CreateGenesisBlock(1587883831, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1231006505
         consensus.hashGenesisBlock = genesis.GetHash();
@@ -294,6 +323,9 @@ public:
         strNetworkID = "test";
         consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for testnet
         consensus.baseBlockSubsidy = 200 * COIN;
+        consensus.newBaseBlockSubsidy = 40504000000;
+        consensus.emissionReductionPeriod = 32690; // Two weeks
+        consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256(); //("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105");
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
@@ -306,18 +338,19 @@ public:
         consensus.ClarkeQuayHeight = 155000;
         consensus.DakotaHeight = 220680;
         consensus.DakotaCrescentHeight = 287700;
+        consensus.EunosHeight = 427040; // 21st May 2021
+        consensus.EunosSimsHeight = 435800; // 24th May 2021
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
 //        consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30;
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
         consensus.pos.nStakeMinAge = 0;
         consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = false;
         consensus.pos.fNoRetargeting = false; // only for regtest
-
-        consensus.pos.coinstakeMaturity = 100;
 
         consensus.pos.allowMintingWithoutPeers = true;
 
@@ -337,11 +370,12 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
+        consensus.mn.newActivationDelay = 1008;
         consensus.mn.resignDelay = 60;
+        consensus.mn.newResignDelay = 2 * consensus.mn.newActivationDelay;
         consensus.mn.creationFee = 10 * COIN;
         consensus.mn.collateralAmount = 1000000 * COIN;
         consensus.mn.collateralAmountDakota = 20000 * COIN;
-        consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
 
@@ -361,6 +395,23 @@ public:
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
+
+        // New coinbase reward distribution
+        consensus.dist.masternode = 3333; // 33.33%
+        consensus.dist.community = 491; // 4.91%
+        consensus.dist.anchor = 2; // 0.02%
+        consensus.dist.liquidity = 2545; // 25.45%
+        consensus.dist.swap = 1234; // 12.34%
+        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.options = 988; // 9.88%
+        consensus.dist.unallocated = 173; // 1.73%
+
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
@@ -388,6 +439,10 @@ public:
         consensus.foundationMembers.clear();
         consensus.foundationMembers.insert(consensus.foundationShareScript);
 
+        consensus.accountDestruction.clear();
+        consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("trnZD2qPU1c3WryBi8sWX16mEaq9WkGHeg", *this))); // cVUZfDj1B1o7eVhxuZr8FQLh626KceiGQhZ8G6YCUdeW3CAV49ti
+        consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("75jrurn8tkDLhZ3YPyzhk6D9kc1a4hBrmM", *this))); // cSmsVpoR6dSW5hPNKeGwC561gXHXcksdQb2yAFQdjbSp5MUyzZqr
+
         // owner base58, operator base58
         vMasternodes.push_back({"7LMorkhKTDjbES6DfRxX2RiNMbeemUkxmp", "7KEu9JMKCx6aJ9wyg138W3p42rjg19DR5D"});
         vMasternodes.push_back({"7E8Cjn9cqEwnrc3E4zN6c5xKxDSGAyiVUM", "78MWNEcAAJxihddCw1UnZD8T7fMWmUuBro"});
@@ -398,6 +453,9 @@ public:
         initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("te7wgg1X9HDJvMbrP2S51uz2Gxm2LPW4Gr", *this))));
         initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tmYVkwmcv73Hth7hhHz15mx5K8mzC1hSef", *this))));
         initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("tahuMwb9eX83eJhf2vXL6NPzABy3Ca8DHi", *this))));
+
+        consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
+        consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
 
         genesis = CreateGenesisBlock(1586099762, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
@@ -422,6 +480,7 @@ public:
                 { 50000, uint256S("74a468206b59bfc2667aba1522471ca2f0a4b7cd807520c47355b040c7735ccc")},
                 {100000, uint256S("9896ac2c34c20771742bccda4f00f458229819947e02204022c8ff26093ac81f")},
                 {150000, uint256S("af9307f438f5c378d1a49cfd3872173a07ed4362d56155e457daffd1061742d4")},
+                {425999, uint256S("89f480d2cd376c1c0d9a9a4fbd117c81552e8e8cc01d44b2ad3295530bba0e68")},
             }
         };
 
@@ -443,6 +502,9 @@ public:
         strNetworkID = "devnet";
         consensus.nSubsidyHalvingInterval = 210000; /// @attention totally disabled for devnet
         consensus.baseBlockSubsidy = 200 * COIN;
+        consensus.newBaseBlockSubsidy = 40504000000;
+        consensus.emissionReductionPeriod = 32690; // Two weeks
+        consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 0;
         consensus.BIP34Hash = uint256();
@@ -453,18 +515,19 @@ public:
         consensus.BayfrontMarinaHeight = 0;
         consensus.BayfrontGardensHeight = 0;
         consensus.ClarkeQuayHeight = 0;
-        consensus.DakotaHeight = 0;
-        consensus.DakotaCrescentHeight = 0;
+        consensus.DakotaHeight = 10;
+        consensus.DakotaCrescentHeight = 10;
+        consensus.EunosHeight = 10;
+        consensus.EunosSimsHeight = 10;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
         consensus.pos.nTargetSpacing = 30;
+        consensus.pos.nTargetTimespanV2 = 1008 * consensus.pos.nTargetSpacing; // 1008 blocks
         consensus.pos.nStakeMinAge = 0;
         consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = false;
         consensus.pos.fNoRetargeting = false; // only for regtest
-
-        consensus.pos.coinstakeMaturity = 100;
 
         consensus.pos.allowMintingWithoutPeers = true;
 
@@ -484,16 +547,20 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
+        consensus.mn.newActivationDelay = 1008;
         consensus.mn.resignDelay = 60;
+        consensus.mn.newResignDelay = 2 * consensus.mn.newActivationDelay;
         consensus.mn.creationFee = 10 * COIN;
         consensus.mn.collateralAmount = 1000000 * COIN;
         consensus.mn.collateralAmountDakota = 20000 * COIN;
-        consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 5;
         consensus.mn.anchoringFrequency = 15;
 
         consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
         consensus.mn.anchoringTeamChange = 120; // Number of blocks
+
+        consensus.token.creationFee = 100 * COIN;
+        consensus.token.collateralAmount = 1 * COIN;
 
         consensus.spv.creationFee = 100000; // should be > bitcoin's dust
         consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY"; /// @note devnet matter
@@ -505,6 +572,23 @@ public:
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
+
+        // New coinbase reward distribution
+        consensus.dist.masternode = 3333; // 33.33%
+        consensus.dist.community = 491; // 4.91%
+        consensus.dist.anchor = 2; // 0.02%
+        consensus.dist.liquidity = 2545; // 25.45%
+        consensus.dist.swap = 1234; // 12.34%
+        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.options = 988; // 9.88%
+        consensus.dist.unallocated = 173; // 1.73%
+
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0x0b;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0x11;
@@ -543,6 +627,9 @@ public:
         initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("7L29itepC13pgho1X2y7mcuf4WjkBi7x2w", *this))));
         initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("75Wramp2iARchHedXcn1qRkQtMpSt9Mi3V", *this))));
         initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("7LfqHbyh9dBQDjWB6MxcWvH2PBC5iY4wPa", *this))));
+
+        consensus.burnAddress = GetScriptForDestination(DecodeDestination("7DefichainBurnAddressXXXXXXXdMUE5n", *this));
+        consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("7DefichainDSTBurnAddressXXXXXzS4Hi", *this));
 
         genesis = CreateGenesisBlock(1585132338, 0x1d00ffff, 1, initdist, CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
@@ -584,6 +671,9 @@ public:
         strNetworkID = "regtest";
         consensus.nSubsidyHalvingInterval = 150;
         consensus.baseBlockSubsidy = 50 * COIN;
+        consensus.newBaseBlockSubsidy = 40504000000;
+        consensus.emissionReductionPeriod = 150;
+        consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 500; // BIP34 activated on regtest (Used in functional tests)
         consensus.BIP34Hash = uint256();
@@ -596,16 +686,17 @@ public:
         consensus.ClarkeQuayHeight = 10000000;
         consensus.DakotaHeight = 10000000;
         consensus.DakotaCrescentHeight = 10000000;
+        consensus.EunosHeight = 10000000;
+        consensus.EunosSimsHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.pos.nTargetTimespanV2 = 14 * 24 * 60 * 60; // two weeks
         consensus.pos.nTargetSpacing = 10 * 60; // 10 minutes
         consensus.pos.nStakeMinAge = 0;
         consensus.pos.nStakeMaxAge = 14 * 24 * 60 * 60; // Two weeks
         consensus.pos.fAllowMinDifficultyBlocks = true; // only for regtest
         consensus.pos.fNoRetargeting = true; // only for regtest
-
-        consensus.pos.coinstakeMaturity = 100;
 
         consensus.pos.allowMintingWithoutPeers = true; // don't mint if no peers connected
 
@@ -625,11 +716,12 @@ public:
 
         // Masternodes' params
         consensus.mn.activationDelay = 10;
+        consensus.mn.newActivationDelay = 20;
         consensus.mn.resignDelay = 10;
+        consensus.mn.newResignDelay = 2 * consensus.mn.newActivationDelay;
         consensus.mn.creationFee = 1 * COIN;
         consensus.mn.collateralAmount = 10 * COIN;
         consensus.mn.collateralAmountDakota = 2 * COIN;
-        consensus.mn.historyFrame = 300;
         consensus.mn.anchoringTeamSize = 3;
         consensus.mn.anchoringFrequency = 15;
 
@@ -649,6 +741,23 @@ public:
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 50);       // 0.1 per block
+
+        // New coinbase reward distribution
+        consensus.dist.masternode = 3333; // 33.33%
+        consensus.dist.community = 491; // 4.91%
+        consensus.dist.anchor = 2; // 0.02%
+        consensus.dist.liquidity = 2545; // 25.45%
+        consensus.dist.swap = 1234; // 12.34%
+        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.options = 988; // 9.88%
+        consensus.dist.unallocated = 173; // 1.73%
+
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
         pchMessageStartPostAMK[0] = pchMessageStart[0] = 0xfa;
         pchMessageStartPostAMK[1] = pchMessageStart[1] = 0xbf;
@@ -680,6 +789,10 @@ public:
         consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", *this)));
         consensus.foundationMembers.emplace(GetScriptForDestination(DecodeDestination("bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", *this)));
 
+        consensus.accountDestruction.clear();
+        consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("2MxJf6Ak8MGrLoGdekrU6AusW29szZUFphH", *this)));
+        consensus.accountDestruction.insert(GetScriptForDestination(DecodeDestination("mxiaFfAnCoXEUy4RW8NgsQM7yU5YRCiFSh", *this)));
+
         // owner base58, operator base58
         vMasternodes.push_back({"mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy"});
         vMasternodes.push_back({"msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ"});
@@ -689,6 +802,10 @@ public:
         vMasternodes.push_back({"mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c", "mk5DkY4qcV6CUpuxDVyD3AHzRq5XK9kbRN"});
         vMasternodes.push_back({"bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny", "bcrt1qmfvw3dp3u6fdvqkdc0y3lr0e596le9cf22vtsv"});
         vMasternodes.push_back({"bcrt1qyeuu9rvq8a67j86pzvh5897afdmdjpyankp4mu", "bcrt1qurwyhta75n2g75u2u5nds9p6w9v62y8wr40d2r"});
+
+        // For testing send after Eunos: 93ViFmLeJVgKSPxWGQHmSdT5RbeGDtGW4bsiwQM2qnQyucChMqQ
+        consensus.burnAddress = GetScriptForDestination(DecodeDestination("mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG", *this));
+        consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("mfdefichainDSTBurnAddressXXXZcE1vs", *this));
 
         genesis = CreateGenesisBlock(1579045065, 0x207fffff, 1, {
                                          CTxOut(consensus.baseBlockSubsidy,
@@ -808,6 +925,18 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.DakotaCrescentHeight = static_cast<int>(height);
+    }
+
+    if (gArgs.IsArgSet("-eunosheight")) {
+        int64_t height = gArgs.GetArg("-eunosheight", consensus.EunosHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for Eunos is out of valid range. Use -1 to disable Eunos features.", height));
+        } else if (height == -1) {
+            LogPrintf("Eunos disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.EunosHeight = static_cast<int>(height);
+        consensus.EunosSimsHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;

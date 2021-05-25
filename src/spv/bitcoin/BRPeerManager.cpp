@@ -516,7 +516,7 @@ static void _requestUnrelayedTxGetdataDone(void *info, int success)
             }
             else if (! isPublishing && _BRTxPeerListCount(manager->txRelays, hash) < manager->maxConnectCount) {
                 // set timestamp 0 to mark as unverified
-                BRWalletUpdateTransactions(manager->wallet, &hash, 1, TX_UNCONFIRMED, 0);
+                BRWalletUpdateTransactions(manager->wallet, &hash, 1, TX_UNCONFIRMED, 0, UINT256_ZERO);
             }
         }
     }
@@ -988,7 +988,7 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
     size_t relayCount = 0;
     
     manager->lock.lock();
-    LogPrint(BCLog::SPV_NET, "Peer: %s relayed tx: %s\n", BRPeerHostString(peer), u256hex(tx->txHash));
+    peer_log(peer, "relayed tx: %s", u256hex(tx->txHash).c_str());
     
     UInt256 hash = tx->txHash;
     for (size_t i = array_count(manager->publishedTx); i > 0; i--) { // see if tx is in list of published tx
@@ -1054,7 +1054,7 @@ static void _peerRelayedTx(void *info, BRTransaction *tx)
     
     // set timestamp when tx is verified
     if (tx && relayCount >= manager->maxConnectCount && tx->blockHeight == TX_UNCONFIRMED && tx->timestamp == 0) {
-        BRWalletUpdateTransactions(manager->wallet, &tx->txHash, 1, TX_UNCONFIRMED, (uint32_t)time(NULL));
+        BRWalletUpdateTransactions(manager->wallet, &tx->txHash, 1, TX_UNCONFIRMED, (uint32_t)time(NULL), UINT256_ZERO);
     }
     
     manager->lock.unlock();
@@ -1075,7 +1075,7 @@ static void _peerHasTx(void *info, UInt256 txHash)
     
     manager->lock.lock();
     tx = BRWalletTransactionForHash(manager->wallet, txHash);
-    LogPrint(BCLog::SPV_NET, "Peer: %s has tx: %s\n", BRPeerHostString(peer), u256hex(txHash));
+    peer_log(peer, "has tx: %s", u256hex(txHash).c_str());
 
     for (size_t i = array_count(manager->publishedTx); i > 0; i--) { // see if tx is in list of published tx
         if (UInt256Eq(manager->publishedTxHashes[i - 1], txHash)) {
@@ -1108,7 +1108,7 @@ static void _peerHasTx(void *info, UInt256 txHash)
 
         // set timestamp when tx is verified
         if (relayCount >= manager->maxConnectCount && tx && tx->blockHeight == TX_UNCONFIRMED && tx->timestamp == 0) {
-            BRWalletUpdateTransactions(manager->wallet, &txHash, 1, TX_UNCONFIRMED, (uint32_t)time(NULL));
+            BRWalletUpdateTransactions(manager->wallet, &txHash, 1, TX_UNCONFIRMED, (uint32_t)time(NULL), UINT256_ZERO);
         }
 
         _BRTxPeerListRemovePeer(manager->txRequests, txHash, peer);
@@ -1135,7 +1135,7 @@ static void _peerRejectedTx(void *info, UInt256 txHash, uint8_t code)
     if (tx) {
         if (_BRTxPeerListRemovePeer(manager->txRelays, txHash, peer) && tx->blockHeight == TX_UNCONFIRMED) {
             // set timestamp 0 to mark tx as unverified
-            BRWalletUpdateTransactions(manager->wallet, &txHash, 1, TX_UNCONFIRMED, 0);
+            BRWalletUpdateTransactions(manager->wallet, &txHash, 1, TX_UNCONFIRMED, 0, UINT256_ZERO);
         }
 
         // if we get rejected for any reason other than double-spend, the peer is likely misconfigured
@@ -1308,7 +1308,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
         
         BRSetAdd(manager->blocks, block);
         manager->lastBlock = block;
-        if (txCount > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, txCount, block->height, txTime);
+        if (txCount > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, txCount, block->height, txTime, block->blockHash);
         if (manager->downloadPeer) BRPeerSetCurrentBlockHeight(manager->downloadPeer, block->height);
             
         if (block->height < manager->estimatedHeight && peer == manager->downloadPeer) {
@@ -1335,7 +1335,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
 
         assert (NULL != b);
         if (BRMerkleBlockEq(b, block)) { // if it's not on a fork, set block heights for its transactions
-            if (txCount > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, txCount, block->height, txTime);
+            if (txCount > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, txCount, block->height, txTime, block->blockHash);
             if (block->height == manager->lastBlock->height) manager->lastBlock = block;
         }
         
@@ -1395,7 +1395,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
                 count = BRMerkleBlockTxHashes(b, txHashes, count);
                 b = (BRMerkleBlock *)BRSetGet(manager->blocks, &b->prevBlock);
                 if (b) timestamp = timestamp/2 + b->timestamp/2;
-                if (count > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, count, height, timestamp);
+                if (count > 0) BRWalletUpdateTransactions(manager->wallet, txHashes, count, height, timestamp, b->blockHash);
             }
         
             manager->lastBlock = block;
@@ -1673,6 +1673,27 @@ BRPeerStatus BRPeerManagerConnectStatus(BRPeerManager *manager)
 
     manager->lock.unlock();
     return status;
+}
+
+std::map<int, std::vector<std::pair<std::string, std::string>>> BRGetPeers(BRPeerManager *manager)
+{
+    std::map<int, std::vector<std::pair<std::string, std::string>>> mapPeerInfo;
+
+    for (size_t i = array_count(manager->connectedPeers); i > 0; i--)
+    {
+        auto peer = manager->connectedPeers[i - 1];
+        if (BRPeerConnectStatus(peer) != BRPeerStatusConnected)
+            continue;
+
+        std::vector<std::pair<std::string, std::string>> peerInfo;
+        peerInfo.emplace_back("address", BRPeerHostString(peer) + ":" + std::to_string(peer->port));
+        peerInfo.emplace_back("timestamp", std::to_string(peer->timestamp));
+        peerInfo.emplace_back("flags", std::to_string(peer->flags));
+        peerInfo.emplace_back("services", strprintf("%016x", peer->services));
+        mapPeerInfo.emplace(i - 1, peerInfo);
+    }
+
+    return mapPeerInfo;
 }
 
 // connect to bitcoin peer-to-peer network (also call this whenever networkIsReachable() status changes)

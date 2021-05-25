@@ -31,7 +31,12 @@ class TokensAuthChange(DefiTestFramework):
 
         # Auth TX outputs all belong to auth address
         assert_equal(auth_tx['vout'][1]['scriptPubKey']['addresses'][0], owner)
-        assert_equal(len(auth_tx['vout']), 2)
+        decTx = self.nodes[0].getrawtransaction(tx)
+        customTx = self.nodes[0].decodecustomtx(decTx)
+        vouts = 2
+        if customTx['type'] == 'ResignMasternode':
+            vouts = 3
+        assert_equal(len(auth_tx['vout']), vouts)
 
         # Two outputs, single input and change to auth address on final TX
         assert_equal(final_rawtx['vout'][1]['scriptPubKey']['addresses'][0], owner)

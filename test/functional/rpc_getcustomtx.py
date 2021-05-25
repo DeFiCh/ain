@@ -247,7 +247,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['status'], True)
         assert_equal(result['results']['ownerAddress'], pool_collateral)
         assert_equal(result['results']['isDAT'], True)
-        assert_equal(result['results']['mineable'], False)
+        assert_equal(result['results']['mintable'], False)
         assert_equal(result['results']['tradeable'], True)
         assert_equal(result['results']['finalized'], True)
         assert_equal(result['blockHeight'], blockheight)

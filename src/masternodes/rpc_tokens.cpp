@@ -1,73 +1,6 @@
 #include <masternodes/mn_rpc.h>
 #include <index/txindex.h>
 
-static bool GetCustomTXInfo(const int nHeight, const CTransactionRef tx, CustomTxType& guess, Res& res, UniValue& txResults)
-{
-    std::vector<unsigned char> metadata;
-    guess = GuessCustomTxType(*tx, metadata);
-    CCustomCSView mnview_dummy(*pcustomcsview);
-
-    switch (guess)
-    {
-        case CustomTxType::CreateMasternode:
-            res = ApplyCreateMasternodeTx(mnview_dummy, *tx, nHeight, uint64_t{0}, metadata, &txResults);
-            break;
-        case CustomTxType::ResignMasternode:
-            res = ApplyResignMasternodeTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, true, &txResults);
-            break;
-        case CustomTxType::CreateToken:
-            res = ApplyCreateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::UpdateToken:
-            res = ApplyUpdateTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::UpdateTokenAny:
-            res = ApplyUpdateTokenAnyTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::MintToken:
-            res = ApplyMintTokenTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::CreatePoolPair:
-            res = ApplyCreatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::UpdatePoolPair:
-            res = ApplyUpdatePoolPairTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::PoolSwap:
-            res = ApplyPoolSwapTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::AddPoolLiquidity:
-            res = ApplyAddPoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::RemovePoolLiquidity:
-            res = ApplyRemovePoolLiquidityTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::UtxosToAccount:
-            res = ApplyUtxosToAccountTx(mnview_dummy, *tx, nHeight, metadata, Params().GetConsensus(), &txResults);
-            break;
-        case CustomTxType::AccountToUtxos:
-            res = ApplyAccountToUtxosTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::AccountToAccount:
-            res = ApplyAccountToAccountTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::SetGovVariable:
-            res = ApplySetGovernanceTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::AnyAccountsToAccounts:
-            res = ApplyAnyAccountsToAccountsTx(mnview_dummy, ::ChainstateActive().CoinsTip(), *tx, nHeight, metadata, Params().GetConsensus(), true, &txResults);
-            break;
-        case CustomTxType::AutoAuthPrep:
-            res.ok = true;
-            res.msg = "AutoAuth";
-            break;
-        default:
-            return false;
-    }
-
-    return true;
-}
-
 UniValue createtoken(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -198,15 +131,11 @@ UniValue createtoken(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyCreateTokenTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                      ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, token}), Params().GetConsensus());
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, token});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateTokenMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -395,22 +324,16 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        Res res{};
+            AddCoins(coins, *optAuthTx, targetHeight);
+        CCustomTxMessage txMessage = CUpdateTokenMessage{};
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, static_cast<CToken>(tokenImpl)});
         if (targetHeight < Params().GetConsensus().BayfrontHeight) {
-            res = ApplyUpdateTokenTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                          ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, metaObj["isDAT"].getBool()}), Params().GetConsensus());
+            txMessage = CUpdateTokenPreAMKMessage{};
+            metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, metaObj["isDAT"].getBool()});
         }
-        else {
-            res = ApplyUpdateTokenAnyTx(mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-                                          ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, static_cast<CToken>(tokenImpl)}), Params().GetConsensus());
-        }
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, txMessage, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -655,7 +578,8 @@ UniValue getcustomtx(const JSONRPCRequest& request)
             return "Coinbase transaction. Not a custom transaction.";
         }
 
-        if (!GetCustomTXInfo(nHeight, tx, guess, res, txResults)) {
+        res = RpcInfo(*tx, nHeight, guess, txResults);
+        if (guess == CustomTxType::None) {
             return "Not a custom transaction";
         }
 
@@ -668,10 +592,10 @@ UniValue getcustomtx(const JSONRPCRequest& request)
 
     result.pushKV("type", ToString(guess));
     if (!actualHeight) {
-        result.pushKV("valid", res.ok ? true : false);
+        result.pushKV("valid", res.ok);
     } else {
         auto undo = pcustomcsview->GetUndo(UndoKey{static_cast<uint32_t>(nHeight), hash});
-        result.pushKV("valid", undo || res.msg == "AutoAuth" ? true : false);
+        result.pushKV("valid", undo || guess == CustomTxType::AutoAuthPrep);
     }
 
     if (!res.ok) {
@@ -802,17 +726,92 @@ UniValue minttokens(const JSONRPCRequest& request) {
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache view(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(view, *optAuthTx, targetHeight);
-        const auto res = ApplyMintTokenTx(mnview_dummy, view, CTransaction(rawTx), targetHeight,
-                                                 ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted }), Params().GetConsensus());
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted });
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CMintTokensMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue decodecustomtx(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"decodecustomtx",
+        "\nGet detailed information about a DeFiChain custom transaction.\n",
+        {
+            {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction hex string"},
+            {"iswitness", RPCArg::Type::BOOL, /* default */ "depends on heuristic tests", "Whether the transaction hex is a serialized witness transaction.\n"
+                "If iswitness is not present, heuristic tests will be used in decoding.\n"
+                "If true, only witness deserialization will be tried.\n"
+                "If false, only non-witness deserialization will be tried.\n"
+                "This boolean should reflect whether the transaction has inputs\n"
+                "(e.g. fully valid, or on-chain transactions), if known by the caller."
+            },
+        },
+        RPCResult{
+            "{\n"
+            "  \"txid\":               (string) The transaction id.\n"
+            "  \"type\":               (string) The transaction type.\n"
+            "  \"valid\"               (bool) Whether the transaction was valid.\n"
+            "  \"results\"             (json object) Set of results related to the transaction type\n"
+            "}\n"
+        },
+        RPCExamples{
+            HelpExampleCli("decodecustomtx", "\"hexstring\"")
+            + HelpExampleRpc("decodecustomtx", "\"hexstring\"")
+        },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
+
+    bool try_witness = request.params[1].isNull() ? true : request.params[1].get_bool();
+    bool try_no_witness = request.params[1].isNull() ? true : !request.params[1].get_bool();
+
+    CMutableTransaction mtx;
+    if (!DecodeHexTx(mtx, request.params[0].get_str(), try_no_witness, try_witness)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    }
+
+    int nHeight{0};
+    CustomTxType guess;
+    UniValue txResults(UniValue::VOBJ);
+    Res res{};
+    CTransactionRef tx = MakeTransactionRef(std::move(mtx));
+    std::string warnings;
+
+    if (tx)
+    {
+        LOCK(cs_main);
+        // Default to INT_MAX
+        nHeight = std::numeric_limits<int>::max();
+
+        // Skip coinbase TXs except for genesis block
+        if ((tx->IsCoinBase() && nHeight > 0)) {
+            return "Coinbase transaction. Not a custom transaction.";
+        }
+        //get custom tx info. We pass nHeight INT_MAX,
+        //just to get over hardfork validations. txResults are based on transaction metadata.
+        res = RpcInfo(*tx, nHeight, guess, txResults);
+        if (guess == CustomTxType::None) {
+            return "Not a custom transaction";
+        }
+
+        UniValue result(UniValue::VOBJ);
+        result.pushKV("txid", tx->GetHash().GetHex());
+        result.pushKV("type", ToString(guess));
+        result.pushKV("valid", res.ok ? true : false); // no actual block height
+        if (!res.ok) {
+            result.pushKV("error", res.msg);
+        } else {
+            result.pushKV("results", txResults);
+        }
+        
+        return result;
+    } else {
+        // Should not get here without prior failure.
+        return "Could not decode the input transaction hexstring.";
+    }
 }
 
 static const CRPCCommand commands[] =
@@ -825,6 +824,7 @@ static const CRPCCommand commands[] =
     {"tokens",      "gettoken",              &gettoken,              {"key" }},
     {"tokens",      "getcustomtx",           &getcustomtx,           {"txid", "blockhash"}},
     {"tokens",      "minttokens",            &minttokens,            {"amounts", "inputs"}},
+    {"tokens",      "decodecustomtx",        &decodecustomtx,        {"hexstring", "iswitness"}},
 };
 
 void RegisterTokensRPCCommands(CRPCTable& tableRPC) {

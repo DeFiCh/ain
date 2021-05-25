@@ -78,11 +78,11 @@ void txAdded(void *info, BRTransaction *tx)
     static_cast<CSpvWrapper *>(info)->OnTxAdded(tx);
 }
 
-void txUpdated(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
+void txUpdated(void *info, const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp, const UInt256& blockHash)
 {
     /// @attention called under spv manager lock!!!
     if (ShutdownRequested()) return;
-    static_cast<CSpvWrapper *>(info)->OnTxUpdated(txHashes, txCount, blockHeight, timestamp);
+    static_cast<CSpvWrapper *>(info)->OnTxUpdated(txHashes, txCount, blockHeight, timestamp, blockHash);
 }
 
 void txDeleted(void *info, UInt256 txHash, int notifyUser, int recommendRescan)
@@ -418,12 +418,13 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
     OnTxNotify(tx->txHash);
 }
 
-void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp)
+void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t blockHeight, uint32_t timestamp, const UInt256& blockHash)
 {
     /// @attention called under spv manager lock!!!
     for (size_t i = 0; i < txCount; ++i) {
         uint256 const txHash{to_uint256(txHashes[i])};
-        UpdateTx(txHash, blockHeight, timestamp);
+        const uint256 btcHash{to_uint256(blockHash)};
+        UpdateTx(txHash, blockHeight, timestamp, btcHash);
         LogPrint(BCLog::SPV, "tx updated, hash: %s, blockHeight: %d, timestamp: %d\n", txHash.ToString(), blockHeight, timestamp);
 
         LOCK(cs_main);
@@ -557,7 +558,7 @@ void CSpvWrapper::WriteTx(const BRTransaction *tx)
     db->Write(std::make_pair(DB_SPVTXS, to_uint256(tx->txHash)), std::make_pair(buf, std::make_pair(tx->blockHeight, tx->timestamp)) );
 }
 
-void CSpvWrapper::UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t timestamp)
+void CSpvWrapper::UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t timestamp, const uint256& blockHash)
 {
     std::pair<char, uint256> const key{std::make_pair(DB_SPVTXS, hash)};
     db_tx_rec txrec;
@@ -566,6 +567,9 @@ void CSpvWrapper::UpdateTx(uint256 const & hash, uint32_t blockHeight, uint32_t 
         txrec.second.second = timestamp;
         db->Write(key, txrec);
     }
+
+    // Store block index in anchors
+    panchors->WriteBlock(blockHeight, blockHash);
 }
 
 uint32_t CSpvWrapper::ReadTxTimestamp(uint256 const & hash)
@@ -604,6 +608,26 @@ void CSpvWrapper::WriteBlock(const BRMerkleBlock * block)
     BRMerkleBlockSerialize(block, buf.data(), blockSize);
 
     BatchWrite(std::make_pair(DB_SPVBLOCKS, to_uint256(block->blockHash)), std::make_pair(buf, block->height));
+}
+
+UniValue CSpvWrapper::GetPeers()
+{
+    auto peerInfo = BRGetPeers(manager);
+
+    UniValue result(UniValue::VOBJ);
+
+    for (const auto& peer : peerInfo)
+    {
+        UniValue obj(UniValue::VOBJ);
+        for (const auto& json : peer.second)
+        {
+            obj.pushKV(json.first, json.second);
+        }
+
+        result.pushKV(std::to_string(peer.first), obj);
+    }
+
+    return result;
 }
 
 std::string CSpvWrapper::AddBitcoinAddress(const CPubKey& new_key)
@@ -1106,6 +1130,11 @@ UniValue CSpvWrapper::GetAllAddress()
     return ret;
 }
 
+uint64_t CSpvWrapper::GetFeeRate()
+{
+    return BRWalletFeePerKb(wallet);
+}
+
 void publishedTxCallback(void *info, int error)
 {
     LogPrint(BCLog::SPV, "publishedTxCallback: %s\n", strerror(error));
@@ -1227,6 +1256,7 @@ UniValue CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const char* 
 
     // Calculate and set fee
     int64_t sigSize = 73 /* sig */ + 1 /* sighash */ + seedBytes.size() + 1 /* OP_1 || size */ + 1 /* pushdata */ + script.size();
+    feerate = std::max(feerate, BRWalletFeePerKb(wallet));
     CAmount const minFee = BRTransactionHTLCSize(tx, sigSize) * feerate / TX_FEE_PER_KB;
 
     if (inputTotal < minFee + static_cast<CAmount>(P2PKH_DUST))
@@ -1484,7 +1514,9 @@ void CFakeSpvWrapper::OnSendRawTx(BRTransaction *tx, std::promise<int> * promise
 
     // Use realistic time
     tx->timestamp = GetTime();
-    OnTxUpdated(&tx->txHash, 1, lastBlockHeight, GetTime() + 1000);
+
+    // UInt256 cannot be null or anchor will remain in pending assumed unconfirmed
+    OnTxUpdated(&tx->txHash, 1, lastBlockHeight, GetTime() + 1000, UInt256{ .u64 = { 1, 1, 1, 1 } });
 
     if (promise) {
         promise->set_value(0);

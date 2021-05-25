@@ -47,11 +47,11 @@ class RpcMiscTest(DefiTestFramework):
         assert_raises_rpc_error(-8, "unknown mode foobar", node.getmemoryinfo, mode="foobar")
 
         self.log.info("test logging")
-        assert_equal(node.logging()['qt'], True)
-        node.logging(exclude=['qt'])
-        assert_equal(node.logging()['qt'], False)
-        node.logging(include=['qt'])
-        assert_equal(node.logging()['qt'], True)
+        assert_equal(node.logging()['anchoring'], True)
+        node.logging(exclude=['anchoring'])
+        assert_equal(node.logging()['anchoring'], False)
+        node.logging(include=['anchoring'])
+        assert_equal(node.logging()['anchoring'], True)
 
 
 if __name__ == '__main__':
