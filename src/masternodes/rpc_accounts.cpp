@@ -1,5 +1,6 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/mn_rpc.h>
+#include <policy/settings.h>
 
 std::string tokenAmountString(CTokenAmount const& amount) {
     const auto token = pcustomcsview->GetToken(amount.nTokenId);
@@ -517,6 +518,17 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     return ret;
 }
 
+static void AddRecipientDustOutputs(CMutableTransaction& tx, const CAccounts& recipients)
+{
+    for (const auto& entires : recipients)
+    {
+        CTxOut out(1, entires.first);
+        // Dust differs depending on script size and type
+        out.nValue = GetDustThreshold(out, tx.nVersion, ::dustRelayFee);
+        tx.vout.push_back(out);
+    }
+}
+
 UniValue utxostoaccount(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -592,6 +604,9 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
             rawTx.vout.push_back(CTxOut(kv.second, scriptBurn, kv.first));
         }
     }
+
+    // Add dust outputs to recipients
+    AddRecipientDustOutputs(rawTx, msg.to);
 
     // fund
     fund(rawTx, pwallet, {});
@@ -689,6 +704,9 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     if (IsValidDestination(dest)) {
         coinControl.destChange = dest;
     }
+
+    // Add dust outputs to recipients
+    AddRecipientDustOutputs(rawTx, msg.to);
 
     // fund
     fund(rawTx, pwallet, optAuthTx, &coinControl);
@@ -1511,6 +1529,9 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
             coinControl.destChange = dest;
         }
     }
+
+    // Add dust outputs to recipients
+    AddRecipientDustOutputs(rawTx, msg.to);
 
     // fund
     fund(rawTx, pwallet, optAuthTx, &coinControl);
