@@ -1029,6 +1029,15 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     };
 
     AccountHistoryKey startKey{account, maxBlockHeight, std::numeric_limits<uint32_t>::max()};
+
+    if (!noRewards) {
+        // revert previous tx to restore account balances to maxBlockHeight
+        auto it = paccountHistoryDB->LowerBound<CAccountsHistoryView::ByAccountHistoryKey>(startKey);
+        if (it.Valid() && (it.Prev(), it.Valid())) {
+            view.OnUndoTx(it.Value().as<AccountHistoryValue>().txid, it.Key().blockHeight);
+        }
+    }
+
     paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
 
     if (shouldSearchInWallet) {
