@@ -71,7 +71,8 @@ UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID cons
     }
     obj.pushKV("type", RewardToString(type));
     obj.pushKV("poolID", poolId.ToString());
-    obj.pushKV("amounts", tokenAmountString(amount));
+    TAmounts amounts({{amount.nTokenId,amount.nValue}});
+    obj.pushKV("amounts", AmountsToJSON(amounts));
     return obj;
 }
 
@@ -91,7 +92,8 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
     }
     obj.pushKV("txn", (uint64_t) entry.vout);
     obj.pushKV("txid", pwtx->GetHash().ToString());
-    obj.pushKV("amounts", tokenAmountString({DCT_ID{0}, entry.amount}));
+    TAmounts amounts({{DCT_ID{0},entry.amount}});
+    obj.pushKV("amounts", AmountsToJSON(amounts));
     return obj;
 }
 
@@ -732,7 +734,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
                                 },
                             },
                         },
-                    },   
+                    },
                 },
                 RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
