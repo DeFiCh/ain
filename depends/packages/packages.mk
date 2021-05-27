@@ -1,4 +1,4 @@
-packages:=boost openssl libevent
+packages:=boost libevent
 
 rapidcheck_packages = rapidcheck
 

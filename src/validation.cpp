@@ -1235,6 +1235,11 @@ bool CChainState::IsInitialBlockDownload() const
     return false;
 }
 
+bool CChainState::IsDisconnectingTip() const
+{
+    return m_disconnectTip;
+}
+
 static CBlockIndex *pindexBestForkTip = nullptr, *pindexBestForkBase = nullptr;
 
 BlockMap& BlockIndex()
@@ -3143,13 +3148,16 @@ void static UpdateTip(const CBlockIndex* pindexNew, const CChainParams& chainPar
   */
 bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& chainparams, DisconnectedBlockTransactions *disconnectpool)
 {
+    m_disconnectTip = true;
     CBlockIndex *pindexDelete = m_chain.Tip();
     assert(pindexDelete);
     // Read block from disk.
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
     CBlock& block = *pblock;
-    if (!ReadBlockFromDisk(block, pindexDelete, chainparams.GetConsensus()))
+    if (!ReadBlockFromDisk(block, pindexDelete, chainparams.GetConsensus())) {
+        m_disconnectTip = false;
         return error("DisconnectTip(): Failed to read block");
+    }
     // Apply the block atomically to the chain state.
     int64_t nStart = GetTimeMicros();
     {
@@ -3166,6 +3174,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
             if (pburnHistoryDB) {
                 pburnHistoryDB->Discard();
             }
+            m_disconnectTip = false;
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
         bool flushed = view.Flush() && mnview.Flush();
@@ -3195,8 +3204,10 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     }
     LogPrint(BCLog::BENCH, "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * MILLI);
     // Write the chain state to disk, if necessary.
-    if (!FlushStateToDisk(chainparams, state, FlushStateMode::IF_NEEDED))
+    if (!FlushStateToDisk(chainparams, state, FlushStateMode::IF_NEEDED)) {
+        m_disconnectTip = false;
         return false;
+    }
 
     if (disconnectpool) {
         // Save transactions to re-add to mempool at end of reorg
@@ -3217,6 +3228,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
     GetMainSignals().BlockDisconnected(pblock);
+    m_disconnectTip = false;
     return true;
 }
 
