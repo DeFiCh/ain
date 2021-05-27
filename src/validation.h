@@ -602,6 +602,9 @@ private:
     //! Manages the UTXO set, which is a reflection of the contents of `m_chain`.
     std::unique_ptr<CoinsViews> m_coins_views;
 
+    //! Indicates disconneting is in process
+    std::atomic_bool m_disconnectTip{false};
+
 public:
     CChainState(BlockManager& blockman) : m_blockman(blockman) {}
     CChainState();
@@ -725,6 +728,9 @@ public:
 
     /** Check whether we are doing an initial block download (synchronizing from disk or network) */
     bool IsInitialBlockDownload() const;
+
+    /** Check whether we are in disconnect process */
+    bool IsDisconnectingTip() const;
 
     /**
      * Make various assertions about the state of the block index.
