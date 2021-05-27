@@ -95,6 +95,9 @@ std::unique_ptr<CConnman> g_connman;
 std::unique_ptr<PeerLogicValidation> peerLogic;
 std::unique_ptr<BanMan> g_banman;
 
+// Initialise minter cache boolean
+std::atomic_bool CMasternodesView::cs_minterCache(false);
+
 #ifdef WIN32
 // Win32 LevelDB doesn't use filedescriptors, and the ones used for
 // accessing block files don't count towards the fd_set size limit

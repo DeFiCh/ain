@@ -253,8 +253,12 @@ void CMasternodesView::DecrementMintedBy(const CKeyID & minter)
     --node->mintedBlocks;
     WriteBy<ID>(*nodeId, *node);
 
-    // Erase from cache
-    minterTimeCache.erase(minter);
+    {
+        // Erase from cache
+        CLockFreeGuard lock(CMasternodesView::cs_minterCache);
+        minterTimeCache.erase(minter);
+    }
+
 }
 
 bool CMasternodesView::BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height)
@@ -385,7 +389,11 @@ void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const u
     auto nodeId = GetMasternodeIdByOperator(minter);
     assert(nodeId);
 
-    minterTimeCache[minter] = {blockHeight, time};
+    {
+        CLockFreeGuard lock(CMasternodesView::cs_minterCache);
+        minterTimeCache[minter] = {blockHeight, time};
+    }
+
     WriteBy<Staker>(MNBlockTimeKey{*nodeId, blockHeight}, time);
 }
 
@@ -410,6 +418,7 @@ boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKey
 
             // Add entry to cache if it was not found.
             if (it == minterTimeCache.end()) {
+                CLockFreeGuard lock(CMasternodesView::cs_minterCache);
                 minterTimeCache[minter] = {key.blockHeight, time};
             }
         }

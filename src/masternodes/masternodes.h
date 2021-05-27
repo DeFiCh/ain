@@ -136,7 +136,7 @@ class CMasternodesView : public virtual CStorageView
     std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache;
 
 public:
-//    CMasternodesView() = default;
+    static std::atomic_bool cs_minterCache;
 
     boost::optional<CMasternode> GetMasternode(uint256 const & id) const;
     boost::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
