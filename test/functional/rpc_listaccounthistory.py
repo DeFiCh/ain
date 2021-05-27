@@ -68,6 +68,10 @@ class TokensRPCListAccountHistory(DefiTestFramework):
                 found = True
         assert_equal(found, True)
 
+        # check amounts field is type of array
+        for txs in results:
+            assert(hasattr(txs['amounts'], '__len__') and (not isinstance(txs['amounts'], str)))
+
         # Get node 1 results
         results = self.nodes[1].listaccounthistory(collateral_a)
 
@@ -78,6 +82,9 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         # Check owner is collateral_a and type MintTokens
         assert_equal(results[0]['owner'], collateral_a)
         assert_equal(results[0]['type'], 'MintToken')
+
+        # check amounts field is type of array
+        assert(hasattr(results[0]['amounts'], '__len__') and (not isinstance(results[0]['amounts'], str)))
 
         result = self.nodes[0].listaccounthistory()
         assert 'blockReward' in [res['type'] for res in result]
