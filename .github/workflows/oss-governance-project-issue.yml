@@ -1,8 +1,8 @@
-name: Governance
+name: Governance Issues
 
 on:
   issues:
-    types: [ opened, labeled ]
+    types: [ opened, labeled, unlabeled ]
 
 jobs:
   main:
@@ -10,12 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.event.issue.labels.*.name, 'triage/accepted')
     steps:
-      - uses: actions/github-script@a3e7071a34d7e1f219a8a4de9a5e0a34d1ee1293
+      - uses: peter-evans/create-or-update-project-card@c75ba6ac3c7c432dedd22a553951c216a4664b5f
+        if: contains(github.event.issue.labels.*.name, 'priority/urgent-now') || contains(github.event.issue.labels.*.name, 'priority/important-soon')
         with:
-          github-token: ${{ secrets.DEFICHAIN_BOT_GITHUB_TOKEN }}
-          script: |
-            github.projects.createCard({
-              column_id: 13975681,
-              content_id: context.payload.issue.id,
-              content_type: 'Issue',
-            })
+          token: ${{ secrets.DEFICHAIN_BOT_GITHUB_TOKEN }}
+          project-location: defich
+          project-name: DeFi Blockchain
+          column-name: Prioritized
+
+      - uses: peter-evans/create-or-update-project-card@c75ba6ac3c7c432dedd22a553951c216a4664b5f
+        if: "!contains(github.event.issue.labels.*.name, 'priority/urgent-now') && !contains(github.event.issue.labels.*.name, 'priority/important-soon')"
+        with:
+          token: ${{ secrets.DEFICHAIN_BOT_GITHUB_TOKEN }}
+          project-location: defich
+          project-name: DeFi Blockchain
+          column-name: To do
