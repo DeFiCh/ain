@@ -391,11 +391,7 @@ void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const u
 
 boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height)
 {
-    // Only return from cache if less than requested height to avoid chain split
-    const auto it = minterTimeCache.find(minter);
-    if (it != minterTimeCache.end() && it->second.first < height) {
-        return it->second.second;
-    }
+    // Don't look up from cache
 
     auto nodeId = GetMasternodeIdByOperator(minter);
     assert(nodeId);
