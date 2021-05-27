@@ -606,6 +606,69 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, {})->GetHash().GetHex();
 }
 
+
+UniValue sendutxosfrom(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"sendutxosfrom",
+               "\nSend a transaction using UTXOs from the specfied address.\n" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "The address of sender"},
+                       {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "The address of receiver"},
+                       {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "The amount to send"},
+                       {"change", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The address to send change to (Default: from address)"},
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("sendutxosfrom", R"("from" "to" 100)")
+                       + HelpExampleRpc("sendutxosfrom", R"("from", "to", 100")")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    CTxDestination fromDest = DecodeDestination(request.params[0].get_str());
+    if (!IsValidDestination(fromDest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid from address");
+    }
+
+    CTxDestination toDest = DecodeDestination(request.params[1].get_str());
+    if (!IsValidDestination(toDest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid to address");
+    }
+
+    // Amount
+    CAmount nAmount = AmountFromValue(request.params[2]);
+
+    CCoinControl coin_control;
+    if (request.params[3].isNull()) {
+        coin_control.destChange = fromDest;
+    } else {
+        CTxDestination changeDest = DecodeDestination(request.params[3].get_str());
+        if (!IsValidDestination(changeDest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid change address");
+        }
+        coin_control.destChange = changeDest;
+    }
+
+    // Only match from address destination
+    coin_control.matchDestination = fromDest;
+
+    EnsureWalletIsUnlocked(pwallet);
+
+    CTransactionRef tx = SendMoney(*locked_chain, pwallet, toDest, nAmount, {0}, true /* fSubtractFeeFromAmount */, coin_control, {});
+    return tx->GetHash().GetHex();
+}
+
 UniValue accounttoaccount(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -1616,6 +1679,7 @@ static const CRPCCommand commands[] =
     {"accounts",    "getaccount",            &getaccount,            {"owner", "pagination", "indexed_amounts"}},
     {"accounts",    "gettokenbalances",      &gettokenbalances,      {"pagination", "indexed_amounts", "symbol_lookup"}},
     {"accounts",    "utxostoaccount",        &utxostoaccount,        {"amounts", "inputs"}},
+    {"accounts",    "sendutxosfrom",         &sendutxosfrom,         {"from", "to", "amount", "change"}},
     {"accounts",    "accounttoaccount",      &accounttoaccount,      {"from", "to", "inputs"}},
     {"accounts",    "accounttoutxos",        &accounttoutxos,        {"from", "to", "inputs"}},
     {"accounts",    "listaccounthistory",    &listaccounthistory,    {"owner", "options"}},

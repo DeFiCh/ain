@@ -191,6 +191,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "minttokens", 1, "inputs"},
     { "utxostoaccount", 0, "amounts" },
     { "utxostoaccount", 1, "inputs" },
+    { "sendutxosfrom", 2, "amount" },
     { "addpoolliquidity", 0, "from" },
     { "addpoolliquidity", 2, "inputs" },
     { "removepoolliquidity", 2, "inputs" },
