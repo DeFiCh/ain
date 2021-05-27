@@ -1709,6 +1709,10 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
     }
 
+    // Load minter cache
+    auto minterCacheCount = pcustomcsview->LoadMinterCache();
+    LogPrintf("minter cache loaded with %d entries\n", minterCacheCount);
+
     // As LoadBlockIndex can take several minutes, it's possible the user
     // requested to kill the GUI during the last operation. If so, exit.
     // As the program has not fully started yet, Shutdown() is possibly overkill.
