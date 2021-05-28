@@ -41,7 +41,7 @@ class GetMiningInfoRPCTest(DefiTestFramework):
         self.log.info("Mining blocks ...")
         self.nodes[0].generate(10)
         self.sync_all()
-        self.nodes[1].generate(10)
+        self.nodes[1].generate(50)
         self.sync_all()
 
         # getmininginfo() on node[0], should only return one master node in the response array
@@ -51,6 +51,7 @@ class GetMiningInfoRPCTest(DefiTestFramework):
         # getmininginfo() on node[1], should return two master nodes in the response array
         resp1 = self.nodes[1].getmininginfo()
         assert_equal(len(resp1['masternodes']), 2)
+        # print(resp1)
 
 if __name__ == '__main__':
     GetMiningInfoRPCTest().main()
