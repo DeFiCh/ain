@@ -50,7 +50,7 @@ class GetMiningInfoRPCTest(DefiTestFramework):
         assert_equal(resp0['masternodes'][0]['masternodestate'], "ENABLED")
         assert_equal(resp0['masternodes'][0]['generate'], True)
         assert_equal(resp0['masternodes'][0]['lastblockcreationattempt'] != "0", True)
-        
+
         # getmininginfo() on node[1], should return two master nodes in the response array
         resp1 = self.nodes[1].getmininginfo()
         assert_equal(len(resp1['masternodes']), 2)
