@@ -70,7 +70,12 @@ namespace pos {
                 return false;
             }
 
-            arith_uint256 coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, height, stakersBlockTime);
+            arith_uint256 coinDayWeight;
+            if (blockHeight <= Params().GetConsensus().EunosHeight) {
+                coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, height, stakersBlockTime);
+            } else {
+                coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, blockHeight, stakersBlockTime);
+            }
 
             // Increase target by coinDayWeight.
             return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(height) ) ) ) <= targetProofOfStake * coinDayWeight;
