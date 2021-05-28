@@ -2904,14 +2904,22 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         auto it = checkpoints.lower_bound(pindex->nHeight);
         if (it != checkpoints.begin()) {
             --it;
+            bool pruneStarted = false;
             CCustomCSView pruned(mnview);
             mnview.ForEachUndo([&](UndoKey const & key, CLazySerialize<CUndo>) {
                 if (key.height >= it->first) { // don't erase checkpoint height
                     return false;
                 }
+                if (!pruneStarted) {
+                    pruneStarted = true;
+                    LogPrintf("Pruning undo data prior %d, it can take a while...\n", it->first);
+                }
                 return pruned.DelUndo(key).ok;
             });
             pruned.Flush();
+            if (pruneStarted) {
+                LogPrintf("Pruning undo data finished.\n");
+            }
         }
     }
 
