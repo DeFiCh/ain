@@ -73,6 +73,8 @@ enum class CustomTxType : uint8_t
     ICXClaimDFCHTLC     = '5',
     ICXCloseOrder       = '6',
     ICXCloseOffer       = '7',
+    // Loans
+    LoanSetCollateralToken = 'c',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -106,6 +108,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::ICXClaimDFCHTLC:
         case CustomTxType::ICXCloseOrder:
         case CustomTxType::ICXCloseOffer:
+        case CustomTxType::LoanSetCollateralToken:
         case CustomTxType::None:
             return type;
     }
@@ -152,6 +155,7 @@ struct CICXSubmitEXTHTLCMessage;
 struct CICXClaimDFCHTLCMessage;
 struct CICXCloseOrderMessage;
 struct CICXCloseOfferMessage;
+struct CLoanSetCollateralTokenMessage;
 
 struct CCreateMasterNodeMessage {
     char operatorType;
@@ -267,7 +271,8 @@ typedef boost::variant<
     CICXSubmitEXTHTLCMessage,
     CICXClaimDFCHTLCMessage,
     CICXCloseOrderMessage,
-    CICXCloseOfferMessage
+    CICXCloseOfferMessage,
+    CLoanSetCollateralTokenMessage
 > CCustomTxMessage;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
