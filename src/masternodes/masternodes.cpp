@@ -214,6 +214,7 @@ bool operator!=(CDoubleSignFact const & a, CDoubleSignFact const & b)
 /*
  *  CMasternodesView
  */
+
 boost::optional<CMasternode> CMasternodesView::GetMasternode(const uint256 & id) const
 {
     return ReadBy<ID, CMasternode>(id);
@@ -252,9 +253,6 @@ void CMasternodesView::DecrementMintedBy(const CKeyID & minter)
     assert(node);
     --node->mintedBlocks;
     WriteBy<ID>(*nodeId, *node);
-
-    // Erase from cache
-    minterTimeCache.erase(minter);
 }
 
 bool CMasternodesView::BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height)
@@ -385,18 +383,11 @@ void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const u
     auto nodeId = GetMasternodeIdByOperator(minter);
     assert(nodeId);
 
-    minterTimeCache[minter] = {blockHeight, time};
     WriteBy<Staker>(MNBlockTimeKey{*nodeId, blockHeight}, time);
 }
 
 boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height)
 {
-    // Only return from cache if less than requested height to avoid chain split
-    const auto it = minterTimeCache.find(minter);
-    if (it != minterTimeCache.end() && it->second.first < height) {
-        return it->second.second;
-    }
-
     auto nodeId = GetMasternodeIdByOperator(minter);
     assert(nodeId);
 
@@ -407,11 +398,6 @@ boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKey
         if (key.masternodeID == nodeId)
         {
             time = blockTime;
-
-            // Add entry to cache if it was not found.
-            if (it == minterTimeCache.end()) {
-                minterTimeCache[minter] = {key.blockHeight, time};
-            }
         }
 
         // Get first result only and exit
@@ -458,20 +444,6 @@ Res CMasternodesView::UnResignMasternode(const uint256 & nodeId, const uint256 &
         return Res::Ok();
     }
     return Res::Err("No such masternode %s, resignTx: %s", nodeId.GetHex(), resignTx.GetHex());
-}
-
-size_t CMasternodesView::LoadMinterCache() {
-    ForEachMasternode([&](uint256 const& nodeId, CMasternode node)
-    {
-        // Load last block times into cache
-        if (node.IsActive()) {
-            GetMasternodeLastBlockTime(node.operatorAuthAddress, std::numeric_limits<uint32_t>::max());
-        }
-
-        return true;
-    }, {});
-
-    return minterTimeCache.size();
 }
 
 /*

@@ -19,25 +19,29 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time)
     mn.ownerType = 1;
     mn.operatorAuthAddress = minter;
     mn.ownerAuthAddress = minter;
-    uint256 mnId = uint256S("1111111111111111111111111111111111111111111111111111111111111111");
+    uint256 mnId = uint256S(std::string(64, 1));
     mnview.CreateMasternode(mnId, mn);
 
     // Add time records
     mnview.SetMasternodeLastBlockTime(minter, 100, 1000);
     mnview.SetMasternodeLastBlockTime(minter, 200, 2000);
     mnview.SetMasternodeLastBlockTime(minter, 300, 3000);
+    mnview.Flush();
 
     // Make sure result is found and returns result previous to 200
-    const auto time200 = mnview.GetMasternodeLastBlockTime(minter, 200);
+    const auto time200 = pcustomcsview->GetMasternodeLastBlockTime(minter, 200);
     BOOST_CHECK_EQUAL(*time200, 1000);
 
     // Make sure result is found and returns result previous to 200
-    const auto time300 = mnview.GetMasternodeLastBlockTime(minter, 300);
+    const auto time300 = pcustomcsview->GetMasternodeLastBlockTime(minter, 300);
     BOOST_CHECK_EQUAL(*time300, 2000);
 
     // For max value we expect the last result
-    const auto timeMax = mnview.GetMasternodeLastBlockTime(minter, std::numeric_limits<uint32_t>::max());
+    const auto timeMax = pcustomcsview->GetMasternodeLastBlockTime(minter, std::numeric_limits<uint32_t>::max());
     BOOST_CHECK_EQUAL(*timeMax, 3000);
+
+    const auto time2001 = pcustomcsview->GetMasternodeLastBlockTime(minter, 200);
+    BOOST_CHECK_EQUAL(*time2001, 1000);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
