@@ -2182,9 +2182,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // problems.
             return AbortNode(state, "Corrupt block found indicating potential hardware failure; shutting down");
         }
-
-        // Add sleep here to avoid hot looping over failed but not
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     }
 
