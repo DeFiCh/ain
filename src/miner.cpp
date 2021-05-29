@@ -672,6 +672,9 @@ namespace pos {
 
             if (::ChainstateActive().IsInitialBlockDownload())
                 return Status::initWaiting;
+
+            if (::ChainstateActive().IsDisconnectingTip())
+                return Status::stakeWaiting;
         }
 
         bool minted = false;

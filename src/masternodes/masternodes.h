@@ -133,6 +133,8 @@ struct MNBlockTimeKey
 
 class CMasternodesView : public virtual CStorageView
 {
+    std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache;
+
 public:
 //    CMasternodesView() = default;
 
@@ -163,6 +165,8 @@ public:
     void EraseMasternodeLastBlockTime(const uint256 &minter, const uint32_t& blockHeight);
 
     void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
+
+    size_t LoadMinterCache();
 
     // tags
     struct ID { static const unsigned char prefix; };

@@ -30,7 +30,11 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
             LOCK(cs_main);
             height = ChainActive().Height();
         }
-        obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), node, height, GetTime()).getdouble());
+
+        // Only get targetMultiplier for active masternodes
+        if (node.IsActive()) {
+            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), node, GetTime(), height).getdouble());
+        }
 
         /// @todo add unlock height and|or real resign height
         ret.pushKV(nodeId.GetHex(), obj);

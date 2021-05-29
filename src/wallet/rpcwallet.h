@@ -5,6 +5,9 @@
 #ifndef DEFI_WALLET_RPCWALLET_H
 #define DEFI_WALLET_RPCWALLET_H
 
+#include <script/standard.h>
+#include <wallet/wallet.h>
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -37,4 +40,6 @@ bool EnsureWalletIsAvailable(const CWallet*, bool avoidException);
 
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
+
+CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const CTxDestination &address, CAmount nValue, DCT_ID tokenId, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue);
 #endif //DEFI_WALLET_RPCWALLET_H
