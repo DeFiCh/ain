@@ -64,6 +64,9 @@ namespace pos {
         // been since a masternode staked a block.
         if (blockHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaCrescentHeight))
         {
+            // at this point we want to be sure ConnectBlock is finished
+            // the should be flushed and we will use the fresh data
+            LOCK(cs_main);
             auto node = pcustomcsview->GetMasternode(masternodeID);
             if (!node)
             {
