@@ -63,7 +63,7 @@ namespace feebumper {
 bool TransactionCanBeBumped(const CWallet* wallet, const uint256& txid)
 {
     auto locked_chain = wallet->chain().lock();
-    LOCK(wallet->cs_wallet);
+    LOCK2(wallet->cs_wallet, locked_chain->mutex());
     const CWalletTx* wtx = wallet->GetWalletTx(txid);
     if (wtx == nullptr) return false;
 
@@ -78,7 +78,7 @@ Result CreateTotalBumpTransaction(const CWallet* wallet, const uint256& txid, co
     new_fee = total_fee;
 
     auto locked_chain = wallet->chain().lock();
-    LOCK(wallet->cs_wallet);
+    LOCK2(wallet->cs_wallet, locked_chain->mutex());
     errors.clear();
     const CWalletTx* wtx = wallet->GetWalletTx(txid);
     if (!wtx) {
@@ -203,7 +203,7 @@ Result CreateRateBumpTransaction(CWallet* wallet, const uint256& txid, const CCo
     CCoinControl new_coin_control(coin_control);
 
     auto locked_chain = wallet->chain().lock();
-    LOCK(wallet->cs_wallet);
+    LOCK2(wallet->cs_wallet, locked_chain->mutex());
     errors.clear();
     const CWalletTx* wtx = wallet->GetWalletTx(txid);
     if (!wtx) {
@@ -296,14 +296,14 @@ Result CreateRateBumpTransaction(CWallet* wallet, const uint256& txid, const CCo
 
 bool SignTransaction(CWallet* wallet, CMutableTransaction& mtx) {
     auto locked_chain = wallet->chain().lock();
-    LOCK(wallet->cs_wallet);
+    LOCK2(wallet->cs_wallet, locked_chain->mutex());
     return wallet->SignTransaction(mtx);
 }
 
 Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransaction&& mtx, std::vector<std::string>& errors, uint256& bumped_txid)
 {
     auto locked_chain = wallet->chain().lock();
-    LOCK(wallet->cs_wallet);
+    LOCK2(wallet->cs_wallet, locked_chain->mutex());
     if (!errors.empty()) {
         return Result::MISC_ERROR;
     }

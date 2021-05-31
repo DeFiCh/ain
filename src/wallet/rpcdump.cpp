@@ -144,7 +144,7 @@ UniValue importprivkey(const JSONRPCRequest& request)
     bool fRescan = true;
     {
         auto locked_chain = pwallet->chain().lock();
-        LOCK(pwallet->cs_wallet);
+        LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
         EnsureWalletIsUnlocked(pwallet);
 
@@ -295,7 +295,7 @@ UniValue importaddress(const JSONRPCRequest& request)
 
     {
         auto locked_chain = pwallet->chain().lock();
-        LOCK(pwallet->cs_wallet);
+        LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
         CTxDestination dest = DecodeDestination(request.params[0].get_str());
         if (IsValidDestination(dest)) {
@@ -327,7 +327,7 @@ UniValue importaddress(const JSONRPCRequest& request)
         RescanWallet(*pwallet, reserver);
         {
             auto locked_chain = pwallet->chain().lock();
-            LOCK(pwallet->cs_wallet);
+            LOCK2(pwallet->cs_wallet, locked_chain->mutex());
             pwallet->ReacceptWalletTransactions(*locked_chain);
         }
     }
@@ -367,9 +367,12 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
     std::vector<uint256> vMatch;
     std::vector<unsigned int> vIndex;
     unsigned int txnIndex = 0;
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK2(pwallet->cs_wallet, locked_chain->mutex());
+
     if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) == merkleBlock.header.hashMerkleRoot) {
 
-        auto locked_chain = pwallet->chain().lock();
         if (locked_chain->getBlockHeight(merkleBlock.header.GetHash()) == nullopt) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found in chain");
         }
@@ -387,9 +390,6 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
 
     wtx.nIndex = txnIndex;
     wtx.hashBlock = merkleBlock.header.GetHash();
-
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
 
     if (pwallet->IsMine(*wtx.tx)) {
         pwallet->AddToWallet(wtx, false);
@@ -421,7 +421,7 @@ UniValue removeprunedfunds(const JSONRPCRequest& request)
             }.Check(request);
 
     auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
+    LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
     uint256 hash(ParseHashV(request.params[0], "txid"));
     std::vector<uint256> vHash;
@@ -500,7 +500,7 @@ UniValue importpubkey(const JSONRPCRequest& request)
 
     {
         auto locked_chain = pwallet->chain().lock();
-        LOCK(pwallet->cs_wallet);
+        LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
         std::set<CScript> script_pub_keys;
         for (const auto& dest : GetAllDestinationsForKey(pubKey)) {
@@ -518,7 +518,7 @@ UniValue importpubkey(const JSONRPCRequest& request)
         RescanWallet(*pwallet, reserver);
         {
             auto locked_chain = pwallet->chain().lock();
-            LOCK(pwallet->cs_wallet);
+            LOCK2(pwallet->cs_wallet, locked_chain->mutex());
             pwallet->ReacceptWalletTransactions(*locked_chain);
         }
     }
@@ -569,7 +569,7 @@ UniValue importwallet(const JSONRPCRequest& request)
     std::set<CPubKey> spvPubKeys;
     {
         auto locked_chain = pwallet->chain().lock();
-        LOCK(pwallet->cs_wallet);
+        LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
         EnsureWalletIsUnlocked(pwallet);
 
@@ -726,7 +726,7 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
             }.Check(request);
 
     auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
+    LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
     EnsureWalletIsUnlocked(pwallet);
 
@@ -775,7 +775,7 @@ UniValue dumpwallet(const JSONRPCRequest& request)
             }.Check(request);
 
     auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
+    LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
     EnsureWalletIsUnlocked(pwallet);
 
@@ -1382,7 +1382,7 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
     UniValue response(UniValue::VARR);
     {
         auto locked_chain = pwallet->chain().lock();
-        LOCK(pwallet->cs_wallet);
+        LOCK2(pwallet->cs_wallet, locked_chain->mutex());
         EnsureWalletIsUnlocked(pwallet);
 
         // Verify all timestamps are present before importing any keys.
@@ -1424,7 +1424,7 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
         int64_t scannedTime = pwallet->RescanFromTime(nLowestTimestamp, reserver, true /* update */);
         {
             auto locked_chain = pwallet->chain().lock();
-            LOCK(pwallet->cs_wallet);
+            LOCK2(pwallet->cs_wallet, locked_chain->mutex());
             pwallet->ReacceptWalletTransactions(*locked_chain);
         }
 

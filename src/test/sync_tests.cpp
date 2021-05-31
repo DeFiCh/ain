@@ -5,48 +5,49 @@
 #include <sync.h>
 #include <test/setup_common.h>
 
+#include <future>
+
 #include <boost/test/unit_test.hpp>
 
-namespace {
-template <typename MutexType>
-void TestPotentialDeadLockDetected(MutexType& mutex1, MutexType& mutex2)
+template<typename MutexType>
+void TryPotentialDeadlock(MutexType& mutex1, MutexType& mutex2)
 {
+    std::promise<void> threadFinished;
+    auto futureFinished = threadFinished.get_future();
     {
         LOCK2(mutex1, mutex2);
+        std::promise<void> threadStarted;
+        // start new thread
+        std::thread([&]() {
+            // secondary thread started
+            threadStarted.set_value();
+            // simulate deadlock
+            LOCK2(mutex2, mutex1);
+            // secondary thread is about to finish
+            threadFinished.set_value();
+        }).detach();
+        // wait secondary thread to start
+        threadStarted.get_future().wait();
+        // keep mutex for an extra while
+        futureFinished.wait_for(std::chrono::milliseconds{50});
     }
-    bool error_thrown = false;
-    try {
-        LOCK2(mutex2, mutex1);
-    } catch (const std::logic_error& e) {
-        BOOST_CHECK_EQUAL(e.what(), "potential deadlock detected");
-        error_thrown = true;
-    }
-    #ifdef DEBUG_LOCKORDER
-    BOOST_CHECK(error_thrown);
-    #else
-    BOOST_CHECK(!error_thrown);
-    #endif
+    // wait secondary thread to finish
+    futureFinished.wait();
 }
-} // namespace
 
 BOOST_FIXTURE_TEST_SUITE(sync_tests, BasicTestingSetup)
 
-BOOST_AUTO_TEST_CASE(potential_deadlock_detected)
+BOOST_AUTO_TEST_CASE(simulate_potential_deadlock)
 {
-    #ifdef DEBUG_LOCKORDER
-    bool prev = g_debug_lockorder_abort;
-    g_debug_lockorder_abort = false;
-    #endif
+    {
+        CCriticalSection rmutex1, rmutex2;
+        TryPotentialDeadlock(rmutex1, rmutex2);
+    }
 
-    CCriticalSection rmutex1, rmutex2;
-    TestPotentialDeadLockDetected(rmutex1, rmutex2);
-
-    Mutex mutex1, mutex2;
-    TestPotentialDeadLockDetected(mutex1, mutex2);
-
-    #ifdef DEBUG_LOCKORDER
-    g_debug_lockorder_abort = prev;
-    #endif
+    {
+        Mutex mutex1, mutex2;
+        TryPotentialDeadlock(mutex1, mutex2);
+    }
 }
 
 BOOST_AUTO_TEST_CASE(lock_free)
@@ -62,7 +63,7 @@ BOOST_AUTO_TEST_CASE(lock_free)
 
         CLockFreeGuard lock(cs_lock);
         context++;
-        while (threads > 0); // wait all therads to be here
+        while (threads > 0); // wait all threads to be here
         BOOST_CHECK_EQUAL(threads.load(), 0); // now they wait for lock
         BOOST_CHECK_EQUAL(context.load(), 1); // but only one operates
         context--;
