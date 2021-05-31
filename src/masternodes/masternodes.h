@@ -166,8 +166,6 @@ public:
 
     void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
 
-    size_t LoadMinterCache();
-
     // tags
     struct ID { static const unsigned char prefix; };
     struct Operator { static const unsigned char prefix; };

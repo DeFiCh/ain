@@ -2182,6 +2182,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // problems.
             return AbortNode(state, "Corrupt block found indicating potential hardware failure; shutting down");
         }
+
+        // Add sleep here to avoid hot looping over failed but not invalidated block.
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     }
 
@@ -2939,7 +2942,7 @@ bool CChainState::FlushStateToDisk(
     int nManualPruneHeight)
 {
     int64_t nMempoolUsage = mempool.DynamicMemoryUsage();
-    LOCK(cs_main);
+    LOCK2(cs_main, cs_LastBlockFile);
     assert(this->CanFlushToDisk());
     static int64_t nLastWrite = 0;
     static int64_t nLastFlush = 0;
@@ -2949,7 +2952,6 @@ bool CChainState::FlushStateToDisk(
     {
         bool fFlushForPrune = false;
         bool fDoFullFlush = false;
-        LOCK(cs_LastBlockFile);
         if (fPruneMode && (fCheckForPruning || nManualPruneHeight > 0) && !fReindex) {
             if (nManualPruneHeight > 0) {
                 FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight);
@@ -3844,8 +3846,7 @@ bool CChainState::InvalidateBlock(CValidationState& state, const CChainParams& c
         // Make sure the queue of validation callbacks doesn't grow unboundedly.
         LimitValidationInterfaceQueue();
 
-        LOCK(cs_main);
-        LOCK(::mempool.cs); // Lock for as long as disconnectpool is in scope to make sure UpdateMempoolForReorg is called after DisconnectTip without unlocking in between
+        LOCK2(cs_main, ::mempool.cs); // Lock for as long as disconnectpool is in scope to make sure UpdateMempoolForReorg is called after DisconnectTip without unlocking in between
         if (!m_chain.Contains(pindex)) break;
         pindex_was_in_chain = true;
         CBlockIndex *invalid_walk_tip = m_chain.Tip();

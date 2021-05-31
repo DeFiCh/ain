@@ -64,13 +64,21 @@ namespace pos {
         // been since a masternode staked a block.
         if (blockHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaCrescentHeight))
         {
+            // at this point we want to be sure ConnectBlock is finished
+            // the should be flushed and we will use the fresh data
+            LOCK(cs_main);
             auto node = pcustomcsview->GetMasternode(masternodeID);
             if (!node)
             {
                 return false;
             }
 
-            arith_uint256 coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, height, stakersBlockTime);
+            arith_uint256 coinDayWeight;
+            if (blockHeight <= Params().GetConsensus().EunosHeight) {
+                coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, height, stakersBlockTime);
+            } else {
+                coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, blockHeight, stakersBlockTime);
+            }
 
             // Increase target by coinDayWeight.
             return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(height) ) ) ) <= targetProofOfStake * coinDayWeight;
