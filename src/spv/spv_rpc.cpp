@@ -145,6 +145,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     CAnchor anchor;
     {
         auto locked_chain = pwallet->chain().lock();
+        LOCK(locked_chain->mutex());
 
         anchor = panchorauths->CreateBestAnchor(rewardDest);
         prevAnchorHeight = panchors->GetActiveAnchor() ? panchors->GetActiveAnchor()->anchor.height : 0;
@@ -233,6 +234,7 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     CAnchor anchor;
     {
         auto locked_chain = pwallet->chain().lock();
+        LOCK(locked_chain->mutex());
 
         anchor = panchorauths->CreateBestAnchor(rewardDest);
         prevAnchorHeight = panchors->GetActiveAnchor() ? panchors->GetActiveAnchor()->anchor.height : 0;
@@ -297,6 +299,7 @@ UniValue spv_estimateanchorcost(const JSONRPCRequest& request)
     }
 
     auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
     // it is unable to create "pure" dummy anchor, cause it needs signing with real key
     CAnchor const anchor = panchorauths->CreateBestAnchor(CTxDestination(PKHash()));
@@ -390,6 +393,7 @@ UniValue spv_gettxconfirmations(const JSONRPCRequest& request)
 //    uint32_t const spvLastHeight = spv::pspv ? spv::pspv->GetLastBlockHeight() : 0;
 
     auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 //    panchors->UpdateLastHeight(spvLastHeight);
     return UniValue(panchors->GetAnchorConfirmations(txHash));
 }
@@ -453,6 +457,7 @@ UniValue spv_listanchors(const JSONRPCRequest& request)
     uint32_t const tmp = spv::pspv->GetLastBlockHeight();
 
     auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
     panchors->UpdateLastHeight(tmp); // may be unnecessary but for sure
     auto const * cur = panchors->GetActiveAnchor();
@@ -503,6 +508,7 @@ UniValue spv_listanchorspending(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
 
     auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
     UniValue result(UniValue::VARR);
     panchors->ForEachPending([&result](uint256 const &, CAnchorIndex::AnchorRec & rec)
@@ -535,6 +541,7 @@ UniValue spv_listanchorauths(const JSONRPCRequest& request)
     }.Check(request);
 
     auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
     UniValue result(UniValue::VARR);
     CAnchorAuthIndex::Auth const * prev = nullptr;
@@ -639,6 +646,7 @@ UniValue spv_listanchorrewardconfirms(const JSONRPCRequest& request)
     }.Check(request);
 
     auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
     UniValue result(UniValue::VARR);
 
@@ -705,6 +713,7 @@ UniValue spv_listanchorrewards(const JSONRPCRequest& request)
     }.Check(request);
 
     auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
     UniValue result(UniValue::VARR);
 
@@ -737,6 +746,7 @@ UniValue spv_listanchorsunrewarded(const JSONRPCRequest& request)
     }.Check(request);
 
     auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
 
     UniValue result(UniValue::VARR);
 
@@ -1205,7 +1215,7 @@ static UniValue spv_dumpprivkey(const JSONRPCRequest& request)
     }.Check(request);
 
     auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
+    LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
     std::string strAddress = request.params[0].get_str();
 
@@ -1275,7 +1285,7 @@ static UniValue spv_sendtoaddress(const JSONRPCRequest& request)
     }
 
     auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
+    LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
     std::string address = request.params[0].get_str();
 

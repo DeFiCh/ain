@@ -7,6 +7,7 @@
 
 #include <optional.h>               // For Optional and nullopt
 #include <primitives/transaction.h> // For CTransactionRef
+#include <sync.h>
 
 #include <memory>
 #include <stddef.h>
@@ -124,11 +125,14 @@ public:
 
         //! Check if transaction will be final given chain height current time.
         virtual bool checkFinalTx(const CTransaction& tx) = 0;
+
+        //! Assosiated mutex accessor
+        virtual CCriticalSection& mutex() = 0;
     };
 
-    //! Return Lock interface. Chain is locked when this is called, and
-    //! unlocked when the returned interface is freed.
-    virtual std::unique_ptr<Lock> lock(bool try_lock = false) = 0;
+    //! Return Lock interface. Chain is NOT locked when this is called,
+    //! it's defered to caller
+    virtual std::unique_ptr<Lock> lock() = 0;
 
     //! Return whether node has the block and optionally return block metadata
     //! or contents.
