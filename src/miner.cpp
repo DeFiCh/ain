@@ -121,12 +121,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (!nodePtr || !nodePtr->IsActive())
         return nullptr;
 
-    // update last block creation attempt ts for the master node
-    {
-        CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
-        pos::Staker::mapMNLastBlockCreationAttemptTs[myIDs->second] = GetTime();
-    }
-
     CBlockIndex* pindexPrev = ::ChainActive().Tip();
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
@@ -729,6 +723,11 @@ namespace pos {
             //
             // Create block template
             //
+            // update last block creation attempt ts for the master node here
+            {
+                CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
+                pos::Staker::mapMNLastBlockCreationAttemptTs[masternodeID] = GetTime();
+            }
             std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
             if (!pblocktemplate.get()) {
                 throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
