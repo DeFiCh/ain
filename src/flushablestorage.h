@@ -146,12 +146,6 @@ public:
     bool Flush() override { // Commit batch
         auto result = db.WriteBatch(batch);
         batch.Clear();
-        // prevent db fragmentation
-        if (!begin.empty() && !end.empty()) {
-            db.CompactRange(refTBytes(begin), refTBytes(end));
-        }
-        end.clear();
-        begin.clear();
         return result;
     }
     void Discard() override {
