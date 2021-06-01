@@ -207,7 +207,7 @@ class GovsetTest (DefiTestFramework):
         assert("Cannot be set manually after Eunos hard fork" in errorString)
 
         # Check new subsidy
-        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('103.08268000'))
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('14843.90592000')) # 144 blocks a day times 103.08268000
 
         # Roll back
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
@@ -217,13 +217,13 @@ class GovsetTest (DefiTestFramework):
 
         # Move to second reduction and check reward
         self.nodes[0].generate(151)
-        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('101.37356916'))
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('14597.79395904')) # 144 blocks a day times 101.37356916
 
         # Rollback from second reduction
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
 
         # Check subsidy restored
-        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('103.08268000'))
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('14843.90592000'))
 
 if __name__ == '__main__':
     GovsetTest ().main ()

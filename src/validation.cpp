@@ -2616,7 +2616,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     // Cast to avoid UniValue in GovVariable Export/Import
                     auto lpVar = dynamic_cast<LP_DAILY_DFI_REWARD*>(var.get());
                     if (lpVar && lpVar->dailyReward != subsidy) {
-                        lpVar->dailyReward = subsidy;
+                        lpVar->dailyReward = subsidy * chainparams.GetConsensus().blocksPerDay();
                         lpVar->Apply(cache, pindex->nHeight);
                         cache.SetVariable(*lpVar);
                     }
