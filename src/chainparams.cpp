@@ -671,10 +671,10 @@ class CRegTestParams : public CChainParams {
 public:
     explicit CRegTestParams(const ArgsManager& args) {
         strNetworkID = "regtest";
-        consensus.nSubsidyHalvingInterval = 150;
-        consensus.baseBlockSubsidy = 50 * COIN;
+        consensus.nSubsidyHalvingInterval = 210000;
+        consensus.baseBlockSubsidy = 100 * COIN;
         consensus.newBaseBlockSubsidy = 40504000000;
-        consensus.emissionReductionPeriod = 150;
+        consensus.emissionReductionPeriod = 32690;
         consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 500; // BIP34 activated on regtest (Used in functional tests)
