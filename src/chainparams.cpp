@@ -809,11 +809,16 @@ public:
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("mfdefichainDSTBurnAddressXXXZcE1vs", *this));
 
-        genesis = CreateGenesisBlock(1579045065, 0x207fffff, 1, {
-                                         CTxOut(consensus.baseBlockSubsidy,
-                                         GetScriptForDestination(DecodeDestination("mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c", *this)) // 6th masternode owner. for initdist tests
-                                         )},
-                                     CreateGenesisMasternodes()); // old=1296688602
+        std::vector<CTxOut> initdist;
+        // first 2 owner & first 2 operator get 1 mill DFI
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7", *this))));
+        initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ", *this))));
+        initdist.push_back(CTxOut(consensus.baseBlockSubsidy, GetScriptForDestination(DecodeDestination("mud4VMfbBqXNpbt8ur33KHKx8pk3npSq8c", *this))));
+
+        // 6th masternode owner. for initdist tests
+        genesis = CreateGenesisBlock(1579045065, 0x207fffff, 1, initdist,CreateGenesisMasternodes()); // old=1296688602
         consensus.hashGenesisBlock = genesis.GetHash();
 
         assert(consensus.hashGenesisBlock == uint256S("0x0091f00915b263d08eba2091ba70ba40cea75242b3f51ea29f4a1b8d7814cd01"));
