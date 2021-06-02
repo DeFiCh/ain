@@ -84,7 +84,7 @@ build() {
     popd >/dev/null
     ./autogen.sh
     # XREF: #make-configure
-    ./configure --prefix="$(pwd)/depends/${target}" ${extra_build_opts}
+    ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/${target}" ${extra_build_opts}
     make $extra_make_args
 }
 
@@ -324,8 +324,11 @@ pkg_install_deps() {
     sudo apt install -y software-properties-common build-essential libtool autotools-dev automake \
         pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-        libminiupnpc-dev libzmq3-dev libqrencode-dev \
+        libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         curl cmake
+    wget https://apt.llvm.org/llvm.sh
+    chmod +x llvm.sh
+    sudo ./llvm.sh 11
 }
 
 pkg_ensure_mac_sdk() {
