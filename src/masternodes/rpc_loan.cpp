@@ -171,7 +171,7 @@ static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
-    {"loan",        "setcollateraltoken",        &setcollateraltoken,    {"parameters"}},
+    {"loan",        "setcollateraltoken",        &setcollateraltoken,    {"parameters", "inputs"}},
     {"loan",        "listcollateraltokens",      &listcollateraltokens,  {}},
 };
 

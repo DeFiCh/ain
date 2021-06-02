@@ -133,7 +133,5 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         assert_equal(collTokens[collTokenTx3]["token"], symbolDFI)
         assert_equal(collTokens[collTokenTx3]["factor"], Decimal('1'))
 
-        assert(False)
-
 if __name__ == '__main__':
     LoanSetCollateralTokenTest().main()

@@ -986,8 +986,8 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.FortCanningHeight = static_cast<int>(height);
     }
 
-    if (gArgs.IsArgSet("-fhardforkheigh")) {
-        int64_t height = gArgs.GetArg("-fhardforkheigh", consensus.FHardforkHeight);
+    if (gArgs.IsArgSet("-fhardforkheight")) {
+        int64_t height = gArgs.GetArg("-fhardforkheight", consensus.FHardforkHeight);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
             throw std::runtime_error(strprintf("Activation height %ld for F hardfork is out of valid range. Use -1 to disable F hardfork features.", height));
         } else if (height == -1) {
