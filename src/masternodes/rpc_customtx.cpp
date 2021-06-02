@@ -231,17 +231,21 @@ public:
         if (obj.orderType == CICXOrder::TYPE_INTERNAL)
         {
             rpcInfo.pushKV("type","DFC");
-            rpcInfo.pushKV("tokenFrom", token->CreateSymbolKey(obj.idToken));
+            if (token) {
+                rpcInfo.pushKV("tokenFrom", token->CreateSymbolKey(obj.idToken));
+            }
             rpcInfo.pushKV("chainto", CICXOrder::CHAIN_BTC);
         }
         else if (obj.orderType == CICXOrder::TYPE_EXTERNAL)
         {
             rpcInfo.pushKV("type","EXTERNAL");
             rpcInfo.pushKV("chainFrom", CICXOrder::CHAIN_BTC);
-            rpcInfo.pushKV("tokenTo", token->CreateSymbolKey(obj.idToken));
+            if (token) {
+                rpcInfo.pushKV("tokenTo", token->CreateSymbolKey(obj.idToken));
+            }
             rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
-
         }
+
         rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
         rpcInfo.pushKV("amountFrom", ValueFromAmount(obj.amountFrom));
         rpcInfo.pushKV("amountToFill", ValueFromAmount(obj.amountToFill));
