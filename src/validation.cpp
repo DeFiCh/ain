@@ -2571,7 +2571,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // validates account changes as well
     if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight
-    && pindex->nHeight < chainparams.GetConsensus().EunosNoMerkleHeight) {
+    && pindex->nHeight < chainparams.GetConsensus().EunosKampung) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot())) {
@@ -4142,7 +4142,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // Check the merkle root.
     // block merkle root is delayed to ConnectBlock to ensure account changes
     if (fCheckMerkleRoot && (block.height < consensusParams.EunosHeight
-    || block.height >= consensusParams.EunosNoMerkleHeight)) {
+    || block.height >= consensusParams.EunosKampung)) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != hashMerkleRoot2)
