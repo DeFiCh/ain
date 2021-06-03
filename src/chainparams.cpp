@@ -126,6 +126,7 @@ public:
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
         consensus.EunosHeight = 894000; // 3rd June 2021
         consensus.EunosSimsHeight = consensus.EunosHeight;
+        consensus.EunosNoMerkleHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -342,6 +343,7 @@ public:
         consensus.DakotaCrescentHeight = 287700;
         consensus.EunosHeight = 427040; // 21st May 2021
         consensus.EunosSimsHeight = 435800; // 24th May 2021
+        consensus.EunosNoMerkleHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -521,6 +523,7 @@ public:
         consensus.DakotaCrescentHeight = 10;
         consensus.EunosHeight = 10;
         consensus.EunosSimsHeight = 10;
+        consensus.EunosNoMerkleHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -690,6 +693,7 @@ public:
         consensus.DakotaCrescentHeight = 10000000;
         consensus.EunosHeight = 10000000;
         consensus.EunosSimsHeight = 10000000;
+        consensus.EunosNoMerkleHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -939,6 +943,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         }
         consensus.EunosHeight = static_cast<int>(height);
         consensus.EunosSimsHeight = static_cast<int>(height);
+        consensus.EunosNoMerkleHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;
