@@ -2506,7 +2506,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (!fJustCheck) {
                     LogPrint(BCLog::ANCHORING, "%s: connecting finalization tx: %s block: %d\n", __func__, tx.GetHash().GetHex(), block.height);
                 }
-                ResVal<uint256> res = ApplyAnchorRewardTxPlus(mnview, tx, pindex->nHeight, metadata, chainparams.GetConsensus());
+                ResVal<uint256> res = ApplyAnchorRewardTxPlus(accountsView, tx, pindex->nHeight, metadata, chainparams.GetConsensus());
                 if (!res.ok) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("ConnectBlock(): %s", res.msg),
