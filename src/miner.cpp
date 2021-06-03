@@ -151,7 +151,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     fIncludeWitness = IsWitnessEnabled(pindexPrev, consensus);
 
     const auto txVersion = GetTransactionVersion(nHeight);
-
+/*
     CTeamView::CTeam currentTeam;
     if (const auto team = pcustomcsview->GetConfirmTeam(pindexPrev->nHeight)) {
         currentTeam = *team;
@@ -200,7 +200,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
         }
     }
-
+*/
     CTransactionRef criminalTx = nullptr;
     if (fCriminals) {
         CCriminalProofsView::CMnCriminals criminals = pcriminals->GetUnpunishedCriminals();
