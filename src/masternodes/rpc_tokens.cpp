@@ -592,10 +592,19 @@ UniValue getcustomtx(const JSONRPCRequest& request)
 
     result.pushKV("type", ToString(guess));
     if (!actualHeight) {
+
+        LOCK(cs_main);
+        CCustomCSView mnview(*pcustomcsview);
+        CCoinsViewCache view(&::ChainstateActive().CoinsTip());
+
+        auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight);
         result.pushKV("valid", res.ok);
     } else {
-        auto undo = pcustomcsview->GetUndo(UndoKey{static_cast<uint32_t>(nHeight), hash});
-        result.pushKV("valid", undo || guess == CustomTxType::AutoAuthPrep);
+        if (nHeight >= Params().GetConsensus().DakotaHeight) {
+            result.pushKV("valid", actualHeight);
+        } else {
+            result.pushKV("valid", !IsSkippedTx(tx->GetHash()));
+        }
     }
 
     if (!res.ok) {
