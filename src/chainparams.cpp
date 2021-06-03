@@ -671,12 +671,12 @@ class CRegTestParams : public CChainParams {
 public:
     explicit CRegTestParams(const ArgsManager& args) {
         strNetworkID = "regtest";
-        bool isJelifish = false;
-        isJelifish = gArgs.GetBoolArg("-jellyfish_regtest", false);
-        consensus.nSubsidyHalvingInterval = (isJelifish) ? 210000 : 150;
-        consensus.baseBlockSubsidy = (isJelifish) ? 100 * COIN : 50 * COIN;
+        bool isJellyfish = false;
+        isJellyfish = gArgs.GetBoolArg("-jellyfish_regtest", false);
+        consensus.nSubsidyHalvingInterval = (isJellyfish) ? 210000 : 150;
+        consensus.baseBlockSubsidy = (isJellyfish) ? 100 * COIN : 50 * COIN;
         consensus.newBaseBlockSubsidy = 40504000000;
-        consensus.emissionReductionPeriod = (isJelifish) ? 32690 : 150;
+        consensus.emissionReductionPeriod = (isJellyfish) ? 32690 : 150;
         consensus.emissionReductionAmount = 1658; // 1.658%
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 500; // BIP34 activated on regtest (Used in functional tests)
@@ -811,7 +811,7 @@ public:
         consensus.burnAddress = GetScriptForDestination(DecodeDestination("mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG", *this));
         consensus.retiredBurnAddress = GetScriptForDestination(DecodeDestination("mfdefichainDSTBurnAddressXXXZcE1vs", *this));
 
-        if (isJelifish) {
+        if (isJellyfish) {
           std::vector<CTxOut> initdist;
           // first 2 owner & first 2 operator get 100 mill DFI
           initdist.push_back(CTxOut(100000000 * COIN, GetScriptForDestination(DecodeDestination("mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU", *this))));
