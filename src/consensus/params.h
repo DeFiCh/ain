@@ -88,7 +88,7 @@ struct Params {
     /** Fifth major fork **/
     int EunosHeight;
     int EunosSimsHeight;
-    int EunosKampung;
+    int EunosKampungHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
     /** Trackable burn address */
