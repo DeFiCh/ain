@@ -869,7 +869,8 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             std::this_thread::sleep_for(std::chrono::milliseconds(900));
         }
 
- 
+
+        int lastHeight = 0;
         std::shared_ptr<CBlock> pblock;
 
         for (auto it = args.begin(); it != args.end(); ) {
@@ -877,6 +878,12 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             const auto operatorName = arg.operatorID.GetHex();
 
             pos::Staker staker;
+
+            auto height = staker.getTip()->nHeight;
+            if (height != lastHeight) {
+                lastHeight = height;
+                pblock.reset(); // create new block due to tip change
+            }
 
             try {
                 auto status = staker.init(chainparams);

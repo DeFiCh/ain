@@ -240,6 +240,8 @@ namespace pos {
             minted,
         };
 
+        CBlockIndex* getTip();
+
         Staker::Status init(const CChainParams& chainparams);
         Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args, std::shared_ptr<CBlock> pblock);
 
@@ -249,7 +251,6 @@ namespace pos {
         static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
 
     private:
-        CBlockIndex* getTip();
         template <typename F>
         bool withSearchInterval(F&& f);
     };
