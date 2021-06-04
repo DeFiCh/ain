@@ -3583,8 +3583,12 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // now block cannot be part of blockchain either
                         // but it can be produced by outdated/malicious masternode
                         // so we should not shoutdown entire network
-                        // revert invalid chain
-                        disconnectBlocksTo(vpindexToConnect.front());
+                        if (auto blockIndex = ChainActive()[vpindexToConnect.front()->nHeight]) {
+                            auto checkPoint = GetLastCheckpoint(chainparams.Checkpoints());
+                            if (checkPoint && blockIndex->nHeight > checkPoint->nHeight) {
+                                disconnectBlocksTo(blockIndex);
+                            }
+                        }
                     }
                     if (fCheckpointsEnabled && pindexConnect == pindexMostWork
                     && (pindexConnect->nHeight < chainparams.GetConsensus().EunosHeight
