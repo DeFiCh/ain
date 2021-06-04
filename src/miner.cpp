@@ -153,7 +153,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     const auto txVersion = GetTransactionVersion(nHeight);
 
     // Skip on main as fix to avoid merkle root error. Allow on other networks for testing.
-    if (Params().NetworkIDString() != CBaseChainParams::MAIN) {
+    if (Params().NetworkIDString() != CBaseChainParams::MAIN ||
+            (Params().NetworkIDString() == CBaseChainParams::MAIN && nHeight >= chainparams.GetConsensus().EunosKampungHeight)) {
         CTeamView::CTeam currentTeam;
         if (const auto team = pcustomcsview->GetConfirmTeam(pindexPrev->nHeight)) {
             currentTeam = *team;
