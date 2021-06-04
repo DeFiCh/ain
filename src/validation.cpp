@@ -3487,6 +3487,22 @@ void CChainState::PruneBlockIndexCandidates() {
 //    LogPrintf("TRACE PruneBlockIndexCandidates() after: setBlockIndexCandidates: %i\n", setBlockIndexCandidates.size());
 }
 
+//! Returns last CBlockIndex* that is a checkpoint
+static CBlockIndex* GetLastCheckpoint(const CCheckpointData& data) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    const MapCheckpoints& checkpoints = data.mapCheckpoints;
+
+    for (const MapCheckpoints::value_type& i : reverse_iterate(checkpoints))
+    {
+        const uint256& hash = i.second;
+        CBlockIndex* pindex = LookupBlockIndex(hash);
+        if (pindex) {
+            return pindex;
+        }
+    }
+    return nullptr;
+}
+
 /**
  * Try to make some progress towards making pindexMostWork the active block.
  * pblock is either nullptr or a pointer to a CBlock corresponding to pindexMostWork.
@@ -3566,8 +3582,12 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // now block cannot be part of blockchain either
                         // but it can be produced by outdated/malicious masternode
                         // so we should not shoutdown entire network
-                        // revert invalid chain
-                        disconnectBlocksTo(vpindexToConnect.front());
+                        if (auto blockIndex = ChainActive()[vpindexToConnect.front()->nHeight]) {
+                            auto checkPoint = GetLastCheckpoint(chainparams.Checkpoints());
+                            if (checkPoint && blockIndex->nHeight > checkPoint->nHeight) {
+                                disconnectBlocksTo(blockIndex);
+                            }
+                        }
                     }
                     if (fCheckpointsEnabled && pindexConnect == pindexMostWork
                     && (pindexConnect->nHeight < chainparams.GetConsensus().EunosHeight
@@ -4264,22 +4284,6 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
     }
     UpdateUncommittedBlockStructures(block, pindexPrev, consensusParams);
     return commitment;
-}
-
-//! Returns last CBlockIndex* that is a checkpoint
-static CBlockIndex* GetLastCheckpoint(const CCheckpointData& data) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
-{
-    const MapCheckpoints& checkpoints = data.mapCheckpoints;
-
-    for (const MapCheckpoints::value_type& i : reverse_iterate(checkpoints))
-    {
-        const uint256& hash = i.second;
-        CBlockIndex* pindex = LookupBlockIndex(hash);
-        if (pindex) {
-            return pindex;
-        }
-    }
-    return nullptr;
 }
 
 /** Context-dependent validity checks.
