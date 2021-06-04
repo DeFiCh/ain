@@ -826,7 +826,7 @@ namespace pos {
         return false;
     }
 
-int32_t ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams chainparams) {
+void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams chainparams) {
 
     std::map<CKeyID, int32_t> nMinted;
     std::map<CKeyID, int32_t> nTried;
@@ -931,12 +931,6 @@ int32_t ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainPar
             ++it;
         }
     }
-
-    auto minted = 0u;
-    for (const auto& mint : nMinted) {
-        minted += mint.second;
-    }
-    return minted;
 }
 
 }

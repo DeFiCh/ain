@@ -223,9 +223,7 @@ namespace pos {
         };
 
         /// always forward by value to avoid dangling pointers
-        /// @return number of minted blocks
-
-        int32_t operator()(std::vector<Args> stakerParams, CChainParams chainparams);
+        void operator()(std::vector<Args> stakerParams, CChainParams chainparams);
     };
 
     class Staker {
