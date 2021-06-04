@@ -151,56 +151,63 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     fIncludeWitness = IsWitnessEnabled(pindexPrev, consensus);
 
     const auto txVersion = GetTransactionVersion(nHeight);
-/*
-    CTeamView::CTeam currentTeam;
-    if (const auto team = pcustomcsview->GetConfirmTeam(pindexPrev->nHeight)) {
-        currentTeam = *team;
-    }
 
-    auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
-
-    bool createAnchorReward{false};
-
-    // No new anchors until we hit fork height, no new confirms should be found before fork.
-    if (pindexPrev->nHeight >= consensus.DakotaHeight && confirms.size() > 0) {
-
-        // Make sure anchor block height and hash exist in chain.
-        CBlockIndex* anchorIndex = ::ChainActive()[confirms[0].anchorHeight];
-        if (anchorIndex && anchorIndex->GetBlockHash() == confirms[0].dfiBlockHash) {
-            createAnchorReward = true;
-        }
-    }
-
-    if (createAnchorReward) {
-        CAnchorFinalizationMessagePlus finMsg{confirms[0]};
-
-        for (auto const & msg : confirms) {
-            finMsg.sigs.push_back(msg.signature);
+    // Skip on main as fix to avoid merkle root error. Allow on other networks for testing.
+    if (Params().NetworkIDString() != CBaseChainParams::MAIN) {
+        CTeamView::CTeam currentTeam;
+        if (const auto team = pcustomcsview->GetConfirmTeam(pindexPrev->nHeight)) {
+            currentTeam = *team;
         }
 
-        CDataStream metadata(DfAnchorFinalizeTxMarkerPlus, SER_NETWORK, PROTOCOL_VERSION);
-        metadata << finMsg;
+        auto confirms = panchorAwaitingConfirms->GetQuorumFor(currentTeam);
 
-        CTxDestination destination = finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
+        bool createAnchorReward{false};
 
-        CMutableTransaction mTx(txVersion);
-        mTx.vin.resize(1);
-        mTx.vin[0].prevout.SetNull();
-        mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-        mTx.vout.resize(2);
-        mTx.vout[0].scriptPubKey =  CScript() << OP_RETURN << ToByteVector(metadata);
-        mTx.vout[0].nValue = 0;
-        mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
-        mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
+        // No new anchors until we hit fork height, no new confirms should be found before fork.
+        if (pindexPrev->nHeight >= consensus.DakotaHeight && confirms.size() > 0) {
 
-        auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
-        if (!rewardTx) {
-            pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
-            pblocktemplate->vTxFees.push_back(0);
-            pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+            // Make sure anchor block height and hash exist in chain.
+            CBlockIndex *anchorIndex = ::ChainActive()[confirms[0].anchorHeight];
+            if (anchorIndex && anchorIndex->GetBlockHash() == confirms[0].dfiBlockHash) {
+                createAnchorReward = true;
+            }
+        }
+
+        if (createAnchorReward) {
+            CAnchorFinalizationMessagePlus finMsg{confirms[0]};
+
+            for (auto const &msg : confirms) {
+                finMsg.sigs.push_back(msg.signature);
+            }
+
+            CDataStream metadata(DfAnchorFinalizeTxMarkerPlus, SER_NETWORK, PROTOCOL_VERSION);
+            metadata << finMsg;
+
+            CTxDestination destination =
+                    finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(
+                            WitnessV0KeyHash(finMsg.rewardKeyID));
+
+            CMutableTransaction mTx(txVersion);
+            mTx.vin.resize(1);
+            mTx.vin[0].prevout.SetNull();
+            mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+            mTx.vout.resize(2);
+            mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+            mTx.vout[0].nValue = 0;
+            mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
+            mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(
+                    CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
+
+            auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
+            if (!rewardTx) {
+                pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+                pblocktemplate->vTxFees.push_back(0);
+                pblocktemplate->vTxSigOpsCost.push_back(
+                        WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+            }
         }
     }
-*/
+    
     CTransactionRef criminalTx = nullptr;
     if (fCriminals) {
         CCriminalProofsView::CMnCriminals criminals = pcriminals->GetUnpunishedCriminals();
