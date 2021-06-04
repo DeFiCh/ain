@@ -858,7 +858,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
 
     LogPrintf("ThreadStaker: started.\n");
 
-    while (true) {
+    while (!args.empty()) {
         boost::this_thread::interruption_point();
 
         while (fImporting || fReindex) {
