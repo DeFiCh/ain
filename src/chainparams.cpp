@@ -126,7 +126,7 @@ public:
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
         consensus.EunosHeight = 894000; // 3rd June 2021
         consensus.EunosSimsHeight = consensus.EunosHeight;
-        consensus.EunosKampungHeight = 894105;
+        consensus.EunosKampungHeight = 895741;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -305,6 +305,7 @@ public:
                 {757420, uint256S("8d4918be2b2df30175f9e611d9ceb494215b93f2267075ace3f031e784cbccbe")},
                 {850000, uint256S("2d7d58ae18a74f73b9836a8fffd3f65ce409536e654a6c644ce735215238a004")},
                 {875000, uint256S("44d3b3ba8e920cef86b7ec096ab0a2e608d9fedc14a59611a76a5e40aa53145e")},
+                {895741, uint256S("61bc1d73c720990dde43a3fec1f703a222ec5c265e6d491efd60eeec1bdb6dc3")},
             }
         };
 
