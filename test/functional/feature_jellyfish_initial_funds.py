@@ -6,7 +6,6 @@
 """Test the availability of required initial funds for jellyfish test containers.
 """
 
-from test_framework.blocktools import add_witness_commitment, create_block, create_coinbase
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
