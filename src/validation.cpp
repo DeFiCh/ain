@@ -3565,6 +3565,8 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
             state = CValidationState();
             if (!ConnectTip(state, chainparams, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
+                    fContinue = false;
+                    fInvalidFound = true;
                     // The block violates a consensus rule.
                     auto reason = state.GetReason();
                     if (reason == ValidationInvalidReason::BLOCK_INVALID_HEADER) {
@@ -3572,8 +3574,6 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // so just skip that block
                         continue;
                     }
-                    fContinue = false;
-                    fInvalidFound = true;
                     InvalidChainFound(vpindexToConnect.front());
                     if (reason == ValidationInvalidReason::BLOCK_MUTATED) {
                         // prior EunosHeight we shoutdown node on mutated block
