@@ -243,7 +243,7 @@ namespace pos {
         CBlockIndex* getTip();
 
         Staker::Status init(const CChainParams& chainparams);
-        Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args, std::shared_ptr<CBlock> pblock);
+        Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args);
 
         // declaration static variables
         // Map to store [master node id : last block creation attempt timestamp] for local master nodes

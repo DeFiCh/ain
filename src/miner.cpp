@@ -673,7 +673,7 @@ namespace pos {
         return Status::stakeReady;
     }
 
-    Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args, std::shared_ptr<CBlock> pblock) {
+    Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
 
         bool minted = false;
         bool potentialCriminalBlock = false;
@@ -710,9 +710,12 @@ namespace pos {
             creationHeight = int64_t(nodePtr->creationHeight);
         }
 
-        CMutableTransaction coinbaseTx(*pblock->vtx[0]);
-        coinbaseTx.vout[0].scriptPubKey = scriptPubKey;
-        pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
+        auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
+        if (!pblocktemplate) {
+            throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
+        }
+
+        auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
 
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
             if (fCriminals) {
@@ -869,33 +872,16 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             std::this_thread::sleep_for(std::chrono::milliseconds(900));
         }
 
-
-        int lastHeight = 0;
-        std::shared_ptr<CBlock> pblock;
-
         for (auto it = args.begin(); it != args.end(); ) {
             const auto& arg = *it;
             const auto operatorName = arg.operatorID.GetHex();
 
             pos::Staker staker;
 
-            auto height = staker.getTip()->nHeight;
-            if (height != lastHeight) {
-                lastHeight = height;
-                pblock.reset(); // create new block due to tip change
-            }
-
             try {
                 auto status = staker.init(chainparams);
                 if (status == Staker::Status::stakeReady) {
-                    if (!pblock) {
-                        auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock({});
-                        if (!pblocktemplate) {
-                            throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
-                        }
-                        pblock = std::make_shared<CBlock>(pblocktemplate->block);
-                    }
-                    status = staker.stake(chainparams, arg, pblock);
+                    status = staker.stake(chainparams, arg);
                 }
                 if (status == Staker::Status::error) {
                     LogPrintf("ThreadStaker: (%s) terminated due to a staking error!\n", operatorName);
@@ -905,7 +891,6 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                 if (status == Staker::Status::minted) {
                     LogPrintf("ThreadStaker: (%s) minted a block!\n", operatorName);
                     nMinted[arg.operatorID]++;
-                    pblock.reset(); // block is minted should be created new one
                 }
                 if (status == Staker::Status::initWaiting) {
                     LogPrintf("ThreadStaker: (%s) waiting init...\n", operatorName);
