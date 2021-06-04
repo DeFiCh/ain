@@ -656,8 +656,7 @@ namespace pos {
     std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
     std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
 
-    //!TODO: Add param to take precomputed merkle root
-    Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
+    Staker::Status Staker::init(const CChainParams& chainparams) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
             if(!g_connman)
                 throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
@@ -671,6 +670,10 @@ namespace pos {
             if (::ChainstateActive().IsDisconnectingTip())
                 return Status::stakeWaiting;
         }
+        return Status::stakeReady;
+    }
+
+    Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args, std::shared_ptr<CBlock> pblock) {
 
         bool minted = false;
         bool potentialCriminalBlock = false;
@@ -707,11 +710,9 @@ namespace pos {
             creationHeight = int64_t(nodePtr->creationHeight);
         }
 
-        std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
-        if (!pblocktemplate.get()) {
-            throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
-        }
-        std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(pblocktemplate->block);
+        CMutableTransaction coinbaseTx(*pblock->vtx[0]);
+        coinbaseTx.vout[0].scriptPubKey = scriptPubKey;
+        pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
 
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
             if (fCriminals) {
@@ -868,6 +869,9 @@ int32_t ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainPar
             std::this_thread::sleep_for(std::chrono::milliseconds(900));
         }
 
+ 
+        std::shared_ptr<CBlock> pblock;
+
         for (auto it = args.begin(); it != args.end(); ) {
             const auto& arg = *it;
             const auto operatorName = arg.operatorID.GetHex();
@@ -875,7 +879,17 @@ int32_t ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainPar
             pos::Staker staker;
 
             try {
-                Staker::Status status = staker.stake(chainparams, arg);
+                auto status = staker.init(chainparams);
+                if (status == Staker::Status::stakeReady) {
+                    if (!pblock) {
+                        auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock({});
+                        if (!pblocktemplate) {
+                            throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
+                        }
+                        pblock = std::make_shared<CBlock>(pblocktemplate->block);
+                    }
+                    status = staker.stake(chainparams, arg, pblock);
+                }
                 if (status == Staker::Status::error) {
                     LogPrintf("ThreadStaker: (%s) terminated due to a staking error!\n", operatorName);
                     it = args.erase(it);
@@ -884,6 +898,7 @@ int32_t ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainPar
                 if (status == Staker::Status::minted) {
                     LogPrintf("ThreadStaker: (%s) minted a block!\n", operatorName);
                     nMinted[arg.operatorID]++;
+                    pblock.reset(); // block is minted should be created new one
                 }
                 if (status == Staker::Status::initWaiting) {
                     LogPrintf("ThreadStaker: (%s) waiting init...\n", operatorName);
@@ -905,8 +920,8 @@ int32_t ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainPar
             auto& tried = nTried[arg.operatorID];
             tried++;
 
-            if ((arg.nMaxTries != -1 && tried == arg.nMaxTries)
-            || (arg.nMint != -1 && nMinted[arg.operatorID] == arg.nMint)) {
+            if ((arg.nMaxTries != -1 && tried >= arg.nMaxTries)
+            || (arg.nMint != -1 && nMinted[arg.operatorID] >= arg.nMint)) {
                 it = args.erase(it);
                 continue;
             }

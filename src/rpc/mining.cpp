@@ -123,7 +123,15 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey & mint
         boost::this_thread::interruption_point();
 
         try {
-            Staker::Status status = staker.stake(Params(), stakerParams);
+            auto status = staker.init(Params());
+            if (status == Staker::Status::stakeReady) {
+                auto pblocktemplate = BlockAssembler(Params()).CreateNewBlock({});
+                if (!pblocktemplate) {
+                    throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
+                }
+                auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
+                status = staker.stake(Params(), stakerParams, std::move(pblock));
+            }
             if (status == Staker::Status::error) {
                 throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: Terminated due to a staking error");
             }

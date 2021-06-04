@@ -237,11 +237,13 @@ namespace pos {
             error,
             initWaiting,
             stakeWaiting,
+            stakeReady,
             criminalWaiting,
             minted,
         };
 
-        Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args);
+        Staker::Status init(const CChainParams& chainparams);
+        Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args, std::shared_ptr<CBlock> pblock);
 
         // declaration static variables
         // Map to store [master node id : last block creation attempt timestamp] for local master nodes
