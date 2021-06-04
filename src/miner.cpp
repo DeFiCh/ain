@@ -656,6 +656,7 @@ namespace pos {
     std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
     std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
 
+    //!TODO: Add param to take precomputed merkle root
     Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
             if(!g_connman)
@@ -728,6 +729,8 @@ namespace pos {
                 CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
                 pos::Staker::mapMNLastBlockCreationAttemptTs[masternodeID] = GetTime();
             }
+
+            //!TODO: Use precomputed merkle root here
             std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
             if (!pblocktemplate.get()) {
                 throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
@@ -824,6 +827,7 @@ namespace pos {
     }
 
 int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainparams) {
+    //!TODO: Create an array of Staker and operatorName below
     pos::Staker staker{};
     int32_t nMinted = 0;
     int32_t nTried = 0;
@@ -841,6 +845,7 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
     auto wallets = GetWallets();
 
     while (true) {
+        //!TODO: Add another for loop here, to loop over all stakers
         boost::this_thread::interruption_point();
 
         bool found = false;
@@ -864,6 +869,9 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
     LogPrintf("ThreadStaker (%s): started.\n", operatorName);
 
     while (true) {
+        //!TODO: Compute account merkle root here once, before all stakers stake
+
+        //!TODO: Add another for-loop here, to loop over all stakers
         boost::this_thread::interruption_point();
 
         while (fImporting || fReindex) {
@@ -875,6 +883,7 @@ int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainpara
         }
 
         try {
+            //!TODO: Pass precomputed merkle root here
             Staker::Status status = staker.stake(chainparams, args);
             if (status == Staker::Status::error) {
                 LogPrintf("ThreadStaker (%s): terminated due to a staking error!\n", operatorName);

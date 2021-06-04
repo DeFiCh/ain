@@ -224,6 +224,8 @@ namespace pos {
 
         /// always forward by value to avoid dangling pointers
         /// @return number of minted blocks
+
+        //!TODO: Modify to take an array of stakeParams here
         int32_t operator()(Args stakerParams, CChainParams chainparams);
     };
 

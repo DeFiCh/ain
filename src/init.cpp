@@ -1950,6 +1950,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         bool atLeastOneRunningOperator = false;
         auto const operators = gArgs.GetArgs("-masternode_operator");
 
+        //!TODO: Create an array using the below for-loop with the stakerParams and chainParams for every operator
         for (auto const & op : operators) {
             // do not process duplicate operator option
             if (operatorsSet.count(op)) {
@@ -2009,8 +2010,10 @@ bool AppInitMain(InitInterfaces& interfaces)
 
             atLeastOneRunningOperator = true;
 
+            //!TODO: Move this below for-loop (Only create one thread)
             // Mint proof-of-stake blocks in background
             threadGroup.create_thread(
+                //!TODO: Pass in array of staker params and chain params here
                 std::bind(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
                     // Run ThreadStaker
                     pos::ThreadStaker threadStaker;
