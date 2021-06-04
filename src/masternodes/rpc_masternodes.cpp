@@ -26,7 +26,7 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
         isminetype ownerMine = IsMineCached(*pwallet, ownerDest);
-        obj.pushKV("onwerIsMine", bool(ownerMine & ISMINE_SPENDABLE));
+        obj.pushKV("ownerIsMine", bool(ownerMine & ISMINE_SPENDABLE));
         isminetype operatorMine = IsMineCached(*pwallet, operatorDest);
         obj.pushKV("operatorIsMine", bool(operatorMine & ISMINE_SPENDABLE));
         bool localMasternode{false};
