@@ -31,7 +31,7 @@ jobs:
       # Ignore the failure of a step and avoid terminating the job.
       continue-on-error: true
       with:
-        key: docker-layer-caching-linux-${{ github.workflow }}-{hash}
+        key: docker-layer-caching-linux-${{ github.workflow }}
         restore-keys: |
           docker-layer-caching-linux-${{ github.workflow }}
 
@@ -77,7 +77,7 @@ jobs:
       # Ignore the failure of a step and avoid terminating the job.
       continue-on-error: true
       with:
-        key: docker-layer-caching-windows-${{ github.workflow }}-{hash}
+        key: docker-layer-caching-windows-${{ github.workflow }}
         restore-keys: |
           docker-layer-caching-windows-${{ github.workflow }}
       
@@ -105,7 +105,7 @@ jobs:
       # Ignore the failure of a step and avoid terminating the job.
       continue-on-error: true
       with:
-        key: docker-layer-caching-maxosx-${{ github.workflow }}-{hash}
+        key: docker-layer-caching-maxosx-${{ github.workflow }}
         restore-keys: |
           docker-layer-caching-maxosx-${{ github.workflow }}
       
