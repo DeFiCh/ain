@@ -164,18 +164,10 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             {
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
-                // Swap, futures and options all burnt at the moment.
-                if (kv.first == CommunityAccountType::Swap ||
-                    kv.first == CommunityAccountType::Futures ||
-                    kv.first == CommunityAccountType::Options ||
-                    kv.first == CommunityAccountType::Unallocated)
-                {
-                    burnt += subsidy;
-                }
-                else
-                {
-                    // Anchor and LP incentive
+                if (kv.first == CommunityAccountType::AnchorReward) {
                     nonutxo.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(subsidy));
+                } else {
+                    burnt += subsidy; // Everything else goes into burnt
                 }
             }
 
