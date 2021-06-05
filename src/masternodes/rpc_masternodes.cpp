@@ -3,7 +3,7 @@
 #include <pos_kernel.h>
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
-UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
+UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>> mnIds, const CWallet* pwallet)
 {
     UniValue ret(UniValue::VOBJ);
     if (!verbose) {
@@ -11,12 +11,12 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
     }
     else {
         UniValue obj(UniValue::VOBJ);
-        obj.pushKV("ownerAuthAddress", EncodeDestination(
-                node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) : CTxDestination(
-                        WitnessV0KeyHash(node.ownerAuthAddress))));
-        obj.pushKV("operatorAuthAddress", EncodeDestination(
-                node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) : CTxDestination(
-                        WitnessV0KeyHash(node.operatorAuthAddress))));
+        CTxDestination ownerDest = node.ownerType == 1 ? CTxDestination(PKHash(node.ownerAuthAddress)) :
+                CTxDestination(WitnessV0KeyHash(node.ownerAuthAddress));
+        obj.pushKV("ownerAuthAddress", EncodeDestination(ownerDest));
+        CTxDestination operatorDest = node.operatorType == 1 ? CTxDestination(PKHash(node.operatorAuthAddress)) :
+                                      CTxDestination(WitnessV0KeyHash(node.operatorAuthAddress));
+        obj.pushKV("operatorAuthAddress", EncodeDestination(operatorDest));
 
         obj.pushKV("creationHeight", node.creationHeight);
         obj.pushKV("resignHeight", node.resignHeight);
@@ -25,15 +25,21 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose)
         obj.pushKV("banTx", node.banTx.GetHex());
         obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
-        int height;
-        {
-            LOCK(cs_main);
-            height = ChainActive().Height();
+        isminetype ownerMine = IsMineCached(*pwallet, ownerDest);
+        obj.pushKV("ownerIsMine", bool(ownerMine & ISMINE_SPENDABLE));
+        isminetype operatorMine = IsMineCached(*pwallet, operatorDest);
+        obj.pushKV("operatorIsMine", bool(operatorMine & ISMINE_SPENDABLE));
+        bool localMasternode{false};
+        for (const auto& entry : mnIds) {
+            if (entry.first == node.operatorAuthAddress) {
+                localMasternode = true;
+            }
         }
+        obj.pushKV("localMasternode", localMasternode);
 
         // Only get targetMultiplier for active masternodes
         if (node.IsActive()) {
-            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), node, GetTime(), height).getdouble());
+            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), node, GetTime(), ChainActive().Height()).getdouble());
         }
 
         /// @todo add unlock height and|or real resign height
@@ -246,6 +252,8 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
 UniValue listmasternodes(const JSONRPCRequest& request)
 {
+    CWallet* const pwallet = GetWallet(request);
+
     RPCHelpMan{"listmasternodes",
                "\nReturns information about specified masternodes (or all, if list of ids is empty).\n",
                {
@@ -304,9 +312,11 @@ UniValue listmasternodes(const JSONRPCRequest& request)
 
     UniValue ret(UniValue::VOBJ);
 
+    const auto mnIds = pcustomcsview->GetOperatorsMulti();
+
     LOCK(cs_main);
     pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternode node) {
-        ret.pushKVs(mnToJSON(nodeId, node, verbose));
+        ret.pushKVs(mnToJSON(nodeId, node, verbose, mnIds, pwallet));
         limit--;
         return limit != 0;
     }, start);
@@ -316,6 +326,8 @@ UniValue listmasternodes(const JSONRPCRequest& request)
 
 UniValue getmasternode(const JSONRPCRequest& request)
 {
+    CWallet* const pwallet = GetWallet(request);
+
     RPCHelpMan{"getmasternode",
                "\nReturns information about specified masternode.\n",
                {
@@ -332,10 +344,12 @@ UniValue getmasternode(const JSONRPCRequest& request)
 
     uint256 id = ParseHashV(request.params[0], "masternode id");
 
+    const auto mnIds = pcustomcsview->GetOperatorsMulti();
+
     LOCK(cs_main);
     auto node = pcustomcsview->GetMasternode(id);
     if (node) {
-        return mnToJSON(id, *node, true); // or maybe just node, w/o id?
+        return mnToJSON(id, *node, true, mnIds, pwallet); // or maybe just node, w/o id?
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
 }
