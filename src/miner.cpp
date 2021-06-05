@@ -918,10 +918,10 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                 continue;
             }
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(900));
-
             ++it;
         }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(900));
     }
 }
 
