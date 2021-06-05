@@ -2611,13 +2611,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             if (incentivePair != chainparams.GetConsensus().newNonUTXOSubsidies.end())
             {
                 CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus()), incentivePair->second);
+                subsidy *= chainparams.GetConsensus().blocksPerDay();
                 // Change daily LP reward if it has changed
                 auto var = cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName());
                 if (var) {
                     // Cast to avoid UniValue in GovVariable Export/Import
                     auto lpVar = dynamic_cast<LP_DAILY_DFI_REWARD*>(var.get());
                     if (lpVar && lpVar->dailyReward != subsidy) {
-                        lpVar->dailyReward = subsidy * chainparams.GetConsensus().blocksPerDay();
+                        lpVar->dailyReward = subsidy;
                         lpVar->Apply(cache, pindex->nHeight);
                         cache.SetVariable(*lpVar);
                     }
@@ -4318,7 +4319,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
         // GetLastCheckpoint finds the last checkpoint in MapCheckpoints that's in our
         // g_blockman.m_block_index.
         CBlockIndex* pcheckpoint = GetLastCheckpoint(params.Checkpoints());
-        if (pcheckpoint && nHeight < pcheckpoint->nHeight)
+        if (pcheckpoint && nHeight <= pcheckpoint->nHeight)
             return state.Invalid(ValidationInvalidReason::BLOCK_CHECKPOINT, error("%s: forked chain older than last checkpoint (height %d)", __func__, nHeight), REJECT_CHECKPOINT, "bad-fork-prior-to-checkpoint");
     }
 
