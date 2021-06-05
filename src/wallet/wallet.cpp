@@ -1265,7 +1265,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef& ptx, const uint256
 bool CWallet::TransactionCanBeAbandoned(const uint256& hashTx) const
 {
     auto locked_chain = chain().lock();
-    LOCK(cs_wallet);
+    LOCK2(cs_wallet, locked_chain->mutex());
     const CWalletTx* wtx = GetWalletTx(hashTx);
     return wtx && !wtx->isAbandoned() && wtx->GetDepthInMainChain(*locked_chain) == 0 && !wtx->InMempool();
 }
@@ -1285,7 +1285,7 @@ void CWallet::MarkInputsDirty(const CTransactionRef& tx)
 bool CWallet::AbandonTransaction(interfaces::Chain::Lock& locked_chain, const uint256& hashTx)
 {
     auto locked_chain_recursive = chain().lock();  // Temporary. Removed in upcoming lock cleanup
-    LOCK(cs_wallet);
+    LOCK2(cs_wallet, locked_chain_recursive->mutex());
 
     WalletBatch batch(*database, "r+");
 
@@ -1342,7 +1342,7 @@ bool CWallet::AbandonTransaction(interfaces::Chain::Lock& locked_chain, const ui
 void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
 {
     auto locked_chain = chain().lock();
-    LOCK(cs_wallet);
+    LOCK2(cs_wallet, locked_chain->mutex());
 
     int conflictconfirms = -locked_chain->getBlockDepth(hashBlock);
     // If number of conflict confirms cannot be determined, this means
@@ -1405,7 +1405,7 @@ void CWallet::SyncTransaction(const CTransactionRef& ptx, const uint256& block_h
 
 void CWallet::TransactionAddedToMempool(const CTransactionRef& ptx) {
     auto locked_chain = chain().lock();
-    LOCK(cs_wallet);
+    LOCK2(cs_wallet, locked_chain->mutex());
     SyncTransaction(ptx, {} /* block hash */, 0 /* position in block */);
 
     auto it = mapWallet.find(ptx->GetHash());
@@ -1417,7 +1417,8 @@ void CWallet::TransactionAddedToMempool(const CTransactionRef& ptx) {
 }
 
 void CWallet::TransactionRemovedFromMempool(const CTransactionRef &ptx) {
-    LOCK(cs_wallet);
+    auto locked_chain = chain().lock();
+    LOCK2(cs_wallet, locked_chain->mutex());
     auto it = mapWallet.find(ptx->GetHash());
     if (it != mapWallet.end()) {
         mapWallet.modify(it, [](CWalletTx& wtx) {
@@ -1429,7 +1430,7 @@ void CWallet::TransactionRemovedFromMempool(const CTransactionRef &ptx) {
 void CWallet::BlockConnected(const CBlock& block, const std::vector<CTransactionRef>& vtxConflicted) {
     const uint256& block_hash = block.GetHash();
     auto locked_chain = chain().lock();
-    LOCK(cs_wallet);
+    LOCK2(cs_wallet, locked_chain->mutex());
     // TODO: Temporarily ensure that mempool removals are notified before
     // connected transactions.  This shouldn't matter, but the abandoned
     // state of transactions in our wallet is currently cleared when we
@@ -1452,7 +1453,7 @@ void CWallet::BlockConnected(const CBlock& block, const std::vector<CTransaction
 
 void CWallet::BlockDisconnected(const CBlock& block) {
     auto locked_chain = chain().lock();
-    LOCK(cs_wallet);
+    LOCK2(cs_wallet, locked_chain->mutex());
 
     for (const CTransactionRef& ptx : block.vtx) {
         SyncTransaction(ptx, {} /* block hash */, 0 /* position in block */);
@@ -2000,6 +2001,7 @@ int64_t CWallet::RescanFromTime(int64_t startTime, const WalletRescanReserver& r
     uint256 start_block;
     {
         auto locked_chain = chain().lock();
+        LOCK(locked_chain->mutex());
         const Optional<int> start_height = locked_chain->findFirstBlockWithTimeAndHeight(startTime - TIMESTAMP_WINDOW, 0, &start_block);
         const Optional<int> tip_height = locked_chain->getHeight();
         WalletLogPrintf("%s: Rescanning last %i blocks\n", __func__, tip_height && start_height ? *tip_height - *start_height + 1 : 0);
@@ -2060,6 +2062,7 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
     double progress_end;
     {
         auto locked_chain = chain().lock();
+        LOCK(locked_chain->mutex());
         if (Optional<int> tip_height = locked_chain->getHeight()) {
             tip_hash = locked_chain->getBlockHash(*tip_height);
         }
@@ -2078,7 +2081,7 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
         CBlock block;
         if (chain().findBlock(block_hash, &block) && !block.IsNull()) {
             auto locked_chain = chain().lock();
-            LOCK(cs_wallet);
+            LOCK2(cs_wallet, locked_chain->mutex());
             if (!locked_chain->getBlockHeight(block_hash)) {
                 // Abort scan if current block is no longer active, to prevent
                 // marking transactions as coming from the wrong block.
@@ -2104,6 +2107,7 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
         }
         {
             auto locked_chain = chain().lock();
+            LOCK(locked_chain->mutex());
             Optional<int> tip_height = locked_chain->getHeight();
             if (!tip_height || *tip_height <= block_height || !locked_chain->getBlockHeight(block_hash)) {
                 // break successfully when rescan has reached the tip, or
@@ -2403,7 +2407,7 @@ void CWallet::ResendWalletTransactions()
 
     { // locked_chain and cs_wallet scope
         auto locked_chain = chain().lock();
-        LOCK(cs_wallet);
+        LOCK2(cs_wallet, locked_chain->mutex());
 
         // Relay transactions
         auto& byTime = mapWallet.get<ByTime>();
@@ -2446,7 +2450,7 @@ CWallet::Balance CWallet::GetBalance(const int min_depth, bool avoid_reuse) cons
     isminefilter reuse_filter = avoid_reuse ? ISMINE_NO : ISMINE_USED;
     {
         auto locked_chain = chain().lock();
-        LOCK(cs_wallet);
+        LOCK2(cs_wallet, locked_chain->mutex());
         for (const auto& wtx : mapWallet.get<ByHash>())
         {
             const bool is_trusted{wtx.IsTrusted(*locked_chain)};
@@ -2472,7 +2476,7 @@ CWallet::Balance CWallet::GetBalance(const int min_depth, bool avoid_reuse) cons
 CAmount CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
 {
     auto locked_chain = chain().lock();
-    LOCK(cs_wallet);
+    LOCK2(cs_wallet, locked_chain->mutex());
 
     CAmount balance = 0;
     std::vector<COutput> vCoins;
@@ -2869,7 +2873,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     // Acquire the locks to prevent races to the new locked unspents between the
     // CreateTransaction call and LockCoin calls (when lockUnspents is true).
     auto locked_chain = chain().lock();
-    LOCK(cs_wallet);
+    LOCK2(cs_wallet, locked_chain->mutex());
 
     CTransactionRef tx_new;
     if (!CreateTransaction(*locked_chain, vecSend, tx_new, nFeeRet, nChangePosInOut, strFailReason, coinControl, false)) {
@@ -3031,7 +3035,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     std::set<CInputCoin> tokenCoins;
     {
         auto locked_chain = chain().lock();
-        LOCK(cs_wallet);
+        LOCK2(cs_wallet, locked_chain->mutex());
 
         for (auto it = vTokenValues.begin(); it != vTokenValues.end(); ++it)
         {
@@ -3095,7 +3099,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     {
         std::set<CInputCoin> setCoins;
         auto locked_chain = chain().lock();
-        LOCK(cs_wallet);
+        LOCK2(cs_wallet, locked_chain->mutex());
         {
             std::vector<COutput> vAvailableCoins;
             AvailableCoins(*locked_chain, vAvailableCoins, true, &coin_control, 1, MAX_MONEY, MAX_MONEY, 0);
@@ -3435,7 +3439,7 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, CValida
 {
     {
         auto locked_chain = chain().lock();
-        LOCK(cs_wallet);
+        LOCK2(cs_wallet, locked_chain->mutex());
 
         CWalletTx wtxNew(this, std::move(tx));
         wtxNew.mapValue = std::move(mapValue);
@@ -4743,7 +4747,7 @@ void CWallet::handleNotifications()
 void CWallet::postInitProcess()
 {
     auto locked_chain = chain().lock();
-    LOCK(cs_wallet);
+    LOCK2(cs_wallet, locked_chain->mutex());
 
     // Add wallet transactions that aren't already in a block to mempool
     // Do this here as mempool requires genesis block to be loaded

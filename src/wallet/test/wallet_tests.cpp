@@ -296,7 +296,7 @@ static int64_t AddTx(CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64
     CBlockIndex* block = nullptr;
     if (blockTime > 0) {
         auto locked_chain = wallet.chain().lock();
-        LockAssertion lock(::cs_main);
+        LOCK(locked_chain->mutex());
         auto inserted = ::BlockIndex().emplace(GetRandHash(), new CBlockIndex);
         assert(inserted.second);
         const uint256& hash = inserted.first->first;
@@ -406,8 +406,7 @@ public:
         }
         CreateAndProcessBlock({CMutableTransaction(blocktx)}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()), masternodesID);
 
-        LOCK(cs_main);
-        LOCK(wallet->cs_wallet);
+        LOCK2(cs_main, wallet->cs_wallet);
         auto& byHash = wallet->mapWallet.get<ByHash>();
         auto it = byHash.find(tx->GetHash());
         BOOST_CHECK(it != byHash.end());
