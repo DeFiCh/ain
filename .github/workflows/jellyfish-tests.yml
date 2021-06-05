@@ -8,8 +8,6 @@ on:
 
 jobs:
   test:
-    env:
-        BUILD_VERSION: latest
     name: Test
     runs-on: ubuntu-latest
     steps:
@@ -21,19 +19,6 @@ jobs:
       - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           path: defichain
-          
-      - name: Build and package
-        run: |
-          cd defichain
-          TARGETS="x86_64-pc-linux-gnu" ./make.sh git_version
-          echo ">>> BUILD VERSION <<<"
-          echo $BUILD_VERSION
-          echo ">>> BUILD VERSION Github Env <<<"
-          echo "${{ env.BUILD_VERSION }}"
-          TARGETS="x86_64-pc-linux-gnu" ./make.sh docker-release-git
-          echo $BUILD_VERSION
-          docker tag defichain-x86_64-pc-linux-gnu:$BUILD_VERSION defichain-x86_64-pc-linux-gnu:dockerhub-latest
-          docker build -t $BUILD_VERSION -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .         
 
       - uses: actions/setup-node@46071b5c7a2e0c34e49c3cb8a0e792e86e18d5ea
         with:
@@ -45,7 +30,17 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-
-      - run: npm ci
-      - run: npm run build
-      - run: DEFICHAIN_DOCKER_IMAGE="${{ env.BUILD_VERSION }}" npm run test:ci
+          
+      - name: Build and package
+        run: |
+          cd defichain
+          TARGETS="x86_64-pc-linux-gnu" ./make.sh git_version
+          echo ">>> BUILD VERSION <<<"
+          echo ${BUILD_VERSION}
+          TARGETS="x86_64-pc-linux-gnu" ./make.sh docker-release-git
+          echo $BUILD_VERSION
+          docker tag defichain-x86_64-pc-linux-gnu:$BUILD_VERSION defichain-x86_64-pc-linux-gnu:dockerhub-latest
+          docker build -t $BUILD_VERSION -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .         
+          npm ci
+          npm run build
+          DEFICHAIN_DOCKER_IMAGE=${BUILD_VERSION} npm run test:ci
