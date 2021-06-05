@@ -30,13 +30,17 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-          
-      - name: Build and package
+
+      - name: Set build version
         run: |
           echo "GITHUB_SHA_SHORT=$(echo $GITHUB_SHA | cut -c 1-6)" >> $GITHUB_ENV
-          echo $GITHUB_SHA_SHORT
           cd defichain
           TARGETS="x86_64-pc-linux-gnu" ./make.sh git_version
+              
+      - name: Build and package
+        run: |
+          echo ">>> GITHUB_SHA_SHORT <<<"
+          echo $GITHUB_SHA_SHORT
           echo ">>> BUILD VERSION <<<"
           echo $BUILD_VERSION
           # TARGETS="x86_64-pc-linux-gnu" ./make.sh docker-release-git
