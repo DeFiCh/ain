@@ -25,12 +25,12 @@ jobs:
       - name: Build and package
         run: |
           BUILD_VERSION="${GITHUB_REF#refs/heads/}-${GITHUB_SHA::6}"
-          echo "${{ $BUILD_VERSION }}"
+          echo $BUILD_VERSION
           cd defichain
           TARGETS="x86_64-pc-linux-gnu" ./make.sh docker-release-git
-          echo "${{ $BUILD_VERSION }}"
-          docker tag defichain-x86_64-pc-linux-gnu:${{ $BUILD_VERSION }} defichain-x86_64-pc-linux-gnu:dockerhub-latest
-          docker build -t ${{ $BUILD_VERSION }} -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .         
+          echo $BUILD_VERSION
+          docker tag defichain-x86_64-pc-linux-gnu:${{ BUILD_VERSION }} defichain-x86_64-pc-linux-gnu:dockerhub-latest
+          docker build -t ${{ BUILD_VERSION }} -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .         
 
       - uses: actions/setup-node@46071b5c7a2e0c34e49c3cb8a0e792e86e18d5ea
         with:
