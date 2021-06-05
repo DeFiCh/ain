@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     env:
-        BUILD_VERSION: ${GITHUB_REF#refs/heads/}
+        BUILD_VERSION: latest
     name: Test
     runs-on: ubuntu-latest
     steps:
@@ -26,6 +26,7 @@ jobs:
         run: |
           cd defichain
           TARGETS="x86_64-pc-linux-gnu" ./make.sh docker-release-git
+          echo "${{ env.BUILD_VERSION }}"
           docker tag defichain-x86_64-pc-linux-gnu:${{ env.BUILD_VERSION }} defichain-x86_64-pc-linux-gnu:dockerhub-latest
           docker build -t ${{ env.BUILD_VERSION }} -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .         
 
