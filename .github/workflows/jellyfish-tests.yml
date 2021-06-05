@@ -24,6 +24,7 @@ jobs:
           
       - name: Build and package
         run: |
+          echo "${{ env.BUILD_VERSION }}"
           cd defichain
           TARGETS="x86_64-pc-linux-gnu" ./make.sh docker-release-git
           echo "${{ env.BUILD_VERSION }}"
