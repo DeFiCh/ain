@@ -33,20 +33,17 @@ jobs:
 
       - name: Set build version
         run: |
-          echo "GITHUB_SHA_SHORT=$(echo $GITHUB_SHA | cut -c 1-6)" >> $GITHUB_ENV
           cd defichain
           TARGETS="x86_64-pc-linux-gnu" ./make.sh git_version
               
       - name: Build and package
         run: |
-          echo ">>> GITHUB_SHA_SHORT <<<"
-          echo $GITHUB_SHA_SHORT
           echo ">>> BUILD VERSION <<<"
-          echo $BUILD_VERSION
-          # TARGETS="x86_64-pc-linux-gnu" ./make.sh docker-release-git
-          # echo $BUILD_VERSION
-          # docker tag defichain-x86_64-pc-linux-gnu:$BUILD_VERSION defichain-x86_64-pc-linux-gnu:dockerhub-latest
-          # docker build -t $BUILD_VERSION -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .         
-          # npm ci
-          # npm run build
-          # DEFICHAIN_DOCKER_IMAGE=${BUILD_VERSION} npm run test:ci
+          echo ${BUILD_VERSION}
+          cd defichain
+          TARGETS="x86_64-pc-linux-gnu" ./make.sh docker-release-git
+          docker tag defichain-x86_64-pc-linux-gnu:$BUILD_VERSION defichain-x86_64-pc-linux-gnu:dockerhub-latest
+          docker build -t $BUILD_VERSION -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .         
+          npm ci
+          npm run build
+          DEFICHAIN_DOCKER_IMAGE=${BUILD_VERSION} npm run test:ci
