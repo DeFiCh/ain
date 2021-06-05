@@ -25,7 +25,9 @@ jobs:
       - name: Build and package
         run: |
           cd defichain
-          docker build -t ${{ env.BUILD_VERSION }} -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile .         
+          TARGETS="x86_64-pc-linux-gnu" ./make.sh docker-release-git
+          docker tag defichain-x86_64-pc-linux-gnu:${{ env.BUILD_VERSION }} defichain-x86_64-pc-linux-gnu:dockerhub-latest
+          docker build -t ${{ env.BUILD_VERSION }} -f ./contrib/dockerfiles/dockerhub/x86_64-pc-linux-gnu.dockerfile .         
 
       - uses: actions/setup-node@46071b5c7a2e0c34e49c3cb8a0e792e86e18d5ea
         with:
