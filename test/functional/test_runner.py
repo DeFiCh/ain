@@ -251,6 +251,7 @@ BASE_SCRIPTS = [
     'feature_help.py',
     'feature_shutdown.py',
     'feature_oracles.py',
+    'feature_checkpoint.py',
     'rpc_getmininginfo.py',
     'feature_burn_address.py',
     'feature_eunos_balances.py',

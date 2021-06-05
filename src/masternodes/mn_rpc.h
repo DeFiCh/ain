@@ -63,6 +63,7 @@ struct LockedCoinsScopedGuard {
 };
 
 // common functions
+bool IsSkippedTx(const uint256& hash);
 int chainHeight(interfaces::Chain::Lock& locked_chain);
 std::vector<CTxIn> GetInputs(UniValue const& inputs);
 CMutableTransaction fund(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control = nullptr);

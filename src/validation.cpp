@@ -2570,7 +2570,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return accountsView.Flush(); // keeps compatibility
 
     // validates account changes as well
-    if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
+    if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight
+    && pindex->nHeight < chainparams.GetConsensus().EunosKampungHeight) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot())) {
@@ -2610,6 +2611,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             if (incentivePair != chainparams.GetConsensus().newNonUTXOSubsidies.end())
             {
                 CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus()), incentivePair->second);
+                subsidy *= chainparams.GetConsensus().blocksPerDay();
                 // Change daily LP reward if it has changed
                 auto var = cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName());
                 if (var) {
@@ -3487,6 +3489,22 @@ void CChainState::PruneBlockIndexCandidates() {
 //    LogPrintf("TRACE PruneBlockIndexCandidates() after: setBlockIndexCandidates: %i\n", setBlockIndexCandidates.size());
 }
 
+//! Returns last CBlockIndex* that is a checkpoint
+static CBlockIndex* GetLastCheckpoint(const CCheckpointData& data) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    const MapCheckpoints& checkpoints = data.mapCheckpoints;
+
+    for (const MapCheckpoints::value_type& i : reverse_iterate(checkpoints))
+    {
+        const uint256& hash = i.second;
+        CBlockIndex* pindex = LookupBlockIndex(hash);
+        if (pindex) {
+            return pindex;
+        }
+    }
+    return nullptr;
+}
+
 /**
  * Try to make some progress towards making pindexMostWork the active block.
  * pblock is either nullptr or a pointer to a CBlock corresponding to pindexMostWork.
@@ -3548,6 +3566,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
             state = CValidationState();
             if (!ConnectTip(state, chainparams, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
+                    fContinue = false;
                     // The block violates a consensus rule.
                     auto reason = state.GetReason();
                     if (reason == ValidationInvalidReason::BLOCK_INVALID_HEADER) {
@@ -3555,7 +3574,6 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // so just skip that block
                         continue;
                     }
-                    fContinue = false;
                     fInvalidFound = true;
                     InvalidChainFound(vpindexToConnect.front());
                     if (reason == ValidationInvalidReason::BLOCK_MUTATED) {
@@ -3566,6 +3584,12 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         // now block cannot be part of blockchain either
                         // but it can be produced by outdated/malicious masternode
                         // so we should not shoutdown entire network
+                        if (auto blockIndex = ChainActive()[vpindexToConnect.front()->nHeight]) {
+                            auto checkPoint = GetLastCheckpoint(chainparams.Checkpoints());
+                            if (checkPoint && blockIndex->nHeight > checkPoint->nHeight) {
+                                disconnectBlocksTo(blockIndex);
+                            }
+                        }
                     }
                     if (fCheckpointsEnabled && pindexConnect == pindexMostWork
                     && (pindexConnect->nHeight < chainparams.GetConsensus().EunosHeight
@@ -3823,6 +3847,11 @@ bool CChainState::InvalidateBlock(CValidationState& state, const CChainParams& c
 
     {
         LOCK(cs_main);
+        if (fCheckpointsEnabled) {
+            CBlockIndex* pcheckpoint = GetLastCheckpoint(chainparams.Checkpoints());
+            if (pcheckpoint && pindex->nHeight <= pcheckpoint->nHeight)
+                return state.Invalid(ValidationInvalidReason::BLOCK_CHECKPOINT, error("Cannot invalidate block prior last checkpoint height %d", pcheckpoint->nHeight), REJECT_CHECKPOINT, "");
+        }
         for (const auto& entry : m_blockman.m_block_index) {
             CBlockIndex *candidate = entry.second;
             // We don't need to put anything in our active chain into the
@@ -4140,7 +4169,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // Check the merkle root.
     // block merkle root is delayed to ConnectBlock to ensure account changes
-    if (fCheckMerkleRoot && block.height < consensusParams.EunosHeight) {
+    if (fCheckMerkleRoot && (block.height < consensusParams.EunosHeight
+    || block.height >= consensusParams.EunosKampungHeight)) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != hashMerkleRoot2)
@@ -4264,22 +4294,6 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
     return commitment;
 }
 
-//! Returns last CBlockIndex* that is a checkpoint
-static CBlockIndex* GetLastCheckpoint(const CCheckpointData& data) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
-{
-    const MapCheckpoints& checkpoints = data.mapCheckpoints;
-
-    for (const MapCheckpoints::value_type& i : reverse_iterate(checkpoints))
-    {
-        const uint256& hash = i.second;
-        CBlockIndex* pindex = LookupBlockIndex(hash);
-        if (pindex) {
-            return pindex;
-        }
-    }
-    return nullptr;
-}
-
 /** Context-dependent validity checks.
  *  By "context", we mean only the previous block headers, but not the UTXO
  *  set; UTXO-related validity checks are done in ConnectBlock().
@@ -4305,7 +4319,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
         // GetLastCheckpoint finds the last checkpoint in MapCheckpoints that's in our
         // g_blockman.m_block_index.
         CBlockIndex* pcheckpoint = GetLastCheckpoint(params.Checkpoints());
-        if (pcheckpoint && nHeight < pcheckpoint->nHeight)
+        if (pcheckpoint && nHeight <= pcheckpoint->nHeight)
             return state.Invalid(ValidationInvalidReason::BLOCK_CHECKPOINT, error("%s: forked chain older than last checkpoint (height %d)", __func__, nHeight), REJECT_CHECKPOINT, "bad-fork-prior-to-checkpoint");
     }
 
