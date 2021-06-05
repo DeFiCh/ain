@@ -38,7 +38,4 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-
-      - run: |
-        DEFICHAIN_DOCKER_IMAGE="${{ env.BUILD_VERSION }}" 
-        npm run test:ci
+      - run: DEFICHAIN_DOCKER_IMAGE="${{ env.BUILD_VERSION }}" npm run test:ci
