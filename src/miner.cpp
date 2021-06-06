@@ -885,6 +885,8 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             const auto& arg = *it;
             const auto operatorName = arg.operatorID.GetHex();
 
+            boost::this_thread::interruption_point();
+
             pos::Staker staker;
 
             try {
@@ -897,17 +899,17 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                     it = args.erase(it);
                     continue;
                 }
-                if (status == Staker::Status::minted) {
+                else if (status == Staker::Status::minted) {
                     LogPrintf("ThreadStaker: (%s) minted a block!\n", operatorName);
                     nMinted[arg.operatorID]++;
                 }
-                if (status == Staker::Status::initWaiting) {
+                else if (status == Staker::Status::initWaiting) {
                     LogPrintf("ThreadStaker: (%s) waiting init...\n", operatorName);
                 }
-                if (status == Staker::Status::stakeWaiting) {
+                else if (status == Staker::Status::stakeWaiting) {
                     LogPrint(BCLog::STAKING, "ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
                 }
-                if (status == Staker::Status::criminalWaiting) {
+                else if (status == Staker::Status::criminalWaiting) {
                     LogPrint(BCLog::STAKING, "ThreadStaker: (%s) Potential criminal block tried to create.\n", operatorName);
                 }
             }
