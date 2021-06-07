@@ -552,16 +552,38 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     UniValue result(UniValue::VBOOL);
+    result.setBool(false);
 
     uint256 txHash = ParseHashV(request.params[0], "txid");
     int blockHeight = request.params[1].get_int();
 
-    const auto undo = pcustomcsview->GetUndo(UndoKey{static_cast<uint32_t>(blockHeight), txHash});
+    auto blockindex = ::ChainActive()[blockHeight];
+    if (!blockindex) {
+        return result;
+    }
 
-    if (!undo) { // no changes done
-        result.setBool(false);
-    } else {
+    uint256 hashBlock;
+    CTransactionRef tx;
+    if (!GetTransaction(txHash, tx, Params().GetConsensus(), hashBlock, blockindex)) {
+        return result;
+    }
+
+    if (tx->IsCoinBase() && blockHeight > 0) {
+        return result;
+    }
+
+    std::vector<unsigned char> metadata;
+    auto txType = GuessCustomTxType(*tx, metadata);
+    if (txType == CustomTxType::None) {
+        return result;
+    }
+
+    // post Dakota it's not allowed tx to be skipped
+    // so tx that can be found in a block is applyed
+    if (blockHeight >= Params().GetConsensus().DakotaHeight) {
         result.setBool(true);
+    } else {
+        result.setBool(!IsSkippedTx(tx->GetHash()));
     }
 
     return result;

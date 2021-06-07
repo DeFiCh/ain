@@ -472,6 +472,7 @@ void SetupServerArgs()
     gArgs.AddArg("-dakotaheight", "Dakota fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-dakotacrescentheight", "DakotaCrescent fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-eunosheight", "Eunos fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1950,6 +1951,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         bool atLeastOneRunningOperator = false;
         auto const operators = gArgs.GetArgs("-masternode_operator");
 
+        std::vector<pos::ThreadStaker::Args> stakersParams;
         for (auto const & op : operators) {
             // do not process duplicate operator option
             if (operatorsSet.count(op)) {
@@ -2007,22 +2009,23 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
             }
 
+            stakersParams.push_back(std::move(stakerParams));
             atLeastOneRunningOperator = true;
-
-            // Mint proof-of-stake blocks in background
-            threadGroup.create_thread(
-                std::bind(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
-                    // Run ThreadStaker
-                    pos::ThreadStaker threadStaker;
-                    threadStaker(std::move(stakerParams), std::move(chainparams));
-                }
-            ));
         }
 
         if (!atLeastOneRunningOperator) {
             LogPrintf("Error: there is no valid masternode_operator\n");
             return false;
         }
+
+        // Mint proof-of-stake blocks in background
+        threadGroup.create_thread(
+            std::bind(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
+                // Run ThreadStaker
+                pos::ThreadStaker threadStaker;
+                threadStaker(std::move(stakersParams), std::move(chainparams));
+            }
+        ));
     }
 
     return true;

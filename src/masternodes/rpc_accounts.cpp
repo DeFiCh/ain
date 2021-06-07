@@ -995,31 +995,32 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     maxBlockHeight = std::min(maxBlockHeight, uint32_t(chainHeight(*pwallet->chain().lock())));
     depth = std::min(depth, maxBlockHeight);
-    // start block for asc order
-    const auto startBlock = maxBlockHeight - depth;
-
-    CScript account;
-    auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
-        return startBlock > blockHeight || blockHeight > maxBlockHeight;
-    };
 
     std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
         return true;
     };
 
+    CScript account;
+    bool isMine = false;
     isminetype filter = ISMINE_ALL;
 
-    bool isMine = false;
     if (accounts == "mine") {
         isMine = true;
         filter = ISMINE_SPENDABLE;
-    } else if (accounts != "all") {
+    } else if (accounts == "all") {
+        depth = std::min(depth, limit);
+    } else {
         account = DecodeScript(accounts);
         isMine = IsMineCached(*pwallet, account) & ISMINE_ALL;
         isMatchOwner = [&account](CScript const & owner) {
             return owner == account;
         };
     }
+
+    const auto startBlock = maxBlockHeight - depth;
+    auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
+        return startBlock > blockHeight || blockHeight > maxBlockHeight;
+    };
 
     std::set<uint256> txs;
     const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && CustomTxType::None == txType;
@@ -1048,16 +1049,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return false;
         }
 
-        std::unique_ptr<CScopeTxReverter> reverter;
-        if (!noRewards) {
-            reverter = MakeUnique<CScopeTxReverter>(view, valueLazy.get().txid, key.blockHeight);
-        }
-
-        if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
+        if (shouldSkipBlock(key.blockHeight)) {
             return true;
         }
 
-        if (shouldSkipBlock(key.blockHeight)) {
+        if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
             return true;
         }
 
@@ -1069,6 +1065,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
         if(!tokenFilter.empty() && !hasToken(value.diff)) {
             return true;
+        }
+
+        std::unique_ptr<CScopeTxReverter> reverter;
+        if (!noRewards) {
+            reverter = MakeUnique<CScopeTxReverter>(view, value.txid, key.blockHeight);
         }
 
         auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
@@ -1386,11 +1387,6 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             return false;
         }
 
-        std::unique_ptr<CScopeTxReverter> reverter;
-        if (!noRewards) {
-            reverter = MakeUnique<CScopeTxReverter>(view, valueLazy.get().txid, key.blockHeight);
-        }
-
         if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
             return true;
         }
@@ -1403,6 +1399,11 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
         if(!tokenFilter.empty() && !hasToken(value.diff)) {
             return true;
+        }
+
+        std::unique_ptr<CScopeTxReverter> reverter;
+        if (!noRewards) {
+            reverter = MakeUnique<CScopeTxReverter>(view, value.txid, key.blockHeight);
         }
 
         if (shouldSearchInWallet) {
