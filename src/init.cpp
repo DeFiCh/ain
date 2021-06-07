@@ -1203,6 +1203,7 @@ bool AppInitParameterInteraction()
         return InitError("unknown rpcserialversion requested.");
 
     nMaxTipAge = gArgs.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
+    nMaxTipAge = std::min(nMaxTipAge, DEFAULT_MAX_TIP_AGE);
     fIsFakeNet = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-dummypos", false);
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-txnotokens", false);
     fCriminals = gArgs.GetArg("-criminals", false);
