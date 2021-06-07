@@ -16,30 +16,22 @@ namespace pos {
         return Hash(ss.begin(), ss.end());
     }
 
-    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const CMasternode& node, const int64_t coinstakeTime, const int64_t height, const int64_t stakersBlockTime)
+    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const CMasternode& node, const int64_t coinstakeTime, const int64_t height)
     {
         // Default to min age
         int64_t nTimeTx{params.pos.nStakeMinAge};
 
-        // If staker has provided a previous block time use that to avoid DB lookup.
-        if (stakersBlockTime)
+        // Lookup stored valid blocktime. no optional value indicate no previous staked block.
+        if (auto lastBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress, height))
         {
-            nTimeTx = std::min(coinstakeTime - stakersBlockTime, params.pos.nStakeMaxAge);
+            // Choose whatever is smaller, time since last stake or max age.
+            nTimeTx = std::min(coinstakeTime - *lastBlockTime, params.pos.nStakeMaxAge);
         }
-        else
+        else // No record. No stake blocks or post-fork createmastnode TX, use fork time.
         {
-            // Lookup stored valid blocktime. no optional value indicate no previous staked block.
-            if (auto lastBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress, height))
+            if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight])
             {
-                // Choose whatever is smaller, time since last stake or max age.
-                nTimeTx = std::min(coinstakeTime - *lastBlockTime, params.pos.nStakeMaxAge);
-            }
-            else // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-            {
-                if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight])
-                {
-                    nTimeTx = std::min(coinstakeTime - block->GetBlockTime(), params.pos.nStakeMaxAge);
-                }
+                nTimeTx = std::min(coinstakeTime - block->GetBlockTime(), params.pos.nStakeMaxAge);
             }
         }
 
@@ -53,7 +45,7 @@ namespace pos {
     }
 
     bool
-    CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t height, int64_t coinstakeTime, uint64_t blockHeight, const uint256& masternodeID, const Consensus::Params& params, const int64_t stakersBlockTime) {
+    CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t height, int64_t coinstakeTime, uint64_t blockHeight, const uint256& masternodeID, const Consensus::Params& params) {
         // Base target
         arith_uint256 targetProofOfStake;
         targetProofOfStake.SetCompact(nBits);
@@ -75,9 +67,9 @@ namespace pos {
 
             arith_uint256 coinDayWeight;
             if (blockHeight <= Params().GetConsensus().EunosHeight) {
-                coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, height, stakersBlockTime);
+                coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, height);
             } else {
-                coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, blockHeight, stakersBlockTime);
+                coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, blockHeight);
             }
 
             // Increase target by coinDayWeight.

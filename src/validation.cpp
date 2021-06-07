@@ -1836,6 +1836,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     if (!fIsFakeNet) {
         mnview.DecrementMintedBy(minterKey);
         mnview.EraseMasternodeLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
+
+        if (fClean) {
+            minterCache.EraseMasternodeCacheTime(minterKey);
+        }
     }
     mnview.SetLastHeight(pindex->pprev->nHeight);
 
@@ -2899,6 +2903,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // Store block staker height for use in coinage
         if (pindex->nHeight >= chainparams.GetConsensus().DakotaCrescentHeight) {
             mnview.SetMasternodeLastBlockTime(minterKey, static_cast<uint32_t>(pindex->nHeight), pindex->GetBlockTime());
+            minterCache.SetMasternodeCacheTime(minterKey, static_cast<uint32_t>(pindex->nHeight), pindex->GetBlockTime());
         }
     }
     mnview.SetLastHeight(pindex->nHeight);

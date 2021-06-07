@@ -47,6 +47,7 @@ const unsigned char CTeamView::ConfirmTeam    ::prefix = DB_MN_CONFIRM_TEAM;
 
 std::unique_ptr<CCustomCSView> pcustomcsview;
 std::unique_ptr<CStorageLevelDB> pcustomcsDB;
+CMinterCache minterCache;
 
 int GetMnActivationDelay(int height)
 {
@@ -385,23 +386,35 @@ void CMasternodesView::SetMasternodeLastBlockTime(const CKeyID & minter, const u
     WriteBy<Staker>(MNBlockTimeKey{*nodeId, blockHeight}, time);
 }
 
-boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height)
+boost::optional<int64_t> CMasternodesView::GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t blockHeight)
 {
+    int64_t time;
+    uint32_t minterHeight;
+    std::tie(minterHeight, time) = minterCache.GetMasternodeTime(minter, blockHeight);
+
+    // Only return from cache if less than requested height to avoid chain split
+    if (minterHeight && minterHeight < blockHeight) {
+        return time;
+    }
+
     auto nodeId = GetMasternodeIdByOperator(minter);
     assert(nodeId);
-
-    int64_t time{0};
 
     ForEachMinterNode([&](const MNBlockTimeKey &key, int64_t blockTime)
     {
         if (key.masternodeID == nodeId)
         {
             time = blockTime;
+
+            // Add entry to cache if it was not found.
+            if (!minterHeight) {
+                minterCache.SetMasternodeCacheTime(minter, key.blockHeight, time);
+            }
         }
 
         // Get first result only and exit
         return false;
-    }, MNBlockTimeKey{*nodeId, height - 1});
+    }, MNBlockTimeKey{*nodeId, blockHeight - 1});
 
     if (time)
     {
@@ -810,4 +823,39 @@ std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team)
     }
 
     return operatorDetails;
+}
+
+void CMinterCache::SetMasternodeCacheTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t& time)
+{
+    CLockFreeGuard lock(CMinterCache::cs_minterCache);
+    minterTimeCache[minter] = {blockHeight, time};
+}
+
+void CMinterCache::EraseMasternodeCacheTime(const CKeyID & minter)
+{
+    CLockFreeGuard lock(CMinterCache::cs_minterCache);
+    minterTimeCache.erase(minter);
+}
+
+std::pair<uint32_t, int64_t> CMinterCache::GetMasternodeTime(const CKeyID & minter, const uint32_t height)
+{
+    const auto it = minterTimeCache.find(minter);
+    if (it != minterTimeCache.end() && it->second.first < height) {
+        return it->second;
+    }
+
+    return {0,0};
+}
+
+size_t CMinterCache::LoadMinterCache(const std::unique_ptr<CCustomCSView>& view) {
+    view->ForEachMasternode([&](uint256 const& nodeId, CMasternode node)
+    {
+        // Load last block times into cache
+        if (node.IsActive()) {
+            view->GetMasternodeLastBlockTime(node.operatorAuthAddress, std::numeric_limits<uint32_t>::max());
+        }
+        return true;
+    }, {});
+
+    return minterTimeCache.size();
 }

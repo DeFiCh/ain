@@ -133,11 +133,7 @@ struct MNBlockTimeKey
 
 class CMasternodesView : public virtual CStorageView
 {
-    std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache;
-
 public:
-//    CMasternodesView() = default;
-
     boost::optional<CMasternode> GetMasternode(uint256 const & id) const;
     boost::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
     boost::optional<uint256> GetMasternodeIdByOwner(CKeyID const & id) const;
@@ -161,7 +157,7 @@ public:
     Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
 
     void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
-    boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height);
+    boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t blockHeight);
     void EraseMasternodeLastBlockTime(const uint256 &minter, const uint32_t& blockHeight);
 
     void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
@@ -292,10 +288,22 @@ public:
     }
 };
 
+class CMinterCache {
+    static std::atomic_bool cs_minterCache;
+    std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache; // <height, time>
+
+public:
+    void SetMasternodeCacheTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
+    void EraseMasternodeCacheTime(const CKeyID &minter);
+    std::pair<uint32_t, int64_t> GetMasternodeTime(const CKeyID & minter, const uint32_t height);
+    size_t LoadMinterCache(const std::unique_ptr<CCustomCSView>& view);
+};
+
 std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team);
 
 /** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
 extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 extern std::unique_ptr<CCustomCSView> pcustomcsview;
+extern CMinterCache minterCache;
 
 #endif // DEFI_MASTERNODES_MASTERNODES_H

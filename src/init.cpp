@@ -95,6 +95,9 @@ std::unique_ptr<CConnman> g_connman;
 std::unique_ptr<PeerLogicValidation> peerLogic;
 std::unique_ptr<BanMan> g_banman;
 
+// Initialise minter cache boolean
+std::atomic_bool CMinterCache::cs_minterCache(false);
+
 #ifdef WIN32
 // Win32 LevelDB doesn't use filedescriptors, and the ones used for
 // accessing block files don't count towards the fd_set size limit
@@ -1708,6 +1711,11 @@ bool AppInitMain(InitInterfaces& interfaces)
             }
         }
     }
+
+    // Load minter cache
+    minterCache = CMinterCache();
+    auto minterCacheCount = minterCache.LoadMinterCache(pcustomcsview);
+    LogPrintf("minter cache loaded with %d entries\n", minterCacheCount);
 
     // As LoadBlockIndex can take several minutes, it's possible the user
     // requested to kill the GUI during the last operation. If so, exit.

@@ -750,16 +750,6 @@ namespace pos {
             pblock->height = tip->nHeight + 1;
             pblock->mintedBlocks = mintedBlocks + 1;
             pblock->stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
-            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID, pblock->height);
-
-            // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-            if (!stakerBlockTime)
-            {
-                if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight])
-                {
-                    stakerBlockTime = std::min(pblock->nTime - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
-                }
-            }
 
             bool found = false;
             for (uint32_t t = 0; t < nSearchInterval; t++) {
@@ -767,8 +757,8 @@ namespace pos {
 
                 pblock->nTime = ((uint32_t)coinstakeTime - t);
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
-                                         chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime,
+                                         pblock->height, masternodeID, chainparams.GetConsensus()))
                 {
                     LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
