@@ -386,6 +386,7 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_tokens.cpp \
   masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
+  masternodes/skipped_txs.cpp \
   masternodes/undos.cpp \
   miner.cpp \
   net.cpp \
