@@ -343,8 +343,8 @@ public:
         consensus.DakotaHeight = 220680;
         consensus.DakotaCrescentHeight = 287700;
         consensus.EunosHeight = 427040; // 21st May 2021
-        consensus.EunosSimsHeight = 435800; // 24th May 2021
-        consensus.EunosKampungHeight = 435800; // 24th May 2021
+        consensus.EunosSimsHeight = consensus.EunosHeight;
+        consensus.EunosKampungHeight = consensus.EunosHeight;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
