@@ -6,6 +6,7 @@
 #include <wallet/ismine.h>
 
 #include <key.h>
+#include <hash.h>
 #include <script/script.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>
@@ -193,9 +194,17 @@ isminetype IsMine(const CWallet& keystore, const CTxDestination& dest)
     return IsMine(keystore, script);
 }
 
+struct CScriptHash
+{
+    uint32_t operator()(const CScript & script) const
+    {
+        return MurmurHash3(0x1234, script.data(), script.size());
+    }
+};
+
 struct CCacheInfo
 {
-    std::map<CScript, isminetype> mineData;
+    std::unordered_map<CScript, isminetype, CScriptHash> mineData;
     std::array<boost::signals2::scoped_connection, 2> connects;
 };
 
