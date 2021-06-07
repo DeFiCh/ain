@@ -114,7 +114,7 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
     return bnNew.GetCompact();
 }
 
-unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
+unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTime, const Consensus::Params& params)
 {
     assert(pindexLast != nullptr);
     if (params.pos.fNoRetargeting)
@@ -136,7 +136,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
             // Special difficulty rule for testnet:
             // If the new block's timestamp is more than 2* 10 minutes
             // then allow mining of a min-difficulty block.
-            if (pblock->GetBlockTime() > pindexLast->GetBlockTime() + params.pos.nTargetSpacing*2)
+            if (blockTime > pindexLast->GetBlockTime() + params.pos.nTargetSpacing*2)
                 return nProofOfWorkLimit;
             else
             {

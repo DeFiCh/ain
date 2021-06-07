@@ -164,7 +164,7 @@ public:
     BlockAssembler(const CChainParams& params, const Options& options);
 
     /** Construct a new block template with coinbase to scriptPubKeyIn */
-    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn);
+    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime = 0);
 
     static Optional<int64_t> m_last_block_num_txs;
     static Optional<int64_t> m_last_block_weight;
@@ -239,8 +239,6 @@ namespace pos {
             criminalWaiting,
             minted,
         };
-
-        CBlockIndex* getTip();
 
         Staker::Status init(const CChainParams& chainparams);
         Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args);
