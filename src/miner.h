@@ -223,8 +223,7 @@ namespace pos {
         };
 
         /// always forward by value to avoid dangling pointers
-        /// @return number of minted blocks
-        int32_t operator()(Args stakerParams, CChainParams chainparams);
+        void operator()(std::vector<Args> stakerParams, CChainParams chainparams);
     };
 
     class Staker {
@@ -236,10 +235,14 @@ namespace pos {
             error,
             initWaiting,
             stakeWaiting,
+            stakeReady,
             criminalWaiting,
             minted,
         };
 
+        CBlockIndex* getTip();
+
+        Staker::Status init(const CChainParams& chainparams);
         Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args);
 
         // declaration static variables
@@ -248,7 +251,6 @@ namespace pos {
         static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
 
     private:
-        CBlockIndex* getTip();
         template <typename F>
         bool withSearchInterval(F&& f);
     };
