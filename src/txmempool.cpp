@@ -550,6 +550,19 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
     }
 }
 
+CTxMemPool::~CTxMemPool()
+{
+}
+
+CCustomCSView& CTxMemPool::accountsView()
+{
+    if (!acview) {
+        assert(pcustomcsview);
+        acview = MakeUnique<CCustomCSView>(*pcustomcsview);
+    }
+    return *acview;
+}
+
 /**
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
@@ -580,7 +593,8 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     if (pcustomcsview) { // can happen in tests
         // check entire mempool
         CAmount txfee = 0;
-        CCustomCSView viewDuplicate(*pcustomcsview);
+        accountsView().Discard();
+        CCustomCSView viewDuplicate(accountsView());
         CCoinsViewCache mempoolDuplicate(&::ChainstateActive().CoinsTip());
 
         setEntries staged;
@@ -608,6 +622,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         }
 
         RemoveStaged(staged, true, MemPoolRemovalReason::BLOCK);
+        viewDuplicate.Flush();
     }
 
     lastRollingFeeUpdate = GetTime();
@@ -957,8 +972,20 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
 void CTxMemPool::RemoveStaged(const setEntries &stage, bool updateDescendants, MemPoolRemovalReason reason) {
     AssertLockHeld(cs);
     UpdateForRemoveFromMempool(stage, updateDescendants);
+    std::set<uint256> txids;
     for (txiter it : stage) {
+        txids.insert(it->GetTx().GetHash());
         removeUnchecked(it, reason);
+    }
+    if (pcustomcsview && !txids.empty()) {
+        CCustomCSView view(accountsView());
+        accountsView().ForEachUndo([&](UndoKey const & key, CLazySerialize<CUndo>) {
+            if (txids.count(key.txid)) {
+                view.OnUndoTx(key.txid, key.height);
+            }
+            return true;
+        });
+        view.Flush();
     }
 }
 

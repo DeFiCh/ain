@@ -567,7 +567,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
-        CCustomCSView mnview(*pcustomcsview);
+        CCustomCSView mnview(pool.accountsView());
 
         LockPoints lp;
         CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
@@ -610,15 +610,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         const auto height = GetSpendHeight(view);
 
-        // check for txs in mempool
-        for (const auto& e : mempool.mapTx.get<entry_time>()) {
-            const auto& tx = e.GetTx();
-            auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height);
-            // we don't need contract anynore furthermore transition to new hardfork will broke it
-            if (height < chainparams.GetConsensus().DakotaHeight) {
-                assert(res.ok || !(res.code & CustomTxErrCodes::Fatal));
-            }
-        }
+        // it does not need to check mempool anymore it has view there
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, &mnview, height, nFees, chainparams)) {
@@ -929,6 +921,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             if (!pool.exists(hash))
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INSUFFICIENTFEE, "mempool full");
         }
+        mnview.Flush();
     }
 
     GetMainSignals().TransactionAddedToMempool(ptx);

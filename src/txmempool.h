@@ -548,6 +548,7 @@ private:
 
     std::vector<indexed_transaction_set::const_iterator> GetSortedDepthAndScore() const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
+    std::unique_ptr<CCustomCSView> acview;
 public:
     indirectmap<COutPoint, const CTransaction*> mapNextTx GUARDED_BY(cs);
     std::map<uint256, CAmount> mapDeltas;
@@ -555,6 +556,8 @@ public:
     /** Create a new CTxMemPool.
      */
     explicit CTxMemPool(CBlockPolicyEstimator* estimator = nullptr);
+
+    ~CTxMemPool();
 
     /**
      * If sanity-checking is turned on, check makes sure the pool is
@@ -700,6 +703,7 @@ public:
     boost::signals2::signal<void (CTransactionRef)> NotifyEntryAdded;
     boost::signals2::signal<void (CTransactionRef, MemPoolRemovalReason)> NotifyEntryRemoved;
 
+    CCustomCSView& accountsView();
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
      *  the descendants for a single transaction that has been added to the
