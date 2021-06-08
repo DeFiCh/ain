@@ -66,7 +66,6 @@ namespace pos {
         {
             // at this point we want to be sure ConnectBlock is finished
             // the should be flushed and we will use the fresh data
-            LOCK(cs_main);
             auto node = pcustomcsview->GetMasternode(masternodeID);
             if (!node)
             {
