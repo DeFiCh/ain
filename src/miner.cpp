@@ -595,7 +595,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                 continue;
             }
 
-            AddCoins(coins, tx, nHeight);
+            // allow coin override, tx with same inputs
+            // will be removed for block while we connect it
+            AddCoins(coins, tx, nHeight, false); // do not check
 
             std::vector<unsigned char> metadata;
             CustomTxType txType = GuessCustomTxType(tx, metadata);

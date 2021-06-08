@@ -1458,6 +1458,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
 
     LOCK(cs_main);
+    CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
     {
         // Skip these as any unused balance will be burnt.
@@ -1466,8 +1467,14 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
             kv.first == CommunityAccountType::Options) {
             continue;
         }
+        if (kv.first == CommunityAccountType::Unallocated ||
+            kv.first == CommunityAccountType::IncentiveFunding) {
+            burnt += pcustomcsview->GetCommunityBalance(kv.first);
+            continue;
+        }
         ret.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(pcustomcsview->GetCommunityBalance(kv.first)));
     }
+    ret.pushKV("Burnt", ValueFromAmount(burnt));
 
     return ret;
 }
@@ -1606,7 +1613,8 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
 
 UniValue getburninfo(const JSONRPCRequest& request) {
     RPCHelpMan{"getburninfo",
-               "\nReturns burn address and burnt coin and token information\n",
+               "\nReturns burn address and burnt coin and token information.\n"
+               "Requires full acindex for correct amount, tokens and feeburn values.\n",
                {
                },
                RPCResult{
@@ -1619,6 +1627,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
                        "      \"amount\" : n.nnnnnnnn\n"
                        "    ]\n"
                        "  \"feeburn\" : n.nnnnnnnn,        (string) The amount of fees burnt\n"
+                       "  \"emissionburn\" : n.nnnnnnnn,   (string) The amount of non-utxo coinbase rewards burnt\n"
                        "}\n"
                },
                RPCExamples{
@@ -1671,6 +1680,16 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }
     result.pushKV("tokens", tokens);
     result.pushKV("feeburn", ValueFromAmount(burntFee));
+
+    CAmount burnt{0};
+    for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
+        if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::IncentiveFunding) {
+            burnt += pcustomcsview->GetCommunityBalance(kv.first);
+            continue;
+        }
+    }
+    result.pushKV("emissionburn", ValueFromAmount(burnt));
+
     return result;
 }
 
