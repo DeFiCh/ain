@@ -342,7 +342,7 @@ public:
         consensus.ClarkeQuayHeight = 155000;
         consensus.DakotaHeight = 220680;
         consensus.DakotaCrescentHeight = 287700;
-        consensus.EunosHeight = 427040; // 21st May 2021
+        consensus.EunosHeight = 354950;
         consensus.EunosSimsHeight = consensus.EunosHeight;
         consensus.EunosKampungHeight = consensus.EunosHeight;
 
@@ -485,7 +485,7 @@ public:
                 { 50000, uint256S("74a468206b59bfc2667aba1522471ca2f0a4b7cd807520c47355b040c7735ccc")},
                 {100000, uint256S("9896ac2c34c20771742bccda4f00f458229819947e02204022c8ff26093ac81f")},
                 {150000, uint256S("af9307f438f5c378d1a49cfd3872173a07ed4362d56155e457daffd1061742d4")},
-                {425999, uint256S("89f480d2cd376c1c0d9a9a4fbd117c81552e8e8cc01d44b2ad3295530bba0e68")},
+                {300000, uint256S("205b522772ce34206a08a635c800f99d2fc4e9696ab8c470dad7f5fa51dfea1a")},
             }
         };
 
