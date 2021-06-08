@@ -665,7 +665,7 @@ namespace pos {
     std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
     std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
 
-    Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
+    Staker::Status Staker::init(const CChainParams& chainparams) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
             if(!g_connman)
                 throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
@@ -679,6 +679,10 @@ namespace pos {
             if (::ChainstateActive().IsDisconnectingTip())
                 return Status::stakeWaiting;
         }
+        return Status::stakeReady;
+    }
+
+    Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
 
         bool minted = false;
         bool potentialCriminalBlock = false;
@@ -715,6 +719,13 @@ namespace pos {
             creationHeight = int64_t(nodePtr->creationHeight);
         }
 
+        auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
+        if (!pblocktemplate) {
+            throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
+        }
+
+        auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
+
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
             if (fCriminals) {
                 std::map <uint256, CBlockHeader> blockHeaders{};
@@ -737,11 +748,6 @@ namespace pos {
                 CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
                 pos::Staker::mapMNLastBlockCreationAttemptTs[masternodeID] = GetTime();
             }
-            std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
-            if (!pblocktemplate.get()) {
-                throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
-            }
-            std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(pblocktemplate->block);
 
             LogPrint(BCLog::STAKING, "Running Staker with %u common transactions in block (%u bytes)\n", pblock->vtx.size() - 1,
                      ::GetSerializeSize(*pblock, PROTOCOL_VERSION));
@@ -832,93 +838,102 @@ namespace pos {
         return false;
     }
 
-int32_t ThreadStaker::operator()(ThreadStaker::Args args, CChainParams chainparams) {
-    pos::Staker staker{};
-    int32_t nMinted = 0;
-    int32_t nTried = 0;
+void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams chainparams) {
 
-    auto trying = [&]() {
-        return args.nMaxTries == -1 || nTried < args.nMaxTries;
-    };
-
-    auto notDone = [&]() {
-        return args.nMint == -1 || nMinted < args.nMint;
-    };
-
-    const auto operatorName = args.operatorID.GetHex();
+    std::map<CKeyID, int32_t> nMinted;
+    std::map<CKeyID, int32_t> nTried;
 
     auto wallets = GetWallets();
 
-    while (true) {
-        boost::this_thread::interruption_point();
+    for (auto& arg : args) {
+        while (true) {
+            boost::this_thread::interruption_point();
 
-        bool found = false;
-        for (auto wallet : wallets) {
-            if (wallet->GetKey(args.operatorID, args.minterKey)) {
-                found = true;
+            bool found = false;
+            for (auto wallet : wallets) {
+                if (wallet->GetKey(arg.operatorID, arg.minterKey)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
                 break;
             }
+            static std::atomic<uint64_t> time{0};
+            if (GetSystemTimeInSeconds() - time > 120) {
+                LogPrintf("ThreadStaker: unlock wallet to start minting...\n");
+                time = GetSystemTimeInSeconds();
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-        if (found) {
-            break;
-        }
-        static std::atomic<uint64_t> time{0};
-        if (GetSystemTimeInSeconds() - time > 120) {
-            LogPrintf("ThreadStaker (%s): unlock wallet to start minting...\n", operatorName);
-            time = GetSystemTimeInSeconds();
-        }
-        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
-    LogPrintf("ThreadStaker (%s): started.\n", operatorName);
+    LogPrintf("ThreadStaker: started.\n");
 
-    while (true) {
+    while (!args.empty()) {
         boost::this_thread::interruption_point();
 
         while (fImporting || fReindex) {
             boost::this_thread::interruption_point();
 
-            LogPrintf("ThreadStaker (%s): waiting reindex...\n", operatorName);
+            LogPrintf("ThreadStaker: waiting reindex...\n");
 
             std::this_thread::sleep_for(std::chrono::milliseconds(900));
         }
 
-        try {
-            Staker::Status status = staker.stake(chainparams, args);
-            if (status == Staker::Status::error) {
-                LogPrintf("ThreadStaker (%s): terminated due to a staking error!\n", operatorName);
-                return nMinted;
-            }
-            if (status == Staker::Status::minted) {
-                LogPrintf("ThreadStaker (%s): minted a block!\n", operatorName);
-                nMinted++;
-            }
-            if (status == Staker::Status::initWaiting) {
-                LogPrintf("ThreadStaker (%s): waiting init...\n", operatorName);
-            }
-            if (status == Staker::Status::stakeWaiting) {
-                LogPrint(BCLog::STAKING, "ThreadStaker (%s): Staked, but no kernel found yet.\n", operatorName);
-            }
-            if (status == Staker::Status::criminalWaiting) {
-                LogPrint(BCLog::STAKING, "ThreadStaker (%s): Potential criminal block tried to create.\n", operatorName);
-            }
-        }
-        catch (const std::runtime_error &e) {
-            LogPrintf("ThreadStaker (%s): runtime error: %s\n", e.what(), operatorName);
+        for (auto it = args.begin(); it != args.end(); ) {
+            const auto& arg = *it;
+            const auto operatorName = arg.operatorID.GetHex();
 
-            // Could be failed TX in mempool, wipe mempool and allow loop to continue.
-            mempool.clear();
+            boost::this_thread::interruption_point();
+
+            pos::Staker staker;
+
+            try {
+                auto status = staker.init(chainparams);
+                if (status == Staker::Status::stakeReady) {
+                    status = staker.stake(chainparams, arg);
+                }
+                if (status == Staker::Status::error) {
+                    LogPrintf("ThreadStaker: (%s) terminated due to a staking error!\n", operatorName);
+                    it = args.erase(it);
+                    continue;
+                }
+                else if (status == Staker::Status::minted) {
+                    LogPrintf("ThreadStaker: (%s) minted a block!\n", operatorName);
+                    nMinted[arg.operatorID]++;
+                }
+                else if (status == Staker::Status::initWaiting) {
+                    LogPrintf("ThreadStaker: (%s) waiting init...\n", operatorName);
+                }
+                else if (status == Staker::Status::stakeWaiting) {
+                    LogPrint(BCLog::STAKING, "ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
+                }
+                else if (status == Staker::Status::criminalWaiting) {
+                    LogPrint(BCLog::STAKING, "ThreadStaker: (%s) Potential criminal block tried to create.\n", operatorName);
+                }
+            }
+            catch (const std::runtime_error &e) {
+                LogPrintf("ThreadStaker: (%s) runtime error: %s\n", e.what(), operatorName);
+
+                // Could be failed TX in mempool, wipe mempool and allow loop to continue.
+                mempool.clear();
+            }
+
+            auto& tried = nTried[arg.operatorID];
+            tried++;
+
+            if ((arg.nMaxTries != -1 && tried >= arg.nMaxTries)
+            || (arg.nMint != -1 && nMinted[arg.operatorID] >= arg.nMint)) {
+                it = args.erase(it);
+                continue;
+            }
+
+            ++it;
         }
 
-        nTried++;
-        if (trying() && notDone()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(900));
-        } else {
-            break;
-        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(900));
     }
-
-    return nMinted;
 }
 
 }
