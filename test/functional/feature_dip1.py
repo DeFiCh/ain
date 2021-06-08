@@ -36,7 +36,7 @@ class Dip1Test (DefiTestFramework):
         assert_equal(self.nodes[0].getblockcount(), 1)
         assert_equal(self.nodes[0].getbalances()['mine']['immature'], 50)
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], 0)
-        assert_equal(self.nodes[0].listcommunitybalances()['IncentiveFunding'], 0)
+        assert_equal(self.nodes[0].listcommunitybalances()['Burnt'], 0)
         assert_equal(self.nodes[0].getblockchaininfo()['softforks']['amk']['active'], True) # not active IRL, so getblockchaininfo works like "height+1"
 
 
@@ -54,13 +54,13 @@ class Dip1Test (DefiTestFramework):
         assert_equal(self.nodes[0].getbalances()['mine']['immature'], Decimal('89.9'))
 
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('0.1'))
-        assert_equal(self.nodes[0].listcommunitybalances()['IncentiveFunding'], 10)
+        assert_equal(self.nodes[0].listcommunitybalances()['Burnt'], 10)
 
         self.sync_blocks()
         # block was accepted by "old" node1, but nothing applyed for communitybalances -> hardfork
         assert_equal(self.nodes[1].getblockcount(), 2)
         assert_equal(self.nodes[1].listcommunitybalances()['AnchorReward'], 0)
-        assert_equal(self.nodes[1].listcommunitybalances()['IncentiveFunding'], 0)
+        assert_equal(self.nodes[1].listcommunitybalances()['Burnt'], 0)
 
 
         # BLOCK#3 by node1 (rejected by node0)
@@ -77,16 +77,16 @@ class Dip1Test (DefiTestFramework):
         self.sync_blocks()
         # check that w/o reindex node1 has wrong values
         assert_equal(self.nodes[0].listcommunitybalances()['AnchorReward'], Decimal('0.3'))
-        assert_equal(self.nodes[0].listcommunitybalances()['IncentiveFunding'], 30)
+        assert_equal(self.nodes[0].listcommunitybalances()['Burnt'], 30)
         assert_equal(self.nodes[1].listcommunitybalances()['AnchorReward'], Decimal('0.2'))
-        assert_equal(self.nodes[1].listcommunitybalances()['IncentiveFunding'], 20)
+        assert_equal(self.nodes[1].listcommunitybalances()['Burnt'], 20)
 
         # restart node1 with activated fork and reindex
         self.stop_node(1)
         self.start_node(1, ['-txnotokens=0', '-amkheight=2', '-reindex-chainstate'])
         assert_equal(self.nodes[1].getblockcount(), 4)
         assert_equal(self.nodes[1].listcommunitybalances()['AnchorReward'], Decimal('0.3'))
-        assert_equal(self.nodes[1].listcommunitybalances()['IncentiveFunding'], 30)
+        assert_equal(self.nodes[1].listcommunitybalances()['Burnt'], 30)
 
 
 if __name__ == '__main__':
