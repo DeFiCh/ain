@@ -123,7 +123,10 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey & mint
         boost::this_thread::interruption_point();
 
         try {
-            Staker::Status status = staker.stake(Params(), stakerParams);
+            auto status = staker.init(Params());
+            if (status == Staker::Status::stakeReady) {
+                status = staker.stake(Params(), stakerParams);
+            }
             if (status == Staker::Status::error) {
                 throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: Terminated due to a staking error");
             }

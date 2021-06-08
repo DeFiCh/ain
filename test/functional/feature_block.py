@@ -23,7 +23,7 @@ from test_framework.messages import (
     CTxIn,
     CTxOut,
     MAX_BLOCK_BASE_SIZE,
-    # uint256_from_compact,
+    uint256_from_compact,
     uint256_from_str,
 )
 from test_framework.mininode import P2PDataStore
@@ -631,14 +631,14 @@ class FullBlockTest(DefiTestFramework):
         self.send_blocks([b46], success=False, reject_reason='bad-blk-length', reconnect=True)
 
         # Disabled due to POS complexity emulation
-        # self.log.info("Reject a block with invalid work")
-        # self.move_tip(44)
-        # b47 = self.next_block(47, solve=False)
-        # target = uint256_from_compact(b47.nBits)
-        # while b47.sha256 < target:
-        #     b47.stakeModifier += 1
-        #     b47.rehash()
-        # self.send_blocks([b47], False, force_send=True, reject_reason='high-hash', reconnect=True)
+        self.log.info("Reject a block with invalid work")
+        self.move_tip(44)
+        b47 = self.next_block(47, solve=False)
+        target = uint256_from_compact(b47.nBits)
+        while b47.sha256 < target:
+            b47.stakeModifier += 1
+            b47.rehash()
+        self.send_blocks([b47], False, force_send=True, reject_reason='high-hash', reconnect=True)
 
         self.log.info("Reject a block with a timestamp >2 hours in the future")
         self.move_tip(44)
