@@ -639,17 +639,31 @@ enum AnchorTeams {
 void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlockIndex *pindexNew)
 {
     std::set<uint256> masternodeIDs;
-    int blockSample{7 * 2880}; // One week
-    const CBlockIndex* pindex = pindexNew;
+    const int blockSample = 7 * Params().GetConsensus().blocksPerDay(); // One week
 
     // Get active MNs from last week's worth of blocks
-    for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
-        CKeyID minter;
-        if (pindex->GetBlockHeader().ExtractMinterKey(minter)) {
-            LOCK(cs_main);
-            auto id = GetMasternodeIdByOperator(minter);
-            if (id) {
-                masternodeIDs.insert(*id);
+    if (pindexNew->nHeight >= Params().GetConsensus().DakotaCrescentHeight + blockSample) {
+        ForEachMinterNode([&](MNBlockTimeKey const & key, CLazySerialize<int64_t>) {
+            if (key.blockHeight >= pindexNew->nHeight - blockSample && key.blockHeight <= pindexNew->nHeight) {
+                auto node = GetMasternode(key.masternodeID);
+                assert(node);
+                if (node->creationHeight != key.blockHeight) {
+                    masternodeIDs.insert(key.masternodeID);
+                }
+            }
+
+            return true;
+        }, MNBlockTimeKey{});
+    } else {
+        const CBlockIndex* pindex = pindexNew;
+        LOCK(cs_main);
+        for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
+            CKeyID minter;
+            if (pindex->GetBlockHeader().ExtractMinterKey(minter)) {
+                auto id = GetMasternodeIdByOperator(minter);
+                if (id) {
+                    masternodeIDs.insert(*id);
+                }
             }
         }
     }
