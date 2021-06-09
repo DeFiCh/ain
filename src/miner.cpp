@@ -736,6 +736,7 @@ namespace pos {
             if (Params().NetworkIDString() == CBaseChainParams::REGTEST) {
                 nLastCoinStakeSearchTime = GetAdjustedTime();
             } else {
+                // Plus one to avoid time-too-old error on exact median time.
                 nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
             }
             lastBlockSeen = tip->GetBlockHash();
@@ -843,7 +844,7 @@ namespace pos {
 
     template <typename F>
     void Staker::withSearchInterval(F&& f) {
-        // Mine up to max future minus 10 second buffer
+        // Mine up to max future minus 5 second buffer
         nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5);
 
         if (nFutureTime > nLastCoinStakeSearchTime) {
