@@ -666,6 +666,9 @@ namespace pos {
     //initialize static variables here
     std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
     std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
+    int64_t Staker::nLastCoinStakeSearchTime{0};
+    int64_t Staker::nFutureTime{0};
+    uint256 Staker::lastBlockSeen{};
 
     Staker::Status Staker::init(const CChainParams& chainparams) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
@@ -728,6 +731,16 @@ namespace pos {
 
         auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
 
+        // Set search time if null or last block has changed
+        if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
+            if (Params().NetworkIDString() == CBaseChainParams::REGTEST) {
+                nLastCoinStakeSearchTime = GetAdjustedTime();
+            } else {
+                nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
+            }
+            lastBlockSeen = tip->GetBlockHash();
+        }
+
         withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
             if (fCriminals) {
                 std::map <uint256, CBlockHeader> blockHeaders{};
@@ -773,7 +786,7 @@ namespace pos {
             for (uint32_t t = 0; t < nSearchInterval; t++) {
                 boost::this_thread::interruption_point();
 
-                pblock->nTime = ((uint32_t)coinstakeTime - t);
+                pblock->nTime = ((uint32_t)coinstakeTime + t);
 
                 if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
                                          chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
@@ -829,15 +842,13 @@ namespace pos {
     }
 
     template <typename F>
-    bool Staker::withSearchInterval(F&& f) {
-        const int64_t nTime = GetAdjustedTime(); // TODO: SS GetAdjustedTime() + period minting block
+    void Staker::withSearchInterval(F&& f) {
+        // Mine up to max future minus 10 second buffer
+        nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5);
 
-        if (nTime > nLastCoinStakeSearchTime) {
-            f(nTime, nTime - nLastCoinStakeSearchTime);
-            nLastCoinStakeSearchTime = nTime;
-            return true;
+        if (nFutureTime > nLastCoinStakeSearchTime) {
+            f(nLastCoinStakeSearchTime, nFutureTime - nLastCoinStakeSearchTime);
         }
-        return false;
     }
 
 void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams chainparams) {
@@ -933,6 +944,9 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
 
             ++it;
         }
+
+        // Set search period to last time set
+        Staker::nLastCoinStakeSearchTime = Staker::nFutureTime;
 
         std::this_thread::sleep_for(std::chrono::milliseconds(900));
     }
