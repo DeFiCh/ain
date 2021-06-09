@@ -978,14 +978,20 @@ void CTxMemPool::RemoveStaged(const setEntries &stage, bool updateDescendants, M
         removeUnchecked(it, reason);
     }
     if (pcustomcsview && !txids.empty()) {
-        CCustomCSView view(accountsView());
-        accountsView().ForEachUndo([&](UndoKey const & key, CLazySerialize<CUndo>) {
-            if (txids.count(key.txid)) {
-                view.OnUndoTx(key.txid, key.height);
+        auto& view = accountsView();
+        std::map<uint32_t, uint256> orderedTxs;
+        auto it = NewKVIterator<CUndosView::ByUndoKey>(UndoKey{}, view.GetStorage().GetRaw());
+        for (; it.Valid() && !txids.empty(); it.Next()) {
+            auto& key = it.Key();
+            auto itTx = txids.find(key.txid);
+            if (itTx != txids.end()) {
+                orderedTxs.emplace(key.height, key.txid);
+                txids.erase(itTx);
             }
-            return true;
-        });
-        view.Flush();
+        }
+        for (auto it = orderedTxs.rbegin(); it != orderedTxs.rend(); ++it) {
+            view.OnUndoTx(it->second, it->first);
+        }
     }
 }
 

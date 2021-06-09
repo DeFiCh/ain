@@ -49,6 +49,18 @@ public:
     virtual TBytes Value() = 0;
 };
 
+// Represents an empty iterator
+class CStorageKVEmptyIterator : public CStorageKVIterator {
+public:
+    ~CStorageKVEmptyIterator() override = default;
+    void Seek(const TBytes&) override {}
+    void Next() override {}
+    void Prev() override {}
+    bool Valid() override { return false; }
+    TBytes Key() override { return {}; }
+    TBytes Value() override { return {}; }
+};
+
 // Key-Value storage interface
 class CStorageKV {
 public:
@@ -414,6 +426,16 @@ public:
         UpdateValidity();
     }
 };
+
+// Creates an iterator to single level key value storage
+template<typename By, typename KeyType>
+CStorageIteratorWrapper<By, KeyType> NewKVIterator(const KeyType& key, MapKV& map) {
+    auto emptyParent = MakeUnique<CStorageKVEmptyIterator>();
+    auto flushableIterator = MakeUnique<CFlushableStorageKVIterator>(std::move(emptyParent), map);
+    CStorageIteratorWrapper<By, KeyType> it{std::move(flushableIterator)};
+    it.Seek(key);
+    return it;
+}
 
 class CStorageView {
 public:
