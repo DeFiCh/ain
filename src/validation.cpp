@@ -3560,23 +3560,19 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
             if (!ConnectTip(state, chainparams, pindexConnect, pindexConnect == pindexMostWork ? pblock : std::shared_ptr<const CBlock>(), connectTrace, disconnectpool)) {
                 if (state.IsInvalid()) {
                     fContinue = false;
-                    // The block violates a consensus rule.
-                    auto reason = state.GetReason();
-                    if (reason == ValidationInvalidReason::BLOCK_INVALID_HEADER) {
-                        // at this stage only high hash error can be in header
-                        // so just skip that block
-                        continue;
+                    if (state.GetRejectReason() == "high-hash") {
+                        return false;
                     }
                     fInvalidFound = true;
                     InvalidChainFound(vpindexToConnect.front());
-                    if (reason == ValidationInvalidReason::BLOCK_MUTATED) {
+                    if (state.GetReason() == ValidationInvalidReason::BLOCK_MUTATED) {
                         // prior EunosHeight we shoutdown node on mutated block
                         if (ShutdownRequested()) {
                             return false;
                         }
                         // now block cannot be part of blockchain either
                         // but it can be produced by outdated/malicious masternode
-                        // so we should not shoutdown entire network
+                        // so we should not shutdown entire network
                         if (auto blockIndex = ChainActive()[vpindexToConnect.front()->nHeight]) {
                             auto checkPoint = GetLastCheckpoint(chainparams.Checkpoints());
                             if (checkPoint && blockIndex->nHeight > checkPoint->nHeight) {
