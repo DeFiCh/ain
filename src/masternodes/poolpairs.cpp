@@ -280,8 +280,12 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
                 feeA = liquidityReward(poolSwap.blockCommissionA, liquidity, totalLiquidity);
                 feeB = liquidityReward(poolSwap.blockCommissionB, liquidity, totalLiquidity);
             }
-            onReward(RewardType::Commission, {tokenIds->idTokenA, feeA}, height);
-            onReward(RewardType::Commission, {tokenIds->idTokenB, feeB}, height);
+            if (feeA) {
+                onReward(RewardType::Commission, {tokenIds->idTokenA, feeA}, height);
+            }
+            if (feeB) {
+                onReward(RewardType::Commission, {tokenIds->idTokenB, feeB}, height);
+            }
         }
         // custom rewards
         for (const auto& reward : customRewards.balances) {

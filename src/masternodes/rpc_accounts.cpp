@@ -135,8 +135,8 @@ static void searchInWallet(CWallet const * pwallet,
 
     const auto& txOrdered = pwallet->mapWallet.get<ByOrder>();
 
-    for (const auto& tx : txOrdered) {
-        auto* pwtx = &tx;
+    for (auto it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
+        auto* pwtx = &(*it);
 
         auto index = LookupBlockIndex(pwtx->hashBlock);
         if (!index || index->height == 0) { // skip genesis block
@@ -1050,6 +1050,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         if (shouldSkipBlock(key.blockHeight)) {
+            if (!noRewards && key.blockHeight > maxBlockHeight) {
+                view.OnUndoTx(valueLazy.get().txid, key.blockHeight);
+            }
             return true;
         }
 
@@ -1067,6 +1070,20 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return true;
         }
 
+        if (isMine) {
+            // starts new account owned by the wallet
+            if (key.blockHeight > lastHeight) {
+                count = limit;
+            } else if (count == 0) {
+                return true;
+            }
+        }
+
+        // starting new account
+        if (key.blockHeight > lastHeight) {
+            lastHeight = maxBlockHeight;
+        }
+
         std::unique_ptr<CScopeTxReverter> reverter;
         if (!noRewards) {
             reverter = MakeUnique<CScopeTxReverter>(view, value.txid, key.blockHeight);
@@ -1081,17 +1098,19 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         --count;
 
         if (!noRewards && count) {
-            onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
+            auto blocks = std::min(lastHeight - key.blockHeight, count);
+            onPoolRewards(view, key.owner, lastHeight - blocks, lastHeight,
                 [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
                     auto& array = ret.emplace(height, UniValue::VARR).first->second;
                     array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount));
-                    count ? --count : 0;
+                    --count;
                 }
             );
-            lastHeight = key.blockHeight;
         }
 
-        return count != 0;
+        lastHeight = key.blockHeight;
+
+        return count != 0 || isMine;
     };
 
     AccountHistoryKey startKey{account, maxBlockHeight, std::numeric_limits<uint32_t>::max()};

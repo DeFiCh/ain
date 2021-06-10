@@ -42,7 +42,7 @@ CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, c
 inline unsigned int CBloomFilter::Hash(unsigned int nHashNum, const std::vector<unsigned char>& vDataToHash) const
 {
     // 0xFBA4C795 chosen as it guarantees a reasonable bit difference between nHashNum values.
-    return MurmurHash3(nHashNum * 0xFBA4C795 + nTweak, vDataToHash) % (vData.size() * 8);
+    return MurmurHash3(nHashNum * 0xFBA4C795 + nTweak, vDataToHash.data(), vDataToHash.size()) % (vData.size() * 8);
 }
 
 void CBloomFilter::insert(const std::vector<unsigned char>& vKey)
@@ -232,7 +232,7 @@ CRollingBloomFilter::CRollingBloomFilter(const unsigned int nElements, const dou
 
 /* Similar to CBloomFilter::Hash */
 static inline uint32_t RollingBloomHash(unsigned int nHashNum, uint32_t nTweak, const std::vector<unsigned char>& vDataToHash) {
-    return MurmurHash3(nHashNum * 0xFBA4C795 + nTweak, vDataToHash);
+    return MurmurHash3(nHashNum * 0xFBA4C795 + nTweak, vDataToHash.data(), vDataToHash.size());
 }
 
 
