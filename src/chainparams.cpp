@@ -522,9 +522,9 @@ public:
         consensus.ClarkeQuayHeight = 0;
         consensus.DakotaHeight = 10;
         consensus.DakotaCrescentHeight = 10;
-        consensus.EunosHeight = 10;
-        consensus.EunosSimsHeight = 10;
-        consensus.EunosKampungHeight = std::numeric_limits<int>::max();
+        consensus.EunosHeight = 125;
+        consensus.EunosSimsHeight = 125;
+        consensus.EunosKampungHeight = 125;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

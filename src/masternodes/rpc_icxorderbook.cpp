@@ -1380,13 +1380,13 @@ static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
-    {"icxorderbook",   "icx_createorder",        &icxcreateorder,        {"order"}},
-    {"icxorderbook",   "icx_makeoffer",          &icxmakeoffer,          {"offer"}},
-    {"icxorderbook",   "icx_closeoffer",         &icxcloseoffer,         {"offerTx"}},
-    {"icxorderbook",   "icx_submitdfchtlc",      &icxsubmitdfchtlc,      {"dfchtlc"}},
-    {"icxorderbook",   "icx_submitexthtlc",      &icxsubmitexthtlc,      {"exthtlc"}},
-    {"icxorderbook",   "icx_claimdfchtlc",       &icxclaimdfchtlc,       {"claim"}},
-    {"icxorderbook",   "icx_closeorder",         &icxcloseorder,         {"orderTx"}},
+    {"icxorderbook",   "icx_createorder",        &icxcreateorder,        {"order", "inputs"}},
+    {"icxorderbook",   "icx_makeoffer",          &icxmakeoffer,          {"offer", "inputs"}},
+    {"icxorderbook",   "icx_closeoffer",         &icxcloseoffer,         {"offerTx", "inputs"}},
+    {"icxorderbook",   "icx_submitdfchtlc",      &icxsubmitdfchtlc,      {"dfchtlc", "inputs"}},
+    {"icxorderbook",   "icx_submitexthtlc",      &icxsubmitexthtlc,      {"exthtlc", "inputs"}},
+    {"icxorderbook",   "icx_claimdfchtlc",       &icxclaimdfchtlc,       {"claim", "inputs"}},
+    {"icxorderbook",   "icx_closeorder",         &icxcloseorder,         {"orderTx", "inputs"}},
     {"icxorderbook",   "icx_getorder",           &icxgetorder,           {"orderTx"}},
     {"icxorderbook",   "icx_listorders",         &icxlistorders,         {"by"}},
     {"icxorderbook",   "icx_listhtlcs",          &icxlisthtlcs,          {"by"}},
