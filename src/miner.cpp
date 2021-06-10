@@ -485,7 +485,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     std::set<uint256> checkedTX;
 
     // Copy of the view
-    CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+    CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
     while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
     {
@@ -595,6 +595,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                 continue;
             }
 
+            // temporary view to ensure failed tx
+            // to not be kept in parent view
+            CCoinsViewCache coins(&coinsView);
+
             // allow coin override, tx with same inputs
             // will be removed for block while we connect it
             AddCoins(coins, tx, nHeight, false); // do not check
@@ -618,6 +622,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                 // Track checked TXs to avoid double applying
                 checkedTX.insert(tx.GetHash());
             }
+            coins.Flush();
         }
 
         // Failed, let's move on!
