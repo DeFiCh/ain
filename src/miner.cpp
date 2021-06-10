@@ -734,7 +734,8 @@ namespace pos {
         // Set search time if null or last block has changed
         if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
             if (Params().NetworkIDString() == CBaseChainParams::REGTEST) {
-                nLastCoinStakeSearchTime = GetAdjustedTime();
+                // For regtest use previous oldest time
+                nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
             } else {
                 // Plus one to avoid time-too-old error on exact median time.
                 nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
@@ -742,7 +743,7 @@ namespace pos {
             lastBlockSeen = tip->GetBlockHash();
         }
 
-        withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
+        withSearchInterval([&](const int64_t currentTime, const int64_t lastSearchTime, const int64_t futureTime) {
             if (fCriminals) {
                 std::map <uint256, CBlockHeader> blockHeaders{};
                 {
@@ -784,21 +785,45 @@ namespace pos {
             }
 
             bool found = false;
-            for (uint32_t t = 0; t < nSearchInterval; t++) {
-                boost::this_thread::interruption_point();
 
-                pblock->nTime = ((uint32_t)coinstakeTime + t);
+            // Search backwards in time first
+            if (currentTime > lastSearchTime) {
+                for (uint32_t t = 1; t < currentTime - lastSearchTime; ++t) {
+                    boost::this_thread::interruption_point();
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
-                                         chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
-                {
-                    LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+                    pblock->nTime = ((uint32_t)currentTime - t);
 
-                    found = true;
-                    break;
+                    if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
+                                             chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                    {
+                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+
+                        found = true;
+                        break;
+                    }
+
+                    boost::this_thread::yield(); // give a slot to other threads
                 }
+            }
 
-                boost::this_thread::yield(); // give a slot to other threads
+            if (!found) {
+                // Search forwards in time
+                for (uint32_t t = 0; t < futureTime - lastSearchTime; ++t) {
+                    boost::this_thread::interruption_point();
+
+                    pblock->nTime = ((uint32_t)lastSearchTime + t);
+
+                    if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
+                                             chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                    {
+                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+
+                        found = true;
+                        break;
+                    }
+
+                    boost::this_thread::yield(); // give a slot to other threads
+                }
             }
 
             if (!found) {
@@ -848,7 +873,7 @@ namespace pos {
         nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5);
 
         if (nFutureTime > nLastCoinStakeSearchTime) {
-            f(nLastCoinStakeSearchTime, nFutureTime - nLastCoinStakeSearchTime);
+            f(GetAdjustedTime(), nLastCoinStakeSearchTime, nFutureTime);
         }
     }
 

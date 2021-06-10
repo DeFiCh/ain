@@ -166,7 +166,7 @@ class TestNode():
         i = 0
         while minted < nblocks and i < maxtries:
             if TestNode.Mocktime is not None:
-                self.setmocktime(TestNode.Mocktime + 1)
+                self.setmocktime(TestNode.Mocktime)
             res = self.generatetoaddress(nblocks=1, address=address, maxtries=1)
             i += 1
             if res == 1:
