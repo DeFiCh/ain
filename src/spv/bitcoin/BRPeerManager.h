@@ -33,10 +33,6 @@
 #include <stddef.h>
 #include <inttypes.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifdef WIN32
 #define PEER_MAX_CONNECTIONS 1
 #else
@@ -135,9 +131,5 @@ void BRPeerManagerCancelPendingTxs(BRPeerManager *manager);
 
 // Rebuild and resend the bloom filter
 void BRPeerManagerRebuildBloomFilter(BRPeerManager *manager);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // BRPeerManager_h
