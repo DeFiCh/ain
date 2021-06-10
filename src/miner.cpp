@@ -807,11 +807,14 @@ namespace pos {
             }
 
             if (!found) {
+                // Search from current time or lastSearchTime set in the future
+                int64_t searchTime = lastSearchTime > currentTime ? lastSearchTime : currentTime;
+
                 // Search forwards in time
-                for (uint32_t t = 1; t <= futureTime - lastSearchTime; ++t) {
+                for (uint32_t t = 1; t <= futureTime - searchTime; ++t) {
                     boost::this_thread::interruption_point();
 
-                    pblock->nTime = ((uint32_t)lastSearchTime + t);
+                    pblock->nTime = ((uint32_t)searchTime + t);
 
                     if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
                                              chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
