@@ -4314,7 +4314,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
 
     // Check timestamp against prev
     if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast())
-        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", "block's timestamp is too early");
+        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", strprintf("block's timestamp is too early. Block time: %d Min time: %d", block.GetBlockTime(), pindexPrev->GetMedianTimePast()));
 
     // Check timestamp
     if (block.GetBlockTime() > nAdjustedTime + MAX_FUTURE_BLOCK_TIME)
@@ -4322,7 +4322,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
 
     if (block.height >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT)
-            return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
+            return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT));
     }
 
     // Reject outdated version blocks when 95% (75% on testnet) of the network has upgraded:

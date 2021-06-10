@@ -671,6 +671,9 @@ namespace pos {
     //initialize static variables here
     std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
     std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
+    int64_t Staker::nLastCoinStakeSearchTime{0};
+    int64_t Staker::nFutureTime{0};
+    uint256 Staker::lastBlockSeen{};
 
     Staker::Status Staker::init(const CChainParams& chainparams) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
@@ -733,7 +736,19 @@ namespace pos {
 
         auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
 
-        withSearchInterval([&](int64_t coinstakeTime, int64_t nSearchInterval) {
+        // Set search time if null or last block has changed
+        if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
+            if (Params().NetworkIDString() == CBaseChainParams::REGTEST) {
+                // For regtest use previous oldest time
+                nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
+            } else {
+                // Plus one to avoid time-too-old error on exact median time.
+                nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
+            }
+            lastBlockSeen = tip->GetBlockHash();
+        }
+
+        withSearchInterval([&](const int64_t currentTime, const int64_t lastSearchTime, const int64_t futureTime) {
             if (fCriminals) {
                 std::map <uint256, CBlockHeader> blockHeaders{};
                 {
@@ -775,21 +790,48 @@ namespace pos {
             }
 
             bool found = false;
-            for (uint32_t t = 0; t < nSearchInterval; t++) {
-                boost::this_thread::interruption_point();
 
-                pblock->nTime = ((uint32_t)coinstakeTime - t);
+            // Search backwards in time first
+            if (currentTime > lastSearchTime) {
+                for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
+                    boost::this_thread::interruption_point();
 
-                if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
-                                         chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
-                {
-                    LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+                    pblock->nTime = ((uint32_t)currentTime - t);
 
-                    found = true;
-                    break;
+                    if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
+                                             chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                    {
+                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+
+                        found = true;
+                        break;
+                    }
+
+                    boost::this_thread::yield(); // give a slot to other threads
                 }
+            }
 
-                boost::this_thread::yield(); // give a slot to other threads
+            if (!found) {
+                // Search from current time or lastSearchTime set in the future
+                int64_t searchTime = lastSearchTime > currentTime ? lastSearchTime : currentTime;
+
+                // Search forwards in time
+                for (uint32_t t = 1; t <= futureTime - searchTime; ++t) {
+                    boost::this_thread::interruption_point();
+
+                    pblock->nTime = ((uint32_t)searchTime + t);
+
+                    if (pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, creationHeight, (int64_t) pblock->nTime, pblock->height, masternodeID,
+                                             chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                    {
+                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+
+                        found = true;
+                        break;
+                    }
+
+                    boost::this_thread::yield(); // give a slot to other threads
+                }
             }
 
             if (!found) {
@@ -834,15 +876,13 @@ namespace pos {
     }
 
     template <typename F>
-    bool Staker::withSearchInterval(F&& f) {
-        const int64_t nTime = GetAdjustedTime(); // TODO: SS GetAdjustedTime() + period minting block
+    void Staker::withSearchInterval(F&& f) {
+        // Mine up to max future minus 5 second buffer
+        nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5);
 
-        if (nTime > nLastCoinStakeSearchTime) {
-            f(nTime, nTime - nLastCoinStakeSearchTime);
-            nLastCoinStakeSearchTime = nTime;
-            return true;
+        if (nFutureTime > nLastCoinStakeSearchTime) {
+            f(GetAdjustedTime(), nLastCoinStakeSearchTime, nFutureTime);
         }
-        return false;
     }
 
 void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams chainparams) {
@@ -938,6 +978,9 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
 
             ++it;
         }
+
+        // Set search period to last time set
+        Staker::nLastCoinStakeSearchTime = Staker::nFutureTime;
 
         std::this_thread::sleep_for(std::chrono::milliseconds(900));
     }
