@@ -374,6 +374,24 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         view2.WriteBy<TestForward>(TestForward{256}, 9);
         view2.EraseBy<TestForward>(TestForward{255});
 
+        // single level iterator over view2 values{11, 9} key 255 does not present
+        it = NewKVIterator<TestForward>(TestForward{0}, view2.GetStorage().GetRaw());
+        BOOST_CHECK(it.Valid());
+        BOOST_CHECK(it.Value().as<int>() == 11);
+        it.Next();
+        BOOST_CHECK(it.Value().as<int>() == 9);
+        it.Next();
+        BOOST_CHECK(!it.Valid());
+
+        it = NewKVIterator<TestForward>(TestForward{2}, view2.GetStorage().GetRaw());
+        BOOST_CHECK(it.Valid());
+        BOOST_CHECK(it.Value().as<int>() == 9);
+        it.Prev();
+        BOOST_CHECK(it.Valid());
+        BOOST_CHECK(it.Value().as<int>() == 11);
+        it.Prev();
+        BOOST_CHECK(!it.Valid());
+
         CCustomCSView view3(view2);
         view3.EraseBy<TestForward>(TestForward{1});
 
@@ -390,6 +408,10 @@ BOOST_AUTO_TEST_CASE(LowerBoundTest)
         BOOST_CHECK(it.Valid());
         BOOST_CHECK(it.Value().as<int>() == 1);
         it.Prev();
+        BOOST_CHECK(!it.Valid());
+
+        // view3 has an empty kv storage
+        it = NewKVIterator<TestForward>(TestForward{0}, view3.GetStorage().GetRaw());
         BOOST_CHECK(!it.Valid());
     }
 
