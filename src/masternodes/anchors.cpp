@@ -849,7 +849,7 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
     // Make sure height exist
     const auto anchorCreationBlock = ::ChainActive()[anchorCreationHeight];
     if (anchorCreationBlock == nullptr) {
-        LogPrintf("%s: Cannot get block from anchor team data: height %ld\n", __func__, anchorCreationHeight);
+        LogPrint(BCLog::ANCHORING, "%s: Cannot get block from anchor team data: height %ld\n", __func__, anchorCreationHeight);
 
         // Set to max to be used to avoid deleting pending anchor.
         anchorCreationHeight = std::numeric_limits<uint64_t>::max();
@@ -957,7 +957,7 @@ bool CAnchorAwaitingConfirms::EraseAnchor(AnchorTxHash const &txHash)
 
     auto & list = confirms.get<Confirm::ByAnchor>();
     auto count = list.erase(txHash); // should erase ALL with that key. Check it!
-    LogPrintf("AnchorConfirms::EraseAnchor: erase %d confirms for anchor %s\n", count, txHash.ToString());
+    LogPrint(BCLog::ANCHORING, "AnchorConfirms::EraseAnchor: erase %d confirms for anchor %s\n", count, txHash.ToString());
 
     return count > 0;
 }
