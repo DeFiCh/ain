@@ -788,7 +788,7 @@ namespace pos {
 
             // Search backwards in time first
             if (currentTime > lastSearchTime) {
-                for (uint32_t t = 1; t < currentTime - lastSearchTime; ++t) {
+                for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
                     boost::this_thread::interruption_point();
 
                     pblock->nTime = ((uint32_t)currentTime - t);
@@ -808,7 +808,7 @@ namespace pos {
 
             if (!found) {
                 // Search forwards in time
-                for (uint32_t t = 0; t < futureTime - lastSearchTime; ++t) {
+                for (uint32_t t = 1; t <= futureTime - lastSearchTime; ++t) {
                     boost::this_thread::interruption_point();
 
                     pblock->nTime = ((uint32_t)lastSearchTime + t);
