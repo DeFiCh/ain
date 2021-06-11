@@ -16,40 +16,23 @@ namespace pos {
         return Hash(ss.begin(), ss.end());
     }
 
-    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const CMasternode& node, const int64_t coinstakeTime, const int64_t height, const int64_t stakersBlockTime)
+    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const int64_t coinstakeTime, const int64_t height, const int64_t stakersBlockTime)
     {
         // Default to min age
         int64_t nTimeTx{params.pos.nStakeMinAge};
 
         // If staker has provided a previous block time use that to avoid DB lookup.
-        if (stakersBlockTime)
-        {
-            nTimeTx = std::min(coinstakeTime - stakersBlockTime, params.pos.nStakeMaxAge);
-        }
-        else
-        {
-            // Lookup stored valid blocktime. no optional value indicate no previous staked block.
-            if (auto lastBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress, height))
-            {
-                // Choose whatever is smaller, time since last stake or max age.
-                nTimeTx = std::min(coinstakeTime - *lastBlockTime, params.pos.nStakeMaxAge);
-            }
-            else // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-            {
-                if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight])
-                {
-                    nTimeTx = std::min(coinstakeTime - block->GetBlockTime(), params.pos.nStakeMaxAge);
-                }
-            }
-        }
+
+        nTimeTx = std::min(coinstakeTime - stakersBlockTime, params.pos.nStakeMaxAge);
+
 
         // Raise time to min age if below it.
         nTimeTx = std::max(nTimeTx, params.pos.nStakeMinAge);
 
         // Calculate coinDayWeight, at min this is 1 with no impact on difficulty.
-        arith_uint256 period = 6 * 60 * 60; // 6 hours
+        static const constexpr uint32_t period = 6 * 60 * 60; // 6 hours
 
-        return (nTimeTx + period) / period;
+        return (arith_uint256(nTimeTx) + period) / period;
     }
 
     bool
@@ -64,20 +47,9 @@ namespace pos {
         // been since a masternode staked a block.
         if (blockHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaCrescentHeight))
         {
-            // at this point we want to be sure ConnectBlock is finished
-            // the should be flushed and we will use the fresh data
-            auto node = pcustomcsview->GetMasternode(masternodeID);
-            if (!node)
-            {
-                return false;
-            }
+            auto usedHeight = blockHeight <= Params().GetConsensus().EunosHeight ? height : blockHeight;
+            auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, usedHeight, stakersBlockTime);
 
-            arith_uint256 coinDayWeight;
-            if (blockHeight <= Params().GetConsensus().EunosHeight) {
-                coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, height, stakersBlockTime);
-            } else {
-                coinDayWeight = CalcCoinDayWeight(params, *node, coinstakeTime, blockHeight, stakersBlockTime);
-            }
 
             // Increase target by coinDayWeight.
             return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(height) ) ) ) <= targetProofOfStake * coinDayWeight;

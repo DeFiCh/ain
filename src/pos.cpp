@@ -8,6 +8,7 @@
 #include <logging.h>
 #include <masternodes/masternodes.h>
 #include <sync.h>
+#include <validation.h>
 
 extern RecursiveMutex cs_main;
 
@@ -58,6 +59,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     }
     uint256 masternodeID;
     int64_t creationHeight;
+    boost::optional<int64_t> stakerBlockTime;
     {
         // check that block minter exists and active at the height of the block
         AssertLockHeld(cs_main);
@@ -71,9 +73,17 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
             return false;
         }
         creationHeight = int64_t(nodePtr->creationHeight);
+
+        stakerBlockTime = mnView->GetMasternodeLastBlockTime(nodePtr->operatorAuthAddress, blockHeader.height);
+        // No record. No stake blocks or post-fork createmastnode TX, use fork time.
+        if (!stakerBlockTime) {
+            if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
+                stakerBlockTime = std::min(blockHeader.GetBlockTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
+            }
+        }
     }
     // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, (int64_t) blockHeader.GetBlockTime(), blockHeader.height, masternodeID, params)) {
+    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(), blockHeader.height, masternodeID, params, stakerBlockTime ? *stakerBlockTime : 0)) {
         return false;
     }
 
@@ -114,7 +124,7 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
     return bnNew.GetCompact();
 }
 
-unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
+unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTime, const Consensus::Params& params)
 {
     assert(pindexLast != nullptr);
     if (params.pos.fNoRetargeting)
@@ -134,9 +144,9 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
         if (params.pos.fAllowMinDifficultyBlocks)
         {
             // Special difficulty rule for testnet:
-            // If the new block's timestamp is more than 2* 10 minutes
+            // If the new block's timestamp is more than 2* 30 seconds
             // then allow mining of a min-difficulty block.
-            if (pblock->GetBlockTime() > pindexLast->GetBlockTime() + params.pos.nTargetSpacing*2)
+            if (blockTime > pindexLast->GetBlockTime() + params.pos.nTargetSpacing*2)
                 return nProofOfWorkLimit;
             else
             {

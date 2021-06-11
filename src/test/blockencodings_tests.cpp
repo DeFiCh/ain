@@ -47,6 +47,7 @@ static CBlock BuildBlockTestCase() {
 
     minterKey = pos->second.operatorKey;
     CBlockIndex *tip;
+    boost::optional<int64_t> stakerBlockTime;
     {
         LOCK(cs_main);
         tip = ::ChainActive().Tip();
@@ -57,6 +58,14 @@ static CBlock BuildBlockTestCase() {
 
         mintedBlocks = nodePtr->mintedBlocks;
         creationHeight = int64_t(nodePtr->creationHeight);
+
+        stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(nodePtr->operatorAuthAddress, creationHeight);
+        // No record. No stake blocks or post-fork createmastnode TX, use fork time.
+        if (!stakerBlockTime) {
+            if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
+                stakerBlockTime = std::min(GetTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
+            }
+        }
     }
 
     block.height = tip->nHeight + 1;
@@ -79,7 +88,7 @@ static CBlock BuildBlockTestCase() {
     assert(!mutated);
     block.nTime = 0;
 
-    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.height, masternodeID, Params().GetConsensus())) block.nTime++;
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.height, masternodeID, Params().GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0)) block.nTime++;
   //  while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
 
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
