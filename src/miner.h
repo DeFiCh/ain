@@ -227,9 +227,6 @@ namespace pos {
     };
 
     class Staker {
-    private:
-        static uint256 lastBlockSeen;
-
     public:
         enum class Status {
             error,
@@ -247,14 +244,6 @@ namespace pos {
         // Map to store [master node id : last block creation attempt timestamp] for local master nodes
         static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
         static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
-
-        // Variables to manage search time across threads
-        static int64_t nLastCoinStakeSearchTime;
-        static int64_t nFutureTime;
-
-    private:
-        template <typename F>
-        void withSearchInterval(F&& f);
     };
 }
 

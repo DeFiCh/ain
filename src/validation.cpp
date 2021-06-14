@@ -4316,13 +4316,19 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast())
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", strprintf("block's timestamp is too early. Block time: %d Min time: %d", block.GetBlockTime(), pindexPrev->GetMedianTimePast()));
 
+    if (block.height >= static_cast<uint64_t>(consensusParams.FortCanningHeight)) {
+        if (block.GetBlockTime() < GetTime() - MAX_BLOCK_TIME_INTERVAL)
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", strprintf("block timestamp too early. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() - MAX_BLOCK_TIME_INTERVAL));
+    }
+
     // Check timestamp
     if (block.GetBlockTime() > nAdjustedTime + MAX_FUTURE_BLOCK_TIME)
         return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
 
     if (block.height >= static_cast<uint64_t>(consensusParams.DakotaCrescentHeight)) {
-        if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT)
-            return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT));
+        const auto maxBlockTime = block.height < static_cast<uint64_t>(consensusParams.FortCanningHeight) ? MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT : MAX_BLOCK_TIME_INTERVAL;
+        if (block.GetBlockTime() > GetTime() + maxBlockTime)
+            return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + maxBlockTime));
     }
 
     // Reject outdated version blocks when 95% (75% on testnet) of the network has upgraded:
