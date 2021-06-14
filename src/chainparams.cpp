@@ -127,6 +127,7 @@ public:
         consensus.EunosHeight = 894000; // 3rd June 2021
         consensus.EunosSimsHeight = consensus.EunosHeight;
         consensus.EunosKampungHeight = 895743;
+        consensus.FortCanningHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -345,6 +346,7 @@ public:
         consensus.EunosHeight = 354950;
         consensus.EunosSimsHeight = consensus.EunosHeight;
         consensus.EunosKampungHeight = consensus.EunosHeight;
+        consensus.FortCanningHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -525,6 +527,7 @@ public:
         consensus.EunosHeight = 125;
         consensus.EunosSimsHeight = 125;
         consensus.EunosKampungHeight = 125;
+        consensus.FortCanningHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -697,6 +700,7 @@ public:
         consensus.EunosHeight = 10000000;
         consensus.EunosSimsHeight = 10000000;
         consensus.EunosKampungHeight = 10000000;
+        consensus.FortCanningHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -965,6 +969,18 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.EunosHeight = static_cast<int>(height);
         consensus.EunosSimsHeight = static_cast<int>(height);
         consensus.EunosKampungHeight = static_cast<int>(height);
+        consensus.FortCanningHeight = static_cast<int>(height);
+    }
+
+    if (gArgs.IsArgSet("-fortcanningheight")) {
+        int64_t height = gArgs.GetArg("-fortcanningheight", consensus.FortCanningHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for Fort Canning is out of valid range. Use -1 to disable Fort Canning features.", height));
+        } else if (height == -1) {
+            LogPrintf("Fort Canning disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
+        consensus.FortCanningHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;
