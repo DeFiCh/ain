@@ -135,6 +135,9 @@ bool CMasternode::IsActive() const
 bool CMasternode::IsActive(int height) const
 {
     State state = GetState(height);
+    if (height >= Params().GetConsensus().FortCanningHeight) {
+        return state == ENABLED;
+    }
     return state == ENABLED || state == PRE_RESIGNED;
 }
 
@@ -302,7 +305,11 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
         return Res::Err("node %s does not exists", nodeId.ToString());
     }
     auto state = node->GetState(height);
-    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED) /*|| IsAnchorInvolved(nodeId, height)*/) { // if already spoiled by resign or ban, or need for anchor
+    if (height >= Params().GetConsensus().FortCanningHeight) {
+        if (state != CMasternode::ENABLED) {
+            return Res::Err("node %s state is not 'ENABLED'", nodeId.ToString());
+        }
+    } else if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
 
