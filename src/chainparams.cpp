@@ -969,7 +969,6 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.EunosHeight = static_cast<int>(height);
         consensus.EunosSimsHeight = static_cast<int>(height);
         consensus.EunosKampungHeight = static_cast<int>(height);
-        consensus.FortCanningHeight = static_cast<int>(height);
     }
 
     if (gArgs.IsArgSet("-fortcanningheight")) {
