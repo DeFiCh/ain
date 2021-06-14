@@ -174,9 +174,9 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
-    Res isPostFFork() const {
-        if(static_cast<int>(height) < consensus.FHardforkHeight) {
-            return Res::Err("called before F fork height");
+    Res isPostFortCanningFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningHeight) {
+            return Res::Err("called before FortCanning height");
         }
         return Res::Ok();
     }
@@ -387,7 +387,7 @@ public:
         return !res ? res : serialize(obj);
     }
     Res operator()(CLoanSetCollateralTokenMessage& obj) const {
-        auto res = isPostFFork();
+        auto res = isPostFortCanningFork();
         return serialize(obj);
     }
 
@@ -1650,7 +1650,9 @@ public:
         if (!mnview.GetOracleData(collToken.priceFeedTxid))
             return Res::Err("oracle (%s) does not exist!", collToken.priceFeedTxid.GetHex());
 
-        if (collToken.activateAfterBlock != 0 && collToken.activateAfterBlock < height)
+        if (!collToken.activateAfterBlock)
+            collToken.activateAfterBlock = height;
+        if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height");
 
         return mnview.LoanCreateSetCollateralToken(collToken);

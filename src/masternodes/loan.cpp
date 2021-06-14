@@ -24,12 +24,15 @@ Res CLoanView::LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & 
         return Res::Err("setCollateralToken factor must not be negative!");
 
     WriteBy<LoanSetCollateralTokenCreationTx>(collToken.creationTx, collToken);
-    WriteBy<LoanSetCollateralTokenKey>(collToken.idToken, collToken.creationTx);
+
+    // invert height bytes so that we can find <= key with givven height
+    uint32_t height = ~collToken.activateAfterBlock;
+    WriteBy<LoanSetCollateralTokenKey>(CollateralTokenKey(collToken.idToken, height), collToken.creationTx);
 
     return Res::Ok();
 }
 
-void CLoanView::ForEachLoanSetCollateralToken(std::function<bool (DCT_ID const &, uint256 const &)> callback, DCT_ID const & token)
+void CLoanView::ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start)
 {
-    ForEach<LoanSetCollateralTokenKey, DCT_ID, uint256>(callback, token);
+    ForEach<LoanSetCollateralTokenKey, CollateralTokenKey, uint256>(callback, start);
 }

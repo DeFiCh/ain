@@ -231,6 +231,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "setcollateraltoken", 0, "parameters" },
     { "setcollateraltoken", 1, "inputs" },
+    { "getcollateraltoken", 0, "by" },
 
     { "spv_sendrawtx", 0, "rawtx" },
     { "spv_createanchor", 0, "inputs" },

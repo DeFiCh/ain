@@ -49,7 +49,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("icx_createorder", "'{\"ownerAddress\":\"<tokenAddress>\","
+                        HelpExampleCli("setcollateraltoken", "'{\"ownerAddress\":\"<tokenAddress>\","
                                                         "\"tokenFrom\":\"GOLD#128\",\"chainTo\":\"BTC\","
                                                         "\"amountFrom\":\"10\",\"orderPrice\":\"10\"}'")                },
      }.Check(request);
@@ -140,10 +140,17 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue listcollateraltokens(const JSONRPCRequest& request) {
-    RPCHelpMan{"listcollateraltokens",
+UniValue getcollateraltoken(const JSONRPCRequest& request) {
+    RPCHelpMan{"getcollateraltokens",
                 "Return list of created collateral tokens.\n",
-                {},
+                {
+                    {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Symbol or id of collateral token"},
+                            {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Valid at specified height"},
+                        },
+                    },
+                },
                 RPCResult
                 {
                     "{...}     (object) Json object with collateral token information\n"
@@ -154,8 +161,64 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
      }.Check(request);
 
     UniValue ret(UniValue::VOBJ);
+    std::string tokenSymbol;
+    DCT_ID idToken = {std::numeric_limits<uint32_t>::max()}, currentToken = {std::numeric_limits<uint32_t>::max()};
+    uint32_t height = ::ChainActive().Height();
 
-    pcustomcsview->ForEachLoanSetCollateralToken([&](DCT_ID const & key, uint256 collTokenTx) {
+    if (request.params.size() > 0)
+    {
+        UniValue byObj = request.params[0].get_obj();
+
+        if (!byObj["token"].isNull())
+        {
+            auto token = pcustomcsview->GetTokenGuessId(trim_ws(byObj["token"].getValStr()), idToken);
+            if (!token)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
+        }
+        if (!byObj["height"].isNull())
+            height = (size_t) byObj["height"].get_int64();
+    }
+
+    CLoanView::CollateralTokenKey start({{0}, ~height});
+    if (idToken.v != std::numeric_limits<uint32_t>::max())
+        start.first = idToken;
+
+    pcustomcsview->ForEachLoanSetCollateralToken([&](CLoanView::CollateralTokenKey const & key, uint256 collTokenTx) {
+
+        if (idToken.v != std::numeric_limits<uint32_t>::max() && key.first != idToken)
+            return false;
+
+        if (~key.second >= height || currentToken == key.first) return true;
+
+        currentToken = key.first;
+        auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
+        if (collToken)
+        {
+            ret.pushKVs(setCollateralTokenToJSON(*collToken));
+        }
+        return true;
+    }, start);
+
+    return (ret);
+}
+
+
+UniValue listcollateraltokens(const JSONRPCRequest& request) {
+    RPCHelpMan{"listcollateraltokens",
+                "Return list of all created collateral tokens.\n",
+                {},
+                RPCResult
+                {
+                    "{...}     (object) Json object with collateral token information\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("listcollateraltokens", "")
+                },
+     }.Check(request);
+
+    UniValue ret(UniValue::VOBJ);
+
+    pcustomcsview->ForEachLoanSetCollateralToken([&](CLoanView::CollateralTokenKey const & key, uint256 collTokenTx) {
         auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
         if (collToken)
         {
@@ -172,6 +235,7 @@ static const CRPCCommand commands[] =
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
     {"loan",        "setcollateraltoken",        &setcollateraltoken,    {"parameters", "inputs"}},
+    {"loan",        "getcollateraltoken",        &getcollateraltoken,    {"by"}},
     {"loan",        "listcollateraltokens",      &listcollateraltokens,  {}},
 };
 

@@ -58,11 +58,12 @@ struct CLoanSetCollateralTokenMessage : public CLoanSetCollateralToken {
 
 class CLoanView : public virtual CStorageView {
 public:
+    using CollateralTokenKey = std::pair<DCT_ID, uint32_t>;
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
 
     std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanSetCollateralToken(uint256 const & txid) const;
     Res LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
-    void ForEachLoanSetCollateralToken(std::function<bool (DCT_ID const &, uint256 const &)> callback, DCT_ID const & token = {0});
+    void ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {{0},0});
 
     struct LoanSetCollateralTokenCreationTx { static const unsigned char prefix; };
     struct LoanSetCollateralTokenKey { static const unsigned char prefix; };
