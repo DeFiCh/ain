@@ -463,10 +463,10 @@ private:
                 tag<Confirm::ByAnchor>, member<CAnchorConfirmData, uint256, &CAnchorConfirmData::btcTxHash>
             >,
             // index for quorum selection (miner affected)
-            // just to remember that there may be confirms with equal btcTxHash, but with different teams!
+            // just to remember that there may be confirms with equal btcTxHeight, but with different teams!
             ordered_non_unique<
                 tag<Confirm::ByKey>, composite_key<Confirm,
-                    member<CAnchorConfirmData, uint256, &CAnchorConfirmData::btcTxHash>,
+                    member<CAnchorConfirmDataPlus, THeight, &CAnchorConfirmDataPlus::btcTxHeight>,
                     const_mem_fun<CAnchorConfirmDataPlus, uint256, &CAnchorConfirmDataPlus::GetSignHash>
                 >
             >,
