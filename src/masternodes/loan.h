@@ -64,6 +64,7 @@ public:
     std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanSetCollateralToken(uint256 const & txid) const;
     Res LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
     void ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {{0},0});
+    std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanSetCollateralToken(CollateralTokenKey const & key);
 
     struct LoanSetCollateralTokenCreationTx { static const unsigned char prefix; };
     struct LoanSetCollateralTokenKey { static const unsigned char prefix; };

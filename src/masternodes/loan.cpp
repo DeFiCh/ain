@@ -36,3 +36,11 @@ void CLoanView::ForEachLoanSetCollateralToken(std::function<bool (CollateralToke
 {
     ForEach<LoanSetCollateralTokenKey, CollateralTokenKey, uint256>(callback, start);
 }
+
+std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanSetCollateralToken(CollateralTokenKey const & key)
+{
+    auto it = LowerBound<LoanSetCollateralTokenKey>(key);
+    if (it.Valid())
+        return GetLoanSetCollateralToken(it.Value());
+    return {};
+}

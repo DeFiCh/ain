@@ -181,7 +181,13 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
 
     CLoanView::CollateralTokenKey start({{0}, ~height});
     if (idToken.v != std::numeric_limits<uint32_t>::max())
+    {
         start.first = idToken;
+        auto collToken = pcustomcsview->HasLoanSetCollateralToken(start);
+        ret.pushKVs(setCollateralTokenToJSON(*collToken));
+
+        return (ret);
+    }
 
     pcustomcsview->ForEachLoanSetCollateralToken([&](CLoanView::CollateralTokenKey const & key, uint256 collTokenTx) {
 

@@ -1641,7 +1641,7 @@ public:
         collToken.creationHeight = height;
 
         if (!HasFoundationAuth()) {
-            return Res::Err("tx not from foundation member");
+            return Res::Err("tx not from foundation member!");
         }
 
         if (!mnview.GetToken(collToken.idToken))
@@ -1653,7 +1653,7 @@ public:
         if (!collToken.activateAfterBlock)
             collToken.activateAfterBlock = height;
         if (collToken.activateAfterBlock < height)
-            return Res::Err("activateAfterBlock cannot be less than current height");
+            return Res::Err("activateAfterBlock cannot be less than current height!");
 
         return mnview.LoanCreateSetCollateralToken(collToken);
     }
