@@ -2669,7 +2669,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     CScript txidaddr(order->creationTx.begin(), order->creationTx.end());
                     auto res = cache.SubBalance(txidaddr, amount);
                     if (!res)
-                        LogPrintf("Can't subtract balance from order txidaddr: %s\n", res.msg);
+                        LogPrintf("Can't subtract balance from order (%s) txidaddr: %s\n", order->creationTx.GetHex(), res.msg);
                     else
                     {
                         cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);
@@ -2703,7 +2703,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 {
                     auto res = cache.SubBalance(txidAddr,takerFee);
                     if (!res)
-                        LogPrintf("Can't subtract takerFee from offer txidAddr: %s\n", res.msg);
+                        LogPrintf("Can't subtract takerFee from offer (%s) txidAddr: %s\n", offer->creationTx.GetHex(), res.msg);
                     else
                     {
                         cache.CalculateOwnerRewards(offer->ownerAddress,pindex->nHeight);
@@ -2760,7 +2760,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     CScript txidaddr = CScript(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
                     auto res = cache.SubBalance(txidaddr, amount);
                     if (!res)
-                        LogPrintf("Can't subtract balance from dfc htlc txidaddr: %s\n", res.msg);
+                        LogPrintf("Can't subtract balance from dfc htlc (%s) txidaddr: %s\n", dfchtlc->creationTx.GetHex(), res.msg);
                     else
                     {
                         cache.CalculateOwnerRewards(ownerAddress,pindex->nHeight);
