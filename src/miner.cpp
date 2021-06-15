@@ -767,9 +767,18 @@ namespace pos {
             pos::Staker::mapMNLastBlockCreationAttemptTs[masternodeID] = GetTime();
         }
 
-        int64_t currentTime = GetAdjustedTime();
-        static const constexpr int startInterval = -MAX_BLOCK_TIME_INTERVAL + 10;
         static const constexpr int endInterval = MAX_BLOCK_TIME_INTERVAL;
+
+        static const auto regtest = chainparams.NetworkIDString() == CBaseChainParams::REGTEST;
+        int startInterval;
+        const int64_t currentTime = GetAdjustedTime();
+        if (regtest) {
+            static int64_t lastCoinstakeTime = GetAdjustedTime() - MAX_BLOCK_TIME_INTERVAL;
+            startInterval = lastCoinstakeTime - currentTime;
+            lastCoinstakeTime = currentTime;
+        } else {
+            startInterval = std::max(tip->GetBlockTime() - MAX_BLOCK_TIME_INTERVAL + 5, tip->GetMedianTimePast() - 5) - currentTime;
+        }
 
         // Search backwards in time first
         for (int t = startInterval; t < endInterval; ++t) {

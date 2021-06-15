@@ -4317,7 +4317,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", strprintf("block's timestamp is too early. Block time: %d Min time: %d", block.GetBlockTime(), pindexPrev->GetMedianTimePast()));
 
     if (block.height >= static_cast<uint64_t>(consensusParams.FortCanningHeight)) {
-        if (block.GetBlockTime() < GetTime() - MAX_BLOCK_TIME_INTERVAL)
+        if (block.GetBlockTime() + MAX_BLOCK_TIME_INTERVAL < pindexPrev->GetBlockTime())
             return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", strprintf("block timestamp too early. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() - MAX_BLOCK_TIME_INTERVAL));
     }
 
