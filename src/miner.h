@@ -236,7 +236,6 @@ namespace pos {
             initWaiting,
             stakeWaiting,
             stakeReady,
-            criminalWaiting,
             minted,
         };
 

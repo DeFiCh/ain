@@ -15,7 +15,6 @@
 #include <vector>
 
 /// moved here (!!) due to strange linker errors under mac/win builds
-extern const std::vector<unsigned char> DfCriminalTxMarker;
 extern const std::vector<unsigned char> DfAnchorFinalizeTxMarker;
 extern const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus;
 
@@ -28,7 +27,6 @@ bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fChe
 bool ParseScriptByMarker(CScript const & script,
                          const std::vector<unsigned char> & marker,
                          std::vector<unsigned char> & metadata);
-bool IsCriminalProofTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata);
 bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata);
 

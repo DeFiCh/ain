@@ -155,7 +155,6 @@ DEFI_CORE_H = \
   masternodes/anchors.h \
   masternodes/balances.h \
   masternodes/communityaccounttypes.h \
-  masternodes/criminals.h \
   masternodes/factory.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
   masternodes/govvariables/lp_daily_dfi_reward.h \
@@ -366,7 +365,6 @@ libdefi_server_a_SOURCES = \
   masternodes/accounts.cpp \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
-  masternodes/criminals.cpp \
   masternodes/oracles.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/lp_daily_dfi_reward.cpp \

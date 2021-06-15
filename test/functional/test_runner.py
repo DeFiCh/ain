@@ -124,7 +124,6 @@ BASE_SCRIPTS = [
     'feature_bitcoin_htlc.py',
     'feature_communitybalance_reorg.py',
     'feature_auth_return_change.py',
-    'feature_criminals.py',
     'feature_setgov.py',
     'interface_zmq.py',
     'interface_defi_cli.py',

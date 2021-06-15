@@ -8,7 +8,6 @@
 #include <core_io.h>
 #include <validation.h>
 
-#include <masternodes/criminals.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 

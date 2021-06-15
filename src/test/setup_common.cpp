@@ -12,7 +12,6 @@
 #include <crypto/sha256.h>
 #include <init.h>
 #include <masternodes/anchors.h>
-#include <masternodes/criminals.h>
 #include <masternodes/masternodes.h>
 #include <miner.h>
 #include <net.h>
@@ -78,7 +77,6 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
 
     gArgs.ForceSetArg("-masternode_operator", "mps7BdmwEF2vQ9DREDyNPibqsuSRZ8LuwQ"); // matches with [1] masternode from regtest chainparams (and with testMasternodeKeys.begin())
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = true;
-    fCriminals = true;
     fIsFakeNet = true;
 }
 
@@ -113,9 +111,6 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
     {
         LOCK(cs_main);
-
-        pcriminals.reset();
-        pcriminals = MakeUnique<CCriminalsView>(GetDataDir() / "criminals", nMinDbCache << 20, true, true);
 
         pcustomcsDB.reset();
         pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true);
@@ -163,7 +158,6 @@ TestingSetup::~TestingSetup()
     panchorauths.reset();
     pcustomcsview.reset();
     pcustomcsDB.reset();
-    pcriminals.reset();
 
     pblocktree.reset();
 }
