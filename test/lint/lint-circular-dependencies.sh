@@ -35,7 +35,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/govvariables/lp_splits -> masternodes/gv -> masternodes/govvariables/lp_splits"
     "masternodes/govvariables/icx_takerfee_per_btc -> masternodes/gv -> masternodes/govvariables/icx_takerfee_per_btc"
     "masternodes/masternodes -> masternodes/mn_checks -> masternodes/masternodes"
-    "masternodes/masternodes -> validation -> pos -> masternodes/masternodes"
     "masternodes/masternodes -> validation -> masternodes/masternodes"
     "masternodes/masternodes -> net_processing -> masternodes/masternodes"
     "masternodes/masternodes -> wallet/wallet -> masternodes/masternodes"
@@ -55,9 +54,9 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "policy/fees -> txmempool -> validation -> wallet/wallet -> util/fees -> policy/fees"
     "chainparams -> masternodes/mn_checks -> txmempool -> chainparams"
     "pos_kernel -> validation -> pos_kernel"
-    "pos -> pos_kernel -> validation -> pos"
+    "pos -> validation -> pos"
+    "pos -> validation -> txdb -> pos"
     "pos_kernel -> validation -> txdb -> pos_kernel"
-    "pos -> pos_kernel -> validation -> txdb -> pos"
 )
 
 EXIT_CODE=0

@@ -733,7 +733,6 @@ static void _BRPeerManagerFindPeers(BRPeerManager *manager)
     uint64_t services = SERVICES_NODE_NETWORK | SERVICES_NODE_BLOOM | manager->params->services;
     time_t now = time(NULL);
     struct timespec ts;
-    UInt128 *addr, *addrList;
     BRFindPeersInfo *info;
     
     if (! UInt128IsZero(manager->fixedPeer.address)) {

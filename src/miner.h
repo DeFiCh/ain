@@ -164,7 +164,7 @@ public:
     BlockAssembler(const CChainParams& params, const Options& options);
 
     /** Construct a new block template with coinbase to scriptPubKeyIn */
-    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn);
+    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime = 0);
 
     static Optional<int64_t> m_last_block_num_txs;
     static Optional<int64_t> m_last_block_weight;
@@ -228,7 +228,7 @@ namespace pos {
 
     class Staker {
     private:
-        int64_t nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
+        static uint256 lastBlockSeen;
 
     public:
         enum class Status {
@@ -240,8 +240,6 @@ namespace pos {
             minted,
         };
 
-        CBlockIndex* getTip();
-
         Staker::Status init(const CChainParams& chainparams);
         Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args);
 
@@ -250,9 +248,13 @@ namespace pos {
         static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
         static std::atomic_bool cs_MNLastBlockCreationAttemptTs;
 
+        // Variables to manage search time across threads
+        static int64_t nLastCoinStakeSearchTime;
+        static int64_t nFutureTime;
+
     private:
         template <typename F>
-        bool withSearchInterval(F&& f);
+        void withSearchInterval(F&& f);
     };
 }
 
