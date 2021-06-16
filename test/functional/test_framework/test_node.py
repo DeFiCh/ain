@@ -114,7 +114,6 @@ class TestNode():
         self.perf_subprocesses = {}
 
         self.p2ps = []
-        self.node_id = None
 
     MnKeys = collections.namedtuple('MnKeys', ['ownerAuthAddress', 'ownerPrivKey', 'operatorAuthAddress', 'operatorPrivKey'])
     PRIV_KEYS = [ # at least node0&1 operator should be non-witness!!! (feature_bip68_sequence.py,interface_zmq,rpc_psbt  fails)
