@@ -452,12 +452,14 @@ static void _BRWalletUpdateBalance(BRWallet *wallet)
         for (j = 0; j < tx->outCount; j++) {
             if (tx->outputs[j].address[0] != '\0') {
                 pkh = BRScriptPKH(tx->outputs[j].script, tx->outputs[j].scriptLen);
-                UInt160 hash160;
-                UIntConvert(pkh, hash160);
-                if (pkh && BRSetContains(wallet->allPKH, pkh) && wallet->htlcPKH->count(hash160) == 0) {
-                    BRSetAdd(wallet->usedPKH, (void *)pkh);
-                    array_add(wallet->utxos, ((const BRUTXO) { tx->txHash, (uint32_t)j }));
-                    balance += tx->outputs[j].amount;
+                if (pkh) {
+                    UInt160 hash160;
+                    UIntConvert(pkh, hash160);
+                    if (BRSetContains(wallet->allPKH, pkh) && wallet->htlcPKH->count(hash160) == 0) {
+                        BRSetAdd(wallet->usedPKH, (void *) pkh);
+                        array_add(wallet->utxos, ((const BRUTXO) {tx->txHash, (uint32_t) j}));
+                        balance += tx->outputs[j].amount;
+                    }
                 }
             }
         }
