@@ -88,7 +88,7 @@ class AnchorRewardsTest (DefiTestFramework):
         anchorFrequency = 15
 
         # Create multiple active MNs
-        self.initmasternodesforanchors(12, 2 * anchorFrequency)
+        self.initmasternodesforanchors(13, 1 * anchorFrequency)
 
         wait_until(lambda: len(self.nodes[0].getanchorteams()['auth']) == 3 and len(self.nodes[0].getanchorteams()['confirm']) == 3, timeout=10)
 

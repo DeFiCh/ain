@@ -12,6 +12,7 @@
 #include <streams.h>
 #include <script/standard.h>
 #include <spv/spv_wrapper.h>
+#include <timedata.h>
 #include <util/system.h>
 #include <util/validation.h>
 #include <validation.h>
@@ -288,6 +289,12 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest) co
             if (count >= quorum) {
                 KList::iterator it0, it0Copy, it1;
                 std::tie(it0,it1) = list.equal_range(std::make_tuple(curHeight, curSignHash));
+
+                // Fix to avoid "Anchor too new" error until F hard fork
+                auto anchorIndex = ::ChainActive()[it0->height];
+                if (!anchorIndex || anchorIndex->nTime + Params().GetConsensus().mn.anchoringTimeDepth > GetAdjustedTime()) {
+                    continue;
+                }
 
                 uint32_t validCount{0};
                 it0Copy = it0;
