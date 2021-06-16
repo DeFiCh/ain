@@ -21,7 +21,6 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         obj.pushKV("creationHeight", node.creationHeight);
         obj.pushKV("resignHeight", node.resignHeight);
         obj.pushKV("resignTx", node.resignTx.GetHex());
-        obj.pushKV("banHeight", node.banHeight);
         obj.pushKV("banTx", node.banTx.GetHex());
         obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
@@ -485,74 +484,6 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
     return ret;
 }
 
-UniValue listcriminalproofs(const JSONRPCRequest& request)
-{
-    RPCHelpMan{"listcriminalproofs",
-               "\nReturns information about criminal proofs (pairs of signed blocks by one MN from different forks).\n",
-               {
-                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                         {
-                             {"start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
-                              "Optional first key to iterate from, in lexicographical order."
-                              "Typically it's set to last ID from previous request."},
-                             {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                              "If true, then iterate including starting position. False by default"},
-                             {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                              "Maximum number of orders to return, 100 by default"},
-                         },
-                    },
-               },
-               RPCResult{
-                       "{id:{block1, block2},...}     (array) Json objects with block pairs\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listcriminalproofs", "")
-                       + HelpExampleRpc("listcriminalproofs", "")
-               },
-    }.Check(request);
-
-    // parse pagination
-    size_t limit = 100;
-    uint256 start = {};
-    bool including_start = true;
-    {
-        if (request.params.size() > 0) {
-            UniValue paginationObj = request.params[0].get_obj();
-            if (!paginationObj["limit"].isNull()) {
-                limit = (size_t) paginationObj["limit"].get_int64();
-            }
-            if (!paginationObj["start"].isNull()) {
-                including_start = false;
-                start = ParseHashV(paginationObj["start"], "start");
-            }
-            if (!paginationObj["including_start"].isNull()) {
-                including_start = paginationObj["including_start"].getBool();
-            }
-            if (!including_start) {
-                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
-            }
-        }
-        if (limit == 0) {
-            limit = std::numeric_limits<decltype(limit)>::max();
-        }
-    }
-
-    LOCK(cs_main);
-
-    UniValue ret(UniValue::VOBJ);
-    auto const proofs = pcriminals->GetUnpunishedCriminals();
-    for (auto it = proofs.lower_bound(start); it != proofs.end() && limit != 0; ++it, --limit) {
-        UniValue obj(UniValue::VOBJ);
-        obj.pushKV("hash1", it->second.blockHeader.GetHash().ToString());
-        obj.pushKV("height1", it->second.blockHeader.height);
-        obj.pushKV("hash2", it->second.conflictBlockHeader.GetHash().ToString());
-        obj.pushKV("height2", it->second.conflictBlockHeader.height);
-        obj.pushKV("mintedBlocks", it->second.blockHeader.mintedBlocks);
-        ret.pushKV(it->first.ToString(), obj);
-    }
-    return ret;
-}
-
 UniValue getanchorteams(const JSONRPCRequest& request)
 {
     RPCHelpMan{"getanchorteams",
@@ -717,7 +648,6 @@ static const CRPCCommand commands[] =
     {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
     {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
     {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},
-    {"masternodes", "listcriminalproofs",    &listcriminalproofs,    {}},
     {"masternodes", "getanchorteams",        &getanchorteams,        {"blockHeight"}},
     {"masternodes", "getactivemasternodecount",  &getactivemasternodecount,  {"blockCount"}},
     {"masternodes", "listanchors",           &listanchors,           {}},

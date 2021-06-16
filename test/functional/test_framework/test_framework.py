@@ -616,7 +616,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             shutil.rmtree(cache_path('burn'))
 
             for entry in os.listdir(cache_path()):
-                if entry not in ['chainstate', 'blocks', 'enhancedcs', 'anchors', 'criminals', 'history']:  # Only keep chainstate and blocks folder
+                if entry not in ['chainstate', 'blocks', 'enhancedcs', 'anchors', 'history']:  # Only keep chainstate and blocks folder
                     os.remove(cache_path(entry))
 
         for i in range(self.num_nodes):

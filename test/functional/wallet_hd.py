@@ -73,7 +73,6 @@ class WalletHDTest(DefiTestFramework):
         shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "chainstate"))
         shutil.rmtree(os.path.join(self.nodes[1].datadir, 'regtest', 'enhancedcs'))
         shutil.rmtree(os.path.join(self.nodes[1].datadir, 'regtest', 'anchors'))
-        shutil.rmtree(os.path.join(self.nodes[1].datadir, 'regtest', 'criminals'))
         shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"), os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"))
         self.start_node(1)
 
@@ -99,7 +98,6 @@ class WalletHDTest(DefiTestFramework):
         shutil.rmtree(os.path.join(self.nodes[1].datadir, "regtest", "chainstate"))
         shutil.rmtree(os.path.join(self.nodes[1].datadir, 'regtest', 'enhancedcs'))
         shutil.rmtree(os.path.join(self.nodes[1].datadir, 'regtest', 'anchors'))
-        shutil.rmtree(os.path.join(self.nodes[1].datadir, 'regtest', 'criminals'))
         shutil.copyfile(os.path.join(self.nodes[1].datadir, "hd.bak"), os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"))
         self.start_node(1, extra_args=self.extra_args[1])
         connect_nodes_bi(self.nodes, 0, 1)

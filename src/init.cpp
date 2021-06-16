@@ -27,7 +27,6 @@
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
-#include <masternodes/criminals.h>
 #include <masternodes/masternodes.h>
 #include <miner.h>
 #include <net.h>
@@ -279,7 +278,6 @@ void Shutdown(InitInterfaces& interfaces)
         panchorauths.reset();
         pcustomcsview.reset();
         pcustomcsDB.reset();
-        pcriminals.reset();
         pblocktree.reset();
     }
     for (const auto& client : interfaces.chain_clients) {
@@ -462,7 +460,6 @@ void SetupServerArgs()
     gArgs.AddArg("-subsidytest", "Flag to enable new subsidy rules (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-anchorquorum", "Min quorum size (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-spv", "Enable SPV to bitcoin blockchain (default: 1)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-criminals", "punishment of criminal nodes (default: 0, regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_resync", "Flag to reset spv database and resync from zero block (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-spv_rescan", "Block height to rescan from (default: 0 = off)", ArgsManager::ALLOW_INT, OptionsCategory::OPTIONS);
     gArgs.AddArg("-amkheight", "AMK fork activation height (regtest only)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
@@ -1205,7 +1202,7 @@ bool AppInitParameterInteraction()
     nMaxTipAge = gArgs.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
     fIsFakeNet = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-dummypos", false);
     CTxOut::SERIALIZE_FORCED_TO_OLD_IN_TESTS = Params().NetworkIDString() == "regtest" && gArgs.GetArg("-txnotokens", false);
-    fCriminals = gArgs.GetArg("-criminals", false);
+
     return true;
 }
 
@@ -1479,7 +1476,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     int64_t nTotalCache = (gArgs.GetArg("-dbcache", nDefaultDbCache) << 20);
     nTotalCache = std::max(nTotalCache, nMinDbCache << 20); // total cache cannot be less than nMinDbCache
     nTotalCache = std::min(nTotalCache, nMaxDbCache << 20); // total cache cannot be greater than nMaxDbcache
-    auto nCustomCacheSize = nTotalCache; // used for criminals and customs
+    auto nCustomCacheSize = nTotalCache; // used for customs
     int64_t nBlockTreeDBCache = std::min(nTotalCache / 8, nMaxBlockDBCache << 20);
     nTotalCache -= nBlockTreeDBCache;
     int64_t nTxIndexCache = std::min(nTotalCache / 8, gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX) ? nMaxTxIndexCache << 20 : 0);
@@ -1585,9 +1582,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                         _("Error reading from database, shutting down.").translated,
                         "", CClientUIInterface::MSG_ERROR);
                 });
-
-                pcriminals.reset();
-                pcriminals = MakeUnique<CCriminalsView>(GetDataDir() / "criminals", nCustomCacheSize, false, fReset || fReindexChainState);
 
                 pcustomcsDB.reset();
                 pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nCustomCacheSize, false, fReset || fReindexChainState);

@@ -8,7 +8,6 @@
 #include <consensus/validation.h>
 
 /// @todo refactor it to unify txs!!! (need to restart blockchain)
-const std::vector<unsigned char> DfCriminalTxMarker = {'D', 'f', 'C', 'r'};
 const std::vector<unsigned char> DfAnchorFinalizeTxMarker = {'D', 'f', 'A', 'f'};
 const std::vector<unsigned char> DfAnchorFinalizeTxMarkerPlus = {'D', 'f', 'A', 'P'};
 
@@ -50,7 +49,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     if (tx.IsCoinBase())
     {
         std::vector<unsigned char> dummy;
-        if (IsAnchorRewardTx(tx, dummy) || IsCriminalProofTx(tx, dummy) || IsAnchorRewardTxPlus(tx, dummy))
+        if (IsAnchorRewardTx(tx, dummy) || IsAnchorRewardTxPlus(tx, dummy))
             return true;
         if (tx.vin[0].scriptSig.size() < 2 || (tx.vin[0].scriptSig.size() > 100))
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-length");
@@ -82,14 +81,6 @@ bool ParseScriptByMarker(CScript const & script,
     }
     metadata.erase(metadata.begin(), metadata.begin() + marker.size());
     return true;
-}
-
-bool IsCriminalProofTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
-{
-    if (!tx.IsCoinBase() || tx.vout.size() != 1 || tx.vout[0].nValue != 0) {
-        return false;
-    }
-    return ParseScriptByMarker(tx.vout[0].scriptPubKey, DfCriminalTxMarker, metadata);
 }
 
 bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata)
