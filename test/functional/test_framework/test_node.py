@@ -136,17 +136,6 @@ class TestNode():
         assert self.index <= len(self.PRIV_KEYS)
         return self.PRIV_KEYS[self.index]
 
-    def get_node_id(self):
-        if self.node_id is not None:
-            return self.node_id
-
-        nodes = self.listmasternodes()
-        genesiskeys = self.get_genesis_keys()
-        for nodekey in nodes.keys():
-            if nodes[nodekey]['operatorAuthAddress'] == genesiskeys.operatorAuthAddress:
-                self.node_id = nodekey
-        return self.node_id
-
     def pullup_mocktime(self):
         TestNode.Mocktime = self.getblockheader(self.getbestblockhash())["time"]
 
