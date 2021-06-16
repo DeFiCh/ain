@@ -14,10 +14,10 @@
 #define CLIENT_VERSION_MAJOR 1
 
 /* Minor version */
-#define CLIENT_VERSION_MINOR 0
+#define CLIENT_VERSION_MINOR 7
 
 /* Build revision */
-#define CLIENT_VERSION_REVISION 0
+#define CLIENT_VERSION_REVISION 11
 
 /* Copyright holder(s) before %s replacement */
 #define COPYRIGHT_HOLDERS "The %s Developers"
@@ -29,7 +29,7 @@
 #define COPYRIGHT_HOLDERS_SUBSTITUTION "DeFi Blockchain"
 
 /* Copyright year */
-#define COPYRIGHT_YEAR 2020
+#define COPYRIGHT_YEAR 2021
 
 /* Define to 1 to enable wallet functions */
 #define ENABLE_WALLET 1

@@ -86,17 +86,6 @@ std::string FormatFullVersion()
     return CLIENT_BUILD;
 }
 
-int GetClientVersion()
-{
-    // C++11 guarantees thread safe static initialization
-    static const int version = []() {
-        int major = 0, minor = 0, rev = 0;
-        sscanf(BUILD_DESC, "v%d.%d.%d", &major, &minor, &rev);
-        return major * 1000000 + minor * 10000 + rev * 100;
-    }();
-    return version;
-}
-
 /**
  * Format the subversion field according to BIP 14 spec (https://github.com/bitcoin/bips/blob/master/bip-0014.mediawiki)
  */
