@@ -22,6 +22,9 @@
  */
 class CBlockHeader
 {
+    // memory only
+    mutable CPubKey recoveredPubKey;
+
 public:
     // header
     int32_t nVersion;
@@ -84,9 +87,10 @@ public:
 
     bool ExtractMinterKey(CKeyID &key) const
     {
-        CPubKey recoveredPubKey{};
-        if (!recoveredPubKey.RecoverCompact(GetHashToSign(), sig)) {
-            return false;
+        if (!recoveredPubKey.IsValid()) {
+            if (!recoveredPubKey.RecoverCompact(GetHashToSign(), sig)) {
+                return false;
+            }
         }
 
         key = recoveredPubKey.GetID();
