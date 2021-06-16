@@ -69,6 +69,7 @@ public:
         height = 0;
         mintedBlocks = 0;
         sig = {};
+        recoveredPubKey = CPubKey{};
     }
 
     bool IsNull() const
