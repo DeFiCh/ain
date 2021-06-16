@@ -1071,7 +1071,7 @@ std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const C
     for (auto it = list.begin(); it != list.end(); /* w/o advance! */) {
         // get next group of confirms
         KList::iterator it0, it1;
-        std::tie(it0,it1) = list.equal_range(std::make_tuple(it->btcTxHash, it->GetSignHash()));
+        std::tie(it0,it1) = list.equal_range(std::make_tuple(it->btcTxHeight, it->GetSignHash()));
         if (std::distance(it0,it1) >= quorum) {
             result.clear();
             for (; result.size() < quorum && it0 != it1; ++it0) {
