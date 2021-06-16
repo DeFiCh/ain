@@ -74,11 +74,12 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         }
         creationHeight = int64_t(nodePtr->creationHeight);
 
-        stakerBlockTime = mnView->GetMasternodeLastBlockTime(nodePtr->operatorAuthAddress, blockHeader.height);
+        auto usedHeight = blockHeader.height <= params.EunosHeight ? creationHeight : blockHeader.height;
+        stakerBlockTime = mnView->GetMasternodeLastBlockTime(nodePtr->operatorAuthAddress, usedHeight);
         // No record. No stake blocks or post-fork createmastnode TX, use fork time.
         if (!stakerBlockTime) {
-            if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
-                stakerBlockTime = std::min(blockHeader.GetBlockTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
+            if (auto block = ::ChainActive()[params.DakotaCrescentHeight]) {
+                stakerBlockTime = std::min(blockHeader.GetBlockTime() - block->GetBlockTime(), params.pos.nStakeMaxAge);
             }
         }
     }

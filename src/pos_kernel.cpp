@@ -16,7 +16,7 @@ namespace pos {
         return Hash(ss.begin(), ss.end());
     }
 
-    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const int64_t coinstakeTime, const int64_t height, const int64_t stakersBlockTime)
+    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const int64_t coinstakeTime, const int64_t stakersBlockTime)
     {
         // Default to min age
         int64_t nTimeTx{params.pos.nStakeMinAge};
@@ -47,8 +47,7 @@ namespace pos {
         // been since a masternode staked a block.
         if (blockHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaCrescentHeight))
         {
-            auto usedHeight = blockHeight <= Params().GetConsensus().EunosHeight ? height : blockHeight;
-            auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, usedHeight, stakersBlockTime);
+            auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, stakersBlockTime);
 
 
             // Increase target by coinDayWeight.
