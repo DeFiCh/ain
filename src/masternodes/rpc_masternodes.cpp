@@ -379,8 +379,8 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
                        "{...}     (object) Json object with block hash and height information\n"
                },
                RPCExamples{
-                       HelpExampleCli("getmasternodeblocks", "{\"ownerAddress\":\"dPyup5C9hfRd2SUC1p3a7VcjcNuGSXa9bT\"}")
-                       + HelpExampleRpc("getmasternodeblocks", "{\"ownerAddress\":\"dPyup5C9hfRd2SUC1p3a7VcjcNuGSXa9bT\"}")
+                       HelpExampleCli("getmasternodeblocks", R"('{"ownerAddress":"dPyup5C9hfRd2SUC1p3a7VcjcNuGSXa9bT"}')")
+                       + HelpExampleRpc("getmasternodeblocks", R"({"ownerAddress":"dPyup5C9hfRd2SUC1p3a7VcjcNuGSXa9bT"})")
                },
     }.Check(request);
 
