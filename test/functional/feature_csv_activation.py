@@ -54,7 +54,6 @@ from test_framework.test_node import TestNode
 from test_framework.util import (
     assert_equal,
     hex_str_to_bytes,
-    softfork_active,
 )
 
 BASE_RELATIVE_LOCKTIME = 10
@@ -186,7 +185,6 @@ class BIP68_112_113Test(DefiTestFramework):
         # Activation height is hardcoded
         test_blocks = self.generate_blocks(345)
         self.send_blocks(test_blocks)
-        assert not softfork_active(self.nodes[0], 'csv')
 
         # Inputs at height = 431
         #
@@ -234,7 +232,6 @@ class BIP68_112_113Test(DefiTestFramework):
 
         assert_equal(self.tipheight, CSV_ACTIVATION_HEIGHT - 2)
         self.log.info("Height = {}, CSV not yet active (will activate for block {}, not {})".format(self.tipheight, CSV_ACTIVATION_HEIGHT, CSV_ACTIVATION_HEIGHT - 1))
-        assert not softfork_active(self.nodes[0], 'csv')
 
         # Test both version 1 and version 2 transactions for all tests
         # BIP113 test transaction will be modified before each use to put in appropriate block time
@@ -308,10 +305,8 @@ class BIP68_112_113Test(DefiTestFramework):
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
 
         # 1 more version 4 block to get us to height 432 so the fork should now be active for the next block
-        assert not softfork_active(self.nodes[0], 'csv')
         test_blocks = self.generate_blocks(1)
         self.send_blocks(test_blocks)
-        assert softfork_active(self.nodes[0], 'csv')
 
         self.log.info("Post-Soft Fork Tests.")
 
