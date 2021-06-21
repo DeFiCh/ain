@@ -133,10 +133,12 @@ public:
     Res CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& prop);
     Optional<CPropObject> GetProp(const CPropId& propId);
     Res UpdatePropCycle(const CPropId& propId, uint8_t cycle);
-    Res UpdatePropStatus(const CPropId& propId, CPropStatusType status);
+    Res UpdatePropStatus(const CPropId& propId, uint32_t height, CPropStatusType status);
     Res AddPropVote(const CPropId& propId, const uint256& masternodeId, CPropVoteType vote);
+    Optional<CPropVoteType> GetPropVote(const CPropId& propId, uint8_t cycle, const uint256& masternodeId);
 
     void ForEachProp(std::function<bool(CPropId const &, CPropObject const &)> callback, uint8_t status = 0);
+    void ForEachPropVote(std::function<bool(CPropId const &, uint8_t, uint256 const &, CPropVoteType)> callback, CMnVotePerCycle const & start = {});
     void ForEachCycleProp(std::function<bool(CPropId const &, CPropObject const &)> callback, uint32_t height);
 
     struct ByType { static const unsigned char prefix; };

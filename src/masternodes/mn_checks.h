@@ -75,6 +75,7 @@ enum class CustomTxType : uint8_t
     ICXCloseOffer         = '7',
     // On-Chain-Gov
     CreateCfp             = 'F',
+    Vote                  = 'V',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -109,6 +110,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::ICXCloseOrder:
         case CustomTxType::ICXCloseOffer:
         case CustomTxType::CreateCfp:
+        case CustomTxType::Vote:
         case CustomTxType::None:
             return type;
     }
@@ -156,6 +158,7 @@ struct CICXClaimDFCHTLCMessage;
 struct CICXCloseOrderMessage;
 struct CICXCloseOfferMessage;
 struct CCreatePropMessage;
+struct CPropVoteMessage;
 
 struct CCreateMasterNodeMessage {
     char operatorType;
@@ -272,7 +275,8 @@ typedef boost::variant<
     CICXClaimDFCHTLCMessage,
     CICXCloseOrderMessage,
     CICXCloseOfferMessage,
-    CCreatePropMessage
+    CCreatePropMessage,
+    CPropVoteMessage
 > CCustomTxMessage;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);

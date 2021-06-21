@@ -18,6 +18,16 @@ UniValue propToJSON(CPropId const& propId, CPropObject const& prop)
     return ret;
 }
 
+UniValue propVoteToJSON(CPropId const& propId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote)
+{
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("proposalId", propId.GetHex());
+    ret.pushKV("masternodeId", mnId.GetHex());
+    ret.pushKV("cycle", int(cycle));
+    ret.pushKV("vote", CPropVoteToString(vote));
+    return ret;
+}
+
 /*
  *  Issued by: any
 */
@@ -166,6 +176,181 @@ UniValue createcfp(const JSONRPCRequest& request)
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue vote(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"vote",
+               "\nVote for community proposal" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal txid"},
+                       {"masternodeId", RPCArg::Type::STR, RPCArg::Optional::NO, "The masternode id which made the vote"},
+                       {"decision", RPCArg::Type::STR, RPCArg::Optional::NO, "The vote decision (yes/no/neutral)"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("vote", "txid masternodeId yes")
+                       + HelpExampleRpc("vote", "txid masternodeId yes")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create a cfp while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet); // no need here, but for symmetry
+
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
+
+    auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
+    auto mnId = ParseHashV(request.params[1].get_str(), "masternodeId");
+    auto vote = CPropVoteType::VoteNeutral;
+
+    auto voteStr = request.params[2].get_str();
+    if (voteStr == "no") {
+        vote = CPropVoteType::VoteNo;
+    } else if (voteStr == "yes") {
+        vote = CPropVoteType::VoteYes;
+    } else if (voteStr != "neutral") {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "decision supports yes/no/neutral");
+    }
+
+    int targetHeight;
+    CTxDestination ownerDest;
+    {
+        LOCK(cs_main);
+        auto prop = pcustomcsview->GetProp(propId);
+        if (!prop) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exists", propId.GetHex()));
+        }
+        if (prop->status != CPropStatusType::Voting) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> is not in voting period", propId.GetHex()));
+        }
+        auto node = pcustomcsview->GetMasternode(mnId);
+        if (!node) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", mnId.ToString()));
+        }
+        ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
+
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CPropVoteMessage msg;
+    msg.propId = propId;
+    msg.masternodeId = mnId;
+    msg.vote = vote;
+
+    // encode
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::Vote)
+             << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths = { GetScriptForDestination(ownerDest) };
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[3]);
+
+    rawTx.vout.emplace_back(CTxOut(0, scriptMeta));
+
+    CCoinControl coinControl;
+    if (IsValidDestination(ownerDest)) {
+        coinControl.destChange = ownerDest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CPropVoteMessage{}, coins);
+    }
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue listvotes(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"listvotes",
+               "\nReturns information about proposal votes.\n",
+               {
+                        {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal id)"},
+                        {"masternode", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "mine/all/id (default = mine)"},
+               },
+               RPCResult{
+                       "{id:{...},...}     (array) Json object with proposal vote information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listvotes", "txid")
+                       + HelpExampleRpc("listvotes", "txid")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, true);
+
+    auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
+
+    uint256 mnId;
+    bool isMine = true;
+    if (request.params.size() > 1) {
+        auto str = request.params[1].get_str();
+        if (str == "all") {
+            isMine = false;
+        } else if (str != "mine") {
+            isMine = false;
+            mnId = ParseHashV(str, "masternode");
+        }
+    }
+
+    UniValue ret(UniValue::VARR);
+
+    LOCK(cs_main);
+    pcustomcsview->ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & id, CPropVoteType vote) {
+        if (pId != propId) {
+            return false;
+        }
+        if (isMine) {
+            auto node = pcustomcsview->GetMasternode(id);
+            if (!node) {
+                return true;
+            }
+            auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
+                                                  : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
+            if (::IsMineCached(*pwallet, GetScriptForDestination(ownerDest))) {
+                ret.push_back(propVoteToJSON(propId, cycle, id, vote));
+            }
+        } else if (mnId.IsNull() || mnId == id) {
+            ret.push_back(propVoteToJSON(propId, cycle, id, vote));
+        }
+        return true;
+    }, CMnVotePerCycle{propId, 1, mnId});
+
+    return ret;
+}
+
 UniValue listproposals(const JSONRPCRequest& request)
 {
     RPCHelpMan{"listproposals",
@@ -237,6 +422,8 @@ static const CRPCCommand commands[] =
 //  category        name                     actor (function)        params
 //  --------------- ----------------------   ---------------------   ----------
     {"proposals",   "createcfp",             &createcfp,             {"data", "inputs"} },
+    {"proposals",   "vote",                  &vote,                  {"proposalId", "masternodeId", "decision", "inputs"} },
+    {"proposals",   "listvotes",             &listvotes,             {"proposalId", "masternode"} },
     {"proposals",   "listproposals",         &listproposals,         {"type", "status"} },
 };
 

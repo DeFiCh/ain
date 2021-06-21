@@ -98,7 +98,7 @@ Res CPropsView::UpdatePropCycle(const CPropId& propId, uint8_t cycle)
     return Res::Ok();
 }
 
-Res CPropsView::UpdatePropStatus(const CPropId& propId, CPropStatusType status)
+Res CPropsView::UpdatePropStatus(const CPropId& propId, uint32_t height, CPropStatusType status)
 {
     auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
     auto stat = ReadBy<ByStatus, uint8_t>(key);
@@ -108,6 +108,7 @@ Res CPropsView::UpdatePropStatus(const CPropId& propId, CPropStatusType status)
     if (status == CPropStatusType::Voting) {
         return Res::Err("Proposal <%s> is already in voting period", propId.GetHex());
     }
+    EraseBy<ByStatus>(key);
 
     key = std::make_pair(uint8_t(status), propId);
     WriteBy<ByStatus>(key, *stat);
@@ -118,6 +119,11 @@ Res CPropsView::UpdatePropStatus(const CPropId& propId, CPropStatusType status)
     for (uint8_t i = 1; i <= p_prop->nCycles; ++i) {
         auto key = std::make_pair(p_prop->creationHeight + (p_prop->blocksCount * i), propId);
         EraseBy<ByCycle>(key);
+    }
+
+    if (p_prop->finalHeight != height) {
+        p_prop->finalHeight = height;
+        WriteBy<ByType>(propId, *p_prop);
     }
     return Res::Ok();
 }
@@ -133,6 +139,16 @@ Res CPropsView::AddPropVote(const CPropId& propId, const uint256& masternodeId, 
     return Res::Ok();
 }
 
+Optional<CPropVoteType> CPropsView::GetPropVote(const CPropId& propId, uint8_t cycle, const uint256& masternodeId)
+{
+    CMnVotePerCycle key{propId, cycle, masternodeId};
+    auto vote = ReadBy<ByMnVote, uint8_t>(key);
+    if (!vote) {
+        return {};
+    }
+    return static_cast<CPropVoteType>(*vote);
+}
+
 void CPropsView::ForEachProp(std::function<bool(CPropId const &, CPropObject const &)> callback, uint8_t status)
 {
     ForEach<ByStatus, std::pair<uint8_t, uint256>, uint8_t>([&](const std::pair<uint8_t, uint256>& key, uint8_t i) {
@@ -142,9 +158,20 @@ void CPropsView::ForEachProp(std::function<bool(CPropId const &, CPropObject con
     }, std::make_pair(status, uint256{}));
 }
 
+void CPropsView::ForEachPropVote(std::function<bool(CPropId const &, uint8_t, uint256 const &, CPropVoteType)> callback, CMnVotePerCycle const & start)
+{
+    ForEach<ByMnVote, CMnVotePerCycle, uint8_t>([&](const CMnVotePerCycle& key, uint8_t vote) {
+        return callback(key.propId, key.cycle, key.masternodeId, static_cast<CPropVoteType>(vote));
+    }, start);
+}
+
 void CPropsView::ForEachCycleProp(std::function<bool(CPropId const &, CPropObject const &)> callback, uint32_t height)
 {
     ForEach<ByCycle, std::pair<uint32_t, uint256>, uint8_t>([&](const std::pair<uint32_t, uint256>& key, uint8_t i) {
+        // limited to exact height
+        if (key.first != height) {
+            return false;
+        }
         auto prop = GetProp(key.second);
         assert(prop);
         return callback(key.second, *prop);

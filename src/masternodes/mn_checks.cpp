@@ -57,6 +57,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
         case CustomTxType::CreateCfp:           return "CreateCfp";
+        case CustomTxType::Vote:                return "Vote";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -133,6 +134,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
         case CustomTxType::CreateCfp:               return CCreatePropMessage{};
+        case CustomTxType::Vote:                    return CPropVoteMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -388,6 +390,11 @@ public:
     }
 
     Res operator()(CCreatePropMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CPropVoteMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -1662,6 +1669,40 @@ public:
             return Res::Err("finalized after is out of range");
         }
         return mnview.CreateProp(tx.GetHash(), height, obj);
+    }
+
+    Res operator()(const CPropVoteMessage& obj) const {
+        auto prop = mnview.GetProp(obj.propId);
+        if (!prop) {
+            return Res::Err("proposal <%s> does not exists", obj.propId.GetHex());
+        }
+        if (prop->status != CPropStatusType::Voting) {
+            return Res::Err("proposal <%s> is not in voting period", obj.propId.GetHex());
+        }
+        auto node = mnview.GetMasternode(obj.masternodeId);
+        if (!node) {
+            return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
+        }
+        auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
+                                              : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
+        if (!HasAuth(GetScriptForDestination(ownerDest))) {
+            return Res::Err("tx must have at least one input from the owner");
+        }
+        if (!node->IsActive(height)) {
+            return Res::Err("masternode <%s> is not active", obj.masternodeId.GetHex());
+        }
+        if (node->mintedBlocks < 1) {
+            return Res::Err("masternode <%s> does not mine at least one block", obj.masternodeId.GetHex());
+        }
+        switch(obj.vote) {
+            case CPropVoteType::VoteNo:
+            case CPropVoteType::VoteYes:
+            case CPropVoteType::VoteNeutral:
+                break;
+            default:
+                return Res::Err("unsupported vote type");
+        }
+        return mnview.AddPropVote(obj.propId, obj.masternodeId, obj.vote);
     }
 
     Res operator()(const CCustomTxMessageNone&) const {

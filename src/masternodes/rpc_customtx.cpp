@@ -309,6 +309,12 @@ public:
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
     }
 
+    void operator()(const CPropVoteMessage& obj) const {
+        rpcInfo.pushKV("proposalId", obj.propId.GetHex());
+        rpcInfo.pushKV("masternodeId", obj.masternodeId.GetHex());
+        rpcInfo.pushKV("vote", CPropVoteToString(obj.vote));
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };

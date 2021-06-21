@@ -2868,6 +2868,122 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
         }
 
+        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
+        {
+            std::set<uint256> activeMasternodes;
+            cache.ForEachCycleProp([&](CPropId const & propId, CPropObject const & prop) {
+
+                if (activeMasternodes.empty()) {
+                    cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
+                        if (node.IsActive(pindex->nHeight) && node.mintedBlocks) {
+                            activeMasternodes.insert(mnId);
+                        }
+                        return true;
+                    });
+                    if (activeMasternodes.empty()) {
+                        return false;
+                    }
+                }
+
+                uint32_t voteYes = 0;
+                std::set<CScript> voters;
+                cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
+                    if (pId != propId || cycle != prop.cycle) {
+                        return false;
+                    }
+                    if (activeMasternodes.count(mnId)) {
+                        auto node = cache.GetMasternode(mnId);
+                        assert(node);
+                        auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
+                                                              : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
+                        voters.insert(GetScriptForDestination(ownerDest));
+                        if (vote == CPropVoteType::VoteYes) {
+                            ++voteYes;
+                        }
+                    }
+                    return true;
+                }, CMnVotePerCycle{propId, prop.cycle});
+
+                bool payVoters = false;
+                auto valid = lround(voters.size() * 10000.f / activeMasternodes.size()) >= chainparams.GetConsensus().props.minVoting;
+                if (valid) {
+                    uint32_t majorityThreshold;
+                    switch(prop.type) {
+                        case CPropType::CommunityFundRequest:
+                            majorityThreshold = chainparams.GetConsensus().props.cfp.majorityThreshold;
+                            break;
+                        case CPropType::BlockRewardRellocation:
+                            majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
+                            break;
+                        case CPropType::VoteOfConfidence:
+                            majorityThreshold = chainparams.GetConsensus().props.voc.majorityThreshold;
+                            break;
+                        default:
+                            assert(false);
+                    }
+                    auto approved = lround(voteYes * 10000.f / voters.size()) >= majorityThreshold;
+                    if (approved) {
+                        if (prop.nCycles == prop.cycle) {
+                            payVoters = true;
+                            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Completed);
+                        } else {
+                            assert(prop.nCycles > prop.cycle);
+                            cache.UpdatePropCycle(propId, prop.cycle + 1);
+                        }
+                        // payout: charge new community fund balance
+                        cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
+                        cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
+                    } else {
+                        payVoters = true;
+                        cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+                    }
+                } else {
+                    payVoters = true;
+                    cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+                }
+                if (payVoters) {
+                    // extend voters to all cycles
+                    cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
+                        if (pId != propId || cycle >= prop.cycle) {
+                            return false;
+                        }
+                        if (activeMasternodes.count(mnId)) {
+                            auto node = cache.GetMasternode(mnId);
+                            assert(node);
+                            auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
+                                                                  : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
+                            voters.insert(GetScriptForDestination(ownerDest));
+                        }
+                        return true;
+                    }, CMnVotePerCycle{propId, 1});
+                    // pay voters to encourage future voting
+                    if (!voters.empty()) {
+                        CAmount amount;
+                        switch(prop.type) {
+                            case CPropType::CommunityFundRequest:
+                                amount = chainparams.GetConsensus().props.cfp.fee;
+                                break;
+                            case CPropType::BlockRewardRellocation:
+                                amount = chainparams.GetConsensus().props.brp.fee;
+                                break;
+                            case CPropType::VoteOfConfidence:
+                                amount = chainparams.GetConsensus().props.voc.fee;
+                                break;
+                            default:
+                                assert(false);
+                        }
+                        if (CAmount reward = amount / voters.size()) {
+                            for (auto& voter : voters) {
+                                cache.CalculateOwnerRewards(voter, pindex->nHeight);
+                                cache.AddBalance(voter, {DCT_ID{0}, reward});
+                            }
+                        }
+                    }
+                }
+                return true;
+            }, pindex->nHeight);
+        }
+
         // construct undo
         auto& flushable = cache.GetStorage();
         auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
