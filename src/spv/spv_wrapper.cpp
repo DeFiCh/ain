@@ -652,9 +652,9 @@ void CSpvWrapper::AddBitcoinHash(const uint160 &userHash, const bool htlc)
     BRWalletImportAddress(wallet, userHash, htlc);
 }
 
-void CSpvWrapper::RebuildBloomFilter()
+void CSpvWrapper::RebuildBloomFilter(bool rescan)
 {
-    BRPeerManagerRebuildBloomFilter(manager);
+    BRPeerManagerRebuildBloomFilter(manager, rescan);
 }
 
 std::string CSpvWrapper::DumpBitcoinPrivKey(const CWallet* pwallet, const std::string &strAddress)

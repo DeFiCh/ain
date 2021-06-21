@@ -159,7 +159,7 @@ public:
     std::string GetRawTransactions(uint256& hash);
     UniValue ListTransactions();
     UniValue ListReceived(int nMinDepth, std::string address);
-    void RebuildBloomFilter();
+    void RebuildBloomFilter(bool rescan = false);
     virtual UniValue SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, uint64_t feeRate);
 
     // Bitcoin HTLC calls
