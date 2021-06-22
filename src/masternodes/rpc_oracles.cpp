@@ -650,23 +650,55 @@ UniValue getoracledata(const JSONRPCRequest &request) {
 
 UniValue listoracles(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
-
+    
     RPCHelpMan{"listoracles",
                "\nReturns list of oracle ids." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
+                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                                "Optional first key to iterate from, in lexicographical order. "
+                                "Typically it's set to last ID from previous request."
+                            },
+                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Maximum number of orders to return, 100 by default"
+                            },
+                        },
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) list of known oracle ids\n"
                },
                RPCExamples{
-                       HelpExampleCli("listoracles", "") + HelpExampleRpc("listoracles", "")
+                       HelpExampleCli("listoracles", "") 
+                       + HelpExampleRpc("listoracles", "'{}'")
+                       + HelpExampleRpc("listoracles", "'{\"start\":\"1ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\","
+                                                      "\"limit\":100"
+                                                      "}'")
                },
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
                            "Cannot create transactions while still in Initial Block Download");
+    }
+    // parse pagination
+    size_t limit = 100;
+    COracleId start = {}; 
+    {
+        if (request.params.size() > 0){
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["start"].isNull()){
+                start = ParseHashV(paginationObj["start"], "start");
+            }
+            if (!paginationObj["limit"].isNull()){
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+        }   
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
@@ -677,8 +709,9 @@ UniValue listoracles(const JSONRPCRequest &request) {
     CCustomCSView view(*pcustomcsview);
     view.ForEachOracle([&](const COracleId& id, CLazySerialize<COracle>) {
         value.push_back(id.GetHex());
-        return true;
-    });
+        limit--;
+        return limit != 0;
+    }, start);
 
     return value;
 }
@@ -919,7 +952,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
     {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices", "inputs"}},
     {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
-    {"oracles",     "listoracles",           &listoracles,                 {}},
+    {"oracles",     "listoracles",           &listoracles,            {"pagination"}},
     {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request"}},
     {"oracles",     "getprice",              &getprice,               {"request"}},
     {"oracles",     "listprices",            &listprices,                   {}},
