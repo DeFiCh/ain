@@ -605,7 +605,7 @@ static void _rescanBlockchain(void *info, int success)
         BRMerkleBlock *block = manager->lastBlock;
 
         // Get block from one week ago
-        int32_t bitcoinWeek{144 * 7};
+        constexpr int32_t bitcoinWeek{144 * 7};
         UInt256 blockHashes[bitcoinWeek];
         int32_t i{0};
         for (; block && block->height > 0 && i < bitcoinWeek; ++i) {
