@@ -592,6 +592,36 @@ static void _mempoolDone(void *info, int success)
     else peer_log(peer, "mempool request failed");
 }
 
+static void _rescanBlockchain(void *info, int success)
+{
+    BRPeer *peer = ((BRPeerCallbackInfo *)info)->peer;
+    BRPeerManager *manager = ((BRPeerCallbackInfo *)info)->manager;
+
+    free(info);
+
+    if (success) {
+        manager->lock.lock();
+
+        BRMerkleBlock *block = manager->lastBlock;
+
+        // Get block from one week ago
+        constexpr int32_t bitcoinWeek{144 * 7};
+        UInt256 blockHashes[bitcoinWeek];
+        int32_t i{0};
+        for (; block && block->height > 0 && i < bitcoinWeek; ++i) {
+            blockHashes[i] = block->blockHash;
+            block = (BRMerkleBlock *)BRSetGet(manager->blocks, &block->prevBlock);
+        }
+
+        // Request filtered blocks for the last week
+        if (i > 0) {
+            BRPeerSendGetdata(peer, nullptr, 0, blockHashes, i + 1);
+        }
+
+        manager->lock.unlock();
+    }
+}
+
 static void _loadBloomFilterDone(void *info, int success)
 {
     BRPeer *peer = ((BRPeerCallbackInfo *)info)->peer;
@@ -640,7 +670,7 @@ static void _BRPeerManagerLoadMempools(BRPeerManager *manager)
     }
 }
 
-void BRPeerManagerRebuildBloomFilter(BRPeerManager *manager)
+void BRPeerManagerRebuildBloomFilter(BRPeerManager *manager, bool rescan)
 {
     // after syncing, load filters and get mempools from other peers
     for (size_t i = array_count(manager->connectedPeers); i > 0; i--) {
@@ -657,7 +687,12 @@ void BRPeerManagerRebuildBloomFilter(BRPeerManager *manager)
         info->manager = manager;
 
         _BRPeerManagerLoadBloomFilter(manager, peer);
-        BRPeerSendPing(peer, info, _loadBloomFilterDone);
+
+        if (rescan) {
+            BRPeerSendPing(peer, info, _rescanBlockchain);
+        } else {
+            BRPeerSendPing(peer, info, _loadBloomFilterDone);
+        }
     }
 }
 
