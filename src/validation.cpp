@@ -148,6 +148,10 @@ CTxMemPool mempool(&feeEstimator);
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
 
+// used for db compacting
+TBytes compactBegin;
+TBytes compactEnd;
+
 // Internal stuff
 namespace {
     CBlockIndex* pindexBestInvalid = nullptr;
@@ -2872,6 +2876,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (it != checkpoints.begin()) {
             --it;
             bool pruneStarted = false;
+            auto time = GetTimeMillis();
             CCustomCSView pruned(mnview);
             mnview.ForEachUndo([&](UndoKey const & key, CLazySerialize<CUndo>) {
                 if (key.height >= it->first) { // don't erase checkpoint height
@@ -2883,9 +2888,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 }
                 return pruned.DelUndo(key).ok;
             });
-            pruned.Flush();
             if (pruneStarted) {
+                auto& map = pruned.GetStorage().GetRaw();
+                compactBegin = map.begin()->first;
+                compactEnd = map.rbegin()->first;
+                pruned.Flush();
                 LogPrintf("Pruning undo data finished.\n");
+                LogPrint(BCLog::BENCH, "    - Pruning undo data takes: %dms\n", GetTimeMillis() - time);
             }
         }
     }
@@ -3003,6 +3012,13 @@ bool CChainState::FlushStateToDisk(
             // Flush the chainstate (which may refer to block index entries).
             if (!CoinsTip().Flush() || !pcustomcsDB->Flush()) {
                 return AbortNode(state, "Failed to write to coin or masternode db to disk");
+            }
+            if (!compactBegin.empty() && !compactEnd.empty()) {
+                auto time = GetTimeMillis();
+                pcustomcsDB->Compact(compactBegin, compactEnd);
+                compactBegin.clear();
+                compactEnd.clear();
+                LogPrint(BCLog::BENCH, "    - DB compacting takes: %dms\n", GetTimeMillis() - time);
             }
             nLastFlush = nNow;
             full_flush_completed = true;

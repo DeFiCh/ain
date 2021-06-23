@@ -147,7 +147,6 @@ public:
         return true;
     }
     bool Erase(const TBytes& key) override {
-        begin.empty() ? (begin = key) : (end = key);
         batch.Erase(refTBytes(key));
         return true;
     }
@@ -158,17 +157,9 @@ public:
     bool Flush() override { // Commit batch
         auto result = db.WriteBatch(batch);
         batch.Clear();
-        // prevent db fragmentation
-        if (!begin.empty() && !end.empty()) {
-            db.CompactRange(refTBytes(begin), refTBytes(end));
-        }
-        end.clear();
-        begin.clear();
         return result;
     }
     void Discard() override {
-        end.clear();
-        begin.clear();
         batch.Clear();
     }
     size_t SizeEstimate() const override {
@@ -177,13 +168,14 @@ public:
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
         return MakeUnique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db.NewIterator()));
     }
+    void Compact(const TBytes& begin, const TBytes& end) {
+        db.CompactRange(refTBytes(begin), refTBytes(end));
+    }
     bool IsEmpty() {
         return db.IsEmpty();
     }
 
 private:
-    TBytes end;
-    TBytes begin;
     CDBWrapper db;
     CDBBatch batch;
 };
