@@ -667,7 +667,7 @@ UniValue sendutxosfrom(const JSONRPCRequest& request) {
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(*locked_chain, pwallet, toDest, nAmount, {0}, true /* fSubtractFeeFromAmount */, coin_control, {});
+    CTransactionRef tx = SendMoney(*locked_chain, pwallet, toDest, nAmount, {0}, false /* fSubtractFeeFromAmount */, coin_control, {});
     return tx->GetHash().GetHex();
 }
 
