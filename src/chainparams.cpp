@@ -168,6 +168,7 @@ public:
         consensus.mn.anchoringFrequency = 15;
 
         consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
+        consensus.mn.anchoringAdditionalTimeDepth = 1 * 60 * 60; // 1 hour
         consensus.mn.anchoringTeamChange = 120; // Number of blocks
 
         consensus.token.creationFee = 100 * COIN;
@@ -387,6 +388,7 @@ public:
         consensus.mn.anchoringFrequency = 15;
 
         consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
+        consensus.mn.anchoringAdditionalTimeDepth = 1 * 60 * 60; // 1 hour
         consensus.mn.anchoringTeamChange = 120; // Number of blocks
 
         consensus.token.creationFee = 100 * COIN;
@@ -566,6 +568,7 @@ public:
         consensus.mn.anchoringFrequency = 15;
 
         consensus.mn.anchoringTimeDepth = 3 * 60 * 60; // 3 hours
+        consensus.mn.anchoringAdditionalTimeDepth = 1 * 60 * 60; // 1 hour
         consensus.mn.anchoringTeamChange = 120; // Number of blocks
 
         consensus.token.creationFee = 100 * COIN;
@@ -739,6 +742,7 @@ public:
         consensus.mn.anchoringFrequency = 15;
 
         consensus.mn.anchoringTimeDepth = 3 * 60 * 60;
+        consensus.mn.anchoringAdditionalTimeDepth = 15 * 60; // 15 minutes
         consensus.mn.anchoringTeamChange = 15; // Number of blocks
 
         consensus.token.creationFee = 1 * COIN;

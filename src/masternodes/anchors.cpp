@@ -865,11 +865,24 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
                      __func__, HexStr(*prefix), HexStr(hashPrefix), anchorCreationHeight);
     }
 
-    // Recreate the creation height of the anchor
+    // Get start anchor height
     int anchorHeight = static_cast<int>(anchorCreationHeight) - Params().GetConsensus().mn.anchoringFrequency;
-    while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + Params().GetConsensus().mn.anchoringTimeDepth > anchorCreationBlock->nTime) {
+
+    // Recreate the creation height of the anchor
+    int64_t timeDepth = Params().GetConsensus().mn.anchoringTimeDepth;
+    while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > anchorCreationBlock->nTime) {
         --anchorHeight;
     }
+
+    // Recreate deeper anchor depth
+    if (anchorCreationHeight >= Params().GetConsensus().FortCanningHeight) {
+        timeDepth += Params().GetConsensus().mn.anchoringAdditionalTimeDepth;
+        while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > anchorCreationBlock->nTime) {
+            --anchorHeight;
+        }
+    }
+
+    // Wind back further by anchoring frequency
     while (anchorHeight > 0 && anchorHeight % Params().GetConsensus().mn.anchoringFrequency != 0) {
         --anchorHeight;
     }
