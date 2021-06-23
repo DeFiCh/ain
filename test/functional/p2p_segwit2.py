@@ -50,7 +50,6 @@ from test_framework.util import (
     assert_equal,
     assert_greater_than,
     connect_nodes,
-    softfork_active,
 )
 
 # The versionbit bit used to signal activation of SegWit
@@ -224,14 +223,10 @@ class SegWitTest2(DefiTestFramework):
         """Wraps the subtests for logging and state assertions."""
         def func_wrapper(self, *args, **kwargs):
             self.log.info("Subtest: {} (Segwit active = {})".format(func.__name__, self.segwit_active))
-            # Assert segwit status is as expected
-            assert_equal(softfork_active(self.nodes[0], 'segwit'), self.segwit_active)
             func(self, *args, **kwargs)
             # Each subtest should leave some utxos for the next subtest
             assert self.utxo
             self.sync_blocks()
-            # Assert segwit status is as expected at end of subtest
-            assert_equal(softfork_active(self.nodes[0], 'segwit'), self.segwit_active)
 
         return func_wrapper
 
@@ -269,12 +264,9 @@ class SegWitTest2(DefiTestFramework):
     @subtest
     def advance_to_segwit_active(self):
         """Mine enough blocks to activate segwit."""
-        assert not softfork_active(self.nodes[0], 'segwit')
         height = self.nodes[0].getblockcount()
         self.nodes[0].generate(SEGWIT_HEIGHT - height - 2)
-        assert not softfork_active(self.nodes[0], 'segwit')
         self.nodes[0].generate(1)
-        assert softfork_active(self.nodes[0], 'segwit')
         self.segwit_active = True
 
     @subtest
