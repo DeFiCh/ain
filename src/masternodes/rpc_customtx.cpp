@@ -125,7 +125,7 @@ public:
 
         UniValue dest(UniValue::VOBJ);
         for (uint32_t i = obj.mintingOutputsStart; i <  static_cast<uint32_t>(tx.vout.size()); i++) {
-            dest.pushKV(tx.vout[i].scriptPubKey.GetHex(), tx.vout[i].TokenAmount().ToString());
+            dest.pushKV(ScriptToString(tx.vout[i].scriptPubKey), tx.vout[i].TokenAmount().ToString());
         }
         rpcInfo.pushKV("to", dest);
     }
@@ -177,10 +177,10 @@ public:
     }
 
     void operator()(const CPoolSwapMessage& obj) const {
-        rpcInfo.pushKV("fromAddress", obj.from.GetHex());
+        rpcInfo.pushKV("fromAddress", ScriptToString(obj.from));
         rpcInfo.pushKV("fromToken", obj.idTokenFrom.ToString());
         rpcInfo.pushKV("fromAmount", ValueFromAmount(obj.amountFrom));
-        rpcInfo.pushKV("toAddress", obj.to.GetHex());
+        rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
         rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
     }
