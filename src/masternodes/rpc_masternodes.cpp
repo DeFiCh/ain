@@ -472,12 +472,9 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
     auto tip = ::ChainActive()[std::min(lastHeight, uint64_t(Params().GetConsensus().DakotaCrescentHeight)) - 1];
 
     for (; tip && tip->height > creationHeight && depth > 0; tip = tip->pprev, --depth) {
-        CKeyID minter;
-        if (tip->GetBlockHeader().ExtractMinterKey(minter)) {
-            auto id = pcustomcsview->GetMasternodeIdByOperator(minter);
-            if (id && *id == mn_id) {
-                ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
-            }
+        auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
+        if (id && *id == mn_id) {
+            ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
         }
     }
 
@@ -578,15 +575,11 @@ UniValue getactivemasternodecount(const JSONRPCRequest& request)
 
     std::set<uint256> masternodes;
 
+    LOCK(cs_main);
     // Get active MNs from last week's worth of blocks
     for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
-        CKeyID minter;
-        if (pindex->GetBlockHeader().ExtractMinterKey(minter)) {
-            LOCK(cs_main);
-            auto id = pcustomcsview->GetMasternodeIdByOperator(minter);
-            if (id) {
-                masternodes.insert(*id);
-            }
+        if (auto id = pcustomcsview->GetMasternodeIdByOperator(pindex->minterKey())) {
+            masternodes.insert(*id);
         }
     }
 

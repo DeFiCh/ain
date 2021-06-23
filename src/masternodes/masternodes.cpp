@@ -577,29 +577,12 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
     std::set<uint256> masternodeIDs;
     const int blockSample = 7 * Params().GetConsensus().blocksPerDay(); // One week
 
-    // Get active MNs from last week's worth of blocks
-    if (pindexNew->nHeight >= Params().GetConsensus().DakotaCrescentHeight + blockSample) {
-        ForEachMinterNode([&](MNBlockTimeKey const & key, CLazySerialize<int64_t>) {
-            if (key.blockHeight >= pindexNew->nHeight - blockSample && key.blockHeight <= pindexNew->nHeight) {
-                auto node = GetMasternode(key.masternodeID);
-                assert(node);
-                if (node->creationHeight != key.blockHeight) {
-                    masternodeIDs.insert(key.masternodeID);
-                }
-            }
-
-            return true;
-        }, MNBlockTimeKey{});
-    } else {
-        const CBlockIndex* pindex = pindexNew;
+    {
         LOCK(cs_main);
+        const CBlockIndex* pindex = pindexNew;
         for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
-            CKeyID minter;
-            if (pindex->GetBlockHeader().ExtractMinterKey(minter)) {
-                auto id = GetMasternodeIdByOperator(minter);
-                if (id) {
-                    masternodeIDs.insert(*id);
-                }
+            if (auto id = GetMasternodeIdByOperator(pindex->minterKey())) {
+                masternodeIDs.insert(*id);
             }
         }
     }
