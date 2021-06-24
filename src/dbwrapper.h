@@ -160,6 +160,7 @@ public:
 
     void Next();
     void Prev();
+    leveldb::Slice Key();
 
     template<typename K> bool GetKey(K& key) {
         leveldb::Slice slKey = piter->key();
@@ -380,6 +381,22 @@ public:
         pdb->CompactRange(&slKey1, &slKey2);
     }
 
+    /**
+    * Deletes contents of the database.
+    */
+    void Clear()
+    {
+        leveldb::WriteBatch batch;
+        auto it = NewIterator();
+
+        for (it->SeekToFirst(); it->Valid(); it->Next()) {
+            batch.Delete(it->Key());
+        }
+
+        delete it;
+
+        leveldb::Status status = pdb->Write(writeoptions, &batch);
+    }
 };
 
 #endif // DEFI_DBWRAPPER_H

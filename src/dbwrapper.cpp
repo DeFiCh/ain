@@ -238,6 +238,7 @@ bool CDBIterator::Valid() const { return piter->Valid(); }
 void CDBIterator::SeekToFirst() { piter->SeekToFirst(); }
 void CDBIterator::Next() { piter->Next(); }
 void CDBIterator::Prev() { piter->Prev(); }
+leveldb::Slice CDBIterator::Key() { return piter->key(); }
 
 namespace dbwrapper_private {
 

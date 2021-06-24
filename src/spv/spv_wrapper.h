@@ -96,6 +96,7 @@ protected:
 public:
     CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
     virtual ~CSpvWrapper();
+    void Load();
 
     virtual void Connect();
     virtual void Disconnect();
@@ -166,6 +167,9 @@ public:
     UniValue GetHTLCReceived(const std::string &addr);
     std::string GetHTLCSeed(uint8_t* md20);
     UniValue CreateHTLCTransaction(CWallet* const pwallet, const char *scriptAddress, const char *destinationAddress, const std::string& seed, uint64_t feerate, bool seller);
+
+    // Clear the database
+    void ClearDB();
 
 private:
     virtual void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise);

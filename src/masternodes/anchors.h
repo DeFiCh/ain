@@ -29,6 +29,9 @@
 
 #include <dbwrapper.h>
 
+// Anchor DB storage version, increment to wipe anchor and SPV data.
+#define ANCHOR_DB_VERSION 1
+
 class CBlockIndex;
 class CKey;
 class CPubkey;
@@ -264,6 +267,13 @@ public:
     uint256 ReadBlockHash(const uint32_t& height);
 
     AnchorRec const * GetLatestAnchorUpToDeFiHeight(THeight blockHeightDeFi) const;
+
+    // Get and set DB version
+    int GetDBVersion();
+    int SetDBVersion();
+
+    // Clear the database
+    void ClearDB();
 
 private:
     AnchorIndexImpl anchors;

@@ -1763,6 +1763,15 @@ bool AppInitMain(InitInterfaces& interfaces)
                 spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
             }
         }
+
+        if (ANCHOR_DB_VERSION != panchors->GetDBVersion()) {
+            panchors->ClearDB();
+            spv::pspv->ClearDB();
+            assert(panchors->SetDBVersion() == ANCHOR_DB_VERSION);
+            LogPrintf("Cleared anchor and SPV dasebase, DB version set to %d\n", ANCHOR_DB_VERSION);
+        }
+
+        spv::pspv->Load();
         panchors->Load();
 
     } catch (const std::exception& e) {
