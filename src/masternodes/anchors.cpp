@@ -26,7 +26,6 @@ std::unique_ptr<CAnchorIndex> panchors;
 std::unique_ptr<CAnchorAwaitingConfirms> panchorAwaitingConfirms;
 
 static const char DB_ANCHORS = 'A';
-static const char DB_VERSION = 'V';
 static const char DB_PENDING = 'p';
 static const char DB_BITCOININDEX = 'Z';  // Bitcoin height to blockhash table
 
@@ -757,21 +756,6 @@ const CAnchorIndex::AnchorRec* CAnchorIndex::GetLatestAnchorUpToDeFiHeight(THeig
     auto & index = anchors.get<AnchorRec::ByDeFiHeight>();
     auto it = index.lower_bound(blockHeightDeFi);
     return (it != index.begin()) ? &(*(--it)) : nullptr;
-}
-
-int CAnchorIndex::GetDBVersion() {
-    int version{0};
-    db->Read(DB_VERSION, version);
-    return version;
-}
-
-int CAnchorIndex::SetDBVersion() {
-    db->Write(DB_VERSION, ANCHOR_DB_VERSION);
-    return GetDBVersion();
-}
-
-void CAnchorIndex::ClearDB() {
-    db->Clear();
 }
 
 /// Validates all except tx confirmations

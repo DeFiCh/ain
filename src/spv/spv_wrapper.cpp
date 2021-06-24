@@ -59,6 +59,7 @@ std::unique_ptr<CSpvWrapper> pspv;
 // Prefixes to the masternodes database (masternodes/)
 static const char DB_SPVBLOCKS = 'B';     // spv "blocks" table
 static const char DB_SPVTXS    = 'T';     // spv "tx2msg" table
+static const char DB_VERSION   = 'V';
 
 uint64_t const DEFAULT_BTC_FEERATE = TX_FEE_PER_KB;
 uint64_t const DEFAULT_BTC_FEE_PER_KB = DEFAULT_FEE_PER_KB;
@@ -1305,8 +1306,15 @@ UniValue CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const char* 
     return result;
 }
 
-void CSpvWrapper::ClearDB() {
-    db->Clear();
+int CSpvWrapper::GetDBVersion() {
+    int version{0};
+    db->Read(DB_VERSION, version);
+    return version;
+}
+
+int CSpvWrapper::SetDBVersion() {
+    db->Write(DB_VERSION, SPV_DB_VERSION);
+    return GetDBVersion();
 }
 
 /*

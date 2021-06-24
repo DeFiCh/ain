@@ -1252,6 +1252,27 @@ bool AppInitLockDataDirectory()
     return true;
 }
 
+void SetupAnchorSPVDatabases(bool resync) {
+    // Close and open database
+    panchors.reset();
+    panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", true) && resync);
+
+    // load anchors after spv due to spv (and spv height) not set before (no last height yet)
+    if (gArgs.GetBoolArg("-spv", true)) {
+        // Close database
+        spv::pspv.reset();
+
+        // Open database based on network
+        if (Params().NetworkIDString() == "regtest") {
+            spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
+        } else if (Params().NetworkIDString() == "test" || Params().NetworkIDString() == "devnet") {
+            spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, resync);
+        } else {
+            spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, resync);
+        }
+    }
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -1746,32 +1767,18 @@ bool AppInitMain(InitInterfaces& interfaces)
         panchorauths = MakeUnique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
         panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
-        panchors.reset();
+        SetupAnchorSPVDatabases(gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
 
-        // Enable the anchors and spv by default
-        bool anchorsEnabled = true; 
-        panchors = MakeUnique<CAnchorIndex>(nDefaultDbCache << 20, false, gArgs.GetBoolArg("-spv", anchorsEnabled) && gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
-
-        // load anchors after spv due to spv (and spv height) not set before (no last height yet)
-        if (gArgs.GetBoolArg("-spv", anchorsEnabled)) {
-            spv::pspv.reset();
-            if (Params().NetworkIDString() == "regtest") {
-                spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
-            } else if (Params().NetworkIDString() == "test" || Params().NetworkIDString() == "devnet") {
-                spv::pspv = MakeUnique<spv::CSpvWrapper>(false, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
-            } else {
-                spv::pspv = MakeUnique<spv::CSpvWrapper>(true, nMinDbCache << 20, false, gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
-            }
+        // Check if DB version changed
+        if (spv::pspv && SPV_DB_VERSION != spv::pspv->GetDBVersion()) {
+            SetupAnchorSPVDatabases(true);
+            assert(spv::pspv->SetDBVersion() == SPV_DB_VERSION);
+            LogPrintf("Cleared anchor and SPV dasebase. SPV DB version set to %d\n", SPV_DB_VERSION);
         }
 
-        if (ANCHOR_DB_VERSION != panchors->GetDBVersion()) {
-            panchors->ClearDB();
-            spv::pspv->ClearDB();
-            assert(panchors->SetDBVersion() == ANCHOR_DB_VERSION);
-            LogPrintf("Cleared anchor and SPV dasebase, DB version set to %d\n", ANCHOR_DB_VERSION);
+        if (spv::pspv) {
+            spv::pspv->Load();
         }
-
-        spv::pspv->Load();
         panchors->Load();
 
     } catch (const std::exception& e) {
