@@ -661,6 +661,9 @@ UniValue listoracles(const JSONRPCRequest &request) {
                                 "Optional first key to iterate from, in lexicographical order. "
                                 "Typically it's set to last ID from previous request."
                             },
+                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                "If true, then iterate including starting position. False by default"
+                            },
                             {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                 "Maximum number of orders to return, 100 by default"
                             },
@@ -672,10 +675,15 @@ UniValue listoracles(const JSONRPCRequest &request) {
                },
                RPCExamples{
                        HelpExampleCli("listoracles", "") 
+                       + HelpExampleCli("listoracles",
+                                        "'{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", "
+                                        "\"including_start\": true, "
+                                        "\"limit\":100}')")
                        + HelpExampleRpc("listoracles", "'{}'")
-                       + HelpExampleRpc("listoracles", "'{\"start\":\"1ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\","
-                                                      "\"limit\":100"
-                                                      "}'")
+                       + HelpExampleRpc("listoracles",
+                                        "'{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", "
+                                        "\"including_start\": true, "
+                                        "\"limit\":100}')")
                },
     }.Check(request);
 
@@ -684,13 +692,20 @@ UniValue listoracles(const JSONRPCRequest &request) {
                            "Cannot create transactions while still in Initial Block Download");
     }
     // parse pagination
-    size_t limit = 100;
     COracleId start = {}; 
+    bool including_start = true;
+    size_t limit = 100;
     {
         if (request.params.size() > 0){
             UniValue paginationObj = request.params[0].get_obj();
             if (!paginationObj["start"].isNull()){
                 start = ParseHashV(paginationObj["start"], "start");
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
             }
             if (!paginationObj["limit"].isNull()){
                 limit = (size_t) paginationObj["limit"].get_int64();
@@ -722,23 +737,38 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     RPCHelpMan{"listlatestrawprices",
                "\nReturns latest raw price updates through all the oracles for specified token and currency , \n" +
                HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                       {"request", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED,
+                {
+                   {"request", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED,
                         "request in json-form, containing currency and token names",
                         {
                             {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
                             {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
                         },
-                       },
-               },
+                   },
+                   {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                                "Optional first key to iterate from, in lexicographical order. "
+                                "Typically it's set to last ID from previous request."
+                            },
+                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Maximum number of orders to return, 100 by default"
+                            },
+                        },
+                    },
+                },
                RPCResult{
                        "\"json\"                  (string) Array of json objects containing full information about token prices\n"
                },
                RPCExamples{
                        HelpExampleCli("listlatestrawprices",
                                       R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}')")
+                       + HelpExampleCli("listlatestrawprices",
+                                      R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}' '{"start": })")
                        + HelpExampleRpc("listlatestrawprices",
                                         R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}')")
+                       + HelpExampleRpc("sendtokenstoaddress", "'{\"srcAddress1\":\"2.0@DFI\", \"srcAddress2\":[\"3.0@DFI\", \"2.0@ETH\"]}' "
+                                                    "'{\"dstAddress1\":[\"5.0@DFI\", \"2.0@ETH\"]}'")
                },
     }.Check(request);
 
