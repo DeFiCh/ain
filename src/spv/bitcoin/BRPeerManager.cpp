@@ -1258,7 +1258,7 @@ static void _peerRelayedBlock(void *info, BRMerkleBlock *block)
     prev = (BRMerkleBlock *)BRSetGet(manager->blocks, &block->prevBlock);
 
     if (prev) {
-        txTime = block->timestamp/2 + prev->timestamp/2;
+        txTime = block->timestamp;
         block->height = prev->height + 1;
     }
 
