@@ -59,6 +59,7 @@ std::unique_ptr<CSpvWrapper> pspv;
 // Prefixes to the masternodes database (masternodes/)
 static const char DB_SPVBLOCKS = 'B';     // spv "blocks" table
 static const char DB_SPVTXS    = 'T';     // spv "tx2msg" table
+static const char DB_VERSION   = 'V';
 
 uint64_t const DEFAULT_BTC_FEERATE = TX_FEE_PER_KB;
 uint64_t const DEFAULT_BTC_FEE_PER_KB = DEFAULT_FEE_PER_KB;
@@ -210,7 +211,10 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
     LogPrint(BCLog::SPV, "internal logs set to %s\n", spv_logfilename);
     spv_log2console = 0;
     spv_mainnet = isMainnet ? 1 : 0;
+}
 
+void CSpvWrapper::Load()
+{
     BRMasterPubKey mpk = BR_MASTER_PUBKEY_NONE;
     mpk = BRBIP32ParseMasterPubKey(Params().GetConsensus().spv.wallet_xpub.c_str());
 
@@ -241,8 +245,8 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
     auto userAddresses = new BRUserAddresses;
     auto htlcAddresses = new BRUserAddresses;
     const auto wallets = GetWallets();
-    for (const auto& wallet : wallets) {
-        for (const auto& entry : wallet->mapAddressBook)
+    for (const auto& item : wallets) {
+        for (const auto& entry : item->mapAddressBook)
         {
             if (entry.second.purpose == "spv")
             {
@@ -1300,6 +1304,17 @@ UniValue CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const char* 
     result.pushKV("txid", txid);
     result.pushKV("sendmessage", DecodeSendResult(sendResult));
     return result;
+}
+
+int CSpvWrapper::GetDBVersion() {
+    int version{0};
+    db->Read(DB_VERSION, version);
+    return version;
+}
+
+int CSpvWrapper::SetDBVersion() {
+    db->Write(DB_VERSION, SPV_DB_VERSION);
+    return GetDBVersion();
 }
 
 /*

@@ -31,6 +31,9 @@
 
 #include <boost/thread.hpp>
 
+// Anchor DB storage version, increment to wipe anchor and SPV data.
+#define SPV_DB_VERSION 1
+
 typedef struct BRWalletStruct BRWallet;
 typedef struct BRPeerManagerStruct BRPeerManager;
 typedef struct BRMerkleBlockStruct BRMerkleBlock;
@@ -96,6 +99,7 @@ protected:
 public:
     CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
     virtual ~CSpvWrapper();
+    void Load();
 
     virtual void Connect();
     virtual void Disconnect();
@@ -166,6 +170,10 @@ public:
     UniValue GetHTLCReceived(const std::string &addr);
     std::string GetHTLCSeed(uint8_t* md20);
     UniValue CreateHTLCTransaction(CWallet* const pwallet, const char *scriptAddress, const char *destinationAddress, const std::string& seed, uint64_t feerate, bool seller);
+
+    // Get and set DB version
+    int GetDBVersion();
+    int SetDBVersion();
 
 private:
     virtual void OnSendRawTx(BRTransaction * tx, std::promise<int> * promise);
