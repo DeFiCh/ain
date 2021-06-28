@@ -281,6 +281,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listoracles", 0, "pagination" },
     { "listlatestrawprices", 0, "request" },
     { "listlatestrawprices", 1, "pagination" },
+    { "listprices", 0, "pagination" },
     { "getprice", 0, "request" },
 
     { "spv_claimhtlc", 3, "feerate" },
