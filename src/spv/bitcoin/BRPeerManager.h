@@ -130,6 +130,6 @@ void BRPeerManagerFree(BRPeerManager *manager);
 void BRPeerManagerCancelPendingTxs(BRPeerManager *manager);
 
 // Rebuild and resend the bloom filter
-void BRPeerManagerRebuildBloomFilter(BRPeerManager *manager);
+void BRPeerManagerRebuildBloomFilter(BRPeerManager *manager, bool rescan = false);
 
 #endif // BRPeerManager_h

@@ -44,7 +44,7 @@ class CCustomTxRpcVisitor : public boost::static_visitor<void>
     UniValue accountsInfo(const CAccounts& accounts) const {
         UniValue info(UniValue::VOBJ);
         for (const auto& account : accounts) {
-            info.pushKV(account.first.GetHex(), account.second.ToString());
+            info.pushKV(ScriptToString(account.first), account.second.ToString());
         }
         return info;
     }
@@ -107,12 +107,12 @@ public:
             auto amountB = *(std::next(sumTx.balances.begin(), 1));
             rpcInfo.pushKV(amountA.first.ToString(), ValueFromAmount(amountA.second));
             rpcInfo.pushKV(amountB.first.ToString(), ValueFromAmount(amountB.second));
-            rpcInfo.pushKV("shareaddress", obj.shareAddress.GetHex());
+            rpcInfo.pushKV("shareaddress", ScriptToString(obj.shareAddress));
         }
     }
 
     void operator()(const CRemoveLiquidityMessage& obj) const {
-        rpcInfo.pushKV("from", obj.from.GetHex());
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
 
@@ -121,17 +121,17 @@ public:
     }
 
     void operator()(const CAccountToUtxosMessage& obj) const {
-        rpcInfo.pushKV("from", obj.from.GetHex());
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
 
         UniValue dest(UniValue::VOBJ);
         for (uint32_t i = obj.mintingOutputsStart; i <  static_cast<uint32_t>(tx.vout.size()); i++) {
-            dest.pushKV(tx.vout[i].scriptPubKey.GetHex(), tx.vout[i].TokenAmount().ToString());
+            dest.pushKV(ScriptToString(tx.vout[i].scriptPubKey), tx.vout[i].TokenAmount().ToString());
         }
         rpcInfo.pushKV("to", dest);
     }
 
     void operator()(CAccountToAccountMessage& obj) const {
-        rpcInfo.pushKV("from", obj.from.GetHex());
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
         rpcInfo.pushKV("to", accountsInfo(obj.to));
     }
 
@@ -177,10 +177,10 @@ public:
     }
 
     void operator()(const CPoolSwapMessage& obj) const {
-        rpcInfo.pushKV("fromAddress", obj.from.GetHex());
+        rpcInfo.pushKV("fromAddress", ScriptToString(obj.from));
         rpcInfo.pushKV("fromToken", obj.idTokenFrom.ToString());
         rpcInfo.pushKV("fromAmount", ValueFromAmount(obj.amountFrom));
-        rpcInfo.pushKV("toAddress", obj.to.GetHex());
+        rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
         rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
     }

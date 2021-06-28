@@ -16,7 +16,6 @@ from test_framework.util import (
     assert_greater_than,
     assert_raises_rpc_error,
     satoshi_round,
-    softfork_active,
 )
 
 SEQUENCE_LOCKTIME_DISABLE_FLAG = (1<<31)
@@ -344,7 +343,6 @@ class BIP68Test(DefiTestFramework):
     # being run, then it's possible the test has activated the soft fork, and
     # this test should be moved to run earlier, or deleted.
     def test_bip68_not_consensus(self):
-        assert not softfork_active(self.nodes[0], 'csv')
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 2)
 
         tx1 = FromHex(CTransaction(), self.nodes[0].getrawtransaction(txid))
@@ -394,9 +392,7 @@ class BIP68Test(DefiTestFramework):
         height = self.nodes[0].getblockcount()
         assert_greater_than(min_activation_height - height, 2)
         self.nodes[0].generate(min_activation_height - height - 2)
-        assert not softfork_active(self.nodes[0], 'csv')
         self.nodes[0].generate(1)
-        assert softfork_active(self.nodes[0], 'csv')
         self.sync_blocks()
 
     # Use self.nodes[1] to test that version 2 transactions are standard.

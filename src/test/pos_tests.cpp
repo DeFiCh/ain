@@ -104,7 +104,8 @@ BOOST_AUTO_TEST_CASE(check_stake_modifier)
         prevStakeModifier);
     BOOST_CHECK(pos::CheckStakeModifier(::ChainActive().Tip(), *(CBlockHeader*)correctBlock.get()));
 
-    correctBlock->sig = {};
+    correctBlock->SetNull();
+    correctBlock->hashPrevBlock = prev_hash;
     BOOST_CHECK(!pos::CheckStakeModifier(::ChainActive().Tip(), *(CBlockHeader*)correctBlock.get()));
 }
 
