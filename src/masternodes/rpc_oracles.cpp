@@ -751,6 +751,9 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                                 "Optional first key to iterate from, in lexicographical order. "
                                 "Typically it's set to last ID from previous request."
                             },
+                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                "If true, then iterate including starting position. False by default"
+                            },
                             {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
                                 "Maximum number of orders to return, 100 by default"
                             },
@@ -764,17 +767,42 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                        HelpExampleCli("listlatestrawprices",
                                       R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}')")
                        + HelpExampleCli("listlatestrawprices",
-                                      R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}' '{"start": })")
+                                      R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}' '{"start": "b7ffdcef37be39018e8a6f846db1220b3558fd649393e9a12f935007ef3bfb8e", "including_start": true, "limit": 100}')")
                        + HelpExampleRpc("listlatestrawprices",
                                         R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}')")
-                       + HelpExampleRpc("sendtokenstoaddress", "'{\"srcAddress1\":\"2.0@DFI\", \"srcAddress2\":[\"3.0@DFI\", \"2.0@ETH\"]}' "
-                                                    "'{\"dstAddress1\":[\"5.0@DFI\", \"2.0@ETH\"]}'")
+                       + HelpExampleRpc("listlatestrawprices",
+                                        R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}' '{"start": "b7ffdcef37be39018e8a6f846db1220b3558fd649393e9a12f935007ef3bfb8e", "including_start": true, "limit": 100}')")
                },
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
 
     boost::optional<CTokenCurrencyPair> tokenPair;
+   
+    // parse pagination
+    COracleId start = {}; 
+    bool including_start = true;
+    size_t limit = 100;
+    {
+        if (request.params.size() > 1){
+            UniValue paginationObj = request.params[1].get_obj();
+            if (!paginationObj["start"].isNull()){
+                start = ParseHashV(paginationObj["start"], "start");
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
+            }
+            if (!paginationObj["limit"].isNull()){
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+        }   
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
 
     if (!request.params.empty()) {
         tokenPair = DecodeTokenCurrencyPair(request.params[0]);
@@ -818,10 +846,11 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                 auto state = diffInHour(timestamp, lastBlockTime) ? oraclefields::Alive : oraclefields::Expired;
                 value.pushKV(oraclefields::State, state);
                 result.push_back(value);
+                limit--;
             }
         }
-        return true;
-    });
+        return limit != 0;
+    }, start);
     return result;
 }
 
@@ -983,7 +1012,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices", "inputs"}},
     {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
     {"oracles",     "listoracles",           &listoracles,            {"pagination"}},
-    {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request"}},
+    {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request", "pagination"}},
     {"oracles",     "getprice",              &getprice,               {"request"}},
     {"oracles",     "listprices",            &listprices,                   {}},
 };

@@ -280,6 +280,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setoracledata", 3, "inputs" },
     { "listoracles", 0, "pagination" },
     { "listlatestrawprices", 0, "request" },
+    { "listlatestrawprices", 1, "pagination" },
     { "getprice", 0, "request" },
 
     { "spv_claimhtlc", 3, "feerate" },
