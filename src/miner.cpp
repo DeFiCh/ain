@@ -15,7 +15,6 @@
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <masternodes/anchors.h>
-#include <masternodes/criminals.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <net.h>
@@ -209,37 +208,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 pblocktemplate->vTxSigOpsCost.push_back(
                         WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
             }
-        }
-    }
-    
-    CTransactionRef criminalTx = nullptr;
-    if (fCriminals) {
-        CCriminalProofsView::CMnCriminals criminals = pcriminals->GetUnpunishedCriminals();
-        if (criminals.size() != 0) {
-            CCriminalProofsView::CMnCriminals::iterator itCriminalMN = criminals.begin();
-            auto const & proof = itCriminalMN->second;
-            CKeyID minter;
-            assert(IsDoubleSigned(proof.blockHeader, proof.conflictBlockHeader, minter));
-            // not necessary - checked by GetUnpunishedCriminals()
-//            auto itFirstMN = penhancedview->GetMasternodeIdByOperator(minter);
-//            assert(itFirstMN && (*itFirstMN) == itCriminalMN->first);
-
-            CDataStream metadata(DfCriminalTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-            metadata << proof.blockHeader << proof.conflictBlockHeader << itCriminalMN->first;
-
-            CMutableTransaction newCriminalTx(txVersion);
-            newCriminalTx.vin.resize(1);
-            newCriminalTx.vin[0].prevout.SetNull();
-            newCriminalTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-            newCriminalTx.vout.resize(1);
-            newCriminalTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-            newCriminalTx.vout[0].nValue = 0;
-
-            pblock->vtx.push_back(MakeTransactionRef(std::move(newCriminalTx)));
-            criminalTx = pblock->vtx.back();
-
-            pblocktemplate->vTxFees.push_back(0);
-            pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
         }
     }
 
@@ -702,8 +670,6 @@ namespace pos {
     Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
 
         bool found = false;
-        bool potentialCriminalBlock = false;
-
 
         // this part of code stay valid until tip got changed
 
@@ -768,20 +734,6 @@ namespace pos {
         }
 
         withSearchInterval([&](const int64_t currentTime, const int64_t lastSearchTime, const int64_t futureTime) {
-            if (fCriminals) {
-                std::map <uint256, CBlockHeader> blockHeaders{};
-                {
-                    LOCK(cs_main);
-                    pcriminals->FetchMintedHeaders(masternodeID, mintedBlocks + 1, blockHeaders, fIsFakeNet);
-                }
-                for (auto const & blockHeader : blockHeaders) {
-                    if (IsDoubleSignRestricted(blockHeader.second.height, height)) {
-                        potentialCriminalBlock = true;
-                        return;
-                    }
-                }
-            }
-
             // update last block creation attempt ts for the master node here
             {
                 CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
@@ -963,9 +915,6 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                 }
                 else if (status == Staker::Status::stakeWaiting) {
                     LogPrint(BCLog::STAKING, "ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
-                }
-                else if (status == Staker::Status::criminalWaiting) {
-                    LogPrint(BCLog::STAKING, "ThreadStaker: (%s) Potential criminal block tried to create.\n", operatorName);
                 }
             }
             catch (const std::runtime_error &e) {

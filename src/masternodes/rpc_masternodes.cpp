@@ -21,7 +21,6 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         obj.pushKV("creationHeight", node.creationHeight);
         obj.pushKV("resignHeight", node.resignHeight);
         obj.pushKV("resignTx", node.resignTx.GetHex());
-        obj.pushKV("banHeight", node.banHeight);
         obj.pushKV("banTx", node.banTx.GetHex());
         obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
@@ -39,14 +38,16 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
 
         // Only get targetMultiplier for active masternodes
         if (node.IsActive()) {
-            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress, ChainActive().Height());
+            auto currentHeight = ChainActive().Height();
+            auto usedHeight = currentHeight <= Params().GetConsensus().EunosHeight ? node.creationHeight : currentHeight;
+            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress, usedHeight);
             // No record. No stake blocks or post-fork createmastnode TX, use fork time.
             if (!stakerBlockTime) {
                 if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
                     stakerBlockTime = std::min(GetTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
                 }
             }
-            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), ChainActive().Height(), stakerBlockTime ? *stakerBlockTime : 0).getdouble());
+            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), stakerBlockTime ? *stakerBlockTime : 0).getdouble());
         }
 
         /// @todo add unlock height and|or real resign height
@@ -378,8 +379,8 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
                        "{...}     (object) Json object with block hash and height information\n"
                },
                RPCExamples{
-                       HelpExampleCli("getmasternodeblocks", "{\"ownerAddress\":\"dPyup5C9hfRd2SUC1p3a7VcjcNuGSXa9bT\"}")
-                       + HelpExampleRpc("getmasternodeblocks", "{\"ownerAddress\":\"dPyup5C9hfRd2SUC1p3a7VcjcNuGSXa9bT\"}")
+                       HelpExampleCli("getmasternodeblocks", R"('{"ownerAddress":"dPyup5C9hfRd2SUC1p3a7VcjcNuGSXa9bT"}')")
+                       + HelpExampleRpc("getmasternodeblocks", R"({"ownerAddress":"dPyup5C9hfRd2SUC1p3a7VcjcNuGSXa9bT"})")
                },
     }.Check(request);
 
@@ -471,83 +472,12 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
     auto tip = ::ChainActive()[std::min(lastHeight, uint64_t(Params().GetConsensus().DakotaCrescentHeight)) - 1];
 
     for (; tip && tip->height > creationHeight && depth > 0; tip = tip->pprev, --depth) {
-        CKeyID minter;
-        if (tip->GetBlockHeader().ExtractMinterKey(minter)) {
-            auto id = pcustomcsview->GetMasternodeIdByOperator(minter);
-            if (id && *id == mn_id) {
-                ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
-            }
+        auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
+        if (id && *id == mn_id) {
+            ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
         }
     }
 
-    return ret;
-}
-
-UniValue listcriminalproofs(const JSONRPCRequest& request)
-{
-    RPCHelpMan{"listcriminalproofs",
-               "\nReturns information about criminal proofs (pairs of signed blocks by one MN from different forks).\n",
-               {
-                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                         {
-                             {"start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
-                              "Optional first key to iterate from, in lexicographical order."
-                              "Typically it's set to last ID from previous request."},
-                             {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                              "If true, then iterate including starting position. False by default"},
-                             {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                              "Maximum number of orders to return, 100 by default"},
-                         },
-                    },
-               },
-               RPCResult{
-                       "{id:{block1, block2},...}     (array) Json objects with block pairs\n"
-               },
-               RPCExamples{
-                       HelpExampleCli("listcriminalproofs", "")
-                       + HelpExampleRpc("listcriminalproofs", "")
-               },
-    }.Check(request);
-
-    // parse pagination
-    size_t limit = 100;
-    uint256 start = {};
-    bool including_start = true;
-    {
-        if (request.params.size() > 0) {
-            UniValue paginationObj = request.params[0].get_obj();
-            if (!paginationObj["limit"].isNull()) {
-                limit = (size_t) paginationObj["limit"].get_int64();
-            }
-            if (!paginationObj["start"].isNull()) {
-                including_start = false;
-                start = ParseHashV(paginationObj["start"], "start");
-            }
-            if (!paginationObj["including_start"].isNull()) {
-                including_start = paginationObj["including_start"].getBool();
-            }
-            if (!including_start) {
-                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
-            }
-        }
-        if (limit == 0) {
-            limit = std::numeric_limits<decltype(limit)>::max();
-        }
-    }
-
-    LOCK(cs_main);
-
-    UniValue ret(UniValue::VOBJ);
-    auto const proofs = pcriminals->GetUnpunishedCriminals();
-    for (auto it = proofs.lower_bound(start); it != proofs.end() && limit != 0; ++it, --limit) {
-        UniValue obj(UniValue::VOBJ);
-        obj.pushKV("hash1", it->second.blockHeader.GetHash().ToString());
-        obj.pushKV("height1", it->second.blockHeader.height);
-        obj.pushKV("hash2", it->second.conflictBlockHeader.GetHash().ToString());
-        obj.pushKV("height2", it->second.conflictBlockHeader.height);
-        obj.pushKV("mintedBlocks", it->second.blockHeader.mintedBlocks);
-        ret.pushKV(it->first.ToString(), obj);
-    }
     return ret;
 }
 
@@ -645,15 +575,11 @@ UniValue getactivemasternodecount(const JSONRPCRequest& request)
 
     std::set<uint256> masternodes;
 
+    LOCK(cs_main);
     // Get active MNs from last week's worth of blocks
     for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
-        CKeyID minter;
-        if (pindex->GetBlockHeader().ExtractMinterKey(minter)) {
-            LOCK(cs_main);
-            auto id = pcustomcsview->GetMasternodeIdByOperator(minter);
-            if (id) {
-                masternodes.insert(*id);
-            }
+        if (auto id = pcustomcsview->GetMasternodeIdByOperator(pindex->minterKey())) {
+            masternodes.insert(*id);
         }
     }
 
@@ -715,7 +641,6 @@ static const CRPCCommand commands[] =
     {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
     {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
     {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},
-    {"masternodes", "listcriminalproofs",    &listcriminalproofs,    {}},
     {"masternodes", "getanchorteams",        &getanchorteams,        {"blockHeight"}},
     {"masternodes", "getactivemasternodecount",  &getactivemasternodecount,  {"blockCount"}},
     {"masternodes", "listanchors",           &listanchors,           {}},

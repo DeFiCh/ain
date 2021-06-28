@@ -12,6 +12,7 @@
 #include <streams.h>
 #include <script/standard.h>
 #include <spv/spv_wrapper.h>
+#include <timedata.h>
 #include <util/system.h>
 #include <util/validation.h>
 #include <validation.h>
@@ -288,6 +289,12 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(CTxDestination const & rewardDest) co
             if (count >= quorum) {
                 KList::iterator it0, it0Copy, it1;
                 std::tie(it0,it1) = list.equal_range(std::make_tuple(curHeight, curSignHash));
+
+                // Fix to avoid "Anchor too new" error until F hard fork
+                auto anchorIndex = ::ChainActive()[it0->height];
+                if (!anchorIndex || anchorIndex->nTime + Params().GetConsensus().mn.anchoringTimeDepth > GetAdjustedTime()) {
+                    continue;
+                }
 
                 uint32_t validCount{0};
                 it0Copy = it0;
@@ -1084,7 +1091,7 @@ std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const C
     for (auto it = list.begin(); it != list.end(); /* w/o advance! */) {
         // get next group of confirms
         KList::iterator it0, it1;
-        std::tie(it0,it1) = list.equal_range(std::make_tuple(it->btcTxHash, it->GetSignHash()));
+        std::tie(it0,it1) = list.equal_range(std::make_tuple(it->btcTxHeight, it->GetSignHash()));
         if (std::distance(it0,it1) >= quorum) {
             result.clear();
             for (; result.size() < quorum && it0 != it1; ++it0) {

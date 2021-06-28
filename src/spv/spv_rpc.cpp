@@ -895,6 +895,17 @@ UniValue spv_createhtlc(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
     }
 
+    // Check that we are connected
+    if (!spv::pspv->IsConnected()) {
+        throw JSONRPCError(RPC_MISC_ERROR, "spv not connected");
+    }
+
+    // Make sure we are fully synced
+    if (spv::pspv->GetLastBlockHeight() < spv::pspv->GetEstimatedBlockHeight()) {
+        auto blocksRemaining = std::to_string(spv::pspv->GetEstimatedBlockHeight() -spv::pspv->GetLastBlockHeight());
+        throw JSONRPCError(RPC_MISC_ERROR, "spv still syncing, " + blocksRemaining + " blocks left.");
+    }
+
     std::vector<unsigned char> hashBytes;
     CKeyingMaterial seed;
 
@@ -942,10 +953,7 @@ UniValue spv_createhtlc(const JSONRPCRequest& request)
 
     // Add to SPV to watch transactions to this script
     spv::pspv->AddBitcoinHash(scriptHash, true);
-    spv::pspv->RebuildBloomFilter();
-
-    // Rescan negative blocks deep in case we are importing after Bitcoin send
-    spv::pspv->Rescan(-blocks);
+    spv::pspv->RebuildBloomFilter(true);
 
     // Create Bitcoin address
     std::vector<unsigned char> data(21, spv::pspv->GetP2SHPrefix());

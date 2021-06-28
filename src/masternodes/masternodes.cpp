@@ -4,7 +4,6 @@
 
 #include <masternodes/masternodes.h>
 #include <masternodes/anchors.h>
-#include <masternodes/criminals.h>
 #include <masternodes/mn_checks.h>
 
 #include <chainparams.h>
@@ -99,7 +98,7 @@ CMasternode::CMasternode()
     , operatorType(0)
     , creationHeight(0)
     , resignHeight(-1)
-    , banHeight(-1)
+    , unusedVariable(-1)
     , resignTx()
     , banTx()
 {
@@ -112,9 +111,7 @@ CMasternode::State CMasternode::GetState() const
 
 CMasternode::State CMasternode::GetState(int height) const
 {
-    assert (banHeight == -1 || resignHeight == -1); // mutually exclusive!: ban XOR resign
-
-    if (resignHeight == -1 && banHeight == -1) { // enabled or pre-enabled
+    if (resignHeight == -1) { // enabled or pre-enabled
         // Special case for genesis block
         if (creationHeight == 0 || height >= creationHeight + GetMnActivationDelay(height)) {
             return State::ENABLED;
@@ -127,12 +124,6 @@ CMasternode::State CMasternode::GetState(int height) const
         }
         return State::RESIGNED;
     }
-    if (banHeight != -1) { // pre-banned or banned
-        if (height < banHeight + GetMnResignDelay(height)) {
-            return State::PRE_BANNED;
-        }
-        return State::BANNED;
-    }
     return State::UNKNOWN;
 }
 
@@ -144,7 +135,7 @@ bool CMasternode::IsActive() const
 bool CMasternode::IsActive(int height) const
 {
     State state = GetState(height);
-    return state == ENABLED || state == PRE_RESIGNED || state == PRE_BANNED;
+    return state == ENABLED || state == PRE_RESIGNED;
 }
 
 std::string CMasternode::GetHumanReadableState(State state)
@@ -158,10 +149,6 @@ std::string CMasternode::GetHumanReadableState(State state)
             return "PRE_RESIGNED";
         case RESIGNED:
             return "RESIGNED";
-        case PRE_BANNED:
-            return "PRE_BANNED";
-        case BANNED:
-            return "BANNED";
         default:
             return "UNKNOWN";
     }
@@ -176,25 +163,13 @@ bool operator==(CMasternode const & a, CMasternode const & b)
             a.operatorAuthAddress == b.operatorAuthAddress &&
             a.creationHeight == b.creationHeight &&
             a.resignHeight == b.resignHeight &&
-            a.banHeight == b.banHeight &&
+            a.unusedVariable == b.unusedVariable &&
             a.resignTx == b.resignTx &&
             a.banTx == b.banTx
             );
 }
 
 bool operator!=(CMasternode const & a, CMasternode const & b)
-{
-    return !(a == b);
-}
-
-bool operator==(CDoubleSignFact const & a, CDoubleSignFact const & b)
-{
-    return (a.blockHeader.GetHash() == b.blockHeader.GetHash() &&
-            a.conflictBlockHeader.GetHash() == b.conflictBlockHeader.GetHash()
-    );
-}
-
-bool operator!=(CDoubleSignFact const & a, CDoubleSignFact const & b)
 {
     return !(a == b);
 }
@@ -252,45 +227,6 @@ void CMasternodesView::DecrementMintedBy(const CKeyID & minter)
     assert(node);
     --node->mintedBlocks;
     WriteBy<ID>(*nodeId, *node);
-}
-
-bool CMasternodesView::BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height)
-{
-    std::pair<CBlockHeader, CBlockHeader> criminal;
-    uint256 nodeId;
-    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> criminal.first >> criminal.second >> nodeId; // mnid is totally unnecessary!
-
-    CKeyID minter;
-    if (IsDoubleSigned(criminal.first, criminal.second, minter)) {
-        auto node = GetMasternode(nodeId);
-        if (node && node->operatorAuthAddress == minter && node->banTx.IsNull()) {
-            node->banTx = txid;
-            node->banHeight = height;
-            WriteBy<ID>(nodeId, *node);
-
-            return true;
-        }
-    }
-    return false;
-}
-
-bool CMasternodesView::UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata)
-{
-    std::pair<CBlockHeader, CBlockHeader> criminal;
-    uint256 nodeId;
-    CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
-    ss >> criminal.first >> criminal.second >> nodeId; // mnid is totally unnecessary!
-
-    // there is no need to check doublesigning or smth, we just rolling back previously approved (or ignored) banTx!
-    auto node = GetMasternode(nodeId);
-    if (node && node->banTx == txid) {
-        node->banTx = {};
-        node->banHeight = -1;
-        WriteBy<ID>(nodeId, *node);
-        return true;
-    }
-    return false;
 }
 
 boost::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOperator() const
@@ -641,29 +577,12 @@ void CCustomCSView::CalcAnchoringTeams(const uint256 & stakeModifier, const CBlo
     std::set<uint256> masternodeIDs;
     const int blockSample = 7 * Params().GetConsensus().blocksPerDay(); // One week
 
-    // Get active MNs from last week's worth of blocks
-    if (pindexNew->nHeight >= Params().GetConsensus().DakotaCrescentHeight + blockSample) {
-        ForEachMinterNode([&](MNBlockTimeKey const & key, CLazySerialize<int64_t>) {
-            if (key.blockHeight >= pindexNew->nHeight - blockSample && key.blockHeight <= pindexNew->nHeight) {
-                auto node = GetMasternode(key.masternodeID);
-                assert(node);
-                if (node->creationHeight != key.blockHeight) {
-                    masternodeIDs.insert(key.masternodeID);
-                }
-            }
-
-            return true;
-        }, MNBlockTimeKey{});
-    } else {
-        const CBlockIndex* pindex = pindexNew;
+    {
         LOCK(cs_main);
+        const CBlockIndex* pindex = pindexNew;
         for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
-            CKeyID minter;
-            if (pindex->GetBlockHeader().ExtractMinterKey(minter)) {
-                auto id = GetMasternodeIdByOperator(minter);
-                if (id) {
-                    masternodeIDs.insert(*id);
-                }
+            if (auto id = GetMasternodeIdByOperator(pindex->minterKey())) {
+                masternodeIDs.insert(*id);
             }
         }
     }
@@ -749,7 +668,7 @@ bool CCustomCSView::CanSpend(const uint256 & txId, int height) const
     // check if it was mn collateral and mn was resigned or banned
     if (node) {
         auto state = node->GetState(height);
-        return state == CMasternode::RESIGNED || state == CMasternode::BANNED;
+        return state == CMasternode::RESIGNED;
     }
     // check if it was token collateral and token already destroyed
     /// @todo token check for total supply/limit when implemented

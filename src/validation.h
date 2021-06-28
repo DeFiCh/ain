@@ -37,7 +37,6 @@
 class CAnchorConfirmMessage;
 struct CBalances;
 class CChainState;
-class CDoubleSignFact;
 class CCustomCSView;
 class CBlockIndex;
 class CBlockTreeDB;
@@ -183,7 +182,6 @@ extern bool fPruneMode;
 extern uint64_t nPruneTarget;
 /** Flag to skip PoS-related checks (regtest only) */
 extern bool fIsFakeNet;
-extern bool fCriminals;
 
 namespace spv {
     class CSpvWrapper;
@@ -706,9 +704,9 @@ public:
     bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, const CChainParams& chainparams, CBlockIndex** ppindex, bool fRequested, const FlatFilePos* dbp, bool* fNewBlock) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block (dis)connection on a given view:
-    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& cache, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms, std::map<uint256, CDoubleSignFact> & disconnectedCriminals);
+    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& cache, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                      CCoinsViewCache& view, CCustomCSView& cache, const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, std::vector<uint256> & bannedCriminals, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+                      CCoinsViewCache& view, CCustomCSView& cache, const CChainParams& chainparams, std::vector<uint256> & rewardedAnchors, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Apply the effects of a block disconnection on the UTXO set.
     bool DisconnectTip(CValidationState& state, const CChainParams& chainparams, DisconnectedBlockTransactions* disconnectpool) EXCLUSIVE_LOCKS_REQUIRED(cs_main, ::mempool.cs);

@@ -28,8 +28,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chainparams -> masternodes/mn_checks -> masternodes/anchors -> chainparams"
     "consensus/tx_verify -> masternodes/masternodes -> validation -> consensus/tx_verify"
     "consensus/tx_verify -> masternodes/mn_checks -> txmempool -> consensus/tx_verify"
-    "masternodes/criminals -> masternodes/masternodes -> masternodes/criminals"
-    "masternodes/criminals -> masternodes/masternodes -> validation -> masternodes/criminals"
     "masternodes/govvariables/lp_daily_dfi_reward -> masternodes/gv -> masternodes/govvariables/lp_daily_dfi_reward"
     "masternodes/govvariables/lp_daily_dfi_reward -> masternodes/masternodes -> validation -> masternodes/govvariables/lp_daily_dfi_reward"
     "masternodes/govvariables/lp_splits -> masternodes/gv -> masternodes/govvariables/lp_splits"

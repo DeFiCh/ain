@@ -341,4 +341,50 @@ BOOST_AUTO_TEST_CASE(Test_GetLatestAnchorUpToDeFiHeight)
     BOOST_CHECK(falbackAnchor->anchor.height < 45);
 }
 
+// Check order of anchor payment
+BOOST_AUTO_TEST_CASE(Test_AnchorConfirmationOrder)
+{
+    // Team and private keys
+    std::vector<CKey> signers;
+    CAnchorData::CTeam team;
+
+    // Generate keys and populate team
+    for (int i{0}; i < 5; ++i) {
+        CKey key;
+        key.MakeNewKey(true);
+        signers.push_back(key);
+        team.insert(key.GetPubKey().GetID());
+    }
+
+    // Create confirm data
+    CAnchorConfirmData confirm{uint256S(std::string(64, '9')), 0, 0, CKeyID(), 1};
+    CAnchorConfirmDataPlus confirmPlus{confirm};
+
+    // Create 16 signed confirms that meet quorum
+    const std::string digits = "0123456789ABCDEF";
+    for (std::string::size_type j{1}; j <= digits.size(); ++j) {
+        // Previous system organised on TX hash. Set lowest hash to highest height for tests.
+        confirmPlus.btcTxHash = uint256S(std::string(64, digits[digits.size() - j]));
+
+        // New system organises by TX height, lowest first.
+        confirmPlus.btcTxHeight = j * 1000;
+
+        // Sign with every key to meet quorum
+        for (const auto& signee : signers) {
+            CAnchorConfirmMessage confirmMsg{confirmPlus};
+            signee.SignCompact(confirmMsg.GetSignHash(), confirmMsg.signature);
+            panchorAwaitingConfirms->Add(confirmMsg);
+        }
+    }
+
+    // Get results
+    auto result = panchorAwaitingConfirms->GetQuorumFor(team);
+
+    // First result that meets quorum is return, no others.
+    BOOST_CHECK_EQUAL(result.size(), 1);
+
+    // Expect to get lowset BTC height first, not lowest TX hash which would be block 16,000.
+    BOOST_CHECK_EQUAL(result[0].btcTxHeight, 1000);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

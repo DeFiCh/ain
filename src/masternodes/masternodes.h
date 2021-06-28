@@ -48,8 +48,6 @@ public:
         ENABLED,
         PRE_RESIGNED,
         RESIGNED,
-        PRE_BANNED,
-        BANNED,
         UNKNOWN // unreachable
     };
 
@@ -68,8 +66,8 @@ public:
     int32_t creationHeight;
     //! Resign height
     int32_t resignHeight;
-    //! Criminal ban height
-    int32_t banHeight;
+    //! Was used to set a ban height but is now unused
+    int32_t unusedVariable;
 
     //! This fields are for transaction rollback (by disconnecting block)
     uint256 resignTx;
@@ -98,7 +96,7 @@ public:
 
         READWRITE(creationHeight);
         READWRITE(resignHeight);
-        READWRITE(banHeight);
+        READWRITE(unusedVariable);
 
         READWRITE(resignTx);
         READWRITE(banTx);
@@ -145,9 +143,6 @@ public:
 
     void IncrementMintedBy(CKeyID const & minter);
     void DecrementMintedBy(CKeyID const & minter);
-
-    bool BanCriminal(const uint256 txid, std::vector<unsigned char> & metadata, int height);
-    bool UnbanCriminal(const uint256 txid, std::vector<unsigned char> & metadata);
 
     boost::optional<std::pair<CKeyID, uint256>> AmIOperator() const;
     boost::optional<std::pair<CKeyID, uint256>> AmIOwner() const;

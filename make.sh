@@ -166,7 +166,7 @@ docker_build() {
         echo "> building: ${img}"
         local docker_file="${dockerfiles_dir}/${target}.dockerfile"
         echo "> docker build: ${img}"
-        docker build --build-arg BUILD_VERSION=${IMAGE_VERSION} -f "${docker_file}" -t "${img}" "${docker_context}"
+        docker build -f "${docker_file}" -t "${img}" "${docker_context}"
     done
 }
 

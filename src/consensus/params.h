@@ -151,9 +151,9 @@ struct Params {
         CAmount collateralAmount;
         CAmount collateralAmountDakota;
         int activationDelay;
-        int resignDelay; // same delay for criminal ban
+        int resignDelay;
         int newActivationDelay;
-        int newResignDelay; // same delay for criminal ban
+        int newResignDelay;
         int anchoringTeamSize;
         int anchoringFrequency; // create every Nth block
 
