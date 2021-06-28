@@ -95,8 +95,8 @@ UniValue createcfp(const JSONRPCRequest& request)
 
     if (!data["cycles"].isNull()) {
         cycles = data["cycles"].get_int();
-        if (cycles > 3 || cycles <= 0) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "<cycles> should be between 1 and 3");
+        if (cycles > 3 || cycles < 1) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("<cycles> should be between 1 and %d", int(MAX_CYCLES)));
         }
     }
 

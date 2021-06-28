@@ -1662,8 +1662,8 @@ public:
         if (obj.title.size() > 128) {
             return Res::Err("proposal title cannot be more than 128 bytes");
         }
-        if (obj.nCycles < 1 || obj.nCycles > 3) {
-            return Res::Err("proposal cycles can be 1, 2 or 3");
+        if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES) {
+            return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
         }
         if (obj.blocksCount < 0 || obj.blocksCount > 3 * consensus.props.votingPeriod) {
             return Res::Err("finalized after is out of range");
