@@ -2260,11 +2260,36 @@ TAmounts CWalletTx::GetCredit(interfaces::Chain::Lock& locked_chain, const ismin
     return credit;
 }
 
-CAmount CWalletTx::GetImmatureCredit(interfaces::Chain::Lock& locked_chain, bool fUseCache) const
+CAmount CWalletTx::GetImmatureCredit(interfaces::Chain::Lock& locked_chain, bool fUseCache, const isminefilter& filter) const
 {
+    if (pwallet == nullptr)
+        return 0;
+
     if (IsImmatureCoinBase(locked_chain) && IsInMainChain(locked_chain) && !pwallet->chain().mnExists(GetHash())) { /// @todo tokens: assume tokens collaterals?
-        auto amounts = GetCachableAmounts(IMMATURE_CREDIT, ISMINE_SPENDABLE, !fUseCache);
-        return amounts.find(DCT_ID{0}) == amounts.end() ? 0 : amounts.at(DCT_ID{0});
+        if (!fUseCache || !m_amounts[IMMATURE_CREDIT].IsSet(filter)) {
+
+            auto optHeight = locked_chain.getHeight();
+            auto blockHeight = locked_chain.getBlockHeight(hashBlock);
+            bool const foundationSpend = optHeight && *optHeight >= Params().GetConsensus().FortCanningHeight
+                                    && blockHeight && *blockHeight < Params().GetConsensus().FortCanningHeight;
+
+            TAmounts nCredit;
+            for (unsigned int i = 0; i < tx->vout.size(); i++)
+            {
+                if (i == 1 && foundationSpend) {
+                    continue;
+                }
+
+                auto const amount = pwallet->GetCredit(tx->vout[i], filter);
+                nCredit[amount.nTokenId] += amount.nValue;
+                if (!MoneyRange(nCredit.at(amount.nTokenId)))
+                    throw std::runtime_error(std::string(__func__) + " : value out of range");
+            }
+
+            m_amounts[IMMATURE_CREDIT].Set(filter, std::move(nCredit));
+        }
+        auto& amounts = m_amounts[IMMATURE_CREDIT].Get(filter);
+        return amounts.count(DCT_ID{0}) ? amounts.at(DCT_ID{0}) : 0;
     }
 
     return 0;
@@ -2291,11 +2316,14 @@ TAmounts CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, bo
     uint256 hashTx = GetHash();
 
     auto optHeight = locked_chain.getHeight();
+    auto blockHeight = locked_chain.getBlockHeight(hashBlock);
     bool const lockedCollateral = optHeight && !pwallet->chain().mnCanSpend(hashTx, *optHeight);
+    bool const foundationSpend = optHeight && *optHeight >= Params().GetConsensus().FortCanningHeight
+                            && blockHeight && *blockHeight < Params().GetConsensus().FortCanningHeight;
 
     for (unsigned int i = 0; i < tx->vout.size(); i++)
     {
-        if (i == 1 && lockedCollateral) {
+        if (i == 1 && (lockedCollateral || foundationSpend)) {
             continue;
         }
 
@@ -2314,16 +2342,6 @@ TAmounts CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, bo
     }
 
     return nCredit;
-}
-
-CAmount CWalletTx::GetImmatureWatchOnlyCredit(interfaces::Chain::Lock& locked_chain, const bool fUseCache) const
-{
-    if (IsImmatureCoinBase(locked_chain) && IsInMainChain(locked_chain)) {
-        auto amounts = GetCachableAmounts(IMMATURE_CREDIT, ISMINE_WATCH_ONLY, !fUseCache);
-        return amounts.find(DCT_ID{0}) == amounts.end() ? 0 : amounts.at(DCT_ID{0});
-    }
-
-    return 0;
 }
 
 TAmounts CWalletTx::GetChange() const
@@ -2465,8 +2483,8 @@ CWallet::Balance CWallet::GetBalance(const int min_depth, bool avoid_reuse) cons
                 Increment(ret.m_mine_untrusted_pending, tx_credit_mine);
                 Increment(ret.m_watchonly_untrusted_pending, tx_credit_watchonly);
             }
-            ret.m_mine_immature += wtx.GetImmatureCredit(*locked_chain);
-            ret.m_watchonly_immature += wtx.GetImmatureWatchOnlyCredit(*locked_chain);
+            ret.m_mine_immature += wtx.GetImmatureCredit(*locked_chain,  /* fUseCache */ false, ISMINE_SPENDABLE);
+            ret.m_watchonly_immature += wtx.GetImmatureCredit(*locked_chain,  /* fUseCache */ false, ISMINE_WATCH_ONLY);
         }
     }
     return ret;
@@ -2563,7 +2581,10 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
         }
 
         auto optHeight = locked_chain.getHeight();
+        auto blockHeight = locked_chain.getBlockHeight(wtx.hashBlock);
         bool const lockedCollateral = optHeight && !chain().mnCanSpend(wtx.tx->GetHash(), *optHeight);
+        bool const foundationSpend = optHeight && *optHeight >= Params().GetConsensus().FortCanningHeight
+                                && blockHeight && *blockHeight < Params().GetConsensus().FortCanningHeight;
 
         for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
             if (wtx.tx->vout[i].nValue < nMinimumAmount || wtx.tx->vout[i].nValue > nMaximumAmount)
@@ -2591,7 +2612,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
                 continue;
             }
 
-            if (i == 1 && lockedCollateral) {
+            if (i == 1 && (lockedCollateral || foundationSpend)) {
                 continue;
             }
 
@@ -3935,12 +3956,22 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances(interfaces::Chain:
             if (nDepth < (wtx.IsFromMe(ISMINE_ALL) ? 0 : 1))
                 continue;
 
+            auto optHeight = locked_chain.getHeight();
+            auto blockHeight = locked_chain.getBlockHeight(wtx.hashBlock);
+            bool const lockedCollateral = optHeight && !chain().mnCanSpend(wtx.GetHash(), *optHeight);
+            bool const foundationSpend = optHeight && *optHeight >= Params().GetConsensus().FortCanningHeight
+                                    && blockHeight && *blockHeight < Params().GetConsensus().FortCanningHeight;
+
             for (unsigned int i = 0; i < wtx.tx->vout.size(); i++)
             {
-                CTxDestination addr;
                 if (!IsMine(wtx.tx->vout[i]))
                     continue;
-                if(!ExtractDestination(wtx.tx->vout[i].scriptPubKey, addr))
+
+                CTxDestination addr;
+                if (!ExtractDestination(wtx.tx->vout[i].scriptPubKey, addr))
+                    continue;
+
+                if (i == 1 && (lockedCollateral || foundationSpend))
                     continue;
 
                 CAmount n = IsSpent(locked_chain, wtx.GetHash(), i) ? 0 : wtx.tx->vout[i].nValue;

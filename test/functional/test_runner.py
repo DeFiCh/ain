@@ -158,6 +158,7 @@ BASE_SCRIPTS = [
     'feature_icx_orderbook.py',
     'feature_icx_orderbook_errors.py',
     'feature_any_accounts_to_accounts.py',
+    'feature_community_development_funds.py',
     'feature_sendtokenstoaddress.py',
     'feature_poolswap.py',
     'feature_poolswap_mechanism.py',
