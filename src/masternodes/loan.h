@@ -1,12 +1,8 @@
 #ifndef DEFI_MASTERNODES_LOAN_H
 #define DEFI_MASTERNODES_LOAN_H
 
-#include <tuple>
-
 #include <amount.h>
-#include <pubkey.h>
 #include <uint256.h>
-#include <script/script.h>
 
 #include <flushablestorage.h>
 #include <masternodes/res.h>

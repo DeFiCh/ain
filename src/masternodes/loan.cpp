@@ -1,6 +1,4 @@
 #include <masternodes/loan.h>
-#include <rpc/util.h> /// AmountFromValue
-#include <core_io.h> /// ValueFromAmount
 
 const unsigned char CLoanView::LoanSetCollateralTokenCreationTx           ::prefix = 0x10;
 const unsigned char CLoanView::LoanSetCollateralTokenKey                  ::prefix = 0x11;
