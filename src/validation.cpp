@@ -480,23 +480,6 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
     return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata);
 }
 
-// foundation coins are locked, thus they are unspendable
-bool IsFoundationInputsLocked(const CTransaction &tx, const CCoinsViewCache &inputs)
-{
-    Coin coin;
-    for(size_t i = 0; i < tx.vin.size(); ++i)
-    {
-        if (inputs.GetCoin(tx.vin[i].prevout, coin)
-        && coin.nHeight < Params().GetConsensus().FortCanningHeight
-        && coin.out.scriptPubKey == Params().GetConsensus().foundationShareScript)
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 /**
  * @param[out] coins_to_uncache   Return any outpoints which were not previously present in the
  *                                coins cache, but were added as a result of validating the tx
@@ -904,13 +887,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         if (!CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
-        }
-
-        if (height >= chainparams.GetConsensus().FortCanningHeight) {
-            if (IsFoundationInputsLocked(tx, view)) {
-                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY,
-                                     error("foundation coins are locked"), REJECT_INVALID, "bad-tx-foundation-inputs-locked");
-            }
         }
 
         if (test_accept) {
@@ -1440,7 +1416,7 @@ bool CheckBurnSpend(const CTransaction &tx, const CCoinsViewCache &inputs)
     {
         if (inputs.GetCoin(tx.vin[i].prevout, coin)
         && (coin.out.scriptPubKey == Params().GetConsensus().burnAddress
-        || (coin.nHeight >= Params().GetConsensus().FortCanningHeight
+        || (coin.nHeight > Params().GetConsensus().FortCanningHeight
         && coin.out.scriptPubKey == Params().GetConsensus().foundationShareScript)))
         {
             return false;
@@ -1776,7 +1752,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 // Check for burn outputs
                 if (tx.vout[o].scriptPubKey == Params().GetConsensus().burnAddress
-                || (pindex->nHeight >= Params().GetConsensus().FortCanningHeight
+                || (pindex->nHeight > Params().GetConsensus().FortCanningHeight
                 && tx.vout[o].scriptPubKey == Params().GetConsensus().foundationShareScript))
                 {
                     eraseBurnEntries.push_back({tx.vout[o].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
@@ -2493,13 +2469,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     tx.GetHash().ToString(), FormatStateMessage(state));
             }
 
-            if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
-                if (IsFoundationInputsLocked(tx, view)) {
-                    return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                         error("ConnectBlock(): Foundation coins are locked"), REJECT_INVALID, "bad-tx-foundation-inputs-locked");
-                }
-            }
-
             const auto res = ApplyCustomTx(accountsView, view, tx, chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), i, paccountHistoryDB.get(), pburnHistoryDB.get());
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight) {
@@ -2559,7 +2528,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         for (uint32_t j = 0; j < tx.vout.size(); ++j)
         {
             if (tx.vout[j].scriptPubKey == Params().GetConsensus().burnAddress
-            || (pindex->nHeight >= Params().GetConsensus().FortCanningHeight
+            || (pindex->nHeight > Params().GetConsensus().FortCanningHeight
             && tx.vout[j].scriptPubKey == Params().GetConsensus().foundationShareScript))
             {
                 writeBurnEntries.push_back({{tx.vout[j].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), i},
@@ -2625,32 +2594,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     view.SetBestBlock(pindex->GetBlockHash());
 
     if (pindex->nHeight == chainparams.GetConsensus().FortCanningHeight) {
-        CBlock block;
-        CAmount amount = 0;
-        auto& consensus = chainparams.GetConsensus();
-
-        if (chainparams.NetworkIDString() != CBaseChainParams::REGTEST || gArgs.GetBoolArg("-subsidytest", false)) {
-            auto blockRewardEunos = GetBlockSubsidy(consensus.EunosHeight, consensus);
-            amount += (consensus.FortCanningHeight - consensus.EunosHeight)
-                   * CalculateCoinbaseReward(blockRewardEunos, consensus.dist.community);
-
-            auto blockRewardAMK = GetBlockSubsidy(consensus.AMKHeight, consensus);
-            amount += (consensus.EunosHeight - consensus.AMKHeight)
-                   * (blockRewardAMK * consensus.foundationShareDFIP1 / COIN);
-
-            // sum coins prior AMKHeight
-            for (auto pidx = ChainActive()[consensus.AMKHeight - 1]; pidx; pidx = pidx->pprev) {
-                if (!ReadBlockFromDisk(block, pidx, consensus)) {
-                    continue;
-                }
-                Coin coin;
-                const auto& tx = block.vtx[0];
-                // foundationShareScript is always 1 output
-                if (view.GetCoin({tx->GetHash(), 1}, coin)) {
-                    amount += coin.out.nValue;
-                }
-            }
-            mnview.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, amount);
+        auto balance = mnview.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+        if (balance.nValue > 0) {
+            mnview.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+            mnview.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
         }
     }
 
