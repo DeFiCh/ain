@@ -1415,9 +1415,7 @@ bool CheckBurnSpend(const CTransaction &tx, const CCoinsViewCache &inputs)
     for(size_t i = 0; i < tx.vin.size(); ++i)
     {
         if (inputs.GetCoin(tx.vin[i].prevout, coin)
-        && (coin.out.scriptPubKey == Params().GetConsensus().burnAddress
-        || (coin.nHeight > Params().GetConsensus().FortCanningHeight
-        && coin.out.scriptPubKey == Params().GetConsensus().foundationShareScript)))
+        && coin.out.scriptPubKey == Params().GetConsensus().burnAddress)
         {
             return false;
         }
@@ -1751,9 +1749,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 }
 
                 // Check for burn outputs
-                if (tx.vout[o].scriptPubKey == Params().GetConsensus().burnAddress
-                || (pindex->nHeight > Params().GetConsensus().FortCanningHeight
-                && tx.vout[o].scriptPubKey == Params().GetConsensus().foundationShareScript))
+                if (tx.vout[o].scriptPubKey == Params().GetConsensus().burnAddress)
                 {
                     eraseBurnEntries.push_back({tx.vout[o].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
                 }
@@ -1816,10 +1812,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     for (const auto& entries : eraseBurnEntries)
     {
         pburnHistoryDB->EraseAccountHistory(entries);
-    }
-
-    if (pindex->nHeight == Params().GetConsensus().FortCanningHeight) {
-        mnview.SetCommunityBalance(CommunityAccountType::CommunityDevFunds, 0);
     }
 
     // move best block pointer to prevout block
@@ -2527,9 +2519,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // Search for burn outputs
         for (uint32_t j = 0; j < tx.vout.size(); ++j)
         {
-            if (tx.vout[j].scriptPubKey == Params().GetConsensus().burnAddress
-            || (pindex->nHeight > Params().GetConsensus().FortCanningHeight
-            && tx.vout[j].scriptPubKey == Params().GetConsensus().foundationShareScript))
+            if (tx.vout[j].scriptPubKey == Params().GetConsensus().burnAddress)
             {
                 writeBurnEntries.push_back({{tx.vout[j].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), i},
                                             {block.vtx[i]->GetHash(), static_cast<uint8_t>(CustomTxType::None), {{DCT_ID{0}, tx.vout[j].nValue}}}});
@@ -2592,14 +2582,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(pindex->phashBlock);
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
-
-    if (pindex->nHeight == chainparams.GetConsensus().FortCanningHeight) {
-        auto balance = mnview.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
-        if (balance.nValue > 0) {
-            mnview.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
-            mnview.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
-        }
-    }
 
     { // old data pruning and other (some processing made for the whole block)
         // make all changes to the new cache/snapshot to make it possible to take a diff later:
@@ -2877,6 +2859,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         mapBurnAmounts.clear();
+
+        if (pindex->nHeight == chainparams.GetConsensus().FortCanningHeight) {
+            auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+            if (balance.nValue > 0) {
+                cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+                cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
+            }
+        }
 
         // construct undo
         auto& flushable = cache.GetStorage();
