@@ -177,7 +177,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
                             {"tokenFrom|chainFrom", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Symbol or id of selling token/chain"},
                             {"chainTo|tokenTo", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Symbol or id of buying chain/token"},
                             {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Address of DFI token for fees and selling tokens in case of DFC/BTC order type"},
-                            {"receivePubkey", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of EXT/DFC order type"},
+                            {"receivePubkey", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of EXT/DFC order type"},
                             {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO, "tokenFrom coins amount"},
                             {"orderPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Price per unit"},
                             {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the order expires (Default: "
@@ -366,7 +366,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
                             {"orderTx", RPCArg::Type::STR, RPCArg::Optional::NO, "txid of order tx for which is the offer"},
                             {"amount", RPCArg::Type::NUM, RPCArg::Optional::NO, "amount fulfilling the order"},
                             {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Address of DFI token and for receiving tokens in case of EXT/DFC order"},
-                            {"receivePubkey", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of EXT/DFC order type"},
+                            {"receivePubkey", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "pubkey which can claim external HTLC in case of EXT/DFC order type"},
                             {"expiry", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Number of blocks until the offer expires (Default: "
                                 + std::to_string(CICXMakeOffer::DEFAULT_EXPIRY) + " DFI blocks)"},
                         },
@@ -1150,14 +1150,16 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
     auto order = pcustomcsview->GetICXOrderByCreationTx(orderTxid);
     if (order)
     {
-        ret.pushKVs(icxOrderToJSON(*order,-1));
+        auto status = pcustomcsview->GetICXOrderStatus({order->idToken,order->creationTx});
+        ret.pushKVs(icxOrderToJSON(*order, status));
         return ret;
     }
 
     auto fillorder = pcustomcsview->GetICXMakeOfferByCreationTx(orderTxid);
     if (fillorder)
     {
-        ret.pushKVs(icxMakeOfferToJSON(*fillorder,-1));
+        auto status = pcustomcsview->GetICXMakeOfferStatus({fillorder->orderTx,fillorder->creationTx});
+        ret.pushKVs(icxMakeOfferToJSON(*fillorder, status));
         return ret;
     }
 

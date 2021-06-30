@@ -116,6 +116,20 @@ class ICXOrderbookTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        order = self.nodes[0].icx_getorder(orderTx)
+
+        assert_equal(order[orderTx]["status"], "OPEN")
+        assert_equal(order[orderTx]["type"], "INTERNAL")
+        assert_equal(order[orderTx]["tokenFrom"], symbolDFI)
+        assert_equal(order[orderTx]["chainTo"], "BTC")
+        assert_equal(order[orderTx]["ownerAddress"], accountDFI)
+        assert_equal(order[orderTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
+        assert_equal(order[orderTx]["amountFrom"], Decimal('15'))
+        assert_equal(order[orderTx]["amountToFill"], Decimal('15'))
+        assert_equal(order[orderTx]["orderPrice"], Decimal('0.01000000'))
+        assert_equal(order[orderTx]["amountToFillInToAsset"], Decimal('0.1500000'))
+        assert_equal(order[orderTx]["expireHeight"], self.nodes[0].getblockchaininfo()["blocks"] + 2880)
+
         beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
 
         offerTx = self.nodes[1].icx_makeoffer({
@@ -131,6 +145,10 @@ class ICXOrderbookTest (DefiTestFramework):
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
 
         assert_equal(len(offer), 2)
+
+        offer = self.nodes[0].icx_getorder(offerTx)
+
+        assert_equal(offer[offerTx]["status"], "OPEN")
 
         # Close offer
         closeOrder = self.nodes[1].icx_closeoffer(offerTx)["txid"]
@@ -150,6 +168,10 @@ class ICXOrderbookTest (DefiTestFramework):
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
 
         assert_equal(len(offer), 1)
+
+        offer = self.nodes[0].icx_getorder(offerTx)
+
+        assert_equal(offer[offerTx]["status"], "CLOSED")
 
         # Check order exist
         order = self.nodes[0].icx_listorders()
@@ -171,6 +193,11 @@ class ICXOrderbookTest (DefiTestFramework):
         order = self.nodes[0].icx_listorders()
 
         assert_equal(len(order), 1)
+
+        order = self.nodes[0].icx_getorder(orderTx)
+
+        assert_equal(order[orderTx]["status"], "CLOSED")
+        assert_equal(order[orderTx]["type"], "INTERNAL")
 
         # DFI/BTC scenario
         # Open an order
