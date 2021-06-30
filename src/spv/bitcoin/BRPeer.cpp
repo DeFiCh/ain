@@ -895,11 +895,8 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
     }
     else {
 #ifdef WIN32
-        DWORD millis = 1000;
-        DWORD wOn = 1;
-        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (sockopt_arg_type) &millis, sizeof(millis));
-        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (sockopt_arg_type) &millis, sizeof(millis));
-        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (sockopt_arg_type) &wOn, sizeof(wOn));
+        int set = 1;
+        setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&set, sizeof(int));
 #else
         tv.tv_sec = 1; // one second timeout for send/receive, so thread doesn't block for too long
         tv.tv_usec = 0;
@@ -965,17 +962,17 @@ static int _BRPeerOpenSocket(BRPeer *peer, int domain, double timeout, int *erro
                 r = 0;
             }
         }
-        else if (err && domain == PF_INET6 && _BRPeerIsIPv4(peer)) {
-            return _BRPeerOpenSocket(peer, PF_INET, timeout, error); // fallback to IPv4
-        }
         else if (err) {
             r = 0;
         }
 
         if (r) peer_log(peer, "socket connected");
 
-#ifndef WIN32
-        fcntl(sock, F_SETFL, arg); // restore socket non-blocking status
+#ifdef WIN32
+    u_long nZero = 0;
+    ioctlsocket(sock, FIONBIO, &nZero);
+#else
+    fcntl(sock, F_SETFL, arg);
 #endif
     }
     if (! r && err) peer_log(peer, "connect error: %d: %s", err, strerror(err));
@@ -1032,8 +1029,13 @@ static void *_peerThreadRoutine(void *arg)
     SOCKET socket;
 
     threadCleanup guard(ctx->threadCleanup, ctx->info);
+
+    int domain{PF_INET6};
+    if (_BRPeerIsIPv4(peer)) {
+        domain = PF_INET;
+    }
     
-    if (_BRPeerOpenSocket(peer, PF_INET6, CONNECT_TIMEOUT, &error)) {
+    if (_BRPeerOpenSocket(peer, domain, CONNECT_TIMEOUT, &error)) {
         struct timeval tv;
         double time = 0, msgTimeout;
         uint8_t header[HEADER_LENGTH], *payload = (uint8_t *)malloc(0x1000);
