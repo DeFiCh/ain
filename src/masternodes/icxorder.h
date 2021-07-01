@@ -385,6 +385,7 @@ public:
 
     //Order
     std::unique_ptr<CICXOrderImpl> GetICXOrderByCreationTx(uint256 const & txid) const;
+    uint8_t GetICXOrderStatus(OrderKey const & key) const;
     Res ICXCreateOrder(CICXOrderImpl const & order);
     Res ICXUpdateOrder(CICXOrderImpl const & order);
     Res ICXCloseOrderTx(CICXOrderImpl const & order, uint8_t const);
@@ -395,6 +396,7 @@ public:
 
     //MakeOffer
     std::unique_ptr<CICXMakeOfferImpl> GetICXMakeOfferByCreationTx(uint256 const & txid) const;
+    uint8_t GetICXMakeOfferStatus(TxidPairKey const & key) const;
     Res ICXMakeOffer(CICXMakeOfferImpl const & makeoffer);
     Res ICXUpdateMakeOffer(CICXMakeOfferImpl const & makeoffer);
     Res ICXCloseMakeOfferTx(CICXMakeOfferImpl const & order, uint8_t const);

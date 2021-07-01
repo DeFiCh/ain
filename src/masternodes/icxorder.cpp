@@ -70,6 +70,19 @@ std::unique_ptr<CICXOrderView::CICXOrderImpl> CICXOrderView::GetICXOrderByCreati
     return {};
 }
 
+uint8_t CICXOrderView::GetICXOrderStatus(OrderKey const & key) const
+{
+    auto status = ReadBy<ICXOrderOpenKey, uint8_t>(key);
+
+    if (!status)
+        status = ReadBy<ICXOrderCloseKey, uint8_t>(key);
+
+    if (status)
+        return (*status);
+
+    return {};
+}
+
 Res CICXOrderView::ICXCreateOrder(CICXOrderImpl const & order)
 {
     //this should not happen, but for sure
@@ -146,6 +159,19 @@ std::unique_ptr<CICXOrderView::CICXMakeOfferImpl> CICXOrderView::GetICXMakeOffer
     auto makeoffer = ReadBy<ICXMakeOfferCreationTx,CICXMakeOfferImpl>(txid);
     if (makeoffer)
         return MakeUnique<CICXMakeOfferImpl>(*makeoffer);
+    return {};
+}
+
+uint8_t CICXOrderView::GetICXMakeOfferStatus(TxidPairKey const & key) const
+{
+    auto status = ReadBy<ICXMakeOfferOpenKey, uint8_t>(key);
+
+    if (!status)
+        status = ReadBy<ICXMakeOfferCloseKey, uint8_t>(key);
+
+    if (status)
+        return (*status);
+
     return {};
 }
 
