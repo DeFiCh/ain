@@ -295,6 +295,17 @@ std::unique_ptr<CICXOrderView::CICXSubmitDFCHTLCImpl> CICXOrderView::HasICXSubmi
     return {};
 }
 
+bool CICXOrderView::ExistedICXSubmitDFCHTLC(uint256 const & offertxid)
+{
+    auto it = LowerBound<ICXSubmitDFCHTLCOpenKey>(TxidPairKey{offertxid, {}});
+    if (it.Valid() && it.Key().first == offertxid)
+        return true;
+    auto it1 = LowerBound<ICXSubmitDFCHTLCCloseKey>(TxidPairKey{offertxid, {}});
+    if (it1.Valid() && it1.Key().first == offertxid)
+        return true;
+    return false;
+}
+
 std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::GetICXSubmitEXTHTLCByCreationTx(const uint256 & txid) const
 {
     auto submitexthtlc = ReadBy<ICXSubmitEXTHTLCCreationTx,CICXSubmitEXTHTLCImpl>(txid);
@@ -356,6 +367,17 @@ std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::HasICXSubmi
     if (it.Valid() && it.Key().first == offertxid)
         return GetICXSubmitEXTHTLCByCreationTx(it.Key().second);
     return {};
+}
+
+bool CICXOrderView::ExistedICXSubmitEXTHTLC(uint256 const & offertxid)
+{
+    auto it = LowerBound<ICXSubmitEXTHTLCOpenKey>(TxidPairKey{offertxid, {}});
+    if (it.Valid() && it.Key().first == offertxid)
+        return true;
+    auto it1 = LowerBound<ICXSubmitEXTHTLCCloseKey>(TxidPairKey{offertxid, {}});
+    if (it1.Valid() && it1.Key().first == offertxid)
+        return true;
+    return false;
 }
 
 std::unique_ptr<CICXOrderView::CICXClaimDFCHTLCImpl> CICXOrderView::GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const

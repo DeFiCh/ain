@@ -2671,8 +2671,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 CScript txidAddr(offer->creationTx.begin(),offer->creationTx.end());
                 CTokenAmount takerFee{DCT_ID{0}, offer->takerFee};
 
-                if ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.HasICXSubmitDFCHTLCOpen(offer->creationTx)) ||
-                    (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.HasICXSubmitEXTHTLCOpen(offer->creationTx)))
+                if ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.ExistedICXSubmitDFCHTLC(offer->creationTx)) ||
+                    (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.ExistedICXSubmitEXTHTLC(offer->creationTx)))
                 {
                     auto res = cache.SubBalance(txidAddr,takerFee);
                     if (!res)
