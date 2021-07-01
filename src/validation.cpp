@@ -2930,9 +2930,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                             assert(prop.nCycles > prop.cycle);
                             cache.UpdatePropCycle(propId, prop.cycle + 1);
                         }
-                        // payout: charge new community fund balance
-                        cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
-                        cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
+                        if (prop.type == CPropType::CommunityFundRequest) {
+                            auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
+                            if (res) {
+                                cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
+                                cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
+                            } else {
+                                LogPrintf("Fails to subtract community developement funds: %s\n", res.msg);
+                            }
+                        }
                     } else {
                         payVoters = true;
                         cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
@@ -2972,6 +2978,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                             default:
                                 assert(false);
                         }
+                        // creator coins are used as tokens for voting rewards
                         if (CAmount reward = amount / voters.size()) {
                             for (auto& voter : voters) {
                                 cache.CalculateOwnerRewards(voter, pindex->nHeight);

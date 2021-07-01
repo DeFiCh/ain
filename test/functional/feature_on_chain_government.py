@@ -18,9 +18,9 @@ class ChainGornmentTest(DefiTestFramework):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-fortcanningheight=101'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-fortcanningheight=101'],
-            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-fortcanningheight=101'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-fortcanningheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-fortcanningheight=101', '-subsidytest=1'],
+            ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-eunosheight=80', '-fortcanningheight=101', '-subsidytest=1'],
         ]
 
     def run_test(self):
@@ -95,13 +95,32 @@ class ChainGornmentTest(DefiTestFramework):
         result = node1.listvotes(tx, "all")
         assert_equal(len(result), 2)
 
-        node0.generate(8)
+        node0.generate(7)
+        self.sync_all()
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], Decimal('218.76210400'))
+        node0.generate(1)
+        self.sync_all()
+        # CommunityDevelopmentFunds is charged by proposal
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], Decimal('138.64956800'))
+        # payout address
+        assert_equal(node1.getaccount(address), ['100.00000000@DFI'])
         results = node0.listproposals()
         result = results[0]
         assert_equal(result["status"], "Voting")
         assert_equal(result["cyclesPaid"], 2)
 
-        node0.generate(10)
+        node0.generate(9)
+        self.sync_all()
+        bal = node0.listcommunitybalances()['CommunityDevelopmentFunds']
+        assert_equal(node1.getaccount(address0), [])
+        assert_equal(node1.getaccount(address1), [])
+        node0.generate(1)
+        self.sync_all()
+        # proposal fails, CommunityDevelopmentFunds does not charged
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.887464"))
+        # check voters are payed
+        assert_equal(node1.getaccount(address0), ['0.50000000@DFI'])
+        assert_equal(node1.getaccount(address1), ['0.50000000@DFI'])
         results = node0.listproposals()
         result = results[0]
         # not votes on 2nd cycle makes proposal to rejected
