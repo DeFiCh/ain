@@ -290,7 +290,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             "  \"isoperator\": true|false   (boolean) Local master nodes are available or not \n"
             "  \"masternodes\": []          (array)   an array of objects which includes each master node information\n"
             "  \"warnings\": \"...\"        (string)  any network and blockchain warnings\n"
-            "}\n"    
+            "}\n"
         },
         RPCExamples{
             HelpExampleCli("getmininginfo", "")
@@ -319,15 +319,17 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     for (const auto& mnId : mnIds) {
         UniValue subObj(UniValue::VOBJ);
 
-        subObj.pushKV("masternodeid", mnId.second.GetHex());
+        subObj.pushKV("id", mnId.second.GetHex());
         auto nodePtr = pcustomcsview->GetMasternode(mnId.second);
         if (!nodePtr) {
             //should not come here if the database has correct data.
             throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("The masternode %s does not exist", mnId.second.GetHex()));
         }
         auto state = nodePtr->GetState();
-        subObj.pushKV("masternodeoperator", nodePtr->operatorAuthAddress.GetHex());// NOTE(sp) : Should this also be encoded? not the HEX
-        subObj.pushKV("masternodestate", CMasternode::GetHumanReadableState(state));
+        CTxDestination operatorDest = nodePtr->operatorType == 1 ? CTxDestination(PKHash(nodePtr->operatorAuthAddress)) :
+                                      CTxDestination(WitnessV0KeyHash(nodePtr->operatorAuthAddress));
+        subObj.pushKV("operator", EncodeDestination(operatorDest));// NOTE(sp) : Should this also be encoded? not the HEX
+        subObj.pushKV("state", CMasternode::GetHumanReadableState(state));
         auto generate = nodePtr->IsActive() && genCoins;
         subObj.pushKV("generate", generate);
         subObj.pushKV("mintedblocks", (uint64_t)nodePtr->mintedBlocks);
@@ -340,7 +342,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             auto lastBlockCreationAttemptTs = pos::Staker::mapMNLastBlockCreationAttemptTs[mnId.second];
             subObj.pushKV("lastblockcreationattempt", (lastBlockCreationAttemptTs != 0) ? FormatISO8601DateTime(lastBlockCreationAttemptTs) : "0");
         }
-        
+
         mnArr.push_back(subObj);
     }
 
