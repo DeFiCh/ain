@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, wait_until
 
 class SendUTXOsFromTest(DefiTestFramework):
     def set_test_params(self):
