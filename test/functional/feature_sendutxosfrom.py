@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, wait_until
 
 class SendUTXOsFromTest(DefiTestFramework):
     def set_test_params(self):
@@ -91,7 +91,7 @@ class SendUTXOsFromTest(DefiTestFramework):
         for vout in raw_tx['vout']:
             if change in vout['scriptPubKey']['addresses']:
                 found = True
-        
+
         assert(found)
 
         # Test send with change to default from address
@@ -111,23 +111,23 @@ class SendUTXOsFromTest(DefiTestFramework):
         for vout in raw_tx['vout']:
             if address in vout['scriptPubKey']['addresses']:
                 found = True
-        
+
         assert(found)
-        
+
         # Test fee is not deducted from recipient 'to'
         amount = 2.5
         txid = self.nodes[1].sendutxosfrom(address, to, amount)
         self.nodes[1].generate(2)
-        
+
         raw_tx = self.nodes[1].getrawtransaction(txid, 1)
-        
+
         # Check 'to' address is present
         found = False
         for vout in raw_tx['vout']:
             if to in vout['scriptPubKey']['addresses']:
                 found = True
                 assert_equal(vout['value'], amount)
-        
+
         assert(found)
 
 if __name__ == '__main__':
