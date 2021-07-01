@@ -46,7 +46,7 @@ class SendUTXOsFromTest(DefiTestFramework):
             errorString = e.error['message']
         assert("Invalid from address" in errorString)
 
-        # Invalid from address
+        # Invalid to address
         try:
             self.nodes[1].sendutxosfrom(address, "", 0.1)
         except JSONRPCException as e:
@@ -91,6 +91,8 @@ class SendUTXOsFromTest(DefiTestFramework):
         for vout in raw_tx['vout']:
             if change in vout['scriptPubKey']['addresses']:
                 found = True
+        
+        assert(found)
 
         # Test send with change to default from address
         txid = self.nodes[1].sendutxosfrom(address, to, 1.5)
@@ -109,7 +111,23 @@ class SendUTXOsFromTest(DefiTestFramework):
         for vout in raw_tx['vout']:
             if address in vout['scriptPubKey']['addresses']:
                 found = True
-
+        
+        assert(found)
+        
+        # Test fee is not deducted from recipient 'to'
+        amount = 2.5
+        txid = self.nodes[1].sendutxosfrom(address, to, amount)
+        self.nodes[1].generate(2)
+        
+        raw_tx = self.nodes[1].getrawtransaction(txid, 1)
+        
+        # Check 'to' address is present
+        found = False
+        for vout in raw_tx['vout']:
+            if to in vout['scriptPubKey']['addresses']:
+                found = True
+                assert_equal(vout['value'], amount)
+        
         assert(found)
 
 if __name__ == '__main__':
