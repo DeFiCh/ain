@@ -343,6 +343,20 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             subObj.pushKV("lastblockcreationattempt", (lastBlockCreationAttemptTs != 0) ? FormatISO8601DateTime(lastBlockCreationAttemptTs) : "0");
         }
 
+        // Get targetMultiplier if node is active
+        if (nodePtr->IsActive()) {
+            auto currentHeight = ChainActive().Height();
+            auto usedHeight = currentHeight <= Params().GetConsensus().EunosHeight ? nodePtr->creationHeight : currentHeight;
+            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(nodePtr->operatorAuthAddress, usedHeight);
+            // No record. No stake blocks or post-fork createmastnode TX, use fork time.
+            if (!stakerBlockTime) {
+                if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
+                    stakerBlockTime = std::min(GetTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
+                }
+            }
+            subObj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), stakerBlockTime ? *stakerBlockTime : 0).getdouble());
+        }
+
         mnArr.push_back(subObj);
     }
 
