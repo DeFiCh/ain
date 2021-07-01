@@ -256,8 +256,6 @@ class TokensRPCGetCustomTX(DefiTestFramework):
 
         # Test account to account TX
         accounttoaccount_tx = self.nodes[0].accounttoaccount(collateral_b, {collateral_a: "100@" + token_b})
-        address_a_scriptpubkey = self.nodes[0].getaddressinfo(collateral_a)['scriptPubKey']
-        address_b_scriptpubkey = self.nodes[0].getaddressinfo(collateral_b)['scriptPubKey']
         self.nodes[0].generate(1)
 
         # Get block hash and height of update tx
@@ -268,8 +266,8 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         result = self.nodes[1].getcustomtx(accounttoaccount_tx)
         assert_equal(result['type'], "AccountToAccount")
         assert_equal(result['valid'], True)
-        assert_equal(result['results']['from'], address_b_scriptpubkey)
-        assert_equal([*result['results']['to']][0], address_a_scriptpubkey)
+        assert_equal(result['results']['from'], collateral_b)
+        assert_equal([*result['results']['to']][0], collateral_a)
         assert_equal(list(result['results']['to'].values())[0], "100.00000000@" + token_b)
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
@@ -277,7 +275,6 @@ class TokensRPCGetCustomTX(DefiTestFramework):
 
         # Test add pool liquidity TX
         pool_share = self.nodes[0].getnewaddress("", "legacy")
-        pool_share_scriptpubkey = self.nodes[0].getaddressinfo(pool_share)['scriptPubKey']
         add_liquidity_tx = self.nodes[0].addpoolliquidity({
             collateral_a: ['100@' + token_a, '100@' + token_b]
             }, pool_share)
@@ -294,7 +291,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['valid'], True)
         assert_equal(result['results'][token_a], Decimal("100.00000000"))
         assert_equal(result['results'][token_b], Decimal("100.00000000"))
-        assert_equal(result['results']['shareaddress'], pool_share_scriptpubkey)
+        assert_equal(result['results']['shareaddress'], pool_share)
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
@@ -319,10 +316,10 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         result = self.nodes[1].getcustomtx(poolswap_tx)
         assert_equal(result['type'], "PoolSwap")
         assert_equal(result['valid'], True)
-        assert_equal(result['results']['fromAddress'], address_a_scriptpubkey)
+        assert_equal(result['results']['fromAddress'], collateral_a)
         assert_equal(result['results']['fromToken'], token_a)
         assert_equal(result['results']['fromAmount'], Decimal("1.00000000"))
-        assert_equal(result['results']['toAddress'], address_b_scriptpubkey)
+        assert_equal(result['results']['toAddress'], collateral_b)
         assert_equal(result['results']['toToken'], token_b)
         assert_equal(result['results']['maxPrice'], Decimal("2.00000000"))
         assert_equal(result['blockHeight'], blockheight)
@@ -342,7 +339,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         result = self.nodes[1].getcustomtx(remove_liquidity_tx)
         assert_equal(result['type'], "RemovePoolLiquidity")
         assert_equal(result['valid'], True)
-        assert_equal(result['results']['from'], pool_share_scriptpubkey)
+        assert_equal(result['results']['from'], pool_share)
         assert_equal(result['results']['amount'], "25.00000000@1")
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
@@ -386,7 +383,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         result = self.nodes[1].getcustomtx(utxostoaccount_tx)
         assert_equal(result['type'], "UtxosToAccount")
         assert_equal(result['valid'], True)
-        assert_equal(result['results'][address_a_scriptpubkey], "1.00000000@0")
+        assert_equal(result['results'][collateral_a], "1.00000000@0")
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
@@ -404,8 +401,8 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         result = self.nodes[1].getcustomtx(accountoutxos_tx)
         assert_equal(result['type'], "AccountToUtxos")
         assert_equal(result['valid'], True)
-        assert_equal(result['results']['from'], address_a_scriptpubkey)
-        assert_equal(list(result['results']['to'].keys())[0], address_b_scriptpubkey)
+        assert_equal(result['results']['from'], collateral_a)
+        assert_equal(list(result['results']['to'].keys())[0], collateral_b)
         assert_equal(list(result['results']['to'].values())[0], "1.00000000@0")
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
@@ -428,9 +425,9 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         result = self.nodes[1].getcustomtx(tokenstoaddress_tx)
         assert_equal(result['type'], "AnyAccountsToAccounts")
         assert_equal(result['valid'], True)
-        assert_equal(list(result['results']['from'].keys())[0], address_a_scriptpubkey)
+        assert_equal(list(result['results']['from'].keys())[0], collateral_a)
         assert_equal(list(result['results']['from'].values())[0], "1.00000000@0")
-        assert_equal(list(result['results']['to'].keys())[0], address_b_scriptpubkey)
+        assert_equal(list(result['results']['to'].keys())[0], collateral_b)
         assert_equal(list(result['results']['to'].values())[0], "1.00000000@0")
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)

@@ -379,7 +379,6 @@ public:
         leveldb::Slice slKey2(ssKey2.data(), ssKey2.size());
         pdb->CompactRange(&slKey1, &slKey2);
     }
-
 };
 
 #endif // DEFI_DBWRAPPER_H

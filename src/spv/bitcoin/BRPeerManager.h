@@ -33,11 +33,7 @@
 #include <stddef.h>
 #include <inttypes.h>
 
-#ifdef WIN32
-#define PEER_MAX_CONNECTIONS 1
-#else
 #define PEER_MAX_CONNECTIONS 3
-#endif
 
 typedef struct BRPeerManagerStruct BRPeerManager;
 
@@ -130,6 +126,6 @@ void BRPeerManagerFree(BRPeerManager *manager);
 void BRPeerManagerCancelPendingTxs(BRPeerManager *manager);
 
 // Rebuild and resend the bloom filter
-void BRPeerManagerRebuildBloomFilter(BRPeerManager *manager);
+void BRPeerManagerRebuildBloomFilter(BRPeerManager *manager, bool rescan = false);
 
 #endif // BRPeerManager_h

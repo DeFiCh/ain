@@ -77,7 +77,6 @@ from test_framework.util import (
     assert_greater_than,
     connect_nodes,
     disconnect_nodes,
-    softfork_active,
     hex_str_to_bytes,
     assert_raises_rpc_error,
 )
@@ -279,14 +278,10 @@ class SegWitTest(DefiTestFramework):
         """Wraps the subtests for logging and state assertions."""
         def func_wrapper(self, *args, **kwargs):
             self.log.info("Subtest: {} (Segwit active = {})".format(func.__name__, self.segwit_active))
-            # Assert segwit status is as expected
-            assert_equal(softfork_active(self.nodes[0], 'segwit'), self.segwit_active)
             func(self, *args, **kwargs)
             # Each subtest should leave some utxos for the next subtest
             assert self.utxo
             self.sync_blocks()
-            # Assert segwit status is as expected at end of subtest
-            assert_equal(softfork_active(self.nodes[0], 'segwit'), self.segwit_active)
 
         return func_wrapper
 
@@ -680,12 +675,9 @@ class SegWitTest(DefiTestFramework):
     @subtest
     def advance_to_segwit_active(self):
         """Mine enough blocks to activate segwit."""
-        assert not softfork_active(self.nodes[0], 'segwit')
         height = self.nodes[0].getblockcount()
         self.nodes[0].generate(SEGWIT_HEIGHT - height - 2)
-        assert not softfork_active(self.nodes[0], 'segwit')
         self.nodes[0].generate(1)
-        assert softfork_active(self.nodes[0], 'segwit')
         self.segwit_active = True
 
     @subtest
@@ -1903,9 +1895,6 @@ class SegWitTest(DefiTestFramework):
         connect_nodes(self.nodes[0], 2)
 
         self.sync_blocks()
-
-        # Make sure that this peer thinks segwit has activated.
-        assert softfork_active(self.nodes[2], 'segwit')
 
         # Make sure this peer's blocks match those of node0.
         height = self.nodes[2].getblockcount()
