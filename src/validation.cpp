@@ -1424,7 +1424,8 @@ bool CheckBurnSpend(const CTransaction &tx, const CCoinsViewCache &inputs)
     Coin coin;
     for(size_t i = 0; i < tx.vin.size(); ++i)
     {
-        if (inputs.GetCoin(tx.vin[i].prevout, coin) && coin.out.scriptPubKey == Params().GetConsensus().burnAddress)
+        if (inputs.GetCoin(tx.vin[i].prevout, coin)
+        && coin.out.scriptPubKey == Params().GetConsensus().burnAddress)
         {
             return false;
         }
@@ -1808,7 +1809,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 // Check for burn outputs
                 if (tx.vout[o].scriptPubKey == Params().GetConsensus().burnAddress)
                 {
-                    eraseBurnEntries.push_back({Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
+                    eraseBurnEntries.push_back({tx.vout[o].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), static_cast<uint32_t>(i)});
                 }
             }
         }
@@ -2050,7 +2051,11 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
     if (height >= consensus.AMKHeight)
     {
         CAmount foundationReward{0};
-        if (height >= consensus.EunosHeight)
+        if (height >= consensus.GreatWorldHeight)
+        {
+            // no foundation reward check anymore
+        }
+        else if (height >= consensus.EunosHeight)
         {
             foundationReward = CalculateCoinbaseReward(blockReward, consensus.dist.community);
         }
@@ -2089,6 +2094,12 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
             CAmount subsidy;
             for (const auto& kv : consensus.newNonUTXOSubsidies)
             {
+                if (kv.first == CommunityAccountType::CommunityDevFunds) {
+                    if (height < consensus.GreatWorldHeight) {
+                        continue;
+                    }
+                }
+
                 subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 Res res = Res::Ok();
@@ -2151,6 +2162,12 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
         {
             for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
             {
+                if (kv.first == CommunityAccountType::CommunityDevFunds) {
+                    if (height < Params().GetConsensus().GreatWorldHeight) {
+                        continue;
+                    }
+                }
+
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 // Remove Loan and Options balances from Unallocated
@@ -2860,7 +2877,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             if (tx.vout[j].scriptPubKey == Params().GetConsensus().burnAddress)
             {
-                writeBurnEntries.push_back({{Params().GetConsensus().burnAddress, static_cast<uint32_t>(pindex->nHeight), i},
+                writeBurnEntries.push_back({{tx.vout[j].scriptPubKey, static_cast<uint32_t>(pindex->nHeight), i},
                                             {block.vtx[i]->GetHash(), static_cast<uint8_t>(CustomTxType::None), {{DCT_ID{0}, tx.vout[j].nValue}}}});
             }
         }
@@ -3749,10 +3766,12 @@ void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView
         return;
     }
 
-    auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
-    if (balance.nValue > 0) {
-        cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
-        cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
+    if (pindex->nHeight == chainparams.GetConsensus().GreatWorldHeight) {
+        auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+        if (balance.nValue > 0) {
+            cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+            cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
+        }
     }
 
     std::set<uint256> activeMasternodes;
