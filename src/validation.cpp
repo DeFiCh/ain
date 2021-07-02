@@ -2710,7 +2710,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
                 if (status == CICXSubmitDFCHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_INTERNAL)
                 {
-                    if (!cache.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx))
+                    if (!cache.ExistedICXSubmitEXTHTLC(dfchtlc->offerTx))
                     {
                         CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
                         cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);
@@ -2765,7 +2765,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
                 if (status == CICXSubmitEXTHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_EXTERNAL)
                 {
-                    if (!cache.HasICXSubmitDFCHTLCOpen(exthtlc->offerTx))
+                    if (!cache.ExistedICXSubmitDFCHTLC(exthtlc->offerTx))
                     {
                         CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
                         cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);

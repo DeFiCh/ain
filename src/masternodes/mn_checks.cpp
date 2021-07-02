@@ -1453,10 +1453,6 @@ public:
         if (!order)
             return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
 
-        auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx);
-        if (!exthtlc)
-            return Res::Err("cannot claim, external htlc for this offer does not exists or expired!");
-
         // claim DFC HTLC to receiveAddress
         CalculateOwnerRewards(order->ownerAddress);
         CScript htlcTxidAddr(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
@@ -1509,11 +1505,13 @@ public:
         res = mnview.ICXCloseMakeOfferTx(*offer, CICXMakeOffer::STATUS_CLOSED);
         if (!res)
             return res;
-        res = mnview.ICXCloseDFCHTLC(*dfchtlc, CICXSubmitDFCHTLC::STATUS_CLAIMED);
+
+        auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx);
+        if (exthtlc) res = mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
         if (!res)
             return res;
 
-        return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
+        return mnview.ICXCloseDFCHTLC(*dfchtlc, CICXSubmitDFCHTLC::STATUS_CLAIMED);
     }
 
     Res operator()(const CICXCloseOrderMessage& obj) const {
@@ -1589,7 +1587,7 @@ public:
         offer->closeTx = closeoffer.creationTx;
         offer->closeHeight = closeoffer.creationHeight;
 
-        if (order->orderType == CICXOrder::TYPE_INTERNAL && !mnview.HasICXSubmitDFCHTLCOpen(offer->creationTx)) {
+        if (order->orderType == CICXOrder::TYPE_INTERNAL && !mnview.ExistedICXSubmitDFCHTLC(offer->creationTx)) {
             // subtract takerFee from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
             CalculateOwnerRewards(offer->ownerAddress);
@@ -1601,10 +1599,7 @@ public:
             // subtract the balance from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
             CalculateOwnerRewards(offer->ownerAddress);
-            res = ICXTransfer(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
-            if (!res)
-                return res;
-            if (!mnview.HasICXSubmitEXTHTLCOpen(offer->creationTx))
+            if (!mnview.ExistedICXSubmitEXTHTLC(offer->creationTx))
             {
                 res = ICXTransfer(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress);
                 if (!res)

@@ -104,7 +104,7 @@ class ICXOrderbookTest (DefiTestFramework):
 
         assert_equal(result["ICX_TAKERFEE_PER_BTC"], Decimal('0.001'))
 
-        # Open and close an order
+        # DFI/BTC Open and close an order
         orderTx = self.nodes[0].icx_createorder({
                                     'tokenFrom': idDFI,
                                     'chainTo': "BTC",
@@ -198,6 +198,75 @@ class ICXOrderbookTest (DefiTestFramework):
 
         assert_equal(order[orderTx]["status"], "CLOSED")
         assert_equal(order[orderTx]["type"], "INTERNAL")
+
+        # BTC/DFI Open and close an order
+        orderTx = self.nodes[0].icx_createorder({
+                                    'chainFrom': "BTC",
+                                    'tokenTo': idDFI,
+                                    'ownerAddress': accountDFI,
+                                    'amountFrom': 2,
+                                    'orderPrice':100})["txid"]
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
+
+        offerTx = self.nodes[1].icx_makeoffer({
+                                    'orderTx': orderTx,
+                                    'amount': 10,
+                                    'ownerAddress': accountBTC,
+                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941'})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.01000000'))
+
+        offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
+
+        assert_equal(len(offer), 2)
+
+        # Close offer
+        closeOrder = self.nodes[1].icx_closeoffer(offerTx)["txid"]
+        rawCloseOrder = self.nodes[1].getrawtransaction(closeOrder, 1)
+        authTx = self.nodes[1].getrawtransaction(rawCloseOrder['vin'][0]['txid'], 1)
+        found = False
+        for vout in authTx['vout']:
+            if 'addresses' in vout['scriptPubKey'] and vout['scriptPubKey']['addresses'][0] == accountBTC:
+                found = True
+        assert(found)
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer)
+
+        offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
+
+        assert_equal(len(offer), 1)
+
+        # Check order exist
+        order = self.nodes[0].icx_listorders()
+        assert_equal(len(order), 2)
+
+        # Close order
+        closeOrder = self.nodes[0].icx_closeorder(orderTx)["txid"]
+        rawCloseOrder = self.nodes[0].getrawtransaction(closeOrder, 1)
+        authTx = self.nodes[0].getrawtransaction(rawCloseOrder['vin'][0]['txid'], 1)
+        found = False
+        for vout in authTx['vout']:
+            if 'addresses' in vout['scriptPubKey'] and vout['scriptPubKey']['addresses'][0] == accountDFI:
+                found = True
+        assert(found)
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        order = self.nodes[0].icx_listorders()
+
+        assert_equal(len(order), 1)
+
 
         # DFI/BTC scenario
         # Open an order
