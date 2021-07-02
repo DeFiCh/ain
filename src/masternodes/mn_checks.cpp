@@ -56,6 +56,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXClaimDFCHTLC:     return "ICXClaimDFCHTLC";
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
+        case CustomTxType::LoanSetCollateralToken: return "LoanSetCollateralToken";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -131,6 +132,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXClaimDFCHTLC:         return CICXClaimDFCHTLCMessage{};
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
+        case CustomTxType::LoanSetCollateralToken:  return CLoanSetCollateralTokenMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -168,6 +170,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
     Res isPostEunosFork() const {
         if(static_cast<int>(height) < consensus.EunosHeight) {
             return Res::Err("called before Eunos height");
+        }
+        return Res::Ok();
+    }
+
+    Res isPostFortCanningFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningHeight) {
+            return Res::Err("called before FortCanning height");
         }
         return Res::Ok();
     }
@@ -375,6 +384,10 @@ public:
 
     Res operator()(CICXCloseOfferMessage& obj) const {
         auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+    Res operator()(CLoanSetCollateralTokenMessage& obj) const {
+        auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
 
@@ -1614,6 +1627,35 @@ public:
 
         res = mnview.ICXCloseOffer(closeoffer);
         return !res ? res : mnview.ICXCloseMakeOfferTx(*offer, CICXMakeOffer::STATUS_CLOSED);
+    }
+
+    Res operator()(const CLoanSetCollateralTokenMessage& obj) const {
+        auto res = CheckICXTx();
+        if (!res)
+            return res;
+
+        CLoanSetCollateralTokenImplementation collToken;
+        static_cast<CLoanSetCollateralToken&>(collToken) = obj;
+
+        collToken.creationTx = tx.GetHash();
+        collToken.creationHeight = height;
+
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        if (!mnview.GetToken(collToken.idToken))
+            return Res::Err("token %s does not exist!", collToken.idToken.ToString());
+
+        if (!mnview.GetOracleData(collToken.priceFeedTxid))
+            return Res::Err("oracle (%s) does not exist!", collToken.priceFeedTxid.GetHex());
+
+        if (!collToken.activateAfterBlock)
+            collToken.activateAfterBlock = height;
+        if (collToken.activateAfterBlock < height)
+            return Res::Err("activateAfterBlock cannot be less than current height!");
+
+        return mnview.LoanCreateSetCollateralToken(collToken);
     }
 
     Res operator()(const CCustomTxMessageNone&) const {

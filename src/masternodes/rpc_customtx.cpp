@@ -299,6 +299,19 @@ public:
         rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
     }
 
+    void operator()(const CLoanSetCollateralTokenMessage& obj) const {
+        auto token = mnview.GetToken(obj.idToken);
+        if (!token)
+        {
+            rpcInfo.pushKV("error", "could not find token with id " + obj.idToken.ToString());
+            return;
+        }
+        rpcInfo.pushKV("token", token->CreateSymbolKey(obj.idToken));
+        rpcInfo.pushKV("factor", ValueFromAmount(obj.factor));
+        rpcInfo.pushKV("priceFeedId", obj.priceFeedTxid.GetHex());
+        if (obj.activateAfterBlock) rpcInfo.pushKV("activateAfterBlock", static_cast<int>(obj.activateAfterBlock));
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };
