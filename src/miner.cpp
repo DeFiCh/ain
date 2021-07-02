@@ -782,7 +782,7 @@ namespace pos {
                     boost::this_thread::yield(); // give a slot to other threads
                 }
             }
-        });
+        }, height);
 
         if (!found) {
             return Status::stakeWaiting;
@@ -836,9 +836,14 @@ namespace pos {
     }
 
     template <typename F>
-    void Staker::withSearchInterval(F&& f) {
-        // Mine up to max future minus 5 second buffer
-        nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5);
+    void Staker::withSearchInterval(F&& f, int64_t height) {
+        if (height >= Params().GetConsensus().EunosPayaHeight) {
+            // Mine up to max future minus 1 second buffer
+            nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_EUNOSPAYA - 1); // 29 seconds
+        } else {
+            // Mine up to max future minus 5 second buffer
+            nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5); // 295 seconds
+        }
 
         if (nFutureTime > nLastCoinStakeSearchTime) {
             f(GetAdjustedTime(), nLastCoinStakeSearchTime, nFutureTime);
