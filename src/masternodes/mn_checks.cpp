@@ -388,7 +388,7 @@ public:
     }
     Res operator()(CLoanSetCollateralTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
-        return serialize(obj);
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CCustomTxMessageNone&) const {
