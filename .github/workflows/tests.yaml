@@ -9,7 +9,6 @@ on:
       - staging
       - develop
       - ci/*
-      - epic/*
       - v*
       - 1.[0-9]+.x
   pull_request:
@@ -18,7 +17,6 @@ on:
       - develop
       - staging
       - ci/*
-      - epic/*
       - v*
       - 1.[0-9]+.x
       
