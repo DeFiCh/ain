@@ -89,7 +89,7 @@ struct Params {
     int EunosHeight;
     int EunosSimsHeight;
     int EunosKampungHeight;
-    int FortCanningHeight;
+    int EunosPayaHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
     /** Trackable burn address */
@@ -158,7 +158,6 @@ struct Params {
         int anchoringFrequency; // create every Nth block
 
         int anchoringTimeDepth; // Min age of anchored blocks
-        int anchoringAdditionalTimeDepth; // Additional min age of anchored blocks
         int anchoringTeamChange; // How many blocks before team is changed
     };
     MnParams mn;

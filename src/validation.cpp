@@ -4683,21 +4683,11 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
             continue;
         }
 
-        // Get start anchor height
         int anchorHeight = static_cast<int>(pindex->height) - consensus.mn.anchoringFrequency;
 
         // Get anchor block from specified time depth
-        int64_t timeDepth = consensus.mn.anchoringTimeDepth;
-        while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > pindex->nTime) {
+        while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + consensus.mn.anchoringTimeDepth > pindex->nTime) {
             --anchorHeight;
-        }
-
-        // Select a block further back to avoid Anchor too new error.
-        if (pindex->height >= consensus.FortCanningHeight) {
-            timeDepth += consensus.mn.anchoringAdditionalTimeDepth;
-            while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > pindex->nTime) {
-                --anchorHeight;
-            }
         }
 
         // Rollback to height consistent with anchoringFrequency
