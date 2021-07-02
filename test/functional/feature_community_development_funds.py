@@ -28,24 +28,29 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         node1 = self.nodes[1]
         node2 = self.nodes[2]
 
-        node0.generate(200)
-        self.sync_all()
-        self.stop_node(2)
-
+        node0.generate(199)
         assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], Decimal('0'))
         node1.importprivkey('cMv1JaaZ9Mbb3M3oNmcFvko8p7EcHJ8XD7RCQjzNaMs7BWRVZTyR')
         foundation = node1.getbalances()
         foundationBalance = foundation['mine']['trusted']
         before_hardfork = foundationBalance + foundation['mine']['immature']
-        node1.utxostoaccount({'2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS': str(foundationBalance - Decimal("0.0010000")) + "@0"})
+        balanceLessFee = foundationBalance - Decimal("0.0010000")
+        node1.utxostoaccount({'2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS': str(balanceLessFee) + "@0"})
+        self.sync_mempools()
+        node0.generate(1)
+        self.sync_all()
+        self.stop_node(2)
+
         node1.generate(1)
         self.sync_all(self.nodes[:2])
         foundationBalance = foundation['mine']['trusted']
         after_hardfork = foundationBalance + foundation['mine']['immature']
+
         # no change
         assert_equal(before_hardfork, after_hardfork)
+
         # foundation coins are locked
-        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], foundationBalance + Decimal("19.887464") - Decimal("0.0010000"))
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal("19.887464"))
         node0.generate(1)
         self.sync_all(self.nodes[:2])
 
@@ -57,7 +62,8 @@ class CommunityDevelopmentFunds(DefiTestFramework):
         self.sync_blocks()
 
         assert_equal(node1.getaccount('2NCWAKfEehP3qibkLKYQjXaWMK23k4EDMVS'), [])
-        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], Decimal('{:.8f}'.format(3 * 19.887464)))
+        assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(3 * 19.887464)))
+        assert_equal(node2.listcommunitybalances()['CommunityDevelopmentFunds'], balanceLessFee + Decimal('{:.8f}'.format(3 * 19.887464)))
 
 if __name__ == '__main__':
     CommunityDevelopmentFunds().main ()
