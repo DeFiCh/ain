@@ -217,61 +217,6 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     return generateBlocks(coinbase_script, minterKey, myIDs->first, nGenerate, nMaxTries);
 }
 
-/// @deprecated version of getmininginfo. prefer using getmininginfo
-static UniValue getmintinginfo(const JSONRPCRequest& request)
-{
-            RPCHelpMan{"getmintinginfo",
-                "\nDEPRECATED. Prefer using getmininginfo.\nReturns a json object containing mining-related information.",
-                {},
-                RPCResult{
-                    "{\n"
-                    "  \"blocks\": nnn,             (numeric) The current block\n"
-                    "  \"currentblockweight\": nnn, (numeric, optional) The block weight of the last assembled block (only present if a block was ever assembled)\n"
-                    "  \"currentblocktx\": nnn,     (numeric, optional) The number of block transactions of the last assembled block (only present if a block was ever assembled)\n"
-                    "  \"generate\": true|false     (boolean) If the generation is on or off (see getgenerate or setgenerate calls)\n"
-                    "  \"difficulty\": xxx.xxxxx    (numeric) The current difficulty\n"
-                    "  \"networkhashps\": nnn,      (numeric) The network hashes per second\n"
-                    "  \"pooledtx\": n              (numeric) The size of the mempool\n"
-                    "  \"chain\": \"xxxx\",           (string) current network name as defined in BIP70 (main, test, regtest)\n"
-                    "  \"warnings\": \"...\"          (string) any network and blockchain warnings\n"
-                    "}\n"
-                },
-                RPCExamples{
-                    HelpExampleCli("getmintinginfo", "")
-            + HelpExampleRpc("getmintinginfo", "")
-                },
-            }.Check(request);
-
-    LOCK(cs_main);
-
-    UniValue obj(UniValue::VOBJ);
-    obj.pushKV("blocks",           (int)::ChainActive().Height());
-    if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
-    if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
-    obj.pushKV("difficulty",       (double)GetDifficulty(::ChainActive().Tip()));
-
-    auto mnIds = pcustomcsview->AmIOperator();
-    obj.pushKV("isoperator",       (bool) mnIds);
-    if (mnIds) {
-        obj.pushKV("masternodeid", mnIds->second.GetHex());
-        auto nodePtr = pcustomcsview->GetMasternode(mnIds->second);
-        if (!nodePtr) {
-            //should not come here if the database has correct data.
-            throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("The masternode %s does not exist", mnIds->second.GetHex()));
-        }
-        auto state = nodePtr->GetState();
-        obj.pushKV("masternodeoperator", nodePtr->operatorAuthAddress.GetHex());
-        obj.pushKV("masternodestate", CMasternode::GetHumanReadableState(state));
-        obj.pushKV("generate", nodePtr->IsActive() && gArgs.GetBoolArg("-gen", DEFAULT_GENERATE));
-        obj.pushKV("mintedblocks", (uint64_t)nodePtr->mintedBlocks);
-    }
-    obj.pushKV("networkhashps",    getnetworkhashps(request));
-    obj.pushKV("pooledtx",         (uint64_t)mempool.size());
-    obj.pushKV("chain",            Params().NetworkIDString());
-    obj.pushKV("warnings",         GetWarnings("statusbar"));
-    return obj;
-}
-
 // Returns the mining information of all local masternodes
 static UniValue getmininginfo(const JSONRPCRequest& request)
 {
@@ -363,6 +308,33 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("masternodes", mnArr);
     obj.pushKV("warnings",         GetWarnings("statusbar"));
     return obj;
+}
+
+/// @deprecated version of getmininginfo. prefer using getmininginfo
+static UniValue getmintinginfo(const JSONRPCRequest& request)
+{
+            RPCHelpMan{"getmintinginfo",
+                "\nDEPRECATED. Prefer using getmininginfo.\nReturns a json object containing mining-related information.",
+                {},
+                RPCResult{
+                    "{\n"
+                    "  \"blocks\": nnn,             (numeric) The current block\n"
+                    "  \"currentblockweight\": nnn, (numeric, optional) The block weight of the last assembled block (only present if a block was ever assembled)\n"
+                    "  \"currentblocktx\": nnn,     (numeric, optional) The number of block transactions of the last assembled block (only present if a block was ever assembled)\n"
+                    "  \"difficulty\": xxx.xxxxx    (numeric) The current difficulty\n"
+                    "  \"networkhashps\": nnn,      (numeric) The network hashes per second\n"
+                    "  \"pooledtx\": n              (numeric) The size of the mempool\n"
+                    "  \"chain\": \"xxxx\",         (string)  current network name as defined in BIP70 (main, test, regtest)\n"
+                    "  \"isoperator\": true|false   (boolean) Local master nodes are available or not \n"
+                    "  \"masternodes\": []          (array)   an array of objects which includes each master node information\n"
+                    "  \"warnings\": \"...\"        (string)  any network and blockchain warnings\n"
+                    "}\n"
+                },RPCExamples{
+                    HelpExampleCli("getmintinginfo", "")
+                    + HelpExampleRpc("getmintinginfo", "")
+                }}.Check(request);
+
+    return getmininginfo(request);
 }
 
 // NOTE: Unlike wallet RPC (which use DFI values), mining RPCs follow GBT (BIP 22) in using satoshi amounts
