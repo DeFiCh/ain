@@ -52,6 +52,36 @@ struct CLoanSetCollateralTokenMessage : public CLoanSetCollateralToken {
     }
 };
 
+struct CLoanSchemeData
+{
+    uint32_t ratio;
+    CAmount rate;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(ratio);
+        READWRITE(rate);
+    }
+};
+
+struct CLoanScheme : public CLoanSchemeData
+{
+    std::string identifier;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CLoanSchemeData,*this);
+        READWRITE(identifier);
+    }
+};
+
+// Add alias consistent with naming scheme for metadata
+using CCreateLoanSchemeMessage = CLoanScheme;
+
 class CLoanView : public virtual CStorageView {
 public:
     using CollateralTokenKey = std::pair<DCT_ID, uint32_t>;
@@ -62,8 +92,12 @@ public:
     void ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {{0},0});
     std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanSetCollateralToken(CollateralTokenKey const & key);
 
+    Res StoreLoanScheme(const CCreateLoanSchemeMessage& loanScheme);
+    void ForEachLoanScheme(std::function<bool (const std::string&, const CLoanSchemeData&)> callback);
+
     struct LoanSetCollateralTokenCreationTx { static const unsigned char prefix; };
     struct LoanSetCollateralTokenKey { static const unsigned char prefix; };
+    struct CreateLoanSchemeKey { static const unsigned char prefix; };
 };
 
 #endif // DEFI_MASTERNODES_LOAN_H

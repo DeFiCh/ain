@@ -312,6 +312,12 @@ public:
         if (obj.activateAfterBlock) rpcInfo.pushKV("activateAfterBlock", static_cast<int>(obj.activateAfterBlock));
     }
 
+    void operator()(const CCreateLoanSchemeMessage& obj) const {
+        rpcInfo.pushKV("identifier", obj.identifier);
+        rpcInfo.pushKV("ratio", static_cast<uint64_t>(obj.ratio));
+        rpcInfo.pushKV("rate", ValueFromAmount(obj.rate));
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };

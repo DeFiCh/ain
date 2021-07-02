@@ -2,6 +2,7 @@
 
 const unsigned char CLoanView::LoanSetCollateralTokenCreationTx           ::prefix = 0x10;
 const unsigned char CLoanView::LoanSetCollateralTokenKey                  ::prefix = 0x11;
+const unsigned char CLoanView::CreateLoanSchemeKey                        ::prefix = 0x12;
 
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanSetCollateralToken(uint256 const & txid) const
 {
@@ -41,4 +42,16 @@ std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanSetCol
     if (it.Valid())
         return GetLoanSetCollateralToken(it.Value());
     return {};
+}
+
+Res CLoanView::StoreLoanScheme(const CCreateLoanSchemeMessage& loanScheme)
+{
+    WriteBy<CreateLoanSchemeKey>(loanScheme.identifier, static_cast<CLoanSchemeData>(loanScheme));
+
+    return Res::Ok();
+}
+
+void CLoanView::ForEachLoanScheme(std::function<bool (const std::string&, const CLoanSchemeData&)> callback)
+{
+    ForEach<CreateLoanSchemeKey, std::string, CLoanSchemeData>(callback);
 }
