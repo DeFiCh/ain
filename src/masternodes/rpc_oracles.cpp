@@ -461,8 +461,8 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     // decode timestamp
     int64_t timestamp = request.params[1].get_int64();
 
-    if (timestamp <= 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative or zero");
+    if (timestamp <= 0 || timestamp > GetSystemTimeInSeconds() + 300) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative, zero or over 5 minutes in the future");
     }
 
     // decode prices
@@ -650,7 +650,7 @@ UniValue getoracledata(const JSONRPCRequest &request) {
 
 UniValue listoracles(const JSONRPCRequest &request) {
     CWallet *const pwallet = GetWallet(request);
-    
+
     RPCHelpMan{"listoracles",
                "\nReturns list of oracle ids." +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -674,7 +674,7 @@ UniValue listoracles(const JSONRPCRequest &request) {
                        "\"hash\"                  (string) list of known oracle ids\n"
                },
                RPCExamples{
-                       HelpExampleCli("listoracles", "") 
+                       HelpExampleCli("listoracles", "")
                        + HelpExampleCli("listoracles",
                                         "'{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", "
                                         "\"including_start\": true, "
@@ -693,7 +693,7 @@ UniValue listoracles(const JSONRPCRequest &request) {
     }
 
     // parse pagination
-    COracleId start = {}; 
+    COracleId start = {};
     bool including_start = true;
     size_t limit = 100;
     {
@@ -711,7 +711,7 @@ UniValue listoracles(const JSONRPCRequest &request) {
             if (!paginationObj["limit"].isNull()){
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
-        }   
+        }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
@@ -779,9 +779,9 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
 
     boost::optional<CTokenCurrencyPair> tokenPair;
-   
+
     // parse pagination
-    COracleId start = {}; 
+    COracleId start = {};
     bool including_start = true;
     size_t limit = 100;
     {
@@ -799,7 +799,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
             if (!paginationObj["limit"].isNull()){
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
-        }   
+        }
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
@@ -897,7 +897,7 @@ namespace {
     }
 
     UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
-        
+
         size_t limit = 100;
         int start = 0;
         bool including_start = true;
@@ -916,7 +916,7 @@ namespace {
         if (limit == 0) {
             limit = std::numeric_limits<decltype(limit)>::max();
         }
-        
+
         UniValue result(UniValue::VARR);
         std::set<CTokenCurrencyPair> setTokenCurrency;
         view.ForEachOracle([&](const COracleId&, COracle oracle) {
@@ -1027,7 +1027,7 @@ UniValue listprices(const JSONRPCRequest& request) {
                        "                   2. Sum of the weight of live oracles is zero.\n"
                },
                RPCExamples{
-                       HelpExampleCli("listprices", "") 
+                       HelpExampleCli("listprices", "")
                        + HelpExampleCli("listprices",
                                         "'{\"start\": 2, "
                                         "\"including_start\": true, "
@@ -1041,7 +1041,7 @@ UniValue listprices(const JSONRPCRequest& request) {
     }.Check(request);
 
     RPCTypeCheck(request.params, {}, false);
-    
+
     // parse pagination
     UniValue paginationObj(UniValue::VOBJ);
     if (request.params.size() > 0) {
