@@ -30,7 +30,7 @@ static const char DB_PENDING = 'p';
 static const char DB_BITCOININDEX = 'Z';  // Bitcoin height to blockhash table
 
 template <typename TContainer>
-bool CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID> const & keys, const uint32_t height)
+size_t CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID> const & keys)
 {
     std::set<CPubKey> uniqueKeys;
     for (auto const & sig : sigs) {
@@ -38,16 +38,9 @@ bool CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID
         if (!pubkey.RecoverCompact(sigHash, sig) || keys.find(pubkey.GetID()) == keys.end())
             return false;
 
-        if (height >= Params().GetConsensus().EunosPayaHeight) {
-            // Reject duplicates
-            if (uniqueKeys.count(pubkey)) {
-                return error("%s: duplicate signature in anchor. Sign hash: %s", __func__, sigHash.ToString());
-            } else {
-                uniqueKeys.insert(pubkey);
-            }
-        }
+        uniqueKeys.insert(pubkey);
     }
-    return true;
+    return uniqueKeys.size();
 }
 
 uint256 CAnchorData::GetSignHash() const
@@ -109,11 +102,17 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestin
 bool CAnchor::CheckAuthSigs(CTeam const & team, const uint32_t height) const
 {
     // Sigs must meet quorum size.
-    if (sigs.size() < GetMinAnchorQuorum(team)) {
+    auto quorum = GetMinAnchorQuorum(team);
+    if (sigs.size() < quorum) {
         return error("%s: Anchor auth team quorum not met. Min quorum: %d sigs size %d", __func__, GetMinAnchorQuorum(team), sigs.size());
     }
 
-    return CheckSigs(GetSignHash(), sigs, team, height);
+    auto uniqueKeys = CheckSigs(GetSignHash(), sigs, team);
+    if (height >= Params().GetConsensus().EunosPayaHeight && uniqueKeys < quorum) {
+        return error("%s: Anchor auth team unique key quorum not met. Min quorum: %d keys size %d", __func__, GetMinAnchorQuorum(team), uniqueKeys);
+    }
+
+    return uniqueKeys;
 }
 
 const CAnchorAuthIndex::Auth * CAnchorAuthIndex::GetAuth(uint256 const & msgHash) const
@@ -955,16 +954,16 @@ CKeyID CAnchorConfirmMessage::GetSigner() const
 
 bool CAnchorFinalizationMessage::CheckConfirmSigs()
 {
-    return CheckSigs(GetSignHash(), sigs, currentTeam, 0);
+    return CheckSigs(GetSignHash(), sigs, currentTeam);
 }
 
-bool CAnchorFinalizationMessagePlus::CheckConfirmSigs(const uint32_t height)
+size_t CAnchorFinalizationMessagePlus::CheckConfirmSigs(const uint32_t height)
 {
     auto team = pcustomcsview->GetConfirmTeam(height);
     if (!team) {
         return false;
     }
-    return CheckSigs(GetSignHash(), sigs, *team, height);
+    return CheckSigs(GetSignHash(), sigs, *team);
 }
 
 bool CAnchorAwaitingConfirms::EraseAnchor(AnchorTxHash const &txHash)
@@ -1084,6 +1083,9 @@ std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const C
 
     std::vector<CAnchorConfirmMessage> result;
 
+    // Set to not count duplicate keys
+    std::set<CKeyID> uniqueKeys;
+
     for (auto it = list.begin(); it != list.end(); /* w/o advance! */) {
         // get next group of confirms
         KList::iterator it0, it1;
@@ -1091,9 +1093,13 @@ std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const C
         if (std::distance(it0,it1) >= quorum) {
             result.clear();
             for (; result.size() < quorum && it0 != it1; ++it0) {
-                if (team.find(it0->GetSigner()) != team.end()) {
+                auto keyID = it0->GetSigner();
+
+                // Make sure key is in the team and has not already been added.
+                if (team.find(keyID) != team.end() && !uniqueKeys.count(keyID)) {
                     result.push_back(*it0);
                 }
+                uniqueKeys.insert(keyID);
             }
             if (result.size() == quorum) {
                 return result;
