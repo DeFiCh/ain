@@ -1631,9 +1631,9 @@ public:
         offer->closeTx = closeoffer.creationTx;
         offer->closeHeight = closeoffer.creationHeight;
 
-        if (order->orderType == CICXOrder::TYPE_INTERNAL &&
-            ((static_cast<int>(height) < consensus.EunosPayaHeight && !mnview.HasICXSubmitDFCHTLCOpen(offer->creationTx)) ||
-            (static_cast<int>(height) >= consensus.EunosPayaHeight && !mnview.ExistedICXSubmitDFCHTLC(offer->creationTx))))
+        bool isPreEunosPaya = static_cast<int>(height) < consensus.EunosPayaHeight;
+
+        if (order->orderType == CICXOrder::TYPE_INTERNAL && !mnview.ExistedICXSubmitDFCHTLC(offer->creationTx, isPreEunosPaya))
         {
             // subtract takerFee from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
@@ -1646,14 +1646,13 @@ public:
             // subtract the balance from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
             CalculateOwnerRewards(offer->ownerAddress);
-            if (static_cast<int>(height) < consensus.EunosPayaHeight)
+            if (!isPreEunosPaya)
             {
                 res = ICXTransfer(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
                 if (!res)
                     return res;
             }
-            if ((static_cast<int>(height) < consensus.EunosPayaHeight && !mnview.HasICXSubmitEXTHTLCOpen(offer->creationTx)) ||
-                (static_cast<int>(height) >= consensus.EunosPayaHeight && !mnview.ExistedICXSubmitEXTHTLC(offer->creationTx)))
+            if (!mnview.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya))
             {
                 res = ICXTransfer(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress);
                 if (!res)

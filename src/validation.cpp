@@ -2627,6 +2627,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // close expired orders, refund all expired DFC HTLCs at this block height
         if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
         {
+            bool isPreEunosPaya = pindex->nHeight < chainparams.GetConsensus().EunosPayaHeight;
+
             cache.ForEachICXOrderExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
 
                 if (static_cast<int>(key.first) != pindex->nHeight)
@@ -2671,13 +2673,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 CScript txidAddr(offer->creationTx.begin(),offer->creationTx.end());
                 CTokenAmount takerFee{DCT_ID{0}, offer->takerFee};
 
-                if ((pindex->nHeight >= chainparams.GetConsensus().EunosPayaHeight &&
-                    ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.ExistedICXSubmitDFCHTLC(offer->creationTx)) ||
-                    (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.ExistedICXSubmitEXTHTLC(offer->creationTx))))
-                    ||
-                    (pindex->nHeight < chainparams.GetConsensus().EunosPayaHeight &&
-                    ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.HasICXSubmitDFCHTLCOpen(offer->creationTx)) ||
-                    (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.HasICXSubmitEXTHTLCOpen(offer->creationTx)))))
+                if ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.ExistedICXSubmitDFCHTLC(offer->creationTx, isPreEunosPaya)) ||
+                    (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya)))
                 {
                     auto res = cache.SubBalance(txidAddr,takerFee);
                     if (!res)
@@ -2715,8 +2712,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
                 if (status == CICXSubmitDFCHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_INTERNAL)
                 {
-                    if ((pindex->nHeight < chainparams.GetConsensus().EunosPayaHeight && !cache.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx)) ||
-                        (pindex->nHeight >= chainparams.GetConsensus().EunosPayaHeight && !cache.ExistedICXSubmitEXTHTLC(dfchtlc->offerTx)))
+                    if (!cache.ExistedICXSubmitEXTHTLC(dfchtlc->offerTx, isPreEunosPaya))
                     {
                         CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
                         cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);
@@ -2771,8 +2767,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
                 if (status == CICXSubmitEXTHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_EXTERNAL)
                 {
-                    if ((pindex->nHeight < chainparams.GetConsensus().EunosPayaHeight && !cache.HasICXSubmitDFCHTLCOpen(exthtlc->offerTx)) ||
-                        (pindex->nHeight >= chainparams.GetConsensus().EunosPayaHeight && !cache.ExistedICXSubmitDFCHTLC(exthtlc->offerTx)))
+                    if (!cache.ExistedICXSubmitDFCHTLC(exthtlc->offerTx, isPreEunosPaya))
                     {
                         CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
                         cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);
