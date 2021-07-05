@@ -172,6 +172,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
+    Res isPostEunosPayaFork() const {
+        if(static_cast<int>(height) < consensus.EunosPayaHeight) {
+            return Res::Err("called before EunosPaya height");
+        }
+        return Res::Ok();
+    }
+
     template<typename T>
     Res serialize(T& obj) const {
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -1453,6 +1460,10 @@ public:
         if (!order)
             return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
 
+        auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx);
+        if (static_cast<int>(height) < consensus.EunosPayaHeight && !exthtlc)
+            return Res::Err("cannot claim, external htlc for this offer does not exists or expired!");
+
         // claim DFC HTLC to receiveAddress
         CalculateOwnerRewards(order->ownerAddress);
         CScript htlcTxidAddr(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
@@ -1505,13 +1516,19 @@ public:
         res = mnview.ICXCloseMakeOfferTx(*offer, CICXMakeOffer::STATUS_CLOSED);
         if (!res)
             return res;
-
-        auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx);
-        if (exthtlc) res = mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
+        res = mnview.ICXCloseDFCHTLC(*dfchtlc, CICXSubmitDFCHTLC::STATUS_CLAIMED);
         if (!res)
             return res;
 
-        return mnview.ICXCloseDFCHTLC(*dfchtlc, CICXSubmitDFCHTLC::STATUS_CLAIMED);
+        if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+        {
+            if (exthtlc)
+                return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
+            else
+                return (Res::Ok());
+        }
+        else
+            return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
     }
 
     Res operator()(const CICXCloseOrderMessage& obj) const {
