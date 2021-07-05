@@ -1266,15 +1266,27 @@ public:
 
             srcAddr = CScript(order->creationTx.begin(), order->creationTx.end());
 
+            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
+
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (calcAmount > offer->amount)
                 return Res::Err("amount must be lower or equal the offer one");
 
-            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
-
-            //calculating adjusted takerFee
-            CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-            auto takerFee = CalculateTakerFee(BTCAmount);
+            CAmount takerFee = offer->takerFee;
+            //EunosPaya: calculating adjusted takerFee only if amount in htlc different than in offer
+            if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+            {
+                if (calcAmount < offer->amount)
+                {
+                    CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+                    takerFee = static_cast<CAmount>((arith_uint256(BTCAmount) * arith_uint256(offer->takerFee) / arith_uint256(offer->amount)).GetLow64());
+                }
+            }
+            else
+            {
+                CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+                takerFee = CalculateTakerFee(BTCAmount);
+            }
 
             // refund the rest of locked takerFee if there is difference
             if (offer->takerFee - takerFee) {
@@ -1390,14 +1402,26 @@ public:
             if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_TIMEOUT)
                 return Res::Err("timeout must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_TIMEOUT - 1);
 
+            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
+
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (calcAmount > offer->amount)
                 return Res::Err("amount must be lower or equal the offer one");
 
-            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
-
-            //calculating adjusted takerFee
-            auto takerFee = CalculateTakerFee(submitexthtlc.amount);
+            CAmount takerFee = offer->takerFee;
+            //EunosPaya: calculating adjusted takerFee only if amount in htlc different than in offer
+            if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+            {
+                if (calcAmount < offer->amount)
+                {
+                    CAmount BTCAmount(static_cast<CAmount>((arith_uint256(offer->amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+                    takerFee = static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(offer->takerFee) / arith_uint256(BTCAmount)).GetLow64());
+                }
+            }
+            else
+            {
+                takerFee = CalculateTakerFee(submitexthtlc.amount);
+            }
 
             // refund the rest of locked takerFee if there is difference
             if (offer->takerFee - takerFee) {

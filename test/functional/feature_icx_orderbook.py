@@ -591,6 +591,8 @@ class ICXOrderbookTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.20000000'))
+
         # Check burn
         assert_equal(self.nodes[0].getburninfo()['tokens'][0], "0.43000000@DFI")
         result = self.nodes[0].listburnhistory()
@@ -653,6 +655,86 @@ class ICXOrderbookTest (DefiTestFramework):
 
         # claimed DFI + refunded makerDeposit + makerIncentive on maker address
         assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeClaim + Decimal('2000.00000000') + Decimal('0.25000000'))
+
+        # Make sure offer and order are now closed
+        offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
+        assert_equal(len(offer), 1)
+        order = self.nodes[0].icx_listorders()
+        assert_equal(len(offer), 1)
+        order = self.nodes[0].icx_listorders({"closed": True})
+        assert_equal(order[orderTx]["status"], 'FILLED')
+
+
+        # DFI/BTC partial offer acceptance
+        orderTx = self.nodes[0].icx_createorder({
+                                    'tokenFrom': idDFI,
+                                    'chainTo': "BTC",
+                                    'ownerAddress': accountDFI,
+                                    'receivePubkey': '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941',
+                                    'amountFrom': 15,
+                                    'orderPrice':0.01})["txid"]
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        beforeOffer = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
+
+        offerTx = self.nodes[1].icx_makeoffer({
+                                    'orderTx': orderTx,
+                                    'amount': 1,
+                                    'ownerAddress': accountBTC})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.10000000'))
+
+        offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
+
+        assert_equal(offer[offerTx]["orderTx"], orderTx)
+        assert_equal(offer[offerTx]["amount"], Decimal('1.00000000'))
+        assert_equal(offer[offerTx]["ownerAddress"], accountBTC)
+        assert_equal(offer[offerTx]["takerFee"], Decimal('0.10000000'))
+
+        dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 15,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'timeout': 500})["txid"]
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer - Decimal('0.01500000'))
+
+        # Check burn
+        assert_equal(self.nodes[0].getburninfo()['tokens'][0], "0.46000000@DFI")
+        result = self.nodes[0].listburnhistory()
+        assert_equal(result[0]['owner'], burn_address)
+        assert_equal(result[0]['type'], 'ICXSubmitDFCHTLC')
+        assert_equal(result[0]['amounts'][0], '0.03000000@DFI')
+
+        offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
+        assert_equal(offer[offerTx]["takerFee"], Decimal('0.01500000'))
+
+
+        exthtlcTx = self.nodes[1].icx_submitexthtlc({
+                                    'offerTx': offerTx,
+                                    'amount': 0.15,
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
+                                    'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
+                                    'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
+                                    'timeout': 15})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        claimTx = self.nodes[1].icx_claimdfchtlc({
+                                    'dfchtlcTx': dfchtlcTx,
+                                    'seed': 'f75a61ad8f7a6e0ab701d5be1f5d4523a9b534571e4e92e0c4610c6a6784ccef'})["txid"]
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
 
         # Make sure offer and order are now closed
         offer = self.nodes[0].icx_listorders({"orderTx": orderTx})
