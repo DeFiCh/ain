@@ -70,6 +70,9 @@ UniValue rewardhistoryToJSON(CScript const & owner, uint32_t height, DCT_ID cons
         obj.pushKV("blockTime", block->GetBlockTime());
     }
     obj.pushKV("type", RewardToString(type));
+    if (type & RewardType::Rewards) {
+        obj.pushKV("rewardType", RewardTypeToString(type));
+    }
     obj.pushKV("poolID", poolId.ToString());
     TAmounts amounts({{amount.nTokenId,amount.nValue}});
     obj.pushKV("amounts", AmountsToJSON(amounts));

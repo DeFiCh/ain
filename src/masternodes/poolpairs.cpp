@@ -47,6 +47,25 @@ struct PoolReservesValue {
     }
 };
 
+std::string RewardToString(RewardType type)
+{
+    if (type & RewardType::Rewards) {
+        return "Rewards";
+    } else if (type == RewardType::Commission) {
+        return "Commission";
+    }
+    return "Unknown";
+}
+
+std::string RewardTypeToString(RewardType type)
+{
+    switch(type) {
+        case RewardType::Coinbase: return "Coinbase";
+        case RewardType::Pool: return "Pool";
+        default: return "Unknown";
+    }
+}
+
 template <typename By, typename ReturnType>
 ReturnType ReadValueAt(CPoolPairView * poolView, PoolHeightKey const & poolKey) {
     auto it = poolView->LowerBound<By>(poolKey);
@@ -267,7 +286,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             } else { // new calculation
                 providerReward = liquidityReward(poolReward, liquidity, totalLiquidity);
             }
-            onReward(RewardType::Rewards, {DCT_ID{0}, providerReward}, height);
+            onReward(RewardType::Coinbase, {DCT_ID{0}, providerReward}, height);
         }
         // commissions
         if (poolSwapHeight == height && poolSwap.swapEvent) {
@@ -290,7 +309,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
         // custom rewards
         for (const auto& reward : customRewards.balances) {
             if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
-                onReward(RewardType::Rewards, {reward.first, providerReward}, height);
+                onReward(RewardType::Pool, {reward.first, providerReward}, height);
             }
         }
         ++height;
