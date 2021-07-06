@@ -1052,10 +1052,12 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return false;
         }
 
+        std::unique_ptr<CScopeTxReverter> reverter;
+        if (!noRewards) {
+            reverter = MakeUnique<CScopeTxReverter>(view, valueLazy.get().txid, key.blockHeight);
+        }
+
         if (shouldSkipBlock(key.blockHeight)) {
-            if (!noRewards && key.blockHeight > maxBlockHeight) {
-                view.OnUndoTx(valueLazy.get().txid, key.blockHeight);
-            }
             return true;
         }
 
@@ -1066,10 +1068,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         const auto & value = valueLazy.get();
 
         if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
-            return true;
-        }
-
-        if(!tokenFilter.empty() && !hasToken(value.diff)) {
             return true;
         }
 
@@ -1087,26 +1085,23 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             lastHeight = maxBlockHeight;
         }
 
-        std::unique_ptr<CScopeTxReverter> reverter;
-        if (!noRewards) {
-            reverter = MakeUnique<CScopeTxReverter>(view, value.txid, key.blockHeight);
+        if (tokenFilter.empty() || hasToken(value.diff)) {
+            auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+            array.push_back(accounthistoryToJSON(key, value));
+            if (shouldSearchInWallet) {
+                txs.insert(value.txid);
+            }
+            --count;
         }
-
-        auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-        array.push_back(accounthistoryToJSON(key, value));
-        if (shouldSearchInWallet) {
-            txs.insert(value.txid);
-        }
-
-        --count;
 
         if (!noRewards && count) {
-            auto blocks = std::min(lastHeight - key.blockHeight, count);
-            onPoolRewards(view, key.owner, lastHeight - blocks, lastHeight,
+            onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
                 [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
-                    auto& array = ret.emplace(height, UniValue::VARR).first->second;
-                    array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount));
-                    --count;
+                    if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
+                        auto& array = ret.emplace(height, UniValue::VARR).first->second;
+                        array.push_back(rewardhistoryToJSON(key.owner, height, poolId, type, amount));
+                        count ? --count : 0;
+                    }
                 }
             );
         }
@@ -1415,33 +1410,33 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
         const auto& value = valueLazy.get();
 
-        if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
-            return true;
-        }
-
-        if(!tokenFilter.empty() && !hasToken(value.diff)) {
-            return true;
-        }
-
         std::unique_ptr<CScopeTxReverter> reverter;
         if (!noRewards) {
             reverter = MakeUnique<CScopeTxReverter>(view, value.txid, key.blockHeight);
         }
 
-        if (shouldSearchInWallet) {
-            txs.insert(value.txid);
+        if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
+            return true;
+        }
+
+        if (tokenFilter.empty() || hasToken(value.diff)) {
+            if (shouldSearchInWallet) {
+                txs.insert(value.txid);
+            }
+            ++count;
         }
 
         if (!noRewards) {
             onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
-                [&](int32_t, DCT_ID, RewardType, CTokenAmount) {
-                    ++count;
+                [&](int32_t, DCT_ID, RewardType, CTokenAmount amount) {
+                    if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
+                        ++count;
+                    }
                 }
             );
             lastHeight = key.blockHeight;
         }
 
-        ++count;
         return true;
     };
 
