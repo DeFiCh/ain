@@ -29,20 +29,6 @@ static const char DB_ANCHORS = 'A';
 static const char DB_PENDING = 'p';
 static const char DB_BITCOININDEX = 'Z';  // Bitcoin height to blockhash table
 
-template <typename TContainer>
-size_t CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID> const & keys)
-{
-    std::set<CPubKey> uniqueKeys;
-    for (auto const & sig : sigs) {
-        CPubKey pubkey;
-        if (!pubkey.RecoverCompact(sigHash, sig) || keys.find(pubkey.GetID()) == keys.end())
-            return false;
-
-        uniqueKeys.insert(pubkey);
-    }
-    return uniqueKeys.size();
-}
-
 uint256 CAnchorData::GetSignHash() const
 {
     CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
