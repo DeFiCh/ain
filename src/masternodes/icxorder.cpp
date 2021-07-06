@@ -297,12 +297,17 @@ std::unique_ptr<CICXOrderView::CICXSubmitDFCHTLCImpl> CICXOrderView::HasICXSubmi
 
 bool CICXOrderView::ExistedICXSubmitDFCHTLC(uint256 const & offertxid, bool isPreEunosPaya)
 {
+    bool result = false;
+
+    if (HasICXSubmitDFCHTLCOpen(offertxid))
+        result = true;
     if (isPreEunosPaya)
-        return HasICXSubmitDFCHTLCOpen(offertxid) ? true : false;
+        return (result);
     auto it = LowerBound<ICXSubmitDFCHTLCCloseKey>(TxidPairKey{offertxid, {}});
     if (it.Valid() && it.Key().first == offertxid)
-        return true;
-    return false;
+        result = true;
+
+    return (result);
 }
 
 std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::GetICXSubmitEXTHTLCByCreationTx(const uint256 & txid) const
@@ -370,12 +375,17 @@ std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::HasICXSubmi
 
 bool CICXOrderView::ExistedICXSubmitEXTHTLC(uint256 const & offertxid, bool isPreEunosPaya)
 {
+    bool result = false;
+
+    if (HasICXSubmitEXTHTLCOpen(offertxid))
+        result = true;
     if (isPreEunosPaya)
-        return HasICXSubmitEXTHTLCOpen(offertxid) ? true : false;
+        return (result);
     auto it = LowerBound<ICXSubmitEXTHTLCCloseKey>(TxidPairKey{offertxid, {}});
     if (it.Valid() && it.Key().first == offertxid)
-        return true;
-    return false;
+        result = true;
+
+    return (result);
 }
 
 std::unique_ptr<CICXOrderView::CICXClaimDFCHTLCImpl> CICXOrderView::GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const
