@@ -1646,7 +1646,7 @@ public:
             // subtract the balance from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
             CalculateOwnerRewards(offer->ownerAddress);
-            if (!isPreEunosPaya)
+            if (isPreEunosPaya)
             {
                 res = ICXTransfer(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
                 if (!res)
