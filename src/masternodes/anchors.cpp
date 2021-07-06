@@ -1069,9 +1069,6 @@ std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const C
 
     std::vector<CAnchorConfirmMessage> result;
 
-    // Set to not count duplicate keys
-    std::set<CKeyID> uniqueKeys;
-
     for (auto it = list.begin(); it != list.end(); /* w/o advance! */) {
         // get next group of confirms
         KList::iterator it0, it1;
@@ -1079,13 +1076,9 @@ std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const C
         if (std::distance(it0,it1) >= quorum) {
             result.clear();
             for (; result.size() < quorum && it0 != it1; ++it0) {
-                auto keyID = it0->GetSigner();
-
-                // Make sure key is in the team and has not already been added.
-                if (team.find(keyID) != team.end() && !uniqueKeys.count(keyID)) {
+                if (team.find(it0->GetSigner()) != team.end()) {
                     result.push_back(*it0);
                 }
-                uniqueKeys.insert(keyID);
             }
             if (result.size() == quorum) {
                 return result;
