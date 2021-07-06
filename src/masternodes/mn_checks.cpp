@@ -1936,18 +1936,26 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
     }
 
     // Miner used confirm team at chain height when creating this TX, this is height - 1.
-    if (!finMsg.CheckConfirmSigs(height - 1)) {
+    int anchorHeight = height - 1;
+    auto uniqueKeys = finMsg.CheckConfirmSigs(anchorHeight);
+    if (!uniqueKeys) {
         return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
     }
 
-    auto team = mnview.GetConfirmTeam(height - 1);
+    auto team = mnview.GetConfirmTeam(anchorHeight);
     if (!team) {
-        return Res::ErrDbg("bad-ar-team", "could not get confirm team for height: %d", height - 1);
+        return Res::ErrDbg("bad-ar-team", "could not get confirm team for height: %d", anchorHeight);
     }
 
-    if (finMsg.sigs.size() < GetMinAnchorQuorum(*team)) {
+    auto quorum = GetMinAnchorQuorum(*team);
+    if (finMsg.sigs.size() < quorum) {
         return Res::ErrDbg("bad-ar-sigs-quorum", "anchor sigs (%d) < min quorum (%) ",
-                           finMsg.sigs.size(), GetMinAnchorQuorum(*team));
+                           finMsg.sigs.size(), quorum);
+    }
+
+    if (anchorHeight >= Params().GetConsensus().EunosPayaHeight && uniqueKeys < quorum) {
+        return Res::ErrDbg("bad-ar-sigs-quorum", "anchor unique keys (%d) < min quorum (%) ",
+                           uniqueKeys, quorum);
     }
 
     // Make sure anchor block height and hash exist in chain.
