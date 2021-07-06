@@ -1291,8 +1291,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
                             {
                                 {"offerTx",RPCArg::Type::STR, RPCArg::Optional::NO, "Offer txid  for which to list all HTLCS"},
                                 {"limit",  RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Maximum number of orders to return (default: 20)"},
-                                {"refunded", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Display refunded HTLC (default: false)"},
-                                {"claimed",  RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Display claimed HTLCs (default: false)"},
+                                {"closed",  RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Display also claimed, expired and refunded HTLCs (default: false)"},
 
                             },
                         },
