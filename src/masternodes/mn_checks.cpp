@@ -57,6 +57,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
         case CustomTxType::LoanSetCollateralToken: return "LoanSetCollateralToken";
+        case CustomTxType::CreateLoanScheme:    return "CreateLoanScheme";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -133,6 +134,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
         case CustomTxType::LoanSetCollateralToken:  return CLoanSetCollateralTokenMessage{};
+        case CustomTxType::CreateLoanScheme:        return CCreateLoanSchemeMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -387,6 +389,11 @@ public:
         return !res ? res : serialize(obj);
     }
     Res operator()(CLoanSetCollateralTokenMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CCreateLoanSchemeMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -1656,6 +1663,48 @@ public:
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
         return mnview.LoanCreateSetCollateralToken(collToken);
+    }
+
+    Res operator()(const CCreateLoanSchemeMessage& obj) const {
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        if (obj.ratio < 100) {
+            return Res::Err("Ratio cannot be less than 100");
+        }
+
+        if (obj.rate < 1000000) {
+            return Res::Err("Rate cannot be less than 0.01");
+        }
+
+        if (obj.identifier.empty() || obj.identifier.length() > 8) {
+            return Res::Err("Identifier cannot be empty or more than 8 chars long");
+        }
+
+        bool duplicateID = false, duplicateLoan = false;
+        mnview.ForEachLoanScheme([&](const std::string& key, const CLoanSchemeData& data) {
+            if (key == obj.identifier) {
+                duplicateID = true;
+                return false;
+            }
+
+            if (data.ratio == obj.ratio && data.rate == obj.rate) {
+                duplicateLoan = true;
+                return false;
+            }
+            return true;
+        });
+
+        if (duplicateID) {
+            return Res::Err(strprintf("Loan scheme already exist with identifier %s", obj.identifier));
+        }
+
+        if (duplicateLoan) {
+            return Res::Err("Loan scheme with same rate and ratio already exists");
+        }
+
+        return mnview.StoreLoanScheme(obj);
     }
 
     Res operator()(const CCustomTxMessageNone&) const {

@@ -236,6 +236,165 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
     return (ret);
 }
 
+
+UniValue createloanscheme(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"createloanscheme",
+                "Creates a loan scheme transaction.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"ratio", RPCArg::Type::NUM, RPCArg::Optional::NO, "Minimum collateralization ratio (integer)."},
+                    {"rate", RPCArg::Type::NUM, RPCArg::Optional::NO, "Interest rate (integer or float)."},
+                    {"identifier", RPCArg::Type::STR, RPCArg::Optional::NO, "Unique identifier of the loan scheme (8 chars max)."},
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                            {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                     {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                   "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                   HelpExampleCli("createloanscheme", "150 5 LOAN0001") +
+                   HelpExampleRpc("createloanscheme", "150, 5, LOAN0001")
+                },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    CCreateLoanSchemeMessage loanScheme;
+    loanScheme.ratio = request.params[0].get_int();
+    loanScheme.rate = AmountFromValue(request.params[1]);
+    loanScheme.identifier = request.params[2].get_str();
+
+    if (loanScheme.ratio < 100) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Ratio cannot be less than 100");
+    }
+
+    if (loanScheme.rate < 1000000) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Rate cannot be less than 0.01");
+    }
+
+    if (loanScheme.identifier.empty() || loanScheme.identifier.length() > 8) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Identifier cannot be empty or more than 8 chars long");
+    }
+
+    pcustomcsview->ForEachLoanScheme([&loanScheme](const std::string& key, const CLoanSchemeData& data) {
+        if (key == loanScheme.identifier) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Loan scheme already exist with identifier %s", key));
+        }
+
+        if (data.ratio == loanScheme.ratio && data.rate == loanScheme.rate) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Loan scheme with same rate and ratio already exists");
+        }
+        return true;
+    });
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::CreateLoanScheme)
+             << loanScheme;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[3]);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CCoinControl coinControl;
+
+    // Set change to foundation address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, loanScheme});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateLoanSchemeMessage{}, coinview);
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue listloanschemes(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"listloanschemes",
+               "List all available loan schemes\n",
+               {},
+               RPCResult{
+                       "[                         (json array of objects)\n"
+                       "  {\n"
+                       "    \"identifier\" : n           (string)\n"
+                       "    \"ratio\" : n                (numeric)\n"
+                       "    \"rate\" : n                 (numeric)\n"
+                       "  },\n"
+                       "  ...\n"
+                       "]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("createloanscheme", "150 5 LOAN0001") +
+                       HelpExampleRpc("createloanscheme", "150, 5, LOAN0001")
+               },
+    }.Check(request);
+
+    auto cmp = [](const CLoanScheme& a, const CLoanScheme& b) {
+        return a.ratio == b.ratio ? a.rate < b.rate : a.ratio < b.ratio;
+    };
+    std::set<CLoanScheme, decltype(cmp)> loans(cmp);
+
+    pcustomcsview->ForEachLoanScheme([&loans](const std::string& identifier, const CLoanSchemeData& data){
+        CLoanScheme loanScheme;
+        loanScheme.rate = data.rate;
+        loanScheme.ratio = data.ratio;
+        loanScheme.identifier = identifier;
+        loans.insert(loanScheme);
+        return true;
+    });
+
+    UniValue ret(UniValue::VARR);
+    for (const auto& item : loans) {
+        UniValue arr(UniValue::VOBJ);
+        arr.pushKV("identifier", item.identifier);
+        arr.pushKV("ratio", static_cast<uint64_t>(item.ratio));
+        arr.pushKV("rate", ValueFromAmount(item.rate));
+        ret.push_back(arr);
+    }
+
+    return ret;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -243,6 +402,8 @@ static const CRPCCommand commands[] =
     {"loan",        "setcollateraltoken",        &setcollateraltoken,    {"parameters", "inputs"}},
     {"loan",        "getcollateraltoken",        &getcollateraltoken,    {"by"}},
     {"loan",        "listcollateraltokens",      &listcollateraltokens,  {}},
+    {"loan",        "createloanscheme",          &createloanscheme,      {"ratio", "rate"}},
+    {"loan",        "listloanschemes",           &listloanschemes,       {}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {
