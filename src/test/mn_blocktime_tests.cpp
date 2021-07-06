@@ -22,7 +22,7 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time)
     uint256 mnId = uint256S("1111111111111111111111111111111111111111111111111111111111111111");
 
     CCustomCSView mnview(*pcustomcsview.get());
-    mnview.CreateMasternode(mnId, mn);
+    mnview.CreateMasternode(mnId, mn, 0);
 
     // Add time records
     mnview.SetMasternodeLastBlockTime(minter, 100, 1000);

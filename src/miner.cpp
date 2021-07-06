@@ -720,6 +720,7 @@ namespace pos {
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
         auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
+        const auto timelock = pcustomcsview->GetTimelock(masternodeID);
 
         // Set search time if null or last block has changed
         if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
@@ -747,8 +748,8 @@ namespace pos {
 
                     blockTime = ((uint32_t)currentTime - t);
 
-                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID,
-                                             chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID, chainparams.GetConsensus(),
+                                             stakerBlockTime ? *stakerBlockTime : 0, timelock ? *timelock : 0))
                     {
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
@@ -770,8 +771,8 @@ namespace pos {
 
                     blockTime = ((uint32_t)searchTime + t);
 
-                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID,
-                                             chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID, chainparams.GetConsensus(),
+                                             stakerBlockTime ? *stakerBlockTime : 0, timelock ? *timelock : 0))
                     {
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 

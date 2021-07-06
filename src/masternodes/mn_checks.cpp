@@ -677,6 +677,10 @@ public:
             return Res::Err("masternode creation needs owner auth");
         }
 
+        if (height < static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight) && obj.timelock != 0) {
+            return Res::Err("collateral timelock cannot be set below EunosPaya");
+        }
+
         CMasternode node;
         CTxDestination dest;
         if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
@@ -691,7 +695,7 @@ public:
         node.creationHeight = height;
         node.operatorType = obj.operatorType;
         node.operatorAuthAddress = obj.operatorAuthAddress;
-        res = mnview.CreateMasternode(tx.GetHash(), node);
+        res = mnview.CreateMasternode(tx.GetHash(), node, obj.timelock);
         // Build coinage from the point of masternode creation
         if (res && height >= static_cast<uint32_t>(Params().GetConsensus().DakotaCrescentHeight)) {
             mnview.SetMasternodeLastBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), time);
