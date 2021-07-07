@@ -1196,7 +1196,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
     size_t limit = 50;
     std::string tokenSymbol, chain;
     uint256 orderTxid;
-    bool closed = false;
+    bool closed = false, offers = false;
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
     if (request.params.size() > 0)
@@ -1204,7 +1204,11 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
         UniValue byObj = request.params[0].get_obj();
         if (!byObj["token"].isNull()) tokenSymbol = trim_ws(byObj["token"].getValStr());
         if (!byObj["chain"].isNull()) chain = trim_ws(byObj["chain"].getValStr());
-        if (!byObj["orderTx"].isNull()) orderTxid = uint256S(byObj["orderTx"].getValStr());
+        if (!byObj["orderTx"].isNull())
+        {
+            orderTxid = uint256S(byObj["orderTx"].getValStr());
+            offers = true;
+        }
         if (!byObj["limit"].isNull()) limit = (size_t) byObj["limit"].get_int64();
         if (!byObj["closed"].isNull()) closed = byObj["closed"].get_bool();
     }
@@ -1244,7 +1248,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
 
         return ret;
     }
-    else if (!orderTxid.IsNull())
+    else if (offers)
     {
         auto offerkeylambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
             if (key.first != orderTxid)
