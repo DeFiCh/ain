@@ -2885,18 +2885,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     }
                 }
 
-                uint32_t voteYes = 0;
-                std::set<CScript> voters;
+                uint32_t voteYes = 0, voters = 0;
                 cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
                     if (pId != propId || cycle != prop.cycle) {
                         return false;
                     }
                     if (activeMasternodes.count(mnId)) {
-                        auto node = cache.GetMasternode(mnId);
-                        assert(node);
-                        auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
-                                                              : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
-                        voters.insert(GetScriptForDestination(ownerDest));
+                        ++voters;
                         if (vote == CPropVoteType::VoteYes) {
                             ++voteYes;
                         }
@@ -2904,8 +2899,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     return true;
                 }, CMnVotePerCycle{propId, prop.cycle});
 
-                bool payVoters = false;
-                auto valid = lround(voters.size() * 10000.f / activeMasternodes.size()) >= chainparams.GetConsensus().props.minVoting;
+                auto valid = lround(voters * 10000.f / activeMasternodes.size()) >= chainparams.GetConsensus().props.minVoting;
                 if (valid) {
                     uint32_t majorityThreshold;
                     switch(prop.type) {
@@ -2921,10 +2915,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         default:
                             assert(false);
                     }
-                    auto approved = lround(voteYes * 10000.f / voters.size()) >= majorityThreshold;
+                    auto approved = lround(voteYes * 10000.f / voters) >= majorityThreshold;
                     if (approved) {
                         if (prop.nCycles == prop.cycle) {
-                            payVoters = true;
                             cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Completed);
                         } else {
                             assert(prop.nCycles > prop.cycle);
@@ -2940,52 +2933,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                             }
                         }
                     } else {
-                        payVoters = true;
                         cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
                     }
                 } else {
-                    payVoters = true;
                     cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
-                }
-                if (payVoters) {
-                    // extend voters to all cycles
-                    cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
-                        if (pId != propId || cycle >= prop.cycle) {
-                            return false;
-                        }
-                        if (activeMasternodes.count(mnId)) {
-                            auto node = cache.GetMasternode(mnId);
-                            assert(node);
-                            auto ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
-                                                                  : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
-                            voters.insert(GetScriptForDestination(ownerDest));
-                        }
-                        return true;
-                    }, CMnVotePerCycle{propId, 1});
-                    // pay voters to encourage future voting
-                    if (!voters.empty()) {
-                        CAmount amount;
-                        switch(prop.type) {
-                            case CPropType::CommunityFundRequest:
-                                amount = chainparams.GetConsensus().props.cfp.fee;
-                                break;
-                            case CPropType::BlockRewardRellocation:
-                                amount = chainparams.GetConsensus().props.brp.fee;
-                                break;
-                            case CPropType::VoteOfConfidence:
-                                amount = chainparams.GetConsensus().props.voc.fee;
-                                break;
-                            default:
-                                assert(false);
-                        }
-                        // creator coins are used as tokens for voting rewards
-                        if (CAmount reward = amount / voters.size()) {
-                            for (auto& voter : voters) {
-                                cache.CalculateOwnerRewards(voter, pindex->nHeight);
-                                cache.AddBalance(voter, {DCT_ID{0}, reward});
-                            }
-                        }
-                    }
                 }
                 return true;
             }, pindex->nHeight);

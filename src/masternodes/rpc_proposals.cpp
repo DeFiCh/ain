@@ -147,7 +147,7 @@ UniValue createcfp(const JSONRPCRequest& request)
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, request.params[1]);
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[1]);
 
     CAmount cfpFee = GetPropsCreationFee(targetHeight, pm.type);
     rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));

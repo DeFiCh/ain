@@ -476,7 +476,7 @@ public:
     }
 
     Res CheckProposalTx(CPropType type) const {
-        if (tx.vout.size() < 1
+        if (tx.vout.empty() // just in any case
         || tx.vout[0].nValue < GetPropsCreationFee(height, type) || tx.vout[0].nTokenId != DCT_ID{0}) {
             return Res::Err("malformed tx vouts (wrong creation fee)");
         }
@@ -1904,7 +1904,10 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time);
 
         // Track burn fee
-        if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
+        if (txType == CustomTxType::CreateToken
+        || txType == CustomTxType::CreateMasternode
+        || (height >= uint32_t(consensus.FortCanningHeight)
+        && txType == CustomTxType::CreateCfp)) {
             view.AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
         }
     }

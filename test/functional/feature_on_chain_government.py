@@ -118,9 +118,6 @@ class ChainGornmentTest(DefiTestFramework):
         self.sync_all()
         # proposal fails, CommunityDevelopmentFunds does not charged
         assert_equal(node0.listcommunitybalances()['CommunityDevelopmentFunds'], bal + Decimal("19.887464"))
-        # check voters are payed
-        assert_equal(node1.getaccount(address0), ['0.50000000@DFI'])
-        assert_equal(node1.getaccount(address1), ['0.50000000@DFI'])
         results = node0.listproposals()
         result = results[0]
         # not votes on 2nd cycle makes proposal to rejected
