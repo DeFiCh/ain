@@ -467,7 +467,7 @@ private:
             ordered_unique<
                 tag<Confirm::ByKey>, composite_key<Confirm,
                     member<CAnchorConfirmDataPlus, THeight, &CAnchorConfirmDataPlus::btcTxHeight>,
-                    const_mem_fun<CAnchorConfirmDataPlus, uint256, &CAnchorConfirmDataPlus::GetSignHash>,
+                    member<CAnchorConfirmData, uint256, &CAnchorConfirmData::btcTxHash>,
                     const_mem_fun<Confirm, CKeyID, &Confirm::GetSigner>
                 >
             >,
