@@ -49,9 +49,8 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("setcollateraltoken", "'{\"ownerAddress\":\"<tokenAddress>\","
-                                                        "\"tokenFrom\":\"GOLD#128\",\"chainTo\":\"BTC\","
-                                                        "\"amountFrom\":\"10\",\"orderPrice\":\"10\"}'")                },
+                        HelpExampleCli("setcollateraltoken", R"('{"token":"XXX","factor":"150","priceFeedId":"txid"}')")
+                        },
      }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
