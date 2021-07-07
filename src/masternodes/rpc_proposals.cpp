@@ -35,8 +35,6 @@ UniValue createcfp(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
-    auto votingPeriodStr = std::to_string(Params().GetConsensus().props.votingPeriod);
-
     RPCHelpMan{"createcfp",
                "\nCreates a Cummunity Fund Request" +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -45,7 +43,6 @@ UniValue createcfp(const JSONRPCRequest& request)
                         "data in json-form, containing cfp data",
                         {
                             {"title", RPCArg::Type::STR, RPCArg::Optional::NO, "The title of community fund request"},
-                            {"finalizeAfter", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Defaulted to " + votingPeriodStr + " / 2"},
                             {"cycles", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Defaulted to one cycle"},
                             {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount in DFI to request"},
                             {"payoutAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address for receiving"},
@@ -83,7 +80,6 @@ UniValue createcfp(const JSONRPCRequest& request)
     CAmount amount;
     int cycles = 1;
     std::string title, addressStr;
-    auto finalizeAfter = Params().GetConsensus().props.votingPeriod / 2;
 
     const UniValue& data = request.params[0].get_obj();
 
@@ -97,13 +93,6 @@ UniValue createcfp(const JSONRPCRequest& request)
         cycles = data["cycles"].get_int();
         if (cycles > int(MAX_CYCLES) || cycles < 1) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("<cycles> should be between 1 and %d", int(MAX_CYCLES)));
-        }
-    }
-
-    if (!data["finalizeAfter"].isNull()) {
-        finalizeAfter = data["finalizeAfter"].get_int();
-        if (finalizeAfter < 0 || finalizeAfter > 3 * Params().GetConsensus().props.votingPeriod) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "<finalizeAfter> should be higher than 0 and lower than 3 x " + votingPeriodStr);
         }
     }
 
@@ -131,7 +120,6 @@ UniValue createcfp(const JSONRPCRequest& request)
     pm.nAmount = amount;
     pm.nCycles = cycles;
     pm.title = title.substr(0, 128);
-    pm.blocksCount = finalizeAfter;
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

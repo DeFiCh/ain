@@ -39,20 +39,21 @@ std::string CPropVoteToString(const CPropVoteType vote)
     return "Unknown";
 }
 
-Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& msg)
+Res CPropsView::CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& msg, uint32_t votingPeriod)
 {
     CPropObject prop;
     static_cast<CCreatePropMessage&>(prop) = msg;
     prop.creationHeight = height;
-    prop.finalHeight = height + (prop.nCycles * prop.blocksCount);
-    WriteBy<ByType>(propId, prop);
     auto key = std::make_pair(uint8_t(CPropStatusType::Voting), propId);
     WriteBy<ByStatus>(key, uint8_t(1));
 
     for (uint8_t i = 1; i <= prop.nCycles; ++i) {
-        auto key = std::make_pair(height + (prop.blocksCount * i), propId);
+        height += (height % votingPeriod) + votingPeriod;
+        auto key = std::make_pair(height, propId);
         WriteBy<ByCycle>(key, i);
     }
+    prop.finalHeight = height;
+    WriteBy<ByType>(propId, prop);
     return Res::Ok();
 }
 
@@ -116,9 +117,14 @@ Res CPropsView::UpdatePropStatus(const CPropId& propId, uint32_t height, CPropSt
     auto p_prop = GetProp(propId);
     assert(p_prop);
 
-    for (uint8_t i = 1; i <= p_prop->nCycles; ++i) {
-        auto key = std::make_pair(p_prop->creationHeight + (p_prop->blocksCount * i), propId);
-        EraseBy<ByCycle>(key);
+    uint8_t i = 0;
+    auto cycles = p_prop->nCycles;
+    auto ckey = std::make_pair(p_prop->creationHeight, propId);
+    for (auto it = LowerBound<ByCycle>(ckey); i < cycles && it.Valid(); it.Next()) {
+        if (it.Key().second == propId) {
+            EraseBy<ByCycle>(it.Key());
+            ++i;
+        }
     }
 
     if (p_prop->finalHeight != height) {

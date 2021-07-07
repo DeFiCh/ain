@@ -44,7 +44,6 @@ struct CCreatePropMessage {
     CAmount nAmount;
     uint8_t nCycles;
     std::string title;
-    int32_t blocksCount;
 
     ADD_SERIALIZE_METHODS;
 
@@ -63,7 +62,6 @@ struct CCreatePropMessage {
         READWRITE(nAmount);
         READWRITE(nCycles);
         READWRITE(title);
-        READWRITE(blocksCount);
     }
 };
 
@@ -131,7 +129,7 @@ class CPropsView : public virtual CStorageView
 public:
     ~CPropsView() override = default;
 
-    Res CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& prop);
+    Res CreateProp(const CPropId& propId, uint32_t height, const CCreatePropMessage& prop, uint32_t votingPeriod);
     Optional<CPropObject> GetProp(const CPropId& propId);
     Res UpdatePropCycle(const CPropId& propId, uint8_t cycle);
     Res UpdatePropStatus(const CPropId& propId, uint32_t height, CPropStatusType status);
