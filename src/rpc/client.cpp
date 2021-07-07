@@ -229,6 +229,12 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "icx_listorders", 0, "by" },
     { "icx_listhtlcs", 0, "by" },
 
+    { "setcollateraltoken", 0, "parameters" },
+    { "setcollateraltoken", 1, "inputs" },
+    { "getcollateraltoken", 0, "by" },
+    { "createloanscheme", 0, "ratio" },
+    { "createloanscheme", 1, "rate" },
+
     { "spv_sendrawtx", 0, "rawtx" },
     { "spv_createanchor", 0, "inputs" },
     { "spv_createanchor", 2, "send" },

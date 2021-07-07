@@ -19,12 +19,13 @@ SOURCES = [
     "src/rpc/rawtransaction.cpp",
     "src/wallet/rpcwallet.cpp",
     "src/masternodes/mn_rpc.cpp",
-    "src/masternodes/rpc_masternodes.cpp",
     "src/masternodes/rpc_accounts.cpp",
-    "src/masternodes/rpc_tokens.cpp",
-    "src/masternodes/rpc_poolpair.cpp",
-    "src/masternodes/rpc_oracles.cpp",
     "src/masternodes/rpc_icxorderbook.cpp",
+    "src/masternodes/rpc_loan.cpp",
+    "src/masternodes/rpc_masternodes.cpp",
+    "src/masternodes/rpc_oracles.cpp",
+    "src/masternodes/rpc_poolpair.cpp",
+    "src/masternodes/rpc_tokens.cpp",
     "src/spv/spv_rpc.cpp",
 ]
 # Source file (relative to root) containing conversion mapping

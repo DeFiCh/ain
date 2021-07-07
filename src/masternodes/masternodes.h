@@ -11,9 +11,10 @@
 #include <serialize.h>
 #include <masternodes/accounts.h>
 #include <masternodes/anchors.h>
+#include <masternodes/gv.h>
 #include <masternodes/icxorder.h>
 #include <masternodes/incentivefunding.h>
-#include <masternodes/gv.h>
+#include <masternodes/loan.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
 #include <masternodes/tokens.h>
@@ -244,6 +245,7 @@ class CCustomCSView
         , public CAnchorConfirmsView
         , public COracleView
         , public CICXOrderView
+        , public CLoanView
 {
 public:
     // Increase version when underlaying tables are changed

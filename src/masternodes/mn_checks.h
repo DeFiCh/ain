@@ -73,6 +73,9 @@ enum class CustomTxType : uint8_t
     ICXClaimDFCHTLC     = '5',
     ICXCloseOrder       = '6',
     ICXCloseOffer       = '7',
+    // Loans
+    LoanSetCollateralToken = 'c',
+    CreateLoanScheme   = 'L',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -106,6 +109,8 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::ICXClaimDFCHTLC:
         case CustomTxType::ICXCloseOrder:
         case CustomTxType::ICXCloseOffer:
+        case CustomTxType::LoanSetCollateralToken:
+        case CustomTxType::CreateLoanScheme:
         case CustomTxType::None:
             return type;
     }
@@ -132,26 +137,6 @@ inline void Unserialize(Stream& s, CustomTxType & txType) {
 
     txType = CustomTxCodeToType(ch);
 }
-
-struct CAccountToUtxosMessage;
-struct CAccountToAccountMessage;
-struct CAnchorFinalizationMessage;
-struct CAnyAccountsToAccountsMessage;
-struct CLiquidityMessage;
-struct CPoolSwapMessage;
-struct CRemoveLiquidityMessage;
-struct CUtxosToAccountMessage;
-struct CAppointOracleMessage;
-struct CRemoveOracleAppointMessage;
-struct CUpdateOracleAppointMessage;
-struct CSetOracleDataMessage;
-struct CICXCreateOrderMessage;
-struct CICXMakeOfferMessage;
-struct CICXSubmitDFCHTLCMessage;
-struct CICXSubmitEXTHTLCMessage;
-struct CICXClaimDFCHTLCMessage;
-struct CICXCloseOrderMessage;
-struct CICXCloseOfferMessage;
 
 struct CCreateMasterNodeMessage {
     char operatorType;
@@ -267,7 +252,9 @@ typedef boost::variant<
     CICXSubmitEXTHTLCMessage,
     CICXClaimDFCHTLCMessage,
     CICXCloseOrderMessage,
-    CICXCloseOfferMessage
+    CICXCloseOfferMessage,
+    CLoanSetCollateralTokenMessage,
+    CCreateLoanSchemeMessage
 > CCustomTxMessage;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
