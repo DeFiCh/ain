@@ -20,7 +20,46 @@ class CCoinsViewCache;
 
 class CCustomCSView;
 class CAccountsHistoryView;
-class CCustomTxVisitor;
+class CCustomTxVisitor
+{
+    protected:
+        uint32_t height;
+        CCustomCSView& mnview;
+        const CTransaction& tx;
+        const CCoinsViewCache& coins;
+        const Consensus::Params& consensus;
+
+    public:
+        CCustomTxVisitor(const CTransaction& tx,
+            uint32_t height,
+            const CCoinsViewCache& coins,
+            CCustomCSView& mnview,
+            const Consensus::Params& consensus);
+
+    protected:
+        bool HasAuth(const CScript& auth) const;
+        Res HasCollateralAuth(const uint256& collateralTx) const;
+        Res HasFoundationAuth() const;
+        Res CheckMasternodeCreationTx() const;
+        Res CheckProposalTx(uint8_t type) const;
+        Res CheckTokenCreationTx() const;
+        Res CheckCustomTx() const;
+        Res TransferTokenBalance(DCT_ID id, CAmount amount, CScript const& from, CScript const& to) const;
+        DCT_ID FindTokenByPartialSymbolName(const std::string& symbol) const;
+        CPoolPair GetBTCDFIPoolPair() const;
+        CAmount CalculateTakerFee(CAmount amount) const;
+        ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation& token) const;
+        Res EraseEmptyBalances(TAmounts& balances) const;
+        Res SetShares(const CScript& owner, const TAmounts& balances) const;
+        Res DelShares(const CScript& owner, const TAmounts& balances) const;
+        void CalculateOwnerRewards(const CScript& owner) const;
+        Res SubBalanceDelShares(const CScript& owner, const CBalances& balance) const;
+        Res AddBalanceSetShares(const CScript& owner, const CBalances& balance) const;
+        Res AddBalancesSetShares(const CAccounts& accounts) const;
+        Res SubBalancesDelShares(const CAccounts& accounts) const;
+        Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair>& tokenCurrency) const;
+        bool IsTokensMigratedToGovVar() const;
+};
 class CVaultHistoryView;
 class CHistoryWriters;
 class CHistoryErasers;
@@ -103,6 +142,9 @@ enum class CustomTxType : uint8_t
     // Marker TXs
     FutureSwapExecution    = 'q',
     FutureSwapRefund       = 'w',
+    // On-Chain-Gov
+    CreateCfp              = 'P',
+    Vote                   = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -161,6 +203,8 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::FutureSwapExecution:
         case CustomTxType::FutureSwapRefund:
         case CustomTxType::Reject:
+        case CustomTxType::CreateCfp:
+        case CustomTxType::Vote:
         case CustomTxType::None:
             return type;
     }
@@ -378,7 +422,9 @@ using CCustomTxMessage = std::variant<
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
     CLoanPaybackLoanV2Message,
-    CAuctionBidMessage
+    CAuctionBidMessage,
+    CCreatePropMessage,
+    CPropVoteMessage
 >;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);

@@ -2871,7 +2871,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
     }
-    
+
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
@@ -3014,6 +3014,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         // Loan splits
         ProcessTokenSplits(block, pindex, cache, creationTxs, chainparams);
+
+        // proposal activations
+        ProcessProposalEvents(pindex, cache, chainparams);
 
         // construct undo
         auto& flushable = cache.GetStorage();
@@ -3391,7 +3394,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
                 auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
                 if (bidTokenAmount.nValue < penaltyAmount) {
-                    LogPrintf("WARNING: bidTokenAmount.nValue(%d) < penaltyAmount(%d)\n", 
+                    LogPrintf("WARNING: bidTokenAmount.nValue(%d) < penaltyAmount(%d)\n",
                         bidTokenAmount.nValue, penaltyAmount);
                 }
                 // penaltyAmount includes interest, batch as well, so we should put interest back
@@ -3400,7 +3403,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 if (amountToBurn > 0) {
                     CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bidTokenAmount.nTokenId, amountToBurn});
-                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress, 
+                    SwapToDFIOverUSD(view, bidTokenAmount.nTokenId, amountToBurn, tmpAddress,
                         chainparams.GetConsensus().burnAddress, pindex->nHeight);
                 }
 
@@ -3741,6 +3744,91 @@ void CChainState::ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cac
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
 }
 
+void CChainState::ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().GreatWorldHeight) {
+        return;
+    }
+
+    if (pindex->nHeight == chainparams.GetConsensus().GreatWorldHeight) {
+        auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+        if (balance.nValue > 0) {
+            cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+            cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
+        }
+    }
+
+    std::set<uint256> activeMasternodes;
+    cache.ForEachCycleProp([&](CPropId const& propId, CPropObject const& prop) {
+
+        if (activeMasternodes.empty()) {
+            cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
+                if (node.IsActive(pindex->nHeight) && node.mintedBlocks) {
+                    activeMasternodes.insert(mnId);
+                }
+                return true;
+            });
+            if (activeMasternodes.empty()) {
+                return false;
+            }
+        }
+
+        uint32_t voteYes = 0, voters = 0;
+        cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
+            if (pId != propId || cycle != prop.cycle) {
+                return false;
+            }
+            if (activeMasternodes.count(mnId)) {
+                ++voters;
+                if (vote == CPropVoteType::VoteYes) {
+                    ++voteYes;
+                }
+            }
+            return true;
+        }, CMnVotePerCycle{propId, prop.cycle});
+
+        if (lround(voters * 10000.f / activeMasternodes.size()) < chainparams.GetConsensus().props.minVoting) {
+            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            return true;
+        }
+
+        uint32_t majorityThreshold;
+        switch(prop.type) {
+        case CPropType::CommunityFundRequest:
+            majorityThreshold = chainparams.GetConsensus().props.cfp.majorityThreshold;
+            break;
+        case CPropType::BlockRewardRellocation:
+            majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
+            break;
+        case CPropType::VoteOfConfidence:
+            majorityThreshold = chainparams.GetConsensus().props.voc.majorityThreshold;
+            break;
+        }
+
+        if (lround(voteYes * 10000.f / voters) < majorityThreshold) {
+            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+            return true;
+        }
+
+        if (prop.nCycles == prop.cycle) {
+            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Completed);
+        } else {
+            assert(prop.nCycles > prop.cycle);
+            cache.UpdatePropCycle(propId, prop.cycle + 1);
+        }
+
+        if (prop.type == CPropType::CommunityFundRequest) {
+            auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
+            if (res) {
+                cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
+                cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
+            } else {
+                LogPrintf("Fails to subtract community developement funds: %s\n", res.msg);
+            }
+        }
+        return true;
+    }, pindex->nHeight);
+}
+
 void CChainState::ProcessTokenToGovVar(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
 
     // Migrate at +1 height so that GetLastHeight() in Gov var
@@ -3875,11 +3963,11 @@ size_t RewardConsolidationWorkersCount() {
 // Note: Be careful with lambda captures and default args. GCC 11.2.0, appears the if the captures are
 // unused in the function directly, but inside the lambda, it completely disassociates them from the fn
 // possibly when the lambda is lifted up and with default args, ends up inling the default arg
-// completely. TODO: verify with smaller test case. 
+// completely. TODO: verify with smaller test case.
 // But scenario: If `interruptOnShutdown` is set as default arg to false, it will never be set true
 // on the below as it's inlined by gcc 11.2.0 on Ubuntu 22.04 incorrectly. Behavior is correct
-// in lower versions of gcc or across clang. 
-void ConsolidateRewards(CCustomCSView &view, int height, 
+// in lower versions of gcc or across clang.
+void ConsolidateRewards(CCustomCSView &view, int height,
         const std::vector<std::pair<CScript, CAmount>> &items, bool interruptOnShutdown, int numWorkers) {
     int nWorkers = numWorkers < 1 ? RewardConsolidationWorkersCount() : numWorkers;
     auto rewardsTime = GetTimeMicros();
@@ -4021,7 +4109,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 balancesToMigrate.size(), totalAccounts, nWorkers);
 
             // Largest first to make sure we are over MINIMUM_LIQUIDITY on first call to AddLiquidity
-            std::sort(balancesToMigrate.begin(), balancesToMigrate.end(), 
+            std::sort(balancesToMigrate.begin(), balancesToMigrate.end(),
                 [](const std::pair<CScript, CAmount>&a, const std::pair<CScript, CAmount>& b){
                 return a.second > b.second;
             });
@@ -4248,9 +4336,9 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
         auto oldTokenAmount = CTokenAmount{oldTokenId, amount};
         auto newTokenAmount = CTokenAmount{newTokenId, newAmount};
 
-        LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Loan (%s: %s => %s)\n", 
+        LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V Loan (%s: %s => %s)\n",
             vaultId.ToString(), oldTokenAmount.ToString(), newTokenAmount.ToString());
-        
+
         res = view.AddLoanToken(vaultId, newTokenAmount);
         if (!res) {
             return res;
@@ -4327,7 +4415,7 @@ static Res VaultSplits(CCustomCSView& view, ATTRIBUTES& attributes, const DCT_ID
             value.loanInterest = newLoanInterest;
 
             LogPrint(BCLog::TOKENSPLIT, "TokenSplit: V AuctionL (%s,%d: %s => %s, %d => %d)\n",
-                key.first.ToString(), key.second, oldLoanAmount.ToString(), 
+                key.first.ToString(), key.second, oldLoanAmount.ToString(),
                 newLoanAmount.ToString(), oldInterest, newLoanInterest);
         }
 
@@ -4514,7 +4602,7 @@ void CChainState::ProcessTokenSplits(const CBlock& block, const CBlockIndex* pin
         });
 
         LogPrintf("Token split info: rebalance "  /* Continued */
-        "(id: %d, symbol: %s, add-accounts: %d, sub-accounts: %d, val: %d)\n", 
+        "(id: %d, symbol: %s, add-accounts: %d, sub-accounts: %d, val: %d)\n",
         id, newToken.symbol, addAccounts.size(), subAccounts.size(), totalBalance);
 
         res = view.AddMintedTokens(newTokenId, totalBalance);

@@ -777,6 +777,8 @@ private:
     static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams);
 
     static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, CCustomCSView& cache, const CreationTxs& creationTxs, const CChainParams& chainparams);
+
+    static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.
@@ -856,8 +858,8 @@ inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t
 
 Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts);
 
-void ConsolidateRewards(CCustomCSView& view, int height, 
-    const std::vector<std::pair<CScript, CAmount>> &items, 
+void ConsolidateRewards(CCustomCSView& view, int height,
+    const std::vector<std::pair<CScript, CAmount>> &items,
     bool interruptOnShutdown, int numWorkers = 0);
 
 #endif // DEFI_VALIDATION_H
