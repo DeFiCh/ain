@@ -1384,7 +1384,7 @@ public:
 
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(dfchtlc->amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (submitexthtlc.amount != calcAmount)
-                return Res::Err("amount %d must be equal to calculated dfchtlc amount %d", submitexthtlc.amount, calcAmount);
+                return Res::Err("amount must be equal to calculated dfchtlc amount");
 
             if (submitexthtlc.hash != dfchtlc->hash)
                 return Res::Err("Invalid hash, external htlc hash is different than dfc htlc hash");
