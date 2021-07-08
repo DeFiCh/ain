@@ -57,6 +57,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
         case CustomTxType::CreateCfp:           return "CreateCfp";
+        case CustomTxType::CreateVoc:           return "CreateVoc";
         case CustomTxType::Vote:                return "Vote";
         case CustomTxType::None:                return "None";
     }
@@ -134,6 +135,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
         case CustomTxType::CreateCfp:               return CCreatePropMessage{};
+        case CustomTxType::CreateVoc:               return CCreatePropMessage{};
         case CustomTxType::Vote:                    return CPropVoteMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
@@ -1646,9 +1648,6 @@ public:
     }
 
     Res operator()(const CCreatePropMessage& obj) const {
-        if (obj.type != CPropType::CommunityFundRequest) {
-            return Res::Err("wrong type on community fund proposal request");
-        }
         auto res = CheckProposalTx(obj.type);
         if (!res) {
             return res;
@@ -1662,8 +1661,19 @@ public:
         if (obj.title.size() > 128) {
             return Res::Err("proposal title cannot be more than 128 bytes");
         }
-        if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES) {
-            return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
+        if (obj.type == CPropType::CommunityFundRequest) {
+            if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES) {
+                return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
+            }
+        } else if (obj.type == CPropType::VoteOfConfidence) {
+            if (obj.nAmount != 0) {
+                return Res::Err("proposal amount in vote of confidence");
+            }
+            if (obj.nCycles != VOC_CYCLES) {
+                return Res::Err("proposal cycles should be %d", int(VOC_CYCLES));
+            }
+        } else {
+            return Res::Err("unsupported proposal type");
         }
         return mnview.CreateProp(tx.GetHash(), height, obj, consensus.props.votingPeriod);
     }
@@ -1904,7 +1914,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         if (txType == CustomTxType::CreateToken
         || txType == CustomTxType::CreateMasternode
         || (height >= uint32_t(consensus.FortCanningHeight)
-        && txType == CustomTxType::CreateCfp)) {
+        && (txType == CustomTxType::CreateCfp
+        || txType == CustomTxType::CreateVoc))) {
             view.AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
         }
     }
