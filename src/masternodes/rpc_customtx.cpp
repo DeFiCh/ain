@@ -299,6 +299,27 @@ public:
         rpcInfo.pushKV("offerTx", obj.offerTx.GetHex());
     }
 
+    void operator()(const CCreatePropMessage& obj) const {
+        rpcInfo.pushKV("proposalId", tx.GetHash().GetHex());
+        rpcInfo.pushKV("type", CPropTypeToString(obj.type));
+        rpcInfo.pushKV("title", obj.title);
+        rpcInfo.pushKV("amount", ValueFromAmount(obj.nAmount));
+        rpcInfo.pushKV("cycles", int(obj.nCycles));
+        auto votingPeriod = Params().GetConsensus().props.votingPeriod;
+        auto finalHeight = height;
+        for (uint8_t i = 1; i <= obj.nCycles; ++i) {
+            finalHeight += (finalHeight % votingPeriod) + votingPeriod;
+        }
+        rpcInfo.pushKV("finalizeAfter", int64_t(finalHeight));
+        rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
+    }
+
+    void operator()(const CPropVoteMessage& obj) const {
+        rpcInfo.pushKV("proposalId", obj.propId.GetHex());
+        rpcInfo.pushKV("masternodeId", obj.masternodeId.GetHex());
+        rpcInfo.pushKV("vote", CPropVoteToString(obj.vote));
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };

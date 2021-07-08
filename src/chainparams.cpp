@@ -182,6 +182,15 @@ public:
         consensus.spv.anchors_address = "1FtZwEZKknoquUb6DyQHFZ6g6oomXJYEcb";
         consensus.spv.minConfirmations = 6;
 
+        consensus.props.cfp.fee = 10 * COIN;
+        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
+        consensus.props.voc.fee = 50 * COIN;
+        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
+        consensus.props.brp.fee = 500 * COIN;
+        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
+        consensus.props.minVoting = 100; // 1% of the masternodes must vote
+        consensus.props.votingPeriod = 90000; // tally votes every 90K blocks
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
 
@@ -403,6 +412,15 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
+        consensus.props.cfp.fee = 10 * COIN;
+        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
+        consensus.props.voc.fee = 50 * COIN;
+        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
+        consensus.props.brp.fee = 500 * COIN;
+        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
+        consensus.props.minVoting = 100; // 1% of the masternodes must vote
+        consensus.props.votingPeriod = 70000; // tally votes every 70K blocks
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
@@ -584,6 +602,15 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
+        consensus.props.cfp.fee = 1 * COIN;
+        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
+        consensus.props.voc.fee = 5 * COIN;
+        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
+        consensus.props.brp.fee = 10 * COIN;
+        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
+        consensus.props.minVoting = 100; // 1% of the masternodes must vote
+        consensus.props.votingPeriod = 100; // tally votes every 1K blocks
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
@@ -758,6 +785,15 @@ public:
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 6;
+
+        consensus.props.cfp.fee = 1 * COIN;
+        consensus.props.cfp.majorityThreshold = 5000; // vote pass with over 50% majority
+        consensus.props.voc.fee = 5 * COIN;
+        consensus.props.voc.majorityThreshold = 6667; // vote pass with over 66.67% majority
+        consensus.props.brp.fee = 10 * COIN;
+        consensus.props.brp.majorityThreshold = 6667; // vote pass with over 66.67% majority
+        consensus.props.minVoting = 100; // 1% of the masternodes must vote
+        consensus.props.votingPeriod = 70; // tally votes every 70 blocks
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 50);       // 0.1 per block

@@ -2868,6 +2868,80 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
         }
 
+        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
+        {
+            std::set<uint256> activeMasternodes;
+            cache.ForEachCycleProp([&](CPropId const & propId, CPropObject const & prop) {
+
+                if (activeMasternodes.empty()) {
+                    cache.ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
+                        if (node.IsActive(pindex->nHeight) && node.mintedBlocks) {
+                            activeMasternodes.insert(mnId);
+                        }
+                        return true;
+                    });
+                    if (activeMasternodes.empty()) {
+                        return false;
+                    }
+                }
+
+                uint32_t voteYes = 0, voters = 0;
+                cache.ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
+                    if (pId != propId || cycle != prop.cycle) {
+                        return false;
+                    }
+                    if (activeMasternodes.count(mnId)) {
+                        ++voters;
+                        if (vote == CPropVoteType::VoteYes) {
+                            ++voteYes;
+                        }
+                    }
+                    return true;
+                }, CMnVotePerCycle{propId, prop.cycle});
+
+                auto valid = lround(voters * 10000.f / activeMasternodes.size()) >= chainparams.GetConsensus().props.minVoting;
+                if (valid) {
+                    uint32_t majorityThreshold;
+                    switch(prop.type) {
+                        case CPropType::CommunityFundRequest:
+                            majorityThreshold = chainparams.GetConsensus().props.cfp.majorityThreshold;
+                            break;
+                        case CPropType::BlockRewardRellocation:
+                            majorityThreshold = chainparams.GetConsensus().props.brp.majorityThreshold;
+                            break;
+                        case CPropType::VoteOfConfidence:
+                            majorityThreshold = chainparams.GetConsensus().props.voc.majorityThreshold;
+                            break;
+                        default:
+                            assert(false);
+                    }
+                    auto approved = lround(voteYes * 10000.f / voters) >= majorityThreshold;
+                    if (approved) {
+                        if (prop.nCycles == prop.cycle) {
+                            cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Completed);
+                        } else {
+                            assert(prop.nCycles > prop.cycle);
+                            cache.UpdatePropCycle(propId, prop.cycle + 1);
+                        }
+                        if (prop.type == CPropType::CommunityFundRequest) {
+                            auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
+                            if (res) {
+                                cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
+                                cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
+                            } else {
+                                LogPrintf("Fails to subtract community developement funds: %s\n", res.msg);
+                            }
+                        }
+                    } else {
+                        cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+                    }
+                } else {
+                    cache.UpdatePropStatus(propId, pindex->nHeight, CPropStatusType::Rejected);
+                }
+                return true;
+            }, pindex->nHeight);
+        }
+
         // construct undo
         auto& flushable = cache.GetStorage();
         auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());

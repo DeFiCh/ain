@@ -248,6 +248,7 @@ BASE_SCRIPTS = [
     'feature_account_mining.py',
     'feature_accounts_validation.py',
     'feature_listaccounts_pagination.py',
+    'feature_on_chain_government.py',
     'rpc_help.py',
     'feature_help.py',
     'feature_shutdown.py',
