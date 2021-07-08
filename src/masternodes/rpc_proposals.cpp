@@ -164,6 +164,95 @@ UniValue createcfp(const JSONRPCRequest& request)
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue createvoc(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"createvoc",
+               "\nCreates a Vote of Confidence" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"title", RPCArg::Type::STR, RPCArg::Optional::NO, "The title of vote of confidence"},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("createvoc", "'The voc title' '[{\"txid\":\"id\",\"vout\":0}]'")
+                       + HelpExampleRpc("createvoc", "'The voc title' '[{\"txid\":\"id\",\"vout\":0}]'")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create a cfp while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet); // no need here, but for symmetry
+
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VARR }, true);
+
+    const auto title = request.params[0].get_str();
+
+    CCreatePropMessage pm;
+    pm.type = CPropType::VoteOfConfidence;
+    pm.nAmount = 0;
+    pm.nCycles = VOC_CYCLES;
+    pm.title = title.substr(0, 128);
+
+    // encode
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::CreateVoc)
+             << pm;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    auto targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, request.params[1]);
+
+    CAmount cfpFee = GetPropsCreationFee(targetHeight, pm.type);
+    rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
+
+    CCoinControl coinControl;
+
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, pm});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreatePropMessage{}, coins);
+    }
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 UniValue vote(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
@@ -339,6 +428,116 @@ UniValue listvotes(const JSONRPCRequest& request)
     return ret;
 }
 
+UniValue getproposal(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"getproposal",
+               "\nReturns real time information about proposal state.\n",
+               {
+                        {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal id)"},
+               },
+               RPCResult{
+                       "{id:{...},...}     (obj) Json object with proposal vote information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listvotes", "txid")
+                       + HelpExampleRpc("listvotes", "txid")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR}, true);
+
+    auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
+
+    LOCK(cs_main);
+    auto prop = pcustomcsview->GetProp(propId);
+    if (!prop) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exists", propId.GetHex()));
+    }
+    if (prop->status != CPropStatusType::Voting) {
+        return propToJSON(propId, *prop);
+    }
+
+    auto targetHeight = ::ChainActive().Height() + 1;
+
+    std::set<uint256> activeMasternodes;
+    pcustomcsview->ForEachMasternode([&](uint256 const & mnId, CMasternode node) {
+        if (node.IsActive(targetHeight) && node.mintedBlocks) {
+            activeMasternodes.insert(mnId);
+        }
+        return true;
+    });
+
+    if (activeMasternodes.empty()) {
+        return propToJSON(propId, *prop);
+    }
+
+    uint32_t voteYes = 0, voters = 0;
+    pcustomcsview->ForEachPropVote([&](CPropId const & pId, uint8_t cycle, uint256 const & mnId, CPropVoteType vote) {
+        if (pId != propId || cycle != prop->cycle) {
+            return false;
+        }
+        if (activeMasternodes.count(mnId)) {
+            ++voters;
+            if (vote == CPropVoteType::VoteYes) {
+                ++voteYes;
+            }
+        }
+        return true;
+    }, CMnVotePerCycle{propId, prop->cycle});
+
+    if (!voters) {
+        return propToJSON(propId, *prop);
+    }
+
+    uint32_t majorityThreshold = 0, votes = 0;
+    auto allVotes = lround(voters * 10000.f / activeMasternodes.size());
+    auto valid = allVotes >= Params().GetConsensus().props.minVoting;
+    if (valid) {
+        switch(prop->type) {
+            case CPropType::CommunityFundRequest:
+                majorityThreshold = Params().GetConsensus().props.cfp.majorityThreshold;
+                break;
+            case CPropType::BlockRewardRellocation:
+                majorityThreshold = Params().GetConsensus().props.brp.majorityThreshold;
+                break;
+            case CPropType::VoteOfConfidence:
+                majorityThreshold = Params().GetConsensus().props.voc.majorityThreshold;
+                break;
+        }
+        votes = lround(voteYes * 10000.f / voters);
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("proposalId", propId.GetHex());
+    ret.pushKV("title", prop->title);
+    ret.pushKV("type", CPropTypeToString(prop->type));
+    if (valid && votes >= majorityThreshold) {
+        ret.pushKV("status", "Approved");
+    } else {
+        ret.pushKV("status", "Rejected");
+    }
+    if (valid) {
+        ret.pushKV("approval", strprintf("%d.%d of %d.%d%%", votes / 100, votes % 100, majorityThreshold / 100, majorityThreshold % 100));
+    } else {
+        ret.pushKV("validity", strprintf("%d.%d of %d.%d%%", allVotes / 100, allVotes % 100, Params().GetConsensus().props.minVoting / 100, Params().GetConsensus().props.minVoting % 100));
+    }
+    auto target = Params().GetConsensus().pos.nTargetSpacing;
+    auto votingPeriod = Params().GetConsensus().props.votingPeriod;
+    auto finalHeight = prop->creationHeight;
+    for (uint8_t i = 0; i < prop->cycle; ++i) {
+        finalHeight += (finalHeight % votingPeriod) + votingPeriod;
+    }
+    auto blocks = finalHeight - targetHeight;
+    if (blocks > Params().GetConsensus().blocksPerDay()) {
+        ret.pushKV("ends", strprintf("%d days", blocks * target / 60 / 60 / 24));
+    } else if (blocks > Params().GetConsensus().blocksPerDay() / 24) {
+        ret.pushKV("ends", strprintf("%d hours", blocks * target / 60 / 60));
+    } else {
+        ret.pushKV("ends", strprintf("%d minutes", blocks * target / 60));
+    }
+    return ret;
+}
+
 UniValue listproposals(const JSONRPCRequest& request)
 {
     RPCHelpMan{"listproposals",
@@ -410,8 +609,10 @@ static const CRPCCommand commands[] =
 //  category        name                     actor (function)        params
 //  --------------- ----------------------   ---------------------   ----------
     {"proposals",   "createcfp",             &createcfp,             {"data", "inputs"} },
+    {"proposals",   "createvoc",             &createvoc,             {"title", "inputs"} },
     {"proposals",   "vote",                  &vote,                  {"proposalId", "masternodeId", "decision", "inputs"} },
     {"proposals",   "listvotes",             &listvotes,             {"proposalId", "masternode"} },
+    {"proposals",   "getproposal",           &getproposal,           {"proposalId"} },
     {"proposals",   "listproposals",         &listproposals,         {"type", "status"} },
 };
 

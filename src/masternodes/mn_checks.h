@@ -75,6 +75,7 @@ enum class CustomTxType : uint8_t
     ICXCloseOffer         = '7',
     // On-Chain-Gov
     CreateCfp             = 'F',
+    CreateVoc             = 'E',
     Vote                  = 'V',
 };
 
@@ -110,6 +111,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::ICXCloseOrder:
         case CustomTxType::ICXCloseOffer:
         case CustomTxType::CreateCfp:
+        case CustomTxType::CreateVoc:
         case CustomTxType::Vote:
         case CustomTxType::None:
             return type;
