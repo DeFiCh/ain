@@ -132,5 +132,29 @@ class ChainGornmentTest(DefiTestFramework):
         assert_equal(node0.listproposals("all", "voting"), [])
         assert_equal(node0.listproposals("all", "completed"), [])
 
+        # Test Vote of Confidence
+        assert_equal(node0.getburninfo()['feeburn'], Decimal('1.00000000'))
+        title = "Create vote of confidence"
+        tx = node0.createvoc(title)
+        self.sync_mempools()
+        node2.generate(1)
+        self.sync_all()
+        assert_equal(node0.getburninfo()['feeburn'], Decimal('6.00000000'))
+
+        node0.vote(tx, mn1, "yes")
+        node0.generate(1)
+        node1.vote(tx, mn2, "no")
+        node1.generate(1)
+        node2.vote(tx, mn3, "yes")
+        node2.generate(1)
+        self.sync_all()
+
+        result = node0.getproposal(tx)
+        assert_equal(result["proposalId"], tx)
+        assert_equal(result["title"], title)
+        assert_equal(result["type"], "VoteOfConfidence")
+        assert_equal(result["status"], "Approved")
+        assert_equal(result["approval"], "66.67 of 66.67%")
+
 if __name__ == '__main__':
     ChainGornmentTest().main ()

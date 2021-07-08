@@ -8,8 +8,23 @@
 
 Res CProposalsConsensus::operator()(const CCreatePropMessage& obj) const {
 
-    if (obj.type != CPropType::CommunityFundRequest)
-        return Res::Err("wrong type on community fund proposal request");
+    switch(obj.type) {
+        case CPropType::CommunityFundRequest:
+            if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
+                return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
+            break;
+
+        case CPropType::VoteOfConfidence:
+            if (obj.nAmount != 0)
+                return Res::Err("proposal amount in vote of confidence");
+
+            if (obj.nCycles != VOC_CYCLES)
+                return Res::Err("proposal cycles should be %d", int(VOC_CYCLES));
+            break;
+
+        default:
+            return Res::Err("unsupported proposal type");
+    }
 
     auto res = CheckProposalTx(obj.type);
     if (!res)
