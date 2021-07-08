@@ -344,6 +344,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "createcfp", 0, "data" },
     { "createcfp", 1, "inputs" },
+    { "createvoc", 1, "inputs" },
     { "vote", 3, "inputs" },
 };
 // clang-format on

@@ -83,6 +83,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::FutureSwapRefund:    return "FutureSwapRefund";
         case CustomTxType::Reject:              return "Reject";
         case CustomTxType::CreateCfp:           return "CreateCfp";
+        case CustomTxType::CreateVoc:           return "CreateVoc";
         case CustomTxType::Vote:                return "Vote";
         case CustomTxType::None:                return "None";
     }
@@ -180,6 +181,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::PaybackLoanV2:           return CLoanPaybackLoanV2Message{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
         case CustomTxType::CreateCfp:               return CCreatePropMessage{};
+        case CustomTxType::CreateVoc:               return CCreatePropMessage{};
         case CustomTxType::Vote:                    return CPropVoteMessage{};
         case CustomTxType::FutureSwapExecution:     return CCustomTxMessageNone{};
         case CustomTxType::FutureSwapRefund:        return CCustomTxMessageNone{};
@@ -3290,8 +3292,23 @@ public:
 
     Res operator()(const CCreatePropMessage& obj) const
     {
-        if (obj.type != CPropType::CommunityFundRequest)
-            return Res::Err("wrong type on community fund proposal request");
+        switch (obj.type) {
+        case CPropType::CommunityFundRequest:
+            if (obj.nCycles < 1 || obj.nCycles > MAX_CYCLES)
+                return Res::Err("proposal cycles can be between 1 and %d", int(MAX_CYCLES));
+            break;
+
+        case CPropType::VoteOfConfidence:
+            if (obj.nAmount != 0)
+                return Res::Err("proposal amount in vote of confidence");
+
+            if (obj.nCycles != VOC_CYCLES)
+                return Res::Err("proposal cycles should be %d", int(VOC_CYCLES));
+            break;
+
+        default:
+            return Res::Err("unsupported proposal type");
+        }
 
         auto res = CheckProposalTx(obj.type);
         if (!res)
@@ -3823,7 +3840,8 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         // Track burn fee
         if (txType == CustomTxType::CreateToken
         || txType == CustomTxType::CreateMasternode
-        || txType == CustomTxType::CreateCfp) {
+        || txType == CustomTxType::CreateCfp
+        || txType == CustomTxType::CreateVoc) {
             if (writers) {
                 writers->AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
             }

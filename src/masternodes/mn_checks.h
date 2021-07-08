@@ -145,6 +145,7 @@ enum class CustomTxType : uint8_t
     // On-Chain-Gov
     CreateCfp              = 'P',
     Vote                   = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
+    CreateVoc              = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -205,6 +206,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::Reject:
         case CustomTxType::CreateCfp:
         case CustomTxType::Vote:
+        case CustomTxType::CreateVoc:
         case CustomTxType::None:
             return type;
     }

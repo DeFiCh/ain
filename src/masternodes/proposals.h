@@ -13,6 +13,7 @@
 #include <uint256.h>
 
 using CPropId = uint256;
+constexpr const uint8_t VOC_CYCLES = 2;
 constexpr const uint8_t MAX_CYCLES = 3;
 
 enum CPropType : uint8_t {
