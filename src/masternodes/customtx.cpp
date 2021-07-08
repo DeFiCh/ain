@@ -63,6 +63,8 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::PaybackLoan:
         case CustomTxType::PaybackLoanV2:
         case CustomTxType::AuctionBid:
+        case CustomTxType::CreateCfp:
+        case CustomTxType::Vote:
         case CustomTxType::Reject:
         case CustomTxType::None:
             return type;
@@ -124,6 +126,8 @@ std::string ToString(CustomTxType type) {
         CustomTxTypeString(TakeLoan);
         CustomTxTypeString(PaybackLoan);
         CustomTxTypeString(AuctionBid);
+        CustomTxTypeString(CreateCfp);
+        CustomTxTypeString(Vote);
         CustomTxTypeString(Reject);
         CustomTxTypeString(None);
         CustomTxType2Strings(PoolSwapV2, PoolSwap);

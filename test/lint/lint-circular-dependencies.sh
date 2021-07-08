@@ -54,6 +54,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/consensus/loans -> masternodes/mn_checks -> masternodes/consensus/loans"
     "masternodes/consensus/oracles -> masternodes/masternodes -> masternodes/mn_checks -> masternodes/consensus/oracles"
     "masternodes/consensus/poolpairs -> masternodes/mn_checks -> masternodes/consensus/poolpairs"
+    "masternodes/consensus/proposals -> masternodes/masternodes -> masternodes/mn_checks -> masternodes/consensus/proposals"
     "masternodes/consensus/smartcontracts -> masternodes/govvariables/attributes -> masternodes/mn_checks -> masternodes/consensus/smartcontracts"
     "masternodes/consensus/tokens -> masternodes/masternodes -> masternodes/mn_checks -> masternodes/consensus/tokens"
     "masternodes/consensus/vaults -> masternodes/mn_checks -> masternodes/consensus/vaults"

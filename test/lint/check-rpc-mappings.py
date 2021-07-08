@@ -20,6 +20,7 @@ SOURCES = [
     "src/wallet/rpcwallet.cpp",
     "src/masternodes/mn_rpc.cpp",
     "src/masternodes/rpc_accounts.cpp",
+    "src/masternodes/rpc_proposals.cpp",
     "src/masternodes/rpc_icxorderbook.cpp",
     "src/masternodes/rpc_loan.cpp",
     "src/masternodes/rpc_masternodes.cpp",
