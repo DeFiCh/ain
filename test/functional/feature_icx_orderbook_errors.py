@@ -299,7 +299,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 15})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("amount 100000 must be equal to calculated dfchtlc amount 1000000" in errorString)
+        assert("amount must be equal to calculated dfchtlc amount" in errorString)
 
         # more amount
         try:
@@ -312,7 +312,7 @@ class ICXOrderbookErrorTest (DefiTestFramework):
                                     'timeout': 15})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("amount 10000000 must be equal to calculated dfchtlc amount 1000000" in errorString)
+        assert("amount must be equal to calculated dfchtlc amount" in errorString)
 
         # different hash
         try:
