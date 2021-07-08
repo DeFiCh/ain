@@ -650,7 +650,7 @@ public:
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
 //        vSeeds.emplace_back("testnet-seed.defichain.io");
-//        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
+        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_devnet, pnSeed6_devnet + ARRAYLEN(pnSeed6_devnet));
 
         fDefaultConsistencyChecks = false;
         fRequireStandard = false;
