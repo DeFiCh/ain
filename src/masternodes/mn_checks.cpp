@@ -172,6 +172,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
+    Res isPostEunosPayaFork() const {
+        if(static_cast<int>(height) < consensus.EunosPayaHeight) {
+            return Res::Err("called before EunosPaya height");
+        }
+        return Res::Ok();
+    }
+
     template<typename T>
     Res serialize(T& obj) const {
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -448,8 +455,11 @@ public:
     }
 
     Res CheckICXTx() const {
-        if (tx.vout.size() != 2) {
+        if (static_cast<int>(height) < consensus.EunosPayaHeight && tx.vout.size() != 2) {
             return Res::Err("malformed tx vouts ((wrong number of vouts)");
+        }
+        if (static_cast<int>(height) >= consensus.EunosPayaHeight && tx.vout[0].nValue != 0) {
+            return Res::Err("malformed tx vouts, first vout must be OP_RETURN vout with value 0");
         }
         return Res::Ok();
     }
@@ -1263,15 +1273,27 @@ public:
 
             srcAddr = CScript(order->creationTx.begin(), order->creationTx.end());
 
+            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
+
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (calcAmount > offer->amount)
                 return Res::Err("amount must be lower or equal the offer one");
 
-            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
-
-            //calculating adjusted takerFee
-            CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-            auto takerFee = CalculateTakerFee(BTCAmount);
+            CAmount takerFee = offer->takerFee;
+            //EunosPaya: calculating adjusted takerFee only if amount in htlc different than in offer
+            if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+            {
+                if (calcAmount < offer->amount)
+                {
+                    CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+                    takerFee = static_cast<CAmount>((arith_uint256(BTCAmount) * arith_uint256(offer->takerFee) / arith_uint256(offer->amount)).GetLow64());
+                }
+            }
+            else
+            {
+                CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+                takerFee = CalculateTakerFee(BTCAmount);
+            }
 
             // refund the rest of locked takerFee if there is difference
             if (offer->takerFee - takerFee) {
@@ -1366,7 +1388,7 @@ public:
 
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(dfchtlc->amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (submitexthtlc.amount != calcAmount)
-                return Res::Err("amount %d must be equal to calculated dfchtlc amount %d", submitexthtlc.amount, calcAmount);
+                return Res::Err("amount must be equal to calculated dfchtlc amount");
 
             if (submitexthtlc.hash != dfchtlc->hash)
                 return Res::Err("Invalid hash, external htlc hash is different than dfc htlc hash");
@@ -1387,14 +1409,26 @@ public:
             if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_TIMEOUT)
                 return Res::Err("timeout must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_TIMEOUT - 1);
 
+            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
+
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (calcAmount > offer->amount)
                 return Res::Err("amount must be lower or equal the offer one");
 
-            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
-
-            //calculating adjusted takerFee
-            auto takerFee = CalculateTakerFee(submitexthtlc.amount);
+            CAmount takerFee = offer->takerFee;
+            //EunosPaya: calculating adjusted takerFee only if amount in htlc different than in offer
+            if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+            {
+                if (calcAmount < offer->amount)
+                {
+                    CAmount BTCAmount(static_cast<CAmount>((arith_uint256(offer->amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+                    takerFee = static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(offer->takerFee) / arith_uint256(BTCAmount)).GetLow64());
+                }
+            }
+            else
+            {
+                takerFee = CalculateTakerFee(submitexthtlc.amount);
+            }
 
             // refund the rest of locked takerFee if there is difference
             if (offer->takerFee - takerFee) {
@@ -1458,7 +1492,7 @@ public:
             return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
 
         auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx);
-        if (!exthtlc)
+        if (static_cast<int>(height) < consensus.EunosPayaHeight && !exthtlc)
             return Res::Err("cannot claim, external htlc for this offer does not exists or expired!");
 
         // claim DFC HTLC to receiveAddress
@@ -1517,7 +1551,15 @@ public:
         if (!res)
             return res;
 
-        return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
+        if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+        {
+            if (exthtlc)
+                return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
+            else
+                return (Res::Ok());
+        }
+        else
+            return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
     }
 
     Res operator()(const CICXCloseOrderMessage& obj) const {
@@ -1593,7 +1635,10 @@ public:
         offer->closeTx = closeoffer.creationTx;
         offer->closeHeight = closeoffer.creationHeight;
 
-        if (order->orderType == CICXOrder::TYPE_INTERNAL && !mnview.HasICXSubmitDFCHTLCOpen(offer->creationTx)) {
+        bool isPreEunosPaya = static_cast<int>(height) < consensus.EunosPayaHeight;
+
+        if (order->orderType == CICXOrder::TYPE_INTERNAL && !mnview.ExistedICXSubmitDFCHTLC(offer->creationTx, isPreEunosPaya))
+        {
             // subtract takerFee from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
             CalculateOwnerRewards(offer->ownerAddress);
@@ -1605,10 +1650,13 @@ public:
             // subtract the balance from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
             CalculateOwnerRewards(offer->ownerAddress);
-            res = ICXTransfer(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
-            if (!res)
-                return res;
-            if (!mnview.HasICXSubmitEXTHTLCOpen(offer->creationTx))
+            if (isPreEunosPaya)
+            {
+                res = ICXTransfer(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
+                if (!res)
+                    return res;
+            }
+            if (!mnview.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya))
             {
                 res = ICXTransfer(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress);
                 if (!res)
