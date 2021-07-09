@@ -1230,7 +1230,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
         prefix = idToken;
 
         auto orderkeylambda = [&](CICXOrderView::OrderKey const & key, uint8_t status) {
-            if (key.first != prefix)
+            if (key.first != prefix || !limit)
                 return (false);
             auto order = pcustomcsview->GetICXOrderByCreationTx(key.second);
             if (order)
@@ -1238,7 +1238,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
                 ret.pushKVs(icxOrderToJSON(*order, status));
                 limit--;
             }
-            return limit != 0;
+            return true;
         };
 
         if (closed)
@@ -1251,7 +1251,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
     else if (offers)
     {
         auto offerkeylambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
-            if (key.first != orderTxid)
+            if (key.first != orderTxid || !limit)
                 return (false);
             auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(key.second);
             if (offer)
@@ -1259,7 +1259,7 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
                 ret.pushKVs(icxMakeOfferToJSON(*offer, status));
                 limit--;
             }
-            return limit != 0;
+            return true;
         };
         if (closed)
             pcustomcsview->ForEachICXMakeOfferClose(offerkeylambda, orderTxid);
@@ -1270,13 +1270,15 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
     }
 
     auto orderlambda = [&](CICXOrderView::OrderKey const & key, uint8_t status) {
+        if (!limit)
+            return false;
         auto order = pcustomcsview->GetICXOrderByCreationTx(key.second);
         if (order)
         {
             ret.pushKVs(icxOrderToJSON(*order, status));
             limit--;
         }
-        return limit != 0;
+        return true;
     };
 
     if (closed)
@@ -1336,7 +1338,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
 
     auto dfchtlclambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
-        if (key.first != offerTxid)
+        if (key.first != offerTxid || !limit)
             return false;
         auto dfchtlc = pcustomcsview->GetICXSubmitDFCHTLCByCreationTx(key.second);
         if (dfchtlc)
@@ -1344,10 +1346,10 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
             ret.pushKVs(icxSubmitDFCHTLCToJSON(*dfchtlc,status));
             limit--;
         }
-        return limit != 0;
+        return true;
     };
     auto exthtlclambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
-        if (key.first != offerTxid)
+        if (key.first != offerTxid || !limit)
             return false;
         auto exthtlc = pcustomcsview->GetICXSubmitEXTHTLCByCreationTx(key.second);
         if (exthtlc)
@@ -1355,11 +1357,11 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
             ret.pushKVs(icxSubmitEXTHTLCToJSON(*exthtlc, status));
             limit--;
         }
-        return limit != 0;
+        return true;
     };
 
     pcustomcsview->ForEachICXClaimDFCHTLC([&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
-        if (key.first != offerTxid)
+        if (key.first != offerTxid || !limit)
             return false;
         auto claimdfchtlc = pcustomcsview->GetICXClaimDFCHTLCByCreationTx(key.second);
         if (claimdfchtlc)
@@ -1367,7 +1369,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
             ret.pushKVs(icxClaimDFCHTLCToJSON(*claimdfchtlc));
             limit--;
         }
-        return limit != 0;
+        return true;
     }, offerTxid);
 
     if (closed)
