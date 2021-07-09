@@ -16,6 +16,7 @@
 #include <masternodes/gv.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
+#include <masternodes/proposals.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
 #include <uint256.h>
@@ -39,6 +40,7 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
+CAmount GetPropsCreationFee(int height, CPropType prop);
 
 class CMasternode
 {
@@ -244,6 +246,7 @@ class CCustomCSView
         , public CAnchorConfirmsView
         , public COracleView
         , public CICXOrderView
+        , public CPropsView
 {
 public:
     // Increase version when underlaying tables are changed

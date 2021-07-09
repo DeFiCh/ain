@@ -66,13 +66,17 @@ enum class CustomTxType : uint8_t
     UpdateOracleAppoint   = 't',
     SetOracleData         = 'y',
     // ICX
-    ICXCreateOrder      = '1',
-    ICXMakeOffer        = '2',
-    ICXSubmitDFCHTLC    = '3',
-    ICXSubmitEXTHTLC    = '4',
-    ICXClaimDFCHTLC     = '5',
-    ICXCloseOrder       = '6',
-    ICXCloseOffer       = '7',
+    ICXCreateOrder        = '1',
+    ICXMakeOffer          = '2',
+    ICXSubmitDFCHTLC      = '3',
+    ICXSubmitEXTHTLC      = '4',
+    ICXClaimDFCHTLC       = '5',
+    ICXCloseOrder         = '6',
+    ICXCloseOffer         = '7',
+    // On-Chain-Gov
+    CreateCfp             = 'F',
+    CreateVoc             = 'E',
+    Vote                  = 'V',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -106,6 +110,9 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::ICXClaimDFCHTLC:
         case CustomTxType::ICXCloseOrder:
         case CustomTxType::ICXCloseOffer:
+        case CustomTxType::CreateCfp:
+        case CustomTxType::CreateVoc:
+        case CustomTxType::Vote:
         case CustomTxType::None:
             return type;
     }
@@ -152,6 +159,8 @@ struct CICXSubmitEXTHTLCMessage;
 struct CICXClaimDFCHTLCMessage;
 struct CICXCloseOrderMessage;
 struct CICXCloseOfferMessage;
+struct CCreatePropMessage;
+struct CPropVoteMessage;
 
 struct CCreateMasterNodeMessage {
     char operatorType;
@@ -267,7 +276,9 @@ typedef boost::variant<
     CICXSubmitEXTHTLCMessage,
     CICXClaimDFCHTLCMessage,
     CICXCloseOrderMessage,
-    CICXCloseOfferMessage
+    CICXCloseOfferMessage,
+    CCreatePropMessage,
+    CPropVoteMessage
 > CCustomTxMessage;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
