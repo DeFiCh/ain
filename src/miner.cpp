@@ -681,6 +681,7 @@ namespace pos {
         CBlockIndex* tip;
         int64_t height;
         boost::optional<int64_t> stakerBlockTime;
+        uint16_t timelock;
 
         {
             LOCK(cs_main);
@@ -708,6 +709,7 @@ namespace pos {
             height = tip->height + 1;
             creationHeight = int64_t(nodePtr->creationHeight);
             blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
+            timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr);
 
             stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID, height);
             // No record. No stake blocks or post-fork createmastnode TX, use fork time.
@@ -720,7 +722,6 @@ namespace pos {
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
         auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
-        const auto timelock = pcustomcsview->GetTimelock(masternodeID);
 
         // Set search time if null or last block has changed
         if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
@@ -749,7 +750,7 @@ namespace pos {
                     blockTime = ((uint32_t)currentTime - t);
 
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID, chainparams.GetConsensus(),
-                                             stakerBlockTime ? *stakerBlockTime : 0, timelock ? *timelock : 0))
+                                             stakerBlockTime ? *stakerBlockTime : 0, timelock))
                     {
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
@@ -772,7 +773,7 @@ namespace pos {
                     blockTime = ((uint32_t)searchTime + t);
 
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID, chainparams.GetConsensus(),
-                                             stakerBlockTime ? *stakerBlockTime : 0, timelock ? *timelock : 0))
+                                             stakerBlockTime ? *stakerBlockTime : 0, timelock))
                     {
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 

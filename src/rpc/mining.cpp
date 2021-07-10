@@ -288,7 +288,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             subObj.pushKV("lastblockcreationattempt", (lastBlockCreationAttemptTs != 0) ? FormatISO8601DateTime(lastBlockCreationAttemptTs) : "0");
         }
 
-        auto timelock = pcustomcsview->GetTimelock(mnId.second);
+        const auto timelock = pcustomcsview->GetTimelock(mnId.second, *nodePtr);
 
         // Get targetMultiplier if node is active
         if (nodePtr->IsActive()) {
@@ -301,12 +301,12 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
                     stakerBlockTime = std::min(GetTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
                 }
             }
-            subObj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock ? *timelock : 0,
+            subObj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock,
                                                                      stakerBlockTime ? *stakerBlockTime : 0).getdouble());
         }
 
-        if (timelock && *timelock > 0) {
-            obj.pushKV("timelock", strprintf("%d years", *timelock / 52));
+        if (timelock) {
+            obj.pushKV("timelock", strprintf("%d years", timelock / 52));
         }
 
         mnArr.push_back(subObj);

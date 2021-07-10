@@ -319,28 +319,9 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
 
-    auto timelock = GetTimelock(nodeId);
-    if (timelock && *timelock > 0) {
-        // Make sure we have enough blocks to get the sample time
-        auto lastHeight = height - 1;
-        if (lastHeight < Params().GetConsensus().mn.newResignDelay) {
-            return Res::Err("Not enough blocks to calculate average time to compare against timelock");
-        }
-
-        // Get timelock expiration time. Timelock set in weeks, convert to seconds.
-        LOCK(cs_main);
-        const auto timelockExpire = ::ChainActive()[node->creationHeight]->nTime + (*timelock * 7 * 24 * 60 * 60);
-
-        // Get average time of the last two times the activation delay worth of blocks
-        uint64_t totalTime{0};
-        for (; lastHeight + Params().GetConsensus().mn.newResignDelay >= height; --lastHeight) {
-            totalTime += ::ChainActive()[lastHeight]->nTime;
-        }
-        const uint32_t averageTime = totalTime / Params().GetConsensus().mn.newResignDelay;
-
-        if (averageTime < timelockExpire) {
-            return Res::Err("Trying to resign masternode before expiration, %d seconds left", timelockExpire - averageTime);
-        }
+    const auto timelock = GetTimelock(nodeId, *node);
+    if (timelock) {
+        return Res::Err("Trying to resign masternode before timelock expiration.");
     }
 
     node->resignTx =  txid;
@@ -418,9 +399,38 @@ Res CMasternodesView::UnResignMasternode(const uint256 & nodeId, const uint256 &
     return Res::Err("No such masternode %s, resignTx: %s", nodeId.GetHex(), resignTx.GetHex());
 }
 
-boost::optional<uint16_t> CMasternodesView::GetTimelock(const uint256 & nodeId) const
+uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode& node) const
 {
-    return ReadBy<Timelock, uint16_t>(nodeId);
+    auto timelock = ReadBy<Timelock, uint16_t>(nodeId);
+    if (timelock) {
+        LOCK(cs_main);
+        // Get heights
+        auto currentHeight = ::ChainActive().Height();
+        const auto nextHeight = currentHeight + 1;
+
+        // Cannot expire below block count required to calculate average time
+        if (currentHeight < Params().GetConsensus().mn.newResignDelay) {
+            return *timelock;
+        }
+
+        // Get timelock expiration time. Timelock set in weeks, convert to seconds.
+        const auto timelockExpire = ::ChainActive()[node.creationHeight]->nTime + (*timelock * 7 * 24 * 60 * 60);
+
+        // Get average time of the last two times the activation delay worth of blocks
+        uint64_t totalTime{0};
+        for (; currentHeight + Params().GetConsensus().mn.newResignDelay >= nextHeight; --currentHeight) {
+            totalTime += ::ChainActive()[currentHeight]->nTime;
+        }
+        const uint32_t averageTime = totalTime / Params().GetConsensus().mn.newResignDelay;
+
+        // Below expiration return timelock
+        if (averageTime < timelockExpire) {
+            return *timelock;
+        } else { // Expired. Return null.
+            return 0;
+        }
+    }
+    return 0;
 }
 
 /*

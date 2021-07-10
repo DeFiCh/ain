@@ -105,13 +105,13 @@ class MasternodesTimelockTest (DefiTestFramework):
             self.nodes[0].resignmasternode(nodeid5)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Trying to resign masternode before expiration" in errorString)
+        assert("Trying to resign masternode before timelock expiration" in errorString)
 
         try:
             self.nodes[0].resignmasternode(nodeid10)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Trying to resign masternode before expiration" in errorString)
+        assert("Trying to resign masternode before timelock expiration" in errorString)
 
         # Time travel five years
         self.nodes[0].set_mocktime(int(time.time()) + (5 * 365 * 24 * 60 * 60))
@@ -123,6 +123,9 @@ class MasternodesTimelockTest (DefiTestFramework):
         result5 = self.nodes[0].getmasternode(nodeid5)
         assert_equal(result5[nodeid5]['state'], 'ENABLED')
 
+        # Timelock should no longer be present
+        assert_equal('timelock' not in result5[nodeid5], True)
+
         # Resign 5 year MN
         self.nodes[0].resignmasternode(nodeid5)
 
@@ -131,7 +134,7 @@ class MasternodesTimelockTest (DefiTestFramework):
             self.nodes[0].resignmasternode(nodeid10)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Trying to resign masternode before expiration" in errorString)
+        assert("Trying to resign masternode before timelock expiration" in errorString)
 
         # Generate enough blocks to confirm resignation
         self.nodes[0].generate(41)
@@ -143,6 +146,13 @@ class MasternodesTimelockTest (DefiTestFramework):
 
         # Generate enough future blocks to create average future time
         self.nodes[0].generate(40)
+
+        # Check state
+        result10 = self.nodes[0].getmasternode(nodeid10)
+        assert_equal(result10[nodeid10]['state'], 'ENABLED')
+
+        # Timelock should no longer be present
+        assert_equal('timelock' not in result10[nodeid10], True)
 
         # Resign 10 year MN
         self.nodes[0].resignmasternode(nodeid10)

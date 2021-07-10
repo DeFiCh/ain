@@ -36,7 +36,7 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         }
         obj.pushKV("localMasternode", localMasternode);
 
-        auto timelock = pcustomcsview->GetTimelock(nodeId);
+        const auto timelock = pcustomcsview->GetTimelock(nodeId, node);
 
         // Only get targetMultiplier for active masternodes
         if (node.IsActive()) {
@@ -50,12 +50,12 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
                 }
             }
 
-            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock ? *timelock : 0,
+            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock,
                                                                   stakerBlockTime ? *stakerBlockTime : 0).getdouble());
         }
 
-        if (timelock && *timelock > 0) {
-            obj.pushKV("timelock", strprintf("%d years", *timelock / 52));
+        if (timelock) {
+            obj.pushKV("timelock", strprintf("%d years", timelock / 52));
         }
 
         /// @todo add unlock height and|or real resign height

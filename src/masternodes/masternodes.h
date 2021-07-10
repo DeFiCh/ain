@@ -161,7 +161,7 @@ public:
 
     void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
 
-    boost::optional<uint16_t> GetTimelock(const uint256& nodeId) const;
+    uint16_t GetTimelock(const uint256& nodeId, const CMasternode& node) const;
 
     // tags
     struct ID { static const unsigned char prefix; };
