@@ -117,7 +117,7 @@ class MasternodesTimelockTest (DefiTestFramework):
         self.nodes[0].set_mocktime(int(time.time()) + (5 * 365 * 24 * 60 * 60))
 
         # Generate enough future blocks to create average future time
-        self.nodes[0].generate(40)
+        self.nodes[0].generate(41)
 
         # Check state
         result5 = self.nodes[0].getmasternode(nodeid5)
@@ -145,7 +145,7 @@ class MasternodesTimelockTest (DefiTestFramework):
         self.nodes[0].set_mocktime(int(time.time()) + (10 * 365 * 24 * 60 * 60))
 
         # Generate enough future blocks to create average future time
-        self.nodes[0].generate(40)
+        self.nodes[0].generate(41)
 
         # Check state
         result10 = self.nodes[0].getmasternode(nodeid10)

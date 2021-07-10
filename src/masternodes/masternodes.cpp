@@ -319,7 +319,7 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
 
-    const auto timelock = GetTimelock(nodeId, *node);
+    const auto timelock = GetTimelock(nodeId, *node, height);
     if (timelock) {
         return Res::Err("Trying to resign masternode before timelock expiration.");
     }
@@ -399,17 +399,16 @@ Res CMasternodesView::UnResignMasternode(const uint256 & nodeId, const uint256 &
     return Res::Err("No such masternode %s, resignTx: %s", nodeId.GetHex(), resignTx.GetHex());
 }
 
-uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode& node) const
+uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const
 {
     auto timelock = ReadBy<Timelock, uint16_t>(nodeId);
     if (timelock) {
         LOCK(cs_main);
-        // Get heights
-        auto currentHeight = ::ChainActive().Height();
-        const auto nextHeight = currentHeight + 1;
+        // Get last height
+        auto lastHeight = height - 1;
 
         // Cannot expire below block count required to calculate average time
-        if (currentHeight < Params().GetConsensus().mn.newResignDelay) {
+        if (lastHeight < Params().GetConsensus().mn.newResignDelay) {
             return *timelock;
         }
 
@@ -418,8 +417,8 @@ uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode&
 
         // Get average time of the last two times the activation delay worth of blocks
         uint64_t totalTime{0};
-        for (; currentHeight + Params().GetConsensus().mn.newResignDelay >= nextHeight; --currentHeight) {
-            totalTime += ::ChainActive()[currentHeight]->nTime;
+        for (; lastHeight + Params().GetConsensus().mn.newResignDelay >= height; --lastHeight) {
+            totalTime += ::ChainActive()[lastHeight]->nTime;
         }
         const uint32_t averageTime = totalTime / Params().GetConsensus().mn.newResignDelay;
 

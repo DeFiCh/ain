@@ -246,7 +246,8 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("blocks",           (int)::ChainActive().Height());
+    int height = static_cast<int>(::ChainActive().Height());
+    obj.pushKV("blocks",           height);
     if (BlockAssembler::m_last_block_weight) obj.pushKV("currentblockweight", *BlockAssembler::m_last_block_weight);
     if (BlockAssembler::m_last_block_num_txs) obj.pushKV("currentblocktx", *BlockAssembler::m_last_block_num_txs);
     obj.pushKV("difficulty",       (double)GetDifficulty(::ChainActive().Tip()));
@@ -288,7 +289,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             subObj.pushKV("lastblockcreationattempt", (lastBlockCreationAttemptTs != 0) ? FormatISO8601DateTime(lastBlockCreationAttemptTs) : "0");
         }
 
-        const auto timelock = pcustomcsview->GetTimelock(mnId.second, *nodePtr);
+        const auto timelock = pcustomcsview->GetTimelock(mnId.second, *nodePtr, height);
 
         // Get targetMultiplier if node is active
         if (nodePtr->IsActive()) {

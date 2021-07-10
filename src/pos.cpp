@@ -74,7 +74,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
             return false;
         }
         creationHeight = int64_t(nodePtr->creationHeight);
-        timelock = mnView->GetTimelock(masternodeID, *nodePtr);
+        timelock = mnView->GetTimelock(masternodeID, *nodePtr, blockHeader.height);
 
         auto usedHeight = blockHeader.height <= params.EunosHeight ? creationHeight : blockHeader.height;
         stakerBlockTime = mnView->GetMasternodeLastBlockTime(nodePtr->operatorAuthAddress, usedHeight);

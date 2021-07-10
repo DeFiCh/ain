@@ -36,11 +36,11 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         }
         obj.pushKV("localMasternode", localMasternode);
 
-        const auto timelock = pcustomcsview->GetTimelock(nodeId, node);
+        auto currentHeight = ChainActive().Height();
+        uint16_t timelock = pcustomcsview->GetTimelock(nodeId, node, currentHeight);
 
         // Only get targetMultiplier for active masternodes
         if (node.IsActive()) {
-            auto currentHeight = ChainActive().Height();
             auto usedHeight = currentHeight <= Params().GetConsensus().EunosHeight ? node.creationHeight : currentHeight;
             auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress, usedHeight);
             // No record. No stake blocks or post-fork createmastnode TX, use fork time.

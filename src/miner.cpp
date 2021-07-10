@@ -709,7 +709,7 @@ namespace pos {
             height = tip->height + 1;
             creationHeight = int64_t(nodePtr->creationHeight);
             blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
-            timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr);
+            timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, height);
 
             stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID, height);
             // No record. No stake blocks or post-fork createmastnode TX, use fork time.
