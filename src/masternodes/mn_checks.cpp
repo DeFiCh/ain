@@ -1268,8 +1268,14 @@ public:
             if (!mnview.HasICXMakeOfferOpen(offer->orderTx, submitdfchtlc.offerTx))
                 return Res::Err("offerTx (%s) has expired", submitdfchtlc.offerTx.GetHex());
 
-            if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_TIMEOUT)
-                return Res::Err("timeout must be greater than %d", CICXSubmitDFCHTLC::MINIMUM_TIMEOUT - 1);
+            uint32_t timeout;
+            if (static_cast<int>(height) < consensus.EunosPayaHeight)
+                timeout = CICXSubmitDFCHTLC::MINIMUM_TIMEOUT;
+            else
+                timeout = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
+
+            if (submitdfchtlc.timeout < timeout)
+                return Res::Err("timeout must be greater than %d", timeout - 1);
 
             srcAddr = CScript(order->creationTx.begin(), order->creationTx.end());
 
@@ -1338,10 +1344,22 @@ public:
                 return Res::Err("Invalid hash, dfc htlc hash is different than extarnal htlc hash - %s != %s",
                         submitdfchtlc.hash.GetHex(),exthtlc->hash.GetHex());
 
-            if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT)
-                return Res::Err("timeout must be greater than %d", CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT - 1);
+            uint32_t timeout, btcBlocksInDfi;
+            if (static_cast<int>(height) < consensus.EunosPayaHeight)
+            {
+                timeout = CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT;
+                btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
+            }
+            else
+            {
+                timeout = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+                btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
+            }
 
-            if (submitdfchtlc.timeout >= (exthtlc->creationHeight + (exthtlc->timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS)) - height)
+            if (submitdfchtlc.timeout < timeout)
+                return Res::Err("timeout must be greater than %d", timeout - 1);
+
+            if (submitdfchtlc.timeout >= (exthtlc->creationHeight + (exthtlc->timeout * btcBlocksInDfi)) - height)
                 return Res::Err("timeout must be less than expiration period of 1st htlc in DFI blocks");
         }
 
@@ -1393,10 +1411,22 @@ public:
             if (submitexthtlc.hash != dfchtlc->hash)
                 return Res::Err("Invalid hash, external htlc hash is different than dfc htlc hash");
 
-            if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT)
-                return Res::Err("timeout must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT - 1);
+            uint32_t timeout, btcBlocksInDfi;
+            if (static_cast<int>(height) < consensus.EunosPayaHeight)
+            {
+                timeout = CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT;
+                btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
+            }
+            else
+            {
+                timeout = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+                btcBlocksInDfi = CICXSubmitEXTHTLC::EUNOSPAYA_BTC_BLOCKS_IN_DFI_BLOCKS;
+            }
 
-            if (submitexthtlc.timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS >= (dfchtlc->creationHeight + dfchtlc->timeout) - height)
+            if (submitexthtlc.timeout < timeout)
+                return Res::Err("timeout must be greater than %d", timeout - 1);
+
+            if (submitexthtlc.timeout * btcBlocksInDfi >= (dfchtlc->creationHeight + dfchtlc->timeout) - height)
                 return Res::Err("timeout must be less than expiration period of 1st htlc in DFC blocks");
         } else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
 
@@ -1406,8 +1436,14 @@ public:
             if (!mnview.HasICXMakeOfferOpen(offer->orderTx, submitexthtlc.offerTx))
                 return Res::Err("offerTx (%s) has expired", submitexthtlc.offerTx.GetHex());
 
-            if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_TIMEOUT)
-                return Res::Err("timeout must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_TIMEOUT - 1);
+            uint32_t timeout;
+            if (static_cast<int>(height) < consensus.EunosPayaHeight)
+                timeout = CICXSubmitEXTHTLC::MINIMUM_TIMEOUT;
+            else
+                timeout = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
+
+            if (submitexthtlc.timeout < timeout)
+                return Res::Err("timeout must be greater than %d", timeout - 1);
 
             CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
 
