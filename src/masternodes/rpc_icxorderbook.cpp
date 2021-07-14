@@ -576,6 +576,9 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
     CScript authScript;
     {
         LOCK(cs_main);
+
+        targetHeight = ::ChainActive().Height() + 1;
+
         auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
         if (!offer)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offerTx (%s) does not exist",submitdfchtlc.offerTx.GetHex()));
@@ -587,18 +590,22 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
             authScript = order->ownerAddress;
+
+            if (!submitdfchtlc.timeout)
+                submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
             authScript = offer->ownerAddress;
+
+            if (!submitdfchtlc.timeout)
+            submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
 
             CTokenAmount balance = pcustomcsview->GetBalance(offer->ownerAddress,order->idToken);
             if (balance.nValue < offer->amount)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Not enough balance for Token %s on address %s!",
                         pcustomcsview->GetToken(order->idToken)->CreateSymbolKey(order->idToken), ScriptToString(offer->ownerAddress)));
         }
-
-        targetHeight = ::ChainActive().Height() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -735,6 +742,9 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
     CScript authScript;
     {
         LOCK(cs_main);
+
+        targetHeight = ::ChainActive().Height() + 1;
+
         auto offer = pcustomcsview->GetICXMakeOfferByCreationTx(submitexthtlc.offerTx);
         if (!offer)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("offerTx (%s) does not exist",submitexthtlc.offerTx.GetHex()));\
@@ -751,8 +761,6 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
         {
             authScript = order->ownerAddress;
         }
-
-        targetHeight = ::ChainActive().Height() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

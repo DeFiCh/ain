@@ -38,7 +38,7 @@ const uint8_t CICXOrder::STATUS_EXPIRED = 3;
 const std::string CICXOrder::CHAIN_BTC = "BTC";
 const std::string CICXOrder::TOKEN_BTC = "BTC";
 
-const uint32_t CICXMakeOffer::DEFAULT_EXPIRY = 10;
+const uint32_t CICXMakeOffer::DEFAULT_EXPIRY = 20;
 const uint32_t CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT = 100;
 const uint8_t CICXMakeOffer::STATUS_OPEN = 0;
 const uint8_t CICXMakeOffer::STATUS_CLOSED = 1;
@@ -47,6 +47,8 @@ const CAmount CICXMakeOffer::DEFAULT_TAKER_FEE_PER_BTC = AmountFromValue(0.003);
 
 const uint32_t CICXSubmitDFCHTLC::MINIMUM_TIMEOUT = 500;
 const uint32_t CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT = 250;
+const uint32_t CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT = 1440;
+const uint32_t CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT = 480;
 const uint8_t CICXSubmitDFCHTLC::STATUS_OPEN = 0;
 const uint8_t CICXSubmitDFCHTLC::STATUS_CLAIMED = 1;
 const uint8_t CICXSubmitDFCHTLC::STATUS_REFUNDED = 2;
@@ -54,8 +56,11 @@ const uint8_t CICXSubmitDFCHTLC::STATUS_EXPIRED = 3;
 
 const uint32_t CICXSubmitEXTHTLC::MINIMUM_TIMEOUT = 30;
 const uint32_t CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT = 15;
+const uint32_t CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_TIMEOUT = 72;
+const uint32_t CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT = 24;
 // constant for calculating BTC block period in DFI block period per hour (BTC estimated to 6 blocks/h, DFI to 96 blocks/h)
 const uint32_t CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS = 16;
+const uint32_t CICXSubmitEXTHTLC::EUNOSPAYA_BTC_BLOCKS_IN_DFI_BLOCKS = 20;
 const uint8_t CICXSubmitEXTHTLC::STATUS_OPEN = 0;
 const uint8_t CICXSubmitEXTHTLC::STATUS_CLOSED = 1;
 const uint8_t CICXSubmitEXTHTLC::STATUS_EXPIRED = 3;

@@ -318,15 +318,14 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(offer[offerTx]["amount"], Decimal('0.10000000'))
         assert_equal(offer[offerTx]["ownerAddress"], accountBTC)
         assert_equal(offer[offerTx]["takerFee"], Decimal('0.01000000'))
-        assert_equal(offer[offerTx]["expireHeight"], self.nodes[0].getblockchaininfo()["blocks"] + 10)
+        assert_equal(offer[offerTx]["expireHeight"], self.nodes[0].getblockchaininfo()["blocks"] + 20)
 
         beforeDFCHTLC = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
 
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 10,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})["txid"]
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -349,7 +348,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[dfchtlcTx]["amount"], Decimal('10.00000000'))
         assert_equal(htlcs[dfchtlcTx]["amountInEXTAsset"], Decimal('0.10000000'))
         assert_equal(htlcs[dfchtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
-        assert_equal(htlcs[dfchtlcTx]["timeout"], 500)
+        assert_equal(htlcs[dfchtlcTx]["timeout"], 1440)
 
         exthtlcTx = self.nodes[1].icx_submitexthtlc({
                                     'offerTx': offerTx,
@@ -357,7 +356,7 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 15})["txid"]
+                                    'timeout': 24})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -373,7 +372,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(htlcs[exthtlcTx]["htlcScriptAddress"], '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N')
         assert_equal(htlcs[exthtlcTx]["ownerPubkey"], '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
-        assert_equal(htlcs[exthtlcTx]["timeout"], 15)
+        assert_equal(htlcs[exthtlcTx]["timeout"], 24)
 
         beforeClaim0 = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
         beforeClaim1 = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
@@ -439,14 +438,13 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(offer[offerTx]["amount"], Decimal('0.10000000'))
         assert_equal(offer[offerTx]["ownerAddress"], accountBTC)
         assert_equal(offer[offerTx]["takerFee"], Decimal('0.01000000'))
-        assert_equal(offer[offerTx]["expireHeight"], self.nodes[0].getblockchaininfo()["blocks"] + 10)
+        assert_equal(offer[offerTx]["expireHeight"], self.nodes[0].getblockchaininfo()["blocks"] + 20)
 
 
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 5,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})["txid"]
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -467,7 +465,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[dfchtlcTx]["amount"], Decimal('5.00000000'))
         assert_equal(htlcs[dfchtlcTx]["amountInEXTAsset"], Decimal('0.05000000'))
         assert_equal(htlcs[dfchtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
-        assert_equal(htlcs[dfchtlcTx]["timeout"], 500)
+        assert_equal(htlcs[dfchtlcTx]["timeout"], 1440)
 
         exthtlcTx = self.nodes[1].icx_submitexthtlc({
                                     'offerTx': offerTx,
@@ -475,7 +473,7 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 15})["txid"]
+                                    'timeout': 24})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -491,7 +489,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(htlcs[exthtlcTx]["htlcScriptAddress"], '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N')
         assert_equal(htlcs[exthtlcTx]["ownerPubkey"], '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
-        assert_equal(htlcs[exthtlcTx]["timeout"], 15)
+        assert_equal(htlcs[exthtlcTx]["timeout"], 24)
 
         beforeClaim0 = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
         beforeClaim1 = self.nodes[1].getaccount(accountBTC, {}, True)[idDFI]
@@ -577,7 +575,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(offer[offerTx]["ownerAddress"], accountBTC)
         assert_equal(offer[offerTx]["receivePubkey"], '037f9563f30c609b19fd435a19b8bde7d6db703012ba1aba72e9f42a87366d1941')
         assert_equal(offer[offerTx]["takerFee"], Decimal('0.30000000'))
-        assert_equal(offer[offerTx]["expireHeight"], self.nodes[0].getblockchaininfo()["blocks"] + 10)
+        assert_equal(offer[offerTx]["expireHeight"], self.nodes[0].getblockchaininfo()["blocks"] + 20)
 
 
         exthtlcTx = self.nodes[0].icx_submitexthtlc({
@@ -586,7 +584,7 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 30})["txid"]
+                                    'timeout': 72})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -611,13 +609,12 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[exthtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
         assert_equal(htlcs[exthtlcTx]["htlcScriptAddress"], '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N')
         assert_equal(htlcs[exthtlcTx]["ownerPubkey"], '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252')
-        assert_equal(htlcs[exthtlcTx]["timeout"], 30)
+        assert_equal(htlcs[exthtlcTx]["timeout"], 72)
 
         dfchtlcTx = self.nodes[1].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 2000,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 400})["txid"]
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -631,7 +628,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(htlcs[dfchtlcTx]["amount"], Decimal('2000.00000000'))
         assert_equal(htlcs[dfchtlcTx]["amountInEXTAsset"], Decimal('2.00000000'))
         assert_equal(htlcs[dfchtlcTx]["hash"], '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220')
-        assert_equal(htlcs[dfchtlcTx]["timeout"], 400)
+        assert_equal(htlcs[dfchtlcTx]["timeout"], 480)
 
 
         beforeClaim = self.nodes[0].getaccount(accountDFI, {}, True)[idDFI]
@@ -699,8 +696,7 @@ class ICXOrderbookTest (DefiTestFramework):
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 15,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})["txid"]
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -724,7 +720,7 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 15})["txid"]
+                                    'timeout': 24})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
@@ -776,7 +772,7 @@ class ICXOrderbookTest (DefiTestFramework):
         offer = self.nodes[0].icx_listorders({"orderTx": orderTxDFI})
         assert_equal(len(offer), 2)
 
-        self.nodes[1].generate(10)
+        self.nodes[1].generate(20)
 
         assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer)
 
@@ -796,8 +792,7 @@ class ICXOrderbookTest (DefiTestFramework):
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 10,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})["txid"]
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[0].getaccount(accountDFI, {}, True)[idDFI], beforeDFCHTLC - Decimal('0.01000000'))
@@ -849,7 +844,7 @@ class ICXOrderbookTest (DefiTestFramework):
         offer = self.nodes[0].icx_listorders({"orderTx": orderTxBTC})
         assert_equal(len(offer), 2)
 
-        self.nodes[1].generate(10)
+        self.nodes[1].generate(20)
         self.sync_blocks()
 
         assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer)
@@ -876,7 +871,7 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 30})["txid"]
+                                    'timeout': 72})["txid"]
 
         self.nodes[0].generate(1)
 
@@ -924,8 +919,7 @@ class ICXOrderbookTest (DefiTestFramework):
         dfchtlcTx = self.nodes[0].icx_submitdfchtlc({
                                     'offerTx': offerTx,
                                     'amount': 10,
-                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
-                                    'timeout': 500})["txid"]
+                                    'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220'})["txid"]
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -935,7 +929,7 @@ class ICXOrderbookTest (DefiTestFramework):
                                     'hash': '957fc0fd643f605b2938e0631a61529fd70bd35b2162a21d978c41e5241a5220',
                                     'htlcScriptAddress': '13sJQ9wBWh8ssihHUgAaCmNWJbBAG5Hr9N',
                                     'ownerPubkey': '036494e7c9467c8c7ff3bf29e841907fb0fa24241866569944ea422479ec0e6252',
-                                    'timeout': 15})["txid"]
+                                    'timeout': 24})["txid"]
 
         self.nodes[1].generate(1)
         self.sync_blocks()
