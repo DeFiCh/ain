@@ -182,8 +182,19 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         mnTx = self.nodes[0].createmasternode(self.nodes[0].getnewaddress("", "legacy"))
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "PRE_ENABLED")
+
+        # Try and resign masternode while still in PRE_ENABLED
+        try:
+            self.nodes[0].resignmasternode(mnTx)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("state is not 'ENABLED'" in errorString)
+
+        # Check end of PRE_ENABLED range
         self.nodes[0].generate(19)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "PRE_ENABLED")
+
+        # Move ahead to ENABLED state
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "ENABLED")
 

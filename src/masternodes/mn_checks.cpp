@@ -172,6 +172,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
+    Res isPostEunosPayaFork() const {
+        if(static_cast<int>(height) < consensus.EunosPayaHeight) {
+            return Res::Err("called before EunosPaya height");
+        }
+        return Res::Ok();
+    }
+
     template<typename T>
     Res serialize(T& obj) const {
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -448,8 +455,11 @@ public:
     }
 
     Res CheckICXTx() const {
-        if (tx.vout.size() != 2) {
+        if (static_cast<int>(height) < consensus.EunosPayaHeight && tx.vout.size() != 2) {
             return Res::Err("malformed tx vouts ((wrong number of vouts)");
+        }
+        if (static_cast<int>(height) >= consensus.EunosPayaHeight && tx.vout[0].nValue != 0) {
+            return Res::Err("malformed tx vouts, first vout must be OP_RETURN vout with value 0");
         }
         return Res::Ok();
     }
@@ -677,6 +687,10 @@ public:
             return Res::Err("masternode creation needs owner auth");
         }
 
+        if (height < static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight) && obj.timelock != 0) {
+            return Res::Err("collateral timelock cannot be set below EunosPaya");
+        }
+
         CMasternode node;
         CTxDestination dest;
         if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
@@ -691,7 +705,7 @@ public:
         node.creationHeight = height;
         node.operatorType = obj.operatorType;
         node.operatorAuthAddress = obj.operatorAuthAddress;
-        res = mnview.CreateMasternode(tx.GetHash(), node);
+        res = mnview.CreateMasternode(tx.GetHash(), node, obj.timelock);
         // Build coinage from the point of masternode creation
         if (res && height >= static_cast<uint32_t>(Params().GetConsensus().DakotaCrescentHeight)) {
             mnview.SetMasternodeLastBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), time);
@@ -1254,20 +1268,38 @@ public:
             if (!mnview.HasICXMakeOfferOpen(offer->orderTx, submitdfchtlc.offerTx))
                 return Res::Err("offerTx (%s) has expired", submitdfchtlc.offerTx.GetHex());
 
-            if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_TIMEOUT)
-                return Res::Err("timeout must be greater than %d", CICXSubmitDFCHTLC::MINIMUM_TIMEOUT - 1);
+            uint32_t timeout;
+            if (static_cast<int>(height) < consensus.EunosPayaHeight)
+                timeout = CICXSubmitDFCHTLC::MINIMUM_TIMEOUT;
+            else
+                timeout = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
+
+            if (submitdfchtlc.timeout < timeout)
+                return Res::Err("timeout must be greater than %d", timeout - 1);
 
             srcAddr = CScript(order->creationTx.begin(), order->creationTx.end());
+
+            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
 
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (calcAmount > offer->amount)
                 return Res::Err("amount must be lower or equal the offer one");
 
-            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
-
-            //calculating adjusted takerFee
-            CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
-            auto takerFee = CalculateTakerFee(BTCAmount);
+            CAmount takerFee = offer->takerFee;
+            //EunosPaya: calculating adjusted takerFee only if amount in htlc different than in offer
+            if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+            {
+                if (calcAmount < offer->amount)
+                {
+                    CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+                    takerFee = static_cast<CAmount>((arith_uint256(BTCAmount) * arith_uint256(offer->takerFee) / arith_uint256(offer->amount)).GetLow64());
+                }
+            }
+            else
+            {
+                CAmount BTCAmount(static_cast<CAmount>((arith_uint256(submitdfchtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
+                takerFee = CalculateTakerFee(BTCAmount);
+            }
 
             // refund the rest of locked takerFee if there is difference
             if (offer->takerFee - takerFee) {
@@ -1312,10 +1344,22 @@ public:
                 return Res::Err("Invalid hash, dfc htlc hash is different than extarnal htlc hash - %s != %s",
                         submitdfchtlc.hash.GetHex(),exthtlc->hash.GetHex());
 
-            if (submitdfchtlc.timeout < CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT)
-                return Res::Err("timeout must be greater than %d", CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT - 1);
+            uint32_t timeout, btcBlocksInDfi;
+            if (static_cast<int>(height) < consensus.EunosPayaHeight)
+            {
+                timeout = CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT;
+                btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
+            }
+            else
+            {
+                timeout = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+                btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
+            }
 
-            if (submitdfchtlc.timeout >= (exthtlc->creationHeight + (exthtlc->timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS)) - height)
+            if (submitdfchtlc.timeout < timeout)
+                return Res::Err("timeout must be greater than %d", timeout - 1);
+
+            if (submitdfchtlc.timeout >= (exthtlc->creationHeight + (exthtlc->timeout * btcBlocksInDfi)) - height)
                 return Res::Err("timeout must be less than expiration period of 1st htlc in DFI blocks");
         }
 
@@ -1362,15 +1406,27 @@ public:
 
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(dfchtlc->amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (submitexthtlc.amount != calcAmount)
-                return Res::Err("amount %d must be equal to calculated dfchtlc amount %d", submitexthtlc.amount, calcAmount);
+                return Res::Err("amount must be equal to calculated dfchtlc amount");
 
             if (submitexthtlc.hash != dfchtlc->hash)
                 return Res::Err("Invalid hash, external htlc hash is different than dfc htlc hash");
 
-            if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT)
-                return Res::Err("timeout must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT - 1);
+            uint32_t timeout, btcBlocksInDfi;
+            if (static_cast<int>(height) < consensus.EunosPayaHeight)
+            {
+                timeout = CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT;
+                btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
+            }
+            else
+            {
+                timeout = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+                btcBlocksInDfi = CICXSubmitEXTHTLC::EUNOSPAYA_BTC_BLOCKS_IN_DFI_BLOCKS;
+            }
 
-            if (submitexthtlc.timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS >= (dfchtlc->creationHeight + dfchtlc->timeout) - height)
+            if (submitexthtlc.timeout < timeout)
+                return Res::Err("timeout must be greater than %d", timeout - 1);
+
+            if (submitexthtlc.timeout * btcBlocksInDfi >= (dfchtlc->creationHeight + dfchtlc->timeout) - height)
                 return Res::Err("timeout must be less than expiration period of 1st htlc in DFC blocks");
         } else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
 
@@ -1380,17 +1436,35 @@ public:
             if (!mnview.HasICXMakeOfferOpen(offer->orderTx, submitexthtlc.offerTx))
                 return Res::Err("offerTx (%s) has expired", submitexthtlc.offerTx.GetHex());
 
-            if (submitexthtlc.timeout < CICXSubmitEXTHTLC::MINIMUM_TIMEOUT)
-                return Res::Err("timeout must be greater than %d", CICXSubmitEXTHTLC::MINIMUM_TIMEOUT - 1);
+            uint32_t timeout;
+            if (static_cast<int>(height) < consensus.EunosPayaHeight)
+                timeout = CICXSubmitEXTHTLC::MINIMUM_TIMEOUT;
+            else
+                timeout = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
+
+            if (submitexthtlc.timeout < timeout)
+                return Res::Err("timeout must be greater than %d", timeout - 1);
+
+            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
 
             CAmount calcAmount(static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(order->orderPrice) / arith_uint256(COIN)).GetLow64()));
             if (calcAmount > offer->amount)
                 return Res::Err("amount must be lower or equal the offer one");
 
-            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
-
-            //calculating adjusted takerFee
-            auto takerFee = CalculateTakerFee(submitexthtlc.amount);
+            CAmount takerFee = offer->takerFee;
+            //EunosPaya: calculating adjusted takerFee only if amount in htlc different than in offer
+            if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+            {
+                if (calcAmount < offer->amount)
+                {
+                    CAmount BTCAmount(static_cast<CAmount>((arith_uint256(offer->amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+                    takerFee = static_cast<CAmount>((arith_uint256(submitexthtlc.amount) * arith_uint256(offer->takerFee) / arith_uint256(BTCAmount)).GetLow64());
+                }
+            }
+            else
+            {
+                takerFee = CalculateTakerFee(submitexthtlc.amount);
+            }
 
             // refund the rest of locked takerFee if there is difference
             if (offer->takerFee - takerFee) {
@@ -1454,7 +1528,7 @@ public:
             return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
 
         auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx);
-        if (!exthtlc)
+        if (static_cast<int>(height) < consensus.EunosPayaHeight && !exthtlc)
             return Res::Err("cannot claim, external htlc for this offer does not exists or expired!");
 
         // claim DFC HTLC to receiveAddress
@@ -1513,7 +1587,15 @@ public:
         if (!res)
             return res;
 
-        return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
+        if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+        {
+            if (exthtlc)
+                return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
+            else
+                return (Res::Ok());
+        }
+        else
+            return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
     }
 
     Res operator()(const CICXCloseOrderMessage& obj) const {
@@ -1589,7 +1671,10 @@ public:
         offer->closeTx = closeoffer.creationTx;
         offer->closeHeight = closeoffer.creationHeight;
 
-        if (order->orderType == CICXOrder::TYPE_INTERNAL && !mnview.HasICXSubmitDFCHTLCOpen(offer->creationTx)) {
+        bool isPreEunosPaya = static_cast<int>(height) < consensus.EunosPayaHeight;
+
+        if (order->orderType == CICXOrder::TYPE_INTERNAL && !mnview.ExistedICXSubmitDFCHTLC(offer->creationTx, isPreEunosPaya))
+        {
             // subtract takerFee from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
             CalculateOwnerRewards(offer->ownerAddress);
@@ -1601,10 +1686,13 @@ public:
             // subtract the balance from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
             CalculateOwnerRewards(offer->ownerAddress);
-            res = ICXTransfer(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
-            if (!res)
-                return res;
-            if (!mnview.HasICXSubmitEXTHTLCOpen(offer->creationTx))
+            if (isPreEunosPaya)
+            {
+                res = ICXTransfer(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
+                if (!res)
+                    return res;
+            }
+            if (!mnview.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya))
             {
                 res = ICXTransfer(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress);
                 if (!res)
@@ -1932,18 +2020,26 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
     }
 
     // Miner used confirm team at chain height when creating this TX, this is height - 1.
-    if (!finMsg.CheckConfirmSigs(height - 1)) {
+    int anchorHeight = height - 1;
+    auto uniqueKeys = finMsg.CheckConfirmSigs(anchorHeight);
+    if (!uniqueKeys) {
         return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
     }
 
-    auto team = mnview.GetConfirmTeam(height - 1);
+    auto team = mnview.GetConfirmTeam(anchorHeight);
     if (!team) {
-        return Res::ErrDbg("bad-ar-team", "could not get confirm team for height: %d", height - 1);
+        return Res::ErrDbg("bad-ar-team", "could not get confirm team for height: %d", anchorHeight);
     }
 
-    if (finMsg.sigs.size() < GetMinAnchorQuorum(*team)) {
+    auto quorum = GetMinAnchorQuorum(*team);
+    if (finMsg.sigs.size() < quorum) {
         return Res::ErrDbg("bad-ar-sigs-quorum", "anchor sigs (%d) < min quorum (%) ",
-                           finMsg.sigs.size(), GetMinAnchorQuorum(*team));
+                           finMsg.sigs.size(), quorum);
+    }
+
+    if (anchorHeight >= Params().GetConsensus().EunosPayaHeight && uniqueKeys < quorum) {
+        return Res::ErrDbg("bad-ar-sigs-quorum", "anchor unique keys (%d) < min quorum (%) ",
+                           uniqueKeys, quorum);
     }
 
     // Make sure anchor block height and hash exist in chain.

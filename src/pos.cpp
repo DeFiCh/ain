@@ -83,8 +83,12 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
             }
         }
     }
+
+    const auto timelock = mnView->GetTimelock(masternodeID);
+
     // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(), blockHeader.height, masternodeID, params, stakerBlockTime ? *stakerBlockTime : 0)) {
+    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(),blockHeader.height,
+                         masternodeID, params, stakerBlockTime ? *stakerBlockTime : 0, timelock ? *timelock : 0)) {
         return false;
     }
 

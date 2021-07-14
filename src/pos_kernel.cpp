@@ -16,15 +16,19 @@ namespace pos {
         return Hash(ss.begin(), ss.end());
     }
 
-    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const int64_t coinstakeTime, const int64_t stakersBlockTime)
+    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const int64_t coinstakeTime, const uint16_t timelock, const int64_t stakersBlockTime)
     {
-        // Default to min age
-        int64_t nTimeTx{params.pos.nStakeMinAge};
+        // Increase stake time by freezer multiplier
+        int64_t freezerTime{coinstakeTime - stakersBlockTime};
+        if (timelock) {
+            // Timelock in weeks, 260 or 520, divide into 52 weeks to get 5 or 10 years.
+            // Divide that by 10 to get half or whole extra freezer time added.
+            // 5 years fives 1.5x bonus and 10 years gives 2x bonus.
+            freezerTime += timelock / 52.0 / 10 * freezerTime;
+        }
 
-        // If staker has provided a previous block time use that to avoid DB lookup.
-
-        nTimeTx = std::min(coinstakeTime - stakersBlockTime, params.pos.nStakeMaxAge);
-
+        // Calculate max age and limit to max allowed if above it.
+        int64_t nTimeTx = std::min(freezerTime, params.pos.nStakeMaxAge);
 
         // Raise time to min age if below it.
         nTimeTx = std::max(nTimeTx, params.pos.nStakeMinAge);
@@ -36,26 +40,26 @@ namespace pos {
     }
 
     bool
-    CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t height, int64_t coinstakeTime, uint64_t blockHeight, const uint256& masternodeID, const Consensus::Params& params, const int64_t stakersBlockTime) {
+    CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t creationHeight, int64_t coinstakeTime, uint64_t blockHeight,
+                    const uint256& masternodeID, const Consensus::Params& params, const int64_t stakersBlockTime, const uint16_t timelock) {
         // Base target
         arith_uint256 targetProofOfStake;
         targetProofOfStake.SetCompact(nBits);
 
-        const auto hashProofOfStake = UintToArith256(CalcKernelHash(stakeModifier, height, coinstakeTime, masternodeID, params));
+        const auto hashProofOfStake = UintToArith256(CalcKernelHash(stakeModifier, creationHeight, coinstakeTime, masternodeID, params));
 
         // New difficulty calculation to make staking easier the longer it has
         // been since a masternode staked a block.
         if (blockHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaCrescentHeight))
         {
-            auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, stakersBlockTime);
-
+            auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, timelock, stakersBlockTime);
 
             // Increase target by coinDayWeight.
-            return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(height) ) ) ) <= targetProofOfStake * coinDayWeight;
+            return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight) ) ) ) <= targetProofOfStake * coinDayWeight;
         }
 
         // Now check if proof-of-stake hash meets target protocol
-        return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(height) ) ) ) <= targetProofOfStake;
+        return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight) ) ) ) <= targetProofOfStake;
     }
 
     uint256 ComputeStakeModifier(const uint256& prevStakeModifier, const CKeyID& key) {

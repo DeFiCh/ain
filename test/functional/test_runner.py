@@ -222,6 +222,7 @@ BASE_SCRIPTS = [
     'feature_dersig.py',
     'feature_cltv.py',
     'rpc_uptime.py',
+    'feature_longterm_lockin.py',
     'wallet_resendwallettransactions.py',
     'feature_custom_poolreward.py',
     'wallet_fallbackfee.py',

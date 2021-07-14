@@ -3,7 +3,7 @@
 #include <pos_kernel.h>
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
-UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>> mnIds, const CWallet* pwallet)
+UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>>& mnIds, const CWallet* pwallet)
 {
     UniValue ret(UniValue::VOBJ);
     if (!verbose) {
@@ -36,6 +36,8 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         }
         obj.pushKV("localMasternode", localMasternode);
 
+        auto timelock = pcustomcsview->GetTimelock(nodeId);
+
         // Only get targetMultiplier for active masternodes
         if (node.IsActive()) {
             auto currentHeight = ChainActive().Height();
@@ -47,7 +49,13 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
                     stakerBlockTime = std::min(GetTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
                 }
             }
-            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), stakerBlockTime ? *stakerBlockTime : 0).getdouble());
+
+            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock ? *timelock : 0,
+                                                                  stakerBlockTime ? *stakerBlockTime : 0).getdouble());
+        }
+
+        if (timelock && *timelock > 0) {
+            obj.pushKV("timelock", strprintf("%d years", *timelock / 52));
         }
 
         /// @todo add unlock height and|or real resign height
@@ -87,6 +95,10 @@ UniValue createmasternode(const JSONRPCRequest& request)
                            },
                        },
                    },
+                   {"timelock", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Defaults to no timelock period so masternode can be resigned once active. To set a timelock period\n"
+                                                                              "specify either FIVEYEARTIMELOCK or TENYEARTIMELOCK to create a masternode that cannot be resigned for\n"
+                                                                              "five or ten years and will have 1.5x or 2.0 the staking power respectively. Be aware that this means\n"
+                                                                              "that you cannot spend the collateral used to create a masternode for whatever period is specified."},
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -111,9 +123,29 @@ UniValue createmasternode(const JSONRPCRequest& request)
     }
 
     std::string ownerAddress = request.params[0].getValStr();
-    std::string operatorAddress = request.params.size() > 1 ? request.params[1].getValStr() : ownerAddress;
+    std::string operatorAddress = request.params.size() > 1 && !request.params[1].getValStr().empty() ? request.params[1].getValStr() : ownerAddress;
     CTxDestination ownerDest = DecodeDestination(ownerAddress); // type will be checked on apply/create
     CTxDestination operatorDest = DecodeDestination(operatorAddress);
+
+    bool eunosPaya;
+    {
+        LOCK(cs_main);
+        eunosPaya = ::ChainActive().Tip()->height >= Params().GetConsensus().EunosPayaHeight;
+    }
+
+    // Get timelock if any
+    uint16_t timelock{0};
+    if (!request.params[3].isNull()) {
+        if (!eunosPaya) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Timelock cannot be specified before EunosPaya hard fork");
+        }
+        std::string timelockStr = request.params[3].getValStr();
+        if (timelockStr == "FIVEYEARTIMELOCK") {
+            timelock = 5 * 52;
+        } else if (timelockStr == "TENYEARTIMELOCK") {
+            timelock = 10 * 52;
+        }
+    }
 
     // check type here cause need operatorAuthKey. all other validation (for owner for ex.) in further apply/create
     if (operatorDest.which() != 1 && operatorDest.which() != 4) {
@@ -129,6 +161,10 @@ UniValue createmasternode(const JSONRPCRequest& request)
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
              << static_cast<char>(operatorDest.which()) << operatorAuthKey;
+
+    if (eunosPaya) {
+        metadata << timelock;
+    }
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
