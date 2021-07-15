@@ -346,7 +346,7 @@ public:
         consensus.EunosHeight = 354950;
         consensus.EunosSimsHeight = consensus.EunosHeight;
         consensus.EunosKampungHeight = consensus.EunosHeight;
-        consensus.EunosPayaHeight = std::numeric_limits<int>::max();
+        consensus.EunosPayaHeight = 463300;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
