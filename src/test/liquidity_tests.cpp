@@ -411,7 +411,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
                 switch(type) {
-                case RewardType::Rewards:
+                case RewardType::Coinbase:
                     BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
                     break;
                 case RewardType::Commission:
@@ -458,12 +458,12 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
                 if (height >= Params().GetConsensus().BayfrontGardensHeight) {
-                    if (amount.nTokenId == DCT_ID{idPool.v+1}) {
+                    if (type == RewardType::Pool) {
                         for (const auto& reward : pool.rewards.balances) {
                             auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(onLiquidity()) / arith_uint256(pool.totalLiquidity)).GetLow64());
                             BOOST_CHECK_EQUAL(amount.nValue, providerReward);
                         }
-                    } else if (type == RewardType::Rewards) {
+                    } else if (type == RewardType::Coinbase) {
                         BOOST_CHECK_EQUAL(amount.nValue, newRewardCalculation(onLiquidity(), pool));
                     } else if (amount.nTokenId == pool.idTokenA) {
                         BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(onLiquidity(), pool).first);
@@ -471,7 +471,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
                         BOOST_CHECK_EQUAL(amount.nValue, newCommissionCalculation(onLiquidity(), pool).second);
                     }
                 } else {
-                    if (type == RewardType::Rewards) {
+                    if (type & RewardType::Rewards) {
                         BOOST_CHECK_EQUAL(amount.nValue, oldRewardCalculation(onLiquidity(), pool));
                     } else if (amount.nTokenId == pool.idTokenA) {
                         BOOST_CHECK_EQUAL(amount.nValue, oldCommissionCalculation(onLiquidity(), pool).first);
