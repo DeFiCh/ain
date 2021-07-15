@@ -21,11 +21,12 @@
 #include <unordered_map>
 
 /// @attention make sure that it does not overlap with those in tokens.cpp !!!
-// Prefixes for the 'custom chainstate database' (customsc/)
+// Prefixes for the 'custom chainstate database' (enhancedcs/)
 const unsigned char DB_MASTERNODES = 'M';     // main masternodes table
 const unsigned char DB_MN_OPERATORS = 'o';    // masternodes' operators index
 const unsigned char DB_MN_OWNERS = 'w';       // masternodes' owners index
 const unsigned char DB_MN_STAKER = 'X';       // masternodes' last staked block time
+const unsigned char DB_MN_TIMELOCK = 'K';
 const unsigned char DB_MN_HEIGHT = 'H';       // single record with last processed chain height
 const unsigned char DB_MN_VERSION = 'D';
 const unsigned char DB_MN_ANCHOR_REWARD = 'r';
@@ -39,6 +40,7 @@ const unsigned char CMasternodesView::ID      ::prefix = DB_MASTERNODES;
 const unsigned char CMasternodesView::Operator::prefix = DB_MN_OPERATORS;
 const unsigned char CMasternodesView::Owner   ::prefix = DB_MN_OWNERS;
 const unsigned char CMasternodesView::Staker  ::prefix = DB_MN_STAKER;
+const unsigned char CMasternodesView::Timelock::prefix = DB_MN_TIMELOCK;
 const unsigned char CAnchorRewardsView::BtcTx ::prefix = DB_MN_ANCHOR_REWARD;
 const unsigned char CAnchorConfirmsView::BtcTx::prefix = DB_MN_ANCHOR_CONFIRM;
 const unsigned char CTeamView::AuthTeam       ::prefix = DB_MN_AUTH_TEAM;
@@ -135,6 +137,9 @@ bool CMasternode::IsActive() const
 bool CMasternode::IsActive(int height) const
 {
     State state = GetState(height);
+    if (height >= Params().GetConsensus().EunosPayaHeight) {
+        return state == ENABLED;
+    }
     return state == ENABLED || state == PRE_RESIGNED;
 }
 
@@ -275,7 +280,7 @@ boost::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOwner() const
     return {};
 }
 
-Res CMasternodesView::CreateMasternode(const uint256 & nodeId, const CMasternode & node)
+Res CMasternodesView::CreateMasternode(const uint256 & nodeId, const CMasternode & node, uint16_t timelock)
 {
     // Check auth addresses and that there in no MN with such owner or operator
     if ((node.operatorType != 1 && node.operatorType != 4) || (node.ownerType != 1 && node.ownerType != 4) ||
@@ -291,6 +296,10 @@ Res CMasternodesView::CreateMasternode(const uint256 & nodeId, const CMasternode
     WriteBy<Owner>(node.ownerAuthAddress, nodeId);
     WriteBy<Operator>(node.operatorAuthAddress, nodeId);
 
+    if (timelock > 0) {
+        WriteBy<Timelock>(nodeId, timelock);
+    }
+
     return Res::Ok();
 }
 
@@ -302,8 +311,17 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
         return Res::Err("node %s does not exists", nodeId.ToString());
     }
     auto state = node->GetState(height);
-    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED) /*|| IsAnchorInvolved(nodeId, height)*/) { // if already spoiled by resign or ban, or need for anchor
+    if (height >= Params().GetConsensus().EunosPayaHeight) {
+        if (state != CMasternode::ENABLED) {
+            return Res::Err("node %s state is not 'ENABLED'", nodeId.ToString());
+        }
+    } else if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
+    }
+
+    const auto timelock = GetTimelock(nodeId, *node, height);
+    if (timelock) {
+        return Res::Err("Trying to resign masternode before timelock expiration.");
     }
 
     node->resignTx =  txid;
@@ -379,6 +397,39 @@ Res CMasternodesView::UnResignMasternode(const uint256 & nodeId, const uint256 &
         return Res::Ok();
     }
     return Res::Err("No such masternode %s, resignTx: %s", nodeId.GetHex(), resignTx.GetHex());
+}
+
+uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const
+{
+    auto timelock = ReadBy<Timelock, uint16_t>(nodeId);
+    if (timelock) {
+        LOCK(cs_main);
+        // Get last height
+        auto lastHeight = height - 1;
+
+        // Cannot expire below block count required to calculate average time
+        if (lastHeight < Params().GetConsensus().mn.newResignDelay) {
+            return *timelock;
+        }
+
+        // Get timelock expiration time. Timelock set in weeks, convert to seconds.
+        const auto timelockExpire = ::ChainActive()[node.creationHeight]->nTime + (*timelock * 7 * 24 * 60 * 60);
+
+        // Get average time of the last two times the activation delay worth of blocks
+        uint64_t totalTime{0};
+        for (; lastHeight + Params().GetConsensus().mn.newResignDelay >= height; --lastHeight) {
+            totalTime += ::ChainActive()[lastHeight]->nTime;
+        }
+        const uint32_t averageTime = totalTime / Params().GetConsensus().mn.newResignDelay;
+
+        // Below expiration return timelock
+        if (averageTime < timelockExpire) {
+            return *timelock;
+        } else { // Expired. Return null.
+            return 0;
+        }
+    }
+    return 0;
 }
 
 /*

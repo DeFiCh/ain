@@ -88,7 +88,7 @@ static CBlock BuildBlockTestCase() {
     assert(!mutated);
     block.nTime = 0;
 
-    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.height, masternodeID, Params().GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0)) block.nTime++;
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.height, masternodeID, Params().GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0, 0)) block.nTime++;
   //  while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
 
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
