@@ -2843,6 +2843,40 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         mapBurnAmounts.clear();
 
+        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
+        {
+            std::vector<CLoanSchemeMessage> loanUpdates;
+            cache.ForEachDelayedLoanScheme([&pindex, &loanUpdates](const std::pair<std::string, uint64_t>& key, const CLoanSchemeMessage& loanScheme)
+            {
+                if (key.second == pindex->nHeight) {
+                    loanUpdates.push_back(loanScheme);
+                }
+                return true;
+            });
+
+            for (const auto& loanScheme : loanUpdates) {
+                // Make sure loan still exist, that it has not been destroyed in the mean time.
+                if (cache.GetLoanScheme(loanScheme.identifier)) {
+                    cache.StoreLoanScheme(loanScheme);
+                }
+                cache.EraseDelayedLoanScheme(loanScheme.identifier, pindex->nHeight);
+            }
+
+            std::vector<std::string> loanDestruction;
+            cache.ForEachDelayedDestroyScheme([&pindex, &loanDestruction](const std::string& key, const uint64_t& height)
+            {
+                if (height == pindex->nHeight) {
+                    loanDestruction.push_back(key);
+                }
+                return true;
+            });
+
+            for (const auto& loanDestroy : loanDestruction) {
+                cache.EraseLoanScheme(loanDestroy);
+                cache.EraseDelayedDestroyScheme(loanDestroy);
+            }
+        }
+
         // construct undo
         auto& flushable = cache.GetStorage();
         auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());

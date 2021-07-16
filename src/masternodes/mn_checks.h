@@ -75,7 +75,9 @@ enum class CustomTxType : uint8_t
     ICXCloseOffer       = '7',
     // Loans
     LoanSetCollateralToken = 'c',
-    CreateLoanScheme   = 'L',
+    LoanScheme         = 'L',
+    DefaultLoanScheme  = 'd',
+    DestroyLoanScheme  = 'D',
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -110,7 +112,9 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::ICXCloseOrder:
         case CustomTxType::ICXCloseOffer:
         case CustomTxType::LoanSetCollateralToken:
-        case CustomTxType::CreateLoanScheme:
+        case CustomTxType::LoanScheme:
+        case CustomTxType::DefaultLoanScheme:
+        case CustomTxType::DestroyLoanScheme:
         case CustomTxType::None:
             return type;
     }
@@ -254,7 +258,9 @@ typedef boost::variant<
     CICXCloseOrderMessage,
     CICXCloseOfferMessage,
     CLoanSetCollateralTokenMessage,
-    CCreateLoanSchemeMessage
+    CLoanSchemeMessage,
+    CDefaultLoanSchemeMessage,
+    CDestroyLoanSchemeMessage
 > CCustomTxMessage;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);

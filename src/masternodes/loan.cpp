@@ -2,7 +2,10 @@
 
 const unsigned char CLoanView::LoanSetCollateralTokenCreationTx           ::prefix = 0x10;
 const unsigned char CLoanView::LoanSetCollateralTokenKey                  ::prefix = 0x11;
-const unsigned char CLoanView::CreateLoanSchemeKey                        ::prefix = 0x12;
+const unsigned char CLoanView::LoanSchemeKey                              ::prefix = 0x12;
+const unsigned char CLoanView::DefaultLoanSchemeKey                       ::prefix = 0x13;
+const unsigned char CLoanView::DelayedLoanSchemeKey                       ::prefix = 0x14;
+const unsigned char CLoanView::DestroyLoanSchemeKey                       ::prefix = 0x15;
 
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanSetCollateralToken(uint256 const & txid) const
 {
@@ -44,14 +47,82 @@ std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanSetCol
     return {};
 }
 
-Res CLoanView::StoreLoanScheme(const CCreateLoanSchemeMessage& loanScheme)
+Res CLoanView::StoreLoanScheme(const CLoanSchemeMessage& loanScheme)
 {
-    WriteBy<CreateLoanSchemeKey>(loanScheme.identifier, static_cast<CLoanSchemeData>(loanScheme));
+    WriteBy<LoanSchemeKey>(loanScheme.identifier, static_cast<CLoanSchemeData>(loanScheme));
+
+    return Res::Ok();
+}
+
+Res CLoanView::StoreDelayedLoanScheme(const CLoanSchemeMessage& loanScheme)
+{
+    WriteBy<DelayedLoanSchemeKey>(std::pair<std::string, uint64_t>(loanScheme.identifier, loanScheme.update), loanScheme);
+
+    return Res::Ok();
+}
+
+Res CLoanView::StoreDelayedDestroyScheme(const CDestroyLoanSchemeMessage& loanScheme)
+{
+    WriteBy<DestroyLoanSchemeKey>(loanScheme.identifier, loanScheme.height);
 
     return Res::Ok();
 }
 
 void CLoanView::ForEachLoanScheme(std::function<bool (const std::string&, const CLoanSchemeData&)> callback)
 {
-    ForEach<CreateLoanSchemeKey, std::string, CLoanSchemeData>(callback);
+    ForEach<LoanSchemeKey, std::string, CLoanSchemeData>(callback);
+}
+
+void CLoanView::ForEachDelayedLoanScheme(std::function<bool (const std::pair<std::string, uint64_t>&, const CLoanSchemeMessage&)> callback)
+{
+    ForEach<DelayedLoanSchemeKey, std::pair<std::string, uint64_t>, CLoanSchemeMessage>(callback);
+}
+
+void CLoanView::ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback)
+{
+    ForEach<DestroyLoanSchemeKey, std::string, uint64_t>(callback);
+}
+
+Res CLoanView::StoreDefaultLoanScheme(const std::string& loanSchemeID)
+{
+    Write(DefaultLoanSchemeKey::prefix, loanSchemeID);
+
+    return Res::Ok();
+}
+
+boost::optional<std::string> CLoanView::GetDefaultLoanScheme()
+{
+    std::string loanSchemeID;
+    if (Read(DefaultLoanSchemeKey::prefix, loanSchemeID)) {
+        return loanSchemeID;
+    }
+
+    return {};
+}
+
+boost::optional<CLoanSchemeData> CLoanView::GetLoanScheme(const std::string& loanSchemeID)
+{
+    return ReadBy<LoanSchemeKey, CLoanSchemeData>(loanSchemeID);
+}
+
+boost::optional<uint64_t> CLoanView::GetDestroyLoanScheme(const std::string& loanSchemeID)
+{
+    return ReadBy<DestroyLoanSchemeKey, uint64_t>(loanSchemeID);
+}
+
+Res CLoanView::EraseLoanScheme(const std::string& loanSchemeID)
+{
+    EraseBy<LoanSchemeKey>(loanSchemeID);
+
+    return Res::Ok();
+}
+
+void CLoanView::EraseDelayedLoanScheme(const std::string& loanSchemeID, uint64_t height)
+{
+    EraseBy<DelayedLoanSchemeKey>(std::pair<std::string, uint64_t>(loanSchemeID, height));
+}
+
+void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
+{
+    EraseBy<DestroyLoanSchemeKey>(loanSchemeID);
 }
