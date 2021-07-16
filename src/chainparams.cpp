@@ -127,7 +127,7 @@ public:
         consensus.EunosHeight = 894000; // 3rd June 2021
         consensus.EunosSimsHeight = consensus.EunosHeight;
         consensus.EunosKampungHeight = 895743;
-        consensus.EunosPayaHeight = std::numeric_limits<int>::max();
+        consensus.EunosPayaHeight = 1049000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
