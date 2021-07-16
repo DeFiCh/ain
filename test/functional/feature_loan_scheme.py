@@ -302,9 +302,9 @@ class CreateLoanSchemeTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Cannot set LOAN0002 as default, set to destroyed on block 121" in errorString)
 
-        # Set update on same block and one after
-        self.nodes[0].updateloanscheme(160, 4.5, 'LOAN0001', destruction_height)
-        self.nodes[0].updateloanscheme(170, 4, 'LOAN0001', destruction_height + 1)
+        # Set update on same block and later on
+        self.nodes[0].updateloanscheme(160, 4.5, 'LOAN0002', destruction_height)
+        self.nodes[0].updateloanscheme(170, 4, 'LOAN0002', destruction_height + 10)
 
         # Move to destrction block and check
         self.nodes[0].generate(2)
@@ -318,11 +318,22 @@ class CreateLoanSchemeTest (DefiTestFramework):
         assert_equal(len(results), 5)
         assert_equal(results[1]['id'], 'LOAN0002')
 
+        # Cannot update loan scheme due to pending update
+        try:
+            self.nodes[0].updateloanscheme(170, 4, 'LOAN0003')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        print(errorString)
+        assert("Loan scheme LOAN0002 with same interestrate and mincolratio pending on block 131" in errorString)
+
         # Go forward again to destroy loan
         self.nodes[0].generate(2)
         results = self.nodes[0].listloanschemes()
         assert_equal(len(results), 4)
         assert_equal(results[1]['id'], 'LOAN0003')
+
+        # Can now update loan scheme as pending updates deleted
+        self.nodes[0].updateloanscheme(170, 4, 'LOAN0003')
 
 if __name__ == '__main__':
     CreateLoanSchemeTest().main()
