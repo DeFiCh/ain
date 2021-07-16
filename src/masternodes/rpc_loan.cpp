@@ -422,7 +422,7 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
 UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
-    RPCHelpMan{"createloanscheme",
+    RPCHelpMan{"setdefaultloanscheme",
                "Sets the default loan scheme.\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
