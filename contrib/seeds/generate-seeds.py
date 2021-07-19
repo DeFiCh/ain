@@ -10,6 +10,7 @@ argument:
 
     nodes_main.txt
     nodes_test.txt
+    nodes_devnet.txt
 
 These files must consist of lines in the format
 
@@ -132,6 +133,9 @@ def main():
     g.write('\n')
     with open(os.path.join(indir,'nodes_test.txt'), 'r', encoding="utf8") as f:
         process_nodes(g, f, 'pnSeed6_test', 18555)
+    g.write('\n')
+    with open(os.path.join(indir,'nodes_devnet.txt'), 'r', encoding="utf8") as f:
+        process_nodes(g, f, 'pnSeed6_devnet', 20555)
     g.write('#endif // DEFI_CHAINPARAMSSEEDS_H\n')
 
 if __name__ == '__main__':
