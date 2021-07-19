@@ -38,7 +38,8 @@ const uint8_t CICXOrder::STATUS_EXPIRED = 3;
 const std::string CICXOrder::CHAIN_BTC = "BTC";
 const std::string CICXOrder::TOKEN_BTC = "BTC";
 
-const uint32_t CICXMakeOffer::DEFAULT_EXPIRY = 20;
+const uint32_t CICXMakeOffer::DEFAULT_EXPIRY = 10;
+const uint32_t CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY = 20;
 const uint32_t CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT = 100;
 const uint8_t CICXMakeOffer::STATUS_OPEN = 0;
 const uint8_t CICXMakeOffer::STATUS_CLOSED = 1;
@@ -187,8 +188,6 @@ Res CICXOrderView::ICXMakeOffer(CICXMakeOfferImpl const & makeoffer)
         return Res::Err("makeoffer with creation tx %s already exists!", makeoffer.creationTx.GetHex());
     if (makeoffer.amount == 0)
         return Res::Err("offer amount must be greater than 0!");
-    if (makeoffer.expiry < CICXMakeOffer::DEFAULT_EXPIRY)
-        return Res::Err("offer expiry must be greater than %d!", CICXMakeOffer::DEFAULT_EXPIRY - 1);
 
     WriteBy<ICXMakeOfferCreationTx>(makeoffer.creationTx, makeoffer);
     WriteBy<ICXMakeOfferOpenKey>(TxidPairKey(makeoffer.orderTx, makeoffer.creationTx), CICXMakeOffer::STATUS_OPEN);
