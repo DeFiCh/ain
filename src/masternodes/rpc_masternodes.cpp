@@ -141,9 +141,9 @@ UniValue createmasternode(const JSONRPCRequest& request)
         }
         std::string timelockStr = request.params[3].getValStr();
         if (timelockStr == "FIVEYEARTIMELOCK") {
-            timelock = 5 * 52;
+            timelock = CMasternode::FIVEYEAR;
         } else if (timelockStr == "TENYEARTIMELOCK") {
-            timelock = 10 * 52;
+            timelock = CMasternode::TENYEAR;
         }
     }
 
@@ -196,7 +196,11 @@ UniValue createmasternode(const JSONRPCRequest& request)
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey});
+        auto stream = CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey};
+        if (eunosPaya) {
+            stream << timelock;
+        }
+        auto metadata = ToByteVector(stream);
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateMasterNodeMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
