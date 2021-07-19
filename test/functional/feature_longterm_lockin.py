@@ -87,29 +87,29 @@ class MasternodesTimelockTest (DefiTestFramework):
         result = self.nodes[0].getmasternode(nodeid)
         assert_equal(result[nodeid]['targetMultiplier'], 4)
         result5 = self.nodes[0].getmasternode(nodeid5)
-        assert_equal(result5[nodeid5]['targetMultiplier'], 6)
+        assert_equal(result5[nodeid5]['targetMultiplier'], 11)
         result10 = self.nodes[0].getmasternode(nodeid10)
-        assert_equal(result10[nodeid10]['targetMultiplier'], 8)
+        assert_equal(result10[nodeid10]['targetMultiplier'], 20)
 
-        # Time travel a week
-        self.nodes[0].set_mocktime(int(time.time()) + (7 * 24 * 60 * 60))
+        # Time travel three days
+        self.nodes[0].set_mocktime(int(time.time()) + (3 * 24 * 60 * 60))
         self.nodes[0].generate(1)
 
         # Check all multipliers have increased
         result = self.nodes[0].getmasternode(nodeid)
-        assert_equal(result[nodeid]['targetMultiplier'], 28)
+        assert_equal(result[nodeid]['targetMultiplier'], 12)
         result5 = self.nodes[0].getmasternode(nodeid5)
-        assert_equal(result5[nodeid5]['targetMultiplier'], 42)
+        assert_equal(result5[nodeid5]['targetMultiplier'], 32)
         result10 = self.nodes[0].getmasternode(nodeid10)
-        assert_equal(result10[nodeid10]['targetMultiplier'], 56)
+        assert_equal(result10[nodeid10]['targetMultiplier'], 57)
 
-        # Time travel 11 days, max for freezer users
-        self.nodes[0].set_mocktime(int(time.time()) + (11 * 24 * 60 * 60))
+        # Time travel 5.5 days, max for freezer users
+        self.nodes[0].set_mocktime(int(time.time()) + (5 * 24 * 60 * 60) + (12 * 60 * 60))
         self.nodes[0].generate(1)
 
         # Check all multipliers have increased
         result = self.nodes[0].getmasternode(nodeid)
-        assert_equal(result[nodeid]['targetMultiplier'], 44)
+        assert_equal(result[nodeid]['targetMultiplier'], 22)
         result5 = self.nodes[0].getmasternode(nodeid5)
         assert_equal(result5[nodeid5]['targetMultiplier'], 57)
         result10 = self.nodes[0].getmasternode(nodeid10)
