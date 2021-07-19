@@ -728,10 +728,14 @@ namespace pos {
             if (Params().NetworkIDString() == CBaseChainParams::REGTEST) {
                 // For regtest use previous oldest time
                 nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
+                if (nLastCoinStakeSearchTime <= tip->GetMedianTimePast()) {
+                    nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
+                }
             } else {
                 // Plus one to avoid time-too-old error on exact median time.
                 nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
             }
+            
             lastBlockSeen = tip->GetBlockHash();
         }
 
