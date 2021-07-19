@@ -51,6 +51,12 @@ public:
         UNKNOWN // unreachable
     };
 
+    enum TimeLock {
+        ZEROYEAR,
+        FIVEYEAR = 260,
+        TENYEAR = 520
+    };
+
     //! Minted blocks counter
     uint32_t mintedBlocks;
 
