@@ -1211,6 +1211,11 @@ public:
         if (!order)
             return Res::Err("order with creation tx " + makeoffer.orderTx.GetHex() + " does not exists!");
 
+        auto expiry = static_cast<int>(height) < consensus.EunosPayaHeight ? CICXMakeOffer::DEFAULT_EXPIRY : CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY;
+
+        if (makeoffer.expiry < expiry)
+            return Res::Err("offer expiry must be greater than %d!", expiry - 1);
+
         CScript txidAddr(makeoffer.creationTx.begin(), makeoffer.creationTx.end());
 
         if (order->orderType == CICXOrder::TYPE_INTERNAL) {

@@ -82,6 +82,7 @@ class CICXMakeOffer
 {
 public:
     static const uint32_t DEFAULT_EXPIRY; // default period in blocks after offer automatically expires
+    static const uint32_t EUNOSPAYA_DEFAULT_EXPIRY;
     static const uint32_t MAKER_DEPOSIT_REFUND_TIMEOUT; // minimum period in DFC blocks in which 2nd HTLC must be created, otherwise makerDeposit is refunded to maker
     static const uint8_t STATUS_OPEN;
     static const uint8_t STATUS_CLOSED;
@@ -92,7 +93,7 @@ public:
     CAmount amount = 0; // amount of asset to swap
     CScript ownerAddress; //address for DFI token for fees, and in case of BTC/DFC order for DFC asset
     CPubKey receivePubkey; // address or BTC pubkey in case of DFC/BTC order
-    uint32_t expiry = DEFAULT_EXPIRY; // when the offer exipres in number of blocks
+    uint32_t expiry = 0; // when the offer exipres in number of blocks
     CAmount takerFee = 0;
 
     ADD_SERIALIZE_METHODS;

@@ -455,6 +455,11 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
         }
 
         targetHeight = ::ChainActive().Height() + 1;
+
+        if (targetHeight < Params().GetConsensus().EunosPayaHeight)
+            makeoffer.expiry = CICXMakeOffer::DEFAULT_EXPIRY;
+        else
+            makeoffer.expiry = CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
