@@ -141,9 +141,9 @@ UniValue createmasternode(const JSONRPCRequest& request)
         }
         std::string timelockStr = request.params[3].getValStr();
         if (timelockStr == "FIVEYEARTIMELOCK") {
-            timelock = 5 * 52;
+            timelock = CMasternode::FIVEYEAR;
         } else if (timelockStr == "TENYEARTIMELOCK") {
-            timelock = 10 * 52;
+            timelock = CMasternode::TENYEAR;
         }
     }
 
