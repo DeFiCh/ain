@@ -687,7 +687,16 @@ public:
             return Res::Err("masternode creation needs owner auth");
         }
 
-        if (height < static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight) && obj.timelock != 0) {
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight)) {
+            switch(obj.timelock) {
+                case CMasternode::ZEROYEAR:
+                case CMasternode::FIVEYEAR:
+                case CMasternode::TENYEAR:
+                    break;
+                default:
+                    return Res::Err("Timelock must be set to either 0, 5 or 10 years");
+            }
+        } else if (obj.timelock != 0) {
             return Res::Err("collateral timelock cannot be set below EunosPaya");
         }
 

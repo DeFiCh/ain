@@ -25,6 +25,7 @@ class MasternodesTimelockTest (DefiTestFramework):
         collateral = self.nodes[0].getnewaddress("", "legacy")
         collateral5 = self.nodes[0].getnewaddress("", "legacy")
         collateral10 = self.nodes[0].getnewaddress("", "legacy")
+        collateral20 = self.nodes[0].getnewaddress("", "legacy")
 
         # Try to set time lock before EunosPaya
         try:
@@ -37,10 +38,24 @@ class MasternodesTimelockTest (DefiTestFramework):
         self.nodes[0].generate(39)
 
         # Create MNs with locked funds
+        self.nodes[0].sendtoaddress(collateral20, 1)
         nodeid = self.nodes[0].createmasternode(collateral)
         nodeid5 = self.nodes[0].createmasternode(collateral5, "", [], "FIVEYEARTIMELOCK")
         nodeid10 = self.nodes[0].createmasternode(collateral10, "", [], "TENYEARTIMELOCK")
         self.nodes[0].generate(1)
+
+        # Test MN creation with non-standard 20 year lock-in
+        nodeid20 = self.nodes[0].createmasternode(collateral20, "", [], "TENYEARTIMELOCK")
+        nodeid20_raw = self.nodes[0].getrawtransaction(nodeid20)
+        self.nodes[0].clearmempool()
+        pos = nodeid20_raw.find('446654784301')
+        nodeid20_raw = nodeid20_raw[:pos + 52] + '1004' + nodeid20_raw[pos + 52 + 4:]
+
+        try:
+            self.nodes[0].sendrawtransaction(nodeid20_raw)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Timelock must be set to either 0, 5 or 10 years" in errorString)
 
         # Check state and timelock length
         result = self.nodes[0].getmasternode(nodeid)
