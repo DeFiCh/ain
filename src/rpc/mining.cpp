@@ -293,17 +293,19 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
 
         // Get targetMultiplier if node is active
         if (nodePtr->IsActive()) {
-            auto currentHeight = ChainActive().Height();
-            auto usedHeight = currentHeight <= Params().GetConsensus().EunosHeight ? nodePtr->creationHeight : currentHeight;
-            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(nodePtr->operatorAuthAddress, usedHeight);
-            // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-            if (!stakerBlockTime) {
-                if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
-                    stakerBlockTime = std::min(GetTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
+            auto usedHeight = height <= Params().GetConsensus().EunosHeight ? nodePtr->creationHeight : height;
+
+            // Get block times
+            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, GetTime(), nodePtr->creationHeight, timelock);
+
+            if (height >= Params().GetConsensus().EunosPayaHeight) {
+                const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+                for (uint8_t i{0}; i < loops; ++i) {
+                    subObj.pushKV(strprintf("multiplierSubnode%d", i), pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock, subNodesBlockTime[i]).getdouble());
                 }
+            } else {
+                subObj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock,subNodesBlockTime[0]).getdouble());
             }
-            subObj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock,
-                                                                     stakerBlockTime ? *stakerBlockTime : 0).getdouble());
         }
 
         if (timelock) {

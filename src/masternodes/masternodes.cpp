@@ -26,6 +26,7 @@ const unsigned char DB_MASTERNODES = 'M';     // main masternodes table
 const unsigned char DB_MN_OPERATORS = 'o';    // masternodes' operators index
 const unsigned char DB_MN_OWNERS = 'w';       // masternodes' owners index
 const unsigned char DB_MN_STAKER = 'X';       // masternodes' last staked block time
+const unsigned char DB_MN_SUBNODE = 'Z';      // subnode's last staked block time
 const unsigned char DB_MN_TIMELOCK = 'K';
 const unsigned char DB_MN_HEIGHT = 'H';       // single record with last processed chain height
 const unsigned char DB_MN_VERSION = 'D';
@@ -40,6 +41,7 @@ const unsigned char CMasternodesView::ID      ::prefix = DB_MASTERNODES;
 const unsigned char CMasternodesView::Operator::prefix = DB_MN_OPERATORS;
 const unsigned char CMasternodesView::Owner   ::prefix = DB_MN_OWNERS;
 const unsigned char CMasternodesView::Staker  ::prefix = DB_MN_STAKER;
+const unsigned char CMasternodesView::SubNode ::prefix = DB_MN_SUBNODE;
 const unsigned char CMasternodesView::Timelock::prefix = DB_MN_TIMELOCK;
 const unsigned char CAnchorRewardsView::BtcTx ::prefix = DB_MN_ANCHOR_REWARD;
 const unsigned char CAnchorConfirmsView::BtcTx::prefix = DB_MN_ANCHOR_CONFIRM;
@@ -375,6 +377,47 @@ void CMasternodesView::ForEachMinterNode(std::function<bool(MNBlockTimeKey const
     ForEach<Staker, MNBlockTimeKey, int64_t>(callback, start);
 }
 
+void CMasternodesView::SetSubNodesBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const uint8_t id, const int64_t& time)
+{
+    auto nodeId = GetMasternodeIdByOperator(minter);
+    assert(nodeId);
+
+    WriteBy<SubNode>(SubNodeBlockTimeKey{*nodeId, id, blockHeight}, time);
+}
+
+std::vector<int64_t> CMasternodesView::GetSubNodesBlockTime(const CKeyID & minter, const uint32_t height)
+{
+    auto nodeId = GetMasternodeIdByOperator(minter);
+    assert(nodeId);
+
+    std::vector<int64_t> times(SUBNODE_COUNT, 0);
+
+    for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
+        ForEachSubNode([&](const SubNodeBlockTimeKey &key, int64_t blockTime)
+        {
+            if (key.masternodeID == nodeId)
+            {
+                times[i] = blockTime;
+            }
+
+            // Get first result only and exit
+            return false;
+        }, SubNodeBlockTimeKey{*nodeId, i, height - 1});
+    }
+
+    return times;
+}
+
+void CMasternodesView::ForEachSubNode(std::function<bool(SubNodeBlockTimeKey const &, CLazySerialize<int64_t>)> callback, SubNodeBlockTimeKey const & start)
+{
+    ForEach<SubNode, SubNodeBlockTimeKey, int64_t>(callback, start);
+}
+
+void CMasternodesView::EraseSubNodeLastBlockTime(const uint256& nodeId, const uint8_t id, const uint32_t& blockHeight)
+{
+    EraseBy<SubNode>(SubNodeBlockTimeKey{nodeId, id, blockHeight});
+}
+
 Res CMasternodesView::UnCreateMasternode(const uint256 & nodeId)
 {
     auto node = GetMasternode(nodeId);
@@ -430,6 +473,39 @@ uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode&
         }
     }
     return 0;
+}
+
+std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int64_t blockTime, const int32_t creationHeight, const uint16_t timelock)
+{
+    // Get last block time for non-subnode staking
+    boost::optional<int64_t> stakerBlockTime = GetMasternodeLastBlockTime(keyID, blockHeight);
+
+    // No record. No stake blocks or post-fork createmastnode TX, use fork time.
+    if (!stakerBlockTime && creationHeight < Params().GetConsensus().DakotaCrescentHeight) {
+        if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
+            stakerBlockTime = std::min(blockTime - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
+        }
+    }
+
+    // Get times for sub nodes, defaults to {0, 0, 0, 0} for MNs created before EunosPayaHeight
+    std::vector<int64_t> subNodesBlockTime = GetSubNodesBlockTime(keyID, blockHeight);
+
+    // Set first entry to previous accrued multiplier.
+    if (stakerBlockTime && !subNodesBlockTime[0]) {
+        subNodesBlockTime[0] = *stakerBlockTime;
+    }
+
+    if (auto block = ::ChainActive()[Params().GetConsensus().EunosPayaHeight]) {
+        // Set block time accruement based on time since fork
+        const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+        for (uint8_t i{0}; i < loops; ++i) {
+            if (!subNodesBlockTime[i]) {
+                subNodesBlockTime[i] = std::min(blockTime - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
+            }
+        }
+    }
+
+    return subNodesBlockTime;
 }
 
 /*

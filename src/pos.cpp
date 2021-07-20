@@ -47,54 +47,55 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
     return true;
 }
 
-bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView) {
+boost::optional<uint8_t> ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView) {
     /// @todo may be this is tooooo optimistic? need more validation?
     if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
-        return true;
+        return 0;
     }
 
     CKeyID minter;
     if (!blockHeader.ExtractMinterKey(minter)) {
-        return false;
+        return {};
     }
     uint256 masternodeID;
     int64_t creationHeight;
-    boost::optional<int64_t> stakerBlockTime;
+    std::vector<int64_t> subNodesBlockTime;
     uint16_t timelock;
     {
         // check that block minter exists and active at the height of the block
         AssertLockHeld(cs_main);
         auto optMasternodeID = mnView->GetMasternodeIdByOperator(minter);
         if (!optMasternodeID) {
-            return false;
+            return {};
         }
         masternodeID = *optMasternodeID;
         auto nodePtr = mnView->GetMasternode(masternodeID);
         if (!nodePtr || !nodePtr->IsActive(blockHeader.height)) {
-            return false;
+            return {};
         }
         creationHeight = int64_t(nodePtr->creationHeight);
         timelock = mnView->GetTimelock(masternodeID, *nodePtr, blockHeader.height);
 
         auto usedHeight = blockHeader.height <= params.EunosHeight ? creationHeight : blockHeader.height;
-        stakerBlockTime = mnView->GetMasternodeLastBlockTime(nodePtr->operatorAuthAddress, usedHeight);
-        // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-        if (!stakerBlockTime) {
-            if (auto block = ::ChainActive()[params.DakotaCrescentHeight]) {
-                stakerBlockTime = std::min(blockHeader.GetBlockTime() - block->GetBlockTime(), params.pos.nStakeMaxAge);
-            }
-        }
+
+        // Get block times
+        subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, blockHeader.GetBlockTime(), creationHeight, timelock);
     }
 
     // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(),blockHeader.height,
-                         masternodeID, params, stakerBlockTime ? *stakerBlockTime : 0, timelock)) {
-        return false;
+    const auto subNode = CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(),blockHeader.height,
+                                         masternodeID, params, subNodesBlockTime, timelock);
+    if (!subNode) {
+        return {};
     }
 
     /// @todo Make sure none mint a big amount of continuous blocks
 
-    return CheckHeaderSignature(blockHeader);
+    if (CheckHeaderSignature(blockHeader)) {
+        return subNode;
+    }
+
+    return {};
 }
 
 bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CCustomCSView* mnView) {

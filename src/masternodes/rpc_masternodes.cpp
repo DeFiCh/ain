@@ -42,16 +42,18 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         // Only get targetMultiplier for active masternodes
         if (node.IsActive()) {
             auto usedHeight = currentHeight <= Params().GetConsensus().EunosHeight ? node.creationHeight : currentHeight;
-            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress, usedHeight);
-            // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-            if (!stakerBlockTime) {
-                if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
-                    stakerBlockTime = std::min(GetTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
-                }
-            }
 
-            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock,
-                                                                  stakerBlockTime ? *stakerBlockTime : 0).getdouble());
+            // Get block times
+            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, usedHeight, GetTime(), node.creationHeight, timelock);
+
+            if (currentHeight >= Params().GetConsensus().EunosPayaHeight) {
+                const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+                for (uint8_t i{0}; i < loops; ++i) {
+                    obj.pushKV(strprintf("multiplierSubnode%d", i), pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock, subNodesBlockTime[i]).getdouble());
+                }
+            } else {
+                obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock,subNodesBlockTime[0]).getdouble());
+            }
         }
 
         if (timelock) {

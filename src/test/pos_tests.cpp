@@ -58,13 +58,13 @@ BOOST_AUTO_TEST_CASE(calc_kernel)
     uint256 mnID = uint256S("fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321");
     int64_t coinstakeTime = 10000000;
     BOOST_CHECK(uint256S("2a30e655ae8018566092750052a01bdef3ad8e1951beb87a9d503e1bcfe4bd2a") ==
-                pos::CalcKernelHash(stakeModifier, 1, coinstakeTime, mnID, Params().GetConsensus()));
+                pos::CalcKernelHash(stakeModifier, 1, coinstakeTime, mnID));
 
     uint32_t target = 0x1effffff;
-    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), 0, 0));
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), {0, 0, 0, 0}, 0));
 
     uint32_t unattainableTarget = 0x00ffffff;
-    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), 0, 0));
+    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), {0, 0, 0, 0}, 0));
 
 //    CKey key;
 //    key.MakeNewKey(true); // Need to use compressed keys in segwit or the signing will fail
