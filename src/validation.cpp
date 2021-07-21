@@ -1820,7 +1820,19 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
     if (!fIsFakeNet) {
         mnview.DecrementMintedBy(minterKey);
-        mnview.EraseMasternodeLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
+        if (pindex->nHeight >= Params().GetConsensus().EunosPayaHeight) {
+            // Get masternode
+            auto node = mnview.GetMasternode(*nodeId);
+            assert(node);
+
+            // Get subnode
+            uint8_t subNode{0};
+            uint16_t timelock = pcustomcsview->GetTimelock(*nodeId, *node, pindex->height);
+            pos::CheckKernelHash(pindex->stakeModifier, pindex->nBits, node->creationHeight, pindex->GetBlockTime(), pindex->nHeight, *nodeId, Params().GetConsensus(), {0, 0, 0, 0}, timelock, subNode);
+            mnview.EraseSubNodeLastBlockTime(*nodeId, subNode, static_cast<uint32_t>(pindex->nHeight));
+        } else {
+            mnview.EraseMasternodeLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
+        }
     }
     mnview.SetLastHeight(pindex->pprev->nHeight);
 

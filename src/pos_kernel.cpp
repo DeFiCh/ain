@@ -43,7 +43,7 @@ namespace pos {
         arith_uint256 targetProofOfStake;
         targetProofOfStake.SetCompact(nBits);
 
-        if (blockHeight >= static_cast<uint64_t>(Params().GetConsensus().EunosPayaHeight)) {
+        if (blockHeight >= static_cast<uint64_t>(params.EunosPayaHeight)) {
             const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
 
             // Check whether we meet hash for each subnode in turn
@@ -63,7 +63,7 @@ namespace pos {
 
             // New difficulty calculation to make staking easier the longer it has
             // been since a masternode staked a block.
-            if (blockHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaCrescentHeight))
+            if (blockHeight >= static_cast<uint64_t>(params.DakotaCrescentHeight))
             {
                 auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodesBlockTime[0]);
 

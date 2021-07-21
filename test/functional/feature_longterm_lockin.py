@@ -10,13 +10,14 @@ import time
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, disconnect_nodes, connect_nodes
 
 class MasternodesTimelockTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 1
+        self.num_nodes = 2
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=1', '-eunospayaheight=140']]
+        self.extra_args = [['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=1', '-eunospayaheight=140'],
+                           ['-dummypos=0', '-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=1', '-eunospayaheight=140']]
 
     def run_test(self):
 
@@ -43,16 +44,21 @@ class MasternodesTimelockTest (DefiTestFramework):
         result_pre = self.nodes[0].getmasternode(nodeid_pre)
         assert_equal(result_pre[nodeid_pre]['targetMultiplier'], 1)
 
-        # Time travel a day
+        # Time travel a day and sync nodes
+        disconnect_nodes(self.nodes[0], 1)
         self.nodes[0].set_mocktime(int(time.time()) + (24 * 60 * 60))
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
+        self.nodes[1].set_mocktime(int(time.time()) + (24 * 60 * 60))
+        self.nodes[1].generate(1)
+        connect_nodes(self.nodes[0], 1)
+        self.sync_blocks()
 
         # Confirm multiplier of four
         result_pre = self.nodes[0].getmasternode(nodeid_pre)
         assert_equal(result_pre[nodeid_pre]['targetMultiplier'], 4)
 
         # Generate to hard fork
-        self.nodes[0].generate(17)
+        self.nodes[0].generate(16)
 
         # Check MN now has multiplier of four on first subnode
         result_pre = self.nodes[0].getmasternode(nodeid_pre)
@@ -94,6 +100,20 @@ class MasternodesTimelockTest (DefiTestFramework):
 
         # Activate masternodes
         self.nodes[0].generate(20)
+        self.sync_blocks()
+
+        # Check multiplier reset and rollback
+        disconnect_nodes(self.nodes[0], 1)
+        print(self.nodes[1].getblockcount())
+        blockhash = self.nodes[1].getblockhash(self.nodes[1].getblockcount())
+        result = self.nodes[1].getmininginfo()
+        assert_equal(result['masternodes'][0]['multiplierSubnode0'], 5)
+        self.nodes[1].generate(20)
+        result = self.nodes[1].getmininginfo()
+        assert_equal(result['masternodes'][0]['multiplierSubnode0'], 1)
+        self.nodes[1].invalidateblock(blockhash)
+        result = self.nodes[1].getmininginfo()
+        assert_equal(result['masternodes'][0]['multiplierSubnode0'], 5)
 
         # Check all multipliers are set to 1 and we only report for subnodes we have
         result = self.nodes[0].getmasternode(nodeid)
