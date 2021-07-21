@@ -16,12 +16,13 @@ class MasternodesTimelockTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=140']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-bayfrontgardensheight=1', '-dakotaheight=1', '-dakotacrescentheight=1', '-eunosheight=1', '-eunospayaheight=140']]
 
     def run_test(self):
 
         self.nodes[0].generate(101)
 
+        collateral_prefork = self.nodes[0].getnewaddress("", "legacy")
         collateral = self.nodes[0].getnewaddress("", "legacy")
         collateral5 = self.nodes[0].getnewaddress("", "legacy")
         collateral10 = self.nodes[0].getnewaddress("", "legacy")
@@ -34,8 +35,31 @@ class MasternodesTimelockTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Timelock cannot be specified before EunosPaya hard fork" in errorString)
 
+        # Create regular MN to make sure accrued multiplier moves over
+        nodeid_pre = self.nodes[0].createmasternode(collateral_prefork)
+        self.nodes[0].generate(21)
+
+        # Confirm multiplier of one
+        result_pre = self.nodes[0].getmasternode(nodeid_pre)
+        assert_equal(result_pre[nodeid_pre]['targetMultiplier'], 1)
+
+        # Time travel a day
+        self.nodes[0].set_mocktime(int(time.time()) + (24 * 60 * 60))
+        self.nodes[0].generate(1)
+
+        # Confirm multiplier of four
+        result_pre = self.nodes[0].getmasternode(nodeid_pre)
+        assert_equal(result_pre[nodeid_pre]['targetMultiplier'], 4)
+
         # Generate to hard fork
-        self.nodes[0].generate(39)
+        self.nodes[0].generate(17)
+
+        # Check MN now has multiplier of four on first subnode
+        result_pre = self.nodes[0].getmasternode(nodeid_pre)
+        assert_equal(result_pre[nodeid_pre]['multiplierSubnode0'], 4)
+        assert_equal(result_pre[nodeid_pre]['multiplierSubnode1'], 1)
+        assert('multiplierSubnode2' not in result_pre[nodeid_pre])
+        assert('multiplierSubnode3' not in result_pre[nodeid_pre])
 
         # Create MNs with locked funds
         self.nodes[0].sendtoaddress(collateral20, 1)
@@ -71,49 +95,84 @@ class MasternodesTimelockTest (DefiTestFramework):
         # Activate masternodes
         self.nodes[0].generate(20)
 
-        # Check all multipliers are set to 1
+        # Check all multipliers are set to 1 and we only report for subnodes we have
         result = self.nodes[0].getmasternode(nodeid)
-        assert_equal(result[nodeid]['targetMultiplier'], 1)
+        assert_equal(result[nodeid]['multiplierSubnode0'], 1)
+        assert_equal(result[nodeid]['multiplierSubnode1'], 1)
+        assert('multiplierSubnode2' not in result[nodeid])
+        assert('multiplierSubnode3' not in result[nodeid])
+
         result5 = self.nodes[0].getmasternode(nodeid5)
-        assert_equal(result5[nodeid5]['targetMultiplier'], 1)
+        assert_equal(result5[nodeid5]['multiplierSubnode0'], 1)
+        assert_equal(result5[nodeid5]['multiplierSubnode1'], 1)
+        assert_equal(result5[nodeid5]['multiplierSubnode2'], 1)
+        assert('multiplierSubnode3' not in result5[nodeid5])
+
         result10 = self.nodes[0].getmasternode(nodeid10)
-        assert_equal(result10[nodeid10]['targetMultiplier'], 1)
+        assert_equal(result10[nodeid10]['multiplierSubnode0'], 1)
+        assert_equal(result10[nodeid10]['multiplierSubnode1'], 1)
+        assert_equal(result10[nodeid10]['multiplierSubnode2'], 1)
+        assert_equal(result10[nodeid10]['multiplierSubnode3'], 1)
 
         # Time travel a day
-        self.nodes[0].set_mocktime(int(time.time()) + (24 * 60 * 60))
+        self.nodes[0].set_mocktime(int(time.time()) + (2 * 24 * 60 * 60))
         self.nodes[0].generate(1)
 
         # Check all multipliers have increased
         result = self.nodes[0].getmasternode(nodeid)
-        assert_equal(result[nodeid]['targetMultiplier'], 4)
+        assert_equal(result[nodeid]['multiplierSubnode0'], 4)
+        assert_equal(result[nodeid]['multiplierSubnode1'], 4)
+
         result5 = self.nodes[0].getmasternode(nodeid5)
-        assert_equal(result5[nodeid5]['targetMultiplier'], 6)
+        assert_equal(result5[nodeid5]['multiplierSubnode0'], 4)
+        assert_equal(result5[nodeid5]['multiplierSubnode1'], 4)
+        assert_equal(result5[nodeid5]['multiplierSubnode2'], 4)
+
         result10 = self.nodes[0].getmasternode(nodeid10)
-        assert_equal(result10[nodeid10]['targetMultiplier'], 8)
+        assert_equal(result10[nodeid10]['multiplierSubnode0'], 4)
+        assert_equal(result10[nodeid10]['multiplierSubnode1'], 4)
+        assert_equal(result10[nodeid10]['multiplierSubnode2'], 4)
+        assert_equal(result10[nodeid10]['multiplierSubnode3'], 4)
 
         # Time travel a week
-        self.nodes[0].set_mocktime(int(time.time()) + (7 * 24 * 60 * 60))
+        self.nodes[0].set_mocktime(int(time.time()) + (8 * 24 * 60 * 60))
         self.nodes[0].generate(1)
 
         # Check all multipliers have increased
         result = self.nodes[0].getmasternode(nodeid)
-        assert_equal(result[nodeid]['targetMultiplier'], 28)
-        result5 = self.nodes[0].getmasternode(nodeid5)
-        assert_equal(result5[nodeid5]['targetMultiplier'], 42)
-        result10 = self.nodes[0].getmasternode(nodeid10)
-        assert_equal(result10[nodeid10]['targetMultiplier'], 56)
+        assert_equal(result[nodeid]['multiplierSubnode0'], 28)
+        assert_equal(result[nodeid]['multiplierSubnode1'], 28)
 
-        # Time travel 11 days, max for freezer users
-        self.nodes[0].set_mocktime(int(time.time()) + (11 * 24 * 60 * 60))
+        result5 = self.nodes[0].getmasternode(nodeid5)
+        assert_equal(result5[nodeid5]['multiplierSubnode0'], 28)
+        assert_equal(result5[nodeid5]['multiplierSubnode1'], 28)
+        assert_equal(result5[nodeid5]['multiplierSubnode2'], 28)
+
+        result10 = self.nodes[0].getmasternode(nodeid10)
+        assert_equal(result10[nodeid10]['multiplierSubnode0'], 28)
+        assert_equal(result10[nodeid10]['multiplierSubnode1'], 28)
+        assert_equal(result10[nodeid10]['multiplierSubnode2'], 28)
+        assert_equal(result10[nodeid10]['multiplierSubnode3'], 28)
+
+        # Time travel two weeks for max multiplier
+        self.nodes[0].set_mocktime(int(time.time()) + (15 * 24 * 60 * 60) + 60)
         self.nodes[0].generate(1)
 
         # Check all multipliers have increased
         result = self.nodes[0].getmasternode(nodeid)
-        assert_equal(result[nodeid]['targetMultiplier'], 44)
+        assert_equal(result[nodeid]['multiplierSubnode0'], 57)
+        assert_equal(result[nodeid]['multiplierSubnode1'], 57)
+
         result5 = self.nodes[0].getmasternode(nodeid5)
-        assert_equal(result5[nodeid5]['targetMultiplier'], 57)
+        assert_equal(result5[nodeid5]['multiplierSubnode0'], 57)
+        assert_equal(result5[nodeid5]['multiplierSubnode1'], 57)
+        assert_equal(result5[nodeid5]['multiplierSubnode2'], 57)
+
         result10 = self.nodes[0].getmasternode(nodeid10)
-        assert_equal(result10[nodeid10]['targetMultiplier'], 57)
+        assert_equal(result10[nodeid10]['multiplierSubnode0'], 57)
+        assert_equal(result10[nodeid10]['multiplierSubnode1'], 57)
+        assert_equal(result10[nodeid10]['multiplierSubnode2'], 57)
+        assert_equal(result10[nodeid10]['multiplierSubnode3'], 57)
 
         # Let's try and resign the MNs
         try:
@@ -128,8 +187,8 @@ class MasternodesTimelockTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Trying to resign masternode before timelock expiration" in errorString)
 
-        # Time travel five years
-        self.nodes[0].set_mocktime(int(time.time()) + (5 * 365 * 24 * 60 * 60))
+        # Time travel five years, add a day as we moved forward a day at the start
+        self.nodes[0].set_mocktime(int(time.time()) + (5 * 365 * 24 * 60 * 60) + (24 * 60 * 60))
 
         # Generate enough future blocks to create average future time
         self.nodes[0].generate(41)
@@ -156,8 +215,8 @@ class MasternodesTimelockTest (DefiTestFramework):
         result5 = self.nodes[0].getmasternode(nodeid5)
         assert_equal(result5[nodeid5]['state'], 'RESIGNED')
 
-        # Time travel ten years
-        self.nodes[0].set_mocktime(int(time.time()) + (10 * 365 * 24 * 60 * 60))
+        # Time travel ten years, add a day as we moved forward a day at the start
+        self.nodes[0].set_mocktime(int(time.time()) + (10 * 365 * 24 * 60 * 60) + (24 * 60 * 60))
 
         # Generate enough future blocks to create average future time
         self.nodes[0].generate(41)

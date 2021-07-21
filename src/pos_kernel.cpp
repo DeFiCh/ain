@@ -23,7 +23,7 @@ namespace pos {
         return Hash(ss.begin(), ss.end());
     }
 
-    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const int64_t coinstakeTime, const uint16_t timelock, const int64_t stakersBlockTime)
+    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const int64_t coinstakeTime, const int64_t stakersBlockTime)
     {
         // Calculate max age and limit to max allowed if above it.
         int64_t nTimeTx = std::min(coinstakeTime - stakersBlockTime, params.pos.nStakeMaxAge);
@@ -50,7 +50,7 @@ namespace pos {
             for (uint8_t i{0}; i < loops; ++i) {
                 const auto hashProofOfStake = UintToArith256(CalcKernelHashMulti(stakeModifier, creationHeight, coinstakeTime, masternodeID, loops));
 
-                auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, timelock, subNodesBlockTime[i]);
+                auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodesBlockTime[i]);
 
                 // Increase target by coinDayWeight.
                 if ((hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight)))) <= targetProofOfStake * coinDayWeight) {
@@ -65,7 +65,7 @@ namespace pos {
             // been since a masternode staked a block.
             if (blockHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaCrescentHeight))
             {
-                auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, timelock, subNodesBlockTime[0]);
+                auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodesBlockTime[0]);
 
                 // Increase target by coinDayWeight.
                 if ((hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight) ) ) ) <= targetProofOfStake * coinDayWeight) {

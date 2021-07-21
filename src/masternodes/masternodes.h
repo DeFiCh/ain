@@ -187,7 +187,7 @@ public:
     Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
 
     // Get blocktimes for non-subnode and subnode with fork logic
-    std::vector<int64_t> GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int64_t blockTime, const int32_t creationHeight, const uint16_t timelock);
+    std::vector<int64_t> GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int32_t creationHeight, const uint16_t timelock);
 
     // Non-subnode block times
     void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);

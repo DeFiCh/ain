@@ -42,15 +42,15 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         // Only get targetMultiplier for active masternodes
         if (node.IsActive()) {
             // Get block times with next block as height
-            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, GetTime(), node.creationHeight, timelock);
+            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, node.creationHeight, timelock);
 
             if (currentHeight >= Params().GetConsensus().EunosPayaHeight) {
                 const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
                 for (uint8_t i{0}; i < loops; ++i) {
-                    obj.pushKV(strprintf("multiplierSubnode%d", i), pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock, subNodesBlockTime[i]).getdouble());
+                    obj.pushKV(strprintf("multiplierSubnode%d", i), pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
                 }
             } else {
-                obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock,subNodesBlockTime[0]).getdouble());
+                obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(),subNodesBlockTime[0]).getdouble());
             }
         }
 

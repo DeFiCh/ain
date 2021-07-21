@@ -712,7 +712,7 @@ namespace pos {
             timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
 
             // Get block times
-            subNodesBlockTime = pcustomcsview->GetBlockTimes(args.operatorID, blockHeight, blockTime, creationHeight, timelock);
+            subNodesBlockTime = pcustomcsview->GetBlockTimes(args.operatorID, blockHeight, creationHeight, timelock);
         }
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());

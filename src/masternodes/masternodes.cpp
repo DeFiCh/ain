@@ -475,17 +475,10 @@ uint16_t CMasternodesView::GetTimelock(const uint256& nodeId, const CMasternode&
     return 0;
 }
 
-std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int64_t blockTime, const int32_t creationHeight, const uint16_t timelock)
+std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int32_t creationHeight, const uint16_t timelock)
 {
     // Get last block time for non-subnode staking
     boost::optional<int64_t> stakerBlockTime = GetMasternodeLastBlockTime(keyID, blockHeight);
-
-    // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-    if (!stakerBlockTime && creationHeight < Params().GetConsensus().DakotaCrescentHeight) {
-        if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
-            stakerBlockTime = std::min(blockTime - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
-        }
-    }
 
     // Get times for sub nodes, defaults to {0, 0, 0, 0} for MNs created before EunosPayaHeight
     std::vector<int64_t> subNodesBlockTime = GetSubNodesBlockTime(keyID, blockHeight);
@@ -496,11 +489,17 @@ std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID& keyID, const 
     }
 
     if (auto block = ::ChainActive()[Params().GetConsensus().EunosPayaHeight]) {
-        // Set block time accruement based on time since fork
+        if (creationHeight < Params().GetConsensus().DakotaCrescentHeight && !stakerBlockTime && !subNodesBlockTime[0]) {
+            if (auto dakotaBlock = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
+                subNodesBlockTime[0] = dakotaBlock->GetBlockTime();
+            }
+        }
+
+        // If no values set for pre-fork MN use the fork time
         const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
         for (uint8_t i{0}; i < loops; ++i) {
             if (!subNodesBlockTime[i]) {
-                subNodesBlockTime[i] = std::min(blockTime - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
+                subNodesBlockTime[i] = block->GetBlockTime();
             }
         }
     }

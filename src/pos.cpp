@@ -79,7 +79,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         auto usedHeight = blockHeader.height <= params.EunosHeight ? creationHeight : blockHeader.height;
 
         // Get block times
-        subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, blockHeader.GetBlockTime(), creationHeight, timelock);
+        subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, creationHeight, timelock);
     }
 
     // checking PoS kernel is faster, so check it first

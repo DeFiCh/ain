@@ -23,7 +23,7 @@ namespace pos {
     uint256 CalcKernelHashMulti(const uint256& stakeModifier, int64_t height, int64_t coinstakeTime, const uint256& masternodeID, const uint8_t subNode);
 
     // Calculate target multiplier
-    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const int64_t coinstakeTime, const uint16_t timelock, const int64_t stakersBlockTime);
+    arith_uint256 CalcCoinDayWeight(const Consensus::Params& params, const int64_t coinstakeTime, const int64_t stakersBlockTime);
 
 /// Check whether stake kernel meets hash target
     bool CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t creationHeight, int64_t coinstakeTime, uint64_t blockHeight,

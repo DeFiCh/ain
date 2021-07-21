@@ -296,15 +296,15 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             auto usedHeight = height <= Params().GetConsensus().EunosHeight ? nodePtr->creationHeight : height;
 
             // Get block times
-            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, GetTime(), nodePtr->creationHeight, timelock);
+            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, nodePtr->creationHeight, timelock);
 
             if (height >= Params().GetConsensus().EunosPayaHeight) {
                 const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
                 for (uint8_t i{0}; i < loops; ++i) {
-                    subObj.pushKV(strprintf("multiplierSubnode%d", i), pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock, subNodesBlockTime[i]).getdouble());
+                    subObj.pushKV(strprintf("multiplierSubnode%d", i), pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
                 }
             } else {
-                subObj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), timelock,subNodesBlockTime[0]).getdouble());
+                subObj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[0]).getdouble());
             }
         }
 
