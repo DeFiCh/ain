@@ -35,7 +35,7 @@ void RegisterSpvRPCCommands(CRPCTable &tableRPC);
 void RegisterOraclesRPCCommands(CRPCTable &tableRPC);
 /** Register ICX orderbook RPC commands */
 void RegisterICXOrderbookRPCCommands(CRPCTable &tableRPC);
-/** Register ICX orderbook RPC commands */
+/** Register Loan orderbook RPC commands */
 void RegisterLoanRPCCommands(CRPCTable &tableRPC);
 
 
