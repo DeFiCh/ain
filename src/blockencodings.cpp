@@ -198,7 +198,7 @@ ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<
         return READ_STATUS_INVALID;
 
     CValidationState state;
-    uint8_t subNode;
+    uint8_t subNode{0};
     if (!CheckBlock(block, state, Params().GetConsensus(), false, subNode)) {
         // TODO: We really want to just check merkle tree manually here,
         // but that is expensive, and CheckBlock caches a block's

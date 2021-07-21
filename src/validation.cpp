@@ -2160,7 +2160,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // is enforced in ContextualCheckBlockHeader(); we wouldn't want to
     // re-enforce that rule here (at least until we make it impossible for
     // GetAdjustedTime() to go backward).
-    uint8_t subNode;
+    uint8_t subNode{0};
     if (!CheckBlock(block, state, chainparams.GetConsensus(), !fJustCheck, subNode, !fJustCheck)) {
         if (state.GetReason() == ValidationInvalidReason::BLOCK_MUTATED) {
             // We don't write down blocks to disk if they may have been
@@ -2207,7 +2207,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
     if (!fJustCheck && !fIsFakeNet) {
-        // Check only that mintedBlocks counter is correct (MN existence and activation was partially checked before in CheckBlock()->ContextualCheckProofOfStake(), but not in the case of fJustCheck)
+        // Check only that mintedBlocks counter is correct (MN existence and activation was partially checked before in checkblock()->contextualcheckproofofstake(), but not in the case of fJustCheck)
         minterKey = pindex->minterKey();
         auto nodeId = mnview.GetMasternodeIdByOperator(minterKey);
         assert(nodeId);
@@ -4135,14 +4135,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (block.fChecked)
         return true;
 
-    const auto node = pos::ContextualCheckProofOfStake(block, consensusParams, pcustomcsview.get());
-    if (node) {
-        subNode = *node;
-    }
-
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!fIsFakeNet && fCheckPOS && !node)
+    if (!fIsFakeNet && fCheckPOS && !pos::ContextualCheckProofOfStake(block, consensusParams, pcustomcsview.get(), subNode))
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "high-hash", "proof of stake failed");
 
     // Check the merkle root.
@@ -4434,10 +4429,6 @@ bool BlockManager::AcceptBlockHeader(const CBlockHeader& block, CValidationState
             return true;
         }
 
-        /// @attention It looks like we can't check ContextualCheckProofOfStake here anymore! Due to 'minter' may be not created/activated at this time!
-//        if (!fIsFakeNet && !pos::ContextualCheckProofOfStake(block, chainparams.GetConsensus(), pcustomcsview.get())) {
-//            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: Consensus::ContextualCheckProofOfStake: block %s: bad-pos-header (MN not exist or can't stake)", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header");
-//        }
         if (!fIsFakeNet && !pos::CheckHeaderSignature(block)) {
             return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, error("%s: Consensus::CheckHeaderSignature: block %s: bad-pos-header-signature", __func__, hash.ToString()), REJECT_INVALID, "bad-pos-header-signature");
         }
@@ -4604,7 +4595,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         if (pindex->nChainWork < nMinimumChainWork) return true;
     }
 
-    uint8_t subNode;
+    uint8_t subNode{0};
     if (!CheckBlock(block, state, chainparams.GetConsensus(), false, subNode) || // false cause we can check pos context only on ConnectBlock
         !ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev)) {
         assert(IsBlockReason(state.GetReason()));
@@ -4777,7 +4768,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
         // belt-and-suspenders.
         // reverts a011b9db38ce6d3d5c1b67c1e3bad9365b86f2ce
         // we can end up in isolation banning all other nodes
-        uint8_t subNode;
+        uint8_t subNode{0};
         bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus(), false, subNode); // false cause we can check pos context only on ConnectBlock
         if (ret) {
             // Store to disk
@@ -4830,7 +4821,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     indexDummy.pprev = pindexPrev;
     indexDummy.nHeight = pindexPrev->nHeight + 1;
     indexDummy.phashBlock = &block_hash;
-    uint8_t subNode;
+    uint8_t subNode{0};
 
     // NOTE: ContextualCheckProofOfStake is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
@@ -5246,7 +5237,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             break;
         }
         CBlock block;
-        uint8_t subNode;
+        uint8_t subNode{0};
         // check level 0: read from disk
         if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());

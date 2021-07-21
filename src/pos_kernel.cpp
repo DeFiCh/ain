@@ -37,8 +37,8 @@ namespace pos {
         return (arith_uint256(nTimeTx) + period) / period;
     }
 
-    boost::optional<uint8_t> CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t creationHeight, int64_t coinstakeTime, uint64_t blockHeight,
-                    const uint256& masternodeID, const Consensus::Params& params, const std::vector<int64_t> subNodesBlockTime, const uint16_t timelock) {
+    bool CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t creationHeight, int64_t coinstakeTime, uint64_t blockHeight,
+                    const uint256& masternodeID, const Consensus::Params& params, const std::vector<int64_t> subNodesBlockTime, const uint16_t timelock, uint8_t& subNode) {
         // Base target
         arith_uint256 targetProofOfStake;
         targetProofOfStake.SetCompact(nBits);
@@ -54,7 +54,8 @@ namespace pos {
 
                 // Increase target by coinDayWeight.
                 if ((hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight)))) <= targetProofOfStake * coinDayWeight) {
-                    return i;
+                    subNode = i;
+                    return true;
                 }
             }
         } else {
@@ -68,18 +69,18 @@ namespace pos {
 
                 // Increase target by coinDayWeight.
                 if ((hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight) ) ) ) <= targetProofOfStake * coinDayWeight) {
-                    return 0;
+                    return true;
                 }
             }
 
             // Now check if proof-of-stake hash meets target protocol
             if  ((hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight) ) ) ) <= targetProofOfStake) {
-                return 0;
+                return true;
             }
         }
 
 
-        return {};
+        return false;
     }
 
     uint256 ComputeStakeModifier(const uint256& prevStakeModifier, const CKeyID& key) {

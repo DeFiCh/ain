@@ -4,7 +4,6 @@
 #include <miner.h>
 #include <pos.h>
 #include <pos_kernel.h>
-#include <util/system.h>
 #include <script/signingprovider.h>
 
 #include <test/setup_common.h>
@@ -61,10 +60,11 @@ BOOST_AUTO_TEST_CASE(calc_kernel)
                 pos::CalcKernelHash(stakeModifier, 1, coinstakeTime, mnID));
 
     uint32_t target = 0x1effffff;
-    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), {0, 0, 0, 0}, 0));
+    uint8_t subNode{0};
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), {0, 0, 0, 0}, 0, subNode));
 
     uint32_t unattainableTarget = 0x00ffffff;
-    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), {0, 0, 0, 0}, 0));
+    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), {0, 0, 0, 0}, 0, subNode));
 
 //    CKey key;
 //    key.MakeNewKey(true); // Need to use compressed keys in segwit or the signing will fail
@@ -144,36 +144,19 @@ BOOST_AUTO_TEST_CASE(contextual_check_pos)
     std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
     BOOST_CHECK(pos != testMasternodeKeys.end());
     CKey minterKey = pos->second.operatorKey;
+    uint8_t subNode{0};
 
-    BOOST_CHECK(pos::ContextualCheckProofOfStake((CBlockHeader)Params().GenesisBlock(), Params().GetConsensus(), pcustomcsview.get()));
+    BOOST_CHECK(pos::ContextualCheckProofOfStake((CBlockHeader)Params().GenesisBlock(), Params().GetConsensus(), pcustomcsview.get(), subNode));
 
 //    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
     uint64_t height = 0;
     uint64_t mintedBlocks = 1;
     std::shared_ptr<CBlock> block = Block(Params().GenesisBlock().GetHash(), height, mintedBlocks);
 
-    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get()));
+    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get(), subNode));
 
     block->height = 1;
-    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get()));
-
-//    std::shared_ptr<CBlock> finalizeBlock = FinalizeBlock(
-//        block,
-//        masternodeID,
-//        minterKey,
-//        prev_hash);
-//    BOOST_CHECK(pos::ContextualCheckProofOfStake(*(CBlockHeader*)finalizeBlock.get(), Params().GetConsensus(), penhancedview.get()));
-//
-////    block->sig[0] = 0xff;
-////    block->sig[1] = 0xff;
-////    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), penhancedview.get()));
-//
-//    block->nBits = 0x0effffff;
-//    block->sig = {};
-//    BOOST_CHECK(!pos::SignPosBlock(block, minterKey));
-//
-//    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), penhancedview.get()));
-//    block->sig[0] = 0xff;
+    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get(), subNode));
 }
 
 BOOST_AUTO_TEST_CASE(sign_pos_block)

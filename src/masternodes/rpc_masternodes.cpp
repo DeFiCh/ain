@@ -41,10 +41,8 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
 
         // Only get targetMultiplier for active masternodes
         if (node.IsActive()) {
-            auto usedHeight = currentHeight <= Params().GetConsensus().EunosHeight ? node.creationHeight : currentHeight;
-
-            // Get block times
-            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, usedHeight, GetTime(), node.creationHeight, timelock);
+            // Get block times with next block as height
+            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, GetTime(), node.creationHeight, timelock);
 
             if (currentHeight >= Params().GetConsensus().EunosPayaHeight) {
                 const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;

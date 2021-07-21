@@ -7,7 +7,6 @@
 
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
-//#include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <streams.h>
 #include <tinyformat.h>
@@ -15,7 +14,7 @@
 #include <util/strencodings.h>
 #include <versionbitsinfo.h>
 
-#include <assert.h>
+#include <cassert>
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -969,6 +968,16 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.EunosHeight = static_cast<int>(height);
         consensus.EunosSimsHeight = static_cast<int>(height);
         consensus.EunosKampungHeight = static_cast<int>(height);
+    }
+
+    if (gArgs.IsArgSet("-eunospayaheight")) {
+        int64_t height = gArgs.GetArg("-eunospayaheight", consensus.EunosPayaHeight);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            throw std::runtime_error(strprintf("Activation height %ld for EunosPayaHeight is out of valid range. Use -1 to disable Eunos features.", height));
+        } else if (height == -1) {
+            LogPrintf("Eunos disabled for testing\n");
+            height = std::numeric_limits<int>::max();
+        }
         consensus.EunosPayaHeight = static_cast<int>(height);
     }
 

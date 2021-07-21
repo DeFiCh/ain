@@ -47,15 +47,15 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
     return true;
 }
 
-boost::optional<uint8_t> ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView) {
+bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView, uint8_t& subNode) {
     /// @todo may be this is tooooo optimistic? need more validation?
     if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
-        return 0;
+        return true;
     }
 
     CKeyID minter;
     if (!blockHeader.ExtractMinterKey(minter)) {
-        return {};
+        return false;
     }
     uint256 masternodeID;
     int64_t creationHeight;
@@ -66,12 +66,12 @@ boost::optional<uint8_t> ContextualCheckProofOfStake(const CBlockHeader& blockHe
         AssertLockHeld(cs_main);
         auto optMasternodeID = mnView->GetMasternodeIdByOperator(minter);
         if (!optMasternodeID) {
-            return {};
+            return false;
         }
         masternodeID = *optMasternodeID;
         auto nodePtr = mnView->GetMasternode(masternodeID);
         if (!nodePtr || !nodePtr->IsActive(blockHeader.height)) {
-            return {};
+            return false;
         }
         creationHeight = int64_t(nodePtr->creationHeight);
         timelock = mnView->GetTimelock(masternodeID, *nodePtr, blockHeader.height);
@@ -83,25 +83,20 @@ boost::optional<uint8_t> ContextualCheckProofOfStake(const CBlockHeader& blockHe
     }
 
     // checking PoS kernel is faster, so check it first
-    const auto subNode = CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(),blockHeader.height,
-                                         masternodeID, params, subNodesBlockTime, timelock);
-    if (!subNode) {
-        return {};
+    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(),blockHeader.height,
+                         masternodeID, params, subNodesBlockTime, timelock, subNode)) {
+        return false;
     }
 
     /// @todo Make sure none mint a big amount of continuous blocks
-
-    if (CheckHeaderSignature(blockHeader)) {
-        return subNode;
-    }
-
-    return {};
+    return CheckHeaderSignature(blockHeader);
 }
 
 bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CCustomCSView* mnView) {
 
     // this is our own check of own minted block (just to remember)
-    return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView);
+    uint8_t subNode{0};
+    return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView, subNode);
 }
 
 unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool eunos)
