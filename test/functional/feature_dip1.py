@@ -84,6 +84,10 @@ class Dip1Test (DefiTestFramework):
         # restart node1 with activated fork and reindex
         self.stop_node(1)
         self.start_node(1, ['-txnotokens=0', '-amkheight=2', '-reindex-chainstate'])
+
+        # Nodes should now be able to sync to allow time for reindex
+        self.sync_blocks()
+
         assert_equal(self.nodes[1].getblockcount(), 4)
         assert_equal(self.nodes[1].listcommunitybalances()['AnchorReward'], Decimal('0.3'))
         assert_equal(self.nodes[1].listcommunitybalances()['Burnt'], 30)
