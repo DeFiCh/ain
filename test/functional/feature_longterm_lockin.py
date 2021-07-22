@@ -104,14 +104,13 @@ class MasternodesTimelockTest (DefiTestFramework):
 
         # Check multiplier reset and rollback
         disconnect_nodes(self.nodes[0], 1)
-        print(self.nodes[1].getblockcount())
-        blockhash = self.nodes[1].getblockhash(self.nodes[1].getblockcount())
         result = self.nodes[1].getmininginfo()
         assert_equal(result['masternodes'][0]['multiplierSubnode0'], 5)
-        self.nodes[1].generate(20)
-        result = self.nodes[1].getmininginfo()
+        while result['masternodes'][0]['multiplierSubnode0'] == 5:
+            self.nodes[1].generate(1)
+            result = self.nodes[1].getmininginfo()
         assert_equal(result['masternodes'][0]['multiplierSubnode0'], 1)
-        self.nodes[1].invalidateblock(blockhash)
+        self.nodes[1].invalidateblock(self.nodes[1].getblockhash(self.nodes[1].getblockcount() - 1))
         result = self.nodes[1].getmininginfo()
         assert_equal(result['masternodes'][0]['multiplierSubnode0'], 5)
 
