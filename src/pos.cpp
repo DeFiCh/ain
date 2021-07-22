@@ -60,7 +60,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     uint256 masternodeID;
     int64_t creationHeight;
     std::vector<int64_t> subNodesBlockTime;
-    uint16_t timelock;
+    uint16_t timelock{0};
     {
         // check that block minter exists and active at the height of the block
         AssertLockHeld(cs_main);
@@ -75,12 +75,13 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         }
         creationHeight = int64_t(nodePtr->creationHeight);
 
-        if (blockHeader.height >= params.EunosPayaHeight) {
+        if (blockHeader.height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
             timelock = mnView->GetTimelock(masternodeID, *nodePtr, blockHeader.height);
         }
 
-        if (blockHeader.height >= params.DakotaCrescentHeight) {
-            auto usedHeight = blockHeader.height <= params.EunosHeight ? creationHeight : blockHeader.height;
+        // Check against EunosPayaHeight here for regtest, does not hurt other networks.
+        if (blockHeader.height >= static_cast<uint64_t>(params.DakotaCrescentHeight) || blockHeader.height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
+            const auto usedHeight = blockHeader.height <= static_cast<uint64_t>(params.EunosHeight) ? creationHeight : blockHeader.height;
 
             // Get block times
             subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, creationHeight, timelock);

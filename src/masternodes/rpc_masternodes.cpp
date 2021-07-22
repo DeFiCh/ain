@@ -46,9 +46,11 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
 
             if (currentHeight >= Params().GetConsensus().EunosPayaHeight) {
                 const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+                UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
-                    obj.pushKV(strprintf("multiplierSubnode%d", i), pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
+                    multipliers.push_back(pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
                 }
+                obj.pushKV("targetMultipliers", multipliers);
             } else {
                 obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(),subNodesBlockTime[0]).getdouble());
             }

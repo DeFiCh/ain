@@ -298,9 +298,11 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
 
             if (height >= Params().GetConsensus().EunosPayaHeight) {
                 const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+                UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
-                    subObj.pushKV(strprintf("multiplierSubnode%d", i), pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
+                    multipliers.push_back(pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
                 }
+                subObj.pushKV("targetMultipliers", multipliers);
             } else {
                 subObj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[0]).getdouble());
             }

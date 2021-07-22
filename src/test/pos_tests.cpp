@@ -41,10 +41,6 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock, const uint
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
 
     pblock->nTime = time + 10;
-//    do {
-//        time++;
-//        pblock->nTime = time;
-//    } while (!pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, 1, (int64_t) pblock->nTime, masternodeID, Params().GetConsensus()));
 
     BOOST_CHECK(!pos::SignPosBlock(pblock, minterKey));
 
