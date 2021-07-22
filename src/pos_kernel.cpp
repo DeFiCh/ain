@@ -58,29 +58,24 @@ namespace pos {
                     return true;
                 }
             }
-        } else {
-            const auto hashProofOfStake = UintToArith256(CalcKernelHash(stakeModifier, creationHeight, coinstakeTime, masternodeID));
 
-            // New difficulty calculation to make staking easier the longer it has
-            // been since a masternode staked a block.
-            if (blockHeight >= static_cast<uint64_t>(params.DakotaCrescentHeight))
-            {
-                auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodesBlockTime[0]);
-
-                // Increase target by coinDayWeight.
-                if ((hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight) ) ) ) <= targetProofOfStake * coinDayWeight) {
-                    return true;
-                }
-            }
-
-            // Now check if proof-of-stake hash meets target protocol
-            if  ((hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight) ) ) ) <= targetProofOfStake) {
-                return true;
-            }
+            return false;
         }
 
+        const auto hashProofOfStake = UintToArith256(CalcKernelHash(stakeModifier, creationHeight, coinstakeTime, masternodeID));
 
-        return false;
+        // New difficulty calculation to make staking easier the longer it has
+        // been since a masternode staked a block.
+        if (blockHeight >= static_cast<uint64_t>(params.DakotaCrescentHeight))
+        {
+            auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodesBlockTime[0]);
+
+            // Increase target by coinDayWeight.
+            return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight) ) ) ) <= targetProofOfStake * coinDayWeight;
+        }
+
+        // Now check if proof-of-stake hash meets target protocol
+        return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight) ) ) ) <= targetProofOfStake;
     }
 
     uint256 ComputeStakeModifier(const uint256& prevStakeModifier, const CKeyID& key) {
