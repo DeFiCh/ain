@@ -48,7 +48,7 @@ namespace pos {
 
             // Check whether we meet hash for each subnode in turn
             for (uint8_t i{0}; i < loops; ++i) {
-                const auto hashProofOfStake = UintToArith256(CalcKernelHashMulti(stakeModifier, creationHeight, coinstakeTime, masternodeID, loops));
+                const auto hashProofOfStake = UintToArith256(CalcKernelHashMulti(stakeModifier, creationHeight, coinstakeTime, masternodeID, i));
 
                 auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodesBlockTime[i]);
 
