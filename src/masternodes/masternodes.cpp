@@ -51,7 +51,7 @@ std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 
 int GetMnActivationDelay(int height)
 {
-    if (height < Params().GetConsensus().EunosSimsHeight) {
+    if (height < Params().GetConsensus().EunosHeight) {
         return Params().GetConsensus().mn.activationDelay;
     }
 
@@ -60,7 +60,7 @@ int GetMnActivationDelay(int height)
 
 int GetMnResignDelay(int height)
 {
-    if (height < Params().GetConsensus().EunosSimsHeight) {
+    if (height < Params().GetConsensus().EunosHeight) {
         return Params().GetConsensus().mn.resignDelay;
     }
 

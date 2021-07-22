@@ -125,7 +125,6 @@ public:
         consensus.DakotaHeight = 678000; // 1st March 2021
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
         consensus.EunosHeight = 894000; // 3rd June 2021
-        consensus.EunosSimsHeight = consensus.EunosHeight;
         consensus.EunosKampungHeight = 895743;
         consensus.EunosPayaHeight = 1052000;
 
@@ -344,7 +343,6 @@ public:
         consensus.DakotaHeight = 220680;
         consensus.DakotaCrescentHeight = 287700;
         consensus.EunosHeight = 354950;
-        consensus.EunosSimsHeight = consensus.EunosHeight;
         consensus.EunosKampungHeight = consensus.EunosHeight;
         consensus.EunosPayaHeight = 463300;
 
@@ -525,7 +523,6 @@ public:
         consensus.DakotaHeight = 10;
         consensus.DakotaCrescentHeight = 10;
         consensus.EunosHeight = 150;
-        consensus.EunosSimsHeight = consensus.EunosHeight;
         consensus.EunosKampungHeight = consensus.EunosHeight;
         consensus.EunosPayaHeight = 300;
 
@@ -698,7 +695,6 @@ public:
         consensus.DakotaHeight = 10000000;
         consensus.DakotaCrescentHeight = 10000000;
         consensus.EunosHeight = 10000000;
-        consensus.EunosSimsHeight = 10000000;
         consensus.EunosKampungHeight = 10000000;
         consensus.EunosPayaHeight = 10000000;
 
@@ -967,7 +963,6 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.EunosHeight = static_cast<int>(height);
-        consensus.EunosSimsHeight = static_cast<int>(height);
         consensus.EunosKampungHeight = static_cast<int>(height);
         consensus.EunosPayaHeight = static_cast<int>(height);
     }
