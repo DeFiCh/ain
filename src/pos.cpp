@@ -74,12 +74,17 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
             return false;
         }
         creationHeight = int64_t(nodePtr->creationHeight);
-        timelock = mnView->GetTimelock(masternodeID, *nodePtr, blockHeader.height);
 
-        auto usedHeight = blockHeader.height <= params.EunosHeight ? creationHeight : blockHeader.height;
+        if (blockHeader.height >= params.EunosPayaHeight) {
+            timelock = mnView->GetTimelock(masternodeID, *nodePtr, blockHeader.height);
+        }
 
-        // Get block times
-        subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, creationHeight, timelock);
+        if (blockHeader.height >= params.DakotaCrescentHeight) {
+            auto usedHeight = blockHeader.height <= params.EunosHeight ? creationHeight : blockHeader.height;
+
+            // Get block times
+            subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, creationHeight, timelock);
+        }
     }
 
     // checking PoS kernel is faster, so check it first
