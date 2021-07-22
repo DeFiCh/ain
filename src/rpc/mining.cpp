@@ -293,10 +293,8 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
 
         // Get targetMultiplier if node is active
         if (nodePtr->IsActive()) {
-            auto usedHeight = height <= Params().GetConsensus().EunosHeight ? nodePtr->creationHeight : height;
-
             // Get block times
-            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, nodePtr->creationHeight, timelock);
+            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, height, nodePtr->creationHeight, timelock);
 
             if (height >= Params().GetConsensus().EunosPayaHeight) {
                 const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
