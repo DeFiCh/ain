@@ -53,8 +53,8 @@ namespace pos {
                 auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodesBlockTime[i]);
 
                 // Increase target by coinDayWeight.
-                if ((hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight)))) <= targetProofOfStake * coinDayWeight) {
-                        ctxState.subNode = i;
+                if ((hashProofOfStake / static_cast<uint64_t>(GetMnCollateralAmount(static_cast<int>(creationHeight)))) <= targetProofOfStake * coinDayWeight) {
+                    ctxState.subNode = i;
                     return true;
                 }
             }
