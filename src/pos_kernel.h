@@ -6,6 +6,7 @@
 #include <consensus/params.h>
 #include <streams.h>
 #include <amount.h>
+#include <pos.h>
 
 class CWallet;
 class COutPoint;
@@ -27,7 +28,7 @@ namespace pos {
 
 /// Check whether stake kernel meets hash target
     bool CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t creationHeight, int64_t coinstakeTime, uint64_t blockHeight,
-                         const uint256& masternodeID, const Consensus::Params& params, const std::vector<int64_t> subNodesBlockTime, const uint16_t timelock, uint8_t& subNode);
+                         const uint256& masternodeID, const Consensus::Params& params, const std::vector<int64_t> subNodesBlockTime, const uint16_t timelock, CheckContextState& ctxState);
 
 /// Stake Modifier (hash modifier of proof-of-stake)
     uint256 ComputeStakeModifier(const uint256& prevStakeModifier, const CKeyID& key);
