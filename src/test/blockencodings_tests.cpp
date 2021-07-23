@@ -79,9 +79,9 @@ static CBlock BuildBlockTestCase() {
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     assert(!mutated);
     block.nTime = 0;
-    uint8_t subNode{0};
+    CheckContextState ctxState;
 
-    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.height, masternodeID, Params().GetConsensus(), {0, 0, 0, 0}, 0, subNode)) block.nTime++;
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.height, masternodeID, Params().GetConsensus(), {0, 0, 0, 0}, 0, ctxState)) block.nTime++;
 
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
     auto err = pos::SignPosBlock(pblock, minterKey);

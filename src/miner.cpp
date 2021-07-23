@@ -736,8 +736,7 @@ namespace pos {
                 CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
                 pos::Staker::mapMNLastBlockCreationAttemptTs[masternodeID] = GetTime();
             }
-            uint8_t subNode{0};
-
+            CheckContextState ctxState;
             // Search backwards in time first
             if (currentTime > lastSearchTime) {
                 for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
@@ -746,7 +745,7 @@ namespace pos {
                     blockTime = ((uint32_t)currentTime - t);
 
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
-                                             subNodesBlockTime, timelock, subNode))
+                                             subNodesBlockTime, timelock, ctxState))
                     {
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
@@ -769,7 +768,7 @@ namespace pos {
                     blockTime = ((uint32_t)searchTime + t);
 
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
-                                             subNodesBlockTime, timelock, subNode))
+                                             subNodesBlockTime, timelock, ctxState))
                     {
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 

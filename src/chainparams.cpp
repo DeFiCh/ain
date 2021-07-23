@@ -18,7 +18,7 @@
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
-
+#include <boost/algorithm/string/case_conv.hpp>
 
 std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
 {
@@ -874,107 +874,39 @@ public:
     void UpdateActivationParametersFromArgs(const ArgsManager& args);
 };
 
+/// Check for fork height based flag, validate and set the value to a target var
+boost::optional<int> UpdateHeightValidation(const std::string& argName, const std::string& argFlag, int& argTarget) {
+    if (gArgs.IsArgSet(argFlag)) {
+        int64_t height = gArgs.GetArg(argFlag, argTarget);
+        if (height < -1 || height >= std::numeric_limits<int>::max()) {
+            auto lowerArgName = boost::to_lower_copy(argName);
+            throw std::runtime_error(strprintf(
+                "Activation height %ld for %s is out of valid range. Use -1 to disable %s.",
+                height, argName, lowerArgName));
+        } else if (height == -1) {
+            LogPrintf("%s disabled for testing\n", argName);
+            height = std::numeric_limits<int>::max();
+        }
+        argTarget = static_cast<int>(height);
+        return height;
+    }
+    return {};
+}
+
 void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
 {
-    if (gArgs.IsArgSet("-segwitheight")) {
-        int64_t height = gArgs.GetArg("-segwitheight", consensus.SegwitHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for segwit is out of valid range. Use -1 to disable segwit.", height));
-        } else if (height == -1) {
-            LogPrintf("Segwit disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.SegwitHeight = static_cast<int>(height);
+    UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
+    UpdateHeightValidation("AMK", "-amkheight", consensus.AMKHeight);
+    UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.BayfrontHeight);
+    UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.BayfrontGardensHeight);
+    UpdateHeightValidation("Clarke Quay", "-clarkequayheight", consensus.ClarkeQuayHeight);
+    UpdateHeightValidation("Dakota", "-dakotaheight", consensus.DakotaHeight);
+    UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DakotaCrescentHeight);
+    auto eunosHeight = UpdateHeightValidation("Eunos", "-eunosheight", consensus.EunosHeight);
+    if (eunosHeight.has_value()){
+        consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
     }
-
-    if (gArgs.IsArgSet("-amkheight")) {
-        int64_t height = gArgs.GetArg("-amkheight", consensus.AMKHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for AMK is out of valid range. Use -1 to disable amk features.", height));
-        } else if (height == -1) {
-            LogPrintf("AMK disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.AMKHeight = static_cast<int>(height);
-    }
-
-    if (gArgs.IsArgSet("-bayfrontheight")) {
-        int64_t height = gArgs.GetArg("-bayfrontheight", consensus.BayfrontHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for Bayfront is out of valid range. Use -1 to disable bayfront features.", height));
-        } else if (height == -1) {
-            LogPrintf("Bayfront disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.BayfrontHeight = static_cast<int>(height);
-    }
-
-    if (gArgs.IsArgSet("-bayfrontgardensheight")) {
-        int64_t height = gArgs.GetArg("-bayfrontgardensheight", consensus.BayfrontGardensHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for Bayfront is out of valid range. Use -1 to disable bayfront gardens features.", height));
-        } else if (height == -1) {
-            LogPrintf("Bayfront disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.BayfrontGardensHeight = static_cast<int>(height);
-    }
-
-    if (gArgs.IsArgSet("-clarkequayheight")) {
-        int64_t height = gArgs.GetArg("-clarkequayheight", consensus.ClarkeQuayHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for ClarkeQuay is out of valid range. Use -1 to disable clarkequay features.", height));
-        } else if (height == -1) {
-            LogPrintf("CQ disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.ClarkeQuayHeight = static_cast<int>(height);
-    }
-
-    if (gArgs.IsArgSet("-dakotaheight")) {
-        int64_t height = gArgs.GetArg("-dakotaheight", consensus.DakotaHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for Dakota is out of valid range. Use -1 to disable dakota features.", height));
-        } else if (height == -1) {
-            LogPrintf("Dakota disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.DakotaHeight = static_cast<int>(height);
-    }
-
-    if (gArgs.IsArgSet("-dakotacrescentheight")) {
-        int64_t height = gArgs.GetArg("-dakotacrescentheight", consensus.DakotaCrescentHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for DakotaCrescent is out of valid range. Use -1 to disable dakota features.", height));
-        } else if (height == -1) {
-            LogPrintf("DakotaCrescent disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.DakotaCrescentHeight = static_cast<int>(height);
-    }
-
-    if (gArgs.IsArgSet("-eunosheight")) {
-        int64_t height = gArgs.GetArg("-eunosheight", consensus.EunosHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for Eunos is out of valid range. Use -1 to disable Eunos features.", height));
-        } else if (height == -1) {
-            LogPrintf("Eunos disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.EunosHeight = static_cast<int>(height);
-        consensus.EunosKampungHeight = static_cast<int>(height);
-    }
-
-    if (gArgs.IsArgSet("-eunospayaheight")) {
-        int64_t height = gArgs.GetArg("-eunospayaheight", consensus.EunosPayaHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for EunosPayaHeight is out of valid range. Use -1 to disable Eunos features.", height));
-        } else if (height == -1) {
-            LogPrintf("Eunos disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.EunosPayaHeight = static_cast<int>(height);
-    }
+    UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
 
     if (!args.IsArgSet("-vbparams")) return;
 

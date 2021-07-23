@@ -43,8 +43,9 @@ static void DeserializeAndCheckBlockTest(benchmark::State& state)
         assert(rewound);
 
         CValidationState validationState;
-        uint8_t subNode{0};
-        bool checked = CheckBlock(block, validationState, chainParams->GetConsensus(), false, subNode);
+        CheckContextState ctxState;
+        
+        bool checked = CheckBlock(block, validationState, chainParams->GetConsensus(), ctxState, false);
         assert(checked);
     }
 }

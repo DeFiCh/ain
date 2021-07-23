@@ -47,7 +47,7 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
     return true;
 }
 
-bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView, uint8_t& subNode) {
+bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView, CheckContextState& ctxState) {
     /// @todo may be this is tooooo optimistic? need more validation?
     if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
         return true;
@@ -80,6 +80,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         }
 
         // Check against EunosPayaHeight here for regtest, does not hurt other networks.
+        // Redundant checks, but intentionally kept for easier fork accounting.
         if (blockHeader.height >= static_cast<uint64_t>(params.DakotaCrescentHeight) || blockHeader.height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
             const auto usedHeight = blockHeader.height <= static_cast<uint64_t>(params.EunosHeight) ? creationHeight : blockHeader.height;
 
@@ -90,7 +91,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
 
     // checking PoS kernel is faster, so check it first
     if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(),blockHeader.height,
-                         masternodeID, params, subNodesBlockTime, timelock, subNode)) {
+                         masternodeID, params, subNodesBlockTime, timelock, ctxState)) {
         return false;
     }
 
@@ -101,8 +102,8 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
 bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CCustomCSView* mnView) {
 
     // this is our own check of own minted block (just to remember)
-    uint8_t subNode{0};
-    return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView, subNode);
+    CheckContextState ctxState;
+    return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView, ctxState);
 }
 
 unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool eunos)
