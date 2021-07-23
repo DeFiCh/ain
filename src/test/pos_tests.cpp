@@ -176,14 +176,39 @@ BOOST_AUTO_TEST_CASE(sign_pos_block)
     BOOST_CHECK_THROW(pos::SignPosBlock(block, minterKey), std::logic_error);
 
     BOOST_CHECK(!pos::CheckProofOfStake(*(CBlockHeader*)block.get(), ::ChainActive().Tip(), Params().GetConsensus(), pcustomcsview.get()));
-
-//    uint256 prevStakeModifier = Params().GenesisBlock().stakeModifier;
-//    std::shared_ptr<CBlock> correctBlock = FinalizeBlock(
-//            Block(Params().GenesisBlock().GetHash(), 1, 1),
-//            masternodeID,
-//            minterKey,
-//            prevStakeModifier);
-//    BOOST_CHECK(pos::CheckProofOfStake(*(CBlockHeader*)correctBlock.get(), ::ChainActive().Tip(), Params().GetConsensus(), penhancedview.get()));
 }
+
+BOOST_AUTO_TEST_CASE(check_subnode)
+{
+    const auto stakeModifier = uint256S(std::string(64, '1'));
+    const auto masternodeID = stakeModifier;
+    uint32_t nBits{486604799};
+    int64_t creationHeight{0};
+    uint64_t blockHeight{10000000};
+    const std::vector<int64_t> subNodesBlockTime{0, 0, 0, 0};
+    const uint16_t timelock{520}; // 10 year timelock
+    CheckContextState ctxState;
+
+    // Subnode 0
+    int64_t coinstakeTime{7};
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
+    BOOST_CHECK_EQUAL(ctxState.subNode, 0);
+
+    // Subnode 1
+    coinstakeTime = 0;
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
+    BOOST_CHECK_EQUAL(ctxState.subNode, 1);
+
+    // Subnode 2
+    coinstakeTime = 23;
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
+    BOOST_CHECK_EQUAL(ctxState.subNode, 2);
+
+    // Subnode 3
+    coinstakeTime = 5;
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
+    BOOST_CHECK_EQUAL(ctxState.subNode, 3);
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()
