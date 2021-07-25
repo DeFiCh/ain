@@ -681,6 +681,7 @@ namespace pos {
         CBlockIndex* tip;
         int64_t height;
         boost::optional<int64_t> stakerBlockTime;
+        uint16_t timelock;
 
         {
             LOCK(cs_main);
@@ -708,6 +709,7 @@ namespace pos {
             height = tip->height + 1;
             creationHeight = int64_t(nodePtr->creationHeight);
             blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
+            timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, height);
 
             stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID, height);
             // No record. No stake blocks or post-fork createmastnode TX, use fork time.
@@ -747,8 +749,8 @@ namespace pos {
 
                     blockTime = ((uint32_t)currentTime - t);
 
-                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID,
-                                             chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID, chainparams.GetConsensus(),
+                                             stakerBlockTime ? *stakerBlockTime : 0, timelock))
                     {
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
@@ -770,8 +772,8 @@ namespace pos {
 
                     blockTime = ((uint32_t)searchTime + t);
 
-                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID,
-                                             chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID, chainparams.GetConsensus(),
+                                             stakerBlockTime ? *stakerBlockTime : 0, timelock))
                     {
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
@@ -782,7 +784,7 @@ namespace pos {
                     boost::this_thread::yield(); // give a slot to other threads
                 }
             }
-        });
+        }, height);
 
         if (!found) {
             return Status::stakeWaiting;
@@ -836,9 +838,14 @@ namespace pos {
     }
 
     template <typename F>
-    void Staker::withSearchInterval(F&& f) {
-        // Mine up to max future minus 5 second buffer
-        nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5);
+    void Staker::withSearchInterval(F&& f, int64_t height) {
+        if (height >= Params().GetConsensus().EunosPayaHeight) {
+            // Mine up to max future minus 1 second buffer
+            nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_EUNOSPAYA - 1); // 29 seconds
+        } else {
+            // Mine up to max future minus 5 second buffer
+            nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5); // 295 seconds
+        }
 
         if (nFutureTime > nLastCoinStakeSearchTime) {
             f(GetAdjustedTime(), nLastCoinStakeSearchTime, nFutureTime);

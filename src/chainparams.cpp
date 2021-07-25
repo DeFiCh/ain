@@ -125,8 +125,8 @@ public:
         consensus.DakotaHeight = 678000; // 1st March 2021
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
         consensus.EunosHeight = 894000; // 3rd June 2021
-        consensus.EunosSimsHeight = consensus.EunosHeight;
         consensus.EunosKampungHeight = 895743;
+        consensus.EunosPayaHeight = 1052000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -343,8 +343,8 @@ public:
         consensus.DakotaHeight = 220680;
         consensus.DakotaCrescentHeight = 287700;
         consensus.EunosHeight = 354950;
-        consensus.EunosSimsHeight = consensus.EunosHeight;
         consensus.EunosKampungHeight = consensus.EunosHeight;
+        consensus.EunosPayaHeight = 463300;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -522,9 +522,9 @@ public:
         consensus.ClarkeQuayHeight = 0;
         consensus.DakotaHeight = 10;
         consensus.DakotaCrescentHeight = 10;
-        consensus.EunosHeight = 125;
-        consensus.EunosSimsHeight = 125;
-        consensus.EunosKampungHeight = 125;
+        consensus.EunosHeight = 150;
+        consensus.EunosKampungHeight = consensus.EunosHeight;
+        consensus.EunosPayaHeight = 300;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -647,7 +647,7 @@ public:
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
 //        vSeeds.emplace_back("testnet-seed.defichain.io");
-//        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
+        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_devnet, pnSeed6_devnet + ARRAYLEN(pnSeed6_devnet));
 
         fDefaultConsistencyChecks = false;
         fRequireStandard = false;
@@ -695,8 +695,8 @@ public:
         consensus.DakotaHeight = 10000000;
         consensus.DakotaCrescentHeight = 10000000;
         consensus.EunosHeight = 10000000;
-        consensus.EunosSimsHeight = 10000000;
         consensus.EunosKampungHeight = 10000000;
+        consensus.EunosPayaHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -963,8 +963,8 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
             height = std::numeric_limits<int>::max();
         }
         consensus.EunosHeight = static_cast<int>(height);
-        consensus.EunosSimsHeight = static_cast<int>(height);
         consensus.EunosKampungHeight = static_cast<int>(height);
+        consensus.EunosPayaHeight = static_cast<int>(height);
     }
 
     if (!args.IsArgSet("-vbparams")) return;

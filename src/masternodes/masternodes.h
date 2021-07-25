@@ -51,6 +51,12 @@ public:
         UNKNOWN // unreachable
     };
 
+    enum TimeLock {
+        ZEROYEAR,
+        FIVEYEAR = 260,
+        TENYEAR = 520
+    };
+
     //! Minted blocks counter
     uint32_t mintedBlocks;
 
@@ -150,7 +156,7 @@ public:
     // Multiple operator support
     std::set<std::pair<CKeyID, uint256>> GetOperatorsMulti() const;
 
-    Res CreateMasternode(uint256 const & nodeId, CMasternode const & node);
+    Res CreateMasternode(uint256 const & nodeId, CMasternode const & node, uint16_t timelock);
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
     Res UnCreateMasternode(uint256 const & nodeId);
     Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
@@ -161,6 +167,8 @@ public:
 
     void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
 
+    uint16_t GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const;
+
     // tags
     struct ID { static const unsigned char prefix; };
     struct Operator { static const unsigned char prefix; };
@@ -168,6 +176,9 @@ public:
 
     // For storing last staked block time
     struct Staker { static const unsigned char prefix; };
+
+    // Store long term time lock
+    struct Timelock { static const unsigned char prefix; };
 };
 
 class CLastHeightView : public virtual CStorageView
