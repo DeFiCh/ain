@@ -2898,6 +2898,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         bool pruneStarted = false;
         auto time = GetTimeMillis();
         CCustomCSView pruned(mnview);
+        static uint32_t lastUndoHeight = 0;
         mnview.ForEachUndo([&](UndoKey const & key, CLazySerialize<CUndo>) {
             if (key.height >= it->first) { // don't erase checkpoint height
                 return false;
@@ -2911,8 +2912,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 LogPrintf("Pruning undo data prior %d, it can take a while...\n", it->first);
             }
             return pruned.DelUndo(key).ok;
-        });
+        }, UndoKey{lastUndoHeight});
         if (pruneStarted) {
+            lastUndoHeight = it->first;
             auto& map = pruned.GetStorage().GetRaw();
             compactBegin = map.begin()->first;
             compactEnd = map.rbegin()->first;
