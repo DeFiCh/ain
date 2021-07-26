@@ -104,10 +104,7 @@ BOOST_AUTO_TEST_CASE(retrieve_last_time_multi)
 
     // Delete entry
     CCustomCSView mnviewTwo(*pcustomcsview.get());
-    mnviewTwo.EraseSubNodeLastBlockTime(mnId, 0, 300);
-    mnviewTwo.EraseSubNodeLastBlockTime(mnId, 1, 300);
-    mnviewTwo.EraseSubNodeLastBlockTime(mnId, 2, 300);
-    mnviewTwo.EraseSubNodeLastBlockTime(mnId, 3, 300);
+    mnviewTwo.EraseSubNodesLastBlockTime(mnId, 300);
     mnviewTwo.Flush();
 
     // Should now return result before deleted entry

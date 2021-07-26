@@ -198,7 +198,7 @@ public:
     // Subnode block times
     void SetSubNodesBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const uint8_t id, const int64_t& time);
     std::vector<int64_t> GetSubNodesBlockTime(const CKeyID & minter, const uint32_t height);
-    void EraseSubNodeLastBlockTime(const uint256& nodeId, const uint8_t id, const uint32_t& blockHeight);
+    void EraseSubNodesLastBlockTime(const uint256& nodeId, const uint32_t& blockHeight);
     void ForEachSubNode(std::function<bool(SubNodeBlockTimeKey const &, CLazySerialize<int64_t>)> callback, SubNodeBlockTimeKey const & start = {});
 
     uint16_t GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const;

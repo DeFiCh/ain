@@ -413,9 +413,11 @@ void CMasternodesView::ForEachSubNode(std::function<bool(SubNodeBlockTimeKey con
     ForEach<SubNode, SubNodeBlockTimeKey, int64_t>(callback, start);
 }
 
-void CMasternodesView::EraseSubNodeLastBlockTime(const uint256& nodeId, const uint8_t id, const uint32_t& blockHeight)
+void CMasternodesView::EraseSubNodesLastBlockTime(const uint256& nodeId, const uint32_t& blockHeight)
 {
-    EraseBy<SubNode>(SubNodeBlockTimeKey{nodeId, id, blockHeight});
+    for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
+        EraseBy<SubNode>(SubNodeBlockTimeKey{nodeId, i, blockHeight});
+    }
 }
 
 Res CMasternodesView::UnCreateMasternode(const uint256 & nodeId)
