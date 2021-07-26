@@ -1829,7 +1829,6 @@ public:
             } else {
                 return Res::Err(strprintf("There is not default loan scheme"));
             }
-            vault.schemeId = mnview.GetDefaultLoanScheme().get();
         }
 
         if (!mnview.GetLoanScheme(vault.schemeId)) {
