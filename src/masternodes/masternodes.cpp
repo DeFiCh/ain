@@ -113,17 +113,20 @@ CMasternode::State CMasternode::GetState() const
 
 CMasternode::State CMasternode::GetState(int height) const
 {
+    int EunosPayaHeight = Params().GetConsensus().EunosPayaHeight;
+
     if (resignHeight == -1) { // enabled or pre-enabled
         // Special case for genesis block
-        if (creationHeight == 0 || (height < Params().GetConsensus().EunosPayaHeight && height >= creationHeight + GetMnActivationDelay(height))
-            || (height >= Params().GetConsensus().EunosPayaHeight && height >= creationHeight + GetMnActivationDelay(creationHeight))) {
+        int activationDelay = height < EunosPayaHeight ? GetMnActivationDelay(height) : GetMnActivationDelay(creationHeight);
+        if (creationHeight == 0 || height >= creationHeight + activationDelay) {
                 return State::ENABLED;
         }
         return State::PRE_ENABLED;
     }
+
     if (resignHeight != -1) { // pre-resigned or resigned
-        if ((height < Params().GetConsensus().EunosPayaHeight && height < resignHeight + GetMnResignDelay(height))
-            || (height >= Params().GetConsensus().EunosPayaHeight && height < resignHeight + GetMnResignDelay(resignHeight))) {
+        int resignDelay = height < EunosPayaHeight ? GetMnResignDelay(height) : GetMnResignDelay(resignHeight);
+        if (height < resignHeight + resignDelay) {
                 return State::PRE_RESIGNED;
         }
         return State::RESIGNED;
