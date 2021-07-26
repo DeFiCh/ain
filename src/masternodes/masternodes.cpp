@@ -115,13 +115,13 @@ CMasternode::State CMasternode::GetState(int height) const
 {
     if (resignHeight == -1) { // enabled or pre-enabled
         // Special case for genesis block
-        if (creationHeight == 0 || height >= creationHeight + GetMnActivationDelay(height)) {
+        if (creationHeight == 0 || height >= creationHeight + GetMnActivationDelay(creationHeight)) {
             return State::ENABLED;
         }
         return State::PRE_ENABLED;
     }
     if (resignHeight != -1) { // pre-resigned or resigned
-        if (height < resignHeight + GetMnResignDelay(height)) {
+        if (height < resignHeight + GetMnResignDelay(resignHeight)) {
             return State::PRE_RESIGNED;
         }
         return State::RESIGNED;
