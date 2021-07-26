@@ -643,6 +643,164 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
     return ret;
 }
 
+// VAULT
+
+UniValue createvault(const JSONRPCRequest& request) {
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    RPCHelpMan{"createvault",
+                "Creates a vault transaction.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"owneraddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address or \"\" to generate a new address"},
+                    {"loanschemeid", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                        "Unique identifier of the loan scheme (8 chars max). If empty, the default loan scheme will be selected (Optional)"
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                            {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                     {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                   "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                   HelpExampleCli("createvault", "") +
+                   HelpExampleCli("createvault", "" "LOAN0001") +
+                   HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv LOAN0001") +
+                   HelpExampleCli("createvault", "") +
+                   HelpExampleRpc("createvault", "\"\", LOAN0001")+
+                   HelpExampleRpc("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv, LOAN0001")
+                },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    CVaultMessage vault;
+    if(request.params.size() > 0){
+        vault.ownerAddress = request.params[0].getValStr();
+        if(vault.ownerAddress.empty()){
+            // generate new address
+            LOCK(pwallet->cs_wallet);
+
+            if (!pwallet->CanGetAddresses()) {
+                throw JSONRPCError(RPC_WALLET_ERROR, "Error: This wallet has no available keys");
+            }
+            CTxDestination dest;
+            std::string error;
+            if (!pwallet->GetNewDestination(OutputType::LEGACY, "*", dest, error)) {
+                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+            }
+            vault.ownerAddress = EncodeDestination(dest);
+        } else {
+            // check address validity
+            CTxDestination ownerDest = DecodeDestination(vault.ownerAddress);
+            if (!IsValidDestination(ownerDest)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owneraddress address");
+            }
+        }
+    }
+    vault.schemeId = pcustomcsview->GetDefaultLoanScheme().get();
+
+    if(request.params.size() > 1){
+        if(!request.params[1].isNull()){
+            vault.schemeId = request.params[1].get_str();
+        }
+    }
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::Vault)
+             << vault;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CCoinControl coinControl;
+
+    // Set change to foundation address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, vault});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CVaultMessage{}, coinview);
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue listvaults(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"listvaults",
+               "List all available vaults\n",
+               {},
+               RPCResult{
+                    "[                         (json array of objects)\n"
+                        "{...}                 (object) Json object with vault information\n"
+                    "]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("createloanscheme", "150 5 LOAN0001") +
+                       HelpExampleRpc("createloanscheme", "150, 5, LOAN0001")
+               },
+    }.Check(request);
+
+    auto cmp = [](const CVault& vault) {
+        return vault;
+    };
+    std::set<CLoanScheme, decltype(cmp)> vaults(cmp);
+
+    UniValue valueArr{UniValue::VOBJ};
+
+    pcustomcsview->ForEachVault([&](const CVaultId& id, const CVault& data) {
+        UniValue vaultObj{UniValue::VOBJ};
+        vaultObj.pushKV("owneraddress", data.ownerAddress);
+        vaultObj.pushKV("loanschemeid", data.schemeId);
+        vaultObj.pushKV("isliquidated", data.isLiquidated);
+        valueArr.pushKV(id.GetHex(), vaultObj);
+        return true;
+    });
+
+    return valueArr;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -655,6 +813,8 @@ static const CRPCCommand commands[] =
     {"loan",        "setdefaultloanscheme",      &setdefaultloanscheme,  {"id", "inputs"}},
     {"loan",        "destroyloanscheme",         &destroyloanscheme,     {"id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
     {"loan",        "listloanschemes",           &listloanschemes,       {}},
+    {"loan",        "createvault",               &createvault,           {"owneraddress", "schemeid"}},
+    {"loan",        "listvaults",                &listvaults,            {}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {

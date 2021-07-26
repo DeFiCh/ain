@@ -246,6 +246,7 @@ class CCustomCSView
         , public COracleView
         , public CICXOrderView
         , public CLoanView
+        , public CVaultView
 {
 public:
     // Increase version when underlaying tables are changed

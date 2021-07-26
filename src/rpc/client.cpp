@@ -238,6 +238,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "updateloanscheme", 1, "interestrate" },
     { "updateloanscheme", 3, "ACTIVATE_AFTER_BLOCK" },
     { "destroyloanscheme", 1, "ACTIVATE_AFTER_BLOCK" },
+    { "createvault", 2, "inputs" },
 
     { "spv_sendrawtx", 0, "rawtx" },
     { "spv_createanchor", 0, "inputs" },
