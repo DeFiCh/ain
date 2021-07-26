@@ -131,9 +131,6 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
 
 
 // VAULT
-CVault::CVault(CVaultMessage const& msg) : CVaultMessage(msg)
-{
-}
 
 Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultMessage& vault)
 {

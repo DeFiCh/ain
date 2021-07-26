@@ -1823,8 +1823,10 @@ public:
         // Check LoanScheme exists
         auto vault = CVault();
         static_cast<CVaultMessage&>(vault) = obj;
-        if(obj.schemeId.length() == 0){
-            if(!mnview.GetDefaultLoanScheme()){
+        if(obj.schemeId.empty()){
+            if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
+                vault.schemeId = *defaultScheme;
+            } else {
                 return Res::Err(strprintf("There is not default loan scheme"));
             }
             vault.schemeId = mnview.GetDefaultLoanScheme().get();

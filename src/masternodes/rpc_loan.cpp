@@ -777,15 +777,10 @@ UniValue listvaults(const JSONRPCRequest& request) {
                     "]\n"
                },
                RPCExamples{
-                       HelpExampleCli("createloanscheme", "150 5 LOAN0001") +
-                       HelpExampleRpc("createloanscheme", "150, 5, LOAN0001")
+                       HelpExampleCli("listvaults",  "") +
+                       HelpExampleRpc("listvaults", "")
                },
     }.Check(request);
-
-    auto cmp = [](const CVault& vault) {
-        return vault;
-    };
-    std::set<CLoanScheme, decltype(cmp)> vaults(cmp);
 
     UniValue valueArr{UniValue::VOBJ};
 

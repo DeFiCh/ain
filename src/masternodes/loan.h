@@ -137,7 +137,6 @@ struct CVault : public CVaultMessage
 {
     bool isLiquidated{false};
 
-    explicit CVault(CVaultMessage const& msg = {});
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
