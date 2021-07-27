@@ -716,8 +716,14 @@ public:
         node.operatorAuthAddress = obj.operatorAuthAddress;
         res = mnview.CreateMasternode(tx.GetHash(), node, obj.timelock);
         // Build coinage from the point of masternode creation
-        if (res && height >= static_cast<uint32_t>(Params().GetConsensus().DakotaCrescentHeight)) {
-            mnview.SetMasternodeLastBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), time);
+        if (res) {
+            if (height >= static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight)) {
+                for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
+                    mnview.SetSubNodesBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), i, time);
+                }
+            } else if (height >= static_cast<uint32_t>(Params().GetConsensus().DakotaCrescentHeight)) {
+                mnview.SetMasternodeLastBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), time);
+            }
         }
         return res;
     }
