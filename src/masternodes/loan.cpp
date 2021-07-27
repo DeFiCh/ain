@@ -114,6 +114,21 @@ boost::optional<uint64_t> CLoanView::GetDestroyLoanScheme(const std::string& loa
 
 Res CLoanView::EraseLoanScheme(const std::string& loanSchemeID)
 {
+    // Find and delete all related loan scheme updates
+    std::vector<uint64_t> loanUpdateHeights;
+    ForEachDelayedLoanScheme([&](const std::pair<std::string, uint64_t>& key, const CLoanSchemeMessage&)
+    {
+        if (key.first == loanSchemeID) {
+            loanUpdateHeights.push_back(key.second);
+        }
+        return true;
+    });
+
+    for (const auto& height : loanUpdateHeights) {
+        EraseDelayedLoanScheme(loanSchemeID, height);
+    }
+
+    // Delete loan scheme
     EraseBy<LoanSchemeKey>(loanSchemeID);
 
     return Res::Ok();
