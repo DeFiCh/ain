@@ -125,7 +125,7 @@ public:
         consensus.DakotaCrescentHeight = 733000; // 25th March 2021
         consensus.EunosHeight = 894000; // 3rd June 2021
         consensus.EunosKampungHeight = 895743;
-        consensus.EunosPayaHeight = 1052000;
+        consensus.EunosPayaHeight = 1072000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
