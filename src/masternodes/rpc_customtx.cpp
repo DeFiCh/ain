@@ -327,6 +327,12 @@ public:
         rpcInfo.pushKV("id", obj.identifier);
     }
 
+    void operator()(const CVaultMessage& obj) const {
+        // Add Vault attributes
+        rpcInfo.pushKV("address", obj.ownerAddress);
+        rpcInfo.pushKV("loanschemeid", obj.schemeId);
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };
