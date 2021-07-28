@@ -331,9 +331,45 @@ class CreateLoanSchemeTest (DefiTestFramework):
         results = self.nodes[0].listloanschemes()
         assert_equal(len(results), 4)
         assert_equal(results[1]['id'], 'LOAN0003')
-
+        
         # Can now update loan scheme as pending updates deleted
         self.nodes[0].updateloanscheme(170, 4, 'LOAN0003')
+
+        # VAULT TESTS
+
+        # Create vault with invalid address
+        try:
+            self.nodes[0].createvault('ffffffffff')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('Error: Invalid owneraddress address' in errorString)
+
+        # Create vault with invalid loanschemeid and default owneraddress
+        try:
+            self.nodes[0].createvault('', 'FAKELOAN')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('Cannot find existing loan scheme with id' in errorString)
+
+        # create 2 vaults
+        vaultId1 = self.nodes[0].createvault('') # default loan scheme
+        owneraddress2 = self.nodes[0].getnewaddress('', 'legacy')
+        self.nodes[0].generate(1)
+        vaultId2 = self.nodes[0].createvault(owneraddress2, 'LOAN0003')
+
+        self.nodes[0].generate(1)
+        # check listvaults
+        listVaults = self.nodes[0].listvaults()
+        assert(listVaults[vaultId1])
+        assert(listVaults[vaultId2])
+        owneraddress1 = listVaults[vaultId1]['owneraddress']
+        # assert default loanscheme was assigned correctly
+        assert_equal(listVaults[vaultId1]['loanschemeid'], 'LOAN0001')
+        assert_equal(listVaults[vaultId1]['owneraddress'], owneraddress1)
+        # assert non-default loanscheme was assigned correctly
+        assert_equal(listVaults[vaultId2]['loanschemeid'], 'LOAN0003')
+        assert_equal(listVaults[vaultId2]['owneraddress'], owneraddress2)
+
 
 if __name__ == '__main__':
     CreateLoanSchemeTest().main()

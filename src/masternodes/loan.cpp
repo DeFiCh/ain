@@ -6,6 +6,8 @@ const unsigned char CLoanView::LoanSchemeKey                              ::pref
 const unsigned char CLoanView::DefaultLoanSchemeKey                       ::prefix = 0x13;
 const unsigned char CLoanView::DelayedLoanSchemeKey                       ::prefix = 0x14;
 const unsigned char CLoanView::DestroyLoanSchemeKey                       ::prefix = 0x15;
+// Vault
+const unsigned char CVaultView::VaultKey                                  ::prefix = 0x16;
 
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanSetCollateralToken(uint256 const & txid) const
 {
@@ -140,4 +142,21 @@ void CLoanView::EraseDelayedLoanScheme(const std::string& loanSchemeID, uint64_t
 void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
 {
     EraseBy<DestroyLoanSchemeKey>(loanSchemeID);
+}
+
+
+// VAULT
+
+Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultMessage& vault)
+{
+    if (!WriteBy<VaultKey>(vaultId, vault)) {
+        return Res::Err("Failed to create new vault <%s>", vaultId.GetHex());
+    }
+
+    return Res::Ok();
+}
+
+void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVault&)> callback)
+{
+    ForEach<VaultKey, CVaultId, CVault>(callback);
 }

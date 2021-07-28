@@ -21,7 +21,7 @@ on:
       - epic/*
       - v*
       - 1.[0-9]+.x
-      
+
 jobs:
   unit_tests:
     name: Unit Tests
@@ -45,10 +45,10 @@ jobs:
     # used by subsequent steps.
     - name: Set Env
       run: set -o errexit; source ./ci/test/00_setup_env.sh
-    
+
     # The following scripts must be run in the same step as they reference Bash functions from
     # previous scripts, which are difficult to expose globally in Github workflows
-    
+
     - name: Tests
       run: |
           set -o errexit; source ./ci/test/03_before_install.sh
