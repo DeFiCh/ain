@@ -3554,6 +3554,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                 if (state.IsInvalid()) {
                     fContinue = false;
                     if (state.GetRejectReason() == "high-hash") {
+                        UpdateMempoolForReorg(disconnectpool, false);
                         return false;
                     }
                     fInvalidFound = true;
