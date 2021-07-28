@@ -1685,11 +1685,11 @@ public:
         }
 
         if (obj.ratio < 100) {
-            return Res::Err("mincolratio cannot be less than 100");
+            return Res::Err("minimum collateral ratio cannot be less than 100");
         }
 
         if (obj.rate < 1000000) {
-            return Res::Err("interestrate cannot be less than 0.01");
+            return Res::Err("interest rate cannot be less than 0.01");
         }
 
         if (obj.identifier.empty() || obj.identifier.length() > 8) {
