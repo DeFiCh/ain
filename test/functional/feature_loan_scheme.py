@@ -59,14 +59,16 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].createloanscheme(99, 0.5, 'LOAN0001')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("mincolratio cannot be less than 100" in errorString)
+            breakpoint()
+        assert("minimum collateral ratio cannot be less than 100" in errorString)
 
         # Try and create a loan scheme with too small rate
         try:
             self.nodes[0].createloanscheme(1000, 0.009, 'LOAN0001')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("interestrate cannot be less than 0.01" in errorString)
+            breakpoint()
+        assert("interest rate cannot be less than 0.01" in errorString)
 
         # Try and create a loan scheme without ID
         try:
@@ -331,7 +333,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
         results = self.nodes[0].listloanschemes()
         assert_equal(len(results), 4)
         assert_equal(results[1]['id'], 'LOAN0003')
-        
+
         # Can now update loan scheme as pending updates deleted
         self.nodes[0].updateloanscheme(170, 4, 'LOAN0003')
 
