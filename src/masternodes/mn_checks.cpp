@@ -57,7 +57,10 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
         case CustomTxType::LoanSetCollateralToken: return "LoanSetCollateralToken";
-        case CustomTxType::CreateLoanScheme:    return "CreateLoanScheme";
+        case CustomTxType::LoanScheme:          return "LoanScheme";
+        case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
+        case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
+        case CustomTxType::Vault:               return "Vault";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -134,7 +137,10 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
         case CustomTxType::LoanSetCollateralToken:  return CLoanSetCollateralTokenMessage{};
-        case CustomTxType::CreateLoanScheme:        return CCreateLoanSchemeMessage{};
+        case CustomTxType::LoanScheme:              return CLoanSchemeMessage{};
+        case CustomTxType::DefaultLoanScheme:       return CDefaultLoanSchemeMessage{};
+        case CustomTxType::DestroyLoanScheme:       return CDestroyLoanSchemeMessage{};
+        case CustomTxType::Vault:                   return CVaultMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -393,7 +399,22 @@ public:
         return !res ? res : serialize(obj);
     }
 
-    Res operator()(CCreateLoanSchemeMessage& obj) const {
+    Res operator()(CLoanSchemeMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CDefaultLoanSchemeMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CDestroyLoanSchemeMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -1665,48 +1686,157 @@ public:
         return mnview.LoanCreateSetCollateralToken(collToken);
     }
 
-    Res operator()(const CCreateLoanSchemeMessage& obj) const {
+    Res operator()(const CLoanSchemeMessage& obj) const {
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member!");
         }
 
         if (obj.ratio < 100) {
-            return Res::Err("Ratio cannot be less than 100");
+            return Res::Err("minimum collateral ratio cannot be less than 100");
         }
 
         if (obj.rate < 1000000) {
-            return Res::Err("Rate cannot be less than 0.01");
+            return Res::Err("interest rate cannot be less than 0.01");
         }
 
         if (obj.identifier.empty() || obj.identifier.length() > 8) {
-            return Res::Err("Identifier cannot be empty or more than 8 chars long");
+            return Res::Err("id cannot be empty or more than 8 chars long");
         }
 
-        bool duplicateID = false, duplicateLoan = false;
-        mnview.ForEachLoanScheme([&](const std::string& key, const CLoanSchemeData& data) {
-            if (key == obj.identifier) {
-                duplicateID = true;
-                return false;
-            }
-
+        // Look for loan scheme which already has matching rate and ratio
+        bool duplicateLoan = false;
+        std::string duplicateID;
+        mnview.ForEachLoanScheme([&](const std::string& key, const CLoanSchemeData& data)
+        {
+            // Duplicate scheme already exists
             if (data.ratio == obj.ratio && data.rate == obj.rate) {
                 duplicateLoan = true;
+                duplicateID = key;
                 return false;
             }
             return true;
         });
 
-        if (duplicateID) {
-            return Res::Err(strprintf("Loan scheme already exist with identifier %s", obj.identifier));
+        if (duplicateLoan) {
+            return Res::Err(strprintf("Loan scheme %s with same interestrate and mincolratio already exists", duplicateID));
+        } else {
+            // Look for delayed loan scheme which already has matching rate and ratio
+            std::pair<std::string, uint64_t> duplicateKey;
+            mnview.ForEachDelayedLoanScheme([&](const std::pair<std::string, uint64_t>& key, const CLoanSchemeMessage& data)
+            {
+                // Duplicate delayed loan scheme
+                if (data.ratio == obj.ratio && data.rate == obj.rate) {
+                    duplicateLoan = true;
+                    duplicateKey = key;
+                    return false;
+                }
+                return true;
+            });
+
+            if (duplicateLoan) {
+                return Res::Err(strprintf("Loan scheme %s with same interestrate and mincolratio pending on block %d", duplicateKey.first, duplicateKey.second));
+            }
         }
 
-        if (duplicateLoan) {
-            return Res::Err("Loan scheme with same rate and ratio already exists");
+        // New loan scheme, no duplicate expected.
+        if (mnview.GetLoanScheme(obj.identifier)) {
+            if (!obj.update) {
+                return Res::Err(strprintf("Loan scheme already exist with id %s", obj.identifier));
+            }
+        } else if (obj.update) {
+            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.identifier));
+        }
+
+        // Update set, not max uint64_t which indicates immediate update and not updated on this block.
+        if (obj.update && obj.update != std::numeric_limits<uint64_t>::max() && obj.update != height) {
+            if (obj.update < height) {
+                return Res::Err("Update height below current block height, set future height");
+            }
+
+            return mnview.StoreDelayedLoanScheme(obj);
+        }
+
+        // If no default yet exist set this one as default.
+        if (!mnview.Exists(CLoanView::DefaultLoanSchemeKey::prefix)) {
+            mnview.StoreDefaultLoanScheme(obj.identifier);
         }
 
         return mnview.StoreLoanScheme(obj);
     }
 
+    Res operator()(const CDefaultLoanSchemeMessage& obj) const {
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        if (obj.identifier.empty() || obj.identifier.length() > 8) {
+            return Res::Err("id cannot be empty or more than 8 chars long");
+        }
+
+        if (!mnview.GetLoanScheme(obj.identifier)) {
+            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.identifier));
+        }
+
+        const auto currentID = mnview.GetDefaultLoanScheme();
+        if (currentID && *currentID == obj.identifier) {
+            return Res::Err(strprintf("Loan scheme with id %s is already set as default", obj.identifier));
+        }
+
+        if (auto height = mnview.GetDestroyLoanScheme(obj.identifier)) {
+            return Res::Err(strprintf("Cannot set %s as default, set to destroyed on block %d", obj.identifier, *height));
+        }
+
+        return mnview.StoreDefaultLoanScheme(obj.identifier);;
+    }
+
+    Res operator()(const CDestroyLoanSchemeMessage& obj) const {
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        if (obj.identifier.empty() || obj.identifier.length() > 8) {
+            return Res::Err("id cannot be empty or more than 8 chars long");
+        }
+
+        if (!mnview.GetLoanScheme(obj.identifier)) {
+            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.identifier));
+        }
+
+        const auto currentID = mnview.GetDefaultLoanScheme();
+        if (currentID && *currentID == obj.identifier) {
+            return Res::Err("Cannot destroy default loan scheme, set new default first");
+        }
+
+        // Update set and not updated on this block.
+        if (obj.height && obj.height != height) {
+            if (obj.height < height) {
+                return Res::Err("Destruction height below current block height, set future height");
+            }
+
+            return mnview.StoreDelayedDestroyScheme(obj);
+        }
+
+        return mnview.EraseLoanScheme(obj.identifier);
+    }
+
+    Res operator()(const CVaultMessage& obj) const {
+        // Check LoanScheme exists
+        auto vault = CVault();
+        static_cast<CVaultMessage&>(vault) = obj;
+        if(obj.schemeId.empty()){
+            if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
+                vault.schemeId = *defaultScheme;
+            } else {
+                return Res::Err(strprintf("There is not default loan scheme"));
+            }
+        }
+
+        if (!mnview.GetLoanScheme(vault.schemeId)) {
+            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.schemeId));
+        }
+
+        return mnview.StoreVault(tx.GetHash(), vault);
+    }
     Res operator()(const CCustomTxMessageNone&) const {
         return Res::Ok();
     }

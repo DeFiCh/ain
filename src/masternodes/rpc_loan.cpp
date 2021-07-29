@@ -243,9 +243,9 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
                 "Creates a loan scheme transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
-                    {"ratio", RPCArg::Type::NUM, RPCArg::Optional::NO, "Minimum collateralization ratio (integer)."},
-                    {"rate", RPCArg::Type::NUM, RPCArg::Optional::NO, "Interest rate (integer or float)."},
-                    {"identifier", RPCArg::Type::STR, RPCArg::Optional::NO, "Unique identifier of the loan scheme (8 chars max)."},
+                    {"mincolratio", RPCArg::Type::NUM, RPCArg::Optional::NO, "Minimum collateralization ratio (integer)."},
+                    {"interestrate", RPCArg::Type::NUM, RPCArg::Optional::NO, "Interest rate (integer or float)."},
+                    {"id", RPCArg::Type::STR, RPCArg::Optional::NO, "Unique identifier of the loan scheme (8 chars max)."},
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
                             {
@@ -273,33 +273,10 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
-    CCreateLoanSchemeMessage loanScheme;
+    CLoanSchemeMessage loanScheme;
     loanScheme.ratio = request.params[0].get_int();
     loanScheme.rate = AmountFromValue(request.params[1]);
     loanScheme.identifier = request.params[2].get_str();
-
-    if (loanScheme.ratio < 100) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Ratio cannot be less than 100");
-    }
-
-    if (loanScheme.rate < 1000000) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Rate cannot be less than 0.01");
-    }
-
-    if (loanScheme.identifier.empty() || loanScheme.identifier.length() > 8) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Identifier cannot be empty or more than 8 chars long");
-    }
-
-    pcustomcsview->ForEachLoanScheme([&loanScheme](const std::string& key, const CLoanSchemeData& data) {
-        if (key == loanScheme.identifier) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Loan scheme already exist with identifier %s", key));
-        }
-
-        if (data.ratio == loanScheme.ratio && data.rate == loanScheme.rate) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Loan scheme with same rate and ratio already exists");
-        }
-        return true;
-    });
 
     int targetHeight;
     {
@@ -308,7 +285,7 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::CreateLoanScheme)
+    metadata << static_cast<unsigned char>(CustomTxType::LoanScheme)
              << loanScheme;
 
     CScript scriptMeta;
@@ -341,7 +318,272 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
         if (optAuthTx)
             AddCoins(coinview, *optAuthTx, targetHeight);
         const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, loanScheme});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateLoanSchemeMessage{}, coinview);
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanSchemeMessage{}, coinview);
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue updateloanscheme(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"updateloanscheme",
+               "Updates an existing loan scheme.\n" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"mincolratio", RPCArg::Type::NUM, RPCArg::Optional::NO, "Minimum collateralization ratio (integer)."},
+                       {"interestrate", RPCArg::Type::NUM, RPCArg::Optional::NO, "Interest rate (integer or float)."},
+                       {"id", RPCArg::Type::STR, RPCArg::Optional::NO, "Unique identifier of the loan scheme (8 chars max)."},
+                       {"ACTIVATE_AFTER_BLOCK", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "Block height at which new changes take effect."},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("updateloanscheme", "150 5 LOAN0001") +
+                       HelpExampleRpc("updateloanscheme", "150, 5, LOAN0001")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    CLoanSchemeMessage loanScheme;
+    loanScheme.ratio = request.params[0].get_int();
+    loanScheme.rate = AmountFromValue(request.params[1]);
+    loanScheme.identifier = request.params[2].get_str();
+
+    // Max value is ignored as block height
+    loanScheme.update = std::numeric_limits<uint64_t>::max();
+    if (!request.params[3].isNull()) {
+        loanScheme.update = request.params[3].get_int();
+    }
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::LoanScheme)
+             << loanScheme;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[4]);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CCoinControl coinControl;
+
+    // Set change to foundation address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, loanScheme});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanSchemeMessage{}, coinview);
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"setdefaultloanscheme",
+               "Sets the default loan scheme.\n" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"id", RPCArg::Type::STR, RPCArg::Optional::NO, "Unique identifier of the loan scheme (8 chars max)."},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("setdefaultloanscheme", "LOAN0001") +
+                       HelpExampleRpc("setdefaultloanscheme", "LOAN0001")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    CDefaultLoanSchemeMessage defaultScheme;
+    defaultScheme.identifier = request.params[0].get_str();
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::DefaultLoanScheme)
+             << defaultScheme;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[1]);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    // Set change to foundation address
+    CCoinControl coinControl;
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, defaultScheme});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CDefaultLoanSchemeMessage{}, coinview);
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue destroyloanscheme(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"destroyloanscheme",
+               "Destroys a loan scheme.\n" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                       {"id", RPCArg::Type::STR, RPCArg::Optional::NO, "Unique identifier of the loan scheme (8 chars max)."},
+                       {"ACTIVATE_AFTER_BLOCK", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "Block height at which new changes take effect."},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("destroyloanscheme", "LOAN0001") +
+                       HelpExampleRpc("destroyloanscheme", "LOAN0001")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    CDestroyLoanSchemeMessage destroyScheme;
+    destroyScheme.identifier = request.params[0].get_str();
+    if (!request.params[1].isNull()) {
+        destroyScheme.height = request.params[1].get_int();
+    }
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::DestroyLoanScheme)
+             << destroyScheme;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[2]);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    // Set change to foundation address
+    CCoinControl coinControl;
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, destroyScheme});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CDestroyLoanSchemeMessage{}, coinview);
     }
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
@@ -355,9 +597,9 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
                RPCResult{
                        "[                         (json array of objects)\n"
                        "  {\n"
-                       "    \"identifier\" : n           (string)\n"
-                       "    \"ratio\" : n                (numeric)\n"
-                       "    \"rate\" : n                 (numeric)\n"
+                       "    \"id\" : n                   (string)\n"
+                       "    \"mincolratio\" : n          (numeric)\n"
+                       "    \"interestrate\" : n         (numeric)\n"
                        "  },\n"
                        "  ...\n"
                        "]\n"
@@ -382,16 +624,176 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
         return true;
     });
 
+    auto defaultLoan = pcustomcsview->GetDefaultLoanScheme();
+
     UniValue ret(UniValue::VARR);
     for (const auto& item : loans) {
         UniValue arr(UniValue::VOBJ);
-        arr.pushKV("identifier", item.identifier);
-        arr.pushKV("ratio", static_cast<uint64_t>(item.ratio));
-        arr.pushKV("rate", ValueFromAmount(item.rate));
+        arr.pushKV("id", item.identifier);
+        arr.pushKV("mincolratio", static_cast<uint64_t>(item.ratio));
+        arr.pushKV("interestrate", ValueFromAmount(item.rate));
+        if (defaultLoan && *defaultLoan == item.identifier) {
+            arr.pushKV("default", true);
+        } else {
+            arr.pushKV("default", false);
+        }
         ret.push_back(arr);
     }
 
     return ret;
+}
+
+// VAULT
+
+UniValue createvault(const JSONRPCRequest& request) {
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    RPCHelpMan{"createvault",
+                "Creates a vault transaction.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"owneraddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address or \"\" to generate a new address"},
+                    {"loanschemeid", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                        "Unique identifier of the loan scheme (8 chars max). If empty, the default loan scheme will be selected (Optional)"
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                            {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                     {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                   "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                   HelpExampleCli("createvault", "") +
+                   HelpExampleCli("createvault", "" "LOAN0001") +
+                   HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv LOAN0001") +
+                   HelpExampleCli("createvault", "") +
+                   HelpExampleRpc("createvault", "\"\", LOAN0001")+
+                   HelpExampleRpc("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv, LOAN0001")
+                },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    CVaultMessage vault;
+    if(request.params.size() > 0){
+        vault.ownerAddress = request.params[0].getValStr();
+        if(vault.ownerAddress.empty()){
+            // generate new address
+            LOCK(pwallet->cs_wallet);
+
+            if (!pwallet->CanGetAddresses()) {
+                throw JSONRPCError(RPC_WALLET_ERROR, "Error: This wallet has no available keys");
+            }
+            CTxDestination dest;
+            std::string error;
+            if (!pwallet->GetNewDestination(OutputType::LEGACY, "*", dest, error)) {
+                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+            }
+            vault.ownerAddress = EncodeDestination(dest);
+        } else {
+            // check address validity
+            CTxDestination ownerDest = DecodeDestination(vault.ownerAddress);
+            if (!IsValidDestination(ownerDest)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owneraddress address");
+            }
+        }
+    }
+    vault.schemeId = pcustomcsview->GetDefaultLoanScheme().get();
+
+    if(request.params.size() > 1){
+        if(!request.params[1].isNull()){
+            vault.schemeId = request.params[1].get_str();
+        }
+    }
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::Vault)
+             << vault;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CCoinControl coinControl;
+
+    // Set change to foundation address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, vault});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CVaultMessage{}, coinview);
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue listvaults(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"listvaults",
+               "List all available vaults\n",
+               {},
+               RPCResult{
+                    "[                         (json array of objects)\n"
+                        "{...}                 (object) Json object with vault information\n"
+                    "]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listvaults",  "") +
+                       HelpExampleRpc("listvaults", "")
+               },
+    }.Check(request);
+
+    UniValue valueArr{UniValue::VOBJ};
+
+    pcustomcsview->ForEachVault([&](const CVaultId& id, const CVault& data) {
+        UniValue vaultObj{UniValue::VOBJ};
+        vaultObj.pushKV("owneraddress", data.ownerAddress);
+        vaultObj.pushKV("loanschemeid", data.schemeId);
+        vaultObj.pushKV("isliquidated", data.isLiquidated);
+        valueArr.pushKV(id.GetHex(), vaultObj);
+        return true;
+    });
+
+    return valueArr;
 }
 
 static const CRPCCommand commands[] =
@@ -401,8 +803,13 @@ static const CRPCCommand commands[] =
     {"loan",        "setcollateraltoken",        &setcollateraltoken,    {"parameters", "inputs"}},
     {"loan",        "getcollateraltoken",        &getcollateraltoken,    {"by"}},
     {"loan",        "listcollateraltokens",      &listcollateraltokens,  {}},
-    {"loan",        "createloanscheme",          &createloanscheme,      {"ratio", "rate"}},
+    {"loan",        "createloanscheme",          &createloanscheme,      {"mincolratio", "interestrate", "id", "inputs"}},
+    {"loan",        "updateloanscheme",          &updateloanscheme,      {"mincolratio", "interestrate", "id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
+    {"loan",        "setdefaultloanscheme",      &setdefaultloanscheme,  {"id", "inputs"}},
+    {"loan",        "destroyloanscheme",         &destroyloanscheme,     {"id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
     {"loan",        "listloanschemes",           &listloanschemes,       {}},
+    {"loan",        "createvault",               &createvault,           {"owneraddress", "schemeid"}},
+    {"loan",        "listvaults",                &listvaults,            {}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {

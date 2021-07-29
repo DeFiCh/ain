@@ -312,10 +312,25 @@ public:
         if (obj.activateAfterBlock) rpcInfo.pushKV("activateAfterBlock", static_cast<int>(obj.activateAfterBlock));
     }
 
-    void operator()(const CCreateLoanSchemeMessage& obj) const {
-        rpcInfo.pushKV("identifier", obj.identifier);
-        rpcInfo.pushKV("ratio", static_cast<uint64_t>(obj.ratio));
-        rpcInfo.pushKV("rate", ValueFromAmount(obj.rate));
+    void operator()(const CLoanSchemeMessage& obj) const {
+        rpcInfo.pushKV("id", obj.identifier);
+        rpcInfo.pushKV("mincolratio", static_cast<uint64_t>(obj.ratio));
+        rpcInfo.pushKV("interestrate", ValueFromAmount(obj.rate));
+        rpcInfo.pushKV("update", obj.update);
+    }
+
+    void operator()(const CDefaultLoanSchemeMessage& obj) const {
+        rpcInfo.pushKV("id", obj.identifier);
+    }
+
+    void operator()(const CDestroyLoanSchemeMessage& obj) const {
+        rpcInfo.pushKV("id", obj.identifier);
+    }
+
+    void operator()(const CVaultMessage& obj) const {
+        // Add Vault attributes
+        rpcInfo.pushKV("address", obj.ownerAddress);
+        rpcInfo.pushKV("loanschemeid", obj.schemeId);
     }
 
     void operator()(const CCustomTxMessageNone&) const {

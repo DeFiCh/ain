@@ -79,9 +79,72 @@ struct CLoanScheme : public CLoanSchemeData
     }
 };
 
-// Add alias consistent with naming scheme for metadata
-using CCreateLoanSchemeMessage = CLoanScheme;
+struct CLoanSchemeMessage : public CLoanScheme
+{
+    uint64_t update{0};
 
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CLoanScheme,*this);
+        READWRITE(update);
+    }
+};
+
+struct CDefaultLoanSchemeMessage
+{
+    std::string identifier;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(identifier);
+    }
+};
+
+struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
+{
+    uint64_t height{0};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CDefaultLoanSchemeMessage, *this);
+        READWRITE(height);
+    }
+};
+
+// use vault's creation tx for ID
+using CVaultId = uint256;
+struct CVaultMessage {
+    std::string ownerAddress;
+    std::string schemeId;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(ownerAddress);
+        READWRITE(schemeId);
+    }
+};
+
+struct CVault : public CVaultMessage
+{
+    bool isLiquidated{false};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CVaultMessage, *this);
+        READWRITE(isLiquidated);
+    }
+};
 class CLoanView : public virtual CStorageView {
 public:
     using CollateralTokenKey = std::pair<DCT_ID, uint32_t>;
@@ -92,12 +155,42 @@ public:
     void ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {{0},0});
     std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanSetCollateralToken(CollateralTokenKey const & key);
 
-    Res StoreLoanScheme(const CCreateLoanSchemeMessage& loanScheme);
+    Res StoreLoanScheme(const CLoanSchemeMessage& loanScheme);
+    Res StoreDefaultLoanScheme(const std::string& loanSchemeID);
+    Res StoreDelayedLoanScheme(const CLoanSchemeMessage& loanScheme);
+    Res StoreDelayedDestroyScheme(const CDestroyLoanSchemeMessage& loanScheme);
+    Res EraseLoanScheme(const std::string& loanSchemeID);
+    void EraseDelayedLoanScheme(const std::string& loanSchemeID, uint64_t height);
+    void EraseDelayedDestroyScheme(const std::string& loanSchemeID);
+    boost::optional<std::string> GetDefaultLoanScheme();
+    boost::optional<CLoanSchemeData> GetLoanScheme(const std::string& loanSchemeID);
+    boost::optional<uint64_t> GetDestroyLoanScheme(const std::string& loanSchemeID);
     void ForEachLoanScheme(std::function<bool (const std::string&, const CLoanSchemeData&)> callback);
+    void ForEachDelayedLoanScheme(std::function<bool (const std::pair<std::string, uint64_t>&, const CLoanSchemeMessage&)> callback);
+    void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
     struct LoanSetCollateralTokenCreationTx { static const unsigned char prefix; };
     struct LoanSetCollateralTokenKey { static const unsigned char prefix; };
-    struct CreateLoanSchemeKey { static const unsigned char prefix; };
+    struct LoanSchemeKey { static const unsigned char prefix; };
+    struct DefaultLoanSchemeKey { static const unsigned char prefix; };
+    struct DelayedLoanSchemeKey { static const unsigned char prefix; };
+    struct DestroyLoanSchemeKey { static const unsigned char prefix; };
+
 };
+
+class CVaultView : public virtual CStorageView
+{
+public:
+    ~CVaultView() override = default;
+
+    /// register new vault instance
+    Res StoreVault(const CVaultId& vaultId, const CVaultMessage& vault);
+
+    void ForEachVault(std::function<bool(const CVaultId&, const CVault&)> callback);
+
+    struct VaultKey { static const unsigned char prefix; };
+};
+
+
 
 #endif // DEFI_MASTERNODES_LOAN_H

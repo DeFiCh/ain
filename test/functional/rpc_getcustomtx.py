@@ -483,11 +483,48 @@ class TokensRPCGetCustomTX(DefiTestFramework):
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(loan_txid)
-        assert_equal(result['type'], "CreateLoanScheme")
+        assert_equal(result['type'], "LoanScheme")
         assert_equal(result['valid'], True)
-        assert_equal(result['results']['identifier'], "LOANMAX")
-        assert_equal(result['results']['ratio'], 1000)
-        assert_equal(result['results']['rate'], Decimal("0.50000000"))
+        assert_equal(result['results']['id'], "LOANMAX")
+        assert_equal(result['results']['mincolratio'], 1000)
+        assert_equal(result['results']['interestrate'], Decimal("0.50000000"))
+        assert_equal(result['results']['update'], False)
+        assert_equal(result['blockHeight'], blockheight)
+        assert_equal(result['blockhash'], blockhash)
+        assert_equal(result['confirmations'], 1)
+
+        # Test changing the loan scheme
+        self.nodes[0].createloanscheme(100, 5, 'LOAN001')
+        self.nodes[0].generate(1)
+        default_txid = self.nodes[0].setdefaultloanscheme('LOAN001')
+        self.nodes[0].generate(1)
+
+        # Get block hash and height of update tx
+        blockheight = self.nodes[0].getblockcount()
+        blockhash = self.nodes[0].getblockhash(blockheight)
+
+        # Get custom TX
+        result = self.nodes[1].getcustomtx(default_txid)
+        assert_equal(result['type'], "DefaultLoanScheme")
+        assert_equal(result['valid'], True)
+        assert_equal(result['results']['id'], "LOAN001")
+        assert_equal(result['blockHeight'], blockheight)
+        assert_equal(result['blockhash'], blockhash)
+        assert_equal(result['confirmations'], 1)
+
+        # Test destroying a loan scheme
+        destroy_txid = self.nodes[0].destroyloanscheme('LOANMAX')
+        self.nodes[0].generate(1)
+
+        # Get block hash and height of update tx
+        blockheight = self.nodes[0].getblockcount()
+        blockhash = self.nodes[0].getblockhash(blockheight)
+
+        # Get custom TX
+        result = self.nodes[1].getcustomtx(destroy_txid)
+        assert_equal(result['type'], "DestroyLoanScheme")
+        assert_equal(result['valid'], True)
+        assert_equal(result['results']['id'], "LOANMAX")
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
