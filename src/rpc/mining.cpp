@@ -190,8 +190,10 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
-    auto myIDs = pcustomcsview->AmIOperator();
-    if (!myIDs) {
+    // auto myIDs = pcustomcsview->AmIOperator();
+    CKeyID myID = destination.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&destination)) :
+                                   destination.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID();
+    if (myID.IsNull()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
     }
 
@@ -205,7 +207,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
 
         bool found =false;
         for (auto&& wallet : wallets) {
-            if (wallet->GetKey(myIDs->first, minterKey)) {
+            if (wallet->GetKey(myID, minterKey)) {
                 found = true;
                 break;
             }
@@ -214,7 +216,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode operator private key not found");
 
     }
-    return generateBlocks(coinbase_script, minterKey, myIDs->first, nGenerate, nMaxTries);
+    return generateBlocks(coinbase_script, minterKey, myID, nGenerate, nMaxTries);
 }
 
 // Returns the mining information of all local masternodes
