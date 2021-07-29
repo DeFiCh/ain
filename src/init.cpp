@@ -1781,6 +1781,9 @@ bool AppInitMain(InitInterfaces& interfaces)
             spv::pspv->Load();
         }
         panchors->Load();
+        if (spv::pspv) {
+            spv::pspv->Connect();
+        }
 
     } catch (const std::exception& e) {
         LogPrintf("%s\n", e.what());
@@ -1941,12 +1944,6 @@ bool AppInitMain(InitInterfaces& interfaces)
     scheduler.scheduleEvery([]{
         g_banman->DumpBanlist();
     }, DUMP_BANS_INTERVAL * 1000);
-
-    // ********************************************************* Step XX: start spv
-    if (spv::pspv)
-    {
-        spv::pspv->Connect();
-    }
 
     // ********************************************************* Step 14: start minter thread
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
