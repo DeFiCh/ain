@@ -413,7 +413,6 @@ void CSpvWrapper::OnTxAdded(BRTransaction * tx)
 
         LogPrint(BCLog::SPV, "IsAnchorTx(): %s\n", txHash.ToString());
 
-        LOCK(cs_main);
         if (ValidateAnchor(anchor) && panchors->AddToAnchorPending(anchor, txHash, tx->blockHeight)) {
             LogPrint(BCLog::SPV, "adding anchor to pending %s\n", txHash.ToString());
         }
@@ -429,25 +428,24 @@ void CSpvWrapper::OnTxUpdated(const UInt256 txHashes[], size_t txCount, uint32_t
         uint256 const txHash{to_uint256(txHashes[i])};
         const uint256 btcHash{to_uint256(blockHash)};
 
+        UpdateTx(txHash, blockHeight, timestamp, btcHash);
+        LogPrint(BCLog::SPV, "tx updated, hash: %s, blockHeight: %d, timestamp: %d\n", txHash.ToString(), blockHeight, timestamp);
+
+        CAnchorIndex::AnchorRec oldPending;
+        if (panchors->GetPendingByBtcTx(txHash, oldPending))
+        {
+            LogPrint(BCLog::SPV, "updating anchor pending %s\n", txHash.ToString());
+            if (panchors->AddToAnchorPending(oldPending.anchor, txHash, blockHeight, true)) {
+                LogPrint(BCLog::ANCHORING, "Anchor pending added/updated %s\n", txHash.ToString());
+            }
+        }
+        else
         {
             LOCK(cs_main);
-
-            UpdateTx(txHash, blockHeight, timestamp, btcHash);
-            LogPrint(BCLog::SPV, "tx updated, hash: %s, blockHeight: %d, timestamp: %d\n", txHash.ToString(), blockHeight, timestamp);
-
-            CAnchorIndex::AnchorRec oldPending;
-            if (panchors->GetPendingByBtcTx(txHash, oldPending))
-            {
-                LogPrint(BCLog::SPV, "updating anchor pending %s\n", txHash.ToString());
-                if (panchors->AddToAnchorPending(oldPending.anchor, txHash, blockHeight, true)) {
-                    LogPrint(BCLog::ANCHORING, "Anchor pending added/updated %s\n", txHash.ToString());
-                }
-            }
-            else if (auto exist = panchors->GetAnchorByBtcTx(txHash)) // update index. no any checks nor validations
+            if (auto exist = panchors->GetAnchorByBtcTx(txHash)) // update index. no any checks nor validations
             {
                 LogPrint(BCLog::SPV, "updating anchor %s\n", txHash.ToString());
-                CAnchor oldAnchor{exist->anchor};
-                if (panchors->AddAnchor(oldAnchor, txHash, blockHeight, true)) {
+                if (panchors->AddAnchor({exist->anchor}, txHash, blockHeight, true)) {
                     LogPrint(BCLog::ANCHORING, "Anchor added/updated %s\n", txHash.ToString());
                 }
             }

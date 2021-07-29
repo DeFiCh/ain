@@ -670,8 +670,6 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced)
 
 bool CAnchorIndex::AddToAnchorPending(CAnchor const & anchor, uint256 const & btcTxHash, THeight btcBlockHeight, bool overwrite)
 {
-    AssertLockHeld(cs_main);
-
     AnchorRec rec{ anchor, btcTxHash, btcBlockHeight };
     if (overwrite) {
         DeletePendingByBtcTx(btcTxHash);
@@ -682,17 +680,12 @@ bool CAnchorIndex::AddToAnchorPending(CAnchor const & anchor, uint256 const & bt
 
 bool CAnchorIndex::GetPendingByBtcTx(uint256 const & txHash, AnchorRec & rec) const
 {
-    AssertLockHeld(cs_main);
-
     return db->Read(std::make_pair(DB_PENDING, txHash), rec);
 }
 
 bool CAnchorIndex::DeletePendingByBtcTx(uint256 const & btcTxHash)
 {
-    AssertLockHeld(cs_main);
-
     AnchorRec pending;
-
     if (GetPendingByBtcTx(btcTxHash, pending)) {
         if (db->Exists(std::make_pair(DB_PENDING, btcTxHash))) {
             db->Erase(std::make_pair(DB_PENDING, btcTxHash));
@@ -755,8 +748,6 @@ const CAnchorIndex::AnchorRec* CAnchorIndex::GetLatestAnchorUpToDeFiHeight(THeig
 /// Validates all except tx confirmations
 bool ValidateAnchor(const CAnchor & anchor)
 {
-    AssertLockHeld(cs_main);
-
     // Check sig size to avoid storing bogus anchors with large number of sigs
     if (anchor.nextTeam.size() != 1) {
         return error("%s: Incorrect anchor team size. Found: %d",
