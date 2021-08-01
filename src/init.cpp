@@ -1768,13 +1768,14 @@ bool AppInitMain(InitInterfaces& interfaces)
         panchorauths = MakeUnique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
         panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
-        SetupAnchorSPVDatabases(gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
 
         // Check if DB version changed
         if (spv::pspv && SPV_DB_VERSION != spv::pspv->GetDBVersion()) {
             SetupAnchorSPVDatabases(true);
             assert(spv::pspv->SetDBVersion() == SPV_DB_VERSION);
             LogPrintf("Cleared anchor and SPV dasebase. SPV DB version set to %d\n", SPV_DB_VERSION);
+        } else {
+            SetupAnchorSPVDatabases(gArgs.GetBoolArg("-spv_resync", fReindex || fReindexChainState));
         }
 
         if (spv::pspv) {
