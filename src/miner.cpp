@@ -679,8 +679,9 @@ namespace pos {
         CScript scriptPubKey;
         int64_t blockTime;
         CBlockIndex* tip;
-        int64_t height;
-        boost::optional<int64_t> stakerBlockTime;
+        int64_t blockHeight;
+        std::vector<int64_t> subNodesBlockTime;
+        uint16_t timelock;
 
         {
             LOCK(cs_main);
@@ -705,17 +706,13 @@ namespace pos {
                 scriptPubKey = args.coinbaseScript;
             }
 
-            height = tip->height + 1;
+            blockHeight = tip->height + 1;
             creationHeight = int64_t(nodePtr->creationHeight);
             blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
+            timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
 
-            stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(args.operatorID, height);
-            // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-            if (!stakerBlockTime) {
-                if (auto block = ::ChainActive()[chainparams.GetConsensus().DakotaCrescentHeight]) {
-                    stakerBlockTime = std::min(blockTime - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
-                }
-            }
+            // Get block times
+            subNodesBlockTime = pcustomcsview->GetBlockTimes(args.operatorID, blockHeight, creationHeight, timelock);
         }
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
@@ -726,10 +723,14 @@ namespace pos {
             if (Params().NetworkIDString() == CBaseChainParams::REGTEST) {
                 // For regtest use previous oldest time
                 nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
+                if (nLastCoinStakeSearchTime <= tip->GetMedianTimePast()) {
+                    nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
+                }
             } else {
                 // Plus one to avoid time-too-old error on exact median time.
                 nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
             }
+            
             lastBlockSeen = tip->GetBlockHash();
         }
 
@@ -739,7 +740,7 @@ namespace pos {
                 CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
                 pos::Staker::mapMNLastBlockCreationAttemptTs[masternodeID] = GetTime();
             }
-
+            CheckContextState ctxState;
             // Search backwards in time first
             if (currentTime > lastSearchTime) {
                 for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
@@ -747,8 +748,8 @@ namespace pos {
 
                     blockTime = ((uint32_t)currentTime - t);
 
-                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID,
-                                             chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
+                                             subNodesBlockTime, timelock, ctxState))
                     {
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
@@ -770,8 +771,8 @@ namespace pos {
 
                     blockTime = ((uint32_t)searchTime + t);
 
-                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, height, masternodeID,
-                                             chainparams.GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0))
+                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
+                                             subNodesBlockTime, timelock, ctxState))
                     {
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
@@ -782,7 +783,7 @@ namespace pos {
                     boost::this_thread::yield(); // give a slot to other threads
                 }
             }
-        });
+        }, blockHeight);
 
         if (!found) {
             return Status::stakeWaiting;
@@ -799,7 +800,7 @@ namespace pos {
         auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
 
         pblock->nBits = nBits;
-        pblock->height = height;
+        pblock->height = blockHeight;
         pblock->mintedBlocks = mintedBlocks + 1;
         pblock->stakeModifier = std::move(stakeModifier);
 
@@ -836,9 +837,14 @@ namespace pos {
     }
 
     template <typename F>
-    void Staker::withSearchInterval(F&& f) {
-        // Mine up to max future minus 5 second buffer
-        nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5);
+    void Staker::withSearchInterval(F&& f, int64_t height) {
+        if (height >= Params().GetConsensus().EunosPayaHeight) {
+            // Mine up to max future minus 1 second buffer
+            nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_EUNOSPAYA - 1); // 29 seconds
+        } else {
+            // Mine up to max future minus 5 second buffer
+            nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5); // 295 seconds
+        }
 
         if (nFutureTime > nLastCoinStakeSearchTime) {
             f(GetAdjustedTime(), nLastCoinStakeSearchTime, nFutureTime);

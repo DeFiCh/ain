@@ -1316,7 +1316,7 @@ static UniValue spv_sendtoaddress(const JSONRPCRequest& request)
 
 static UniValue spv_listtransactions(const JSONRPCRequest& request)
 {
-    RPCHelpMan{"spv_listransactions",
+    RPCHelpMan{"spv_listtransactions",
         "\nReturns an array of all Bitcoin transaction hashes.\n",
         {},
         RPCResult{
@@ -1326,8 +1326,8 @@ static UniValue spv_listtransactions(const JSONRPCRequest& request)
             "]"
         },
         RPCExamples{
-            HelpExampleCli("spv_listransactions", "")
-            + HelpExampleRpc("spv_listransactions", "")
+            HelpExampleCli("spv_listtransactions", "")
+            + HelpExampleRpc("spv_listtransactions", "")
         },
     }.Check(request);
 
@@ -1340,7 +1340,7 @@ static UniValue spv_listtransactions(const JSONRPCRequest& request)
 
 static UniValue spv_getrawtransaction(const JSONRPCRequest& request)
 {
-    RPCHelpMan{"spv_gatrawtransaction",
+    RPCHelpMan{"spv_getrawtransaction",
         "\nReturn the raw transaction data.\n",
         {
             {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},

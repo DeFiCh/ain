@@ -39,6 +39,7 @@ const std::string CICXOrder::CHAIN_BTC = "BTC";
 const std::string CICXOrder::TOKEN_BTC = "BTC";
 
 const uint32_t CICXMakeOffer::DEFAULT_EXPIRY = 10;
+const uint32_t CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY = 20;
 const uint32_t CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT = 100;
 const uint8_t CICXMakeOffer::STATUS_OPEN = 0;
 const uint8_t CICXMakeOffer::STATUS_CLOSED = 1;
@@ -47,6 +48,8 @@ const CAmount CICXMakeOffer::DEFAULT_TAKER_FEE_PER_BTC = AmountFromValue(0.003);
 
 const uint32_t CICXSubmitDFCHTLC::MINIMUM_TIMEOUT = 500;
 const uint32_t CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT = 250;
+const uint32_t CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT = 1440;
+const uint32_t CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT = 480;
 const uint8_t CICXSubmitDFCHTLC::STATUS_OPEN = 0;
 const uint8_t CICXSubmitDFCHTLC::STATUS_CLAIMED = 1;
 const uint8_t CICXSubmitDFCHTLC::STATUS_REFUNDED = 2;
@@ -54,8 +57,11 @@ const uint8_t CICXSubmitDFCHTLC::STATUS_EXPIRED = 3;
 
 const uint32_t CICXSubmitEXTHTLC::MINIMUM_TIMEOUT = 30;
 const uint32_t CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT = 15;
+const uint32_t CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_TIMEOUT = 72;
+const uint32_t CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT = 24;
 // constant for calculating BTC block period in DFI block period per hour (BTC estimated to 6 blocks/h, DFI to 96 blocks/h)
 const uint32_t CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS = 16;
+const uint32_t CICXSubmitEXTHTLC::EUNOSPAYA_BTC_BLOCKS_IN_DFI_BLOCKS = 20;
 const uint8_t CICXSubmitEXTHTLC::STATUS_OPEN = 0;
 const uint8_t CICXSubmitEXTHTLC::STATUS_CLOSED = 1;
 const uint8_t CICXSubmitEXTHTLC::STATUS_EXPIRED = 3;
@@ -67,6 +73,19 @@ std::unique_ptr<CICXOrderView::CICXOrderImpl> CICXOrderView::GetICXOrderByCreati
     auto order = ReadBy<ICXOrderCreationTx,CICXOrderImpl>(txid);
     if (order)
         return MakeUnique<CICXOrderImpl>(*order);
+    return {};
+}
+
+uint8_t CICXOrderView::GetICXOrderStatus(OrderKey const & key) const
+{
+    auto status = ReadBy<ICXOrderOpenKey, uint8_t>(key);
+
+    if (!status)
+        status = ReadBy<ICXOrderCloseKey, uint8_t>(key);
+
+    if (status)
+        return (*status);
+
     return {};
 }
 
@@ -149,6 +168,19 @@ std::unique_ptr<CICXOrderView::CICXMakeOfferImpl> CICXOrderView::GetICXMakeOffer
     return {};
 }
 
+uint8_t CICXOrderView::GetICXMakeOfferStatus(TxidPairKey const & key) const
+{
+    auto status = ReadBy<ICXMakeOfferOpenKey, uint8_t>(key);
+
+    if (!status)
+        status = ReadBy<ICXMakeOfferCloseKey, uint8_t>(key);
+
+    if (status)
+        return (*status);
+
+    return {};
+}
+
 Res CICXOrderView::ICXMakeOffer(CICXMakeOfferImpl const & makeoffer)
 {
     //this should not happen, but for sure
@@ -156,8 +188,6 @@ Res CICXOrderView::ICXMakeOffer(CICXMakeOfferImpl const & makeoffer)
         return Res::Err("makeoffer with creation tx %s already exists!", makeoffer.creationTx.GetHex());
     if (makeoffer.amount == 0)
         return Res::Err("offer amount must be greater than 0!");
-    if (makeoffer.expiry < CICXMakeOffer::DEFAULT_EXPIRY)
-        return Res::Err("offer expiry must be greater than %d!", CICXMakeOffer::DEFAULT_EXPIRY - 1);
 
     WriteBy<ICXMakeOfferCreationTx>(makeoffer.creationTx, makeoffer);
     WriteBy<ICXMakeOfferOpenKey>(TxidPairKey(makeoffer.orderTx, makeoffer.creationTx), CICXMakeOffer::STATUS_OPEN);
@@ -269,6 +299,21 @@ std::unique_ptr<CICXOrderView::CICXSubmitDFCHTLCImpl> CICXOrderView::HasICXSubmi
     return {};
 }
 
+bool CICXOrderView::ExistedICXSubmitDFCHTLC(uint256 const & offertxid, bool isPreEunosPaya)
+{
+    bool result = false;
+
+    if (HasICXSubmitDFCHTLCOpen(offertxid))
+        result = true;
+    if (isPreEunosPaya)
+        return (result);
+    auto it = LowerBound<ICXSubmitDFCHTLCCloseKey>(TxidPairKey{offertxid, {}});
+    if (it.Valid() && it.Key().first == offertxid)
+        result = true;
+
+    return (result);
+}
+
 std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::GetICXSubmitEXTHTLCByCreationTx(const uint256 & txid) const
 {
     auto submitexthtlc = ReadBy<ICXSubmitEXTHTLCCreationTx,CICXSubmitEXTHTLCImpl>(txid);
@@ -330,6 +375,21 @@ std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::HasICXSubmi
     if (it.Valid() && it.Key().first == offertxid)
         return GetICXSubmitEXTHTLCByCreationTx(it.Key().second);
     return {};
+}
+
+bool CICXOrderView::ExistedICXSubmitEXTHTLC(uint256 const & offertxid, bool isPreEunosPaya)
+{
+    bool result = false;
+
+    if (HasICXSubmitEXTHTLCOpen(offertxid))
+        result = true;
+    if (isPreEunosPaya)
+        return (result);
+    auto it = LowerBound<ICXSubmitEXTHTLCCloseKey>(TxidPairKey{offertxid, {}});
+    if (it.Valid() && it.Key().first == offertxid)
+        result = true;
+
+    return (result);
 }
 
 std::unique_ptr<CICXOrderView::CICXClaimDFCHTLCImpl> CICXOrderView::GetICXClaimDFCHTLCByCreationTx(uint256 const & txid) const

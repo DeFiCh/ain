@@ -23,8 +23,8 @@ namespace oraclefields {
     constexpr auto PriceFeeds = "priceFeeds";
     constexpr auto OracleAddress = "address";
     constexpr auto TokenPrices = "tokenPrices";
-    constexpr uint8_t MaxWeightage{100u};
-    constexpr uint8_t MinWeightage{1u};
+    constexpr auto MaxWeightage = 255;
+    constexpr auto MinWeightage = 0;
 }; // namespace oraclefields
 
 namespace {
@@ -461,8 +461,8 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     // decode timestamp
     int64_t timestamp = request.params[1].get_int64();
 
-    if (timestamp <= 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative or zero");
+    if (timestamp <= 0 || timestamp > GetSystemTimeInSeconds() + 300) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative, zero or over 5 minutes in the future");
     }
 
     // decode prices
@@ -655,18 +655,66 @@ UniValue listoracles(const JSONRPCRequest &request) {
                "\nReturns list of oracle ids." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
+                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                                "Optional first key to iterate from, in lexicographical order. "
+                                "Typically it's set to last ID from previous request."
+                            },
+                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                "If true, then iterate including starting position. False by default"
+                            },
+                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Maximum number of orders to return, 100 by default"
+                            },
+                        },
+                    },
                },
                RPCResult{
                        "\"hash\"                  (string) list of known oracle ids\n"
                },
                RPCExamples{
-                       HelpExampleCli("listoracles", "") + HelpExampleRpc("listoracles", "")
+                       HelpExampleCli("listoracles", "")
+                       + HelpExampleCli("listoracles",
+                                        "'{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", "
+                                        "\"including_start\": true, "
+                                        "\"limit\":100}'")
+                       + HelpExampleRpc("listoracles", "'{}'")
+                       + HelpExampleRpc("listoracles",
+                                        "'{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", "
+                                        "\"including_start\": true, "
+                                        "\"limit\":100}'")
                },
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
                            "Cannot create transactions while still in Initial Block Download");
+    }
+
+    // parse pagination
+    COracleId start = {};
+    bool including_start = true;
+    size_t limit = 100;
+    {
+        if (request.params.size() > 0){
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["start"].isNull()){
+                start = ParseHashV(paginationObj["start"], "start");
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
+            }
+            if (!paginationObj["limit"].isNull()){
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
@@ -677,8 +725,9 @@ UniValue listoracles(const JSONRPCRequest &request) {
     CCustomCSView view(*pcustomcsview);
     view.ForEachOracle([&](const COracleId& id, CLazySerialize<COracle>) {
         value.push_back(id.GetHex());
-        return true;
-    });
+        limit--;
+        return limit != 0;
+    }, start);
 
     return value;
 }
@@ -689,29 +738,72 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     RPCHelpMan{"listlatestrawprices",
                "\nReturns latest raw price updates through all the oracles for specified token and currency , \n" +
                HelpRequiringPassphrase(pwallet) + "\n",
-               {
-                       {"request", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED,
+                {
+                   {"request", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED,
                         "request in json-form, containing currency and token names",
                         {
                             {"currency", RPCArg::Type::STR, RPCArg::Optional::NO, "Currency name"},
                             {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Token name"},
                         },
-                       },
-               },
+                   },
+                   {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                                "Optional first key to iterate from, in lexicographical order. "
+                                "Typically it's set to last ID from previous request."
+                            },
+                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                "If true, then iterate including starting position. False by default"
+                            },
+                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Maximum number of orders to return, 100 by default"
+                            },
+                        },
+                    },
+                },
                RPCResult{
                        "\"json\"                  (string) Array of json objects containing full information about token prices\n"
                },
                RPCExamples{
                        HelpExampleCli("listlatestrawprices",
                                       R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}')")
+                       + HelpExampleCli("listlatestrawprices",
+                                      R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}' '{"start": "b7ffdcef37be39018e8a6f846db1220b3558fd649393e9a12f935007ef3bfb8e", "including_start": true, "limit": 100}')")
                        + HelpExampleRpc("listlatestrawprices",
                                         R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}')")
+                       + HelpExampleRpc("listlatestrawprices",
+                                        R"(listlatestrawprices '{"currency": "USD", "token": "BTC"}' '{"start": "b7ffdcef37be39018e8a6f846db1220b3558fd649393e9a12f935007ef3bfb8e", "including_start": true, "limit": 100}')")
                },
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
 
     boost::optional<CTokenCurrencyPair> tokenPair;
+
+    // parse pagination
+    COracleId start = {};
+    bool including_start = true;
+    size_t limit = 100;
+    {
+        if (request.params.size() > 1){
+            UniValue paginationObj = request.params[1].get_obj();
+            if (!paginationObj["start"].isNull()){
+                start = ParseHashV(paginationObj["start"], "start");
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
+            }
+            if (!paginationObj["limit"].isNull()){
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
 
     if (!request.params.empty()) {
         tokenPair = DecodeTokenCurrencyPair(request.params[0]);
@@ -755,10 +847,11 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
                 auto state = diffInHour(timestamp, lastBlockTime) ? oraclefields::Alive : oraclefields::Expired;
                 value.pushKV(oraclefields::State, state);
                 result.push_back(value);
+                limit--;
             }
         }
-        return true;
-    });
+        return limit != 0;
+    }, start);
     return result;
 }
 
@@ -803,12 +896,39 @@ namespace {
         return (weightedSum / arith_uint256(sumWeights)).GetLow64();
     }
 
-    UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime) {
+    UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
+
+        size_t limit = 100;
+        int start = 0;
+        bool including_start = true;
+        if (!paginationObj.empty()){
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                including_start = false;
+                start = paginationObj["start"].get_int();
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+
         UniValue result(UniValue::VARR);
         std::set<CTokenCurrencyPair> setTokenCurrency;
         view.ForEachOracle([&](const COracleId&, COracle oracle) {
-            const auto& pair = oracle.availablePairs;
-            setTokenCurrency.insert(pair.begin(), pair.end());
+            const auto& pairs = oracle.availablePairs;
+            if(start > pairs.size()-1)
+                return true;
+            const auto& startingPairIt = std::next(pairs.begin(), start);
+            if(!including_start){
+                setTokenCurrency.insert(std::next(pairs.begin(), start+1), pairs.end());
+                return true;
+            }
+            setTokenCurrency.insert(startingPairIt, pairs.end());
             return true;
         });
         for (const auto& tokenCurrency : setTokenCurrency) {
@@ -825,6 +945,9 @@ namespace {
                 item.pushKV(oraclefields::ValidityFlag, error["message"]);
             }
             result.push_back(item);
+            limit--;
+            if (limit == 0)
+                break;
         }
         return result;
     }
@@ -877,27 +1000,53 @@ UniValue listprices(const JSONRPCRequest& request) {
 
     RPCHelpMan{"listprices",
                "\nCalculates aggregated prices for all supported pairs (token, currency), \n"
-               "Takes no arguments." +
-               HelpRequiringPassphrase(pwallet) + "\n",
-               {},
+                + HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                   {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"start", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Optional first key to iterate from, in lexicographical order."
+                                "Typically it's set to last ID from previous request."},
+                            {"including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                "If true, then iterate including starting position. False by default"
+                            },
+                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Maximum number of orders to return, 100 by default"
+                            },
+                        },
+                    },
+               },
                RPCResult{
                        "\"json\"                  (string) array containing json-objects having following fields:\n"
                        "                  `token` - token name,\n"
                        "                  `currency` - currency name,\n"
                        "                  `price` - aggregated price value,\n"
-                       "                  `ok` - validity flag,\n"
-                       "                  `msg` - optional - if ok is `false`, contains reason\n"
-                       "                   possible reasons for a price result to be invalid:"
+                       "                  `ok` - `true` if price is valid, otherwise it is populated with the reason description.\n"
+                       "                   Possible reasons for a price result to be invalid:"
                        "                   1. if there are no live oracles which meet specified request.\n"
                        "                   2. Sum of the weight of live oracles is zero.\n"
                },
                RPCExamples{
-                       HelpExampleCli("listprices", "listprices")
-                       + HelpExampleRpc("listprices", "listprices")
+                       HelpExampleCli("listprices", "")
+                       + HelpExampleCli("listprices",
+                                        "'{\"start\": 2, "
+                                        "\"including_start\": true, "
+                                        "\"limit\":100}'")
+                       + HelpExampleRpc("listprices", "'{}'")
+                       + HelpExampleRpc("listprices",
+                                        "'{\"start\": 2, "
+                                        "\"including_start\": true, "
+                                        "\"limit\":100}'")
                },
     }.Check(request);
 
     RPCTypeCheck(request.params, {}, false);
+
+    // parse pagination
+    UniValue paginationObj(UniValue::VOBJ);
+    if (request.params.size() > 0) {
+        paginationObj = request.params[0].get_obj();
+    }
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(locked_chain->mutex());
@@ -907,7 +1056,7 @@ UniValue listprices(const JSONRPCRequest& request) {
     auto lastBlockTime = locked_chain->getBlockTime(lastHeight);
 
     CCustomCSView view(*pcustomcsview);
-    return GetAllAggregatePrices(view, lastBlockTime);
+    return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
 }
 
 static const CRPCCommand commands[] =
@@ -919,10 +1068,10 @@ static const CRPCCommand commands[] =
     {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
     {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices", "inputs"}},
     {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
-    {"oracles",     "listoracles",           &listoracles,                 {}},
-    {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request"}},
+    {"oracles",     "listoracles",           &listoracles,            {"pagination"}},
+    {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request", "pagination"}},
     {"oracles",     "getprice",              &getprice,               {"request"}},
-    {"oracles",     "listprices",            &listprices,                   {}},
+    {"oracles",     "listprices",            &listprices,             {"pagination"}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

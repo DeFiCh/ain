@@ -316,6 +316,11 @@ class PoolSwapTest (DefiTestFramework):
         connect_nodes_bi(self.nodes, 1, 2)
         self.sync_blocks()
 
+        # Wipe mempool
+        self.nodes[0].clearmempool()
+        self.nodes[1].clearmempool()
+        self.nodes[2].clearmempool()
+
         assert(self.nodes[0].getblockcount() == 120) # eunos
 
         self.LP_DAILY_DFI_REWARD = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")['LP_DAILY_DFI_REWARD']

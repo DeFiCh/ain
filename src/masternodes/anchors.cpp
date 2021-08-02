@@ -29,17 +29,6 @@ static const char DB_ANCHORS = 'A';
 static const char DB_PENDING = 'p';
 static const char DB_BITCOININDEX = 'Z';  // Bitcoin height to blockhash table
 
-template <typename TContainer>
-bool CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID> const & keys)
-{
-    for (auto const & sig : sigs) {
-        CPubKey pubkey;
-        if (!pubkey.RecoverCompact(sigHash, sig) || keys.find(pubkey.GetID()) == keys.end())
-            return false;
-    }
-    return true;
-}
-
 uint256 CAnchorData::GetSignHash() const
 {
     CDataStream ss{SER_GETHASH, PROTOCOL_VERSION};
@@ -96,14 +85,20 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestin
     return {};
 }
 
-bool CAnchor::CheckAuthSigs(CTeam const & team) const
+bool CAnchor::CheckAuthSigs(CTeam const & team, const uint32_t height) const
 {
     // Sigs must meet quorum size.
-    if (sigs.size() < GetMinAnchorQuorum(team)) {
+    auto quorum = GetMinAnchorQuorum(team);
+    if (sigs.size() < quorum) {
         return error("%s: Anchor auth team quorum not met. Min quorum: %d sigs size %d", __func__, GetMinAnchorQuorum(team), sigs.size());
     }
 
-    return CheckSigs(GetSignHash(), sigs, team);
+    auto uniqueKeys = CheckSigs(GetSignHash(), sigs, team);
+    if (height >= Params().GetConsensus().EunosPayaHeight && uniqueKeys < quorum) {
+        return error("%s: Anchor auth team unique key quorum not met. Min quorum: %d keys size %d", __func__, GetMinAnchorQuorum(team), uniqueKeys);
+    }
+
+    return uniqueKeys;
 }
 
 const CAnchorAuthIndex::Auth * CAnchorAuthIndex::GetAuth(uint256 const & msgHash) const
@@ -550,8 +545,7 @@ void CAnchorIndex::CheckPendingAnchors()
         }
 
         // Validate the anchor sigs
-        CPubKey pubKey;
-        if (!rec.anchor.CheckAuthSigs(*anchorTeam)) {
+        if (!rec.anchor.CheckAuthSigs(*anchorTeam, anchorCreationHeight)) {
             LogPrint(BCLog::ANCHORING, "Signature validation fails. Deleting anchor txHash %s\n", rec.txHash.ToString());
             deletePending.insert(rec.txHash);
             continue;
@@ -962,7 +956,7 @@ bool CAnchorFinalizationMessage::CheckConfirmSigs()
     return CheckSigs(GetSignHash(), sigs, currentTeam);
 }
 
-bool CAnchorFinalizationMessagePlus::CheckConfirmSigs(const uint32_t height)
+size_t CAnchorFinalizationMessagePlus::CheckConfirmSigs(const uint32_t height)
 {
     auto team = pcustomcsview->GetConfirmTeam(height);
     if (!team) {
@@ -1091,7 +1085,7 @@ std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const C
     for (auto it = list.begin(); it != list.end(); /* w/o advance! */) {
         // get next group of confirms
         KList::iterator it0, it1;
-        std::tie(it0,it1) = list.equal_range(std::make_tuple(it->btcTxHeight, it->GetSignHash()));
+        std::tie(it0,it1) = list.equal_range(std::make_tuple(it->btcTxHeight, it->btcTxHash));
         if (std::distance(it0,it1) >= quorum) {
             result.clear();
             for (; result.size() < quorum && it0 != it1; ++it0) {

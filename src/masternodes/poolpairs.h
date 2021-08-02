@@ -176,20 +176,16 @@ struct PoolHeightKey {
     }
 };
 
-enum class RewardType : uint8_t
+enum RewardType
 {
-    Commission = 128,
-    Rewards = 129,
+    Commission = 127,
+    Rewards = 128,
+    Coinbase = Rewards | 1,
+    Pool = Rewards | 2,
 };
 
-inline std::string RewardToString(RewardType type)
-{
-    switch(type) {
-        case RewardType::Commission: return "Commission";
-        case RewardType::Rewards: return "Rewards";
-    }
-    return "Unknown";
-}
+std::string RewardToString(RewardType type);
+std::string RewardTypeToString(RewardType type);
 
 class CPoolPairView : public virtual CStorageView
 {

@@ -55,6 +55,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "pos -> validation -> pos"
     "pos -> validation -> txdb -> pos"
     "pos_kernel -> validation -> txdb -> pos_kernel"
+    "pos -> pos_kernel -> pos"
 )
 
 EXIT_CODE=0

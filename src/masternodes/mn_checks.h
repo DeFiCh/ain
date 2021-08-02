@@ -147,12 +147,18 @@ inline void Unserialize(Stream& s, CustomTxType & txType) {
 struct CCreateMasterNodeMessage {
     char operatorType;
     CKeyID operatorAuthAddress;
+    uint16_t timelock{0};
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(operatorType);
         READWRITE(operatorAuthAddress);
+
+        // Only available after EunosPaya
+        if (!s.eof()) {
+            READWRITE(timelock);
+        }
     }
 };
 

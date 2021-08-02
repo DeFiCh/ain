@@ -21,9 +21,9 @@ class MasternodesRpcBasicTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140'],
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140'],
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140'],
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140'],
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
@@ -182,8 +182,19 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         mnTx = self.nodes[0].createmasternode(self.nodes[0].getnewaddress("", "legacy"))
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "PRE_ENABLED")
+
+        # Try and resign masternode while still in PRE_ENABLED
+        try:
+            self.nodes[0].resignmasternode(mnTx)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("state is not 'ENABLED'" in errorString)
+
+        # Check end of PRE_ENABLED range
         self.nodes[0].generate(19)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "PRE_ENABLED")
+
+        # Move ahead to ENABLED state
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "ENABLED")
 
