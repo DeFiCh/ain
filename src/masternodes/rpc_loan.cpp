@@ -808,7 +808,7 @@ static const CRPCCommand commands[] =
     {"loan",        "setdefaultloanscheme",      &setdefaultloanscheme,  {"id", "inputs"}},
     {"loan",        "destroyloanscheme",         &destroyloanscheme,     {"id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
     {"loan",        "listloanschemes",           &listloanschemes,       {}},
-    {"loan",        "createvault",               &createvault,           {"owneraddress", "schemeid"}},
+    {"loan",        "createvault",               &createvault,           {"owneraddress", "schemeid", "inputs"}},
     {"loan",        "listvaults",                &listvaults,            {}},
 };
 
