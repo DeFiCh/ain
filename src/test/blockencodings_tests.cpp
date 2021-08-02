@@ -58,14 +58,6 @@ static CBlock BuildBlockTestCase() {
 
         mintedBlocks = nodePtr->mintedBlocks;
         creationHeight = int64_t(nodePtr->creationHeight);
-
-        stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(nodePtr->operatorAuthAddress, creationHeight);
-        // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-        if (!stakerBlockTime) {
-            if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
-                stakerBlockTime = std::min(GetTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
-            }
-        }
     }
 
     block.height = tip->nHeight + 1;
@@ -87,9 +79,9 @@ static CBlock BuildBlockTestCase() {
     block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
     assert(!mutated);
     block.nTime = 0;
+    CheckContextState ctxState;
 
-    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.height, masternodeID, Params().GetConsensus(), stakerBlockTime ? *stakerBlockTime : 0)) block.nTime++;
-  //  while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
+    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, block.height, masternodeID, Params().GetConsensus(), {0, 0, 0, 0}, 0, ctxState)) block.nTime++;
 
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
     auto err = pos::SignPosBlock(pblock, minterKey);
@@ -322,80 +314,6 @@ BOOST_AUTO_TEST_CASE(SufficientPreforwardRTTest)
         BOOST_CHECK_EQUAL(pool.mapTx.find(txhash)->GetSharedTx().use_count(), SHARED_TX_OFFSET + 1 - 1); // + 1 because of partialBlock; -1 because of block.
     }
     BOOST_CHECK_EQUAL(pool.mapTx.find(txhash)->GetSharedTx().use_count(), SHARED_TX_OFFSET - 1); // -1 because of block
-}
-
-BOOST_AUTO_TEST_CASE(EmptyBlockRoundTripTest)
-{
-//    CTxMemPool pool; // TODO: (temp) !!!
-//    CMutableTransaction coinbase;
-//    coinbase.vin.resize(1);
-//    coinbase.vin[0].scriptSig.resize(10);
-//    coinbase.vout.resize(1);
-//    coinbase.vout[0].nValue = 42;
-//
-//    CBlock block;
-//    block.vtx.resize(1);
-//    block.vtx[0] = MakeTransactionRef(std::move(coinbase));
-//    block.nVersion = 42;
-//    block.hashPrevBlock = InsecureRand256();
-//    block.nBits = 0x207fffff;
-//
-//    bool mutated;
-//    block.hashMerkleRoot = BlockMerkleRoot(block, &mutated);
-//    assert(!mutated);
-//
-//    uint256 masternodeID = testMasternodeKeys.begin()->first;
-//    uint32_t mintedBlocks(0);
-//    int64_t creationHeight;
-//    CKey minterKey;
-//    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
-//    BOOST_CHECK(pos != testMasternodeKeys.end());
-//
-//    minterKey = pos->second.operatorKey;
-//    CBlockIndex *tip;
-//    {
-//        LOCK(cs_main);
-//        tip = ::ChainActive().Tip();
-//
-//        auto nodePtr = penhancedview->GetMasternode(masternodeID);
-//        BOOST_CHECK(nodePtr && nodePtr->IsActive(tip->height));
-//
-//        mintedBlocks = nodePtr->mintedBlocks;
-//        creationHeight = int64_t(nodePtr->creationHeight);
-//    }
-//
-//    block.height = tip->nHeight + 1;
-//    block.mintedBlocks = mintedBlocks + 1;
-//    block.stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, minterKey.GetPubKey().GetID());
-//    block.nTime = 0;
-//
-//    while (!pos::CheckKernelHash(block.stakeModifier, block.nBits, creationHeight, (int64_t) block.nTime, masternodeID, Params().GetConsensus())) block.nTime++;
-//
-//// while (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus())) ++block.nNonce;
-//    std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>(std::move(block));
-//    BOOST_CHECK(!pos::SignPosBlock(pblock, minterKey));
-//    block = *pblock;
-//    // Test simple header round-trip with only coinbase
-//    {
-//        CBlockHeaderAndShortTxIDs shortIDs(block, false);
-//
-//        CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
-//        stream << shortIDs;
-//
-//        CBlockHeaderAndShortTxIDs shortIDs2;
-//        stream >> shortIDs2;
-//
-//        PartiallyDownloadedBlock partialBlock(&pool);
-//        BOOST_CHECK(partialBlock.InitData(shortIDs2, extra_txn) == READ_STATUS_OK);
-//        BOOST_CHECK(partialBlock.IsTxAvailable(0));
-//
-//        CBlock block2;
-//        std::vector<CTransactionRef> vtx_missing;
-//        BOOST_CHECK(partialBlock.FillBlock(block2, vtx_missing) == READ_STATUS_OK);
-//        BOOST_CHECK_EQUAL(block.GetHash().ToString(), block2.GetHash().ToString());
-//        BOOST_CHECK_EQUAL(block.hashMerkleRoot.ToString(), BlockMerkleRoot(block2, &mutated).ToString());
-//        BOOST_CHECK(!mutated);
-//    }
 }
 
 BOOST_AUTO_TEST_CASE(TransactionsRequestSerializationTest) {

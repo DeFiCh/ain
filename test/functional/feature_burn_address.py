@@ -33,7 +33,7 @@ class BurnAddressTest(DefiTestFramework):
 
         # Check create masternode burn fee
         result = self.nodes[0].listburnhistory()
-        assert_equal(result[0]['owner'][0:16], "6a1a446654784301") # OP_RETURN data
+        assert_equal(result[0]['owner'][4:14], "4466547843") # OP_RETURN data DfTxC
         assert_equal(result[0]['txn'], 2)
         assert_equal(result[0]['type'], 'CreateMasternode')
         assert_equal(result[0]['amounts'][0], '1.00000000@DFI')

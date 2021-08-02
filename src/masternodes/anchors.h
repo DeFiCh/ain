@@ -120,7 +120,7 @@ public:
     {}
 
     static CAnchor Create(std::vector<CAnchorAuthMessage> const & auths, CTxDestination const & rewardDest);
-    bool CheckAuthSigs(CTeam const & team) const;
+    bool CheckAuthSigs(CTeam const & team, const uint32_t height) const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -433,7 +433,7 @@ struct CAnchorFinalizationMessagePlus : public CAnchorConfirmDataPlus
         , sigs()
     {}
 
-    bool CheckConfirmSigs(const uint32_t height);
+    size_t CheckConfirmSigs(const uint32_t height);
 
     ADD_SERIALIZE_METHODS;
 
@@ -462,12 +462,13 @@ private:
             ordered_non_unique<
                 tag<Confirm::ByAnchor>, member<CAnchorConfirmData, uint256, &CAnchorConfirmData::btcTxHash>
             >,
-            // index for quorum selection (miner affected)
+            // index for quorum selection (miner affected) Protected against double signing.
             // just to remember that there may be confirms with equal btcTxHeight, but with different teams!
-            ordered_non_unique<
+            ordered_unique<
                 tag<Confirm::ByKey>, composite_key<Confirm,
                     member<CAnchorConfirmDataPlus, THeight, &CAnchorConfirmDataPlus::btcTxHeight>,
-                    const_mem_fun<CAnchorConfirmDataPlus, uint256, &CAnchorConfirmDataPlus::GetSignHash>
+                    member<CAnchorConfirmData, uint256, &CAnchorConfirmData::btcTxHash>,
+                    const_mem_fun<Confirm, CKeyID, &Confirm::GetSigner>
                 >
             >,
             // restriction index that helps detect doublesigning
@@ -494,6 +495,20 @@ public:
 
     void ForEachConfirm(std::function<void(Confirm const &)> callback) const;
 };
+
+template <typename TContainer>
+size_t CheckSigs(uint256 const & sigHash, TContainer const & sigs, std::set<CKeyID> const & keys)
+{
+    std::set<CPubKey> uniqueKeys;
+    for (auto const & sig : sigs) {
+        CPubKey pubkey;
+        if (!pubkey.RecoverCompact(sigHash, sig) || keys.find(pubkey.GetID()) == keys.end())
+            return false;
+
+        uniqueKeys.insert(pubkey);
+    }
+    return uniqueKeys.size();
+}
 
 /// dummy, unknown consensus rules yet. may be additional params needed (smth like 'height')
 /// even may be not here, but in CCustomCSView
