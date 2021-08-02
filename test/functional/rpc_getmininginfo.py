@@ -34,7 +34,7 @@ class GetMiningInfoRPCTest(DefiTestFramework):
 
         self.log.info("Restart nodes...")
         self.restart_node(0, ['-gen', '-dummypos=0', '-masternode_operator=' + operators[0]])
-        self.restart_node(1, ['-gen','-dummypos=0', '-rewardaddress=' + operators[1]] +
+        self.restart_node(1, ['-gen', '-dummypos=0', '-rewardaddress=' + operators[1]] +
                              ['-masternode_operator=' + x for x in operators])
 
         connect_nodes_bi(self.nodes, 0, 1)
