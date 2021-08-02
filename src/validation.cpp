@@ -4637,11 +4637,6 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
 
     CheckBlockIndex(chainparams.GetConsensus());
 
-    // Only for SPV, post-fork rule can be removed later, skip on IBD.
-    if (spv::pspv && pindex->nHeight >= chainparams.GetConsensus().DakotaHeight && !IsInitialBlockDownload()) {
-        panchors->CheckPendingAnchors();
-    }
-
     return true;
 }
 
@@ -4813,6 +4808,10 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
     if (!::ChainstateActive().IsInitialBlockDownload() && tip && tip != oldTip && spv::pspv) // spv::pspv not necessary here, but for disabling in old tests
     {
         ProcessAuthsIfTipChanged(oldTip, tip, chainparams.GetConsensus());
+
+        if (tip->nHeight >= chainparams.GetConsensus().DakotaHeight) {
+            panchors->CheckPendingAnchors();
+        }
     }
 
     return true;
