@@ -773,6 +773,7 @@ class ICXOrderbookTest (DefiTestFramework):
         assert_equal(len(offer), 2)
 
         self.nodes[1].generate(20)
+        self.sync_blocks()
 
         assert_equal(self.nodes[1].getaccount(accountBTC, {}, True)[idDFI], beforeOffer)
 
