@@ -83,12 +83,12 @@ build() {
     echo "> build: ${target}"
     pushd ./depends >/dev/null
     # XREF: #depends-make
-    make NO_QT=1 $extra_make_depends_args
+    make NO_QT=1 ${extra_make_depends_args}
     popd >/dev/null
     ./autogen.sh
     # XREF: #make-configure
-    ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/${target}" $extra_conf_opts
-    make $extra_make_args
+    ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/${target}" ${extra_conf_opts}
+    make ${extra_make_args}
 }
 
 deploy() {
