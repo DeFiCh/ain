@@ -37,7 +37,7 @@ enum class CustomTxType : uint8_t
     CreateMasternode    = 'C',
     ResignMasternode    = 'R',
     SetForcedRewardAddress    = 'F',
-    RemoveForcedRewardAddress = 'f',
+    RemForcedRewardAddress = 'f',
     // custom tokens:
     CreateToken           = 'T',
     MintToken             = 'M',
@@ -82,6 +82,8 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
     switch(type) {
         case CustomTxType::CreateMasternode:
         case CustomTxType::ResignMasternode:
+        case CustomTxType::SetForcedRewardAddress:
+        case CustomTxType::RemForcedRewardAddress:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
         case CustomTxType::UpdateToken:
@@ -251,6 +253,8 @@ typedef boost::variant<
     CCustomTxMessageNone,
     CCreateMasterNodeMessage,
     CResignMasterNodeMessage,
+    SetForcedRewardAddressMessage,
+    RemForcedRewardAddressMessage,
     CCreateTokenMessage,
     CUpdateTokenPreAMKMessage,
     CUpdateTokenMessage,

@@ -282,11 +282,11 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
 
     std::string rewardAddress = request.params[1].getValStr();
     CTxDestination rewardDest = DecodeDestination(rewardAddress);
-    if (rewardDest.which() != 1 && rewardDest.which() != 4) {
+    if (rewardDest.which() != PKHashType && rewardDest.which() != WitV0KeyHashType) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2WPKH address");
     }
 
-    CKeyID const rewardAuthKey = rewardDest.which() == 1 ?
+    CKeyID const rewardAuthKey = rewardDest.which() == PKHashType ?
         CKeyID(*boost::get<PKHash>(&rewardDest)) :
         CKeyID(*boost::get<WitnessV0KeyHash>(&rewardDest)
     );
@@ -323,24 +323,19 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplySetForcedRewardAddressTx(
-            mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-            ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg})
-        );
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, SetForcedRewardAddressMessage{}, coins);
     }
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue removeforcedrewardaddress(const JSONRPCRequest& request)
+UniValue remforcedrewardaddress(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
 
-    RPCHelpMan{"removeforcedrewardaddress",
+    RPCHelpMan{"remforcedrewardaddress",
                "\nCreates (and submits to local node and network) a remove forced reward address transaction with given masternode id\n"
                "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -361,8 +356,8 @@ UniValue removeforcedrewardaddress(const JSONRPCRequest& request)
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
-                   HelpExampleCli("removeforcedrewardaddress", "mn_id '[{\"txid\":\"id\",\"vout\":0}]'")
-                   + HelpExampleRpc("removeforcedrewardaddress", "mn_id '[{\"txid\":\"id\",\"vout\":0}]'")
+                   HelpExampleCli("remforcedrewardaddress", "mn_id '[{\"txid\":\"id\",\"vout\":0}]'")
+                   + HelpExampleRpc("remforcedrewardaddress", "mn_id '[{\"txid\":\"id\",\"vout\":0}]'")
                },
     }.Check(request);
 
@@ -410,10 +405,10 @@ UniValue removeforcedrewardaddress(const JSONRPCRequest& request)
         coinControl.destChange = ownerDest;
     }
 
-    RemoveForcedRewardAddressMessage msg{nodeId};
+    RemForcedRewardAddressMessage msg{nodeId};
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::RemoveForcedRewardAddress)
+    metadata << static_cast<unsigned char>(CustomTxType::RemForcedRewardAddress)
              << msg;
 
     CScript scriptMeta;
@@ -429,14 +424,9 @@ UniValue removeforcedrewardaddress(const JSONRPCRequest& request)
         CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto res = ApplyRemoveForcedRewardAddressTx(
-            mnview_dummy, coinview, CTransaction(rawTx), targetHeight,
-            ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg})
-        );
-        if (!res.ok) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "Execution test failed:\n" + res.msg);
-        }
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, RemForcedRewardAddressMessage{}, coins);
     }
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
@@ -923,7 +913,7 @@ static const CRPCCommand commands[] =
     {"masternodes", "getactivemasternodecount",  &getactivemasternodecount,  {"blockCount"}},
     {"masternodes", "listanchors",           &listanchors,           {}},
     {"masternodes", "setforcedrewardaddress", &setforcedrewardaddress, {"mn_id", "rewardAddress", "inputs"}},
-    {"masternodes", "removeforcedrewardaddress", &removeforcedrewardaddress, {"mn_id", "inputs"}},
+    {"masternodes", "remforcedrewardaddress", &remforcedrewardaddress, {"mn_id", "inputs"}},
 };
 
 void RegisterMasternodesRPCCommands(CRPCTable& tableRPC) {

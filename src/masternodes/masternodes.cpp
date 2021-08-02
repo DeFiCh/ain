@@ -360,7 +360,7 @@ Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char 
     return Res::Ok();
 }
 
-Res CMasternodesView::RemoveForcedRewardAddress(uint256 const & nodeId, int height)
+Res CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, int height)
 {
     auto node = GetMasternode(nodeId);
     if (!node) {

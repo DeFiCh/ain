@@ -30,6 +30,8 @@ std::string ToString(CustomTxType type) {
     {
         case CustomTxType::CreateMasternode:    return "CreateMasternode";
         case CustomTxType::ResignMasternode:    return "ResignMasternode";
+        case CustomTxType::SetForcedRewardAddress:    return "SetForcedRewardAddress";
+        case CustomTxType::RemForcedRewardAddress: return "RemForcedRewardAddress";
         case CustomTxType::CreateToken:         return "CreateToken";
         case CustomTxType::UpdateToken:         return "UpdateToken";
         case CustomTxType::UpdateTokenAny:      return "UpdateTokenAny";
@@ -105,6 +107,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     {
         case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};
         case CustomTxType::ResignMasternode:        return CResignMasterNodeMessage{};
+        case CustomTxType::SetForcedRewardAddress:  return SetForcedRewardAddressMessage{};
+        case CustomTxType::RemForcedRewardAddress:  return RemForcedRewardAddressMessage{};
         case CustomTxType::CreateToken:             return CCreateTokenMessage{};
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
         case CustomTxType::UpdateTokenAny:          return CUpdateTokenMessage{};
@@ -204,6 +208,16 @@ public:
             return Res::Err("metadata must contain 32 bytes");
         }
         return serialize(obj);
+    }
+
+    Res operator()(SetForcedRewardAddressMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(RemForcedRewardAddressMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CCreateTokenMessage& obj) const {
@@ -731,6 +745,40 @@ public:
     Res operator()(const CResignMasterNodeMessage& obj) const {
         auto res = HasCollateralAuth(obj);
         return !res ? res : mnview.ResignMasternode(obj, tx.GetHash(), height);
+    }
+
+    Res operator()(const SetForcedRewardAddressMessage& obj) const {
+        auto const node = mnview.GetMasternode(obj.nodeId);
+        if (!node) {
+            return Res::Err("%s: node %s does not exist", __func__, obj.nodeId.ToString());
+        }
+        if (!HasCollateralAuth(obj.nodeId)) {
+            return Res::Err("%s %s: %s", __func__, obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
+        }
+
+        auto res = mnview.SetForcedRewardAddress(obj.nodeId, obj.rewardAddressType, obj.rewardAddress, height);
+        if (!res.ok) {
+            return Res::Err("%s %s: %s", __func__, obj.nodeId.ToString(), res.msg);
+        }
+
+        return Res::Ok();
+    }
+
+    Res operator()(const RemForcedRewardAddressMessage& obj) const {
+        auto const node = mnview.GetMasternode(obj.nodeId);
+        if (!node) {
+            return Res::Err("%s: node %s does not exist", __func__, obj.nodeId.ToString());
+        }
+        if (!HasCollateralAuth(obj.nodeId)) {
+            return Res::Err("%s %s: %s", __func__, obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
+        }
+
+        auto res = mnview.RemForcedRewardAddress(obj.nodeId, height);
+        if (!res.ok) {
+            return Res::Err("%s %s: %s", __func__, obj.nodeId.ToString(), res.msg);
+        }
+
+        return Res::Ok();
     }
 
     Res operator()(const CCreateTokenMessage& obj) const {

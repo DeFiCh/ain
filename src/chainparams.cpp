@@ -921,17 +921,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
         consensus.EunosKampungHeight = static_cast<int>(eunosHeight.get());
     }
     UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
-
-    if (gArgs.IsArgSet("-fortcanningheight")) {
-        int64_t height = gArgs.GetArg("-fortcanningheight", consensus.FortCanningHeight);
-        if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            throw std::runtime_error(strprintf("Activation height %ld for Fort Canning is out of valid range. Use -1 to disable Fort Canning features.", height));
-        } else if (height == -1) {
-            LogPrintf("Fort Canning disabled for testing\n");
-            height = std::numeric_limits<int>::max();
-        }
-        consensus.FortCanningHeight = static_cast<int>(height);
-    }
+    UpdateHeightValidation("Fork canning", "-fortcanningheight", consensus.FortCanningHeight);
 
     if (!args.IsArgSet("-vbparams")) return;
 

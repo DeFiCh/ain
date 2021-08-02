@@ -76,6 +76,19 @@ public:
         rpcInfo.pushKV("id", obj.GetHex());
     }
 
+    void operator()(const SetForcedRewardAddressMessage& obj) const {
+        rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
+        rpcInfo.pushKV("rewardAddress", EncodeDestination(
+                obj.rewardAddressType == 1 ?
+                    CTxDestination(PKHash(obj.rewardAddress)) :
+                    CTxDestination(WitnessV0KeyHash(obj.rewardAddress)))
+        );
+    }
+
+    void operator()(const RemForcedRewardAddressMessage& obj) const {
+        rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
+    }
+
     void operator()(const CCreateTokenMessage& obj) const {
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
         tokenInfo(obj);
