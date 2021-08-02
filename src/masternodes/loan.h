@@ -122,6 +122,7 @@ using CVaultId = uint256;
 struct CVaultMessage {
     std::string ownerAddress;
     std::string schemeId;
+    bool isLiquidated{false};
 
     ADD_SERIALIZE_METHODS;
 
@@ -135,7 +136,7 @@ struct CVaultMessage {
 
 struct CVault : public CVaultMessage
 {
-    bool isLiquidated{false};
+    CVaultId id{};
 
     ADD_SERIALIZE_METHODS;
 
@@ -181,10 +182,10 @@ public:
 class CVaultView : public virtual CStorageView
 {
 public:
-    ~CVaultView() override = default;
-
     /// register new vault instance
-    Res StoreVault(const CVaultId& vaultId, const CVaultMessage& vault);
+    Res StoreVault(const CVault& vault);
+
+    ResVal<CVault> GetVault(const CVaultId& vaultId) const;
 
     void ForEachVault(std::function<bool(const CVaultId&, const CVault&)> callback);
 

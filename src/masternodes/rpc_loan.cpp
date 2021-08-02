@@ -140,8 +140,8 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
 }
 
 UniValue getcollateraltoken(const JSONRPCRequest& request) {
-    RPCHelpMan{"getcollateraltokens",
-                "Return list of created collateral tokens.\n",
+    RPCHelpMan{"getcollateraltoken",
+                "Return collateral token information.\n",
                 {
                     {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
@@ -155,7 +155,7 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
                     "{...}     (object) Json object with collateral token information\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("icx_listcollateraltokensgetorder", "")
+                    HelpExampleCli("getcollateraltoken", "")
                 },
      }.Check(request);
 

@@ -1943,7 +1943,8 @@ public:
             return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.schemeId));
         }
 
-        return mnview.StoreVault(tx.GetHash(), vault);
+        vault.id = tx.GetHash();
+        return mnview.StoreVault(vault);
     }
     Res operator()(const CCustomTxMessageNone&) const {
         return Res::Ok();
