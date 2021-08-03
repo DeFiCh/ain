@@ -6,7 +6,7 @@
 
 #include <flushablestorage.h>
 #include <masternodes/res.h>
-
+#include <script/script.h>
 class CLoanSetCollateralToken
 {
 public:
@@ -120,7 +120,7 @@ struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
 // use vault's creation tx for ID
 using CVaultId = uint256;
 struct CVaultMessage {
-    std::string ownerAddress;
+    CScript ownerAddress;
     std::string schemeId;
     bool isUnderLiquidation{false};
 
@@ -131,20 +131,10 @@ struct CVaultMessage {
     {
         READWRITE(ownerAddress);
         READWRITE(schemeId);
+        READWRITE(isUnderLiquidation);
     }
 };
 
-struct CVault : public CVaultMessage
-{
-    CVaultId id{};
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CVaultMessage, *this);
-    }
-};
 class CLoanView : public virtual CStorageView {
 public:
     using CollateralTokenKey = std::pair<DCT_ID, uint32_t>;
@@ -182,15 +172,13 @@ class CVaultView : public virtual CStorageView
 {
 public:
     /// register new vault instance
-    Res StoreVault(const CVault& vault);
+    Res StoreVault(const CVaultId&, const CVaultMessage&);
 
-    ResVal<CVault> GetVault(const CVaultId& vaultId) const;
+    ResVal<CVaultMessage> GetVault(const CVaultId&) const;
 
-    void ForEachVault(std::function<bool(const CVaultId&, const CVault&)> callback);
+    void ForEachVault(std::function<bool(const CVaultId&, const CVaultMessage&)> callback);
 
     struct VaultKey { static const unsigned char prefix; };
 };
-
-
 
 #endif // DEFI_MASTERNODES_LOAN_H

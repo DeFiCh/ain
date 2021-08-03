@@ -644,6 +644,15 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
 }
 
 // VAULT
+namespace {
+    UniValue VaultToJSON(const CVaultMessage& vault) {
+        UniValue result{UniValue::VOBJ};
+        result.pushKV("loanschemeid", vault.schemeId);
+        result.pushKV("owneraddress", ScriptToString(vault.ownerAddress));
+        result.pushKV("isunderliquidation", vault.isUnderLiquidation);
+        return result;
+    }
+}
 
 UniValue createvault(const JSONRPCRequest& request) {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -689,9 +698,10 @@ UniValue createvault(const JSONRPCRequest& request) {
     LockedCoinsScopedGuard lcGuard(pwallet);
 
     CVaultMessage vault;
+    std::string ownerAddress{};
     if(request.params.size() > 0){
-        vault.ownerAddress = request.params[0].getValStr();
-        if(vault.ownerAddress.empty()){
+        ownerAddress = request.params[0].getValStr();
+        if(ownerAddress.empty()){
             // generate new address
             LOCK(pwallet->cs_wallet);
 
@@ -703,15 +713,16 @@ UniValue createvault(const JSONRPCRequest& request) {
             if (!pwallet->GetNewDestination(OutputType::LEGACY, "*", dest, error)) {
                 throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
             }
-            vault.ownerAddress = EncodeDestination(dest);
+            ownerAddress = EncodeDestination(dest);
         } else {
             // check address validity
-            CTxDestination ownerDest = DecodeDestination(vault.ownerAddress);
+            CTxDestination ownerDest = DecodeDestination(ownerAddress);
             if (!IsValidDestination(ownerDest)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owneraddress address");
             }
         }
     }
+    vault.ownerAddress = DecodeScript(ownerAddress);
     vault.schemeId = pcustomcsview->GetDefaultLoanScheme().get();
 
     if(request.params.size() > 1){
@@ -784,9 +795,9 @@ UniValue listvaults(const JSONRPCRequest& request) {
 
     UniValue valueArr{UniValue::VOBJ};
 
-    pcustomcsview->ForEachVault([&](const CVaultId& id, const CVault& data) {
+    pcustomcsview->ForEachVault([&](const CVaultId& id, const CVaultMessage& data) {
         UniValue vaultObj{UniValue::VOBJ};
-        vaultObj.pushKV("owneraddress", data.ownerAddress);
+        vaultObj.pushKV("owneraddress", ScriptToString(data.ownerAddress));
         vaultObj.pushKV("loanschemeid", data.schemeId);
         vaultObj.pushKV("isunderliquidation", data.isUnderLiquidation);
         valueArr.pushKV(id.GetHex(), vaultObj);
@@ -794,6 +805,46 @@ UniValue listvaults(const JSONRPCRequest& request) {
     });
 
     return valueArr;
+}
+
+UniValue getvault(const JSONRPCRequest& request) {
+    CWallet *const pwallet = GetWallet(request);
+
+    RPCHelpMan{"getvault",
+               "Returns information about vault\n",
+                {
+                    {"vaultid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id",},
+                },
+                RPCResult{
+                    "\"json\"                  (string) vault data in json form\n"
+                },
+               RPCExamples{
+                       HelpExampleCli("getvault",  "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf") +
+                       HelpExampleRpc("getvault", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    CVaultId vaultId = ParseHashV(request.params[0], "vaultid");
+
+    LOCK(cs_main);
+    CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
+
+    auto vaultRes = mnview.GetVault(vaultId);
+    if (!vaultRes.ok) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, vaultRes.msg);
+    }
+
+    return VaultToJSON(*vaultRes.val);
 }
 
 static const CRPCCommand commands[] =
@@ -810,6 +861,7 @@ static const CRPCCommand commands[] =
     {"loan",        "listloanschemes",           &listloanschemes,       {}},
     {"loan",        "createvault",               &createvault,           {"owneraddress", "schemeid", "inputs"}},
     {"loan",        "listvaults",                &listvaults,            {}},
+    {"loan",        "getvault",                  &getvault,              {"id"}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {

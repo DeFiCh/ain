@@ -1929,8 +1929,7 @@ public:
 
     Res operator()(const CVaultMessage& obj) const {
         // Check LoanScheme exists
-        auto vault = CVault();
-        static_cast<CVaultMessage&>(vault) = obj;
+        auto vault{obj};
         if(obj.schemeId.empty()){
             if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
                 vault.schemeId = *defaultScheme;
@@ -1940,11 +1939,11 @@ public:
         }
 
         if (!mnview.GetLoanScheme(vault.schemeId)) {
-            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.schemeId));
+            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", vault.schemeId));
         }
 
-        vault.id = tx.GetHash();
-        return mnview.StoreVault(vault);
+        auto vaultId = tx.GetHash();
+        return mnview.StoreVault(vaultId, vault);
     }
     Res operator()(const CCustomTxMessageNone&) const {
         return Res::Ok();

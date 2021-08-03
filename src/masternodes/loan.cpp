@@ -147,25 +147,25 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
 
 // VAULT
 
-Res CVaultView::StoreVault(const CVault& vault)
+Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultMessage& vault)
 {
-    if (!WriteBy<VaultKey>(vault.id, vault)) {
-        return Res::Err("Failed to create new vault <%s>", vault.id.GetHex());
+    if (!WriteBy<VaultKey>(vaultId, vault)) {
+        return Res::Err("Failed to create new vault <%s>", vaultId.GetHex());
     }
 
     return Res::Ok();
 }
 
-void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVault&)> callback)
+void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultMessage&)> callback)
 {
-    ForEach<VaultKey, CVaultId, CVault>(callback);
+    ForEach<VaultKey, CVaultId, CVaultMessage>(callback);
 }
 
-ResVal<CVault> CVaultView::GetVault(const CVaultId& vaultId) const
+ResVal<CVaultMessage> CVaultView::GetVault(const CVaultId& vaultId) const
 {
-    CVault vault{};
+    CVaultMessage vault{};
     if (!ReadBy<VaultKey>(vaultId, vault)) {
         return Res::Err("vault <%s> not found", vaultId.GetHex());
     }
-    return ResVal<CVault>(vault, Res::Ok());
+    return ResVal<CVaultMessage>(vault, Res::Ok());
 }
