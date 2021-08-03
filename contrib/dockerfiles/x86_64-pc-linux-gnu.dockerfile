@@ -36,7 +36,7 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /work/depends
 COPY ./depends .
 # XREF: #depends-make
-RUN make HOST=${TARGET} NO_QT=1
+RUN make HOST=${TARGET} NO_QT=1 -j $(nproc)
 
 # -----------
 FROM builder-base as builder
@@ -56,7 +56,7 @@ RUN ./configure CC=clang-11 CXX=clang++-11 --prefix=`pwd`/depends/${TARGET}
 
 ARG BUILD_VERSION=
 
-RUN make
+RUN make -j $(nproc)
 RUN mkdir /app && make prefix=/ DESTDIR=/app install && cp /work/README.md /app/.
 
 # -----------
