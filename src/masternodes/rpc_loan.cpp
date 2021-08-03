@@ -5,8 +5,8 @@ UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& c
     UniValue collTokenObj(UniValue::VOBJ);
 
     auto token = pcustomcsview->GetToken(collToken.idToken);
-        if (!token)
-            return (UniValue::VNULL);
+    if (!token)
+        return (UniValue::VNULL);
     collTokenObj.pushKV("token", token->CreateSymbolKey(collToken.idToken));
     collTokenObj.pushKV("factor", ValueFromAmount(collToken.factor));
     collTokenObj.pushKV("priceFeedId", collToken.priceFeedTxid.GetHex());
@@ -54,7 +54,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
      }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot setcollateraltoken while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
@@ -140,7 +140,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
 }
 
 UniValue getcollateraltoken(const JSONRPCRequest& request) {
-    RPCHelpMan{"getcollateraltokens",
+    RPCHelpMan{"getcollateraltoken",
                 "Return list of created collateral tokens.\n",
                 {
                     {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -155,14 +155,20 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
                     "{...}     (object) Json object with collateral token information\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("icx_listcollateraltokensgetorder", "")
+                    HelpExampleCli("getcollateraltoken", "")
                 },
      }.Check(request);
 
     UniValue ret(UniValue::VOBJ);
     std::string tokenSymbol;
     DCT_ID idToken = {std::numeric_limits<uint32_t>::max()}, currentToken = {std::numeric_limits<uint32_t>::max()};
-    uint32_t height = ::ChainActive().Height();
+    uint32_t height;
+
+    {
+        LOCK(cs_main);
+
+        height = ::ChainActive().Height();
+    }
 
     if (request.params.size() > 0)
     {
@@ -183,7 +189,10 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
     {
         start.first = idToken;
         auto collToken = pcustomcsview->HasLoanSetCollateralToken(start);
-        ret.pushKVs(setCollateralTokenToJSON(*collToken));
+        if (collToken)
+        {
+            ret.pushKVs(setCollateralTokenToJSON(*collToken));
+        }
 
         return (ret);
     }
@@ -193,7 +202,7 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
         if (idToken.v != std::numeric_limits<uint32_t>::max() && key.first != idToken)
             return false;
 
-        if (~key.second >= height || currentToken == key.first) return true;
+        if (~key.second > height || currentToken == key.first) return true;
 
         currentToken = key.first;
         auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
@@ -268,7 +277,7 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot createloanscheme while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
@@ -357,7 +366,7 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot updateloanscheme while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
@@ -449,7 +458,7 @@ UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot setdefaultloanschem while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
@@ -533,7 +542,7 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot destroyloanscheme while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
@@ -683,7 +692,7 @@ UniValue createvault(const JSONRPCRequest& request) {
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot createvault while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
