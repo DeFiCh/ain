@@ -23,7 +23,7 @@ Res CLoanView::LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & 
     if (GetLoanSetCollateralToken(collToken.creationTx))
         return Res::Err("setCollateralToken with creation tx %s already exists!", collToken.creationTx.GetHex());
     if (collToken.factor > COIN)
-        return Res::Err("setCollateralToken factor must be lower or equal than 1!");
+        return Res::Err("setCollateralToken factor must be lower or equal than %s!",GetDecimaleString(COIN));
     if (collToken.factor < 0)
         return Res::Err("setCollateralToken factor must not be negative!");
 
@@ -44,7 +44,7 @@ void CLoanView::ForEachLoanSetCollateralToken(std::function<bool (CollateralToke
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanSetCollateralToken(CollateralTokenKey const & key)
 {
     auto it = LowerBound<LoanSetCollateralTokenKey>(key);
-    if (it.Valid())
+    if (it.Valid() && it.Key().first == key.first)
         return GetLoanSetCollateralToken(it.Value());
     return {};
 }
