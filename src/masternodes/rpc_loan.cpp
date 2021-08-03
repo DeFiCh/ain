@@ -788,7 +788,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
         UniValue vaultObj{UniValue::VOBJ};
         vaultObj.pushKV("owneraddress", data.ownerAddress);
         vaultObj.pushKV("loanschemeid", data.schemeId);
-        vaultObj.pushKV("isliquidated", data.isLiquidated);
+        vaultObj.pushKV("isunderliquidation", data.isUnderLiquidation);
         valueArr.pushKV(id.GetHex(), vaultObj);
         return true;
     });

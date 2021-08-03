@@ -122,7 +122,7 @@ using CVaultId = uint256;
 struct CVaultMessage {
     std::string ownerAddress;
     std::string schemeId;
-    bool isLiquidated{false};
+    bool isUnderLiquidation{false};
 
     ADD_SERIALIZE_METHODS;
 
@@ -143,7 +143,6 @@ struct CVault : public CVaultMessage
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CVaultMessage, *this);
-        READWRITE(isLiquidated);
     }
 };
 class CLoanView : public virtual CStorageView {
