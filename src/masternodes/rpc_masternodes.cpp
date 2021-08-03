@@ -304,7 +304,7 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
         coinControl.destChange = ownerDest;
     }
 
-    SetForcedRewardAddressMessage msg{nodeId, static_cast<char>(rewardDest.which()), rewardAuthKey};
+    CSetForcedRewardAddressMessage msg{nodeId, static_cast<char>(rewardDest.which()), rewardAuthKey};
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::SetForcedRewardAddress)
@@ -325,7 +325,7 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, targetHeight);
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, SetForcedRewardAddressMessage{}, coins);
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CSetForcedRewardAddressMessage{}, coins);
     }
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
@@ -405,7 +405,7 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
         coinControl.destChange = ownerDest;
     }
 
-    RemForcedRewardAddressMessage msg{nodeId};
+    CRemForcedRewardAddressMessage msg{nodeId};
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::RemForcedRewardAddress)
@@ -426,7 +426,7 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, targetHeight);
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, RemForcedRewardAddressMessage{}, coins);
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CRemForcedRewardAddressMessage{}, coins);
     }
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();

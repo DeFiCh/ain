@@ -76,7 +76,7 @@ public:
         rpcInfo.pushKV("id", obj.GetHex());
     }
 
-    void operator()(const SetForcedRewardAddressMessage& obj) const {
+    void operator()(const CSetForcedRewardAddressMessage& obj) const {
         rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
         rpcInfo.pushKV("rewardAddress", EncodeDestination(
                 obj.rewardAddressType == 1 ?
@@ -85,7 +85,7 @@ public:
         );
     }
 
-    void operator()(const RemForcedRewardAddressMessage& obj) const {
+    void operator()(const CRemForcedRewardAddressMessage& obj) const {
         rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
     }
 
