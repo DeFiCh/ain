@@ -356,19 +356,35 @@ class CreateLoanSchemeTest (DefiTestFramework):
         owneraddress2 = self.nodes[0].getnewaddress('', 'legacy')
         self.nodes[0].generate(1)
         vaultId2 = self.nodes[0].createvault(owneraddress2, 'LOAN0003')
-
         self.nodes[0].generate(1)
+
         # check listvaults
         listVaults = self.nodes[0].listvaults()
         assert(listVaults[vaultId1])
         assert(listVaults[vaultId2])
         owneraddress1 = listVaults[vaultId1]['owneraddress']
+
         # assert default loanscheme was assigned correctly
         assert_equal(listVaults[vaultId1]['loanschemeid'], 'LOAN0001')
         assert_equal(listVaults[vaultId1]['owneraddress'], owneraddress1)
+
         # assert non-default loanscheme was assigned correctly
         assert_equal(listVaults[vaultId2]['loanschemeid'], 'LOAN0003')
         assert_equal(listVaults[vaultId2]['owneraddress'], owneraddress2)
+
+        # check getvault
+
+        # fail
+        try:
+            self.nodes[0].getvault('5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('vault <5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf> not found' in errorString)
+
+        # success
+        vault = self.nodes[0].getvault(vaultId1)
+        assert_equal(vault["loanschemeid"], 'LOAN0001')
+        assert_equal(vault["owneraddress"], owneraddress1)
 
 
 if __name__ == '__main__':

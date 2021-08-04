@@ -329,8 +329,9 @@ public:
 
     void operator()(const CVaultMessage& obj) const {
         // Add Vault attributes
-        rpcInfo.pushKV("address", obj.ownerAddress);
+        rpcInfo.pushKV("owneraddress", ScriptToString(obj.ownerAddress));
         rpcInfo.pushKV("loanschemeid", obj.schemeId);
+        rpcInfo.pushKV("isunderliquidation", obj.isUnderLiquidation);
     }
 
     void operator()(const CCustomTxMessageNone&) const {

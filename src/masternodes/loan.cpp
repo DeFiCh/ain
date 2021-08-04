@@ -156,7 +156,17 @@ Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultMessage& vault)
     return Res::Ok();
 }
 
-void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVault&)> callback)
+void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultMessage&)> callback)
 {
-    ForEach<VaultKey, CVaultId, CVault>(callback);
+    ForEach<VaultKey, CVaultId, CVaultMessage>(callback);
 }
+
+ResVal<CVaultMessage> CVaultView::GetVault(const CVaultId& vaultId) const
+{
+    CVaultMessage vault{};
+    if (!ReadBy<VaultKey>(vaultId, vault)) {
+        return Res::Err("vault <%s> not found", vaultId.GetHex());
+    }
+    return ResVal<CVaultMessage>(vault, Res::Ok());
+}
+
