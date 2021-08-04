@@ -701,7 +701,7 @@ namespace pos {
             mintedBlocks = nodePtr->mintedBlocks;
             if (args.coinbaseScript.empty()) {
                 // this is safe cause MN was found
-                if (tip->height >= chainparams.GetConsensus().FUpgradeHeight && nodePtr->rewardAddressType != 0) {
+                if (tip->height >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
                     scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == 1 ?
                         CTxDestination(PKHash(nodePtr->rewardAddress)) :
                         CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress))

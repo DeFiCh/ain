@@ -4199,14 +4199,14 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
                                      strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
     }
 
-    if (!fIsFakeNet && fCheckPOS && block.height >= consensusParams.FUpgradeHeight) {
+    if (!fIsFakeNet && fCheckPOS && block.height >= consensusParams.FortCanningHeight) {
         CKeyID minter;
         // this is safe cause pos::ContextualCheckProofOfStake checked
         block.ExtractMinterKey(minter);
         auto nodeId = pcustomcsview->GetMasternodeIdByOperator(minter);
         auto node = pcustomcsview->GetMasternode(*nodeId);
         if (block.vtx[0]->IsCoinBase() && node->rewardAddressType != 0) {
-            CScript rewardScriptPubKey = GetScriptForDestination(node->rewardAddressType == 1 ?
+            CScript rewardScriptPubKey = GetScriptForDestination(node->rewardAddressType == PKHashType ?
                 CTxDestination(PKHash(node->rewardAddress)) :
                 CTxDestination(WitnessV0KeyHash(node->rewardAddress))
             );

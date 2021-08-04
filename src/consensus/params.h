@@ -91,7 +91,6 @@ struct Params {
     int EunosPayaHeight;
     int FortCanningHeight;
 
-    int FUpgradeHeight;
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
     /** Trackable burn address */
