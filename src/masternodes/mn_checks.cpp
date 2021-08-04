@@ -1929,7 +1929,7 @@ public:
 
     Res operator()(const CVaultMessage& obj) const {
         // Check LoanScheme exists
-        auto vault{obj};
+        auto vault = obj;
         if(obj.schemeId.empty()){
             if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
                 vault.schemeId = *defaultScheme;
