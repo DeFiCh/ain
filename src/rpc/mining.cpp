@@ -190,9 +190,8 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
-    CKeyID passedID = destination.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&destination)) :
-                                   destination.which() == WitV0KeyHashType ? CKeyID(*boost::get<WitnessV0KeyHash>(&destination)) : CKeyID();
-    
+    CKeyID passedID = getCKeyIDFromDestination(destination);
+
     auto myAllMNs = pcustomcsview->GetOperatorsMulti();
     if (myAllMNs.empty()) {
       throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
