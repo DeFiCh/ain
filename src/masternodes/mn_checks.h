@@ -185,6 +185,34 @@ struct CResignMasterNodeMessage : public uint256 {
     }
 };
 
+struct CSetForcedRewardAddressMessage {
+    uint256 nodeId;
+    char rewardAddressType;
+    CKeyID rewardAddress;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(nodeId);
+        READWRITE(rewardAddressType);
+        READWRITE(rewardAddress);
+    }
+};
+
+struct CRemForcedRewardAddressMessage {
+    uint256 nodeId;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(nodeId);
+    }
+};
+
 struct CCreateTokenMessage : public CToken {
     using CToken::CToken;
 

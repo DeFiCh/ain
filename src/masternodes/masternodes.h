@@ -40,60 +40,6 @@ CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
 
-struct CreateMasternodeMessage {
-    char operatorType;
-    CKeyID operatorAuthAddress;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(operatorType);
-        READWRITE(operatorAuthAddress);
-    }
-};
-
-struct ResignMasternodeMessage {
-    uint256 nodeId;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(nodeId);
-    }
-};
-
-struct CSetForcedRewardAddressMessage {
-    uint256 nodeId;
-    char rewardAddressType;
-    CKeyID rewardAddress;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(nodeId);
-        READWRITE(rewardAddressType);
-        READWRITE(rewardAddress);
-    }
-};
-
-struct CRemForcedRewardAddressMessage {
-    uint256 nodeId;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(nodeId);
-    }
-};
-
 constexpr uint8_t SUBNODE_COUNT{4};
 
 class CMasternode
@@ -243,10 +189,10 @@ public:
 
     Res CreateMasternode(uint256 const & nodeId, CMasternode const & node, uint16_t timelock);
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
-//    void UnCreateMasternode(uint256 const & nodeId);
-//    void UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
+    Res UnCreateMasternode(uint256 const & nodeId);
+    Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
     Res SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height);
-    Res RemoveForcedRewardAddress(uint256 const & nodeId, int height);
+    Res RemForcedRewardAddress(uint256 const & nodeId, int height);
 
     // Get blocktimes for non-subnode and subnode with fork logic
     std::vector<int64_t> GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int32_t creationHeight, const uint16_t timelock);

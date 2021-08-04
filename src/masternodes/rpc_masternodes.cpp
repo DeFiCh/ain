@@ -168,11 +168,9 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
     CKeyID const operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest));
 
-    CreateMasternodeMessage msg{static_cast<char>(operatorDest.which()), operatorAuthKey};
-
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
-             << msg;
+             << static_cast<char>(operatorDest.which()) << operatorAuthKey;
 
     if (eunosPaya) {
         metadata << timelock;
@@ -320,8 +318,7 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, targetHeight);
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
@@ -421,8 +418,7 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
     // check execution
     {
         LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, targetHeight);
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
@@ -501,11 +497,9 @@ UniValue resignmasternode(const JSONRPCRequest& request)
         coinControl.destChange = ownerDest;
     }
 
-    ResignMasternodeMessage msg{nodeId};
-
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::ResignMasternode)
-             << msg;
+             << nodeId;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);

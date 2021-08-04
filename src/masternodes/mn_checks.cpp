@@ -183,6 +183,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
+    Res isPostFortCanningFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningHeight) {
+            return Res::Err("called before FortCanning height");
+        }
+        return Res::Ok();
+    }
+
     template<typename T>
     Res serialize(T& obj) const {
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
