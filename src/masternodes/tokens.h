@@ -31,6 +31,7 @@ public:
         DAT = 0x04,
         LPS = 0x08, // Liquidity Pool Share
         Finalized = 0x10, // locked forever
+        LoanToken = 0x20, // token created for loan
         Default = TokenFlags::Mintable | TokenFlags::Tradeable
     };
 
@@ -69,6 +70,10 @@ public:
     inline bool IsFinalized() const
     {
         return flags & (uint8_t)TokenFlags::Finalized;
+    }
+    inline bool IsLoanToken () const
+    {
+        return flags & (uint8_t)TokenFlags::LoanToken;
     }
     inline Res IsValidSymbol() const
     {

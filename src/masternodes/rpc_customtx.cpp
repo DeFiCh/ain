@@ -312,6 +312,23 @@ public:
         if (obj.activateAfterBlock) rpcInfo.pushKV("activateAfterBlock", static_cast<int>(obj.activateAfterBlock));
     }
 
+    void operator()(const CLoanSetLoanTokenMessage& obj) const {
+        rpcInfo.pushKV("symbol", obj.symbol);
+        rpcInfo.pushKV("name", obj.name);
+        rpcInfo.pushKV("priceFeedTxid", obj.priceFeedTxid.GetHex());
+        rpcInfo.pushKV("mintable", obj.mintable);
+        rpcInfo.pushKV("interest", obj.interest);
+    }
+
+    void operator()(const CLoanUpdateLoanTokenMessage& obj) const {
+        rpcInfo.pushKV("tokenTx", obj.tokenTx.GetHex());
+        rpcInfo.pushKV("symbol", obj.symbol);
+        rpcInfo.pushKV("name", obj.name);
+        rpcInfo.pushKV("priceFeedTxid", obj.priceFeedTxid.GetHex());
+        rpcInfo.pushKV("mintable", obj.mintable);
+        rpcInfo.pushKV("interest", obj.interest);
+    }
+
     void operator()(const CLoanSchemeMessage& obj) const {
         rpcInfo.pushKV("id", obj.identifier);
         rpcInfo.pushKV("mincolratio", static_cast<uint64_t>(obj.ratio));
