@@ -815,7 +815,12 @@ public:
             }
         }
 
-        return mnview.UpdateToken(token.creationTx, obj.token, false);
+        auto updatedToken = obj.token;
+        if (height >= consensus.FortCanningHeight) {
+            updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        }
+
+        return mnview.UpdateToken(token.creationTx, updatedToken, false);
     }
 
     Res operator()(const CMintTokensMessage& obj) const {
@@ -872,10 +877,11 @@ public:
             return Res::Err("token %s does not exist!", poolPair.idTokenB.ToString());
         }
 
+        const auto symbolLength = height >= consensus.FortCanningHeight ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
         if (pairSymbol.empty()) {
-            pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+            pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, symbolLength);
         } else {
-            pairSymbol = trim_ws(pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+            pairSymbol = trim_ws(pairSymbol).substr(0, symbolLength);
         }
 
         CTokenImplementation token;
