@@ -300,7 +300,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
      }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot setloantoken while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
@@ -413,7 +413,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
      }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot updateloantoken while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);

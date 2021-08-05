@@ -55,11 +55,7 @@ std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanSetLoanToken
 {
     auto id = ReadBy<LoanSetLoanTokenCreationTx, DCT_ID>(txid);
     if (id)
-    {
-        auto loanToken = ReadBy<LoanSetLoanTokenKey,CLoanSetLoanTokenImpl>(*id);
-        if (loanToken)
-            return MakeUnique<CLoanSetLoanTokenImpl>(*loanToken);
-    }
+        return GetLoanSetLoanTokenByID(*id);
     return {};
 }
 
@@ -77,11 +73,8 @@ Res CLoanView::LoanSetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID 
     if (GetLoanSetLoanTokenByID(id))
         return Res::Err("setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex());
 
-    if (loanToken.interest < 0)
-        return Res::Err("interest rate must be positive number!");
-
     if (loanToken.interest < 1000000)
-            return Res::Err("interest rate cannot be less than 0.01");
+            return Res::Err("interest rate cannot be less than 0.01!");
 
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
     WriteBy<LoanSetLoanTokenCreationTx>(loanToken.creationTx, id);

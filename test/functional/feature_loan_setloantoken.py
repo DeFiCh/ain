@@ -58,7 +58,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
                             'name': "Tesla stock token",
                             'priceFeedId': tokenTxid,
                             'mintable': False,
-                            'interest': 0})
+                            'interest': 0.05})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("oracle (" + tokenTxid + ") does not exist" in errorString)
@@ -69,18 +69,17 @@ class LoanSetLoanTokenTest (DefiTestFramework):
                             'name': "Tesla stock token",
                             'priceFeedId': oracle_id1,
                             'mintable': False,
-                            'interest': -1})
+                            'interest': 0})
         except JSONRPCException as e:
             errorString = e.error['message']
-            print(errorString)
-        assert("Amount out of range" in errorString)
+        assert("interest rate cannot be less than 0.01" in errorString)
 
         setLoanTokenTx = self.nodes[0].setloantoken({
                             'symbol': "TSLAAAA",
                             'name': "Tesla",
                             'priceFeedId': oracle_id1,
                             'mintable': False,
-                            'interest': 0})
+                            'interest': 0.01})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -93,7 +92,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["name"], "Tesla")
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["mintable"], False)
         assert_equal(loantokens[setLoanTokenTx]["priceFeedId"], oracle_id1)
-        assert_equal(loantokens[setLoanTokenTx]["interest"], Decimal('0'))
+        assert_equal(loantokens[setLoanTokenTx]["interest"], Decimal('0.01'))
 
         updateLoanTokenTx = self.nodes[0].updateloantoken("TSLAAAA",{
                             'symbol': "TSLA",
