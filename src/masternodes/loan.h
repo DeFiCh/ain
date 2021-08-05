@@ -60,7 +60,6 @@ public:
     uint256 priceFeedTxid;
     bool mintable = false;
     CAmount interest = 0;
-    DCT_ID tokenId;
 
     ADD_SERIALIZE_METHODS;
 
