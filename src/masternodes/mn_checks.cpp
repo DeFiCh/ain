@@ -412,7 +412,7 @@ public:
     }
 
     Res operator()(CLoanSetLoanTokenMessage& obj) const {
-            auto res = isPostFortCanningFork();
+        auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
 

@@ -314,22 +314,22 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
 
-    CLoanSetLoanToken genToken;
+    CLoanSetLoanToken loanToken;
 
     if (!metaObj["symbol"].isNull())
-        genToken.symbol = trim_ws(metaObj["symbol"].getValStr());
+        loanToken.symbol = trim_ws(metaObj["symbol"].getValStr());
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"symbol\" must not be null");
     if (!metaObj["name"].isNull())
-        genToken.name = trim_ws(metaObj["name"].getValStr());
+        loanToken.name = trim_ws(metaObj["name"].getValStr());
     if (!metaObj["priceFeedId"].isNull())
-        genToken.priceFeedTxid = uint256S(metaObj["priceFeedId"].getValStr());
+        loanToken.priceFeedTxid = uint256S(metaObj["priceFeedId"].getValStr());
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"priceFeedId\" must be non-null");
     if (!metaObj["mintable"].isNull())
-        genToken.mintable = metaObj["mintable"].getBool();
+        loanToken.mintable = metaObj["mintable"].getBool();
     if (!metaObj["interest"].isNull())
-        genToken.interest = AmountFromValue(metaObj["interest"]);
+        loanToken.interest = AmountFromValue(metaObj["interest"]);
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"interest\" must not be null");
 
@@ -338,7 +338,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::LoanSetLoanToken)
-             << genToken;
+             << loanToken;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -368,7 +368,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
         CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, genToken});
+        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, loanToken});
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanSetLoanTokenMessage{}, coinview);
     }
 

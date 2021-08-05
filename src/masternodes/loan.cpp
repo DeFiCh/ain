@@ -31,7 +31,7 @@ Res CLoanView::LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & 
 
     WriteBy<LoanSetCollateralTokenCreationTx>(collToken.creationTx, collToken);
 
-    // invert height bytes so that we can find <= key with givven height
+    // invert height bytes so that we can find <= key with given height
     uint32_t height = ~collToken.activateAfterBlock;
     WriteBy<LoanSetCollateralTokenKey>(CollateralTokenKey(collToken.idToken, height), collToken.creationTx);
 
@@ -54,9 +54,12 @@ std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanSetCol
 std::unique_ptr<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanSetLoanToken(uint256 const & txid) const
 {
     auto id = ReadBy<LoanSetLoanTokenCreationTx, DCT_ID>(txid);
-    auto loanToken = ReadBy<LoanSetLoanTokenKey,CLoanSetLoanTokenImpl>(*id);
-    if (loanToken)
-        return MakeUnique<CLoanSetLoanTokenImpl>(*loanToken);
+    if (id)
+    {
+        auto loanToken = ReadBy<LoanSetLoanTokenKey,CLoanSetLoanTokenImpl>(*id);
+        if (loanToken)
+            return MakeUnique<CLoanSetLoanTokenImpl>(*loanToken);
+    }
     return {};
 }
 
@@ -76,6 +79,9 @@ Res CLoanView::LoanSetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID 
 
     if (loanToken.interest < 0)
         return Res::Err("interest rate must be positive number!");
+
+    if (loanToken.interest < 1000000)
+            return Res::Err("interest rate cannot be less than 0.01");
 
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
     WriteBy<LoanSetLoanTokenCreationTx>(loanToken.creationTx, id);
