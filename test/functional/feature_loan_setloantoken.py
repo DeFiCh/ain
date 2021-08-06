@@ -69,10 +69,10 @@ class LoanSetLoanTokenTest (DefiTestFramework):
                             'name': "Tesla stock token",
                             'priceFeedId': oracle_id1,
                             'mintable': False,
-                            'interest': 0})
+                            'interest': -1})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("interest rate cannot be less than 0.01" in errorString)
+        assert("Amount out of range" in errorString)
 
         setLoanTokenTx = self.nodes[0].setloantoken({
                             'symbol': "TSLAAAA",
