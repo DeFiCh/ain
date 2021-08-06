@@ -73,8 +73,8 @@ Res CLoanView::LoanSetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID 
     if (GetLoanSetLoanTokenByID(id))
         return Res::Err("setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex());
 
-    if (loanToken.interest < 1000000)
-            return Res::Err("interest rate cannot be less than 0.01!");
+    if (loanToken.interest < 0)
+        return Res::Err("interest rate cannot be less than 0!");
 
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
     WriteBy<LoanSetLoanTokenCreationTx>(loanToken.creationTx, id);
@@ -85,7 +85,7 @@ Res CLoanView::LoanSetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID 
 Res CLoanView::LoanUpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id)
 {
     if (loanToken.interest < 0)
-        return Res::Err("interest rate must be positive number!");
+        return Res::Err("interest rate cannot be less than 0!");
 
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
 
