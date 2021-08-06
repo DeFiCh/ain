@@ -39,12 +39,6 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        symbolDFI = "DFI"
-        symbolBTC = "BTC"
-
-        idDFI = list(self.nodes[0].gettoken(symbolDFI).keys())[0]
-        idBTC = list(self.nodes[0].gettoken(symbolBTC).keys())[0]
-
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
         price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
@@ -94,7 +88,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         assert_equal(loantokens[setLoanTokenTx]["priceFeedId"], oracle_id1)
         assert_equal(loantokens[setLoanTokenTx]["interest"], Decimal('0.01'))
 
-        updateLoanTokenTx = self.nodes[0].updateloantoken("TSLAAAA",{
+        self.nodes[0].updateloantoken("TSLAAAA",{
                             'symbol': "TSLA",
                             'name': "Tesla stock token",
                             'priceFeedId': oracle_id1,
