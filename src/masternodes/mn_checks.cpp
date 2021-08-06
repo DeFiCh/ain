@@ -57,6 +57,8 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
         case CustomTxType::LoanSetCollateralToken: return "LoanSetCollateralToken";
+        case CustomTxType::LoanSetLoanToken:     return "LoanSetLoanToken";
+        case CustomTxType::LoanUpdateLoanToken:     return "LoanUpdateLoanToken";
         case CustomTxType::LoanScheme:          return "LoanScheme";
         case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
         case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
@@ -137,6 +139,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
         case CustomTxType::LoanSetCollateralToken:  return CLoanSetCollateralTokenMessage{};
+        case CustomTxType::LoanSetLoanToken:        return CLoanSetLoanTokenMessage{};
+        case CustomTxType::LoanUpdateLoanToken:     return CLoanUpdateLoanTokenMessage{};
         case CustomTxType::LoanScheme:              return CLoanSchemeMessage{};
         case CustomTxType::DefaultLoanScheme:       return CDefaultLoanSchemeMessage{};
         case CustomTxType::DestroyLoanScheme:       return CDestroyLoanSchemeMessage{};
@@ -401,7 +405,18 @@ public:
         auto res = isPostEunosFork();
         return !res ? res : serialize(obj);
     }
+
     Res operator()(CLoanSetCollateralTokenMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanSetLoanTokenMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanUpdateLoanTokenMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -495,7 +510,7 @@ public:
         return Res::Ok();
     }
 
-    Res CheckICXTx() const {
+    Res CheckCustomTx() const {
         if (static_cast<int>(height) < consensus.EunosPayaHeight && tx.vout.size() != 2) {
             return Res::Err("malformed tx vouts ((wrong number of vouts)");
         }
@@ -1220,7 +1235,7 @@ public:
     }
 
     Res operator()(const CICXCreateOrderMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1250,7 +1265,7 @@ public:
     }
 
     Res operator()(const CICXMakeOfferMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1294,7 +1309,7 @@ public:
     }
 
     Res operator()(const CICXSubmitDFCHTLCMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res) {
             return res;
         }
@@ -1432,7 +1447,7 @@ public:
     }
 
     Res operator()(const CICXSubmitEXTHTLCMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1553,7 +1568,7 @@ public:
     }
 
     Res operator()(const CICXClaimDFCHTLCMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1660,7 +1675,7 @@ public:
     }
 
     Res operator()(const CICXCloseOrderMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1701,7 +1716,7 @@ public:
     }
 
     Res operator()(const CICXCloseOfferMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1766,7 +1781,7 @@ public:
     }
 
     Res operator()(const CLoanSetCollateralTokenMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1792,6 +1807,81 @@ public:
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
         return mnview.LoanCreateSetCollateralToken(collToken);
+    }
+
+    Res operator()(const CLoanSetLoanTokenMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        CLoanSetLoanTokenImplementation loanToken;
+        static_cast<CLoanSetLoanToken&>(loanToken) = obj;
+
+        loanToken.creationTx = tx.GetHash();
+        loanToken.creationHeight = height;
+
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        if (!mnview.GetOracleData(loanToken.priceFeedTxid))
+            return Res::Err("oracle (%s) does not exist or not valid oracle!", loanToken.priceFeedTxid.GetHex());
+
+        CTokenImplementation token;
+        token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
+        token.flags |= (uint8_t)CToken::TokenFlags::LoanToken | (uint8_t)CToken::TokenFlags::DAT;
+
+        token.symbol = trim_ws(loanToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        token.name = trim_ws(loanToken.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        token.creationTx = tx.GetHash();
+        token.creationHeight = height;
+
+        auto tokenId = mnview.CreateToken(token, false);
+        if (!tokenId) {
+            return std::move(tokenId);
+        }
+
+        return mnview.LoanSetLoanToken(loanToken, *(tokenId.val));
+    }
+
+    Res operator()(const CLoanUpdateLoanTokenMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        auto loanToken = pcustomcsview->GetLoanSetLoanToken(obj.tokenTx);
+        if (!loanToken)
+            return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
+
+        if (obj.priceFeedTxid != loanToken->priceFeedTxid && !mnview.GetOracleData(obj.priceFeedTxid))
+            return Res::Err("oracle (%s) does not exist!", loanToken->priceFeedTxid.GetHex());
+        loanToken->priceFeedTxid = obj.priceFeedTxid;
+
+        if (obj.mintable != loanToken->mintable)
+            loanToken->mintable = obj.mintable;
+        if (obj.interest != loanToken->interest)
+            loanToken->interest = obj.interest;
+
+        auto pair = pcustomcsview->GetTokenByCreationTx(obj.tokenTx);
+        if (!pair)
+            return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
+
+        if (obj.symbol != pair->second.symbol)
+            pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);;
+        if (obj.name != pair->second.name)
+            pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        if (obj.mintable != pair->second.flags && (uint8_t)CToken::TokenFlags::Mintable)
+            pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
+
+        res = mnview.UpdateToken(pair->second.creationTx, static_cast<CToken>(pair->second), false);
+        if (!res)
+            return res;
+
+        return mnview.LoanUpdateLoanToken(*loanToken, pair->first);
     }
 
     Res operator()(const CLoanSchemeMessage& obj) const {
