@@ -189,7 +189,7 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
     {
         start.first = idToken;
         auto collToken = pcustomcsview->HasLoanSetCollateralToken(start);
-        if (collToken)
+        if (collToken && collToken->factor)
         {
             ret.pushKVs(setCollateralTokenToJSON(*collToken));
         }
@@ -206,7 +206,7 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
 
         currentToken = key.first;
         auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
-        if (collToken)
+        if (collToken && collToken->factor)
         {
             ret.pushKVs(setCollateralTokenToJSON(*collToken));
         }

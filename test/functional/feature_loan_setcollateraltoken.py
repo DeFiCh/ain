@@ -17,8 +17,8 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=1', '-txindex=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=1', '-txindex=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -165,6 +165,17 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         assert_equal(collTokens[collTokenTx2]["token"], symbolBTC)
         assert_equal(collTokens[collTokenTx2]["factor"], Decimal('0.9'))
         assert_equal(collTokens[collTokenTx2]["activateAfterBlock"], 129)
+
+        collTokenTx4 = self.nodes[0].setcollateraltoken({
+                                    'token': idBTC,
+                                    'factor': 0,
+                                    'priceFeedId': oracle_id1})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        collTokens = self.nodes[0].getcollateraltoken()
+        assert_equal(len(collTokens), 1)
 
 if __name__ == '__main__':
     LoanSetCollateralTokenTest().main()
