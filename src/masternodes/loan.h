@@ -52,6 +52,66 @@ struct CLoanSetCollateralTokenMessage : public CLoanSetCollateralToken {
     }
 };
 
+class CLoanSetLoanToken
+{
+public:
+    std::string symbol;
+    std::string name;
+    uint256 priceFeedTxid;
+    bool mintable = false;
+    CAmount interest = 0;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(symbol);
+        READWRITE(name);
+        READWRITE(priceFeedTxid);
+        READWRITE(mintable);
+        READWRITE(interest);
+    }
+};
+
+class CLoanSetLoanTokenImplementation : public CLoanSetLoanToken
+{
+public:
+    uint256 creationTx;
+    int32_t creationHeight = -1;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CLoanSetLoanToken, *this);
+        READWRITE(creationTx);
+        READWRITE(creationHeight);
+    }
+};
+
+struct CLoanSetLoanTokenMessage : public CLoanSetLoanToken {
+    using CLoanSetLoanToken::CLoanSetLoanToken;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CLoanSetLoanToken, *this);
+    }
+};
+
+struct CLoanUpdateLoanTokenMessage : public CLoanSetLoanToken {
+    using CLoanSetLoanToken::CLoanSetLoanToken;
+
+    uint256 tokenTx;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CLoanSetLoanToken, *this);
+        READWRITE(tokenTx);
+    }
+};
+
 struct CLoanSchemeData
 {
     uint32_t ratio;
@@ -139,11 +199,18 @@ class CLoanView : public virtual CStorageView {
 public:
     using CollateralTokenKey = std::pair<DCT_ID, uint32_t>;
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
+    using CLoanSetLoanTokenImpl = CLoanSetLoanTokenImplementation;
 
     std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanSetCollateralToken(uint256 const & txid) const;
     Res LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
     void ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {{0},0});
     std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanSetCollateralToken(CollateralTokenKey const & key);
+
+    std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanSetLoanToken(uint256 const & txid) const;
+    std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanSetLoanTokenByID(DCT_ID const & id) const;
+    Res LoanSetLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
+    Res LoanUpdateLoanToken(CLoanSetLoanTokenImpl const & loanToken, DCT_ID const & id);
+    void ForEachLoanSetLoanToken(std::function<bool (DCT_ID const &, CLoanSetLoanTokenImpl const &)> callback, DCT_ID const & start = {0});
 
     Res StoreLoanScheme(const CLoanSchemeMessage& loanScheme);
     Res StoreDefaultLoanScheme(const std::string& loanSchemeID);
@@ -161,11 +228,12 @@ public:
 
     struct LoanSetCollateralTokenCreationTx { static const unsigned char prefix; };
     struct LoanSetCollateralTokenKey { static const unsigned char prefix; };
+    struct LoanSetLoanTokenCreationTx { static const unsigned char prefix; };
+    struct LoanSetLoanTokenKey { static const unsigned char prefix; };
     struct LoanSchemeKey { static const unsigned char prefix; };
     struct DefaultLoanSchemeKey { static const unsigned char prefix; };
     struct DelayedLoanSchemeKey { static const unsigned char prefix; };
     struct DestroyLoanSchemeKey { static const unsigned char prefix; };
-
 };
 
 class CVaultView : public virtual CStorageView

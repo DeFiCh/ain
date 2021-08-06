@@ -1,5 +1,7 @@
 #include <masternodes/mn_rpc.h>
 
+extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
+
 UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& collToken)
 {
     UniValue collTokenObj(UniValue::VOBJ);
@@ -18,6 +20,23 @@ UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& c
     return (ret);
 }
 
+UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DCT_ID tokenId)
+{
+    UniValue loanTokenObj(UniValue::VOBJ);
+
+    auto token = pcustomcsview->GetToken(tokenId);
+    if (!token)
+        return (UniValue::VNULL);
+
+    loanTokenObj.pushKV("token",tokenToJSON(tokenId, *static_cast<CTokenImplementation*>(token.get()), true));
+    loanTokenObj.pushKV("priceFeedId", loanToken.priceFeedTxid.GetHex());
+    loanTokenObj.pushKV("interest", ValueFromAmount(loanToken.interest));
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV(loanToken.creationTx.GetHex(), loanTokenObj);
+    return (ret);
+}
+
 UniValue setcollateraltoken(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
@@ -25,7 +44,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
                 "Creates (and submits to local node and network) a set colleteral token transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
-                    {"parameters", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Symbol or id of collateral token"},
                             {"factor", RPCArg::Type::NUM, RPCArg::Optional::NO, "Collateralization factor"},
@@ -244,6 +263,268 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
     return (ret);
 }
 
+UniValue setloantoken(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"setloantoken",
+                "Creates (and submits to local node and network) a token for a price feed set in collateral token.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                            {"symbol", RPCArg::Type::STR, RPCArg::Optional::NO, "Token's symbol (unique), no longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
+                            {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's name (optional), no longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
+                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "txid of oracle feeding the price"},
+                            {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Token's 'Mintable' property (bool, optional), default is 'True'"},
+                            {"interest", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Interest rate (default: 0)"},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("setloantoken", R"('{"symbol":"USDC","name":"USD Cake coin","priceFeedId":"txid","mintable":false,"interest":"0.03"}')")
+                        },
+     }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot setloantoken while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
+    if (request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
+                           "{\"token\",\"factor\",\"priceFeedId\"}");
+
+    UniValue metaObj = request.params[0].get_obj();
+    UniValue const & txInputs = request.params[1];
+
+    CLoanSetLoanToken loanToken;
+
+    if (!metaObj["symbol"].isNull())
+        loanToken.symbol = trim_ws(metaObj["symbol"].getValStr());
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"symbol\" must not be null");
+    if (!metaObj["name"].isNull())
+        loanToken.name = trim_ws(metaObj["name"].getValStr());
+    if (!metaObj["priceFeedId"].isNull())
+        loanToken.priceFeedTxid = uint256S(metaObj["priceFeedId"].getValStr());
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"priceFeedId\" must be non-null");
+    if (!metaObj["mintable"].isNull())
+        loanToken.mintable = metaObj["mintable"].getBool();
+    if (!metaObj["interest"].isNull())
+        loanToken.interest = AmountFromValue(metaObj["interest"]);
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"interest\" must not be null");
+
+
+    int targetHeight = ::ChainActive().Height() + 1;
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::LoanSetLoanToken)
+             << loanToken;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    CCoinControl coinControl;
+
+    // Return change to auth address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, loanToken});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanSetLoanTokenMessage{}, coinview);
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue updateloantoken(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"updateloantoken",
+                "Creates (and submits to local node and network) a token for a price feed set in collateral token.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "The tokens's symbol, id or creation tx"},
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"symbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's symbol (unique), no longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
+                            {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's name (optional), no longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
+                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "txid of oracle feeding the price"},
+                            {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Token's 'Mintable' property (bool, optional), default is 'True'"},
+                            {"interest", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Interest rate (default: 0)"},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("updateloantoken", R"('"token":"XXX", {"priceFeedId":"txid", "mintable": true, "interest": 0.03}')")
+                        },
+     }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot updateloantoken while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, false);
+    if (request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameters, arguments 0 must be non-null and expected as string with token symbol, id or creation txid");
+
+    std::string const tokenStr = trim_ws(request.params[0].getValStr());
+    UniValue metaObj = request.params[1].get_obj();
+    UniValue const & txInputs = request.params[2];
+
+    std::unique_ptr<CLoanSetLoanTokenImplementation> loanToken;
+    CTokenImplementation tokenImpl;
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+
+        DCT_ID id;
+        auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+        if (!token) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
+        }
+        if (!token->IsLoanToken())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is not a loan token! Can't alter other tokens with this tx!", tokenStr));
+        if (id == DCT_ID{0}) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
+        }
+        loanToken = pcustomcsview->GetLoanSetLoanTokenByID(id);
+        if (!loanToken) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't find %s loan token!", tokenStr));
+        }
+
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    if (!metaObj["symbol"].isNull())
+        loanToken->symbol = trim_ws(metaObj["symbol"].getValStr());
+    if (!metaObj["name"].isNull())
+        loanToken->name = trim_ws(metaObj["name"].getValStr());
+    if (!metaObj["priceFeedId"].isNull())
+        loanToken->priceFeedTxid = uint256S(metaObj["priceFeedId"].getValStr());
+    if (!metaObj["mintable"].isNull())
+        loanToken->mintable = metaObj["mintable"].getBool();
+    if (!metaObj["interest"].isNull())
+        loanToken->interest = AmountFromValue(metaObj["interest"]);
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::LoanUpdateLoanToken)
+             << static_cast<CLoanSetLoanToken>(*loanToken) << loanToken->creationTx;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    CCoinControl coinControl;
+
+    // Return change to auth address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<CLoanSetLoanToken>(*loanToken), loanToken->creationTx});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanUpdateLoanTokenMessage{}, coinview);
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue listloantokens(const JSONRPCRequest& request) {
+    RPCHelpMan{"listloantokens",
+                "Return list of all created loan tokens.\n",
+                {},
+                RPCResult
+                {
+                    "{...}     (object) Json object with loan token information\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("listloantokens", "")
+                },
+     }.Check(request);
+
+    UniValue ret(UniValue::VOBJ);
+
+    pcustomcsview->ForEachLoanSetLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
+        ret.pushKVs(setLoanTokenToJSON(loanToken,key));
+
+        return true;
+    });
+
+    return (ret);
+}
 
 UniValue createloanscheme(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
@@ -860,9 +1141,12 @@ static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
-    {"loan",        "setcollateraltoken",        &setcollateraltoken,    {"parameters", "inputs"}},
+    {"loan",        "setcollateraltoken",        &setcollateraltoken,    {"metadata", "inputs"}},
     {"loan",        "getcollateraltoken",        &getcollateraltoken,    {"by"}},
     {"loan",        "listcollateraltokens",      &listcollateraltokens,  {}},
+    {"loan",        "setloantoken",              &setloantoken,          {"metadata", "inputs"}},
+    {"loan",        "updateloantoken",           &updateloantoken,       {"metadata", "inputs"}},
+    {"loan",        "listloantokens",            &listloantokens,        {}},
     {"loan",        "createloanscheme",          &createloanscheme,      {"mincolratio", "interestrate", "id", "inputs"}},
     {"loan",        "updateloanscheme",          &updateloanscheme,      {"mincolratio", "interestrate", "id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
     {"loan",        "setdefaultloanscheme",      &setdefaultloanscheme,  {"id", "inputs"}},
