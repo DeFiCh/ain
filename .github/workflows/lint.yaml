@@ -9,6 +9,7 @@ on:
       - staging
       - develop
       - ci/*
+      - epic/*
       - v*
   pull_request:
     branches:
@@ -16,6 +17,7 @@ on:
       - develop
       - staging
       - ci/*
+      - epic/*
       - v*
       - 1.[0-9]+.x
       
