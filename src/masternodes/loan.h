@@ -177,6 +177,24 @@ struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
     }
 };
 
+struct CInterestRate {
+    uint32_t count = 0;
+    uint32_t height = 0;
+    CAmount interestToHeight = 0;
+    CAmount interestPerBlock = 0;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(count);
+        READWRITE(height);
+        READWRITE(interestToHeight);
+        READWRITE(interestPerBlock);
+    }
+};
+
 // use vault's creation tx for ID
 using CVaultId = uint256;
 struct CVaultMessage {
@@ -226,6 +244,10 @@ public:
     void ForEachDelayedLoanScheme(std::function<bool (const std::pair<std::string, uint64_t>&, const CLoanSchemeMessage&)> callback);
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
+    boost::optional<CInterestRate> GetInterestRate(const std::string& loanSchemeID, DCT_ID id);
+    Res StoreInterest(uint32_t height, const std::string& loanSchemeID, DCT_ID id);
+    Res EraseInterest(uint32_t height, const std::string& loanSchemeID, DCT_ID id);
+
     struct LoanSetCollateralTokenCreationTx { static const unsigned char prefix; };
     struct LoanSetCollateralTokenKey { static const unsigned char prefix; };
     struct LoanSetLoanTokenCreationTx { static const unsigned char prefix; };
@@ -234,6 +256,7 @@ public:
     struct DefaultLoanSchemeKey { static const unsigned char prefix; };
     struct DelayedLoanSchemeKey { static const unsigned char prefix; };
     struct DestroyLoanSchemeKey { static const unsigned char prefix; };
+    struct LoanInterestedRate { static const unsigned char prefix; };
 };
 
 class CVaultView : public virtual CStorageView
