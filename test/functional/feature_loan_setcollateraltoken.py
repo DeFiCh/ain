@@ -166,7 +166,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         assert_equal(collTokens[collTokenTx2]["factor"], Decimal('0.9'))
         assert_equal(collTokens[collTokenTx2]["activateAfterBlock"], 129)
 
-        collTokenTx4 = self.nodes[0].setcollateraltoken({
+        self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
                                     'factor': 0,
                                     'priceFeedId': oracle_id1})
