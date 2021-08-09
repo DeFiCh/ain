@@ -36,13 +36,15 @@ class TestMasternodeOperator(DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 1)
 
         self.log.info("Mining blocks ...")
+        startNode0 = self.nodes[0].getblockcount() + 1
         self.nodes[0].generate(10)
+        print(self.nodes[0].getblockcount())
         self.sync_all()
         self.nodes[1].generate(10)
         self.sync_all()
 
         minters = set()
-        for x in range(1, 11):
+        for x in range(startNode0, startNode0 + 10):
             blockhash = self.nodes[0].getblockhash(x)
             minters.add(self.nodes[0].getblock(blockhash)["minter"])
 

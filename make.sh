@@ -16,8 +16,9 @@ setup_vars() {
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
-    EXTRA_BUILD_OPTS=${EXTRA_BUILD_OPTS:-}
+    EXTRA_CONF_ARGS=${EXTRA_CONF_ARGS:-}
     EXTRA_MAKE_ARGS=${EXTRA_MAKE_ARGS:-}
+    EXTRA_MAKE_DEPENDS_ARGS=${EXTRA_MAKE_DEPENDS_ARGS:-}
 
     # shellcheck disable=SC2206
     # This intentionally word-splits the array as env arg can only be strings.
@@ -72,20 +73,22 @@ help() {
 
 # ----------- Direct builds ---------------
 
+
 build() {
     local target=${1:-"x86_64-pc-linux-gnu"}
-    local extra_build_opts=${EXTRA_BUILD_OPTS:-}
-    local extra_make_args=${EXTRA_MAKE_ARGS:-}
+    local extra_conf_opts=${EXTRA_CONF_ARGS:-}
+    local extra_make_args=${EXTRA_MAKE_ARGS:--j $(nproc)}
+    local extra_make_depends_args=${EXTRA_MAKE_DEPENDS_ARGS:--j $(nproc)}
 
     echo "> build: ${target}"
     pushd ./depends >/dev/null
     # XREF: #depends-make
-    make NO_QT=1
+    make NO_QT=1 ${extra_make_depends_args}
     popd >/dev/null
     ./autogen.sh
     # XREF: #make-configure
-    ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/${target}" ${extra_build_opts}
-    make $extra_make_args
+    ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/${target}" ${extra_conf_opts}
+    make ${extra_make_args}
 }
 
 deploy() {

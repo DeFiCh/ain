@@ -3,7 +3,7 @@
 #include <pos_kernel.h>
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
-UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>> mnIds, const CWallet* pwallet)
+UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>>& mnIds, const CWallet* pwallet)
 {
     UniValue ret(UniValue::VOBJ);
     if (!verbose) {
@@ -36,18 +36,28 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         }
         obj.pushKV("localMasternode", localMasternode);
 
+        auto currentHeight = ChainActive().Height();
+        uint16_t timelock = pcustomcsview->GetTimelock(nodeId, node, currentHeight);
+
         // Only get targetMultiplier for active masternodes
         if (node.IsActive()) {
-            auto currentHeight = ChainActive().Height();
-            auto usedHeight = currentHeight <= Params().GetConsensus().EunosHeight ? node.creationHeight : currentHeight;
-            auto stakerBlockTime = pcustomcsview->GetMasternodeLastBlockTime(node.operatorAuthAddress, usedHeight);
-            // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-            if (!stakerBlockTime) {
-                if (auto block = ::ChainActive()[Params().GetConsensus().DakotaCrescentHeight]) {
-                    stakerBlockTime = std::min(GetTime() - block->GetBlockTime(), Params().GetConsensus().pos.nStakeMaxAge);
+            // Get block times with next block as height
+            const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, node.creationHeight, timelock);
+
+            if (currentHeight >= Params().GetConsensus().EunosPayaHeight) {
+                const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+                UniValue multipliers(UniValue::VARR);
+                for (uint8_t i{0}; i < loops; ++i) {
+                    multipliers.push_back(pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
                 }
+                obj.pushKV("targetMultipliers", multipliers);
+            } else {
+                obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(),subNodesBlockTime[0]).getdouble());
             }
-            obj.pushKV("targetMultiplier", pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), stakerBlockTime ? *stakerBlockTime : 0).getdouble());
+        }
+
+        if (timelock) {
+            obj.pushKV("timelock", strprintf("%d years", timelock / 52));
         }
 
         /// @todo add unlock height and|or real resign height
@@ -87,6 +97,10 @@ UniValue createmasternode(const JSONRPCRequest& request)
                            },
                        },
                    },
+                   {"timelock", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Defaults to no timelock period so masternode can be resigned once active. To set a timelock period\n"
+                                                                              "specify either FIVEYEARTIMELOCK or TENYEARTIMELOCK to create a masternode that cannot be resigned for\n"
+                                                                              "five or ten years and will have 1.5x or 2.0 the staking power respectively. Be aware that this means\n"
+                                                                              "that you cannot spend the collateral used to create a masternode for whatever period is specified."},
                },
                RPCResult{
                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
@@ -111,9 +125,29 @@ UniValue createmasternode(const JSONRPCRequest& request)
     }
 
     std::string ownerAddress = request.params[0].getValStr();
-    std::string operatorAddress = request.params.size() > 1 ? request.params[1].getValStr() : ownerAddress;
+    std::string operatorAddress = request.params.size() > 1 && !request.params[1].getValStr().empty() ? request.params[1].getValStr() : ownerAddress;
     CTxDestination ownerDest = DecodeDestination(ownerAddress); // type will be checked on apply/create
     CTxDestination operatorDest = DecodeDestination(operatorAddress);
+
+    bool eunosPaya;
+    {
+        LOCK(cs_main);
+        eunosPaya = ::ChainActive().Tip()->height >= Params().GetConsensus().EunosPayaHeight;
+    }
+
+    // Get timelock if any
+    uint16_t timelock{0};
+    if (!request.params[3].isNull()) {
+        if (!eunosPaya) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Timelock cannot be specified before EunosPaya hard fork");
+        }
+        std::string timelockStr = request.params[3].getValStr();
+        if (timelockStr == "FIVEYEARTIMELOCK") {
+            timelock = CMasternode::FIVEYEAR;
+        } else if (timelockStr == "TENYEARTIMELOCK") {
+            timelock = CMasternode::TENYEAR;
+        }
+    }
 
     // check type here cause need operatorAuthKey. all other validation (for owner for ex.) in further apply/create
     if (operatorDest.which() != 1 && operatorDest.which() != 4) {
@@ -129,6 +163,10 @@ UniValue createmasternode(const JSONRPCRequest& request)
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
              << static_cast<char>(operatorDest.which()) << operatorAuthKey;
+
+    if (eunosPaya) {
+        metadata << timelock;
+    }
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -160,7 +198,11 @@ UniValue createmasternode(const JSONRPCRequest& request)
         CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey});
+        auto stream = CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey};
+        if (eunosPaya) {
+            stream << timelock;
+        }
+        auto metadata = ToByteVector(stream);
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateMasterNodeMessage{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();

@@ -42,6 +42,8 @@ CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
 CAmount GetPropsCreationFee(int height, CPropType prop);
 
+constexpr uint8_t SUBNODE_COUNT{4};
+
 class CMasternode
 {
 public:
@@ -51,6 +53,12 @@ public:
         PRE_RESIGNED,
         RESIGNED,
         UNKNOWN // unreachable
+    };
+
+    enum TimeLock {
+        ZEROYEAR,
+        FIVEYEAR = 260,
+        TENYEAR = 520
     };
 
     //! Minted blocks counter
@@ -131,6 +139,29 @@ struct MNBlockTimeKey
     }
 };
 
+struct SubNodeBlockTimeKey
+{
+    uint256 masternodeID;
+    uint8_t subnode;
+    uint32_t blockHeight;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(masternodeID);
+        READWRITE(subnode);
+
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(blockHeight));
+            blockHeight = ~blockHeight;
+        } else {
+            uint32_t blockHeight_ = ~blockHeight;
+            READWRITE(WrapBigEndian(blockHeight_));
+        }
+    }
+};
+
 class CMasternodesView : public virtual CStorageView
 {
     std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache;
@@ -152,16 +183,27 @@ public:
     // Multiple operator support
     std::set<std::pair<CKeyID, uint256>> GetOperatorsMulti() const;
 
-    Res CreateMasternode(uint256 const & nodeId, CMasternode const & node);
+    Res CreateMasternode(uint256 const & nodeId, CMasternode const & node, uint16_t timelock);
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
     Res UnCreateMasternode(uint256 const & nodeId);
     Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
 
+    // Get blocktimes for non-subnode and subnode with fork logic
+    std::vector<int64_t> GetBlockTimes(const CKeyID& keyID, const uint32_t blockHeight, const int32_t creationHeight, const uint16_t timelock);
+
+    // Non-subnode block times
     void SetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const int64_t &time);
     boost::optional<int64_t> GetMasternodeLastBlockTime(const CKeyID & minter, const uint32_t height);
     void EraseMasternodeLastBlockTime(const uint256 &minter, const uint32_t& blockHeight);
-
     void ForEachMinterNode(std::function<bool(MNBlockTimeKey const &, CLazySerialize<int64_t>)> callback, MNBlockTimeKey const & start = {});
+
+    // Subnode block times
+    void SetSubNodesBlockTime(const CKeyID & minter, const uint32_t &blockHeight, const uint8_t id, const int64_t& time);
+    std::vector<int64_t> GetSubNodesBlockTime(const CKeyID & minter, const uint32_t height);
+    void EraseSubNodesLastBlockTime(const uint256& nodeId, const uint32_t& blockHeight);
+    void ForEachSubNode(std::function<bool(SubNodeBlockTimeKey const &, CLazySerialize<int64_t>)> callback, SubNodeBlockTimeKey const & start = {});
+
+    uint16_t GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const;
 
     // tags
     struct ID { static const unsigned char prefix; };
@@ -170,6 +212,10 @@ public:
 
     // For storing last staked block time
     struct Staker { static const unsigned char prefix; };
+    struct SubNode { static const unsigned char prefix; };
+
+    // Store long term time lock
+    struct Timelock { static const unsigned char prefix; };
 };
 
 class CLastHeightView : public virtual CStorageView

@@ -4,7 +4,6 @@
 #include <miner.h>
 #include <pos.h>
 #include <pos_kernel.h>
-#include <util/system.h>
 #include <script/signingprovider.h>
 
 #include <test/setup_common.h>
@@ -42,10 +41,6 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock, const uint
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
 
     pblock->nTime = time + 10;
-//    do {
-//        time++;
-//        pblock->nTime = time;
-//    } while (!pos::CheckKernelHash(pblock->stakeModifier, pblock->nBits, 1, (int64_t) pblock->nTime, masternodeID, Params().GetConsensus()));
 
     BOOST_CHECK(!pos::SignPosBlock(pblock, minterKey));
 
@@ -58,13 +53,14 @@ BOOST_AUTO_TEST_CASE(calc_kernel)
     uint256 mnID = uint256S("fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321");
     int64_t coinstakeTime = 10000000;
     BOOST_CHECK(uint256S("2a30e655ae8018566092750052a01bdef3ad8e1951beb87a9d503e1bcfe4bd2a") ==
-                pos::CalcKernelHash(stakeModifier, 1, coinstakeTime, mnID, Params().GetConsensus()));
+                pos::CalcKernelHash(stakeModifier, 1, coinstakeTime, mnID));
 
     uint32_t target = 0x1effffff;
-    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, 1, coinstakeTime, 0, mnID, Params().GetConsensus()));
+    CheckContextState ctxState;
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), {0, 0, 0, 0}, 0, ctxState));
 
     uint32_t unattainableTarget = 0x00ffffff;
-    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, 1, coinstakeTime, 0, mnID, Params().GetConsensus()));
+    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), {0, 0, 0, 0}, 0, ctxState));
 
 //    CKey key;
 //    key.MakeNewKey(true); // Need to use compressed keys in segwit or the signing will fail
@@ -144,36 +140,19 @@ BOOST_AUTO_TEST_CASE(contextual_check_pos)
     std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
     BOOST_CHECK(pos != testMasternodeKeys.end());
     CKey minterKey = pos->second.operatorKey;
+    CheckContextState ctxState;
 
-    BOOST_CHECK(pos::ContextualCheckProofOfStake((CBlockHeader)Params().GenesisBlock(), Params().GetConsensus(), pcustomcsview.get()));
+    BOOST_CHECK(pos::ContextualCheckProofOfStake((CBlockHeader)Params().GenesisBlock(), Params().GetConsensus(), pcustomcsview.get(), ctxState));
 
 //    uint256 prev_hash = uint256S("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
     uint64_t height = 0;
     uint64_t mintedBlocks = 1;
     std::shared_ptr<CBlock> block = Block(Params().GenesisBlock().GetHash(), height, mintedBlocks);
 
-    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get()));
+    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get(), ctxState));
 
     block->height = 1;
-    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get()));
-
-//    std::shared_ptr<CBlock> finalizeBlock = FinalizeBlock(
-//        block,
-//        masternodeID,
-//        minterKey,
-//        prev_hash);
-//    BOOST_CHECK(pos::ContextualCheckProofOfStake(*(CBlockHeader*)finalizeBlock.get(), Params().GetConsensus(), penhancedview.get()));
-//
-////    block->sig[0] = 0xff;
-////    block->sig[1] = 0xff;
-////    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), penhancedview.get()));
-//
-//    block->nBits = 0x0effffff;
-//    block->sig = {};
-//    BOOST_CHECK(!pos::SignPosBlock(block, minterKey));
-//
-//    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), penhancedview.get()));
-//    block->sig[0] = 0xff;
+    BOOST_CHECK(!pos::ContextualCheckProofOfStake(*(CBlockHeader*)block.get(), Params().GetConsensus(), pcustomcsview.get(), ctxState));
 }
 
 BOOST_AUTO_TEST_CASE(sign_pos_block)
@@ -197,14 +176,39 @@ BOOST_AUTO_TEST_CASE(sign_pos_block)
     BOOST_CHECK_THROW(pos::SignPosBlock(block, minterKey), std::logic_error);
 
     BOOST_CHECK(!pos::CheckProofOfStake(*(CBlockHeader*)block.get(), ::ChainActive().Tip(), Params().GetConsensus(), pcustomcsview.get()));
-
-//    uint256 prevStakeModifier = Params().GenesisBlock().stakeModifier;
-//    std::shared_ptr<CBlock> correctBlock = FinalizeBlock(
-//            Block(Params().GenesisBlock().GetHash(), 1, 1),
-//            masternodeID,
-//            minterKey,
-//            prevStakeModifier);
-//    BOOST_CHECK(pos::CheckProofOfStake(*(CBlockHeader*)correctBlock.get(), ::ChainActive().Tip(), Params().GetConsensus(), penhancedview.get()));
 }
+
+BOOST_AUTO_TEST_CASE(check_subnode)
+{
+    const auto stakeModifier = uint256S(std::string(64, '1'));
+    const auto masternodeID = stakeModifier;
+    uint32_t nBits{486604799};
+    int64_t creationHeight{0};
+    uint64_t blockHeight{10000000};
+    const std::vector<int64_t> subNodesBlockTime{0, 0, 0, 0};
+    const uint16_t timelock{520}; // 10 year timelock
+    CheckContextState ctxState;
+
+    // Subnode 0
+    int64_t coinstakeTime{7};
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
+    BOOST_CHECK_EQUAL(ctxState.subNode, 0);
+
+    // Subnode 1
+    coinstakeTime = 0;
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
+    BOOST_CHECK_EQUAL(ctxState.subNode, 1);
+
+    // Subnode 2
+    coinstakeTime = 23;
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
+    BOOST_CHECK_EQUAL(ctxState.subNode, 2);
+
+    // Subnode 3
+    coinstakeTime = 5;
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
+    BOOST_CHECK_EQUAL(ctxState.subNode, 3);
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()

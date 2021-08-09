@@ -337,6 +337,13 @@ class OraclesTest(DefiTestFramework):
         assert_equal(len(pt_in_usd_raw_prices), 1)
         assert_equal(pt_in_usd_raw_prices[0]['state'], 'expired')
 
+        # === check date in range 0 -> now+300s (5 minutes) ===
+        token_prices1 = [{"currency":"USD", "tokenAmount":"7@PT"}]
+
+        future_timestamp = (calendar.timegm(time.gmtime()))+310 # add 5 minutes +10s for slow tests case
+        assert_raises_rpc_error(-8, 'timestamp cannot be negative, zero or over 5 minutes in the future',
+                                self.nodes[2].setoracledata, oracle_id1, future_timestamp, token_prices1)
+
         # === check for invalid oracle id
         assert_raises_rpc_error(-20, 'oracle <{}> not found'.format(invalid_oracle_id),
                                 self.nodes[1].getoracledata, invalid_oracle_id)

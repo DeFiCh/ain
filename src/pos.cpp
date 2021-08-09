@@ -47,7 +47,7 @@ bool CheckHeaderSignature(const CBlockHeader& blockHeader) {
     return true;
 }
 
-bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView) {
+bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensus::Params& params, CCustomCSView* mnView, CheckContextState& ctxState) {
     /// @todo may be this is tooooo optimistic? need more validation?
     if (blockHeader.height == 0 && blockHeader.GetHash() == params.hashGenesisBlock) {
         return true;
@@ -59,7 +59,8 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     }
     uint256 masternodeID;
     int64_t creationHeight;
-    boost::optional<int64_t> stakerBlockTime;
+    std::vector<int64_t> subNodesBlockTime;
+    uint16_t timelock{0};
     {
         // check that block minter exists and active at the height of the block
         AssertLockHeld(cs_main);
@@ -74,29 +75,35 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         }
         creationHeight = int64_t(nodePtr->creationHeight);
 
-        auto usedHeight = blockHeader.height <= params.EunosHeight ? creationHeight : blockHeader.height;
-        stakerBlockTime = mnView->GetMasternodeLastBlockTime(nodePtr->operatorAuthAddress, usedHeight);
-        // No record. No stake blocks or post-fork createmastnode TX, use fork time.
-        if (!stakerBlockTime) {
-            if (auto block = ::ChainActive()[params.DakotaCrescentHeight]) {
-                stakerBlockTime = std::min(blockHeader.GetBlockTime() - block->GetBlockTime(), params.pos.nStakeMaxAge);
-            }
+        if (blockHeader.height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
+            timelock = mnView->GetTimelock(masternodeID, *nodePtr, blockHeader.height);
+        }
+
+        // Check against EunosPayaHeight here for regtest, does not hurt other networks.
+        // Redundant checks, but intentionally kept for easier fork accounting.
+        if (blockHeader.height >= static_cast<uint64_t>(params.DakotaCrescentHeight) || blockHeader.height >= static_cast<uint64_t>(params.EunosPayaHeight)) {
+            const auto usedHeight = blockHeader.height <= static_cast<uint64_t>(params.EunosHeight) ? creationHeight : blockHeader.height;
+
+            // Get block times
+            subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, creationHeight, timelock);
         }
     }
+
     // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(), blockHeader.height, masternodeID, params, stakerBlockTime ? *stakerBlockTime : 0)) {
+    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(),blockHeader.height,
+                         masternodeID, params, subNodesBlockTime, timelock, ctxState)) {
         return false;
     }
 
     /// @todo Make sure none mint a big amount of continuous blocks
-
     return CheckHeaderSignature(blockHeader);
 }
 
 bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pindexPrev, const Consensus::Params& params, CCustomCSView* mnView) {
 
     // this is our own check of own minted block (just to remember)
-    return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView);
+    CheckContextState ctxState;
+    return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView, ctxState);
 }
 
 unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool eunos)
