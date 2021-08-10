@@ -2009,11 +2009,11 @@ bool AppInitMain(InitInterfaces& interfaces)
             if (optMasternodeID) {
                 auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
                 assert(nodePtr); // this should not happen if MN was found by operator's id
-                ownerDest = nodePtr->ownerType == 1 ?
+                ownerDest = nodePtr->ownerType == PKHashType ?
                     CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
                     CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
                 if (nodePtr->rewardAddressType != 0) {
-                    rewardDest = nodePtr->rewardAddressType == 1 ?
+                    rewardDest = nodePtr->rewardAddressType == PKHashType ?
                         CTxDestination(PKHash(nodePtr->rewardAddress)) :
                         CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress));
                 }

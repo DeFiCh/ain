@@ -702,13 +702,13 @@ namespace pos {
             if (args.coinbaseScript.empty()) {
                 // this is safe cause MN was found
                 if (tip->height >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == 1 ?
+                    scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == PKHashType ?
                         CTxDestination(PKHash(nodePtr->rewardAddress)) :
                         CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress))
                     );
                 }
                 else {
-                    scriptPubKey = GetScriptForDestination(nodePtr->ownerType == 1 ?
+                    scriptPubKey = GetScriptForDestination(nodePtr->ownerType == PKHashType ?
                         CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
                         CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress))
                     );

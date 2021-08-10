@@ -267,7 +267,7 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
         if (!nodePtr) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
-        ownerDest = nodePtr->ownerType == 1 ?
+        ownerDest = nodePtr->ownerType == PKHashType ?
             CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
             CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
@@ -378,7 +378,7 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
         if (!nodePtr) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
-        ownerDest = nodePtr->ownerType == 1 ?
+        ownerDest = nodePtr->ownerType == PKHashType ?
             CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
             CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
@@ -479,7 +479,9 @@ UniValue resignmasternode(const JSONRPCRequest& request)
         if (!nodePtr) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
         }
-        ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+        ownerDest = nodePtr->ownerType == PKHashType ?
+            CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
+            CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
 
         targetHeight = ::ChainActive().Height() + 1;
     }

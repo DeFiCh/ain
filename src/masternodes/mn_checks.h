@@ -34,9 +34,9 @@ enum class CustomTxType : uint8_t
 {
     None = 0,
     // masternodes:
-    CreateMasternode    = 'C',
-    ResignMasternode    = 'R',
-    SetForcedRewardAddress    = 'F',
+    CreateMasternode       = 'C',
+    ResignMasternode       = 'R',
+    SetForcedRewardAddress = 'F',
     RemForcedRewardAddress = 'f',
     // custom tokens:
     CreateToken           = 'T',
