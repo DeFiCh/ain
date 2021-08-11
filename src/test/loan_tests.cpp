@@ -30,7 +30,6 @@ DCT_ID CreateLoanToken(CCustomCSView &mnview, CAmount interest)
     token.name = "Test";
 
     auto res = mnview.CreateToken(token, false);
-    if (!res.ok) printf("%s\n", res.msg.c_str());
     BOOST_REQUIRE(res.ok);
     auto id = *res.val;
     mnview.LoanSetLoanToken(loanToken, id);
