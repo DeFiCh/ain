@@ -1,3 +1,5 @@
+
+#include <chainparams.h>
 #include <masternodes/loan.h>
 
 const unsigned char CLoanView::LoanSetCollateralTokenCreationTx           ::prefix = 0x10;
@@ -8,6 +10,7 @@ const unsigned char CLoanView::DelayedLoanSchemeKey                       ::pref
 const unsigned char CLoanView::DestroyLoanSchemeKey                       ::prefix = 0x15;
 const unsigned char CLoanView::LoanSetLoanTokenCreationTx                 ::prefix = 0x17;
 const unsigned char CLoanView::LoanSetLoanTokenKey                        ::prefix = 0x18;
+const unsigned char CLoanView::LoanInterestedRate                         ::prefix = 0x19;
 // Vault
 const unsigned char CVaultView::VaultKey                                  ::prefix = 0x16;
 
@@ -192,6 +195,71 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
     EraseBy<DestroyLoanSchemeKey>(loanSchemeID);
 }
 
+boost::optional<CInterestRate> CLoanView::GetInterestRate(const std::string& loanSchemeID, DCT_ID id)
+{
+    return ReadBy<LoanInterestedRate, CInterestRate>(std::make_pair(loanSchemeID, id));
+}
+
+Res CLoanView::StoreInterest(uint32_t height, const std::string& loanSchemeID, DCT_ID id)
+{
+    auto scheme = GetLoanScheme(loanSchemeID);
+    if (!scheme) {
+        return Res::Err("No such scheme id %s", loanSchemeID);
+    }
+    auto token = GetLoanSetLoanTokenByID(id);
+    if (!token) {
+        return Res::Err("No such loan token id %s", id.ToString());
+    }
+    CInterestRate rate{};
+    if (auto storedRate = GetInterestRate(loanSchemeID, id)) {
+        rate = *storedRate;
+    }
+    if (rate.height > height) {
+        return Res::Err("Cannot store height in the past");
+    }
+    if (rate.height) {
+        rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
+    }
+    rate.count++;
+    rate.height = height;
+    int64_t netInterest = scheme->rate + token->interest;
+    rate.interestPerBlock = netInterest * rate.count / (365 * Params().GetConsensus().blocksPerDay());
+    WriteBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id), rate);
+    return Res::Ok();
+}
+
+Res CLoanView::EraseInterest(uint32_t height, const std::string& loanSchemeID, DCT_ID id)
+{
+    auto scheme = GetLoanScheme(loanSchemeID);
+    if (!scheme) {
+        return Res::Err("No such scheme id %s", loanSchemeID);
+    }
+    auto token = GetLoanSetLoanTokenByID(id);
+    if (!token) {
+        return Res::Err("No such loan token id %s", id.ToString());
+    }
+    CInterestRate rate{};
+    if (auto storedRate = GetInterestRate(loanSchemeID, id)) {
+        rate = *storedRate;
+    }
+    if (rate.count <= 1) {
+        EraseBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id));
+        return Res::Ok();
+    }
+    if (rate.height > height) {
+        return Res::Err("Cannot store height in the past");
+    }
+    if (rate.height == 0) {
+        return Res::Err("Data mismatch height == 0");
+    }
+    rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
+    rate.count--;
+    rate.height = height;
+    int64_t netInterest = scheme->rate + token->interest;
+    rate.interestPerBlock = netInterest * rate.count / (365 * Params().GetConsensus().blocksPerDay());
+    WriteBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id), rate);
+    return Res::Ok();
+}
 
 // VAULT
 
