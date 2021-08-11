@@ -5,6 +5,7 @@
 #include <uint256.h>
 
 #include <flushablestorage.h>
+#include <masternodes/balances.h>
 #include <masternodes/res.h>
 #include <script/script.h>
 class CLoanSetCollateralToken
@@ -264,6 +265,11 @@ public:
     Res StoreInterest(uint32_t height, const std::string& loanSchemeID, DCT_ID id);
     Res EraseInterest(uint32_t height, const std::string& loanSchemeID, DCT_ID id);
 
+    Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
+    Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
+    boost::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
+    void ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback);
+
     struct LoanSetCollateralTokenCreationTx { static const unsigned char prefix; };
     struct LoanSetCollateralTokenKey { static const unsigned char prefix; };
     struct LoanSetLoanTokenCreationTx { static const unsigned char prefix; };
@@ -273,6 +279,7 @@ public:
     struct DelayedLoanSchemeKey { static const unsigned char prefix; };
     struct DestroyLoanSchemeKey { static const unsigned char prefix; };
     struct LoanInterestedRate { static const unsigned char prefix; };
+    struct LoanTokenAmount { static const unsigned char prefix; };
 };
 
 class CVaultView : public virtual CStorageView
@@ -282,7 +289,14 @@ public:
     ResVal<CVaultMessage> GetVault(const CVaultId&) const;
     Res UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault);
     void ForEachVault(std::function<bool(const CVaultId&, const CVaultMessage&)> callback);
+
+    Res AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
+    Res SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
+    boost::optional<CBalances> GetVaultCollaterals(const CVaultId& vaultId);
+    void ForEachVaultCollateral(std::function<bool(const CVaultId&, const CBalances&)> callback);
+
     struct VaultKey { static const unsigned char prefix; };
+    struct CollateralKey { static const unsigned char prefix; };
 };
 
 #endif // DEFI_MASTERNODES_LOAN_H

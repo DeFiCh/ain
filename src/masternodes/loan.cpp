@@ -11,8 +11,10 @@ const unsigned char CLoanView::DestroyLoanSchemeKey                       ::pref
 const unsigned char CLoanView::LoanSetLoanTokenCreationTx                 ::prefix = 0x17;
 const unsigned char CLoanView::LoanSetLoanTokenKey                        ::prefix = 0x18;
 const unsigned char CLoanView::LoanInterestedRate                         ::prefix = 0x19;
+const unsigned char CLoanView::LoanTokenAmount                            ::prefix = 0x20;
 // Vault
 const unsigned char CVaultView::VaultKey                                  ::prefix = 0x16;
+const unsigned char CVaultView::CollateralKey                             ::prefix = 0x21;
 
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanSetCollateralToken(uint256 const & txid) const
 {
@@ -261,6 +263,48 @@ Res CLoanView::EraseInterest(uint32_t height, const std::string& loanSchemeID, D
     return Res::Ok();
 }
 
+Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
+{
+    if (!GetLoanSetLoanTokenByID(amount.nTokenId)) {
+        return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
+    }
+    CBalances amounts;
+    ReadBy<LoanTokenAmount>(vaultId, amounts);
+    auto res = amounts.Add(amount);
+    if (!res) {
+        return res;
+    }
+    WriteBy<LoanTokenAmount>(vaultId, amounts);
+    return Res::Ok();
+}
+
+Res CLoanView::SubLoanToken(const CVaultId& vaultId, CTokenAmount amount)
+{
+    if (!GetLoanSetLoanTokenByID(amount.nTokenId)) {
+        return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
+    }
+    auto amounts = GetLoanTokens(vaultId);
+    if (!amounts || !amounts->Sub(amount)) {
+        return Res::Err("Loan token for vault <%s> not found", vaultId.GetHex());
+    }
+    if (amounts->balances.empty()) {
+        EraseBy<LoanTokenAmount>(vaultId);
+    } else {
+        WriteBy<LoanTokenAmount>(vaultId, *amounts);
+    }
+    return Res::Ok();
+}
+
+boost::optional<CBalances> CLoanView::GetLoanTokens(const CVaultId& vaultId)
+{
+    return ReadBy<LoanTokenAmount, CBalances>(vaultId);
+}
+
+void CLoanView::ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback)
+{
+    ForEach<LoanTokenAmount, CVaultId, CBalances>(callback);
+}
+
 // VAULT
 
 Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultMessage& vault)
@@ -304,3 +348,38 @@ void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultMe
     ForEach<VaultKey, CVaultId, CVaultMessage>(callback);
 }
 
+Res CVaultView::AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)
+{
+    CBalances amounts;
+    ReadBy<CollateralKey>(vaultId, amounts);
+    auto res = amounts.Add(amount);
+    if (!res) {
+        return res;
+    }
+    WriteBy<CollateralKey>(vaultId, amounts);
+    return Res::Ok();
+}
+
+Res CVaultView::SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)
+{
+    auto amounts = GetVaultCollaterals(vaultId);
+    if (!amounts || !amounts->Sub(amount)) {
+        return Res::Err("Collateral for vault <%s> not found", vaultId.GetHex());
+    }
+    if (amounts->balances.empty()) {
+        EraseBy<CollateralKey>(vaultId);
+    } else {
+        WriteBy<CollateralKey>(vaultId, *amounts);
+    }
+    return Res::Ok();
+}
+
+boost::optional<CBalances> CVaultView::GetVaultCollaterals(const CVaultId& vaultId)
+{
+    return ReadBy<CollateralKey, CBalances>(vaultId);
+}
+
+void CVaultView::ForEachVaultCollateral(std::function<bool(const CVaultId&, const CBalances&)> callback)
+{
+    ForEach<CollateralKey, CVaultId, CBalances>(callback);
+}
