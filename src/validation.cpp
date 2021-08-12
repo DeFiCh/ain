@@ -2905,6 +2905,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
             return pruned.DelUndo(key).ok;
         }, UndoKey{lastUndoHeight});
+        // we need at least one full loop to ensure previous undos are pruned
+        if (!lastUndoHeight) {
+            lastUndoHeight = it->first;
+        }
         if (pruneStarted) {
             lastUndoHeight = it->first;
             auto& map = pruned.GetStorage().GetRaw();
