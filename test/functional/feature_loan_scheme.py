@@ -323,7 +323,6 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].updateloanscheme(170, 4, 'LOAN0003')
         except JSONRPCException as e:
             errorString = e.error['message']
-        print(errorString)
         assert("Loan scheme LOAN0002 with same interestrate and mincolratio pending on block 131" in errorString)
 
         # Go forward again to destroy loan
