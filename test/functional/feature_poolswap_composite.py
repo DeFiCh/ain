@@ -10,7 +10,6 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
-    assert_raises_rpc_error,
     disconnect_nodes,
 )
 
@@ -76,9 +75,7 @@ class PoolPairCompositeTest(DefiTestFramework):
 
         idDOGE = list(self.nodes[0].gettoken(symbolDOGE).keys())[0]
         idTSLA = list(self.nodes[0].gettoken(symbolTSLA).keys())[0]
-        idDUSD = list(self.nodes[0].gettoken(symbolDUSD).keys())[0]
         idLTC = list(self.nodes[0].gettoken(symbolLTC).keys())[0]
-        idUSDC = list(self.nodes[0].gettoken(symbolUSDC).keys())[0]
 
         coin = 100000000
 
@@ -170,11 +167,6 @@ class PoolPairCompositeTest(DefiTestFramework):
             collateral: ["100@" + symbolLTC, "500@DFI"]
         }, collateral, [])
         self.nodes[0].generate(1)
-
-        print("symbolDOGE ", symbolDOGE)
-        print("symbolTSLA ", symbolTSLA)
-        print("symbolDUSD ", symbolDUSD)
-        print("symbolLTC ", symbolLTC)
 
         self.nodes[0].poolswap({
             "from": source,
