@@ -306,7 +306,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
         self.nodes[0].updateloanscheme(160, 4.5, 'LOAN0002', destruction_height)
         self.nodes[0].updateloanscheme(170, 4, 'LOAN0002', destruction_height + 10)
 
-        # Move to destrction block and check
+        # Move to destruction block and check
         self.nodes[0].generate(2)
         results = self.nodes[0].listloanschemes()
         assert_equal(len(results), 4)
@@ -382,9 +382,72 @@ class CreateLoanSchemeTest (DefiTestFramework):
         assert('vault <5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf> not found' in errorString)
 
         # success
-        vault = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault["loanschemeid"], 'LOAN0001')
-        assert_equal(vault["owneraddress"], owneraddress1)
+        vault1 = self.nodes[0].getvault(vaultId1)
+        assert_equal(vault1["loanschemeid"], 'LOAN0001')
+        assert_equal(vault1["owneraddress"], owneraddress1)
+
+        # updateVault
+
+        # fail
+        try:
+            params = {}
+            self.nodes[0].updatevault(vaultId1, params)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("At least owneraddress OR loanschemeid must be set" in errorString)
+
+        try:
+            params = {'loanschemeid': 'FAKELOAN'}
+            self.nodes[0].updatevault(vaultId1, params)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Cannot find existing loan scheme with id FAKELOAN" in errorString)
+
+        try:
+            params = {'owneraddress': 'ffffffffff'}
+            self.nodes[0].updatevault(vaultId1, params)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Error: Invalid owneraddress address" in errorString)
+
+        # update vault scheme
+        newAddress = self.nodes[0].getnewaddress('', 'legacy')
+        params = {'loanschemeid': 'LOAN0001', 'owneraddress': newAddress}
+        self.nodes[0].updatevault(vaultId2, params)
+        self.nodes[0].generate(1)
+        vault2 = self.nodes[0].getvault(vaultId2)
+        assert_equal(vault2['owneraddress'], newAddress)
+        assert_equal(vault2['loanschemeid'], 'LOAN0001')
+
+        # update with non-default loan scheme and delete loan to check automatic update
+        params = {'loanschemeid': 'LOAN0003'}
+        self.nodes[0].updatevault(vaultId2, params)
+        self.nodes[0].generate(1)
+        vault2 = self.nodes[0].getvault(vaultId2)
+        assert_equal(vault2['loanschemeid'], 'LOAN0003')
+
+        self.nodes[0].destroyloanscheme('LOAN0003')
+        self.nodes[0].generate(1)
+        vault2 = self.nodes[0].getvault(vaultId2)
+        assert_equal(vault2['loanschemeid'], 'LOAN0001')
+
+        # back to non-default loan scheme and delete scheme with delay
+        params = {'loanschemeid': 'LOAN0004'}
+        self.nodes[0].updatevault(vaultId2, params)
+        self.nodes[0].generate(1)
+        vault2 = self.nodes[0].getvault(vaultId2)
+        assert_equal(vault2['loanschemeid'], 'LOAN0004')
+
+        destruction_height = self.nodes[0].getblockcount() + 2
+        self.nodes[0].destroyloanscheme('LOAN0004', destruction_height)
+        self.nodes[0].generate(1)
+        vault2 = self.nodes[0].getvault(vaultId2)
+        assert_equal(vault2['loanschemeid'], 'LOAN0004')
+
+        # now LOAN0004 is deleted in next block
+        self.nodes[0].generate(1)
+        vault2 = self.nodes[0].getvault(vaultId2)
+        assert_equal(vault2['loanschemeid'], 'LOAN0001')
 
 
 if __name__ == '__main__':

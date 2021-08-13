@@ -135,6 +135,22 @@ struct CVaultMessage {
     }
 };
 
+struct CUpdateVaultMessage {
+    CVaultId vaultId;
+    CScript ownerAddress;
+    std::string schemeId;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(vaultId);
+        READWRITE(ownerAddress);
+        READWRITE(schemeId);
+    }
+};
+
 class CLoanView : public virtual CStorageView {
 public:
     using CollateralTokenKey = std::pair<DCT_ID, uint32_t>;
@@ -171,13 +187,10 @@ public:
 class CVaultView : public virtual CStorageView
 {
 public:
-    /// register new vault instance
     Res StoreVault(const CVaultId&, const CVaultMessage&);
-
     ResVal<CVaultMessage> GetVault(const CVaultId&) const;
-
+    Res UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault);
     void ForEachVault(std::function<bool(const CVaultId&, const CVaultMessage&)> callback);
-
     struct VaultKey { static const unsigned char prefix; };
 };
 

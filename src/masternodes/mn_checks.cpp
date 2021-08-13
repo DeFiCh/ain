@@ -61,6 +61,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
         case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
         case CustomTxType::Vault:               return "Vault";
+        case CustomTxType::UpdateVault:         return "UpdateVault";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -141,6 +142,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::DefaultLoanScheme:       return CDefaultLoanSchemeMessage{};
         case CustomTxType::DestroyLoanScheme:       return CDestroyLoanSchemeMessage{};
         case CustomTxType::Vault:                   return CVaultMessage{};
+        case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -422,6 +424,11 @@ public:
     }
 
     Res operator()(CVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CUpdateVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -1945,6 +1952,23 @@ public:
         auto vaultId = tx.GetHash();
         return mnview.StoreVault(vaultId, vault);
     }
+
+    Res operator()(const CUpdateVaultMessage& obj) const {
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err(strprintf("Cannot find existing vault with id %s", obj.vaultId.GetHex()));
+
+        if(vault.val->isUnderLiquidation)
+            return Res::Err(strprintf("Cannot update vault under liquidation"));
+
+        if (!mnview.GetLoanScheme(obj.schemeId))
+            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.schemeId));
+
+        vault.val->schemeId = obj.schemeId;
+        vault.val->ownerAddress = obj.ownerAddress;
+        return mnview.StoreVault(obj.vaultId, *vault.val);
+    }
+
     Res operator()(const CCustomTxMessageNone&) const {
         return Res::Ok();
     }
