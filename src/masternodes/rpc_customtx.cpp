@@ -351,6 +351,18 @@ public:
         rpcInfo.pushKV("isunderliquidation", obj.isUnderLiquidation);
     }
 
+    void operator()(const CUpdateVaultMessage& obj) const {
+        auto vaultRes = mnview.GetVault(obj.vaultId);
+        if(!vaultRes.ok){
+            rpcInfo.pushKV("error ", "could not find vault with id: "+ obj.vaultId.GetHex());
+            return;
+        }
+        rpcInfo.pushKV("id", obj.vaultId.GetHex());
+        rpcInfo.pushKV("owneraddress", obj.ownerAddress.GetHex());
+        rpcInfo.pushKV("loanschemeid", obj.schemeId);
+        rpcInfo.pushKV("isunderliquidation", vaultRes.val->isUnderLiquidation);
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };

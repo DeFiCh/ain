@@ -1137,6 +1137,149 @@ UniValue getvault(const JSONRPCRequest& request) {
     return VaultToJSON(*vaultRes.val);
 }
 
+UniValue updatevault(const JSONRPCRequest& request) {
+    CWallet *const pwallet = GetWallet(request);
+
+    RPCHelpMan{"updatevault",
+               "\nCreates (and submits to local node and network) a `update vault transaction`, \n"
+               "and saves vault updates to database.\n"
+               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                        {"vaultid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault id"},
+                        {"parameters", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                            {
+                                {"owneraddress", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Vault's owner address"},
+                                {"loanschemeid", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Vault's loan scheme id"},
+                            },
+                        },
+                        {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                            {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                    {
+                                        {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                        {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                    },
+                                },
+                            },
+                        },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli(
+                               "updatevault",
+                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"owneraddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "leanschemeid": "LOANSCHEME001"}')")
+                       + HelpExampleRpc(
+                               "updatevault",
+                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"owneraddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "leanschemeid": "LOANSCHEME001"}')")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params,
+                 {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR},
+                 false);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot update vault while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    if (request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 must be non-null");
+
+    // decode vaultid
+    CVaultId vaultId = ParseHashV(request.params[0], "vaultid");
+    auto vaultRes = pcustomcsview->GetVault(vaultId);
+    if (!vaultRes.ok)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, vaultRes.msg);
+
+    CVaultMessage dbVault{vaultRes.val.get()};
+    if(dbVault.isUnderLiquidation)
+        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "Vault is under liquidation.");
+
+    if (request.params[1].isNull()){
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameters, arguments 2 must be non-null and expected as object at least with one of"
+                           "{\"owneraddress\",\"loanschemeid\"}");
+    }
+    UniValue params = request.params[1].get_obj();
+    if(params["owneraddress"].isNull() && params["loanschemeid"].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "At least owneraddress OR loanschemeid must be set");
+
+    if (!params["owneraddress"].isNull()){
+        auto owneraddress = params["owneraddress"].getValStr();
+        // check address validity
+        CTxDestination ownerDest = DecodeDestination(owneraddress);
+            if (!IsValidDestination(ownerDest)) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owneraddress address");
+            }
+        dbVault.ownerAddress = DecodeScript(owneraddress);
+    }
+    if(!params["loanschemeid"].isNull()){
+        auto loanschemeid = params["loanschemeid"].getValStr();
+        dbVault.schemeId = loanschemeid;
+    }
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CUpdateVaultMessage msg{
+        vaultId,
+        dbVault.ownerAddress,
+        dbVault.schemeId
+    };
+
+    // encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::UpdateVault)
+                   << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    UniValue const &txInputs = request.params[2];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to auth address if there's only one auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CUpdateVaultMessage{}, coins);
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -1155,6 +1298,7 @@ static const CRPCCommand commands[] =
     {"loan",        "createvault",               &createvault,           {"owneraddress", "schemeid", "inputs"}},
     {"loan",        "listvaults",                &listvaults,            {}},
     {"loan",        "getvault",                  &getvault,              {"id"}},
+    {"loan",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {

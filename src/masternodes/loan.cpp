@@ -272,11 +272,6 @@ Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultMessage& vault)
     return Res::Ok();
 }
 
-void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultMessage&)> callback)
-{
-    ForEach<VaultKey, CVaultId, CVaultMessage>(callback);
-}
-
 ResVal<CVaultMessage> CVaultView::GetVault(const CVaultId& vaultId) const
 {
     CVaultMessage vault{};
@@ -284,5 +279,28 @@ ResVal<CVaultMessage> CVaultView::GetVault(const CVaultId& vaultId) const
         return Res::Err("vault <%s> not found", vaultId.GetHex());
     }
     return ResVal<CVaultMessage>(vault, Res::Ok());
+}
+
+Res CVaultView::UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault)
+{
+    CVaultMessage vault{};
+    if (!ReadBy<VaultKey>(vaultId, vault)) {
+        return Res::Err("vault <%s> not found", vaultId.GetHex());
+    }
+
+    vault.ownerAddress = newVault.ownerAddress;
+    vault.schemeId = newVault.schemeId;
+
+    if (!WriteBy<VaultKey>(vaultId, vault)) {
+        return Res::Err("failed to save vault <%s>", vaultId.GetHex());
+    }
+
+    return Res::Ok();
+}
+
+
+void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultMessage&)> callback)
+{
+    ForEach<VaultKey, CVaultId, CVaultMessage>(callback);
 }
 

@@ -1783,7 +1783,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // Remove burn balance transfers
     if (pindex->nHeight == Params().GetConsensus().EunosHeight)
     {
-        // Make sure to initialize lastTxOut, otherwise it never finds the block and 
+        // Make sure to initialize lastTxOut, otherwise it never finds the block and
         // ends up looping through uninitialized garbage value.
         uint32_t lastTxOut = 0;
         auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
@@ -2879,8 +2879,27 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (height == pindex->nHeight) {
                     loanDestruction.push_back(key);
                 }
+               return true;
+            });
+
+            std::vector<CVaultId> vaultsToUpdate;
+            cache.ForEachVault([&](const CVaultId& key, const CVaultMessage& vault)
+            {
+                if (!cache.GetLoanScheme(vault.schemeId)) {
+                    vaultsToUpdate.push_back(key);
+                }
+                if (std::find(loanDestruction.begin(), loanDestruction.end(), vault.schemeId) != loanDestruction.end()){
+                    vaultsToUpdate.push_back(key);
+                }
                 return true;
             });
+
+            auto defaultLoanScheme = cache.GetDefaultLoanScheme();
+            for (const auto& vaultToDefault: vaultsToUpdate){
+                auto newVault = cache.GetVault(vaultToDefault).val;
+                newVault->schemeId = *defaultLoanScheme;
+                cache.UpdateVault(vaultToDefault,*newVault);
+            }
 
             for (const auto& loanDestroy : loanDestruction) {
                 cache.EraseLoanScheme(loanDestroy);
