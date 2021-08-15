@@ -121,7 +121,7 @@ CMasternode::State CMasternode::GetState(int height) const
         // Special case for genesis block
         int activationDelay = height < EunosPayaHeight ? GetMnActivationDelay(height) : GetMnActivationDelay(creationHeight);
         if (creationHeight == 0 || height >= creationHeight + activationDelay) {
-                return State::ENABLED;
+            return State::ENABLED;
         }
         return State::PRE_ENABLED;
     }
@@ -129,7 +129,7 @@ CMasternode::State CMasternode::GetState(int height) const
     if (resignHeight != -1) { // pre-resigned or resigned
         int resignDelay = height < EunosPayaHeight ? GetMnResignDelay(height) : GetMnResignDelay(resignHeight);
         if (height < resignHeight + resignDelay) {
-                return State::PRE_RESIGNED;
+            return State::PRE_RESIGNED;
         }
         return State::RESIGNED;
     }
@@ -334,6 +334,39 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
     node->resignTx =  txid;
     node->resignHeight = height;
     WriteBy<ID>(nodeId, *node);
+
+    return Res::Ok();
+}
+
+Res CMasternodesView::UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height) {
+    // auth already checked!
+    auto node = GetMasternode(nodeId);
+    if (!node) {
+        return Res::Err("node %s does not exists", nodeId.ToString());
+    }
+
+    const auto state = node->GetState(height);
+    if (state != CMasternode::ENABLED) {
+        return Res::Err("node %s state is not 'ENABLED'", nodeId.ToString());
+    }
+
+    if (operatorType == node->operatorType && operatorAuthAddress == node->operatorAuthAddress) {
+        return Res::Err("The new operator is same as existing operator");
+    }
+
+    // Get the existing block time
+    std::vector<int64_t> subNodesBlockTime = GetSubNodesBlockTime(node->operatorAuthAddress, height);
+
+    node->operatorType = operatorType;
+    node->operatorAuthAddress = operatorAuthAddress;
+
+    WriteBy<ID>(nodeId, *node);
+    WriteBy<Operator>(node->operatorAuthAddress, nodeId);
+
+    // The new operator inherit the old operator block time
+    for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
+        SetSubNodesBlockTime(node->operatorAuthAddress, static_cast<uint32_t>(height), i, subNodesBlockTime[i]);
+    }
 
     return Res::Ok();
 }

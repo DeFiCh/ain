@@ -36,6 +36,7 @@ enum class CustomTxType : uint8_t
     // masternodes:
     CreateMasternode      = 'C',
     ResignMasternode      = 'R',
+    UpdateMasternode      = 'm',
     // custom tokens:
     CreateToken           = 'T',
     MintToken             = 'M',
@@ -80,6 +81,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
     switch(type) {
         case CustomTxType::CreateMasternode:
         case CustomTxType::ResignMasternode:
+        case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
         case CustomTxType::UpdateToken:
@@ -181,6 +183,20 @@ struct CResignMasterNodeMessage : public uint256 {
     }
 };
 
+struct CUpdateMasterNodeMessage {
+    uint256 mnId;
+    char operatorType;
+    CKeyID operatorAuthAddress;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(mnId);
+        READWRITE(operatorType);
+        READWRITE(operatorAuthAddress);
+    }
+};
+
 struct CCreateTokenMessage : public CToken {
     using CToken::CToken;
 
@@ -249,6 +265,7 @@ typedef boost::variant<
     CCustomTxMessageNone,
     CCreateMasterNodeMessage,
     CResignMasterNodeMessage,
+    CUpdateMasterNodeMessage,
     CCreateTokenMessage,
     CUpdateTokenPreAMKMessage,
     CUpdateTokenMessage,

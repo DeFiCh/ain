@@ -30,6 +30,7 @@ std::string ToString(CustomTxType type) {
     {
         case CustomTxType::CreateMasternode:    return "CreateMasternode";
         case CustomTxType::ResignMasternode:    return "ResignMasternode";
+        case CustomTxType::UpdateMasternode:    return "UpdateMasternode";
         case CustomTxType::CreateToken:         return "CreateToken";
         case CustomTxType::UpdateToken:         return "UpdateToken";
         case CustomTxType::UpdateTokenAny:      return "UpdateTokenAny";
@@ -105,6 +106,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     {
         case CustomTxType::CreateMasternode:        return CCreateMasterNodeMessage{};
         case CustomTxType::ResignMasternode:        return CResignMasterNodeMessage{};
+        case CustomTxType::UpdateMasternode:        return CUpdateMasterNodeMessage{};
         case CustomTxType::CreateToken:             return CCreateTokenMessage{};
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
         case CustomTxType::UpdateTokenAny:          return CUpdateTokenMessage{};
@@ -179,6 +181,13 @@ class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
         return Res::Ok();
     }
 
+    Res isPostFortCanningFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningHeight) {
+            return Res::Err("called before FortCanning height");
+        }
+        return Res::Ok();
+    }
+
     template<typename T>
     Res serialize(T& obj) const {
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
@@ -204,6 +213,11 @@ public:
             return Res::Err("metadata must contain 32 bytes");
         }
         return serialize(obj);
+    }
+
+    Res operator()(CUpdateMasterNodeMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
     }
 
     Res operator()(CCreateTokenMessage& obj) const {
@@ -731,6 +745,11 @@ public:
     Res operator()(const CResignMasterNodeMessage& obj) const {
         auto res = HasCollateralAuth(obj);
         return !res ? res : mnview.ResignMasternode(obj, tx.GetHash(), height);
+    }
+
+    Res operator()(const CUpdateMasterNodeMessage& obj) const {
+        auto res = HasCollateralAuth(obj.mnId);
+        return !res ? res : mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
     }
 
     Res operator()(const CCreateTokenMessage& obj) const {

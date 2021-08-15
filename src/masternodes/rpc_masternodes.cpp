@@ -300,6 +300,123 @@ UniValue resignmasternode(const JSONRPCRequest& request)
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue updatemasternode(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"updatemasternode",
+               "\nCreates (and submits to local node and network) a masternode update transaction which update the masternode operator addresses, spending the given inputs..\n"
+               "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                   {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The Masternode's ID"},
+                   {"operatorAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The new masternode operator auth address (P2PKH only, unique)"},
+                   {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                       {
+                           {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                               {
+                                   {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                   {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                               },
+                           },
+                       },
+                   },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                   HelpExampleCli("updatemasternode", "mn_id operatorAddress '[{\"txid\":\"id\",\"vout\":0}]'")
+                   + HelpExampleRpc("updatemasternode", "mn_id operatorAddress '[{\"txid\":\"id\",\"vout\":0}]'")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot update Masternode while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet); // no need here, but for symmetry
+
+    bool forkCanning;
+    {
+        LOCK(cs_main);
+        forkCanning = ::ChainActive().Tip()->height >= Params().GetConsensus().FortCanningHeight;
+    }
+
+    if (!forkCanning) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "updatemasternode cannot be called before Fortcanning hard fork");
+    }
+
+    RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
+    if (request.params[0].isNull() || request.params[1].isNull()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, at least argument 2 must be non-null");
+    }
+
+    std::string const nodeIdStr = request.params[0].getValStr();
+    uint256 const nodeId = uint256S(nodeIdStr);
+    CTxDestination ownerDest;
+    int targetHeight;
+    {
+        LOCK(cs_main);
+        auto nodePtr = pcustomcsview->GetMasternode(nodeId);
+        if (!nodePtr) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The masternode %s does not exist", nodeIdStr));
+        }
+        ownerDest = nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    std::string operatorAddress = request.params[1].getValStr();
+    CTxDestination operatorDest = DecodeDestination(operatorAddress);
+
+    // check type here cause need operatorAuthKey. all other validation (for owner for ex.) in further apply/create
+    if (operatorDest.which() != PKHashType && operatorDest.which() != WitV0KeyHashType) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAddress (" + operatorAddress + ") does not refer to a P2PKH or P2WPKH address");
+    }
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{GetScriptForDestination(ownerDest)};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+
+    // Return change to owner address
+    CCoinControl coinControl;
+    if (IsValidDestination(ownerDest)) {
+        coinControl.destChange = ownerDest;
+    }
+
+    CKeyID const operatorAuthKey = operatorDest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest));
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::UpdateMasternode)
+             << nodeId
+             << static_cast<char>(operatorDest.which()) << operatorAuthKey;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto stream = CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId, static_cast<char>(operatorDest.which()), operatorAuthKey};
+
+        auto metadata = ToByteVector(stream);
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CUpdateMasterNodeMessage{}, coins);
+    }
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 UniValue listmasternodes(const JSONRPCRequest& request)
 {
     CWallet* const pwallet = GetWallet(request);
@@ -680,6 +797,7 @@ static const CRPCCommand commands[] =
 //  --------------- ----------------------   ---------------------   ----------
     {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},
     {"masternodes", "resignmasternode",      &resignmasternode,      {"mn_id", "inputs"}},
+    {"masternodes", "updatemasternode",      &updatemasternode,      {"mn_id", "operatorAddress"}},
     {"masternodes", "listmasternodes",       &listmasternodes,       {"pagination", "verbose"}},
     {"masternodes", "getmasternode",         &getmasternode,         {"mn_id"}},
     {"masternodes", "getmasternodeblocks",   &getmasternodeblocks,   {"identifier", "depth"}},
