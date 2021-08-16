@@ -2027,7 +2027,12 @@ public:
     Res operator()(const CVaultMessage& obj) const {
         auto vault = obj;
 
-        // Check LoanScheme exists
+        // owner auth
+        if (!HasAuth(obj.ownerAddress)) {
+            return Res::Err("tx must have at least one input from token owner %s", obj.ownerAddress.GetHex());
+        }
+
+        // set loan scheme to default if non provided
         if(obj.schemeId.empty()){
             if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
                 vault.schemeId = *defaultScheme;
@@ -2036,11 +2041,12 @@ public:
             }
         }
 
+        // loan scheme exists
         if (!mnview.GetLoanScheme(vault.schemeId)) {
             return Res::Err(strprintf("Cannot find existing loan scheme with id %s", vault.schemeId));
         }
 
-        // Check LoanScheme is not to be destroyed
+        // check loan scheme is not to be destroyed
         if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId)) {
             return Res::Err(strprintf("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height));
         }
@@ -2050,17 +2056,27 @@ public:
     }
 
     Res operator()(const CUpdateVaultMessage& obj) const {
+
+
+        // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
             return Res::Err(strprintf("Cannot find existing vault with id %s", obj.vaultId.GetHex()));
 
+        // vault under liquidation
         if(vault.val->isUnderLiquidation)
             return Res::Err(strprintf("Cannot update vault under liquidation"));
 
+        // owner auth
+        if (!HasAuth(vault.val->ownerAddress)) {
+            return Res::Err("tx must have at least one input from token owner");
+        }
+
+        // loan scheme exists
         if (!mnview.GetLoanScheme(obj.schemeId))
             return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.schemeId));
 
-        // Check LoanScheme is not to be destroyed
+        // loan scheme is not set to be destroyed
         if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId)) {
             return Res::Err(strprintf("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height));
         }

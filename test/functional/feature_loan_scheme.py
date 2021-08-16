@@ -13,9 +13,12 @@ from decimal import Decimal
 
 class CreateLoanSchemeTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 1
+        self.num_nodes = 2
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=110']]
+        self.extra_args = [
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=110'],
+                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=110']
+            ]
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -348,7 +351,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].createvault('', 'FAKELOAN')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('Cannot find existing loan scheme with id' in errorString)
+        assert('Cannot find existing loan scheme with id FAKELOAN' in errorString)
 
         # create 2 vaults
         vaultId1 = self.nodes[0].createvault('') # default loan scheme
@@ -412,7 +415,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
         assert("Error: Invalid owneraddress address" in errorString)
 
         # Create or update vault with loan scheme planned to be destroyed
-        destruction_height = self.nodes[0].getblockcount() + 2
+        destruction_height = self.nodes[0].getblockcount() + 3
         self.nodes[0].destroyloanscheme('LOAN0005', destruction_height)
         self.nodes[0].generate(1)
 
@@ -421,7 +424,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].createvault('', 'LOAN0005') # default loan scheme
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot set LOAN0005 as loan scheme, set to be destroyed on block 126" in errorString)
+        assert("Cannot set LOAN0005 as loan scheme, set to be destroyed on block 127" in errorString)
 
         # update
         try:
@@ -429,7 +432,16 @@ class CreateLoanSchemeTest (DefiTestFramework):
             self.nodes[0].updatevault(vaultId2, params) # default loan scheme
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot set LOAN0005 as loan scheme, set to be destroyed on block 126" in errorString)
+        assert("Cannot set LOAN0005 as loan scheme, set to be destroyed on block 127" in errorString)
+
+        # check owneraddress auth
+        othersAddress = self.nodes[1].getnewaddress('', 'legacy')
+        self.nodes[1].generate(1)
+        try:
+            self.nodes[0].createvault(othersAddress)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert('Incorrect authorization for '+othersAddress in errorString)
 
         # update vault scheme
         newAddress = self.nodes[0].getnewaddress('', 'legacy')

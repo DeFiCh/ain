@@ -1038,7 +1038,7 @@ UniValue createvault(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
+    std::set<CScript> auths{vault.ownerAddress};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
 
     rawTx.vout.emplace_back(0, scriptMeta);
@@ -1250,7 +1250,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
 
     UniValue const &txInputs = request.params[2];
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
+    std::set<CScript> auths{vaultRes.val->ownerAddress};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     CCoinControl coinControl;
