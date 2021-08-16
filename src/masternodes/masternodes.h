@@ -324,6 +324,8 @@ public:
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
+    bool CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
+
     void SetDbVersion(int version);
 
     int GetDbVersion() const;

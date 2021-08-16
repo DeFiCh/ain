@@ -84,9 +84,9 @@ struct CSetOracleDataMessage {
 struct COracle : public CAppointOracleMessage {
     CTokenPricePoints tokenPrices;
 
-    explicit COracle(CAppointOracleMessage const& msg = {});
     bool SupportsPair(const std::string& token, const std::string& currency) const;
     Res SetTokenPrice(const std::string& token, const std::string& currency, CAmount amount, int64_t timestamp);
+    ResVal<CAmount> GetTokenPrice(const std::string& token, const std::string& currency);
 
     ADD_SERIALIZE_METHODS;
 
@@ -108,7 +108,7 @@ public:
     Res AppointOracle(const COracleId& oracleId, const COracle& oracle);
 
     /// updates oracle info
-    Res UpdateOracle(const COracleId& oracleId, const COracle& newOracle);
+    Res UpdateOracle(const COracleId& oracleId, COracle&& newOracle);
 
     /// remove oracle instancefrom database
     Res RemoveOracle(const COracleId& oracleId);
