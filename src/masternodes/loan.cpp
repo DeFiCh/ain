@@ -8,13 +8,10 @@ const unsigned char CLoanView::LoanSchemeKey                              ::pref
 const unsigned char CLoanView::DefaultLoanSchemeKey                       ::prefix = 0x13;
 const unsigned char CLoanView::DelayedLoanSchemeKey                       ::prefix = 0x14;
 const unsigned char CLoanView::DestroyLoanSchemeKey                       ::prefix = 0x15;
-const unsigned char CLoanView::LoanSetLoanTokenCreationTx                 ::prefix = 0x17;
-const unsigned char CLoanView::LoanSetLoanTokenKey                        ::prefix = 0x18;
-const unsigned char CLoanView::LoanInterestedRate                         ::prefix = 0x19;
-const unsigned char CLoanView::LoanTokenAmount                            ::prefix = 0x20;
-// Vault
-const unsigned char CVaultView::VaultKey                                  ::prefix = 0x16;
-const unsigned char CVaultView::CollateralKey                             ::prefix = 0x21;
+const unsigned char CLoanView::LoanSetLoanTokenCreationTx                 ::prefix = 0x16;
+const unsigned char CLoanView::LoanSetLoanTokenKey                        ::prefix = 0x17;
+const unsigned char CLoanView::LoanInterestedRate                         ::prefix = 0x18;
+const unsigned char CLoanView::LoanTokenAmount                            ::prefix = 0x19;
 
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanSetCollateralToken(uint256 const & txid) const
 {
@@ -303,83 +300,4 @@ boost::optional<CBalances> CLoanView::GetLoanTokens(const CVaultId& vaultId)
 void CLoanView::ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback)
 {
     ForEach<LoanTokenAmount, CVaultId, CBalances>(callback);
-}
-
-// VAULT
-
-Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultMessage& vault)
-{
-    if (!WriteBy<VaultKey>(vaultId, vault)) {
-        return Res::Err("Failed to create new vault <%s>", vaultId.GetHex());
-    }
-
-    return Res::Ok();
-}
-
-ResVal<CVaultMessage> CVaultView::GetVault(const CVaultId& vaultId) const
-{
-    CVaultMessage vault{};
-    if (!ReadBy<VaultKey>(vaultId, vault)) {
-        return Res::Err("vault <%s> not found", vaultId.GetHex());
-    }
-    return ResVal<CVaultMessage>(vault, Res::Ok());
-}
-
-Res CVaultView::UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault)
-{
-    CVaultMessage vault{};
-    if (!ReadBy<VaultKey>(vaultId, vault)) {
-        return Res::Err("vault <%s> not found", vaultId.GetHex());
-    }
-
-    vault.ownerAddress = newVault.ownerAddress;
-    vault.schemeId = newVault.schemeId;
-
-    if (!WriteBy<VaultKey>(vaultId, vault)) {
-        return Res::Err("failed to save vault <%s>", vaultId.GetHex());
-    }
-
-    return Res::Ok();
-}
-
-
-void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultMessage&)> callback)
-{
-    ForEach<VaultKey, CVaultId, CVaultMessage>(callback);
-}
-
-Res CVaultView::AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)
-{
-    CBalances amounts;
-    ReadBy<CollateralKey>(vaultId, amounts);
-    auto res = amounts.Add(amount);
-    if (!res) {
-        return res;
-    }
-    WriteBy<CollateralKey>(vaultId, amounts);
-    return Res::Ok();
-}
-
-Res CVaultView::SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)
-{
-    auto amounts = GetVaultCollaterals(vaultId);
-    if (!amounts || !amounts->Sub(amount)) {
-        return Res::Err("Collateral for vault <%s> not found", vaultId.GetHex());
-    }
-    if (amounts->balances.empty()) {
-        EraseBy<CollateralKey>(vaultId);
-    } else {
-        WriteBy<CollateralKey>(vaultId, *amounts);
-    }
-    return Res::Ok();
-}
-
-boost::optional<CBalances> CVaultView::GetVaultCollaterals(const CVaultId& vaultId)
-{
-    return ReadBy<CollateralKey, CBalances>(vaultId);
-}
-
-void CVaultView::ForEachVaultCollateral(std::function<bool(const CVaultId&, const CBalances&)> callback)
-{
-    ForEach<CollateralKey, CVaultId, CBalances>(callback);
 }
