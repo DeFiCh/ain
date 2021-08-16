@@ -395,6 +395,7 @@ class CreateLoanSchemeTest (DefiTestFramework):
             errorString = e.error['message']
         assert("At least owneraddress OR loanschemeid must be set" in errorString)
 
+        # bad loan scheme id
         try:
             params = {'loanschemeid': 'FAKELOAN'}
             self.nodes[0].updatevault(vaultId1, params)
@@ -402,12 +403,33 @@ class CreateLoanSchemeTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Cannot find existing loan scheme with id FAKELOAN" in errorString)
 
+        # bad owner address
         try:
             params = {'owneraddress': 'ffffffffff'}
             self.nodes[0].updatevault(vaultId1, params)
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Error: Invalid owneraddress address" in errorString)
+
+        # Create or update vault with loan scheme planned to be destroyed
+        destruction_height = self.nodes[0].getblockcount() + 2
+        self.nodes[0].destroyloanscheme('LOAN0005', destruction_height)
+        self.nodes[0].generate(1)
+
+        # create
+        try:
+            self.nodes[0].createvault('', 'LOAN0005') # default loan scheme
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Cannot set LOAN0005 as loan scheme, set to be destroyed on block 126" in errorString)
+
+        # update
+        try:
+            params = {'loanschemeid':'LOAN0005'}
+            self.nodes[0].updatevault(vaultId2, params) # default loan scheme
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Cannot set LOAN0005 as loan scheme, set to be destroyed on block 126" in errorString)
 
         # update vault scheme
         newAddress = self.nodes[0].getnewaddress('', 'legacy')
@@ -447,7 +469,6 @@ class CreateLoanSchemeTest (DefiTestFramework):
         self.nodes[0].generate(1)
         vault2 = self.nodes[0].getvault(vaultId2)
         assert_equal(vault2['loanschemeid'], 'LOAN0001')
-
 
 if __name__ == '__main__':
     CreateLoanSchemeTest().main()
