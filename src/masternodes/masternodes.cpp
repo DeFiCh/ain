@@ -885,6 +885,12 @@ bool CCustomCSView::CalculateCollateralizationRatio(CVaultId const & vaultId, CB
     if (scheme->ratio > ratio) {
         vault.val->isUnderLiquidation = true;
         StoreVault(vaultId, *vault.val);
+        for (const auto& loan : loanTokens->balances) {
+            SubLoanToken(vaultId, {loan.first, loan.second});
+        }
+        for (const auto& col : collaterals.balances) {
+            SubVaultCollateral(vaultId, {col.first, col.second});
+        }
     }
     return true;
 }

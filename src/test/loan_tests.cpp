@@ -173,6 +173,8 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     auto vault = mnview.GetVault(vault_id);
     BOOST_REQUIRE(vault);
     BOOST_CHECK_EQUAL(vault.val->isUnderLiquidation, true);
+    BOOST_REQUIRE(!mnview.GetLoanTokens(vault_id));
+    BOOST_REQUIRE(!mnview.GetVaultCollaterals(vault_id));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
