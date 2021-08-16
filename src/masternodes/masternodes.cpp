@@ -838,6 +838,63 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     return UpdateBalancesHeight(owner, targetHeight);
 }
 
+inline CAmount GetOraclePriceUSD(COracle& oracle, std::string const & symbol)
+{
+    auto price = oracle.GetTokenPrice(symbol, "USD");
+    assert(price);
+    return *price.val;
+}
+
+bool CCustomCSView::CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height)
+{
+    auto loanTokens = GetLoanTokens(vaultId);
+    if (!loanTokens) {
+        return false;
+    }
+    auto vault = GetVault(vaultId);
+    assert(vault);
+    std::vector<COracle> oracles;
+    uint64_t totalCollaterals = 0, totalLoans = 0; // in USD
+    for (const auto& loan : loanTokens->balances) {
+        auto token = GetLoanSetLoanTokenByID(loan.first);
+        assert(token);
+        auto rate = GetInterestRate(vault.val->schemeId, loan.first);
+        assert(rate && rate->height <= height);
+        auto oracle = GetOracleData(token->priceFeedTxid);
+        assert(oracle);
+        oracles.push_back(*oracle.val);
+        auto price = GetOraclePriceUSD(*oracle.val, token->symbol);
+        auto value = loan.second + rate->interestToHeight + ((height - rate->height + 1) * rate->interestPerBlock);
+        totalLoans += (arith_uint256(price) * arith_uint256(value) / arith_uint256(COIN)).GetLow64();
+    }
+    for (const auto& col : collaterals.balances) {
+        auto token = GetToken(col.first);
+        assert(token);
+        auto it = std::find_if(oracles.begin(), oracles.end(), [&](const COracle& oracle) {
+            return oracle.SupportsPair(token->symbol, "USD");
+        });
+        if (it == oracles.end()) {
+            continue;
+        }
+        auto price = GetOraclePriceUSD(*it, token->symbol);
+        totalCollaterals += (arith_uint256(price) * arith_uint256(col.second) / arith_uint256(COIN)).GetLow64();
+    }
+    auto scheme = GetLoanScheme(vault.val->schemeId);
+    assert(scheme);
+    uint32_t ratio = lround(double(totalCollaterals) / totalLoans * 100);
+    if (scheme->ratio > ratio) {
+        vault.val->isUnderLiquidation = true;
+        StoreVault(vaultId, *vault.val);
+        for (const auto& loan : loanTokens->balances) {
+            SubLoanToken(vaultId, {loan.first, loan.second});
+        }
+        for (const auto& col : collaterals.balances) {
+            SubVaultCollateral(vaultId, {col.first, col.second});
+        }
+    }
+    return true;
+}
+
 uint256 CCustomCSView::MerkleRoot() {
     auto& rawMap = GetStorage().GetRaw();
     if (rawMap.empty()) {

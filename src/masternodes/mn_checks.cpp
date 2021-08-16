@@ -1208,18 +1208,20 @@ public:
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member");
         }
-        auto msg = obj;
-        auto res = normalizeTokenCurrencyPair(msg.availablePairs);
-        return !res ? res : mnview.AppointOracle(tx.GetHash(), COracle(msg));
+        COracle oracle;
+        static_cast<CAppointOracleMessage&>(oracle) = obj;
+        auto res = normalizeTokenCurrencyPair(oracle.availablePairs);
+        return !res ? res : mnview.AppointOracle(tx.GetHash(), oracle);
     }
 
     Res operator()(const CUpdateOracleAppointMessage& obj) const {
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member");
         }
-        auto msg = obj.newOracleAppoint;
-        auto res = normalizeTokenCurrencyPair(msg.availablePairs);
-        return !res ? res : mnview.UpdateOracle(obj.oracleId, COracle(msg));
+        COracle oracle;
+        static_cast<CAppointOracleMessage&>(oracle) = obj.newOracleAppoint;
+        auto res = normalizeTokenCurrencyPair(oracle.availablePairs);
+        return !res ? res : mnview.UpdateOracle(obj.oracleId, std::move(oracle));
     }
 
     Res operator()(const CRemoveOracleAppointMessage& obj) const {

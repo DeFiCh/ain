@@ -70,7 +70,8 @@ BOOST_FIXTURE_TEST_SUITE(oracles_tests, OraclesTestingSetup)
                 {"TOK", "USD"},
         };
         CAppointOracleMessage msg{oracleAddress1, weightage, availableTokens};
-        COracle oracle{msg};
+        COracle oracle;
+        static_cast<CAppointOracleMessage&>(oracle) = msg;
 
         CCustomCSView mnview(*pcustomcsview);
         auto res = mnview.AppointOracle(oracleId1, oracle);
@@ -92,7 +93,8 @@ BOOST_FIXTURE_TEST_SUITE(oracles_tests, OraclesTestingSetup)
                 {"TOK", "USD"},
         };
         CAppointOracleMessage msg{oracleAddress1, weightage, availableTokens};
-        COracle oracle1{msg};
+        COracle oracle1;
+        static_cast<CAppointOracleMessage&>(oracle1) = msg;
 
         CCustomCSView mnview(*pcustomcsview);
         auto res = mnview.AppointOracle(oracleId1, oracle1);
@@ -120,18 +122,20 @@ BOOST_FIXTURE_TEST_SUITE(oracles_tests, OraclesTestingSetup)
                 {"TOK", "USD"},
         };
         CAppointOracleMessage msg1{oracleAddress1, weightage, availableTokens};
-        COracle oracle1{msg1};
+        COracle oracle1;
+        static_cast<CAppointOracleMessage&>(oracle1) = msg1;
 
         uint8_t weightage2 = weightage + 2;
         availableTokens.insert({"DFI", "EUR"});
         CAppointOracleMessage msg2{oracleAddress1, weightage2, availableTokens};
-        COracle oracle2{msg2};
+        COracle oracle2;
+        static_cast<CAppointOracleMessage&>(oracle2) = msg2;
 
         CCustomCSView mnview(*pcustomcsview);
         auto res = mnview.AppointOracle(oracleId1, oracle1);
         BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
 
-        res = mnview.UpdateOracle(oracleId1, oracle2);
+        res = mnview.UpdateOracle(oracleId1, std::move(oracle2));
         BOOST_ASSERT_MSG(res.ok, res.msg.c_str());
 
         auto dataRes = mnview.GetOracleData(oracleId1);

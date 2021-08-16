@@ -9,10 +9,6 @@
 
 const unsigned char COracleView::ByName::prefix = 'O'; // the big O for Oracles
 
-COracle::COracle(CAppointOracleMessage const& msg) : CAppointOracleMessage(msg)
-{
-}
-
 bool COracle::SupportsPair(const std::string& token, const std::string& currency) const
 {
     return availablePairs.count(std::make_pair(token, currency)) > 0;
@@ -29,6 +25,15 @@ Res COracle::SetTokenPrice(const std::string& token, const std::string& currency
     return Res::Ok();
 }
 
+ResVal<CAmount> COracle::GetTokenPrice(const std::string& token, const std::string& currency)
+{
+    if (!SupportsPair(token, currency)) {
+        return Res::Err("token <%s> - currency <%s> is not allowed", token, currency);
+    }
+
+    return ResVal<CAmount>(tokenPrices[token][currency].first, Res::Ok());
+}
+
 Res COracleView::AppointOracle(const COracleId& oracleId, const COracle& oracle)
 {
     if (!WriteBy<ByName>(oracleId, oracle)) {
@@ -38,9 +43,9 @@ Res COracleView::AppointOracle(const COracleId& oracleId, const COracle& oracle)
     return Res::Ok();
 }
 
-Res COracleView::UpdateOracle(const COracleId& oracleId, const COracle& newOracle)
+Res COracleView::UpdateOracle(const COracleId& oracleId, COracle&& newOracle)
 {
-    COracle oracle(CAppointOracleMessage{});
+    COracle oracle;
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }
@@ -91,7 +96,7 @@ Res COracleView::RemoveOracle(const COracleId& oracleId)
 
 Res COracleView::SetOracleData(const COracleId& oracleId, int64_t timestamp, const CTokenPrices& tokenPrices)
 {
-    COracle oracle(CAppointOracleMessage{});
+    COracle oracle;
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("failed to read oracle %s from database", oracleId.GetHex());
     }
@@ -116,7 +121,7 @@ Res COracleView::SetOracleData(const COracleId& oracleId, int64_t timestamp, con
 
 ResVal<COracle> COracleView::GetOracleData(const COracleId& oracleId) const
 {
-    COracle oracle(CAppointOracleMessage{});
+    COracle oracle;
     if (!ReadBy<ByName>(oracleId, oracle)) {
         return Res::Err("oracle <%s> not found", oracleId.GetHex());
     }

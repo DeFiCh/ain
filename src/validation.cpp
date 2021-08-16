@@ -2905,6 +2905,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 cache.EraseLoanScheme(loanDestroy);
                 cache.EraseDelayedDestroyScheme(loanDestroy);
             }
+
+            if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
+                cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+                    return cache.CalculateCollateralizationRatio(vaultId, collaterals, pindex->nHeight);
+                });
+            }
         }
 
         // construct undo
