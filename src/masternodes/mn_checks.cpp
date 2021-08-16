@@ -2025,8 +2025,9 @@ public:
     }
 
     Res operator()(const CVaultMessage& obj) const {
-        // Check LoanScheme exists
         auto vault = obj;
+
+        // Check LoanScheme exists
         if(obj.schemeId.empty()){
             if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
                 vault.schemeId = *defaultScheme;
@@ -2037,6 +2038,11 @@ public:
 
         if (!mnview.GetLoanScheme(vault.schemeId)) {
             return Res::Err(strprintf("Cannot find existing loan scheme with id %s", vault.schemeId));
+        }
+
+        // Check LoanScheme is not to be destroyed
+        if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId)) {
+            return Res::Err(strprintf("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height));
         }
 
         auto vaultId = tx.GetHash();
@@ -2053,6 +2059,11 @@ public:
 
         if (!mnview.GetLoanScheme(obj.schemeId))
             return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.schemeId));
+
+        // Check LoanScheme is not to be destroyed
+        if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId)) {
+            return Res::Err(strprintf("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height));
+        }
 
         vault.val->schemeId = obj.schemeId;
         vault.val->ownerAddress = obj.ownerAddress;
