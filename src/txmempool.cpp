@@ -646,6 +646,9 @@ void CTxMemPool::clear()
 {
     LOCK(cs);
     _clear();
+    if (pcustomcsview) {
+        accountsView().Discard();
+    }
 }
 
 static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, const CCustomCSView * mnview, const int64_t spendheight, const CChainParams& chainparams)
