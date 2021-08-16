@@ -19,6 +19,7 @@
 #include <masternodes/poolpairs.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
+#include <masternodes/vault.h>
 #include <uint256.h>
 #include <wallet/ismine.h>
 
