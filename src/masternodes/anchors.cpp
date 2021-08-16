@@ -791,8 +791,8 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex& anchorBloc
 {
     AssertLockHeld(cs_main);
 
-    // Validate previous anchor
-    if (!anchor.previousAnchor.IsNull())
+    // Validate previous anchor. Set spv::pspv to allow anchor auth relay on non-SPV nodes.
+    if (spv::pspv && !anchor.previousAnchor.IsNull())
     {
         auto prev = panchors->GetAnchorByTx(anchor.previousAnchor);
         CAnchorIndex::AnchorRec pending;
