@@ -166,6 +166,15 @@ std::string CMasternode::GetHumanReadableState(State state)
     }
 }
 
+std::string CMasternode::GetTimelockToString(TimeLock timelock)
+{
+  switch (timelock) {
+    case FIVEYEAR : return "FIVEYEARTIMELOCK";
+    case TENYEAR  : return "TENYEARTIMELOCK";
+    default       : return "NOTIMELOCK";
+  }
+}
+
 bool operator==(CMasternode const & a, CMasternode const & b)
 {
     return (a.mintedBlocks == b.mintedBlocks &&
