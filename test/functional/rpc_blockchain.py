@@ -130,6 +130,7 @@ class BlockchainTest(DefiTestFramework):
             'dakota': {'type': 'buried', 'active': False, 'height': 10000000},
             'dakotacrescent': {'type': 'buried', 'active': False, 'height': 10000000},
             'eunos': {'type': 'buried', 'active': False, 'height': 10000000},
+            'eunospaya': {'type': 'buried', 'active': False, 'height': 10000000},
             'testdummy': {
                 'type': 'bip9',
                 'bip9': {
