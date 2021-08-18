@@ -682,18 +682,20 @@ int64_t CSpvWrapper::GetBitcoinBalance()
 }
 
 // Helper function to convert key and populate vector
-void ConvertPrivKeys(std::vector<BRKey> &inputKeys, const CKey &key)
+void ConvertPrivKeys(std::vector<BRKey> &inputKeys, const std::vector<CKey> &keys)
 {
-    UInt256 rawKey;
-    memcpy(&rawKey, &(*key.begin()), key.size());
+    for (const auto& key : keys) {
+        UInt256 rawKey;
+        memcpy(&rawKey, &(*key.begin()), key.size());
 
-    BRKey inputKey;
-    if (!BRKeySetSecret(&inputKey, &rawKey, key.IsCompressed()))
-    {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Failed to create SPV private key");
+        BRKey inputKey;
+        if (!BRKeySetSecret(&inputKey, &rawKey, key.IsCompressed()))
+        {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to create SPV private key");
+        }
+
+        inputKeys.push_back(inputKey);
     }
-
-    inputKeys.push_back(inputKey);
 }
 
 UniValue CSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, int64_t amount, uint64_t feeRate)
@@ -745,7 +747,7 @@ UniValue CSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, 
             throw JSONRPCError(RPC_WALLET_ERROR, "Failed to get address private key.");
         }
 
-        ConvertPrivKeys(inputKeys, vchSecret);
+        ConvertPrivKeys(inputKeys, {vchSecret});
     }
 
     if (!BRTransactionSign(tx, 0, inputKeys.data(), inputKeys.size())) {
@@ -765,7 +767,7 @@ UniValue CSpvWrapper::SendBitcoins(CWallet* const pwallet, std::string address, 
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("txid", txid);
-    result.pushKV("sendmessage", DecodeSendResult(sendResult));
+    result.pushKV("sendmessage", sendResult != 0 ? DecodeSendResult(sendResult) : "");
     return result;
 }
 
@@ -882,6 +884,11 @@ UniValue CSpvWrapper::GetHTLCReceived(const std::string& addr)
     }
 
     auto htlcTransactions = BRListHTLCReceived(wallet, addressFilter);
+
+    // Sort by Bitcoin address
+    std::sort(htlcTransactions.begin(), htlcTransactions.end(), [](const std::pair<BRTransaction*, size_t>& lhs, const std::pair<BRTransaction*, size_t>& rhs){
+        return strcmp(lhs.first->outputs[lhs.second].address, rhs.first->outputs[rhs.second].address) < 0;
+    });
 
     UniValue result(UniValue::VARR);
     for (const auto& txInfo : htlcTransactions)
@@ -1031,6 +1038,27 @@ HTLCDetails GetHTLCDetails(CScript& redeemScript)
     return script;
 }
 
+HTLCDetails GetHTLCScript(CWallet* const pwallet, const uint160& hash160, CScript &redeemScript)
+{
+    // Read redeem script from wallet DB
+    WalletBatch batch(pwallet->GetDBHandle());
+    if (!batch.ReadCScript(hash160, redeemScript))
+    {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Redeem script not found in wallet");
+    }
+
+    // Make sure stored script is at least expected length.
+    const unsigned int minScriptLength{110}; // With compressed public keys and small int block count
+    const unsigned int maxScriptLength{177}; // With uncompressed public keys and four bits for block count (1 size / 3 value)
+    if (redeemScript.size() < minScriptLength && redeemScript.size() > maxScriptLength)
+    {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Stored redeem script incorrect length, rerun spv_createhtlc");
+    }
+
+    // Get script details
+    return GetHTLCDetails(redeemScript);
+}
+
 HTLCDetails HTLCScriptRequest(CWallet* const pwallet, const char* address, CScript &redeemScript)
 {
     // Validate HTLC address
@@ -1050,23 +1078,7 @@ HTLCDetails HTLCScriptRequest(CWallet* const pwallet, const char* address, CScri
     uint160 hash160;
     memcpy(&hash160, &data[1], sizeof(uint160));
 
-    // Read redeem script from wallet DB
-    WalletBatch batch(pwallet->GetDBHandle());
-    if (!batch.ReadCScript(hash160, redeemScript))
-    {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Redeem script not found in wallet");
-    }
-
-    // Make sure stored script is at least expected length.
-    const unsigned int minScriptLength{110}; // With compressed public keys and small int block count
-    const unsigned int maxScriptLength{177}; // With uncompressed public keys and four bits for block count (1 size / 3 value)
-    if (redeemScript.size() < minScriptLength && redeemScript.size() > maxScriptLength)
-    {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Stored redeem script incorrect length, rerun spv_createhtlc");
-    }
-
-    // Get script details
-    return GetHTLCDetails(redeemScript);
+    return GetHTLCScript(pwallet, hash160, redeemScript);
 }
 
 UniValue CSpvWrapper::GetAddressPubkey(const CWallet* pwallet, const char *addr)
@@ -1164,11 +1176,11 @@ struct TxOutput {
     TBytes script;
 };
 
-BRTransaction* CreateTx(std::vector<TxInput> const & inputs, std::vector<TxOutput> const & outputs, uint32_t version = TX_VERSION, uint32_t sequence = TXIN_SEQUENCE)
+BRTransaction* CreateTx(std::vector<std::pair<TxInput, uint32_t>> const & inputs, std::vector<TxOutput> const & outputs, uint32_t version = TX_VERSION)
 {
     BRTransaction *tx = BRTransactionNew(version);
     for (auto input : inputs) {
-        BRTransactionAddInput(tx, input.txHash, input.index, input.amount, input.script.data(), input.script.size(), NULL, 0, NULL, 0, sequence);
+        BRTransactionAddInput(tx, input.first.txHash, input.first.index, input.first.amount, input.first.script.data(), input.first.script.size(), NULL, 0, NULL, 0, input.second);
     }
     for (auto output : outputs) {
         BRTransactionAddOutput(tx, output.amount, output.script.data(), output.script.size());
@@ -1176,7 +1188,7 @@ BRTransaction* CreateTx(std::vector<TxInput> const & inputs, std::vector<TxOutpu
     return tx;
 }
 
-TBytes CreateRawTx(std::vector<TxInput> const & inputs, std::vector<TxOutput> const & outputs)
+TBytes CreateRawTx(std::vector<std::pair<TxInput, uint32_t>> const & inputs, std::vector<TxOutput> const & outputs)
 {
     BRTransaction *tx = CreateTx(inputs, outputs);
     size_t len = BRTransactionSerialize(tx, NULL, 0);
@@ -1186,8 +1198,22 @@ TBytes CreateRawTx(std::vector<TxInput> const & inputs, std::vector<TxOutput> co
     return len ? buf : TBytes{};
 }
 
-UniValue CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const char* scriptAddress, const char *destinationAddress, const std::string& seed, uint64_t feerate, bool seller)
+std::pair<std::string, std::string> CSpvWrapper::PrepareHTLCTransaction(CWallet* const pwallet, const char* scriptAddress, const char *destinationAddress, const std::string& seed, uint64_t feerate, bool seller)
 {
+    // Get redeemscript and parsed details from script
+    CScript redeemScript;
+    const auto scriptDetails = HTLCScriptRequest(pwallet, scriptAddress, redeemScript);
+
+    return CreateHTLCTransaction(pwallet, {{scriptDetails, redeemScript}}, destinationAddress, seed, feerate, seller);
+}
+
+std::pair<std::string, std::string> CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const std::vector<std::pair<HTLCDetails, CScript>>& scriptDetails, const char *destinationAddress, const std::string& seed, uint64_t feerate, bool seller)
+{
+    // Should not get here but let's double check to avoid segfault.
+    if (scriptDetails.empty()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Redeem script details not found.");
+    }
+
     // Validate HTLC address
     if (!BRAddressIsValid(destinationAddress))
     {
@@ -1200,10 +1226,6 @@ UniValue CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const char* 
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Provided seed is not in hex form");
     }
 
-    // Get redeemscript and parsed details from script
-    CScript redeemScript;
-    auto scriptDetails = HTLCScriptRequest(pwallet, scriptAddress, redeemScript);
-
     // Calculate seed hash and make sure it matches hash in contract
     auto seedBytes = ParseHex(seed);
     if (seller)
@@ -1213,42 +1235,67 @@ UniValue CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const char* 
         hash.Write(seedBytes.data(), seedBytes.size());
         hash.Finalize(calcSeedBytes.data());
 
-        if (scriptDetails.hash != calcSeedBytes)
+        // Only one script expected on seller
+        if (scriptDetails.begin()->first.hash != calcSeedBytes)
         {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Seed provided does not match seed hash in contract");
         }
     }
 
-    // Get private key
-    CKey key;
-    if (!pwallet->GetKey(seller ? scriptDetails.sellerKey.GetID() : scriptDetails.buyerKey.GetID(), key))
-    {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Private key for seller pubkey " + HexStr(scriptDetails.sellerKey) + " is not known");
+    // Private keys
+    std::vector<CKey> sourceKeys;
+    std::vector<BRKey> inputKeys;
+
+    // Inputs
+    std::vector<std::pair<TxInput, uint32_t>> inputs;
+    CAmount inputTotal{0};
+    int64_t sigSize{0};
+
+    for (const auto& script : scriptDetails) {
+
+        // Get private keys
+        CKey privKey;
+        if (!pwallet->GetKey(seller ? script.first.sellerKey.GetID() : script.first.buyerKey.GetID(), privKey)) {
+            continue;
+        }
+        sourceKeys.push_back(privKey);
+
+        // Get script address
+        CScriptID innerID(script.second);
+        UInt160 addressFilter;
+        UIntConvert(innerID.begin(), addressFilter);
+
+        // Find related outputs
+        const auto htlcTransactions = BRListHTLCReceived(wallet, addressFilter);
+
+        uint256 spent;
+        std::vector<uint8_t> redeemScript(script.second.begin(), script.second.end());
+
+        // Loop over HTLC TXs and create inputs
+        for (const auto& output : htlcTransactions)
+        {
+            // Skip outputs without enough confirms to meet contract requirements
+            if (!seller) {
+                uint32_t blockHeight = ReadTxBlockHeight(to_uint256(output.first->txHash));
+                uint64_t confirmations = blockHeight != std::numeric_limits<int32_t>::max() ? spv::pspv->GetLastBlockHeight() - blockHeight + 1 : 0;
+                if (confirmations < script.first.locktime) {
+                    continue;
+                }
+            }
+
+            // If output unspent add as input for HTLC TX
+            if (!BRWalletTxSpent(wallet, output.first, output.second, spent))
+            {
+                inputs.push_back({{output.first->txHash, static_cast<int32_t>(output.second), output.first->outputs[output.second].amount, redeemScript},
+                                  seller ? TXIN_SEQUENCE : script.first.locktime});
+                inputTotal += output.first->outputs[output.second].amount;
+                sigSize += 73 /* sig */ + 1 /* sighash */ + seedBytes.size() + 1 /* OP_1 || size */ + 1 /* pushdata */ + redeemScript.size();
+            }
+        }
     }
 
-    // Convert private key to SPV key
-    std::vector<BRKey> inputKeys;
-    ConvertPrivKeys(inputKeys, key);
-
-    // Get script address and any outputs related to it
-    CScriptID innerID(redeemScript);
-    UInt160 addressFilter;
-    UIntConvert(innerID.begin(), addressFilter);
-    auto htlcTransactions = BRListHTLCReceived(wallet, addressFilter);
-
-    // Create inputs
-    std::vector<TxInput> inputs;
-    uint256 spent;
-    std::vector<uint8_t> script(redeemScript.begin(), redeemScript.end());
-    CAmount inputTotal{0};
-
-    for (const auto& output : htlcTransactions)
-    {
-        if (!BRWalletTxSpent(wallet, output.first, output.second, spent))
-        {
-            inputs.push_back({output.first->txHash, static_cast<int32_t>(output.second), output.first->outputs[output.second].amount, script});
-            inputTotal += output.first->outputs[output.second].amount;
-        }
+    if (sourceKeys.empty()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Private key relating to a HTLC pubkey is not available in the wallet");
     }
 
     if (inputs.empty())
@@ -1256,15 +1303,17 @@ UniValue CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const char* 
         throw JSONRPCError(RPC_WALLET_ERROR, "No unspent HTLC outputs found");
     }
 
+    // Convert source private key to SPV private keys
+    ConvertPrivKeys(inputKeys, sourceKeys);
+
     // Create output
     std::vector<TxOutput> outputs;
     outputs.push_back({P2PKH_DUST, CreateScriptForAddress(destinationAddress)});
 
     // Create transaction
-    auto tx = CreateTx(inputs, outputs, TX_VERSION_V2, seller ? TXIN_SEQUENCE : scriptDetails.locktime);
+    auto tx = CreateTx(inputs, outputs, TX_VERSION_V2);
 
     // Calculate and set fee
-    int64_t sigSize = 73 /* sig */ + 1 /* sighash */ + seedBytes.size() + 1 /* OP_1 || size */ + 1 /* pushdata */ + script.size();
     feerate = std::max(feerate, BRWalletFeePerKb(wallet));
     CAmount const minFee = BRTransactionHTLCSize(tx, sigSize) * feerate / TX_FEE_PER_KB;
 
@@ -1277,11 +1326,8 @@ UniValue CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const char* 
     // Add seed length
     seedBytes.insert(seedBytes.begin(), static_cast<uint8_t>(seedBytes.size()));
 
-    // Add redeemscript length
-    script.insert(script.begin(), static_cast<uint8_t>(script.size()));
-
     // Sign transaction
-    if (!BRTransactionSign(tx, 0, inputKeys.data(), inputKeys.size(), seller ? ScriptTypeSeller : ScriptTypeBuyer, seedBytes.data(), script.data()))
+    if (!BRTransactionSign(tx, 0, inputKeys.data(), inputKeys.size(), seller ? ScriptTypeSeller : ScriptTypeBuyer, seedBytes.data()))
     {
         BRTransactionFree(tx);
         throw JSONRPCError(RPC_WALLET_ERROR, "Failed to sign transaction.");
@@ -1300,9 +1346,33 @@ UniValue CSpvWrapper::CreateHTLCTransaction(CWallet* const pwallet, const char* 
         sendResult = EPARSINGTX;
     }
 
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("txid", txid);
-    result.pushKV("sendmessage", DecodeSendResult(sendResult));
+    return {txid, sendResult != 0 ? DecodeSendResult(sendResult) : ""};
+}
+
+UniValue CSpvWrapper::RefundAllHTLC(CWallet* const pwallet, const char *destinationAddress, uint64_t feeRate)
+{
+    // Get all HTLC scripts
+    std::set<uint160> htlcAddresses;
+    const auto wallets = GetWallets();
+    for (const auto& item : wallets) {
+        for (const auto& entry : item->mapAddressBook) {
+            if (entry.second.purpose == "htlc") {
+                htlcAddresses.insert(*boost::get<ScriptHash>(&entry.first));
+            }
+        }
+    }
+
+    // Loop over HTLC addresses and get HTLC details
+    std::vector<std::pair<HTLCDetails, CScript>> scriptDetails;
+    for (const auto& address : htlcAddresses) {
+        CScript script;
+        scriptDetails.emplace_back(GetHTLCScript(pwallet, address, script), script);
+    }
+
+    const auto pair = spv::pspv->CreateHTLCTransaction(pwallet, scriptDetails, destinationAddress, "", feeRate, false);
+
+    UniValue result(UniValue::VARR);
+    result.push_back(pair.first);
     return result;
 }
 
@@ -1369,7 +1439,7 @@ uint64_t EstimateAnchorCost(TBytes const & meta, uint64_t feerate)
     outputs.push_back({ P2PKH_DUST, dummyScript});
 
     TxInput dummyInput { toUInt256("1111111111111111111111111111111111111111111111111111111111111111"), 0, 1000000, dummyScript };
-    auto rawtx = CreateRawTx({dummyInput}, outputs);
+    auto rawtx = CreateRawTx({{dummyInput, TXIN_SEQUENCE}}, outputs);
     BRTransaction *tx = BRTransactionParse(rawtx.data(), rawtx.size());
     if (!tx) {
         LogPrint(BCLog::SPV, "***FAILED*** %s:\n", __func__);
@@ -1388,7 +1458,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
     assert(meta.size() > 0);
 
     uint64_t inputTotal = 0;
-    std::vector<TxInput> inputs;
+    std::vector<std::pair<TxInput, uint32_t>> inputs;
     std::vector<BRKey> inputKeys;
     for (TxInputData const & input : inputsData) {
         UInt256 inHash = UInt256Reverse(toUInt256(input.txhash.c_str()));
@@ -1406,7 +1476,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
         TBytes inputScript(CreateScriptForAddress(address.s));
 
         inputTotal += input.amount;
-        inputs.push_back({ inHash, input.txn, input.amount, inputScript});
+        inputs.push_back({{ inHash, input.txn, input.amount, inputScript}, TXIN_SEQUENCE});
     }
 
     auto consensus = Params().GetConsensus();
@@ -1460,7 +1530,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
 
     auto change = inputTotal - totalCost;
     if (change > P2PKH_DUST) {
-        BRTransactionAddOutput(tx, change, inputs[0].script.data(), inputs[0].script.size());
+        BRTransactionAddOutput(tx, change, inputs[0].first.script.data(), inputs[0].first.script.size());
         totalCost += 34; // 34 is an estimated cost of change output itself
     }
     else {

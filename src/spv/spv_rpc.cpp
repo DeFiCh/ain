@@ -192,7 +192,7 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
     result.pushKV("cost", cost);
     if (send) {
         result.pushKV("sendResult", sendResult);
-        result.pushKV("sendMessage", DecodeSendResult(sendResult));
+        result.pushKV("sendMessage", sendResult != 0 ? DecodeSendResult(sendResult) : "");
     }
 
     return result;
@@ -1047,7 +1047,7 @@ UniValue spv_claimhtlc(const JSONRPCRequest& request)
         RPCResult{
             "{\n"
             "  \"txid\"                    (string) The transaction id\n"
-            "  \"sendmessage\"             (string) Send message result\n"
+            "  \"sendmessage\"             (string) Error message on failure\n"
             "}\n"
         },
         RPCExamples{
@@ -1066,8 +1066,13 @@ UniValue spv_claimhtlc(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_MISC_ERROR, "spv not connected");
     }
 
-    return spv::pspv->CreateHTLCTransaction(pwallet, request.params[0].get_str().c_str(), request.params[1].get_str().c_str(),
+    const auto pair = spv::pspv->PrepareHTLCTransaction(pwallet, request.params[0].get_str().c_str(), request.params[1].get_str().c_str(),
             request.params[2].get_str(), request.params[3].isNull() ? spv::DEFAULT_BTC_FEE_PER_KB : request.params[3].get_int64(), true);
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("txid", pair.first);
+    result.pushKV("sendmessage", pair.second);
+    return result;
 }
 
 UniValue spv_refundhtlc(const JSONRPCRequest& request)
@@ -1084,7 +1089,7 @@ UniValue spv_refundhtlc(const JSONRPCRequest& request)
         RPCResult{
             "{\n"
             "  \"txid\"                    (string) The transaction id\n"
-            "  \"sendmessage\"             (string) Send message result\n"
+            "  \"sendmessage\"             (string) Error message on failure\n"
             "}\n"
         },
         RPCExamples{
@@ -1103,8 +1108,49 @@ UniValue spv_refundhtlc(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_MISC_ERROR, "spv not connected");
     }
 
-    return spv::pspv->CreateHTLCTransaction(pwallet, request.params[0].get_str().c_str(), request.params[1].get_str().c_str(),
+    const auto pair = spv::pspv->PrepareHTLCTransaction(pwallet, request.params[0].get_str().c_str(), request.params[1].get_str().c_str(),
             "", request.params[3].isNull() ? spv::DEFAULT_BTC_FEE_PER_KB : request.params[3].get_int64(), false);
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("txid", pair.first);
+    result.pushKV("sendmessage", pair.second);
+    return result;
+}
+
+UniValue spv_refundhtlcall(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"spv_refundhtlcall",
+               "\nGets all HTLC contracts stored in wallet and creates refunds transactions for a that have expired\n",
+               {
+                   {"destinationaddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination for funds in the HTLC"},
+                   {"feerate", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Feerate (satoshis) per KB (Default: " + std::to_string(spv::DEFAULT_BTC_FEE_PER_KB) + ")"},
+               },
+               RPCResult{
+                   "{\n"
+                   "  \"txid\"                    (string) The transaction id\n"
+                   "}\n"
+               },
+               RPCExamples{
+        HelpExampleCli("spv_refundhtlcall", "100000")
+        + HelpExampleRpc("spv_refundhtlcall", "100000")
+               },
+               }.Check(request);
+
+    if (!spv::pspv)
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "spv module disabled");
+    }
+
+    if (!spv::pspv->IsConnected())
+    {
+        throw JSONRPCError(RPC_MISC_ERROR, "spv not connected");
+    }
+
+    const auto feeRate = request.params[1].isNull() ? spv::DEFAULT_BTC_FEE_PER_KB : request.params[1].get_int64();
+
+    return spv::pspv->RefundAllHTLC(pwallet, request.params[0].get_str().c_str(), feeRate);
 }
 
 UniValue spv_fundaddress(const JSONRPCRequest& request)
@@ -1544,6 +1590,7 @@ static const CRPCCommand commands[] =
   { "spv",      "spv_createhtlc",             &spv_createhtlc,            { "seller_key", "refund_key", "hash", "timeout" }  },
   { "spv",      "spv_claimhtlc",              &spv_claimhtlc,             { "scriptaddress", "destinationaddress", "seed", "feerate" }  },
   { "spv",      "spv_refundhtlc",             &spv_refundhtlc,            { "scriptaddress", "destinationaddress", "feerate" }  },
+  { "spv",      "spv_refundhtlcall",          &spv_refundhtlcall,         { "destinationaddress", "feerate" }  },
   { "spv",      "spv_listhtlcoutputs",        &spv_listhtlcoutputs,       { "address" }  },
   { "spv",      "spv_decodehtlcscript",       &spv_decodehtlcscript,      { "redeemscript" }  },
   { "spv",      "spv_gethtlcseed",            &spv_gethtlcseed,           { "address" }  },
