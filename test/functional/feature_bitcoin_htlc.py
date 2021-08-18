@@ -87,7 +87,7 @@ class BitcoinHTLCTests(DefiTestFramework):
 
         # Send to contract for seller claim
         result = self.nodes[0].spv_sendtoaddress(htlc_script['address'], 0.1)
-        assert_equal(result['sendmessage'], "Success")
+        assert_equal(result['sendmessage'], "")
 
         # Make sure output present in HTLC address
         output = self.nodes[0].spv_listhtlcoutputs("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku")
@@ -110,7 +110,7 @@ class BitcoinHTLCTests(DefiTestFramework):
 
         # seller claim HTLC
         result = self.nodes[0].spv_claimhtlc("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku", address, seed, 1000)
-        assert_equal(result['sendmessage'], "Success")
+        assert_equal(result['sendmessage'], "")
 
         # Check output spent
         output = self.nodes[0].spv_listhtlcoutputs("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku")
@@ -125,7 +125,7 @@ class BitcoinHTLCTests(DefiTestFramework):
 
         # Send to contract for buyer refund
         result = self.nodes[0].spv_sendtoaddress(htlc_script['address'], 0.1)
-        assert_equal(result['sendmessage'], "Success")
+        assert_equal(result['sendmessage'], "")
 
         # Make sure output present in HTLC address
         output = self.nodes[0].spv_listhtlcoutputs("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku")
@@ -135,7 +135,7 @@ class BitcoinHTLCTests(DefiTestFramework):
 
         # seller claim HTLC
         result = self.nodes[0].spv_refundhtlc("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku", address, 1000)
-        assert_equal(result['sendmessage'], "Success")
+        assert_equal(result['sendmessage'], "")
 
         # Check outputs spent
         output = self.nodes[0].spv_listhtlcoutputs("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku")
@@ -163,7 +163,7 @@ class BitcoinHTLCTests(DefiTestFramework):
         # Send multiple TX to script address
         for _ in range(3):
             result = self.nodes[0].spv_sendtoaddress(htlc_script['address'], 0.1)
-            assert_equal(result['sendmessage'], "Success")
+            assert_equal(result['sendmessage'], "")
 
         # Make sure output present in HTLC address
         output = self.nodes[0].spv_listhtlcoutputs(htlc_script['address'])
@@ -174,7 +174,7 @@ class BitcoinHTLCTests(DefiTestFramework):
 
         # seller claim HTLC
         result = self.nodes[0].spv_claimhtlc(htlc_script['address'], address, seed, 1000)
-        assert_equal(result['sendmessage'], "Success")
+        assert_equal(result['sendmessage'], "")
 
         # Check output spent
         output = self.nodes[0].spv_listhtlcoutputs(htlc_script['address'])
@@ -194,7 +194,7 @@ class BitcoinHTLCTests(DefiTestFramework):
         # Send multiple TX to script address
         for _ in range(3):
             result = self.nodes[0].spv_sendtoaddress(htlc_script['address'], 0.1)
-            assert_equal(result['sendmessage'], "Success")
+            assert_equal(result['sendmessage'], "")
 
         # Make sure output present in HTLC address
         output = self.nodes[0].spv_listhtlcoutputs(htlc_script['address'])
@@ -205,7 +205,7 @@ class BitcoinHTLCTests(DefiTestFramework):
 
         # seller claim HTLC
         result = self.nodes[0].spv_refundhtlc(htlc_script['address'], address, 1000)
-        assert_equal(result['sendmessage'], "Success")
+        assert_equal(result['sendmessage'], "")
 
         # Check output spent
         output = self.nodes[0].spv_listhtlcoutputs(htlc_script['address'])
