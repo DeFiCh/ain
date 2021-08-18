@@ -108,6 +108,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     int targetHeight;
     {
         LOCK(cs_main);
+
         DCT_ID idToken;
         std::unique_ptr<CToken> token;
 
@@ -330,8 +331,13 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     else
         loanToken.interest = 0;
 
+    int targetHeight;
 
-    int targetHeight = ::ChainActive().Height() + 1;
+    {
+        LOCK(cs_main);
+
+        targetHeight = ::ChainActive().Height() + 1;
+    }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::LoanSetLoanToken)
@@ -515,6 +521,7 @@ UniValue listloantokens(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
 
     LOCK(cs_main);
+
     pcustomcsview->ForEachLoanSetLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
         ret.pushKVs(setLoanTokenToJSON(loanToken,key));
 
@@ -904,6 +911,7 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
     std::set<CLoanScheme, decltype(cmp)> loans(cmp);
 
     LOCK(cs_main);
+
     pcustomcsview->ForEachLoanScheme([&loans](const std::string& identifier, const CLoanSchemeData& data){
         CLoanScheme loanScheme;
         loanScheme.rate = data.rate;
@@ -970,6 +978,157 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
     return result;
 }
 
+UniValue takeloan(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"takeloan",
+                "Creates (and submits to local node and network) a tx to mint loan token in desired amount based on defined loan.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                            {"vaultid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Id of vault used for loan"},
+                            {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount in amount@token format."},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("takeloan", R"('{"loanTokenId":5,"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"amount":10,"ownerAddress":"mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF"}')")
+                        },
+     }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot takeloan while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
+    if (request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
+                           "{\"loanTokenId\",\"vaultId\",\"amount\",\"owneraddress\"}");
+
+    UniValue metaObj = request.params[0].get_obj();
+    UniValue const & txInputs = request.params[1];
+
+    CLoanTakeLoan takeLoan;
+
+    if (!metaObj["vaultId"].isNull())
+        takeLoan.vaultId = uint256S(metaObj["vaultId"].getValStr());
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
+
+    // Get vault if exists, vault owner used as auth.
+    auto vault = pcustomcsview->GetVault(takeLoan.vaultId);
+    if (!vault) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Cannot find existing vault with id " + takeLoan.vaultId.GetHex());
+    }
+
+    if (!metaObj["amounts"].isNull())
+        takeLoan.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::LoanTakeLoan)
+             << takeLoan;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{vault.val->ownerAddress};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CCoinControl coinControl;
+
+    // Return change to auth address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coinview, *optAuthTx, targetHeight);
+        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, takeLoan});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanTakeLoanMessage{}, coinview);
+    }
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue getloan(const JSONRPCRequest& request) {
+    RPCHelpMan{"getloan",
+                "Returns the attributes of loan offered.\n",
+                {},
+                RPCResult
+                {
+                    "{...}     (object) Json object with loan information\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("getloan", "")
+                },
+     }.Check(request);
+
+    UniValue ret(UniValue::VOBJ);
+
+    ret.pushKV("Collateral tokens",getcollateraltoken(request));
+    ret.pushKV("Loan tokens",listloantokens(request));
+    ret.pushKV("Loan schemes",listloanschemes(request));
+
+    LOCK(cs_main);
+
+    uint32_t height = ::ChainActive().Height();
+    CAmount totalCollaterals = 0, totalLoans = 0;
+    pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+        auto collateral = pcustomcsview->GetCollateralAndLoanValue(vaultId, collaterals, height);
+
+        totalCollaterals += collateral->totalCollaterals();
+        totalLoans += collateral->totalLoans();
+
+        return true;
+    });
+
+    ret.pushKV("Collateral value (USD)",ValueFromAmount(totalCollaterals));
+    ret.pushKV("Loan value (USD)",ValueFromAmount(totalLoans));
+
+    return (ret);
+}
+
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -986,6 +1145,8 @@ static const CRPCCommand commands[] =
     {"loan",        "destroyloanscheme",         &destroyloanscheme,     {"id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
     {"loan",        "listloanschemes",           &listloanschemes,       {}},
     {"loan",        "getloanscheme",             &getloanscheme,         {"id"}},
+    {"loan",        "takeloan",                  &takeloan,              {"metadata", "inputs"}},
+    {"loan",        "getloan",                   &getloan,               {}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {

@@ -851,11 +851,14 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
     if (!vault || vault.val->isUnderLiquidation) {
         return {};
     }
+
     auto loanTokens = GetLoanTokens(vaultId);
     if (!loanTokens) {
         return {};
     }
+
     CCollateralLoans ret;
+
     for (const auto& loan : loanTokens->balances) {
         auto token = GetLoanSetLoanTokenByID(loan.first);
         assert(token);
@@ -867,6 +870,7 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
         auto value = loan.second + rate->interestToHeight + ((height - rate->height + 1) * rate->interestPerBlock);
         ret.loans.push_back({loan.first, MultiplyAmounts(price, value)});
     }
+
     for (const auto& col : collaterals.balances) {
         auto token = HasLoanSetCollateralToken({col.first, height});
         assert(token);
@@ -875,6 +879,45 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
         auto price = GetOraclePriceUSD(*oracle.val, GetToken(col.first)->symbol);
         ret.collaterals.push_back({col.first, MultiplyAmounts(price, col.second)});
     }
+
+    return ret;
+}
+
+boost::optional<CCollateralLoans> CCustomCSView::GetCollateralAndLoanValue(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height)
+{
+    auto vault = GetVault(vaultId);
+    if (!vault)
+        return {};
+
+    CCollateralLoans ret;
+
+    for (const auto& col : collaterals.balances)
+    {
+        auto token = HasLoanSetCollateralToken({col.first, height});
+        assert(token);
+        auto oracle = GetOracleData(token->priceFeedTxid);
+        assert(oracle);
+        auto price = GetOraclePriceUSD(*oracle.val, GetToken(col.first)->symbol);
+        ret.collaterals.push_back({col.first, MultiplyAmounts(price, col.second)});
+    }
+
+    auto loanTokens = GetLoanTokens(vaultId);
+    if (loanTokens)
+    {
+        for (const auto& loan : loanTokens->balances)
+        {
+            auto token = GetLoanSetLoanTokenByID(loan.first);
+            assert(token);
+            auto rate = GetInterestRate(vault.val->schemeId, loan.first);
+            assert(rate && rate->height <= height);
+            auto oracle = GetOracleData(token->priceFeedTxid);
+            assert(oracle);
+            auto price = GetOraclePriceUSD(*oracle.val, token->symbol);
+            auto value = loan.second + rate->interestToHeight + ((height - rate->height + 1) * rate->interestPerBlock);
+            ret.loans.push_back({loan.first, MultiplyAmounts(price, value)});
+        }
+    }
+
     return ret;
 }
 

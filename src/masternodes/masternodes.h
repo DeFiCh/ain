@@ -282,6 +282,7 @@ struct CCollateralLoans {
     std::vector<CTokenAmount> loans; // in USD
 
     uint32_t ratio() const {
+        if (loans.empty()) return 0;
         return lround(double(totalCollaterals()) / totalLoans() * 100);
     }
 
@@ -351,6 +352,8 @@ public:
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
     boost::optional<CCollateralLoans> CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
+
+    boost::optional<CCollateralLoans> GetCollateralAndLoanValue(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
 
     void SetDbVersion(int version);
 

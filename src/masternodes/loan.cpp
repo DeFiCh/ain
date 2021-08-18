@@ -13,6 +13,8 @@ const unsigned char CLoanView::LoanSetLoanTokenKey                        ::pref
 const unsigned char CLoanView::LoanInterestedRate                         ::prefix = 0x18;
 const unsigned char CLoanView::LoanTokenAmount                            ::prefix = 0x19;
 const unsigned char CLoanView::LoanLiquidationPenalty                     ::prefix = 0x20;
+const unsigned char CLoanView::LoanTakeLoanCreationTx                     ::prefix = 0x21;
+const unsigned char CLoanView::LoanTakeLoanVaultKey                       ::prefix = 0x22;
 
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanSetCollateralToken(uint256 const & txid) const
 {
@@ -317,4 +319,24 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
         return penalty;
     }
     return 5 * COIN / 100;
+}
+std::unique_ptr<CLoanView::CLoanTakeLoanImpl> CLoanView::GetLoanTakeLoan(uint256 const & txid) const
+{
+    auto takeLoan = ReadBy<LoanTakeLoanCreationTx,CLoanTakeLoanImpl>(txid);
+    if (takeLoan)
+        return MakeUnique<CLoanTakeLoanImpl>(*takeLoan);
+    return {};
+}
+
+Res CLoanView::SetLoanTakeLoan(CLoanTakeLoanImpl const & takeLoan)
+{
+    WriteBy<LoanTakeLoanCreationTx>(takeLoan.creationTx, takeLoan);
+    WriteBy<LoanTakeLoanVaultKey>(takeLoan.vaultId, takeLoan.creationTx);
+
+    return Res::Ok();
+}
+
+void CLoanView::ForEachLoanTakeLoan(std::function<bool (uint256 const &, CLoanTakeLoanImpl const &)> callback, uint256 const & start)
+{
+    ForEach<LoanTakeLoanCreationTx, uint256, CLoanTakeLoanImpl>(callback, start);
 }

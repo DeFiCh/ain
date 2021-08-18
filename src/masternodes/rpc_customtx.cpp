@@ -352,6 +352,19 @@ public:
         rpcInfo.pushKV("from", ScriptToString(obj.from));
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
+
+    void operator()(const CLoanTakeLoanMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        for (auto const & kv : obj.amounts.balances) {
+            if (auto token = mnview.GetToken(kv.first)) {
+                auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
+                if (auto tokenPair = mnview.GetTokenByCreationTx(tokenImpl.creationTx)) {
+                    rpcInfo.pushKV(tokenPair->first.ToString(), ValueFromAmount(kv.second));
+                }
+            }
+        }
+    }
+
     void operator()(const CCustomTxMessageNone&) const {
     }
 };
