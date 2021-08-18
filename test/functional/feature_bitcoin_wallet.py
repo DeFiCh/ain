@@ -49,7 +49,7 @@ class BitcoinSPVTests(DefiTestFramework):
         # Send to external address
         dummy_address = "bcrt1qfpnmx6jrn30yvscrw9spudj5aphyrc8es6epva"
         result = self.nodes[0].spv_sendtoaddress(dummy_address, 0.1)
-        assert_equal(result['sendmessage'], "Success")
+        assert_equal(result['sendmessage'], "")
 
         # Make sure tx is present in wallet
         txs = self.nodes[0].spv_listtransactions()
@@ -61,7 +61,7 @@ class BitcoinSPVTests(DefiTestFramework):
 
         # Send to self
         result = self.nodes[0].spv_sendtoaddress(address, 0.1)
-        assert_equal(result['sendmessage'], "Success")
+        assert_equal(result['sendmessage'], "")
 
         # Make sure tx is present in wallet
         txs = self.nodes[0].spv_listtransactions()
