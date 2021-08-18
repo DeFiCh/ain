@@ -168,13 +168,9 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     BOOST_CHECK_EQUAL(collaterals->balances[dfi_id], 2 * COIN);
     BOOST_CHECK_EQUAL(collaterals->balances[btc_id], 3 * COIN);
 
-    BOOST_REQUIRE(mnview.CalculateCollateralizationRatio(vault_id, *collaterals, 10));
-
-    auto vault = mnview.GetVault(vault_id);
-    BOOST_REQUIRE(vault);
-    BOOST_CHECK_EQUAL(vault.val->isUnderLiquidation, true);
-    BOOST_REQUIRE(!mnview.GetLoanTokens(vault_id));
-    BOOST_REQUIRE(!mnview.GetVaultCollaterals(vault_id));
+    auto colls = mnview.CalculateCollateralizationRatio(vault_id, *collaterals, 10);
+    BOOST_REQUIRE(colls);
+    BOOST_CHECK_EQUAL(colls->ratio(), 78);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

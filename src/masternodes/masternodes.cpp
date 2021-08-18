@@ -845,14 +845,16 @@ inline CAmount GetOraclePriceUSD(COracle& oracle, std::string const & symbol)
     return *price.val;
 }
 
-bool CCustomCSView::CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height)
+boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height)
 {
+    auto vault = GetVault(vaultId);
+    if (!vault || vault.val->isUnderLiquidation) {
+        return {};
+    }
     auto loanTokens = GetLoanTokens(vaultId);
     if (!loanTokens) {
-        return false;
+        return {};
     }
-    auto vault = GetVault(vaultId);
-    assert(vault);
     std::vector<COracle> oracles;
     uint64_t totalCollaterals = 0, totalLoans = 0; // in USD
     for (const auto& loan : loanTokens->balances) {
@@ -879,20 +881,7 @@ bool CCustomCSView::CalculateCollateralizationRatio(CVaultId const & vaultId, CB
         auto price = GetOraclePriceUSD(*it, token->symbol);
         totalCollaterals += (arith_uint256(price) * arith_uint256(col.second) / arith_uint256(COIN)).GetLow64();
     }
-    auto scheme = GetLoanScheme(vault.val->schemeId);
-    assert(scheme);
-    uint32_t ratio = lround(double(totalCollaterals) / totalLoans * 100);
-    if (scheme->ratio > ratio) {
-        vault.val->isUnderLiquidation = true;
-        StoreVault(vaultId, *vault.val);
-        for (const auto& loan : loanTokens->balances) {
-            SubLoanToken(vaultId, {loan.first, loan.second});
-        }
-        for (const auto& col : collaterals.balances) {
-            SubVaultCollateral(vaultId, {col.first, col.second});
-        }
-    }
-    return true;
+    return CCollateralLoans{totalCollaterals, totalLoans};
 }
 
 uint256 CCustomCSView::MerkleRoot() {
