@@ -171,7 +171,7 @@ std::string CMasternode::GetTimelockToString(TimeLock timelock)
   switch (timelock) {
     case FIVEYEAR : return "FIVEYEARTIMELOCK";
     case TENYEAR  : return "TENYEARTIMELOCK";
-    default       : return "NOTIMELOCK";
+    default       : return "NONE";
   }
 }
 
