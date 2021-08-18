@@ -2908,7 +2908,28 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
                 cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-                    return cache.CalculateCollateralizationRatio(vaultId, collaterals, pindex->nHeight);
+                    auto collateral = cache.CalculateCollateralizationRatio(vaultId, collaterals, pindex->nHeight);
+                    if (!collateral) {
+                        return true;
+                    }
+                    auto vault = cache.GetVault(vaultId);
+                    assert(vault);
+                    auto scheme = cache.GetLoanScheme(vault.val->schemeId);
+                    assert(scheme);
+                    if (scheme->ratio <= collateral->ratio()) {
+                        return true;
+                    }
+                    vault.val->isUnderLiquidation = true;
+                    cache.StoreVault(vaultId, *vault.val);
+                    auto loanTokens = cache.GetLoanTokens(vaultId);
+                    assert(loanTokens);
+                    for (const auto& loan : loanTokens->balances) {
+                        cache.SubLoanToken(vaultId, {loan.first, loan.second});
+                    }
+                    for (const auto& col : collaterals.balances) {
+                        cache.SubVaultCollateral(vaultId, {col.first, col.second});
+                    }
+                    return true;
                 });
             }
         }

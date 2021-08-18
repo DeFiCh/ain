@@ -277,6 +277,15 @@ public:
     struct BtcTx { static const unsigned char prefix; };
 };
 
+struct CCollateralLoans {
+    uint64_t totalCollaterals; // in USD
+    uint64_t totalLoans; // in USD
+
+    uint32_t ratio() {
+        return lround(double(totalCollaterals) / totalLoans * 100);
+    }
+};
+
 class CCustomCSView
         : public CMasternodesView
         , public CLastHeightView
@@ -325,7 +334,7 @@ public:
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
-    bool CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
+    boost::optional<CCollateralLoans> CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
 
     void SetDbVersion(int version);
 
