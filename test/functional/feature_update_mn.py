@@ -10,10 +10,8 @@
 
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_equal,
-    connect_nodes_bi,
     assert_raises_rpc_error,
 )
 
@@ -44,8 +42,6 @@ class MasternodesRpcBasicTest (DefiTestFramework):
             collateral0
         )
 
-        rawTx0 = self.nodes[0].getrawtransaction(idnode0)
-        decodeTx0 = self.nodes[0].decoderawtransaction(rawTx0)
         # Create and sign (only) collateral spending tx
         spendTx = self.nodes[0].createrawtransaction([{'txid':idnode0, 'vout':1}],[{collateral0:9.999}])
         signedTx = self.nodes[0].signrawtransactionwithwallet(spendTx)
@@ -80,14 +76,6 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         # RESIGNING:
         #========================
-        # Fail to resign: Have no money on ownerauth address
-
-        # Deprecated due to auth automation
-        # try:
-        #     self.nodes[0].resignmasternode(idnode0)
-        # except JSONRPCException as e:
-        #     errorString = e.error['message']
-        # assert("Can't find any UTXO's" in errorString)
 
         # Funding auth address and successful resign
         fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
@@ -104,7 +92,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # This checks two cases at once:
         # 1) Finally, we should not fail on accept to mempool
         # 2) But we don't mine blocks after it, so, after chain reorg (on 'REVERTING'), we should not fail: tx should be removed from mempool!
-        sendedTxHash = self.nodes[0].sendrawtransaction(signedTx['hex'])
+        self.nodes[0].sendrawtransaction(signedTx['hex'])
         # Don't mine here, check mempool after reorg!
         # self.nodes[0].generate(1)
 
