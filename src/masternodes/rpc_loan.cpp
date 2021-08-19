@@ -933,11 +933,6 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
     return ret;
 }
 
-extern UniValue createvault(const JSONRPCRequest& request);
-extern UniValue listvaults(const JSONRPCRequest& request);
-extern UniValue getvault(const JSONRPCRequest& request);
-extern UniValue updatevault(const JSONRPCRequest& request);
-extern UniValue deposittovault(const JSONRPCRequest& request);
 
 static const CRPCCommand commands[] =
 {
@@ -954,11 +949,6 @@ static const CRPCCommand commands[] =
     {"loan",        "setdefaultloanscheme",      &setdefaultloanscheme,  {"id", "inputs"}},
     {"loan",        "destroyloanscheme",         &destroyloanscheme,     {"id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
     {"loan",        "listloanschemes",           &listloanschemes,       {}},
-    {"loan",        "createvault",               &createvault,           {"owneraddress", "schemeid", "inputs"}},
-    {"loan",        "listvaults",                &listvaults,            {}},
-    {"loan",        "getvault",                  &getvault,              {"id"}},
-    {"loan",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
-    {"loan",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {

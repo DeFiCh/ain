@@ -37,6 +37,8 @@ void RegisterOraclesRPCCommands(CRPCTable &tableRPC);
 void RegisterICXOrderbookRPCCommands(CRPCTable &tableRPC);
 /** Register Loan orderbook RPC commands */
 void RegisterLoanRPCCommands(CRPCTable &tableRPC);
+/** Register Vault RPC commands */
+void RegisterVaultRPCCommands(CRPCTable &tableRPC);
 
 
 static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
@@ -55,6 +57,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &t)
     RegisterOraclesRPCCommands(t);
     RegisterICXOrderbookRPCCommands(t);
     RegisterLoanRPCCommands(t);
+    RegisterVaultRPCCommands(t);
 }
 
 #endif // DEFI_RPC_REGISTER_H

@@ -455,3 +455,19 @@ UniValue deposittovault(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+static const CRPCCommand commands[] =
+{
+    //  category        name                         actor (function)        params
+    //  --------------- ----------------------       ---------------------   ----------
+    {"vault",        "createvault",               &createvault,           {"owneraddress", "schemeid", "inputs"}},
+    {"vault",        "listvaults",                &listvaults,            {}},
+    {"vault",        "getvault",                  &getvault,              {"id"}},
+    {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
+    {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
+};
+
+void RegisterVaultRPCCommands(CRPCTable& tableRPC) {
+    for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
+        tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
+}
+
