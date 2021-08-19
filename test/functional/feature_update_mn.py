@@ -46,7 +46,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         spendTx = self.nodes[0].createrawtransaction([{'txid':idnode0, 'vout':1}],[{collateral0:9.999}])
         signedTx = self.nodes[0].signrawtransactionwithwallet(spendTx)
         assert_equal(signedTx['complete'], True)
-        
+
         self.nodes[0].generate(1)
         # At this point, mn was created
         assert_equal(self.nodes[0].listmasternodes({}, False)[idnode0], "PRE_ENABLED")
@@ -78,7 +78,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         #========================
 
         # Funding auth address and successful resign
-        fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
+        self.nodes[0].sendtoaddress(collateral0, 1)
         self.nodes[0].generate(1)
         # resignTx
         self.nodes[0].resignmasternode(idnode0)
