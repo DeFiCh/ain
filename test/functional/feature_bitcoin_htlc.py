@@ -101,7 +101,7 @@ class BitcoinHTLCTests(DefiTestFramework):
             errorString = e.error['message']
         assert("Seed provided does not match seed hash in contract" in errorString)
 
-         # Try and claim with unknown script address
+        # Try and claim with unknown script address
         try:
             self.nodes[0].spv_claimhtlc("2NGT3gZvc75NX8DWGqfuEvniHGj5LiY33Ui", address, "deadbeef", 1000)
         except JSONRPCException as e:
