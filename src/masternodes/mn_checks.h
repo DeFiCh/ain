@@ -366,7 +366,7 @@ public:
     : obj(obj), height(height) {}
 
     std::vector<DCT_ID> CalculateSwaps(CCustomCSView& view);
-    Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, const CCustomTxVisitor* txVisitor = nullptr);
+    Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs);
 };
 
 #endif // DEFI_MASTERNODES_MN_CHECKS_H

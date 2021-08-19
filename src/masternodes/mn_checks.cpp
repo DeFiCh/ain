@@ -939,7 +939,7 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        return CPoolSwap(obj, height).ExecuteSwap(mnview, obj.poolIDs, this);
+        return CPoolSwap(obj, height).ExecuteSwap(mnview, obj.poolIDs);
     }
 
     Res operator()(const CLiquidityMessage& obj) const {
@@ -2118,7 +2118,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
             toPoolsID.emplace(pool.idTokenA.v, id);
         }
         return true;
-        }, {0});
+    }, {0});
 
     if (fromPoolsID.empty() || toPoolsID.empty()) {
         return {};
@@ -2167,7 +2167,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
             }
         }
         return true;
-        }, {0});
+    }, {0});
 
     // Record best pair
     std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, 0};
@@ -2183,7 +2183,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
 
         // Add error for RPC user feedback
         if (!res) {
-            const auto token = pcustomcsview->GetToken(currentID);
+            const auto token = dummy.GetToken(currentID);
             if (token) {
                 errors.emplace_back(token->symbol, res.msg);
             }
@@ -2198,7 +2198,7 @@ std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
     return bestPair.first;
 }
 
-Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, const CCustomTxVisitor* txVisitor) {
+Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
 
     CTokenAmount swapAmountResult{{},0};
     Res poolResult = Res::Ok();
@@ -2261,12 +2261,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, con
             }
 
             // Update owner rewards if not being called from RPC
-            if (txVisitor) {
-                txVisitor->CalculateOwnerRewards(obj.from);
+            view.CalculateOwnerRewards(obj.from, height);
 
-                if (lastSwap) {
-                    txVisitor->CalculateOwnerRewards(obj.to);
-                }
+            if (lastSwap) {
+                view.CalculateOwnerRewards(obj.to, height);
             }
 
             // Save swap amount for next loop
@@ -2289,6 +2287,9 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs, con
             return Res::Err("Price is higher than indicated.");
         }
     }
+
+    // Flush changes
+    view.Flush();
 
     // Assign to result for loop testing best pool swap result
     result = swapAmountResult.nValue;
