@@ -69,6 +69,9 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         assert_raises_rpc_error(-32600, "The new operator is same as existing operator", self.nodes[0].updatemasternode, idnode0, collateral0)
 
+        # node 1 try to update node 0 which should be rejected.
+        assert_raises_rpc_error(-5, "Incorrect authorization", self.nodes[1].updatemasternode, idnode0, collateral1)
+
         self.nodes[0].updatemasternode(idnode0, collateral1)
         self.nodes[0].generate(1)
         self.sync_all()
