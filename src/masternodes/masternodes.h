@@ -278,11 +278,27 @@ public:
 };
 
 struct CCollateralLoans {
-    uint64_t totalCollaterals; // in USD
-    uint64_t totalLoans; // in USD
+    std::vector<CTokenAmount> collaterals; // in USD
+    std::vector<CTokenAmount> loans; // in USD
 
     uint32_t ratio() {
-        return lround(double(totalCollaterals) / totalLoans * 100);
+        return lround(double(totalCollaterals()) / totalLoans() * 100);
+    }
+
+    uint64_t totalCollaterals() {
+        uint64_t totalCollaterals = 0;
+        for (const auto& col : collaterals) {
+            totalCollaterals += col.nValue;
+        }
+        return totalCollaterals;
+    }
+
+    uint64_t totalLoans() {
+        uint64_t totalLoans = 0;
+        for (const auto& loan : loans) {
+            totalLoans += loan.nValue;
+        }
+        return totalLoans;
     }
 };
 

@@ -140,6 +140,11 @@ struct Params {
         static const uint32_t blocks = 15 * 60 / pos.nTargetSpacing;
         return blocks;
     }
+
+    uint32_t blocksCollateralAuction() const {
+        static const uint32_t blocks = 6 * 60 * 60 / pos.nTargetSpacing;
+        return blocks;
+    }
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
      * (nTargetTimespan / nTargetSpacing) which is also used for BIP9 deployments.

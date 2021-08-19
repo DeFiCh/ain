@@ -12,6 +12,7 @@ const unsigned char CLoanView::LoanSetLoanTokenCreationTx                 ::pref
 const unsigned char CLoanView::LoanSetLoanTokenKey                        ::prefix = 0x17;
 const unsigned char CLoanView::LoanInterestedRate                         ::prefix = 0x18;
 const unsigned char CLoanView::LoanTokenAmount                            ::prefix = 0x19;
+const unsigned char CLoanView::LoanLiquidationPenalty                     ::prefix = 0x20;
 
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanSetCollateralToken(uint256 const & txid) const
 {
@@ -300,4 +301,19 @@ boost::optional<CBalances> CLoanView::GetLoanTokens(const CVaultId& vaultId)
 void CLoanView::ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback)
 {
     ForEach<LoanTokenAmount, CVaultId, CBalances>(callback);
+}
+
+Res CLoanView::SetLoanLiquidationPenalty(CAmount penalty)
+{
+    Write(LoanLiquidationPenalty::prefix, penalty);
+    return Res::Ok();
+}
+
+CAmount CLoanView::GetLoanLiquidationPenalty()
+{
+    CAmount penalty;
+    if (Read(LoanLiquidationPenalty::prefix, penalty)) {
+        return penalty;
+    }
+    return 5 * COIN / 100;
 }

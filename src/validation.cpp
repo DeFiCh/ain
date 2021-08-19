@@ -2929,9 +2929,79 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     for (const auto& col : collaterals.balances) {
                         cache.SubVaultCollateral(vaultId, {col.first, col.second});
                     }
+                    constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
+                    auto totalCollaterals = collateral->totalCollaterals();
+                    auto totalLoans = collateral->totalLoans();
+                    auto maxCollaterals = totalCollaterals;
+                    auto maxLoans = totalLoans;
+                    uint32_t batchCount = 0;
+                    for (const auto& loan : collateral->loans) {
+                        auto maxLoanValue = loanTokens->balances[loan.nTokenId];
+                        auto loanChunk = std::min(uint64_t(DivideAmounts(loan.nValue, totalLoans)), maxLoans);
+                        auto collateralChunk = std::min(uint64_t(MultiplyAmounts(loanChunk, totalCollaterals)), maxCollaterals);
+                        if (collateralChunk > batchThreshold) {
+                            auto chunks = COIN;
+                            auto maxColBalances = collaterals.balances;
+                            auto chunk = lround(double(batchThreshold) * chunks / collateralChunk);
+                            auto loanValue = MultiplyAmounts(maxLoanValue, chunk);
+                            for (; chunks > chunk; chunks -= chunk) {
+                                CAuctionBatch batch;
+                                loanValue = std::min(loanValue, maxLoanValue);
+                                batch.loanAmount = CTokenAmount{loan.nTokenId, loanValue};
+                                for (const auto& col : collaterals.balances) {
+                                    auto& maxColBalance = maxColBalances[col.first];
+                                    auto colValue = std::min(MultiplyAmounts(col.second, chunk), maxColBalance);
+                                    batch.collaterals.Add({col.first, colValue});
+                                    maxColBalance -= colValue;
+                                }
+                                maxLoanValue -= loanValue;
+                                cache.StoreAuctionBatch(vaultId, batchCount++, batch);
+                            }
+                        } else {
+                            cache.StoreAuctionBatch(vaultId, batchCount++, CAuctionBatch{
+                                collaterals, {loan.nTokenId, maxLoanValue}
+                            });
+                        }
+                        maxLoans -= loanChunk;
+                        maxCollaterals -= collateralChunk;
+                    }
+                    cache.StoreAuction(vaultId, pindex->nHeight, CAuctionData{
+                        batchCount, cache.GetLoanLiquidationPenalty()
+                    });
                     return true;
                 });
             }
+            cache.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+                for (uint32_t i = 0; i < data.batchCount; i++) {
+                    auto batch = cache.GetAuctionBatch(vaultId, i);
+                    assert(batch);
+                    if (auto bid = cache.GetAuctionBid(vaultId, i)) {
+                        // swap bid amount to DFI and burn
+                        cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
+                        for (const auto& col : batch->collaterals.balances) {
+                            cache.AddBalance(bid->first, {col.first, col.second});
+                        }
+                        cache.EraseAuctionBid(vaultId, i);
+                    } else {
+                        cache.AddLoanToken(vaultId, batch->loanAmount);
+                        for (const auto& col : batch->collaterals.balances) {
+                            cache.AddVaultCollateral(vaultId, {col.first, col.second});
+                        }
+                    }
+                    cache.EraseAuctionBatch(vaultId, i);
+                }
+                if (cache.GetVaultCollaterals(vaultId) && cache.GetLoanTokens(vaultId)) {
+                    auto vault = cache.GetVault(vaultId);
+                    assert(vault);
+                    vault.val->isUnderLiquidation = false;
+                    cache.StoreVault(vaultId, *vault.val);
+                } else {
+                    // vault is fully liquidated
+                    // should we erase it ?
+                }
+                cache.EraseAuction(vaultId, pindex->nHeight);
+                return true;
+            }, pindex->nHeight);
         }
 
         // construct undo

@@ -855,8 +855,8 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
     if (!loanTokens) {
         return {};
     }
+    CCollateralLoans ret;
     std::vector<COracle> oracles;
-    uint64_t totalCollaterals = 0, totalLoans = 0; // in USD
     for (const auto& loan : loanTokens->balances) {
         auto token = GetLoanSetLoanTokenByID(loan.first);
         assert(token);
@@ -867,7 +867,7 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
         oracles.push_back(*oracle.val);
         auto price = GetOraclePriceUSD(*oracle.val, token->symbol);
         auto value = loan.second + rate->interestToHeight + ((height - rate->height + 1) * rate->interestPerBlock);
-        totalLoans += (arith_uint256(price) * arith_uint256(value) / arith_uint256(COIN)).GetLow64();
+        ret.loans.push_back({loan.first, MultiplyAmounts(price, value)});
     }
     for (const auto& col : collaterals.balances) {
         auto token = GetToken(col.first);
@@ -879,9 +879,9 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
             continue;
         }
         auto price = GetOraclePriceUSD(*it, token->symbol);
-        totalCollaterals += (arith_uint256(price) * arith_uint256(col.second) / arith_uint256(COIN)).GetLow64();
+        ret.collaterals.push_back({col.first, MultiplyAmounts(price, col.second)});
     }
-    return CCollateralLoans{totalCollaterals, totalLoans};
+    return ret;
 }
 
 uint256 CCustomCSView::MerkleRoot() {

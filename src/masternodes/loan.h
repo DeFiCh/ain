@@ -238,6 +238,9 @@ public:
     boost::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
     void ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback);
 
+    Res SetLoanLiquidationPenalty(CAmount penalty);
+    CAmount GetLoanLiquidationPenalty();
+
     struct LoanSetCollateralTokenCreationTx { static const unsigned char prefix; };
     struct LoanSetCollateralTokenKey { static const unsigned char prefix; };
     struct LoanSetLoanTokenCreationTx { static const unsigned char prefix; };
@@ -248,6 +251,7 @@ public:
     struct DestroyLoanSchemeKey { static const unsigned char prefix; };
     struct LoanInterestedRate { static const unsigned char prefix; };
     struct LoanTokenAmount { static const unsigned char prefix; };
+    struct LoanLiquidationPenalty { static const unsigned char prefix; };
 };
 
 #endif // DEFI_MASTERNODES_LOAN_H
