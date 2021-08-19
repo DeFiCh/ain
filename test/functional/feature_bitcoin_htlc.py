@@ -48,21 +48,21 @@ class BitcoinHTLCTests(DefiTestFramework):
             self.nodes[0].spv_createhtlc("0224e7de2f3a9d4cdc4fdc14601c75176287297c212aae9091404956955f1aea86", "035fb3eadde611a39036e61d4c8288d1b896f2c94cee49e60a3d1c02236f4be490", "4194304", seed_hash)
         except JSONRPCException as e:
             errorString = e.error['message']
-            assert("Invalid block denominated relative timeout" in errorString)
+        assert("Invalid block denominated relative timeout" in errorString)
 
         # Try annd create a HTLC script below min blocks
         try:
             self.nodes[0].spv_createhtlc("0224e7de2f3a9d4cdc4fdc14601c75176287297c212aae9091404956955f1aea86", "035fb3eadde611a39036e61d4c8288d1b896f2c94cee49e60a3d1c02236f4be490", "8", seed_hash)
         except JSONRPCException as e:
             errorString = e.error['message']
-            assert("Timeout below minimum of" in errorString)
+        assert("Timeout below minimum of" in errorString)
 
         # Try annd create a HTLC script with incorrect pubkey
         try:
             self.nodes[0].spv_createhtlc("0224e7de2f3a9d4cdc4fdc14601c75176287297c212aae9091404956955f1aea", "035fb3eadde611a39036e61d4c8288d1b896f2c94cee49e60a3d1c02236f4be490", "10", seed_hash)
         except JSONRPCException as e:
             errorString = e.error['message']
-            assert("Invalid public key" in errorString)
+        assert("Invalid public key" in errorString)
 
         # Create and learn HTLC script
         htlc_script = self.nodes[0].spv_createhtlc("0224e7de2f3a9d4cdc4fdc14601c75176287297c212aae9091404956955f1aea86", "035fb3eadde611a39036e61d4c8288d1b896f2c94cee49e60a3d1c02236f4be490", "10", seed_hash)
@@ -83,7 +83,7 @@ class BitcoinHTLCTests(DefiTestFramework):
             self.nodes[0].spv_claimhtlc("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku", address, seed, 1000)
         except JSONRPCException as e:
             errorString = e.error['message']
-            assert("No unspent HTLC outputs found" in errorString)
+        assert("No unspent HTLC outputs found" in errorString)
 
         # Send to contract for seller claim
         result = self.nodes[0].spv_sendtoaddress(htlc_script['address'], 0.1)
@@ -99,14 +99,14 @@ class BitcoinHTLCTests(DefiTestFramework):
             self.nodes[0].spv_claimhtlc("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku", address, "deadbeef", 1000)
         except JSONRPCException as e:
             errorString = e.error['message']
-            assert("Seed provided does not match seed hash in contract" in errorString)
+        assert("Seed provided does not match seed hash in contract" in errorString)
 
          # Try and claim with unknown script address
         try:
             self.nodes[0].spv_claimhtlc("2NGT3gZvc75NX8DWGqfuEvniHGj5LiY33Ui", address, "deadbeef", 1000)
         except JSONRPCException as e:
             errorString = e.error['message']
-            assert("Redeem script not found in wallet" in errorString)
+        assert("Redeem script not found in wallet" in errorString)
 
         # seller claim HTLC
         result = self.nodes[0].spv_claimhtlc("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku", address, seed, 1000)
@@ -132,6 +132,18 @@ class BitcoinHTLCTests(DefiTestFramework):
         assert_equal(len(output), 2)
         assert_equal(output[0]['amount'], Decimal("0.1"))
         assert_equal(output[1]['amount'], Decimal("0.1"))
+
+        # Try and refund before expiration
+        try:
+            self.nodes[0].spv_refundhtlc("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku", address, 1000)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("No unspent HTLC outputs found" in errorString)
+
+        # Move confirtmation count to meet refund requirement
+        self.nodes[0].spv_setlastheight(10)
+
+        print(self.nodes[0].spv_listhtlcoutputs("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku"))
 
         # seller claim HTLC
         result = self.nodes[0].spv_refundhtlc("2N1WoHKzHY59uNpXouLQc32h9k5Y3hXK4Ku", address, 1000)
@@ -202,6 +214,9 @@ class BitcoinHTLCTests(DefiTestFramework):
         assert_equal(output[0]['amount'], Decimal("0.1"))
         assert_equal(output[1]['amount'], Decimal("0.1"))
         assert_equal(output[2]['amount'], Decimal("0.1"))
+
+        # Move confirtmation count to meet refund requirement
+        self.nodes[0].spv_setlastheight(20)
 
         # seller claim HTLC
         result = self.nodes[0].spv_refundhtlc(htlc_script['address'], address, 1000)
