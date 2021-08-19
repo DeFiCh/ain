@@ -2224,6 +2224,8 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
         poolPrice = obj.maxPrice;
     }
 
+    CCustomCSView intermediateView(view);
+
     for (size_t i{0}; i < poolIDs.size(); ++i) {
 
         // Also used to generate pool specific error messages for RPC users
@@ -2261,10 +2263,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
             }
 
             // Update owner rewards if not being called from RPC
-            view.CalculateOwnerRewards(obj.from, height);
+            intermediateView.CalculateOwnerRewards(obj.from, height);
 
             if (lastSwap) {
-                view.CalculateOwnerRewards(obj.to, height);
+                intermediateView.CalculateOwnerRewards(obj.to, height);
             }
 
             // Save swap amount for next loop
@@ -2289,7 +2291,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
     }
 
     // Flush changes
-    view.Flush();
+    intermediateView.Flush();
 
     // Assign to result for loop testing best pool swap result
     result = swapAmountResult.nValue;
