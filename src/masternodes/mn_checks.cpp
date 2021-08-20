@@ -2208,11 +2208,13 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
         poolIDs.clear();
     }
 
+    CCustomCSView intermediateView(view);
+
     // Single swap if no pool IDs provided
     auto poolPrice = POOLPRICE_MAX;
     boost::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
     if (poolIDs.empty()) {
-        poolPair = view.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
+        poolPair = intermediateView.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
         if (!poolPair) {
             return Res::Err("Cannot find the pool pair.");
         }
@@ -2223,8 +2225,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
         // Get legacy max price
         poolPrice = obj.maxPrice;
     }
-
-    CCustomCSView intermediateView(view);
 
     for (size_t i{0}; i < poolIDs.size(); ++i) {
 
@@ -2238,7 +2238,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
         }
         else // Or get pools from IDs provided for composite swap
         {
-            pool = view.GetPoolPair(currentID);
+            pool = intermediateView.GetPoolPair(currentID);
             if (!pool) {
                 return Res::Err("Cannot find the pool pair.");
             }
@@ -2257,7 +2257,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
 
         // Perform swap
         poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
-            auto res = view.SetPoolPair(currentID, height, *pool);
+            auto res = intermediateView.SetPoolPair(currentID, height, *pool);
             if (!res) {
                 return res;
             }
@@ -2273,8 +2273,8 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
             swapAmountResult = tokenAmount;
 
             // Update balances
-            res = view.SubBalance(obj.from, swapAmount);
-            return !res ? res : view.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
+            res = intermediateView.SubBalance(obj.from, swapAmount);
+            return !res ? res : intermediateView.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
             }, static_cast<int>(height));
 
         if (!poolResult) {
