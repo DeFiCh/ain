@@ -2134,6 +2134,49 @@ Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts)
     return mapBurnAmounts[from].AddBalances(amounts.balances);
 }
 
+std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances)
+{
+    constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
+    auto totalCollaterals = collLoan.totalCollaterals();
+    auto totalLoans = collLoan.totalLoans();
+    auto maxCollaterals = totalCollaterals;
+    auto maxCollBalances = collBalances;
+    auto maxLoans = totalLoans;
+    auto CreateAuctionBatch = [&maxCollBalances, &collBalances](CTokenAmount loanAmount, CAmount chunk) {
+        CAuctionBatch batch;
+        batch.loanAmount = loanAmount;
+        for (const auto& tAmount : collBalances) {
+            auto& maxCollBalance = maxCollBalances[tAmount.first];
+            auto collValue = std::min(MultiplyAmounts(tAmount.second, chunk), maxCollBalance);
+            batch.collaterals.Add({tAmount.first, collValue});
+            maxCollBalance -= collValue;
+        }
+        return batch;
+    };
+    std::vector<CAuctionBatch> batches;
+    for (const auto& loan : collLoan.loans) {
+        auto maxLoanValue = loanBalances.at(loan.nTokenId);
+        auto loanChunk = std::min(uint64_t(DivideAmounts(loan.nValue, totalLoans)), maxLoans);
+        auto collateralChunk = std::min(uint64_t(MultiplyAmounts(loanChunk, totalCollaterals)), maxCollaterals);
+        if (collateralChunk > batchThreshold) {
+            auto chunk = DivideAmounts(batchThreshold, collateralChunk);
+            auto loanValue = MultiplyAmounts(maxLoanValue, chunk);
+            for (auto chunks = COIN; chunks > 0; chunks -= chunk) {
+                loanValue = std::min(loanValue, maxLoanValue);
+                auto loanAmount = CTokenAmount{loan.nTokenId, loanValue};
+                batches.push_back(CreateAuctionBatch(loanAmount, chunk));
+                maxLoanValue -= loanValue;
+            }
+        } else {
+            auto loanAmount = CTokenAmount{loan.nTokenId, maxLoanValue};
+            batches.push_back(CreateAuctionBatch(loanAmount, collateralChunk));
+        }
+        maxLoans -= loanChunk;
+        maxCollaterals -= collateralChunk;
+    }
+    return batches;
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2929,44 +2972,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     for (const auto& col : collaterals.balances) {
                         cache.SubVaultCollateral(vaultId, {col.first, col.second});
                     }
-                    constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
-                    auto totalCollaterals = collateral->totalCollaterals();
-                    auto totalLoans = collateral->totalLoans();
-                    auto maxCollaterals = totalCollaterals;
-                    auto maxLoans = totalLoans;
-                    uint32_t batchCount = 0;
-                    for (const auto& loan : collateral->loans) {
-                        auto maxLoanValue = loanTokens->balances[loan.nTokenId];
-                        auto loanChunk = std::min(uint64_t(DivideAmounts(loan.nValue, totalLoans)), maxLoans);
-                        auto collateralChunk = std::min(uint64_t(MultiplyAmounts(loanChunk, totalCollaterals)), maxCollaterals);
-                        if (collateralChunk > batchThreshold) {
-                            auto chunks = COIN;
-                            auto maxColBalances = collaterals.balances;
-                            auto chunk = lround(double(batchThreshold) * chunks / collateralChunk);
-                            auto loanValue = MultiplyAmounts(maxLoanValue, chunk);
-                            for (; chunks > chunk; chunks -= chunk) {
-                                CAuctionBatch batch;
-                                loanValue = std::min(loanValue, maxLoanValue);
-                                batch.loanAmount = CTokenAmount{loan.nTokenId, loanValue};
-                                for (const auto& col : collaterals.balances) {
-                                    auto& maxColBalance = maxColBalances[col.first];
-                                    auto colValue = std::min(MultiplyAmounts(col.second, chunk), maxColBalance);
-                                    batch.collaterals.Add({col.first, colValue});
-                                    maxColBalance -= colValue;
-                                }
-                                maxLoanValue -= loanValue;
-                                cache.StoreAuctionBatch(vaultId, batchCount++, batch);
-                            }
-                        } else {
-                            cache.StoreAuctionBatch(vaultId, batchCount++, CAuctionBatch{
-                                collaterals, {loan.nTokenId, maxLoanValue}
-                            });
-                        }
-                        maxLoans -= loanChunk;
-                        maxCollaterals -= collateralChunk;
+                    auto batches = CollectAuctionBatches(*collateral, collaterals.balances, loanTokens->balances);
+                    for (auto i = 0u; i < batches.size(); i++) {
+                        cache.StoreAuctionBatch(vaultId, i, batches[i]);
                     }
                     cache.StoreAuction(vaultId, pindex->nHeight, CAuctionData{
-                        batchCount, cache.GetLoanLiquidationPenalty()
+                        uint32_t(batches.size()), cache.GetLoanLiquidationPenalty()
                     });
                     return true;
                 });
