@@ -147,6 +147,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::DestroyLoanScheme:       return CDestroyLoanSchemeMessage{};
         case CustomTxType::Vault:                   return CVaultMessage{};
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
+        case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -444,6 +445,11 @@ public:
     }
 
     Res operator()(CUpdateVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CDepositToVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -2077,6 +2083,11 @@ public:
         vault.val->schemeId = obj.schemeId;
         vault.val->ownerAddress = obj.ownerAddress;
         return mnview.StoreVault(obj.vaultId, *vault.val);
+    }
+
+
+    Res operator()(const CDepositToVaultMessage& obj) const {
+        return mnview.AddVaultCollateral(obj.vaultId, obj.amount);
     }
 
     Res operator()(const CCustomTxMessageNone&) const {

@@ -82,7 +82,8 @@ enum class CustomTxType : uint8_t
     DefaultLoanScheme  = 'd',
     DestroyLoanScheme  = 'D',
     Vault              = 'V',
-    UpdateVault        = 'v'
+    UpdateVault        = 'v',
+    DepositToVault     = 'S'
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -124,6 +125,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::DestroyLoanScheme:
         case CustomTxType::Vault:
         case CustomTxType::UpdateVault:
+        case CustomTxType::DepositToVault:
         case CustomTxType::None:
             return type;
     }
@@ -279,7 +281,8 @@ typedef boost::variant<
     CDefaultLoanSchemeMessage,
     CDestroyLoanSchemeMessage,
     CVaultMessage,
-    CUpdateVaultMessage
+    CUpdateVaultMessage,
+    CDepositToVaultMessage
 > CCustomTxMessage;
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
