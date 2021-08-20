@@ -44,6 +44,20 @@ struct CUpdateVaultMessage {
     }
 };
 
+struct CDepositToVaultMessage {
+    CVaultId vaultId;
+    CTokenAmount amount;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(vaultId);
+        READWRITE(amount);
+    }
+};
+
 class CVaultView : public virtual CStorageView
 {
 public:
