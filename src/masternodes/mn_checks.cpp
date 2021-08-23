@@ -2094,14 +2094,15 @@ public:
         }
 
         //check balance
-        CTokenAmount balance = mnview.GetBalance(obj.from, obj.amount.nTokenId);
-        if (balance.nValue < obj.amount.nValue)
-            return Res::Err("Not enough funds");
+        auto res = mnview.SubBalance(obj.from, obj.amount);
+        if (!res) {
+            return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", obj.from.GetHex(), res.msg);
+        }
 
         //check first deposit DFI
         auto amounts = mnview.GetVaultCollaterals(obj.vaultId);
         if (!amounts && obj.amount.nTokenId != DCT_ID{0})
-            return Res::Err("At least 50%% of the collateral must be DFI. First deposit must be in DFI");
+            return Res::Err("First deposit must be in DFI");
 
 
         return mnview.AddVaultCollateral(obj.vaultId, obj.amount);
