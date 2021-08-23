@@ -46,6 +46,7 @@ struct CUpdateVaultMessage {
 
 struct CDepositToVaultMessage {
     CVaultId vaultId;
+    CScript from;
     CTokenAmount amount;
 
     ADD_SERIALIZE_METHODS;
@@ -54,6 +55,7 @@ struct CDepositToVaultMessage {
     inline void SerializationOp(Stream& s, Operation ser_action)
     {
         READWRITE(vaultId);
+        READWRITE(from);
         READWRITE(amount);
     }
 };
