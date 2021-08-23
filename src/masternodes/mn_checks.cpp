@@ -2087,6 +2087,11 @@ public:
 
 
     Res operator()(const CDepositToVaultMessage& obj) const {
+        // owner auth
+        if (!HasAuth(obj.from)) {
+            return Res::Err("tx must have at least one input from token owner");
+        }
+
         return mnview.AddVaultCollateral(obj.vaultId, obj.amount);
     }
 

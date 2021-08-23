@@ -369,7 +369,8 @@ public:
             rpcInfo.pushKV("error ", "could not find vault with id: "+ obj.vaultId.GetHex());
             return;
         }
-        rpcInfo.pushKV("id", obj.vaultId.GetHex());
+        rpcInfo.pushKV("vaultid", obj.vaultId.GetHex());
+        rpcInfo.pushKV("from", obj.from.GetHex());
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
     void operator()(const CCustomTxMessageNone&) const {

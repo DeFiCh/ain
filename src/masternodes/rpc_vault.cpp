@@ -410,7 +410,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
     std::string from = request.params[1].get_str();
     CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), from);
 
-    CDepositToVaultMessage msg{vaultId, amount};
+    CDepositToVaultMessage msg{vaultId, DecodeScript(from), amount};
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::DepositToVault)
                    << msg;
