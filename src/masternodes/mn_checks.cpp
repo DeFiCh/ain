@@ -64,6 +64,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
         case CustomTxType::Vault:               return "Vault";
         case CustomTxType::UpdateVault:         return "UpdateVault";
+        case CustomTxType::DepositToVault:      return "DepositToVault";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -2091,6 +2092,17 @@ public:
         if (!HasAuth(obj.from)) {
             return Res::Err("tx must have at least one input from token owner");
         }
+
+        //check balance
+        CTokenAmount balance = mnview.GetBalance(obj.from, obj.amount.nTokenId);
+        if (balance.nValue < obj.amount.nValue)
+            return Res::Err("Not enough funds");
+
+        //check first deposit DFI
+        auto amounts = mnview.GetVaultCollaterals(obj.vaultId);
+        if (!amounts && obj.amount.nTokenId != DCT_ID{0})
+            return Res::Err("At least 50%% of the collateral must be DFI. First deposit must be in DFI");
+
 
         return mnview.AddVaultCollateral(obj.vaultId, obj.amount);
     }
