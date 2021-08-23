@@ -2992,24 +2992,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         for (const auto& col : batch->collaterals.balances) {
                             cache.AddBalance(bid->first, {col.first, col.second});
                         }
-                        cache.EraseAuctionBid(vaultId, i);
                     } else {
                         cache.AddLoanToken(vaultId, batch->loanAmount);
                         for (const auto& col : batch->collaterals.balances) {
                             cache.AddVaultCollateral(vaultId, {col.first, col.second});
                         }
                     }
-                    cache.EraseAuctionBatch(vaultId, i);
                 }
-                if (cache.GetVaultCollaterals(vaultId) && cache.GetLoanTokens(vaultId)) {
-                    auto vault = cache.GetVault(vaultId);
-                    assert(vault);
-                    vault.val->isUnderLiquidation = false;
-                    cache.StoreVault(vaultId, *vault.val);
-                } else {
-                    // vault is fully liquidated
-                    // should we erase it ?
-                }
+                auto vault = cache.GetVault(vaultId);
+                assert(vault);
+                vault.val->isUnderLiquidation = false;
+                cache.StoreVault(vaultId, *vault.val);
                 cache.EraseAuction(vaultId, pindex->nHeight);
                 return true;
             }, pindex->nHeight);

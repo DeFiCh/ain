@@ -93,8 +93,19 @@ Res CVaultView::StoreAuction(const CVaultId& vaultId, uint32_t height, const CAu
 
 Res CVaultView::EraseAuction(const CVaultId& vaultId, uint32_t height)
 {
-    EraseBy<AuctionHeightKey>(std::make_pair(height, vaultId));
-    return Res::Ok();
+    auto it = LowerBound<AuctionHeightKey>(std::make_pair(height, vaultId));
+    for (; it.Valid(); it.Next()) {
+        if (it.Key().second == vaultId) {
+            CAuctionData data = it.Value();
+            for (uint32_t i = 0; i < data.batchCount; i++) {
+                EraseAuctionBid(vaultId, i);
+                EraseAuctionBatch(vaultId, i);
+            }
+            EraseBy<AuctionHeightKey>(it.Key());
+            return Res::Ok();
+        }
+    }
+    return Res::Err("Auction for vault <%s> not found", vaultId.GetHex());
 }
 
 Res CVaultView::StoreAuctionBatch(const CVaultId& vaultId, uint32_t id, const CAuctionBatch& batch)
