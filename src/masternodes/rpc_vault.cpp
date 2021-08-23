@@ -247,10 +247,10 @@ UniValue updatevault(const JSONRPCRequest& request) {
                RPCExamples{
                        HelpExampleCli(
                                "updatevault",
-                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"owneraddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "leanschemeid": "LOANSCHEME001"}')")
+                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"owneraddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "loanschemeid": "LOANSCHEME001"}')")
                        + HelpExampleRpc(
                                "updatevault",
-                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"owneraddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "leanschemeid": "LOANSCHEME001"}')")
+                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"owneraddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "loanschemeid": "LOANSCHEME001"}')")
                },
     }.Check(request);
 
@@ -382,8 +382,10 @@ UniValue deposittovault(const JSONRPCRequest& request) {
                     "\"txid\"                  (string) The transaction id.\n"
                },
                RPCExamples{
-                       HelpExampleCli("deposittovault",  "") +
-                       HelpExampleRpc("deposittovault", "")
+                       HelpExampleCli("deposittovault",
+                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 1@DFI") +
+                       HelpExampleRpc("deposittovault",
+                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i, mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF, 1@DFI")
                },
     }.Check(request);
 
@@ -397,7 +399,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
-    if (request.params[0].isNull() || request.params[1].isNull())
+    if (request.params[0].isNull() || request.params[1].isNull() || request.params[2].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments must be non-null");
 
     // decode vaultid
