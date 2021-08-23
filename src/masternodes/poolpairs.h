@@ -39,13 +39,20 @@ struct PoolPrice {
         READWRITE(integer);
         READWRITE(fraction);
     }
+
+    bool operator!=(const PoolPrice& rhs) const {
+        return integer != rhs.integer || fraction != rhs.fraction;
+    }
 };
+
+static constexpr auto POOLPRICE_MAX = PoolPrice{std::numeric_limits<CAmount>::max(), std::numeric_limits<CAmount>::max()};
 
 struct CPoolSwapMessage {
     CScript from, to;
     DCT_ID idTokenFrom, idTokenTo;
     CAmount amountFrom;
     PoolPrice maxPrice;
+    std::vector<DCT_ID> poolIDs{};
 
     std::string ToString() const {
         return "(" + from.GetHex() + ":" + std::to_string(amountFrom) +"@"+ idTokenFrom.ToString() + "->" + to.GetHex() + ":?@" + idTokenTo.ToString() +")";
@@ -61,6 +68,11 @@ struct CPoolSwapMessage {
         READWRITE(to);
         READWRITE(idTokenTo);
         READWRITE(maxPrice);
+
+        // Only available after FortCanning
+        if (!s.eof()) {
+            READWRITE(poolIDs);
+        }
     }
 };
 

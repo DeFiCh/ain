@@ -160,6 +160,7 @@ BASE_SCRIPTS = [
     'feature_any_accounts_to_accounts.py',
     'feature_sendtokenstoaddress.py',
     'feature_poolswap.py',
+    'feature_poolswap_composite.py',
     'feature_poolswap_mechanism.py',
     'feature_prevent_bad_tx_propagation.py',
     'feature_masternode_operator.py',
