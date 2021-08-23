@@ -2,21 +2,33 @@
 
 namespace {
     UniValue VaultToJSON(const CVaultMessage& vault, const CVaultId& id) {
+        UniValue collateralBalances{UniValue::VARR};
+        UniValue loanBalances{UniValue::VARR};
         auto collateral = pcustomcsview->GetVaultCollaterals(id);
-        auto loan = pcustomcsview->GetLoanTokens(id);
-        std::string colStr{};
-        std::string loanStr{};
-        if(collateral)
-            colStr = collateral->ToString();
-        if(loan)
-            loanStr = loan->ToString();
+        if(collateral){
+            for (const auto balance : collateral.get().balances){
+                CTokenAmount tokenAmount{balance.first, balance.second};
+                const auto token = pcustomcsview->GetToken(tokenAmount.nTokenId);
+                const auto valueString = ValueFromAmount(tokenAmount.nValue).getValStr();
+                collateralBalances.push_back(valueString + "@" + token->CreateSymbolKey(tokenAmount.nTokenId));
+            }
+        }
 
+        auto loan = pcustomcsview->GetLoanTokens(id);
+        if(loan){
+            for (const auto balance : loan.get().balances){
+                CTokenAmount tokenAmount{balance.first, balance.second};
+                const auto token = pcustomcsview->GetToken(tokenAmount.nTokenId);
+                const auto loanString = ValueFromAmount(tokenAmount.nValue).getValStr();
+                loanBalances.push_back(loanString + "@" + token->CreateSymbolKey(tokenAmount.nTokenId));
+            }
+        }
         UniValue result{UniValue::VOBJ};
         result.pushKV("loanschemeid", vault.schemeId);
         result.pushKV("owneraddress", ScriptToString(vault.ownerAddress));
         result.pushKV("isunderliquidation", vault.isUnderLiquidation);
-        result.pushKV("collateralamount", colStr);
-        result.pushKV("loanamount", loanStr);
+        result.pushKV("collateralamounts", collateralBalances);
+        result.pushKV("loanamount", loanBalances);
         return result;
     }
 }
