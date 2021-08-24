@@ -2991,10 +2991,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         auto amountToFill = DivideAmounts(bid->second.nValue, COIN + data.liquidationPenalty);
                         auto amountToBurn = bid->second.nValue - amountToFill;
                         if (amountToBurn > 0) {
-                            CScript tempAddress(vaultId.begin(), vaultId.end());
-                            cache.AddBalance(tempAddress, {bid->second.nTokenId, amountToBurn});
+                            cache.AddBalance(chainparams.GetConsensus().burnAddress, {bid->second.nTokenId, amountToBurn});
                             CPoolSwapMessage obj;
-                            obj.from = tempAddress;
+                            obj.from = chainparams.GetConsensus().burnAddress;
                             obj.to = chainparams.GetConsensus().burnAddress;
                             obj.idTokenFrom = bid->second.nTokenId;
                             obj.idTokenTo = DCT_ID{0};
