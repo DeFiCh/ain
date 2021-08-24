@@ -3010,8 +3010,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                             cache.AddBalance(bid->first, {col.first, col.second});
                         }
                         // return rest loan to vault if any
-                        if (batch->loanAmount.Sub(amountToFill)) {
-                            cache.AddLoanToken(vaultId, batch->loanAmount);
+                        amountToFill -= batch->loanAmount.nValue;
+                        if (amountToFill > 0) {
+                            cache.AddLoanToken(vaultId, {batch->loanAmount.nTokenId, amountToFill});
                         }
                         tokensLooseInterest.insert(batch->loanAmount.nTokenId);
                     } else {
