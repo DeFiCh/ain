@@ -272,7 +272,9 @@ Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
     if (!res) {
         return res;
     }
-    WriteBy<LoanTokenAmount>(vaultId, amounts);
+    if (!amounts.balances.empty()) {
+        WriteBy<LoanTokenAmount>(vaultId, amounts);
+    }
     return Res::Ok();
 }
 

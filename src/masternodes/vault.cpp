@@ -56,7 +56,9 @@ Res CVaultView::AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)
     if (!res) {
         return res;
     }
-    WriteBy<CollateralKey>(vaultId, amounts);
+    if (!amounts.balances.empty()) {
+        WriteBy<CollateralKey>(vaultId, amounts);
+    }
     return Res::Ok();
 }
 

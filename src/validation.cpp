@@ -2983,11 +2983,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 });
             }
             cache.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+                std::set<DCT_ID> tokensLooseInterest;
                 for (uint32_t i = 0; i < data.batchCount; i++) {
                     auto batch = cache.GetAuctionBatch(vaultId, i);
                     assert(batch);
                     if (auto bid = cache.GetAuctionBid(vaultId, i)) {
-                        auto amountToBurn = bid->second.nValue - DivideAmounts(bid->second.nValue, COIN + data.liquidationPenalty);
+                        auto amountToFill = DivideAmounts(bid->second.nValue, COIN + data.liquidationPenalty);
+                        auto amountToBurn = bid->second.nValue - amountToFill;
                         if (amountToBurn > 0) {
                             CScript tempAddress(vaultId.begin(), vaultId.end());
                             cache.AddBalance(tempAddress, {bid->second.nTokenId, amountToBurn});
@@ -3008,6 +3010,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         for (const auto& col : batch->collaterals.balances) {
                             cache.AddBalance(bid->first, {col.first, col.second});
                         }
+                        // return rest loan to vault if any
+                        if (batch->loanAmount.Sub(amountToFill)) {
+                            cache.AddLoanToken(vaultId, batch->loanAmount);
+                        }
+                        tokensLooseInterest.insert(batch->loanAmount.nTokenId);
                     } else {
                         cache.AddLoanToken(vaultId, batch->loanAmount);
                         for (const auto& col : batch->collaterals.balances) {
@@ -3020,6 +3027,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 vault.val->isUnderLiquidation = false;
                 cache.StoreVault(vaultId, *vault.val);
                 cache.EraseAuction(vaultId, pindex->nHeight);
+                for (const auto& tokenID : tokensLooseInterest) {
+                    cache.EraseInterest(pindex->nHeight, vault.val->schemeId, tokenID);
+                }
                 return true;
             }, pindex->nHeight);
         }
