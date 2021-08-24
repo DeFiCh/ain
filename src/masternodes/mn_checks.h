@@ -20,6 +20,7 @@ class CCoinsViewCache;
 
 class CCustomCSView;
 class CAccountsHistoryView;
+class CCustomTxVisitor;
 
 static const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};  // 44665478
 
@@ -356,5 +357,21 @@ inline CAmount GetNonMintedValueOut(const CTransaction & tx, DCT_ID tokenID)
     }
     return tx.GetValueOut(mintingOutputsStart, tokenID);
 }
+
+class CPoolSwap {
+    const CPoolSwapMessage& obj;
+    uint32_t height;
+    CAmount result{0};
+    DCT_ID currentID;
+
+public:
+    std::vector<std::pair<std::string, std::string>> errors;
+
+    CPoolSwap(const CPoolSwapMessage& obj, uint32_t height)
+    : obj(obj), height(height) {}
+
+    std::vector<DCT_ID> CalculateSwaps(CCustomCSView& view);
+    Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs);
+};
 
 #endif // DEFI_MASTERNODES_MN_CHECKS_H
