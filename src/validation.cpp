@@ -2987,7 +2987,23 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     auto batch = cache.GetAuctionBatch(vaultId, i);
                     assert(batch);
                     if (auto bid = cache.GetAuctionBid(vaultId, i)) {
-                        // swap bid amount to DFI and burn
+                        auto amountToBurn = bid->second.nValue - DivideAmounts(bid->second.nValue, COIN + data.liquidationPenalty);
+                        if (amountToBurn > 0) {
+                            CScript tempAddress(vaultId.begin(), vaultId.end());
+                            cache.AddBalance(tempAddress, {bid->second.nTokenId, amountToBurn});
+                            CPoolSwapMessage obj;
+                            obj.from = tempAddress;
+                            obj.to = chainparams.GetConsensus().burnAddress;
+                            obj.idTokenFrom = bid->second.nTokenId;
+                            obj.idTokenTo = DCT_ID{0};
+                            obj.amountFrom = amountToBurn;
+                            obj.maxPrice = POOLPRICE_MAX;
+                            auto poolSwap = CPoolSwap(obj, pindex->nHeight);
+                            // swap tokenID -> USD -> DFI
+                            auto token = cache.GetToken("USD");
+                            assert(token);
+                            poolSwap.ExecuteSwap(cache, {bid->second.nTokenId, token->first, DCT_ID{0}});
+                        }
                         cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
                         for (const auto& col : batch->collaterals.balances) {
                             cache.AddBalance(bid->first, {col.first, col.second});
