@@ -2134,6 +2134,49 @@ Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts)
     return mapBurnAmounts[from].AddBalances(amounts.balances);
 }
 
+std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances)
+{
+    constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
+    auto totalCollaterals = collLoan.totalCollaterals();
+    auto totalLoans = collLoan.totalLoans();
+    auto maxCollaterals = totalCollaterals;
+    auto maxCollBalances = collBalances;
+    auto maxLoans = totalLoans;
+    auto CreateAuctionBatch = [&maxCollBalances, &collBalances](CTokenAmount loanAmount, CAmount chunk) {
+        CAuctionBatch batch;
+        batch.loanAmount = loanAmount;
+        for (const auto& tAmount : collBalances) {
+            auto& maxCollBalance = maxCollBalances[tAmount.first];
+            auto collValue = std::min(MultiplyAmounts(tAmount.second, chunk), maxCollBalance);
+            batch.collaterals.Add({tAmount.first, collValue});
+            maxCollBalance -= collValue;
+        }
+        return batch;
+    };
+    std::vector<CAuctionBatch> batches;
+    for (const auto& loan : collLoan.loans) {
+        auto maxLoanValue = loanBalances.at(loan.nTokenId);
+        auto loanChunk = std::min(uint64_t(DivideAmounts(loan.nValue, totalLoans)), maxLoans);
+        auto collateralChunk = std::min(uint64_t(MultiplyAmounts(loanChunk, totalCollaterals)), maxCollaterals);
+        if (collateralChunk > batchThreshold) {
+            auto chunk = DivideAmounts(batchThreshold, collateralChunk);
+            auto loanValue = MultiplyAmounts(maxLoanValue, chunk);
+            for (auto chunks = COIN; chunks > 0; chunks -= chunk) {
+                loanValue = std::min(loanValue, maxLoanValue);
+                auto loanAmount = CTokenAmount{loan.nTokenId, loanValue};
+                batches.push_back(CreateAuctionBatch(loanAmount, chunk));
+                maxLoanValue -= loanValue;
+            }
+        } else {
+            auto loanAmount = CTokenAmount{loan.nTokenId, maxLoanValue};
+            batches.push_back(CreateAuctionBatch(loanAmount, collateralChunk));
+        }
+        maxLoans -= loanChunk;
+        maxCollaterals -= collateralChunk;
+    }
+    return batches;
+}
+
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
@@ -2929,9 +2972,66 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     for (const auto& col : collaterals.balances) {
                         cache.SubVaultCollateral(vaultId, {col.first, col.second});
                     }
+                    auto batches = CollectAuctionBatches(*collateral, collaterals.balances, loanTokens->balances);
+                    for (auto i = 0u; i < batches.size(); i++) {
+                        cache.StoreAuctionBatch(vaultId, i, batches[i]);
+                    }
+                    cache.StoreAuction(vaultId, pindex->nHeight, CAuctionData{
+                        uint32_t(batches.size()), cache.GetLoanLiquidationPenalty()
+                    });
                     return true;
                 });
             }
+            cache.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+                std::set<DCT_ID> tokensLooseInterest;
+                for (uint32_t i = 0; i < data.batchCount; i++) {
+                    auto batch = cache.GetAuctionBatch(vaultId, i);
+                    assert(batch);
+                    if (auto bid = cache.GetAuctionBid(vaultId, i)) {
+                        auto amountToFill = DivideAmounts(bid->second.nValue, COIN + data.liquidationPenalty);
+                        auto amountToBurn = bid->second.nValue - amountToFill;
+                        if (amountToBurn > 0) {
+                            cache.AddBalance(chainparams.GetConsensus().burnAddress, {bid->second.nTokenId, amountToBurn});
+                            CPoolSwapMessage obj;
+                            obj.from = chainparams.GetConsensus().burnAddress;
+                            obj.to = chainparams.GetConsensus().burnAddress;
+                            obj.idTokenFrom = bid->second.nTokenId;
+                            obj.idTokenTo = DCT_ID{0};
+                            obj.amountFrom = amountToBurn;
+                            obj.maxPrice = POOLPRICE_MAX;
+                            auto poolSwap = CPoolSwap(obj, pindex->nHeight);
+                            // swap tokenID -> USD -> DFI
+                            auto token = cache.GetToken("USD");
+                            assert(token);
+                            poolSwap.ExecuteSwap(cache, {bid->second.nTokenId, token->first, DCT_ID{0}});
+                        }
+                        cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
+                        for (const auto& col : batch->collaterals.balances) {
+                            cache.AddBalance(bid->first, {col.first, col.second});
+                        }
+                        // return rest loan to vault if any
+                        amountToFill -= batch->loanAmount.nValue;
+                        if (amountToFill > 0) {
+                            cache.AddLoanToken(vaultId, {batch->loanAmount.nTokenId, amountToFill});
+                        }
+                        tokensLooseInterest.insert(batch->loanAmount.nTokenId);
+                    } else {
+                        cache.AddLoanToken(vaultId, batch->loanAmount);
+                        for (const auto& col : batch->collaterals.balances) {
+                            cache.AddVaultCollateral(vaultId, {col.first, col.second});
+                        }
+                    }
+                }
+                auto vault = cache.GetVault(vaultId);
+                assert(vault);
+                vault.val->isUnderLiquidation = false;
+                cache.StoreVault(vaultId, *vault.val);
+                cache.EraseAuction(vaultId, pindex->nHeight);
+                for (const auto& tokenID : tokensLooseInterest) {
+                    cache.EraseInterest(pindex->nHeight, vault.val->schemeId, tokenID);
+                }
+                return true;
+            }, pindex->nHeight);
         }
 
         // construct undo
