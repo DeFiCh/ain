@@ -118,8 +118,8 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest& request, CPoolSwapMessage
             poolSwapMsg.maxPrice.fraction = maxPrice % COIN;
         } else {
             // There is no maxPrice calculation anymore
-            poolSwapMsg.maxPrice.integer = INT64_MAX;
-            poolSwapMsg.maxPrice.fraction = INT64_MAX;
+            poolSwapMsg.maxPrice.integer = std::numeric_limits<CAmount>::max();
+            poolSwapMsg.maxPrice.fraction = std::numeric_limits<CAmount>::max();
         }
     }
 }
@@ -816,6 +816,32 @@ UniValue poolswap(const JSONRPCRequest& request) {
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
+    // If no direct swap found search for composite swap
+    if (!pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
+
+        // Base error message
+        std::string errorMsg{"Cannot find usable pool pair."};
+
+        if (targetHeight >= Params().GetConsensus().FortCanningHeight) {
+            auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
+            poolSwapMsg.poolIDs = compositeSwap.CalculateSwaps(*pcustomcsview);
+
+            // Populate composite pool errors if any
+            if (poolSwapMsg.poolIDs.empty() && !compositeSwap.errors.empty()) {
+                errorMsg += " Details: (";
+                for (size_t i{0}; i < compositeSwap.errors.size(); ++i) {
+                    errorMsg += "\"" + compositeSwap.errors[i].first + "\":\"" +  compositeSwap.errors[i].second + "\"" + (i + 1 < compositeSwap.errors.size() ? "," : "");
+                }
+                errorMsg += ")";
+            }
+        }
+
+        // Bo composite or direct pools found
+        if (poolSwapMsg.poolIDs.empty()) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, errorMsg);
+        }
+    }
+
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::PoolSwap)
              << poolSwapMsg;
@@ -825,7 +851,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
-    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+    rawTx.vout.emplace_back(0, scriptMeta);
 
     UniValue const & txInputs = request.params[1];
     CTransactionRef optAuthTx;

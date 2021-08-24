@@ -878,7 +878,12 @@ public:
             }
         }
 
-        return mnview.UpdateToken(token.creationTx, obj.token, false);
+        auto updatedToken = obj.token;
+        if (height >= consensus.FortCanningHeight) {
+            updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        }
+
+        return mnview.UpdateToken(token.creationTx, updatedToken, false);
     }
 
     Res operator()(const CMintTokensMessage& obj) const {
@@ -935,10 +940,11 @@ public:
             return Res::Err("token %s does not exist!", poolPair.idTokenB.ToString());
         }
 
+        const auto symbolLength = height >= consensus.FortCanningHeight ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
         if (pairSymbol.empty()) {
-            pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+            pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, symbolLength);
         } else {
-            pairSymbol = trim_ws(pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+            pairSymbol = trim_ws(pairSymbol).substr(0, symbolLength);
         }
 
         CTokenImplementation token;
@@ -996,22 +1002,7 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        auto poolPair = mnview.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
-        if (!poolPair) {
-            return Res::Err("can't find the poolpair!");
-        }
-
-        CPoolPair& pp = poolPair->second;
-        return pp.Swap({obj.idTokenFrom, obj.amountFrom}, obj.maxPrice, [&] (const CTokenAmount &tokenAmount) {
-            auto res = mnview.SetPoolPair(poolPair->first, height, pp);
-            if (!res) {
-                return res;
-            }
-            CalculateOwnerRewards(obj.from);
-            CalculateOwnerRewards(obj.to);
-            res = mnview.SubBalance(obj.from, {obj.idTokenFrom, obj.amountFrom});
-            return !res ? res : mnview.AddBalance(obj.to, tokenAmount);
-        }, static_cast<int>(height));
+        return CPoolSwap(obj, height).ExecuteSwap(mnview, obj.poolIDs);
     }
 
     Res operator()(const CLiquidityMessage& obj) const {
@@ -2472,4 +2463,202 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
         return txType == CustomTxType::CreateMasternode || txType == CustomTxType::CreateToken;
     }
     return false;
+}
+
+std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
+
+    // For tokens to be traded get all pairs and pool IDs
+    std::multimap<uint32_t, DCT_ID> fromPoolsID, toPoolsID;
+    view.ForEachPoolPair([&](DCT_ID const & id, const CPoolPair& pool) {
+        if (pool.idTokenA == obj.idTokenFrom) {
+            fromPoolsID.emplace(pool.idTokenB.v, id);
+        } else if (pool.idTokenB == obj.idTokenFrom) {
+            fromPoolsID.emplace(pool.idTokenA.v, id);
+        }
+
+        if (pool.idTokenA == obj.idTokenTo) {
+            toPoolsID.emplace(pool.idTokenB.v, id);
+        } else if (pool.idTokenB == obj.idTokenTo) {
+            toPoolsID.emplace(pool.idTokenA.v, id);
+        }
+        return true;
+    }, {0});
+
+    if (fromPoolsID.empty() || toPoolsID.empty()) {
+        return {};
+    }
+
+    // Find intersection on key
+    std::map<uint32_t, DCT_ID> commonPairs;
+    set_intersection(fromPoolsID.begin(), fromPoolsID.end(), toPoolsID.begin(), toPoolsID.end(),
+                     std::inserter(commonPairs, commonPairs.begin()),
+                     [](std::pair<uint32_t, DCT_ID> a, std::pair<uint32_t, DCT_ID> b) {
+        return a.first < b.first;
+    });
+
+    // Loop through all common pairs and record direct pool to pool swaps
+    std::vector<std::vector<DCT_ID>> poolPaths;
+    for (const auto& item : commonPairs) {
+
+        // Loop through all source/intermediate pools matching common pairs
+        const auto poolFromIDs = fromPoolsID.equal_range(item.first);
+        for (auto fromID = poolFromIDs.first; fromID != poolFromIDs.second; ++fromID) {
+
+            // Loop through all destination pools matching common pairs
+            const auto poolToIDs = toPoolsID.equal_range(item.first);
+            for (auto toID = poolToIDs.first; toID != poolToIDs.second; ++toID) {
+
+                // Add to pool paths
+                poolPaths.push_back({fromID->second, toID->second});
+            }
+        }
+    }
+
+    // Look for pools that bridges token. Might be in addition to common token pairs paths.
+    view.ForEachPoolPair([&](DCT_ID const & id, const CPoolPair& pool) {
+
+        // Loop through from pool multimap on unique keys only
+        for (auto fromIt = fromPoolsID.begin(); fromIt != fromPoolsID.end(); fromIt = fromPoolsID.equal_range(fromIt->first).second) {
+
+            // Loop through to pool multimap on unique keys only
+            for (auto toIt = toPoolsID.begin(); toIt != toPoolsID.end(); toIt = toPoolsID.equal_range(toIt->first).second) {
+
+                // If a pool pairs matches from pair and to pair add it to the pool paths
+                if ((fromIt->first == pool.idTokenA.v && toIt->first == pool.idTokenB.v) ||
+                (fromIt->first == pool.idTokenB.v && toIt->first == pool.idTokenA.v)) {
+                    poolPaths.push_back({fromIt->second, id, toIt->second});
+                }
+            }
+        }
+        return true;
+    }, {0});
+
+    // Record best pair
+    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, 0};
+
+    // Loop through all common pairs
+    for (const auto& path : poolPaths) {
+
+        // Test on copy of view
+        CCustomCSView dummy(view);
+
+        // Execute pool path
+        auto res = ExecuteSwap(dummy, path);
+
+        // Add error for RPC user feedback
+        if (!res) {
+            const auto token = dummy.GetToken(currentID);
+            if (token) {
+                errors.emplace_back(token->symbol, res.msg);
+            }
+        }
+
+        // Record amount if more than previous or default value
+        if (res && result > bestPair.second) {
+            bestPair = {path, result};
+        }
+    }
+
+    return bestPair.first;
+}
+
+Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
+
+    CTokenAmount swapAmountResult{{},0};
+    Res poolResult = Res::Ok();
+
+    // No composite swap allowed before Fort Canning
+    if (height < Params().GetConsensus().FortCanningHeight && !poolIDs.empty()) {
+        poolIDs.clear();
+    }
+
+    CCustomCSView intermediateView(view);
+
+    // Single swap if no pool IDs provided
+    auto poolPrice = POOLPRICE_MAX;
+    boost::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
+    if (poolIDs.empty()) {
+        poolPair = intermediateView.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
+        if (!poolPair) {
+            return Res::Err("Cannot find the pool pair.");
+        }
+
+        // Add single swap pool to vector for loop
+        poolIDs.push_back(poolPair->first);
+
+        // Get legacy max price
+        poolPrice = obj.maxPrice;
+    }
+
+    for (size_t i{0}; i < poolIDs.size(); ++i) {
+
+        // Also used to generate pool specific error messages for RPC users
+        currentID = poolIDs[i];
+
+        // Use single swap pool if already found
+        boost::optional<CPoolPair> pool;
+        if (poolPair) {
+            pool = poolPair->second;
+        }
+        else // Or get pools from IDs provided for composite swap
+        {
+            pool = intermediateView.GetPoolPair(currentID);
+            if (!pool) {
+                return Res::Err("Cannot find the pool pair.");
+            }
+        }
+
+        // Set amount to be swapped in pool
+        CTokenAmount swapAmount{obj.idTokenFrom, obj.amountFrom};
+
+        // If set use amount from previous loop
+        if (swapAmountResult.nValue != 0) {
+            swapAmount = swapAmountResult;
+        }
+
+        // Check if last pool swap
+        bool lastSwap = i + 1 == poolIDs.size();
+
+        // Perform swap
+        poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
+            auto res = intermediateView.SetPoolPair(currentID, height, *pool);
+            if (!res) {
+                return res;
+            }
+
+            // Update owner rewards if not being called from RPC
+            intermediateView.CalculateOwnerRewards(obj.from, height);
+
+            if (lastSwap) {
+                intermediateView.CalculateOwnerRewards(obj.to, height);
+            }
+
+            // Save swap amount for next loop
+            swapAmountResult = tokenAmount;
+
+            // Update balances
+            res = intermediateView.SubBalance(obj.from, swapAmount);
+            return !res ? res : intermediateView.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
+            }, static_cast<int>(height));
+
+        if (!poolResult) {
+            return poolResult;
+        }
+    }
+
+    // Reject if price paid post-swap above max price provided
+    if (height >= Params().GetConsensus().FortCanningHeight && obj.maxPrice != POOLPRICE_MAX) {
+        const CAmount userMaxPrice = obj.maxPrice.integer * COIN + obj.maxPrice.fraction;
+        if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {
+            return Res::Err("Price is higher than indicated.");
+        }
+    }
+
+    // Flush changes
+    intermediateView.Flush();
+
+    // Assign to result for loop testing best pool swap result
+    result = swapAmountResult.nValue;
+
+    return poolResult;
 }
