@@ -44,6 +44,16 @@ DCT_ID CreateLoanToken(CCustomCSView &mnview, const std::string& symbol, const s
     return id;
 }
 
+void CreateCollateralToken(CCustomCSView &mnview, DCT_ID id, const uint256& priceTx)
+{
+    CLoanSetCollateralTokenImplementation collateralToken;
+    collateralToken.idToken = id;
+    collateralToken.creationHeight = 0;
+    collateralToken.creationTx = NextTx();
+    collateralToken.priceFeedTxid = priceTx;
+    mnview.LoanCreateSetCollateralToken(collateralToken);
+}
+
 void CreateScheme(CCustomCSView &mnview, const std::string& name, uint32_t ratio, CAmount rate)
 {
     CLoanSchemeMessage msg;
@@ -137,6 +147,8 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     auto tesla_id = CreateLoanToken(mnview, "TSLA", "TESLA", oracle_id, 5 * COIN);
     auto nft_id = CreateLoanToken(mnview, "NFT", "NFT", oracle_id, 2 * COIN);
     auto btc_id = CreateToken(mnview, "BTC", "BITCOIN");
+    CreateCollateralToken(mnview, dfi_id, oracle_id);
+    CreateCollateralToken(mnview, btc_id, oracle_id);
 
     mnview.StoreInterest(1, id, tesla_id);
     mnview.StoreInterest(1, id, tesla_id);

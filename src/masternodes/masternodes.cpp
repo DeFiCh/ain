@@ -868,7 +868,7 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
         ret.loans.push_back({loan.first, MultiplyAmounts(price, value)});
     }
     for (const auto& col : collaterals.balances) {
-        auto token = HasLoanSetCollateralToken({col.first, 0});
+        auto token = HasLoanSetCollateralToken({col.first, ~height});
         assert(token);
         auto oracle = GetOracleData(token->priceFeedTxid);
         assert(oracle);
