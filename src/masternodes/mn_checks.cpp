@@ -2116,28 +2116,32 @@ public:
         if(!resAdd) return resAdd;
 
         collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-        CBalances tDFI;
-        CBalances tOther;
-        std::vector<COracle> oracles;
         CAmount totalDFI = 0, totalCollaterals = 0;
-
         for (const auto& col : collaterals->balances) {
-            auto token = mnview.GetToken(col.first);
-            mnview.ForEachOracle([&](const COracleId& id, COracle oracle) {
-                if(oracle.SupportsPair(token->symbol, "USD")){
-                    oracles.push_back(oracle);
-                    auto price = oracle.GetTokenPrice(token->symbol, "USD");
-                    if(token->symbol == "DFI")
-                        totalDFI += (arith_uint256(*price.val) * arith_uint256(col.second) / arith_uint256(COIN)).GetLow64();
-                    totalCollaterals += (arith_uint256(*price.val) * arith_uint256(col.second) / arith_uint256(COIN)).GetLow64();
-                }
-                return true;
-            });
+
+            auto loanSetCollToken = mnview.HasLoanSetCollateralToken({col.first, height}); // for priceFeedId
+            if (!loanSetCollToken)
+                return Res::Err("Token with id %s does not exist as collateral token", loanSetCollToken->idToken.ToString());
+
+            auto cToken = mnview.GetToken(loanSetCollToken->idToken); // for symbol
+            if (!cToken)
+                return Res::Err("token %s does not exist.", cToken->symbol);
+
+            auto oracle = mnview.GetOracleData(loanSetCollToken->priceFeedTxid);
+            if(!oracle)
+                return Res::Err("oracle <%s> not found.", loanSetCollToken->priceFeedTxid.GetHex());
+
+            auto price = oracle.val->GetTokenPrice(cToken->symbol, "USD");
+            if(cToken->symbol == "DFI")
+                totalDFI += MultiplyAmounts(*price.val, col.second);
+
+            totalCollaterals += MultiplyAmounts(*price.val, col.second);
         }
-        if( totalDFI < totalCollaterals/2)
+        if( totalDFI < totalCollaterals/2 ){
             mnview.SubVaultCollateral(obj.vaultId, obj.amount);
             mnview.AddBalance(obj.from, obj.amount);
             return Res::Err("At least 50%% of the vault must be in DFI.");
+        }
         return Res::Ok();
     }
 
