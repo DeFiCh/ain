@@ -1,28 +1,27 @@
 #include <masternodes/mn_rpc.h>
 
 namespace {
+    UniValue AmountsToArr(const TAmounts& balances){
+        UniValue BalancesArr{UniValue::VARR};
+            for (const auto balance : balances){
+                CTokenAmount tokenAmount{balance.first, balance.second};
+                const auto token = pcustomcsview->GetToken(tokenAmount.nTokenId);
+                const auto valueString = ValueFromAmount(tokenAmount.nValue).getValStr();
+                BalancesArr.push_back(valueString + "@" + token->CreateSymbolKey(tokenAmount.nTokenId));
+            }
+        return BalancesArr;
+    }
     UniValue VaultToJSON(const CVaultMessage& vault, const CVaultId& id) {
         UniValue collateralBalances{UniValue::VARR};
         UniValue loanBalances{UniValue::VARR};
         auto collateral = pcustomcsview->GetVaultCollaterals(id);
-        if(collateral){
-            for (const auto balance : collateral.get().balances){
-                CTokenAmount tokenAmount{balance.first, balance.second};
-                const auto token = pcustomcsview->GetToken(tokenAmount.nTokenId);
-                const auto valueString = ValueFromAmount(tokenAmount.nValue).getValStr();
-                collateralBalances.push_back(valueString + "@" + token->CreateSymbolKey(tokenAmount.nTokenId));
-            }
-        }
+        if(collateral)
+            collateralBalances = AmountsToArr(collateral.get().balances);
 
         auto loan = pcustomcsview->GetLoanTokens(id);
-        if(loan){
-            for (const auto balance : loan.get().balances){
-                CTokenAmount tokenAmount{balance.first, balance.second};
-                const auto token = pcustomcsview->GetToken(tokenAmount.nTokenId);
-                const auto loanString = ValueFromAmount(tokenAmount.nValue).getValStr();
-                loanBalances.push_back(loanString + "@" + token->CreateSymbolKey(tokenAmount.nTokenId));
-            }
-        }
+        if(loan)
+            loanBalances = AmountsToArr(loan.get().balances);
+
         UniValue result{UniValue::VOBJ};
         result.pushKV("loanschemeid", vault.schemeId);
         result.pushKV("owneraddress", ScriptToString(vault.ownerAddress));
