@@ -90,6 +90,7 @@ public:
     bool IsActive(int height) const;
 
     static std::string GetHumanReadableState(State state);
+    static std::string GetTimelockToString(TimeLock timelock);
 
     ADD_SERIALIZE_METHODS;
 
