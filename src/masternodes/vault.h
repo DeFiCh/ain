@@ -85,8 +85,6 @@ struct CAuctionBatch {
     {
         READWRITE(collaterals);
         READWRITE(loanAmount);
-        READWRITE(vaultId);
-        READWRITE(amount);
     }
 };
 
