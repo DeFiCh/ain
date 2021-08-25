@@ -1040,10 +1040,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     };
 
     LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
+    CCustomCSView mnview(*pcustomcsview), view(mnview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
+    CScript lastOwner;
     auto count = limit;
     auto lastHeight = maxBlockHeight;
 
@@ -1073,7 +1074,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
         if (isMine) {
             // starts new account owned by the wallet
-            if (key.blockHeight > lastHeight) {
+            if (lastOwner != key.owner) {
                 count = limit;
             } else if (count == 0) {
                 return true;
@@ -1081,7 +1082,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         // starting new account
-        if (key.blockHeight > lastHeight) {
+        if (lastOwner != key.owner) {
+            view.Discard();
+            lastOwner = key.owner;
             lastHeight = maxBlockHeight;
         }
 
@@ -1117,7 +1120,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         // revert previous tx to restore account balances to maxBlockHeight
         auto it = paccountHistoryDB->LowerBound<CAccountsHistoryView::ByAccountHistoryKey>(startKey);
         if (it.Valid() && (it.Prev(), it.Valid())) {
-            view.OnUndoTx(it.Value().as<AccountHistoryValue>().txid, it.Key().blockHeight);
+            mnview.OnUndoTx(it.Value().as<AccountHistoryValue>().txid, it.Key().blockHeight);
         }
     }
 
@@ -1395,6 +1398,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     CCustomCSView view(*pcustomcsview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
 
+    CScript lastOwner;
     uint64_t count = 0;
     auto lastHeight = uint32_t(::ChainActive().Height());
     const auto currentHeight = lastHeight;
@@ -1427,6 +1431,12 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         }
 
         if (!noRewards) {
+            // starting new account
+            if (lastOwner != key.owner) {
+                view.Discard();
+                lastOwner = key.owner;
+                lastHeight = currentHeight;
+            }
             onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
                 [&](int32_t, DCT_ID, RewardType, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
