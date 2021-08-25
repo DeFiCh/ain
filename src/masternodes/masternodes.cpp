@@ -856,7 +856,6 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
         return {};
     }
     CCollateralLoans ret;
-    std::vector<COracle> oracles;
     for (const auto& loan : loanTokens->balances) {
         auto token = GetLoanSetLoanTokenByID(loan.first);
         assert(token);
@@ -864,21 +863,16 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
         assert(rate && rate->height <= height);
         auto oracle = GetOracleData(token->priceFeedTxid);
         assert(oracle);
-        oracles.push_back(*oracle.val);
         auto price = GetOraclePriceUSD(*oracle.val, token->symbol);
         auto value = loan.second + rate->interestToHeight + ((height - rate->height + 1) * rate->interestPerBlock);
         ret.loans.push_back({loan.first, MultiplyAmounts(price, value)});
     }
     for (const auto& col : collaterals.balances) {
-        auto token = GetToken(col.first);
+        auto token = HasLoanSetCollateralToken({col.first, 0});
         assert(token);
-        auto it = std::find_if(oracles.begin(), oracles.end(), [&](const COracle& oracle) {
-            return oracle.SupportsPair(token->symbol, "USD");
-        });
-        if (it == oracles.end()) {
-            continue;
-        }
-        auto price = GetOraclePriceUSD(*it, token->symbol);
+        auto oracle = GetOracleData(token->priceFeedTxid);
+        assert(oracle);
+        auto price = GetOraclePriceUSD(*oracle.val, GetToken(col.first)->symbol);
         ret.collaterals.push_back({col.first, MultiplyAmounts(price, col.second)});
     }
     return ret;
