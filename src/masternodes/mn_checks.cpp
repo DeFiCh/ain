@@ -2066,7 +2066,6 @@ public:
 
     Res operator()(const CUpdateVaultMessage& obj) const {
 
-
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
@@ -2101,20 +2100,54 @@ public:
         if (!HasAuth(obj.from)) {
             return Res::Err("tx must have at least one input from token owner");
         }
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err(strprintf("Cannot find existing vault with id %s", obj.vaultId.GetHex()));
+
+        // vault under liquidation
+        if(vault.val->isUnderLiquidation)
+            return Res::Err(strprintf("Cannot deposit to vault under liquidation"));
 
         //check balance
-        auto res = mnview.SubBalance(obj.from, obj.amount);
-        if (!res) {
-            return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", obj.from.GetHex(), res.msg);
-        }
+        auto resSub= mnview.SubBalance(obj.from, obj.amount);
+        if (!resSub)
+            return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", obj.from.GetHex(), resSub.msg);
 
         //check first deposit DFI
-        auto amounts = mnview.GetVaultCollaterals(obj.vaultId);
-        if (!amounts && obj.amount.nTokenId != DCT_ID{0})
+        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+        if (!collaterals && obj.amount.nTokenId != DCT_ID{0})
             return Res::Err("First deposit must be in DFI");
+        else if(!collaterals && obj.amount.nTokenId == DCT_ID{0})
+            return mnview.AddVaultCollateral(obj.vaultId, obj.amount);
 
+        auto resAdd = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
+        if(!resAdd) return resAdd;
 
-        return mnview.AddVaultCollateral(obj.vaultId, obj.amount);
+        collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+        CBalances tDFI;
+        CBalances tOther;
+        std::vector<COracle> oracles;
+        CAmount totalDFI = 0, totalCollaterals = 0;
+
+        for (const auto& col : collaterals->balances) {
+            auto token = mnview.GetToken(col.first);
+            mnview.ForEachOracle([&](const COracleId& id, COracle oracle) {
+                if(oracle.SupportsPair(token->symbol, "USD")){
+                    oracles.push_back(oracle);
+                    auto price = oracle.GetTokenPrice(token->symbol, "USD");
+                    if(token->symbol == "DFI")
+                        totalDFI += (arith_uint256(*price.val) * arith_uint256(col.second) / arith_uint256(COIN)).GetLow64();
+                    totalCollaterals += (arith_uint256(*price.val) * arith_uint256(col.second) / arith_uint256(COIN)).GetLow64();
+                }
+                return true;
+            });
+        }
+        if( totalDFI < totalCollaterals/2)
+            mnview.SubVaultCollateral(obj.vaultId, obj.amount);
+            mnview.AddBalance(obj.from, obj.amount);
+            return Res::Err("At least 50%% of the vault must be in DFI.");
+        return Res::Ok();
     }
 
     Res operator()(const CCustomTxMessageNone&) const {
