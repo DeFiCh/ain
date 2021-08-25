@@ -1225,6 +1225,8 @@ static UniValue spv_dumpprivkey(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
+    EnsureWalletIsUnlocked(pwallet);
+
     std::string strAddress = request.params[0].get_str();
 
     return spv::pspv->DumpBitcoinPrivKey(pwallet, strAddress);
