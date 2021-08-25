@@ -331,7 +331,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     if (!metaObj["interest"].isNull())
         loanToken.interest = AmountFromValue(metaObj["interest"]);
     else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"interest\" must not be null");
+        loanToken.interest = 0;
 
 
     int targetHeight = ::ChainActive().Height() + 1;
@@ -389,7 +389,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
                             {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's name (optional), no longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
                             {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "txid of oracle feeding the price"},
                             {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Token's 'Mintable' property (bool, optional), default is 'True'"},
-                            {"interest", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Interest rate (default: 0)"},
+                            {"interest", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Interest rate (optional)."},
                         },
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
