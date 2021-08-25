@@ -2137,11 +2137,9 @@ public:
 
             totalCollaterals += MultiplyAmounts(*price.val, col.second);
         }
-        if( totalDFI < totalCollaterals/2 ){
-            mnview.SubVaultCollateral(obj.vaultId, obj.amount);
-            mnview.AddBalance(obj.from, obj.amount);
+        if( totalDFI < totalCollaterals/2 )
             return Res::Err("At least 50%% of the vault must be in DFI.");
-        }
+
         return Res::Ok();
     }
 
