@@ -933,6 +933,42 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
     return ret;
 }
 
+UniValue getloanscheme(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"getloanscheme",
+               "Sets the default loan scheme.\n",
+               {
+                    {"id", RPCArg::Type::STR, RPCArg::Optional::NO, "Unique identifier of the loan scheme (8 chars max)."},
+               },
+               RPCResult{
+                       "  {\n"
+                       "    \"id\" : n                   (string)\n"
+                       "    \"mincolratio\" : n          (numeric)\n"
+                       "    \"interestrate\" : n         (numeric)\n"
+                       "  },\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("getloanscheme", "LOAN0001") +
+                       HelpExampleRpc("getloanscheme", "LOAN0001")
+               },
+    }.Check(request);
+
+    if(request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter id, argument must be non-null");
+
+    auto loanSchemeId = request.params[0].getValStr();
+
+    auto loanScheme = pcustomcsview->GetLoanScheme(loanSchemeId);
+    if(!loanScheme)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot find existing loan scheme with id " + loanSchemeId);
+
+    UniValue result{UniValue::VOBJ};
+    result.pushKV("id", loanSchemeId);
+    result.pushKV("mincolratio", static_cast<uint64_t>(loanScheme->ratio));
+    result.pushKV("interestrate", ValueFromAmount(loanScheme->rate));
+
+    return result;
+}
 
 static const CRPCCommand commands[] =
 {
@@ -949,6 +985,7 @@ static const CRPCCommand commands[] =
     {"loan",        "setdefaultloanscheme",      &setdefaultloanscheme,  {"id", "inputs"}},
     {"loan",        "destroyloanscheme",         &destroyloanscheme,     {"id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
     {"loan",        "listloanschemes",           &listloanschemes,       {}},
+    {"loan",        "getloanscheme",             &getloanscheme,         {"id"}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {

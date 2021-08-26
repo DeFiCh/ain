@@ -89,6 +89,19 @@ class CreateLoanSchemeTest (DefiTestFramework):
         self.nodes[0].createloanscheme(150, 5, 'LOAN0001')
         self.nodes[0].generate(1)
 
+        # Try getloanscheme with wron id
+        try:
+            self.nodes[0].getloanscheme('FAKELOAN')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Cannot find existing loan scheme with id FAKELOAN" in errorString)
+
+        # Get loan scheme
+        loanscheme = self.nodes[0].getloanscheme('LOAN0001')
+        assert_equal(loanscheme['id'], 'LOAN0001')
+        assert_equal(loanscheme['mincolratio'], 150)
+        assert_equal(loanscheme['interestrate'], Decimal('5.00000000'))
+
         # Check loan scheme created
         results = self.nodes[0].listloanschemes()
         assert_equal(results[0]['id'], 'LOAN0001')
