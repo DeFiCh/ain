@@ -144,14 +144,14 @@ struct CLoanScheme : public CLoanSchemeData
 
 struct CLoanSchemeMessage : public CLoanScheme
 {
-    uint64_t update{0};
+    uint64_t updateHeight{0};
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CLoanScheme,*this);
-        READWRITE(update);
+        READWRITE(updateHeight);
     }
 };
 

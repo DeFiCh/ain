@@ -1945,16 +1945,16 @@ public:
 
         // New loan scheme, no duplicate expected.
         if (mnview.GetLoanScheme(obj.identifier)) {
-            if (!obj.update) {
+            if (!obj.updateHeight) {
                 return Res::Err("Loan scheme already exist with id %s", obj.identifier);
             }
-        } else if (obj.update) {
+        } else if (obj.updateHeight) {
             return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
         }
 
         // Update set, not max uint64_t which indicates immediate update and not updated on this block.
-        if (obj.update && obj.update != std::numeric_limits<uint64_t>::max() && obj.update != height) {
-            if (obj.update < height) {
+        if (obj.updateHeight && obj.updateHeight != std::numeric_limits<uint64_t>::max() && obj.updateHeight != height) {
+            if (obj.updateHeight < height) {
                 return Res::Err("Update height below current block height, set future height");
             }
 

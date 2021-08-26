@@ -109,7 +109,7 @@ Res CLoanView::StoreLoanScheme(const CLoanSchemeMessage& loanScheme)
 
 Res CLoanView::StoreDelayedLoanScheme(const CLoanSchemeMessage& loanScheme)
 {
-    WriteBy<DelayedLoanSchemeKey>(std::pair<std::string, uint64_t>(loanScheme.identifier, loanScheme.update), loanScheme);
+    WriteBy<DelayedLoanSchemeKey>(std::pair<std::string, uint64_t>(loanScheme.identifier, loanScheme.updateHeight), loanScheme);
 
     return Res::Ok();
 }

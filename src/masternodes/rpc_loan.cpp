@@ -658,9 +658,9 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
     loanScheme.identifier = request.params[2].get_str();
 
     // Max value is ignored as block height
-    loanScheme.update = std::numeric_limits<uint64_t>::max();
+    loanScheme.updateHeight = std::numeric_limits<uint64_t>::max();
     if (!request.params[3].isNull()) {
-        loanScheme.update = request.params[3].get_int();
+        loanScheme.updateHeight = request.params[3].get_int();
     }
 
     int targetHeight;
@@ -895,8 +895,8 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
                        "]\n"
                },
                RPCExamples{
-                       HelpExampleCli("createloanscheme", "150 5 LOAN0001") +
-                       HelpExampleRpc("createloanscheme", "150, 5, LOAN0001")
+                       HelpExampleCli("listloanschemes", "") +
+                       HelpExampleRpc("listloanschemes", "")
                },
     }.Check(request);
 
