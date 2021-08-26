@@ -457,8 +457,8 @@ UniValue deposittovault(const JSONRPCRequest& request) {
 
 static const CRPCCommand commands[] =
 {
-    //  category        name                         actor (function)        params
-    //  --------------- ----------------------       ---------------------   ----------
+//  category        name                         actor (function)        params
+//  --------------- ----------------------       ---------------------   ----------
     {"vault",        "createvault",               &createvault,           {"owneraddress", "schemeid", "inputs"}},
     {"vault",        "listvaults",                &listvaults,            {}},
     {"vault",        "getvault",                  &getvault,              {"id"}},
