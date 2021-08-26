@@ -64,6 +64,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
         case CustomTxType::Vault:               return "Vault";
         case CustomTxType::UpdateVault:         return "UpdateVault";
+        case CustomTxType::DepositToVault:      return "DepositToVault";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -147,6 +148,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::DestroyLoanScheme:       return CDestroyLoanSchemeMessage{};
         case CustomTxType::Vault:                   return CVaultMessage{};
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
+        case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -444,6 +446,11 @@ public:
     }
 
     Res operator()(CUpdateVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CDepositToVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -2050,7 +2057,6 @@ public:
 
     Res operator()(const CUpdateVaultMessage& obj) const {
 
-
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
@@ -2077,6 +2083,64 @@ public:
         vault.val->schemeId = obj.schemeId;
         vault.val->ownerAddress = obj.ownerAddress;
         return mnview.StoreVault(obj.vaultId, *vault.val);
+    }
+
+
+    Res operator()(const CDepositToVaultMessage& obj) const {
+        // owner auth
+        if (!HasAuth(obj.from)) {
+            return Res::Err("tx must have at least one input from token owner");
+        }
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err(strprintf("Cannot find existing vault with id %s", obj.vaultId.GetHex()));
+
+        // vault under liquidation
+        if(vault.val->isUnderLiquidation)
+            return Res::Err(strprintf("Cannot deposit to vault under liquidation"));
+
+        //check balance
+        auto resSub= mnview.SubBalance(obj.from, obj.amount);
+        if (!resSub)
+            return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", obj.from.GetHex(), resSub.msg);
+
+        //check first deposit DFI
+        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+        if (!collaterals && obj.amount.nTokenId != DCT_ID{0})
+            return Res::Err("First deposit must be in DFI");
+        else if(!collaterals && obj.amount.nTokenId == DCT_ID{0})
+            return mnview.AddVaultCollateral(obj.vaultId, obj.amount);
+
+        auto resAdd = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
+        if(!resAdd) return resAdd;
+
+        collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+        CAmount totalDFI = 0, totalCollaterals = 0;
+        for (const auto& col : collaterals->balances) {
+
+            auto loanSetCollToken = mnview.HasLoanSetCollateralToken({col.first, height}); // for priceFeedId
+            if (!loanSetCollToken)
+                return Res::Err("Token with id %s does not exist as collateral token", loanSetCollToken->idToken.ToString());
+
+            auto cToken = mnview.GetToken(loanSetCollToken->idToken); // for symbol
+            if (!cToken)
+                return Res::Err("token %s does not exist.", cToken->symbol);
+
+            auto oracle = mnview.GetOracleData(loanSetCollToken->priceFeedTxid);
+            if(!oracle)
+                return Res::Err("oracle <%s> not found.", loanSetCollToken->priceFeedTxid.GetHex());
+
+            auto price = oracle.val->GetTokenPrice(cToken->symbol, "USD");
+            if(cToken->symbol == "DFI")
+                totalDFI += MultiplyAmounts(*price.val, col.second);
+
+            totalCollaterals += MultiplyAmounts(*price.val, col.second);
+        }
+        if( totalDFI < totalCollaterals/2 )
+            return Res::Err("At least 50%% of the vault must be in DFI.");
+
+        return Res::Ok();
     }
 
     Res operator()(const CCustomTxMessageNone&) const {
