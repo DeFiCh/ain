@@ -1860,7 +1860,7 @@ public:
             return Res::Err("tx not from foundation member!");
         }
 
-        auto loanToken = pcustomcsview->GetLoanSetLoanToken(obj.tokenTx);
+        auto loanToken = mnview.GetLoanSetLoanToken(obj.tokenTx);
         if (!loanToken)
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
@@ -1873,7 +1873,7 @@ public:
         if (obj.interest != loanToken->interest)
             loanToken->interest = obj.interest;
 
-        auto pair = pcustomcsview->GetTokenByCreationTx(obj.tokenTx);
+        auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
         if (!pair)
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
