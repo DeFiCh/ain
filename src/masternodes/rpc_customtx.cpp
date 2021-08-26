@@ -141,16 +141,13 @@ public:
     }
 
     void operator()(const CCreatePoolPairMessage& obj) const {
-        auto tokenA = mnview.GetToken(obj.poolPair.idTokenA);
-        auto tokenB = mnview.GetToken(obj.poolPair.idTokenB);
-        auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash());
-        if (!tokenA || !tokenB || !tokenPair) {
-            return;
-        }
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
-        tokenInfo(tokenPair->second);
-        rpcInfo.pushKV("tokenA", tokenA->name);
-        rpcInfo.pushKV("tokenB", tokenB->name);
+        if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash()))
+            tokenInfo(tokenPair->second);
+        if (auto tokenA = mnview.GetToken(obj.poolPair.idTokenA))
+            rpcInfo.pushKV("tokenA", tokenA->name);
+        if (auto tokenB = mnview.GetToken(obj.poolPair.idTokenB))
+            rpcInfo.pushKV("tokenB", tokenB->name);
         rpcInfo.pushKV("commission", ValueFromAmount(obj.poolPair.commission));
         rpcInfo.pushKV("status", obj.poolPair.status);
         rpcInfo.pushKV("ownerAddress", ScriptToString(obj.poolPair.ownerAddress));
@@ -229,22 +226,19 @@ public:
     }
 
     void operator()(const CICXCreateOrderMessage& obj) const {
-        auto token = mnview.GetToken(obj.idToken);
-        if (!token) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("The token %s does not exist", obj.idToken.ToString()));
-        }
-
         if (obj.orderType == CICXOrder::TYPE_INTERNAL)
         {
             rpcInfo.pushKV("type","DFC");
-            rpcInfo.pushKV("tokenFrom", token->CreateSymbolKey(obj.idToken));
+            if (auto token = mnview.GetToken(obj.idToken))
+                rpcInfo.pushKV("tokenFrom", token->CreateSymbolKey(obj.idToken));
             rpcInfo.pushKV("chainto", CICXOrder::CHAIN_BTC);
         }
         else if (obj.orderType == CICXOrder::TYPE_EXTERNAL)
         {
             rpcInfo.pushKV("type","EXTERNAL");
             rpcInfo.pushKV("chainFrom", CICXOrder::CHAIN_BTC);
-            rpcInfo.pushKV("tokenTo", token->CreateSymbolKey(obj.idToken));
+            if (auto token = mnview.GetToken(obj.idToken))
+                rpcInfo.pushKV("tokenTo", token->CreateSymbolKey(obj.idToken));
             rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
         }
 
@@ -300,16 +294,12 @@ public:
     }
 
     void operator()(const CLoanSetCollateralTokenMessage& obj) const {
-        auto token = mnview.GetToken(obj.idToken);
-        if (!token)
-        {
-            rpcInfo.pushKV("error", "could not find token with id " + obj.idToken.ToString());
-            return;
-        }
-        rpcInfo.pushKV("token", token->CreateSymbolKey(obj.idToken));
+        if (auto token = mnview.GetToken(obj.idToken))
+            rpcInfo.pushKV("token", token->CreateSymbolKey(obj.idToken));
         rpcInfo.pushKV("factor", ValueFromAmount(obj.factor));
         rpcInfo.pushKV("priceFeedId", obj.priceFeedTxid.GetHex());
-        if (obj.activateAfterBlock) rpcInfo.pushKV("activateAfterBlock", static_cast<int>(obj.activateAfterBlock));
+        if (obj.activateAfterBlock)
+            rpcInfo.pushKV("activateAfterBlock", static_cast<int>(obj.activateAfterBlock));
     }
 
     void operator()(const CLoanSetLoanTokenMessage& obj) const {
@@ -352,25 +342,14 @@ public:
     }
 
     void operator()(const CUpdateVaultMessage& obj) const {
-        auto vaultRes = mnview.GetVault(obj.vaultId);
-        if(!vaultRes.ok){
-            rpcInfo.pushKV("error ", "could not find vault with id: "+ obj.vaultId.GetHex());
-            return;
-        }
-        rpcInfo.pushKV("id", obj.vaultId.GetHex());
-        rpcInfo.pushKV("owneraddress", obj.ownerAddress.GetHex());
+        rpcInfo.pushKV("vaultid", obj.vaultId.GetHex());
+        rpcInfo.pushKV("owneraddress", ScriptToString(obj.ownerAddress));
         rpcInfo.pushKV("loanschemeid", obj.schemeId);
-        rpcInfo.pushKV("isunderliquidation", vaultRes.val->isUnderLiquidation);
     }
 
     void operator()(const CDepositToVaultMessage& obj) const {
-        auto vaultRes = mnview.GetVault(obj.vaultId);
-        if(!vaultRes.ok){
-            rpcInfo.pushKV("error ", "could not find vault with id: "+ obj.vaultId.GetHex());
-            return;
-        }
         rpcInfo.pushKV("vaultid", obj.vaultId.GetHex());
-        rpcInfo.pushKV("from", obj.from.GetHex());
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
     void operator()(const CCustomTxMessageNone&) const {

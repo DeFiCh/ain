@@ -2101,6 +2101,7 @@ public:
             return Res::Err("Cannot deposit to vault under liquidation");
 
         //check balance
+        CalculateOwnerRewards(obj.from);
         auto resSub = mnview.SubBalance(obj.from, obj.amount);
         if (!resSub)
             return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", obj.from.GetHex(), resSub.msg);
@@ -2111,7 +2112,7 @@ public:
             return Res::Err("First deposit must be in DFI");
 
         auto res = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
-        if (!res || !collaterals)
+        if (!res || obj.amount.nTokenId == DCT_ID{0})
             return res;
 
         // Update collaterals after success AddVaultCollateral()
