@@ -488,7 +488,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['results']['id'], "LOANMAX")
         assert_equal(result['results']['mincolratio'], 1000)
         assert_equal(result['results']['interestrate'], Decimal("0.50000000"))
-        assert_equal(result['results']['update'], False)
+        assert_equal(result['results']['updateHeight'], False)
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)
