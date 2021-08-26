@@ -2101,7 +2101,7 @@ public:
             return Res::Err("Cannot deposit to vault under liquidation");
 
         //check balance
-        auto resSub= mnview.SubBalance(obj.from, obj.amount);
+        auto resSub = mnview.SubBalance(obj.from, obj.amount);
         if (!resSub)
             return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", obj.from.GetHex(), resSub.msg);
 
@@ -2109,13 +2109,11 @@ public:
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         if (!collaterals && obj.amount.nTokenId != DCT_ID{0})
             return Res::Err("First deposit must be in DFI");
-        else if(!collaterals && obj.amount.nTokenId == DCT_ID{0})
-            return mnview.AddVaultCollateral(obj.vaultId, obj.amount);
 
-        auto resAdd = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
-        if(!resAdd) return resAdd;
+        auto res = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
+        if (!res || !collaterals)
+            return res;
 
-        collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         CAmount totalDFI = 0, totalCollaterals = 0;
         for (const auto& col : collaterals->balances) {
 
@@ -2128,16 +2126,22 @@ public:
                 return Res::Err("token %s does not exist.", cToken->symbol);
 
             auto oracle = mnview.GetOracleData(loanSetCollToken->priceFeedTxid);
-            if(!oracle)
+            if (!oracle)
                 return Res::Err("oracle <%s> not found.", loanSetCollToken->priceFeedTxid.GetHex());
 
             auto price = oracle.val->GetTokenPrice(cToken->symbol, "USD");
-            if(cToken->symbol == "DFI")
-                totalDFI += MultiplyAmounts(*price.val, col.second);
+            if (!price)
+                return Res::Err("oracle <%s> does not provide %s/USD price.", loanSetCollToken->priceFeedTxid.GetHex(), cToken->symbol);
 
-            totalCollaterals += MultiplyAmounts(*price.val, col.second);
+            auto amount = MultiplyAmounts(*price.val, col.second);
+
+            if (cToken->symbol == "DFI")
+                totalDFI += amount;
+
+            totalCollaterals += amount;
         }
-        if( totalDFI < totalCollaterals/2 )
+
+        if (totalDFI < totalCollaterals / 2)
             return Res::Err("At least 50%% of the vault must be in DFI.");
 
         return Res::Ok();
