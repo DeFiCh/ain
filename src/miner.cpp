@@ -9,9 +9,9 @@
 #include <chain.h>
 #include <chainparams.h>
 #include <coins.h>
-#include <consensus/tx_check.h>
 #include <consensus/consensus.h>
 #include <consensus/merkle.h>
+#include <consensus/tx_check.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <masternodes/anchors.h>
@@ -36,7 +36,7 @@
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
     int64_t nOldTime = pblock->nTime;
-    int64_t nNewTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
+    int64_t nNewTime = std::max(pindexPrev->GetMedianTimePast() + 1, GetAdjustedTime());
 
     if (nOldTime < nNewTime)
         pblock->nTime = nNewTime;
@@ -48,7 +48,8 @@ int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParam
     return nNewTime - nOldTime;
 }
 
-BlockAssembler::Options::Options() {
+BlockAssembler::Options::Options()
+{
     blockMinFeeRate = CFeeRate(DEFAULT_BLOCK_MIN_TX_FEE);
     nBlockMaxWeight = DEFAULT_BLOCK_MAX_WEIGHT;
 }
@@ -102,13 +103,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     pblocktemplate.reset(new CBlockTemplate());
 
-    if(!pblocktemplate.get())
+    if (!pblocktemplate.get())
         return nullptr;
     pblock = &pblocktemplate->block; // pointer for convenience
 
     // Add dummy coinbase tx as first transaction
     pblock->vtx.emplace_back();
-    pblocktemplate->vTxFees.push_back(-1); // updated at end
+    pblocktemplate->vTxFees.push_back(-1);       // updated at end
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
     LOCK2(cs_main, mempool.cs);
@@ -137,9 +138,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblock->nTime = blockTime;
     const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
 
-    nLockTimeCutoff = (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST)
-                       ? nMedianTimePast
-                       : pblock->GetBlockTime();
+    nLockTimeCutoff = (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST) ? nMedianTimePast : pblock->GetBlockTime();
 
     // Decide whether to include witness transactions
     // This is only needed in case the witness softfork activation is reverted
@@ -156,7 +155,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // Skip on main as fix to avoid merkle root error. Allow on other networks for testing.
     if (Params().NetworkIDString() != CBaseChainParams::MAIN ||
-            (Params().NetworkIDString() == CBaseChainParams::MAIN && nHeight >= chainparams.GetConsensus().EunosKampungHeight)) {
+        (Params().NetworkIDString() == CBaseChainParams::MAIN && nHeight >= chainparams.GetConsensus().EunosKampungHeight)) {
         CTeamView::CTeam currentTeam;
         if (const auto team = pcustomcsview->GetConfirmTeam(pindexPrev->nHeight)) {
             currentTeam = *team;
@@ -168,9 +167,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         // No new anchors until we hit fork height, no new confirms should be found before fork.
         if (pindexPrev->nHeight >= consensus.DakotaHeight && confirms.size() > 0) {
-
             // Make sure anchor block height and hash exist in chain.
-            CBlockIndex *anchorIndex = ::ChainActive()[confirms[0].anchorHeight];
+            CBlockIndex* anchorIndex = ::ChainActive()[confirms[0].anchorHeight];
             if (anchorIndex && anchorIndex->GetBlockHash() == confirms[0].dfiBlockHash) {
                 createAnchorReward = true;
             }
@@ -179,7 +177,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if (createAnchorReward) {
             CAnchorFinalizationMessagePlus finMsg{confirms[0]};
 
-            for (auto const &msg : confirms) {
+            for (auto const& msg : confirms) {
                 finMsg.sigs.push_back(msg.signature);
             }
 
@@ -187,8 +185,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             metadata << finMsg;
 
             CTxDestination destination =
-                    finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(
-                            WitnessV0KeyHash(finMsg.rewardKeyID));
+                finMsg.rewardKeyType == 1 ? CTxDestination(PKHash(finMsg.rewardKeyID)) : CTxDestination(WitnessV0KeyHash(finMsg.rewardKeyID));
 
             CMutableTransaction mTx(txVersion);
             mTx.vin.resize(1);
@@ -199,14 +196,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             mTx.vout[0].nValue = 0;
             mTx.vout[1].scriptPubKey = GetScriptForDestination(destination);
             mTx.vout[1].nValue = pcustomcsview->GetCommunityBalance(
-                    CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
+                CommunityAccountType::AnchorReward); // do not reset it, so it will occur on connectblock
 
             auto rewardTx = pcustomcsview->GetRewardForAnchor(finMsg.btcTxHash);
             if (!rewardTx) {
                 pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
                 pblocktemplate->vTxFees.push_back(0);
                 pblocktemplate->vTxSigOpsCost.push_back(
-                        WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+                    WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
             }
         }
     }
@@ -234,8 +231,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     CAmount blockReward = GetBlockSubsidy(nHeight, consensus);
     coinbaseTx.vout[0].nValue = nFees + blockReward;
 
-    if (nHeight >= consensus.EunosHeight)
-    {
+    if (nHeight >= consensus.EunosHeight) {
         coinbaseTx.vout.resize(2);
 
         // Explicitly set miner reward
@@ -246,9 +242,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         coinbaseTx.vout[1].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
 
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
-                 __func__, blockReward, coinbaseTx.vout[0].nValue, coinbaseTx.vout[1].nValue);
-    }
-    else if (nHeight >= consensus.AMKHeight) {
+            __func__, blockReward, coinbaseTx.vout[0].nValue, coinbaseTx.vout[1].nValue);
+    } else if (nHeight >= consensus.AMKHeight) {
         // assume community non-utxo funding:
         for (const auto& kv : consensus.nonUtxoBlockSubsidies) {
             coinbaseTx.vout[0].nValue -= blockReward * kv.second / COIN;
@@ -262,8 +257,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
             LogPrint(BCLog::STAKING, "%s: post AMK logic, foundation share %d\n", __func__, coinbaseTx.vout[1].nValue);
         }
-    }
-    else { // pre-AMK logic:
+    } else { // pre-AMK logic:
         // Pinch off foundation share
         CAmount foundationsReward = coinbaseTx.vout[0].nValue * consensus.foundationShare / 100;
         if (!consensus.foundationShareScript.empty() && consensus.foundationShare != 0) {
@@ -288,10 +282,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     LogPrint(BCLog::STAKING, "CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
 
     // Fill in header
-    pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-    pblock->nBits          = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
+    pblock->hashPrevBlock = pindexPrev->GetBlockHash();
+    pblock->nBits = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
     if (myIDs) {
-        pblock->stakeModifier  = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
+        pblock->stakeModifier = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
     }
 
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
@@ -303,8 +297,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int64_t nTime2 = GetTimeMicros();
 
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-    if (nHeight >= chainparams.GetConsensus().EunosHeight
-    && nHeight < chainparams.GetConsensus().EunosKampungHeight) {
+    if (nHeight >= chainparams.GetConsensus().EunosHeight && nHeight < chainparams.GetConsensus().EunosKampungHeight) {
         // includes coinbase account changes
         ApplyGeneralCoinbaseTx(mnview, *(pblock->vtx[0]), nHeight, nFees, chainparams.GetConsensus());
         pblock->hashMerkleRoot = Hash2(pblock->hashMerkleRoot, mnview.MerkleRoot());
@@ -317,12 +310,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
 void BlockAssembler::onlyUnconfirmed(CTxMemPool::setEntries& testSet)
 {
-    for (CTxMemPool::setEntries::iterator iit = testSet.begin(); iit != testSet.end(); ) {
+    for (CTxMemPool::setEntries::iterator iit = testSet.begin(); iit != testSet.end();) {
         // Only test txs not already in the block
         if (inBlock.count(*iit)) {
             testSet.erase(iit++);
-        }
-        else {
+        } else {
             iit++;
         }
     }
@@ -367,13 +359,13 @@ void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
     bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
     if (fPrintPriority) {
         LogPrintf("fee %s txid %s\n",
-                  CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
-                  iter->GetTx().GetHash().ToString());
+            CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
+            iter->GetTx().GetHash().ToString());
     }
 }
 
 int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded,
-        indexed_modified_transaction_set &mapModifiedTx)
+    indexed_modified_transaction_set& mapModifiedTx)
 {
     int nDescendantsUpdated = 0;
     for (CTxMemPool::txiter it : alreadyAdded) {
@@ -408,9 +400,9 @@ int BlockAssembler::UpdatePackagesForAdded(const CTxMemPool::setEntries& already
 // guaranteed to fail again, but as a belt-and-suspenders check we put it in
 // failedTx and avoid re-evaluation, since the re-evaluation would be using
 // cached size/sigops/fee values that are not actually correct.
-bool BlockAssembler::SkipMapTxEntry(CTxMemPool::txiter it, indexed_modified_transaction_set &mapModifiedTx, CTxMemPool::setEntries &failedTx)
+bool BlockAssembler::SkipMapTxEntry(CTxMemPool::txiter it, indexed_modified_transaction_set& mapModifiedTx, CTxMemPool::setEntries& failedTx)
 {
-    assert (it != mempool.mapTx.end());
+    assert(it != mempool.mapTx.end());
     return mapModifiedTx.count(it) || inBlock.count(it) || failedTx.count(it);
 }
 
@@ -435,7 +427,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // Each time through the loop, we compare the best transaction in
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, CCustomCSView &view)
+void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -462,11 +454,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
-    while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty())
-    {
+    while (mi != mempool.mapTx.get<ancestor_score>().end() || !mapModifiedTx.empty()) {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<ancestor_score>().end() &&
-                SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTx, failedTx)) {
+            SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTx, failedTx)) {
             ++mi;
             continue;
         }
@@ -484,7 +475,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             // Try to compare the mapTx entry to the mapModifiedTx entry
             iter = mempool.mapTx.project<0>(mi);
             if (modit != mapModifiedTx.get<ancestor_score>().end() &&
-                    CompareTxMemPoolEntryByAncestorFee()(*modit, CTxMemPoolModifiedEntry(iter))) {
+                CompareTxMemPoolEntryByAncestorFee()(*modit, CTxMemPoolModifiedEntry(iter))) {
                 // The best entry in mapModifiedTx has higher score
                 // than the one from mapTx.
                 // Switch which transaction (package) to consider
@@ -527,7 +518,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             ++nConsecutiveFailed;
 
             if (nConsecutiveFailed > MAX_CONSECUTIVE_FAILURES && nBlockWeight >
-                    nBlockMaxWeight - 4000) {
+                                                                     nBlockMaxWeight - 4000) {
                 // Give up if we're close to full and haven't succeeded in a while
                 break;
             }
@@ -609,7 +600,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             continue;
         }
 
-        for (size_t i=0; i<sortedEntries.size(); ++i) {
+        for (size_t i = 0; i < sortedEntries.size(); ++i) {
             AddToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);
@@ -626,13 +617,12 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
 {
     // Update nExtraNonce
     static uint256 hashPrevBlock;
-    if (hashPrevBlock != pblock->hashPrevBlock)
-    {
+    if (hashPrevBlock != pblock->hashPrevBlock) {
         nExtraNonce = 0;
         hashPrevBlock = pblock->hashPrevBlock;
     }
     ++nExtraNonce;
-    unsigned int nHeight = pindexPrev->nHeight+1; // Height first in coinbase required for block.version=2
+    unsigned int nHeight = pindexPrev->nHeight + 1; // Height first in coinbase required for block.version=2
     CMutableTransaction txCoinbase(*pblock->vtx[0]);
     txCoinbase.vin[0].scriptSig = (CScript() << nHeight << CScriptNum(nExtraNonce)) + COINBASE_FLAGS;
     assert(txCoinbase.vin[0].scriptSig.size() <= 100);
@@ -643,247 +633,247 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
 
 namespace pos {
 
-    //initialize static variables here
-    std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
-    std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
-    int64_t Staker::nLastCoinStakeSearchTime{0};
-    int64_t Staker::nFutureTime{0};
-    uint256 Staker::lastBlockSeen{};
+//initialize static variables here
+std::map<uint256, int64_t> Staker::mapMNLastBlockCreationAttemptTs;
+std::atomic_bool Staker::cs_MNLastBlockCreationAttemptTs(false);
+int64_t Staker::nLastCoinStakeSearchTime{0};
+int64_t Staker::nFutureTime{0};
+uint256 Staker::lastBlockSeen{};
 
-    Staker::Status Staker::init(const CChainParams& chainparams) {
-        if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
-            if(!g_connman)
-                throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
+Staker::Status Staker::init(const CChainParams& chainparams)
+{
+    if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
+        if (!g_connman)
+            throw std::runtime_error("Error: Peer-to-peer functionality missing or disabled");
 
-            if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers && g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
-                return Status::initWaiting;
+        if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers && g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
+            return Status::initWaiting;
 
-            if (::ChainstateActive().IsInitialBlockDownload())
-                return Status::initWaiting;
+        if (::ChainstateActive().IsInitialBlockDownload())
+            return Status::initWaiting;
 
-            if (::ChainstateActive().IsDisconnectingTip())
-                return Status::stakeWaiting;
-        }
-        return Status::stakeReady;
+        if (::ChainstateActive().IsDisconnectingTip())
+            return Status::stakeWaiting;
     }
+    return Status::stakeReady;
+}
 
-    // This is an internal only method to ignore some mints, even though it's valid. 
-    // This is done to workaround https://github.com/DeFiCh/ain/issues/693, so on specific bug condition, 
-    // i.e, when subnode 1 stakes before subnode 0 on Eunos Paya+ (in particular to target pre-Eunos Paya masternodes that's carried over), it's ignored.
-    // in order to give time for subnode 0 to first succeed and create a record. 
-    // 
-    // This is done to ensure that we can workaround the bug, without waiting for consensus change in next update.
-    // This shouldn't have any effect on the mining, even though we ignore some successful hashes since the
-    // Coinages are retained and keep growing. Once subnode 0 mines, subnode 1 should stake again shortly with 
-    // higher coinage / TM.
-    //
-    bool shouldIgnoreMint(uint8_t subNode, int64_t blockHeight, const std::vector<int64_t>& subNodesBlockTime, const CChainParams& chainParams) {
-        auto eunosPayaHeight = chainParams.GetConsensus().EunosPayaHeight;
-        if (blockHeight < eunosPayaHeight)
-            return false;
-
-        if (subNode == 1 &&
-            subNodesBlockTime[0] <= eunosPayaHeight &&
-            subNodesBlockTime[2] <= eunosPayaHeight &&
-            subNodesBlockTime[3] <= eunosPayaHeight
-            ) {
-            LogPrint(BCLog::STAKING, "MakeStake: kernel ignored\n");
-            return true;
-        }
-
+// This is an internal only method to ignore some mints, even though it's valid.
+// This is done to workaround https://github.com/DeFiCh/ain/issues/693, so on specific bug condition,
+// i.e, when subnode 1 stakes before subnode 0 on Eunos Paya+ (in particular to target pre-Eunos Paya masternodes that's carried over), it's ignored.
+// in order to give time for subnode 0 to first succeed and create a record.
+//
+// This is done to ensure that we can workaround the bug, without waiting for consensus change in next update.
+// This shouldn't have any effect on the mining, even though we ignore some successful hashes since the
+// Coinages are retained and keep growing. Once subnode 0 mines, subnode 1 should stake again shortly with
+// higher coinage / TM.
+//
+bool shouldIgnoreMint(uint8_t subNode, int64_t blockHeight, const std::vector<int64_t>& subNodesBlockTime, const CChainParams& chainParams)
+{
+    auto eunosPayaHeight = chainParams.GetConsensus().EunosPayaHeight;
+    if (blockHeight < eunosPayaHeight)
         return false;
+
+    if (subNode == 1 &&
+        subNodesBlockTime[0] <= eunosPayaHeight &&
+        subNodesBlockTime[2] <= eunosPayaHeight &&
+        subNodesBlockTime[3] <= eunosPayaHeight) {
+        LogPrint(BCLog::STAKING, "MakeStake: kernel ignored\n");
+        return true;
     }
 
-    Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args) {
+    return false;
+}
 
-        bool found = false;
+Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker::Args& args)
+{
+    bool found = false;
 
-        // this part of code stay valid until tip got changed
+    // this part of code stay valid until tip got changed
 
-        uint32_t mintedBlocks(0);
-        uint256 masternodeID{};
-        int64_t creationHeight;
-        CScript scriptPubKey;
-        int64_t blockTime;
-        CBlockIndex* tip;
-        int64_t blockHeight;
-        std::vector<int64_t> subNodesBlockTime;
-        uint16_t timelock;
+    uint32_t mintedBlocks(0);
+    uint256 masternodeID{};
+    int64_t creationHeight;
+    CScript scriptPubKey;
+    int64_t blockTime;
+    CBlockIndex* tip;
+    int64_t blockHeight;
+    std::vector<int64_t> subNodesBlockTime;
+    uint16_t timelock;
 
+    {
+        LOCK(cs_main);
+        auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(args.operatorID);
+        if (!optMasternodeID) {
+            return Status::initWaiting;
+        }
+        tip = ::ChainActive().Tip();
+        masternodeID = *optMasternodeID;
+        auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
+        if (!nodePtr || !nodePtr->IsActive(tip->height)) /// @todo miner: height+1 or nHeight+1 ???
         {
-            LOCK(cs_main);
-            auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(args.operatorID);
-            if (!optMasternodeID)
-            {
-                return Status::initWaiting;
-            }
-            tip = ::ChainActive().Tip();
-            masternodeID = *optMasternodeID;
-            auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->height)) /// @todo miner: height+1 or nHeight+1 ???
-            {
-                /// @todo may be new status for not activated (or already resigned) MN??
-                return Status::initWaiting;
-            }
-            mintedBlocks = nodePtr->mintedBlocks;
-            if (args.coinbaseScript.empty()) {
-                // this is safe cause MN was found
-                scriptPubKey = GetScriptForDestination(nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress)));
-            } else {
-                scriptPubKey = args.coinbaseScript;
-            }
-
-            blockHeight = tip->height + 1;
-            creationHeight = int64_t(nodePtr->creationHeight);
-            blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
-            timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
-
-            // Get block times
-            subNodesBlockTime = pcustomcsview->GetBlockTimes(args.operatorID, blockHeight, creationHeight, timelock);
+            /// @todo may be new status for not activated (or already resigned) MN??
+            return Status::initWaiting;
+        }
+        mintedBlocks = nodePtr->mintedBlocks;
+        if (args.coinbaseScript.empty()) {
+            // this is safe cause MN was found
+            scriptPubKey = GetScriptForDestination(nodePtr->ownerType == 1 ? CTxDestination(PKHash(nodePtr->ownerAuthAddress)) : CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress)));
+        } else {
+            scriptPubKey = args.coinbaseScript;
         }
 
-        auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
-        auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
+        blockHeight = tip->height + 1;
+        creationHeight = int64_t(nodePtr->creationHeight);
+        blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
+        timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
 
-        // Set search time if null or last block has changed
-        if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
-            if (Params().NetworkIDString() == CBaseChainParams::REGTEST) {
-                // For regtest use previous oldest time
-                nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
-                if (nLastCoinStakeSearchTime <= tip->GetMedianTimePast()) {
-                    nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
-                }
-            } else {
-                // Plus one to avoid time-too-old error on exact median time.
+        // Get block times
+        subNodesBlockTime = pcustomcsview->GetBlockTimes(args.operatorID, blockHeight, creationHeight, timelock);
+    }
+
+    auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
+    auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
+
+    // Set search time if null or last block has changed
+    if (!nLastCoinStakeSearchTime || lastBlockSeen != tip->GetBlockHash()) {
+        if (Params().NetworkIDString() == CBaseChainParams::REGTEST) {
+            // For regtest use previous oldest time
+            nLastCoinStakeSearchTime = GetAdjustedTime() - 60;
+            if (nLastCoinStakeSearchTime <= tip->GetMedianTimePast()) {
                 nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
             }
-            
-            lastBlockSeen = tip->GetBlockHash();
+        } else {
+            // Plus one to avoid time-too-old error on exact median time.
+            nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
         }
 
-        withSearchInterval([&](const int64_t currentTime, const int64_t lastSearchTime, const int64_t futureTime) {
-            // update last block creation attempt ts for the master node here
-            {
-                CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
-                pos::Staker::mapMNLastBlockCreationAttemptTs[masternodeID] = GetTime();
-            }
-            CheckContextState ctxState;
-            // Search backwards in time first
-            if (currentTime > lastSearchTime) {
-                for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
-                    boost::this_thread::interruption_point();
+        lastBlockSeen = tip->GetBlockHash();
+    }
 
-                    blockTime = ((uint32_t)currentTime - t);
+    withSearchInterval([&](const int64_t currentTime, const int64_t lastSearchTime, const int64_t futureTime) {
+        // update last block creation attempt ts for the master node here
+        {
+            CLockFreeGuard lock(pos::Staker::cs_MNLastBlockCreationAttemptTs);
+            pos::Staker::mapMNLastBlockCreationAttemptTs[masternodeID] = GetTime();
+        }
+        CheckContextState ctxState;
+        // Search backwards in time first
+        if (currentTime > lastSearchTime) {
+            for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
+                boost::this_thread::interruption_point();
 
-                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
-                                             subNodesBlockTime, timelock, ctxState))
-                    {
-                        if (shouldIgnoreMint(ctxState.subNode, blockHeight, subNodesBlockTime, chainparams)) 
-                            break;
-                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+                blockTime = ((uint32_t)currentTime - t);
 
-                        found = true;
+                if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
+                        subNodesBlockTime, timelock, ctxState)) {
+                    if (shouldIgnoreMint(ctxState.subNode, blockHeight, subNodesBlockTime, chainparams))
                         break;
-                    }
+                    LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
-                    boost::this_thread::yield(); // give a slot to other threads
+                    found = true;
+                    break;
                 }
+
+                boost::this_thread::yield(); // give a slot to other threads
             }
-
-            if (!found) {
-                // Search from current time or lastSearchTime set in the future
-                int64_t searchTime = lastSearchTime > currentTime ? lastSearchTime : currentTime;
-
-                // Search forwards in time
-                for (uint32_t t = 1; t <= futureTime - searchTime; ++t) {
-                    boost::this_thread::interruption_point();
-
-                    blockTime = ((uint32_t)searchTime + t);
-
-                    if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
-                                             subNodesBlockTime, timelock, ctxState))
-                    {
-                        if (shouldIgnoreMint(ctxState.subNode, blockHeight, subNodesBlockTime, chainparams)) 
-                            break;
-                        LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
-
-                        found = true;
-                        break;
-                    }
-
-                    boost::this_thread::yield(); // give a slot to other threads
-                }
-            }
-        }, blockHeight);
+        }
 
         if (!found) {
-            return Status::stakeWaiting;
-        }
+            // Search from current time or lastSearchTime set in the future
+            int64_t searchTime = lastSearchTime > currentTime ? lastSearchTime : currentTime;
 
-        //
-        // Create block template
-        //
-        auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime);
-        if (!pblocktemplate) {
-            throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
-        }
+            // Search forwards in time
+            for (uint32_t t = 1; t <= futureTime - searchTime; ++t) {
+                boost::this_thread::interruption_point();
 
-        auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
+                blockTime = ((uint32_t)searchTime + t);
 
-        pblock->nBits = nBits;
-        pblock->height = blockHeight;
-        pblock->mintedBlocks = mintedBlocks + 1;
-        pblock->stakeModifier = std::move(stakeModifier);
+                if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
+                        subNodesBlockTime, timelock, ctxState)) {
+                    if (shouldIgnoreMint(ctxState.subNode, blockHeight, subNodesBlockTime, chainparams))
+                        break;
+                    LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
-        LogPrint(BCLog::STAKING, "Running Staker with %u common transactions in block (%u bytes)\n", pblock->vtx.size() - 1,
-                 ::GetSerializeSize(*pblock, PROTOCOL_VERSION));
+                    found = true;
+                    break;
+                }
 
-        //
-        // Trying to sign a block
-        //
-        auto err = pos::SignPosBlock(pblock, args.minterKey);
-        if (err) {
-            LogPrint(BCLog::STAKING, "SignPosBlock(): %s \n", *err);
-            return Status::stakeWaiting;
-        }
-
-        //
-        // Final checks
-        //
-        {
-            LOCK(cs_main);
-            err = pos::CheckSignedBlock(pblock, tip, chainparams);
-            if (err) {
-                LogPrint(BCLog::STAKING, "CheckSignedBlock(): %s \n", *err);
-                return Status::stakeWaiting;
+                boost::this_thread::yield(); // give a slot to other threads
             }
         }
+    },
+        blockHeight);
 
-        if (!ProcessNewBlock(chainparams, pblock, true, nullptr)) {
-            LogPrintf("PoS block was checked, but wasn't accepted by ProcessNewBlock\n");
+    if (!found) {
+        return Status::stakeWaiting;
+    }
+
+    //
+    // Create block template
+    //
+    auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime);
+    if (!pblocktemplate) {
+        throw std::runtime_error("Error in WalletStaker: Keypool ran out, please call keypoolrefill before restarting the staking thread");
+    }
+
+    auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
+
+    pblock->nBits = nBits;
+    pblock->height = blockHeight;
+    pblock->mintedBlocks = mintedBlocks + 1;
+    pblock->stakeModifier = std::move(stakeModifier);
+
+    LogPrint(BCLog::STAKING, "Running Staker with %u common transactions in block (%u bytes)\n", pblock->vtx.size() - 1,
+        ::GetSerializeSize(*pblock, PROTOCOL_VERSION));
+
+    //
+    // Trying to sign a block
+    //
+    auto err = pos::SignPosBlock(pblock, args.minterKey);
+    if (err) {
+        LogPrint(BCLog::STAKING, "SignPosBlock(): %s \n", *err);
+        return Status::stakeWaiting;
+    }
+
+    //
+    // Final checks
+    //
+    {
+        LOCK(cs_main);
+        err = pos::CheckSignedBlock(pblock, tip, chainparams);
+        if (err) {
+            LogPrint(BCLog::STAKING, "CheckSignedBlock(): %s \n", *err);
             return Status::stakeWaiting;
         }
-
-        return Status::minted;
     }
 
-    template <typename F>
-    void Staker::withSearchInterval(F&& f, int64_t height) {
-        if (height >= Params().GetConsensus().EunosPayaHeight) {
-            // Mine up to max future minus 1 second buffer
-            nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_EUNOSPAYA - 1); // 29 seconds
-        } else {
-            // Mine up to max future minus 5 second buffer
-            nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5); // 295 seconds
-        }
-
-        if (nFutureTime > nLastCoinStakeSearchTime) {
-            f(GetAdjustedTime(), nLastCoinStakeSearchTime, nFutureTime);
-        }
+    if (!ProcessNewBlock(chainparams, pblock, true, nullptr)) {
+        LogPrintf("PoS block was checked, but wasn't accepted by ProcessNewBlock\n");
+        return Status::stakeWaiting;
     }
 
-void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams chainparams) {
+    return Status::minted;
+}
 
+template <typename F>
+void Staker::withSearchInterval(F&& f, int64_t height)
+{
+    if (height >= Params().GetConsensus().EunosPayaHeight) {
+        // Mine up to max future minus 1 second buffer
+        nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_EUNOSPAYA - 1); // 29 seconds
+    } else {
+        // Mine up to max future minus 5 second buffer
+        nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT - 5); // 295 seconds
+    }
+
+    if (nFutureTime > nLastCoinStakeSearchTime) {
+        f(GetAdjustedTime(), nLastCoinStakeSearchTime, nFutureTime);
+    }
+}
+
+void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams chainparams)
+{
     std::map<CKeyID, int32_t> nMinted;
     std::map<CKeyID, int32_t> nTried;
 
@@ -925,7 +915,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             std::this_thread::sleep_for(std::chrono::milliseconds(900));
         }
 
-        for (auto it = args.begin(); it != args.end(); ) {
+        for (auto it = args.begin(); it != args.end();) {
             const auto& arg = *it;
             const auto operatorName = arg.operatorID.GetHex();
 
@@ -942,19 +932,15 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                     LogPrintf("ThreadStaker: (%s) terminated due to a staking error!\n", operatorName);
                     it = args.erase(it);
                     continue;
-                }
-                else if (status == Staker::Status::minted) {
+                } else if (status == Staker::Status::minted) {
                     LogPrintf("ThreadStaker: (%s) minted a block!\n", operatorName);
                     nMinted[arg.operatorID]++;
-                }
-                else if (status == Staker::Status::initWaiting) {
+                } else if (status == Staker::Status::initWaiting) {
                     LogPrintf("ThreadStaker: (%s) waiting init...\n", operatorName);
-                }
-                else if (status == Staker::Status::stakeWaiting) {
+                } else if (status == Staker::Status::stakeWaiting) {
                     LogPrint(BCLog::STAKING, "ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
                 }
-            }
-            catch (const std::runtime_error &e) {
+            } catch (const std::runtime_error& e) {
                 LogPrintf("ThreadStaker: (%s) runtime error: %s\n", e.what(), operatorName);
 
                 // Could be failed TX in mempool, wipe mempool and allow loop to continue.
@@ -964,8 +950,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             auto& tried = nTried[arg.operatorID];
             tried++;
 
-            if ((arg.nMaxTries != -1 && tried >= arg.nMaxTries)
-            || (arg.nMint != -1 && nMinted[arg.operatorID] >= arg.nMint)) {
+            if ((arg.nMaxTries != -1 && tried >= arg.nMaxTries) || (arg.nMint != -1 && nMinted[arg.operatorID] >= arg.nMint)) {
                 it = args.erase(it);
                 continue;
             }
@@ -980,4 +965,4 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
     }
 }
 
-}
+} // namespace pos
