@@ -1923,7 +1923,7 @@ public:
         });
 
         if (duplicateLoan) {
-            return Res::Err(strprintf("Loan scheme %s with same interestrate and mincolratio already exists", duplicateID));
+            return Res::Err("Loan scheme %s with same interestrate and mincolratio already exists", duplicateID);
         } else {
             // Look for delayed loan scheme which already has matching rate and ratio
             std::pair<std::string, uint64_t> duplicateKey;
@@ -1939,17 +1939,17 @@ public:
             });
 
             if (duplicateLoan) {
-                return Res::Err(strprintf("Loan scheme %s with same interestrate and mincolratio pending on block %d", duplicateKey.first, duplicateKey.second));
+                return Res::Err("Loan scheme %s with same interestrate and mincolratio pending on block %d", duplicateKey.first, duplicateKey.second);
             }
         }
 
         // New loan scheme, no duplicate expected.
         if (mnview.GetLoanScheme(obj.identifier)) {
             if (!obj.update) {
-                return Res::Err(strprintf("Loan scheme already exist with id %s", obj.identifier));
+                return Res::Err("Loan scheme already exist with id %s", obj.identifier);
             }
         } else if (obj.update) {
-            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.identifier));
+            return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
         }
 
         // Update set, not max uint64_t which indicates immediate update and not updated on this block.
@@ -1979,16 +1979,16 @@ public:
         }
 
         if (!mnview.GetLoanScheme(obj.identifier)) {
-            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.identifier));
+            return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
         }
 
         const auto currentID = mnview.GetDefaultLoanScheme();
         if (currentID && *currentID == obj.identifier) {
-            return Res::Err(strprintf("Loan scheme with id %s is already set as default", obj.identifier));
+            return Res::Err("Loan scheme with id %s is already set as default", obj.identifier);
         }
 
         if (auto height = mnview.GetDestroyLoanScheme(obj.identifier)) {
-            return Res::Err(strprintf("Cannot set %s as default, set to destroyed on block %d", obj.identifier, *height));
+            return Res::Err("Cannot set %s as default, set to destroyed on block %d", obj.identifier, *height);
         }
 
         return mnview.StoreDefaultLoanScheme(obj.identifier);;
@@ -2004,7 +2004,7 @@ public:
         }
 
         if (!mnview.GetLoanScheme(obj.identifier)) {
-            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.identifier));
+            return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
         }
 
         const auto currentID = mnview.GetDefaultLoanScheme();
@@ -2037,18 +2037,18 @@ public:
             if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
                 vault.schemeId = *defaultScheme;
             } else {
-                return Res::Err(strprintf("There is not default loan scheme"));
+                return Res::Err("There is not default loan scheme");
             }
         }
 
         // loan scheme exists
         if (!mnview.GetLoanScheme(vault.schemeId)) {
-            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", vault.schemeId));
+            return Res::Err("Cannot find existing loan scheme with id %s", vault.schemeId);
         }
 
         // check loan scheme is not to be destroyed
         if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId)) {
-            return Res::Err(strprintf("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height));
+            return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
         }
 
         auto vaultId = tx.GetHash();
@@ -2060,11 +2060,11 @@ public:
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
-            return Res::Err(strprintf("Cannot find existing vault with id %s", obj.vaultId.GetHex()));
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
 
         // vault under liquidation
         if(vault.val->isUnderLiquidation)
-            return Res::Err(strprintf("Cannot update vault under liquidation"));
+            return Res::Err("Cannot update vault under liquidation");
 
         // owner auth
         if (!HasAuth(vault.val->ownerAddress)) {
@@ -2073,11 +2073,11 @@ public:
 
         // loan scheme exists
         if (!mnview.GetLoanScheme(obj.schemeId))
-            return Res::Err(strprintf("Cannot find existing loan scheme with id %s", obj.schemeId));
+            return Res::Err("Cannot find existing loan scheme with id %s", obj.schemeId);
 
         // loan scheme is not set to be destroyed
         if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId)) {
-            return Res::Err(strprintf("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height));
+            return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
         }
 
         vault.val->schemeId = obj.schemeId;
@@ -2094,11 +2094,11 @@ public:
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
-            return Res::Err(strprintf("Cannot find existing vault with id %s", obj.vaultId.GetHex()));
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
 
         // vault under liquidation
         if(vault.val->isUnderLiquidation)
-            return Res::Err(strprintf("Cannot deposit to vault under liquidation"));
+            return Res::Err("Cannot deposit to vault under liquidation");
 
         //check balance
         auto resSub= mnview.SubBalance(obj.from, obj.amount);
