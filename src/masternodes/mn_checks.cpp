@@ -2114,6 +2114,8 @@ public:
         if (!res || !collaterals)
             return res;
 
+        // Update collaterals after success AddVaultCollateral()
+        collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         CAmount totalDFI = 0, totalCollaterals = 0;
         for (const auto& col : collaterals->balances) {
 
@@ -2139,8 +2141,10 @@ public:
                 totalDFI += amount;
 
             totalCollaterals += amount;
+            LogPrintf("DIEGO INSIDE total: %d, dfi: %d", totalCollaterals, totalDFI);
         }
 
+        LogPrintf("DIEGO total: %d, dfi: %d", totalCollaterals, totalDFI);
         if (totalDFI < totalCollaterals / 2)
             return Res::Err("At least 50%% of the vault must be in DFI.");
 
