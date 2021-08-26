@@ -44,6 +44,22 @@ struct CUpdateVaultMessage {
     }
 };
 
+struct CDepositToVaultMessage {
+    CVaultId vaultId;
+    CScript from;
+    CTokenAmount amount;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(vaultId);
+        READWRITE(from);
+        READWRITE(amount);
+    }
+};
+
 struct CAuctionData {
     uint32_t batchCount;
     CAmount liquidationPenalty;
