@@ -181,13 +181,9 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
     std::string tokenSymbol;
     DCT_ID idToken = {std::numeric_limits<uint32_t>::max()}, currentToken = {std::numeric_limits<uint32_t>::max()};
-    uint32_t height;
 
-    {
-        LOCK(cs_main);
-
-        height = ::ChainActive().Height();
-    }
+    LOCK(cs_main);
+    uint32_t height = ::ChainActive().Height();
 
     if (request.params.size() > 0)
     {
@@ -251,6 +247,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
 
+    LOCK(cs_main);
     pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx) {
         auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
         if (collToken)
@@ -517,6 +514,7 @@ UniValue listloantokens(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
 
+    LOCK(cs_main);
     pcustomcsview->ForEachLoanSetLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
         ret.pushKVs(setLoanTokenToJSON(loanToken,key));
 
@@ -905,6 +903,7 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
     };
     std::set<CLoanScheme, decltype(cmp)> loans(cmp);
 
+    LOCK(cs_main);
     pcustomcsview->ForEachLoanScheme([&loans](const std::string& identifier, const CLoanSchemeData& data){
         CLoanScheme loanScheme;
         loanScheme.rate = data.rate;
@@ -958,6 +957,7 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
 
     auto loanSchemeId = request.params[0].getValStr();
 
+    LOCK(cs_main);
     auto loanScheme = pcustomcsview->GetLoanScheme(loanSchemeId);
     if(!loanScheme)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot find existing loan scheme with id " + loanSchemeId);

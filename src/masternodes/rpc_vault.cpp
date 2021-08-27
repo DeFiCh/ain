@@ -164,6 +164,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
 
     UniValue valueArr{UniValue::VOBJ};
 
+    LOCK(cs_main);
     pcustomcsview->ForEachVault([&](const CVaultId& id, const CVaultMessage& data) {
         UniValue vaultObj{UniValue::VOBJ};
         vaultObj.pushKV("owneraddress", ScriptToString(data.ownerAddress));
