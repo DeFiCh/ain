@@ -2982,7 +2982,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     return true;
                 });
             }
-            cache.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+            cache.ForEachVaultAuction([&](const CVaultId& vaultId, uint32_t height, const CAuctionData& data) {
+                if (int(height) != pindex->nHeight) {
+                    return false;
+                }
                 std::set<DCT_ID> tokensLooseInterest;
                 for (uint32_t i = 0; i < data.batchCount; i++) {
                     auto batch = cache.GetAuctionBatch(vaultId, i);
