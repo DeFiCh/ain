@@ -34,9 +34,8 @@ Res CLoanView::LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & 
 
     WriteBy<LoanSetCollateralTokenCreationTx>(collToken.creationTx, collToken);
 
-    // invert height bytes so that we can find <= key with given height
-    uint32_t height = ~collToken.activateAfterBlock;
-    WriteBy<LoanSetCollateralTokenKey>(CollateralTokenKey(collToken.idToken, height), collToken.creationTx);
+    CollateralTokenKey key{collToken.idToken, collToken.activateAfterBlock};
+    WriteBy<LoanSetCollateralTokenKey>(key, collToken.creationTx);
 
     return Res::Ok();
 }
@@ -49,7 +48,7 @@ void CLoanView::ForEachLoanSetCollateralToken(std::function<bool (CollateralToke
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanSetCollateralToken(CollateralTokenKey const & key)
 {
     auto it = LowerBound<LoanSetCollateralTokenKey>(key);
-    if (it.Valid() && it.Key().first == key.first)
+    if (it.Valid() && it.Key().id == key.id)
         return GetLoanSetCollateralToken(it.Value());
     return {};
 }
