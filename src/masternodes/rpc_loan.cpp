@@ -203,10 +203,10 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
             height = (size_t) byObj["height"].get_int64();
     }
 
-    CLoanView::CollateralTokenKey start({{0}, ~height});
+    CollateralTokenKey start{DCT_ID{0}, height};
     if (idToken.v != std::numeric_limits<uint32_t>::max())
     {
-        start.first = idToken;
+        start.id = idToken;
         auto collToken = pcustomcsview->HasLoanSetCollateralToken(start);
         if (collToken && collToken->factor)
         {
@@ -216,14 +216,14 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
         return (ret);
     }
 
-    pcustomcsview->ForEachLoanSetCollateralToken([&](CLoanView::CollateralTokenKey const & key, uint256 collTokenTx) {
+    pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx) {
 
-        if (idToken.v != std::numeric_limits<uint32_t>::max() && key.first != idToken)
+        if (idToken.v != std::numeric_limits<uint32_t>::max() && key.id != idToken)
             return false;
 
-        if (~key.second > height || currentToken == key.first) return true;
+        if (key.height > height || currentToken == key.id) return true;
 
-        currentToken = key.first;
+        currentToken = key.id;
         auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
         if (collToken && collToken->factor)
         {
@@ -251,7 +251,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
 
-    pcustomcsview->ForEachLoanSetCollateralToken([&](CLoanView::CollateralTokenKey const & key, uint256 collTokenTx) {
+    pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx) {
         auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
         if (collToken)
         {

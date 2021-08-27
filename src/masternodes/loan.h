@@ -115,6 +115,27 @@ struct CLoanUpdateLoanTokenMessage : public CLoanSetLoanToken {
     }
 };
 
+struct CollateralTokenKey
+{
+    DCT_ID id;
+    uint32_t height;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(id);
+
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(height));
+            height = ~height;
+        } else {
+            uint32_t height_ = ~height;
+            READWRITE(WrapBigEndian(height_));
+        }
+    }
+};
+
 struct CLoanSchemeData
 {
     uint32_t ratio;
@@ -180,7 +201,8 @@ struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
     }
 };
 
-struct CInterestRate {
+struct CInterestRate
+{
     uint32_t count = 0;
     uint32_t height = 0;
     CAmount interestToHeight = 0;
@@ -189,8 +211,7 @@ struct CInterestRate {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(count);
         READWRITE(height);
         READWRITE(interestToHeight);
@@ -200,13 +221,12 @@ struct CInterestRate {
 
 class CLoanView : public virtual CStorageView {
 public:
-    using CollateralTokenKey = std::pair<DCT_ID, uint32_t>;
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
     using CLoanSetLoanTokenImpl = CLoanSetLoanTokenImplementation;
 
     std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanSetCollateralToken(uint256 const & txid) const;
     Res LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
-    void ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {{0},0});
+    void ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
     std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanSetCollateralToken(CollateralTokenKey const & key);
 
     std::unique_ptr<CLoanSetLoanTokenImpl> GetLoanSetLoanToken(uint256 const & txid) const;
