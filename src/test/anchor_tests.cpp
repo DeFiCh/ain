@@ -13,7 +13,7 @@ struct SpvTestingSetup : public TestingSetup {
     SpvTestingSetup()
         : TestingSetup(CBaseChainParams::MAIN)
     {
-        spv::pspv = MakeUnique<spv::CFakeSpvWrapper>();
+        spv::pspv = std::make_unique<spv::CFakeSpvWrapper>();
     }
     ~SpvTestingSetup()
     {
