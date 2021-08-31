@@ -1226,7 +1226,7 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        CPoolPair& pool = pair.get();
+        CPoolPair& pool = pair.value();
 
         // subtract liq.balance BEFORE RemoveLiquidity call to check balance correctness
         {

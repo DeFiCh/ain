@@ -215,8 +215,8 @@ public:
     Res SetPoolPair(const DCT_ID &poolId, uint32_t height, CPoolPair const & pool);
     Res UpdatePoolPair(DCT_ID const & poolId, uint32_t height, bool status, CAmount const & commission, CScript const & ownerAddress, CBalances const & rewards);
 
-    boost::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
-    boost::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
+    std::optional<CPoolPair> GetPoolPair(const DCT_ID &poolId) const;
+    std::optional<std::pair<DCT_ID, CPoolPair> > GetPoolPair(DCT_ID const & tokenA, DCT_ID const & tokenB) const;
 
     void ForEachPoolId(std::function<bool(DCT_ID const &)> callback, DCT_ID const & start = DCT_ID{0});
     void ForEachPoolPair(std::function<bool(DCT_ID const &, CPoolPair)> callback, DCT_ID const & start = DCT_ID{0});
@@ -225,7 +225,7 @@ public:
     Res SetShare(DCT_ID const & poolId, CScript const & provider, uint32_t height);
     Res DelShare(DCT_ID const & poolId, CScript const & provider);
 
-    boost::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider);
+    std::optional<uint32_t> GetShare(DCT_ID const & poolId, CScript const & provider);
 
     void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward);
 

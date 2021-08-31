@@ -193,7 +193,6 @@ DEFI_CORE_H = \
   node/psbt.h \
   node/transaction.h \
   noui.h \
-  optional.h \
   outputtype.h \
   policy/feerate.h \
   policy/fees.h \
