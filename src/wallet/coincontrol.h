@@ -10,8 +10,6 @@
 #include <primitives/transaction.h>
 #include <wallet/wallet.h>
 
-#include <boost/optional.hpp>
-
 const int DEFAULT_MIN_DEPTH = 0;
 const int DEFAULT_MAX_DEPTH = 9999999;
 

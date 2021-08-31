@@ -6,8 +6,6 @@
 #include <memory>
 #include <key.h>
 
-#include <boost/optional.hpp>
-
 class CBlock;
 
 class CBlockIndex;
