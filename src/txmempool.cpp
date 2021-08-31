@@ -558,7 +558,7 @@ CCustomCSView& CTxMemPool::accountsView()
 {
     if (!acview) {
         assert(pcustomcsview);
-        acview = MakeUnique<CCustomCSView>(*pcustomcsview);
+        acview = std::make_unique<CCustomCSView>(*pcustomcsview);
     }
     return *acview;
 }

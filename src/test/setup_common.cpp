@@ -23,7 +23,6 @@
 #include <script/sigcache.h>
 #include <streams.h>
 #include <txdb.h>
-#include <util/memory.h>
 #include <util/strencodings.h>
 #include <util/time.h>
 #include <util/translation.h>
@@ -102,7 +101,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
     mempool.setSanityCheck(1.0);
     pblocktree.reset(new CBlockTreeDB(1 << 20, true));
-    g_chainstate = MakeUnique<CChainState>();
+    g_chainstate = std::make_unique<CChainState>();
     ::ChainstateActive().InitCoinsDB(
         /* cache_size_bytes */ 1 << 23, /* in_memory */ true, /* should_wipe */ false);
     assert(!::ChainstateActive().CanFlushToDisk());
@@ -113,15 +112,15 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         LOCK(cs_main);
 
         pcustomcsDB.reset();
-        pcustomcsDB = MakeUnique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true);
-        pcustomcsview = MakeUnique<CCustomCSView>(*pcustomcsDB.get());
+        pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true);
+        pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
 
         panchorauths.reset();
-        panchorauths = MakeUnique<CAnchorAuthIndex>();
+        panchorauths = std::make_unique<CAnchorAuthIndex>();
         panchorAwaitingConfirms.reset();
-        panchorAwaitingConfirms = MakeUnique<CAnchorAwaitingConfirms>();
+        panchorAwaitingConfirms = std::make_unique<CAnchorAwaitingConfirms>();
         panchors.reset();
-        panchors = MakeUnique<CAnchorIndex>(nMinDbCache << 20, true, true);
+        panchors = std::make_unique<CAnchorIndex>(nMinDbCache << 20, true, true);
         panchors->Load();
     }
 
@@ -138,8 +137,8 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
     for (int i = 0; i < nScriptCheckThreads - 1; i++)
         threadGroup.create_thread([i]() { return ThreadScriptCheck(i); });
 
-    g_banman = MakeUnique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
-    g_connman = MakeUnique<CConnman>(0x1337, 0x1337); // Deterministic randomness for tests.
+    g_banman = std::make_unique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
+    g_connman = std::make_unique<CConnman>(0x1337, 0x1337); // Deterministic randomness for tests.
 }
 
 TestingSetup::~TestingSetup()

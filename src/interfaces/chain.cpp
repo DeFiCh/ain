@@ -250,7 +250,7 @@ class ChainImpl : public Chain
 public:
     std::unique_ptr<Chain::Lock> lock() override
     {
-        return MakeUnique<LockImpl>(::cs_main);
+        return std::make_unique<LockImpl>(::cs_main);
     }
     bool findBlock(const uint256& hash, CBlock* block, int64_t* time, int64_t* time_max) override
     {
@@ -365,7 +365,7 @@ public:
     }
     std::unique_ptr<Handler> handleNotifications(Notifications& notifications) override
     {
-        return MakeUnique<NotificationsHandlerImpl>(*this, notifications);
+        return std::make_unique<NotificationsHandlerImpl>(*this, notifications);
     }
     void waitForNotificationsIfNewBlocksConnected(const uint256& old_tip) override
     {
@@ -379,7 +379,7 @@ public:
     }
     std::unique_ptr<Handler> handleRpc(const CRPCCommand& command) override
     {
-        return MakeUnique<RpcHandlerImpl>(command);
+        return std::make_unique<RpcHandlerImpl>(command);
     }
     bool rpcEnableDeprecated(const std::string& method) override { return IsDeprecatedRPCEnabled(method); }
     void rpcRunLater(const std::string& name, std::function<void()> fn, int64_t seconds) override
@@ -397,6 +397,6 @@ public:
 };
 } // namespace
 
-std::unique_ptr<Chain> MakeChain() { return MakeUnique<ChainImpl>(); }
+std::unique_ptr<Chain> MakeChain() { return std::make_unique<ChainImpl>(); }
 
 } // namespace interfaces

@@ -166,7 +166,7 @@ public:
         return batch.SizeEstimate();
     }
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
-        return MakeUnique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db.NewIterator()));
+        return std::make_unique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db.NewIterator()));
     }
     void Compact(const TBytes& begin, const TBytes& end) {
         db.CompactRange(refTBytes(begin), refTBytes(end));
@@ -317,7 +317,7 @@ public:
         return memusage::DynamicUsage(changed);
     }
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
-        return MakeUnique<CFlushableStorageKVIterator>(db.NewIterator(), changed);
+        return std::make_unique<CFlushableStorageKVIterator>(db.NewIterator(), changed);
     }
 
     MapKV& GetRaw() {
@@ -427,8 +427,8 @@ public:
 // Creates an iterator to single level key value storage
 template<typename By, typename KeyType>
 CStorageIteratorWrapper<By, KeyType> NewKVIterator(const KeyType& key, MapKV& map) {
-    auto emptyParent = MakeUnique<CStorageKVEmptyIterator>();
-    auto flushableIterator = MakeUnique<CFlushableStorageKVIterator>(std::move(emptyParent), map);
+    auto emptyParent = std::make_unique<CStorageKVEmptyIterator>();
+    auto flushableIterator = std::make_unique<CFlushableStorageKVIterator>(std::move(emptyParent), map);
     CStorageIteratorWrapper<By, KeyType> it{std::move(flushableIterator)};
     it.Seek(key);
     return it;
