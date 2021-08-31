@@ -385,8 +385,8 @@ pkg_install_llvm() {
 }
 
 pkg_ensure_mac_sdk() {
-    local sdk_name="MacOSX10.14.sdk"
-    local pkg="${sdk_name}.tar.xz"
+    local sdk_name="Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers"
+    local pkg="${sdk_name}.tar.gz"
 
     echo "> ensuring mac sdk"
 
@@ -394,9 +394,9 @@ pkg_ensure_mac_sdk() {
     pushd ./depends/SDKs >/dev/null
     if [[ ! -d "$sdk_name" ]]; then
         if [[ ! -f "${pkg}" ]]; then
-            wget https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.14.sdk.tar.xz
+            wget https://bitcoincore.org/depends-sources/sdks/Xcode-11.3.1-11C505-extracted-SDK-with-libcxx-headers.tar.gz
         fi
-        tar -xvf "${pkg}"
+        tar -zxvf "${pkg}"
     fi
     rm "${pkg}" 2>/dev/null || true
     popd >/dev/null
