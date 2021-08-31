@@ -94,10 +94,10 @@ jobs:
     - uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
 
     - name: Build and package
-      run: TARGETS="x86_64-apple-darwin11" ./make.sh docker-release-git
+      run: TARGETS="x86_64-apple-darwin18" ./make.sh docker-release-git
 
-    - name: Publish artifact - x86_64-apple-darwin11
+    - name: Publish artifact - x86_64-apple-darwin18
       uses: actions/upload-artifact@e448a9b857ee2131e752b06002bf0e093c65e571
       with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin11.tar.gz
+        name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin18.tar.gz
