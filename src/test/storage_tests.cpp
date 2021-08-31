@@ -276,9 +276,8 @@ struct TestForward {
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(WrapBigEndian(n));
     }
-    static const unsigned char prefix;
+    static constexpr unsigned char prefix() { return 'F'; }
 };
-const unsigned char TestForward::prefix = 'F';
 
 struct TestBackward {
     uint32_t n;
@@ -296,10 +295,8 @@ struct TestBackward {
             READWRITE(WrapBigEndian(neg));
         }
     }
-    static const unsigned char prefix;
+    static constexpr unsigned char prefix() { return 'B'; };
 };
-const unsigned char TestBackward::prefix = 'B';
-
 
 BOOST_AUTO_TEST_CASE(ForEachTest)
 {

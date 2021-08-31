@@ -20,34 +20,6 @@
 #include <functional>
 #include <unordered_map>
 
-/// @attention make sure that it does not overlap with those in tokens.cpp !!!
-// Prefixes for the 'custom chainstate database' (enhancedcs/)
-const unsigned char DB_MASTERNODES = 'M';     // main masternodes table
-const unsigned char DB_MN_OPERATORS = 'o';    // masternodes' operators index
-const unsigned char DB_MN_OWNERS = 'w';       // masternodes' owners index
-const unsigned char DB_MN_STAKER = 'X';       // masternodes' last staked block time
-const unsigned char DB_MN_SUBNODE = 'Z';      // subnode's last staked block time
-const unsigned char DB_MN_TIMELOCK = 'K';
-const unsigned char DB_MN_HEIGHT = 'H';       // single record with last processed chain height
-const unsigned char DB_MN_VERSION = 'D';
-const unsigned char DB_MN_ANCHOR_REWARD = 'r';
-const unsigned char DB_MN_ANCHOR_CONFIRM = 'x';
-const unsigned char DB_MN_CURRENT_TEAM = 't';
-const unsigned char DB_MN_FOUNDERS_DEBT = 'd';
-const unsigned char DB_MN_AUTH_TEAM = 'v';
-const unsigned char DB_MN_CONFIRM_TEAM = 'V';
-
-const unsigned char CMasternodesView::ID      ::prefix = DB_MASTERNODES;
-const unsigned char CMasternodesView::Operator::prefix = DB_MN_OPERATORS;
-const unsigned char CMasternodesView::Owner   ::prefix = DB_MN_OWNERS;
-const unsigned char CMasternodesView::Staker  ::prefix = DB_MN_STAKER;
-const unsigned char CMasternodesView::SubNode ::prefix = DB_MN_SUBNODE;
-const unsigned char CMasternodesView::Timelock::prefix = DB_MN_TIMELOCK;
-const unsigned char CAnchorRewardsView::BtcTx ::prefix = DB_MN_ANCHOR_REWARD;
-const unsigned char CAnchorConfirmsView::BtcTx::prefix = DB_MN_ANCHOR_CONFIRM;
-const unsigned char CTeamView::AuthTeam       ::prefix = DB_MN_AUTH_TEAM;
-const unsigned char CTeamView::ConfirmTeam    ::prefix = DB_MN_CONFIRM_TEAM;
-
 std::unique_ptr<CCustomCSView> pcustomcsview;
 std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 
@@ -520,14 +492,14 @@ std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID& keyID, const 
 int CLastHeightView::GetLastHeight() const
 {
     int result;
-    if (Read(DB_MN_HEIGHT, result))
+    if (Read(Height::prefix(), result))
         return result;
     return 0;
 }
 
 void CLastHeightView::SetLastHeight(int height)
 {
-    Write(DB_MN_HEIGHT, height);
+    Write(Height::prefix(), height);
 }
 
 /*
@@ -536,7 +508,7 @@ void CLastHeightView::SetLastHeight(int height)
 CAmount CFoundationsDebtView::GetFoundationsDebt() const
 {
     CAmount debt(0);
-    if(Read(DB_MN_FOUNDERS_DEBT, debt))
+    if(Read(Debt::prefix(), debt))
         assert(debt >= 0);
     return debt;
 }
@@ -544,7 +516,7 @@ CAmount CFoundationsDebtView::GetFoundationsDebt() const
 void CFoundationsDebtView::SetFoundationsDebt(CAmount debt)
 {
     assert(debt >= 0);
-    Write(DB_MN_FOUNDERS_DEBT, debt);
+    Write(Debt::prefix(), debt);
 }
 
 
@@ -553,13 +525,13 @@ void CFoundationsDebtView::SetFoundationsDebt(CAmount debt)
  */
 void CTeamView::SetTeam(const CTeamView::CTeam & newTeam)
 {
-    Write(DB_MN_CURRENT_TEAM, newTeam);
+    Write(CurrentTeam::prefix(), newTeam);
 }
 
 CTeamView::CTeam CTeamView::GetCurrentTeam() const
 {
     CTeam team;
-    if (Read(DB_MN_CURRENT_TEAM, team) && team.size() > 0)
+    if (Read(CurrentTeam::prefix(), team) && team.size() > 0)
         return team;
 
     return Params().GetGenesisTeam();
@@ -664,14 +636,14 @@ std::vector<CAnchorConfirmDataPlus> CAnchorConfirmsView::GetAnchorConfirmData()
 int CCustomCSView::GetDbVersion() const
 {
     int version;
-    if (Read(DB_MN_VERSION, version))
+    if (Read(DbVersion::prefix(), version))
         return version;
     return 0;
 }
 
 void CCustomCSView::SetDbVersion(int version)
 {
-    Write(DB_MN_VERSION, version);
+    Write(DbVersion::prefix(), version);
 }
 
 CTeamView::CTeam CCustomCSView::CalcNextTeam(const uint256 & stakeModifier)

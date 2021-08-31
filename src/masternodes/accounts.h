@@ -28,8 +28,8 @@ public:
     Res UpdateBalancesHeight(CScript const & owner, uint32_t height);
 
     // tags
-    struct ByBalanceKey { static const unsigned char prefix; };
-    struct ByHeightKey { static const unsigned char prefix; };
+    struct ByBalanceKey { static constexpr uint8_t prefix() { return 'a'; } };
+    struct ByHeightKey  { static constexpr uint8_t prefix() { return 'b'; } };
 
 private:
     Res SetBalance(CScript const & owner, CTokenAmount amount);

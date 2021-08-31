@@ -2,20 +2,6 @@
 #include <chainparams.h>
 #include <masternodes/loan.h>
 
-const unsigned char CLoanView::LoanSetCollateralTokenCreationTx           ::prefix = 0x10;
-const unsigned char CLoanView::LoanSetCollateralTokenKey                  ::prefix = 0x11;
-const unsigned char CLoanView::LoanSchemeKey                              ::prefix = 0x12;
-const unsigned char CLoanView::DefaultLoanSchemeKey                       ::prefix = 0x13;
-const unsigned char CLoanView::DelayedLoanSchemeKey                       ::prefix = 0x14;
-const unsigned char CLoanView::DestroyLoanSchemeKey                       ::prefix = 0x15;
-const unsigned char CLoanView::LoanSetLoanTokenCreationTx                 ::prefix = 0x16;
-const unsigned char CLoanView::LoanSetLoanTokenKey                        ::prefix = 0x17;
-const unsigned char CLoanView::LoanInterestedRate                         ::prefix = 0x18;
-const unsigned char CLoanView::LoanTokenAmount                            ::prefix = 0x19;
-const unsigned char CLoanView::LoanLiquidationPenalty                     ::prefix = 0x20;
-const unsigned char CLoanView::LoanTakeLoanCreationTx                     ::prefix = 0x21;
-const unsigned char CLoanView::LoanTakeLoanVaultKey                       ::prefix = 0x22;
-
 std::unique_ptr<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanSetCollateralToken(uint256 const & txid) const
 {
     auto collToken = ReadBy<LoanSetCollateralTokenCreationTx,CLoanSetCollateralTokenImpl>(txid);
@@ -30,7 +16,7 @@ Res CLoanView::LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & 
     if (GetLoanSetCollateralToken(collToken.creationTx))
         return Res::Err("setCollateralToken with creation tx %s already exists!", collToken.creationTx.GetHex());
     if (collToken.factor > COIN)
-        return Res::Err("setCollateralToken factor must be lower or equal than %s!",GetDecimaleString(COIN));
+        return Res::Err("setCollateralToken factor must be lower or equal than %s!", GetDecimaleString(COIN));
     if (collToken.factor < 0)
         return Res::Err("setCollateralToken factor must not be negative!");
 
@@ -139,7 +125,7 @@ void CLoanView::ForEachDelayedDestroyScheme(std::function<bool (const std::strin
 
 Res CLoanView::StoreDefaultLoanScheme(const std::string& loanSchemeID)
 {
-    Write(DefaultLoanSchemeKey::prefix, loanSchemeID);
+    Write(DefaultLoanSchemeKey::prefix(), loanSchemeID);
 
     return Res::Ok();
 }
@@ -147,7 +133,7 @@ Res CLoanView::StoreDefaultLoanScheme(const std::string& loanSchemeID)
 boost::optional<std::string> CLoanView::GetDefaultLoanScheme()
 {
     std::string loanSchemeID;
-    if (Read(DefaultLoanSchemeKey::prefix, loanSchemeID)) {
+    if (Read(DefaultLoanSchemeKey::prefix(), loanSchemeID)) {
         return loanSchemeID;
     }
 
@@ -308,14 +294,14 @@ void CLoanView::ForEachLoanToken(std::function<bool(const CVaultId&, const CBala
 
 Res CLoanView::SetLoanLiquidationPenalty(CAmount penalty)
 {
-    Write(LoanLiquidationPenalty::prefix, penalty);
+    Write(LoanLiquidationPenalty::prefix(), penalty);
     return Res::Ok();
 }
 
 CAmount CLoanView::GetLoanLiquidationPenalty()
 {
     CAmount penalty;
-    if (Read(LoanLiquidationPenalty::prefix, penalty)) {
+    if (Read(LoanLiquidationPenalty::prefix(), penalty)) {
         return penalty;
     }
     return 5 * COIN / 100;

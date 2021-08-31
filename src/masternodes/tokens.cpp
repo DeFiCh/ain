@@ -10,12 +10,6 @@
 
 #include <univalue.h>
 
-/// @attention make sure that it does not overlap with other views !!!
-const unsigned char CTokensView::ID          ::prefix = 'T';
-const unsigned char CTokensView::Symbol      ::prefix = 'S';
-const unsigned char CTokensView::CreationTx  ::prefix = 'c';
-const unsigned char CTokensView::LastDctId   ::prefix = 'L';
-
 const DCT_ID CTokensView::DCT_ID_START = DCT_ID{128};
 
 extern const std::string CURRENCY_UNIT;
@@ -276,7 +270,7 @@ DCT_ID CTokensView::IncrementLastDctId()
     if (lastDctId) {
         result = DCT_ID{std::max(lastDctId->v + 1, result.v)};
     }
-    assert (Write(LastDctId::prefix, result));
+    assert (Write(LastDctId::prefix(), result));
     return result;
 }
 
@@ -289,14 +283,14 @@ DCT_ID CTokensView::DecrementLastDctId()
         LogPrintf("Critical fault: trying to decrement nonexistent DCT_ID or it is lower than DCT_ID_START\n");
         assert (false);
     }
-    assert (Write(LastDctId::prefix, *lastDctId)); // it is ok if (DCT_ID_START - 1) will be written
+    assert (Write(LastDctId::prefix(), *lastDctId)); // it is ok if (DCT_ID_START - 1) will be written
     return *lastDctId;
 }
 
 boost::optional<DCT_ID> CTokensView::ReadLastDctId() const
 {
     DCT_ID lastDctId{DCT_ID_START};
-    if (Read(LastDctId::prefix, lastDctId)) {
+    if (Read(LastDctId::prefix(), lastDctId)) {
         return {lastDctId};
     }
     return {};

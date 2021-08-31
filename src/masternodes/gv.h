@@ -41,7 +41,7 @@ public:
     Res SetVariable(GovVariable const & var);
     std::shared_ptr<GovVariable> GetVariable(std::string const &govKey) const;
 
-    struct ByName { static const unsigned char prefix; };
+    struct ByName { static constexpr uint8_t prefix() { return 'g'; } };
 };
 
 
