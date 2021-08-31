@@ -2,12 +2,6 @@
 #include <chainparams.h>
 #include <masternodes/vault.h>
 
-const unsigned char CVaultView::VaultKey                                  ::prefix = 0x30;
-const unsigned char CVaultView::CollateralKey                             ::prefix = 0x31;
-const unsigned char CVaultView::AuctionBatchKey                           ::prefix = 0x32;
-const unsigned char CVaultView::AuctionHeightKey                          ::prefix = 0x33;
-const unsigned char CVaultView::AuctionBidKey                             ::prefix = 0x34;
-
 Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultMessage& vault)
 {
     if (!WriteBy<VaultKey>(vaultId, vault)) {

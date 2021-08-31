@@ -113,11 +113,11 @@ public:
     Res EraseAuctionBid(const CVaultId& vaultId, uint32_t id);
     boost::optional<COwnerTokenAmount> GetAuctionBid(const CVaultId& vaultId, uint32_t id);
 
-    struct VaultKey { static const unsigned char prefix; };
-    struct CollateralKey { static const unsigned char prefix; };
-    struct AuctionBatchKey { static const unsigned char prefix; };
-    struct AuctionHeightKey { static const unsigned char prefix; };
-    struct AuctionBidKey { static const unsigned char prefix; };
+    struct VaultKey         { static constexpr uint8_t prefix() { return 0x20; } };
+    struct CollateralKey    { static constexpr uint8_t prefix() { return 0x21; } };
+    struct AuctionBatchKey  { static constexpr uint8_t prefix() { return 0x22; } };
+    struct AuctionHeightKey { static constexpr uint8_t prefix() { return 0x23; } };
+    struct AuctionBidKey    { static constexpr uint8_t prefix() { return 0x24; } };
 };
 
 #endif // DEFI_MASTERNODES_VAULT_H

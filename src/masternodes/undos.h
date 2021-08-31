@@ -18,7 +18,7 @@ public:
     Res DelUndo(UndoKey const & key);
 
     // tags
-    struct ByUndoKey { static const unsigned char prefix; };
+    struct ByUndoKey { static constexpr uint8_t prefix() { return 'u'; } };
 };
 
 

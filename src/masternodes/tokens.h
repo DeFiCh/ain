@@ -159,10 +159,10 @@ public:
     Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
 
     // tags
-    struct ID { static const unsigned char prefix; };
-    struct Symbol { static const unsigned char prefix; };
-    struct CreationTx { static const unsigned char prefix; };
-    struct LastDctId { static const unsigned char prefix; };
+    struct ID           { static constexpr uint8_t prefix() { return 'T'; } };
+    struct Symbol       { static constexpr uint8_t prefix() { return 'S'; } };
+    struct CreationTx   { static constexpr uint8_t prefix() { return 'c'; } };
+    struct LastDctId    { static constexpr uint8_t prefix() { return 'L'; } };
 
 private:
     // have to incapsulate "last token id" related methods here
