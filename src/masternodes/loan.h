@@ -261,17 +261,17 @@ public:
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
 
-    struct LoanSetCollateralTokenCreationTx { static const unsigned char prefix; };
-    struct LoanSetCollateralTokenKey { static const unsigned char prefix; };
-    struct LoanSetLoanTokenCreationTx { static const unsigned char prefix; };
-    struct LoanSetLoanTokenKey { static const unsigned char prefix; };
-    struct LoanSchemeKey { static const unsigned char prefix; };
-    struct DefaultLoanSchemeKey { static const unsigned char prefix; };
-    struct DelayedLoanSchemeKey { static const unsigned char prefix; };
-    struct DestroyLoanSchemeKey { static const unsigned char prefix; };
-    struct LoanInterestedRate { static const unsigned char prefix; };
-    struct LoanTokenAmount { static const unsigned char prefix; };
-    struct LoanLiquidationPenalty { static const unsigned char prefix; };
+    struct LoanSetCollateralTokenCreationTx { static constexpr uint8_t prefix() { return 0x10; } };
+    struct LoanSetCollateralTokenKey        { static constexpr uint8_t prefix() { return 0x11; } };
+    struct LoanSetLoanTokenCreationTx       { static constexpr uint8_t prefix() { return 0x12; } };
+    struct LoanSetLoanTokenKey              { static constexpr uint8_t prefix() { return 0x13; } };
+    struct LoanSchemeKey                    { static constexpr uint8_t prefix() { return 0x14; } };
+    struct DefaultLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x15; } };
+    struct DelayedLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x16; } };
+    struct DestroyLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x17; } };
+    struct LoanInterestedRate               { static constexpr uint8_t prefix() { return 0x18; } };
+    struct LoanTokenAmount                  { static constexpr uint8_t prefix() { return 0x19; } };
+    struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
 };
 
 #endif // DEFI_MASTERNODES_LOAN_H

@@ -121,8 +121,7 @@ public:
 
     void ForEachOracle(std::function<bool(const COracleId&, CLazySerialize<COracle>)> callback, const COracleId& start = {});
 
-private:
-    struct ByName { static const unsigned char prefix; };
+    struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
 };
 
 #endif // DEFI_MASTERNODES_ORACLES_H

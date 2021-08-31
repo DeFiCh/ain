@@ -7,8 +7,6 @@
 #include <masternodes/oracles.h>
 #include <rpc/protocol.h>
 
-const unsigned char COracleView::ByName::prefix = 'O'; // the big O for Oracles
-
 bool COracle::SupportsPair(const std::string& token, const std::string& currency) const
 {
     return availablePairs.count(std::make_pair(token, currency)) > 0;

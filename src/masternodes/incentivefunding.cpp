@@ -4,10 +4,6 @@
 
 #include <masternodes/incentivefunding.h>
 
-/// @attention make sure that it does not overlap with those in masternodes.cpp/tokens.cpp/undos.cpp/accounts.cpp !!!
-const unsigned char CCommunityBalancesView::ById::prefix = 'F';
-
-
 CAmount CCommunityBalancesView::GetCommunityBalance(CommunityAccountType account) const
 {
     CAmount val;

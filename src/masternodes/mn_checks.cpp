@@ -1962,7 +1962,7 @@ public:
         }
 
         // If no default yet exist set this one as default.
-        if (!mnview.Exists(CLoanView::DefaultLoanSchemeKey::prefix)) {
+        if (!mnview.Exists(CLoanView::DefaultLoanSchemeKey::prefix())) {
             mnview.StoreDefaultLoanScheme(obj.identifier);
         }
 
