@@ -3,7 +3,6 @@
 
 #include <string>
 #include <tinyformat.h>
-#include <boost/optional.hpp>
 
 struct Res
 {
