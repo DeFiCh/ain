@@ -1,4 +1,4 @@
-ARG TARGET=x86_64-apple-darwin11
+ARG TARGET=x86_64-apple-darwin18
 
 # -----------
 FROM ubuntu:18.04 as builder-base
