@@ -7,8 +7,6 @@
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/govvariables/lp_splits.h>
 
-const unsigned char CGovView::ByName::prefix = 'g';
-
 Res CGovView::SetVariable(GovVariable const & var)
 {
     return WriteBy<ByName>(var.GetName(), var) ? Res::Ok() : Res::Err("can't write to DB");

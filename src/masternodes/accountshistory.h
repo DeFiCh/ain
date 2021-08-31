@@ -60,7 +60,7 @@ public:
     void ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start = {});
 
     // tags
-    struct ByAccountHistoryKey { static const unsigned char prefix; };
+    struct ByAccountHistoryKey { static constexpr uint8_t prefix() { return 'h'; } };
 };
 
 class CAccountHistoryStorage : public CAccountsHistoryView

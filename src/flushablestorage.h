@@ -361,7 +361,7 @@ class CStorageIteratorWrapper {
     std::unique_ptr<CStorageKVIterator> it;
 
     void UpdateValidity() {
-        valid = it->Valid() && BytesToDbType(it->Key(), key) && key.first == By::prefix;
+        valid = it->Valid() && BytesToDbType(it->Key(), key) && key.first == By::prefix();
     }
 
     struct Resolver {
@@ -413,7 +413,7 @@ public:
         UpdateValidity();
     }
     void Seek(const KeyType& newKey) {
-        key = std::make_pair(By::prefix, newKey);
+        key = std::make_pair(By::prefix(), newKey);
         it->Seek(DbTypeToBytes(key));
         UpdateValidity();
     }
@@ -441,7 +441,7 @@ public:
     }
     template<typename By, typename KeyType>
     bool ExistsBy(const KeyType& key) const {
-        return Exists(std::make_pair(By::prefix, key));
+        return Exists(std::make_pair(By::prefix(), key));
     }
 
     template<typename KeyType, typename ValueType>
@@ -452,7 +452,7 @@ public:
     }
     template<typename By, typename KeyType, typename ValueType>
     bool WriteBy(const KeyType& key, const ValueType& value) {
-        return Write(std::make_pair(By::prefix, key), value);
+        return Write(std::make_pair(By::prefix(), key), value);
     }
 
     template<typename KeyType>
@@ -462,7 +462,7 @@ public:
     }
     template<typename By, typename KeyType>
     bool EraseBy(const KeyType& key) {
-        return Erase(std::make_pair(By::prefix, key));
+        return Erase(std::make_pair(By::prefix(), key));
     }
 
     template<typename KeyType, typename ValueType>
@@ -473,7 +473,7 @@ public:
     }
     template<typename By, typename KeyType, typename ValueType>
     bool ReadBy(const KeyType& key, ValueType& value) const {
-        return Read(std::make_pair(By::prefix, key), value);
+        return Read(std::make_pair(By::prefix(), key), value);
     }
     // second type of 'ReadBy' (may be 'GetBy'?)
     template<typename By, typename ResultType, typename KeyType>

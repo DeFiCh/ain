@@ -7,18 +7,6 @@
 #include <core_io.h>
 #include <primitives/transaction.h>
 
-const unsigned char CPoolPairView::ByID                 ::prefix = 'i';
-const unsigned char CPoolPairView::ByPair               ::prefix = 'j';
-const unsigned char CPoolPairView::ByShare              ::prefix = 'k';
-const unsigned char CPoolPairView::ByIDPair             ::prefix = 'C';
-const unsigned char CPoolPairView::ByPoolSwap           ::prefix = 'P';
-const unsigned char CPoolPairView::ByReserves           ::prefix = 'R';
-const unsigned char CPoolPairView::ByRewardPct          ::prefix = 'Q';
-const unsigned char CPoolPairView::ByPoolReward         ::prefix = 'I';
-const unsigned char CPoolPairView::ByDailyReward        ::prefix = 'B';
-const unsigned char CPoolPairView::ByCustomReward       ::prefix = 'A';
-const unsigned char CPoolPairView::ByTotalLiquidity     ::prefix = 'f';
-
 struct PoolSwapValue {
     bool swapEvent;
     CAmount blockCommissionA;
