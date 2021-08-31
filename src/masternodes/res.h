@@ -62,7 +62,7 @@ struct Res
 template <typename T>
 struct ResVal : public Res
 {
-    boost::optional<T> val{};
+    std::optional<T> val{};
 
     ResVal() = delete;
 

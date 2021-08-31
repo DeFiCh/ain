@@ -91,9 +91,6 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
-Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
-
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime)
 {
     int64_t nTimeStart = GetTimeMicros();
@@ -113,7 +110,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     LOCK2(cs_main, mempool.cs);
     // in fact, this may be redundant cause it was checked upthere in the miner
-    boost::optional<std::pair<CKeyID, uint256>> myIDs;
+    std::optional<std::pair<CKeyID, uint256>> myIDs;
     if (!blockTime) {
         myIDs = pcustomcsview->AmIOperator();
         if (!myIDs)

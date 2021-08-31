@@ -1675,8 +1675,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
 
     CKeyID minterKey;
-    boost::optional<uint256> nodeId;
-    boost::optional<CMasternode> node;
+    std::optional<uint256> nodeId;
 
     if (!fIsFakeNet) {
         minterKey = pindex->minterKey();

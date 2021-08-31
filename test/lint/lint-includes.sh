@@ -65,7 +65,6 @@ EXPECTED_BOOST_INCLUDES=(
     boost/multi_index/mem_fun.hpp
     boost/multi_index/member.hpp
     boost/multi_index/tag.hpp
-    boost/optional.hpp
     boost/preprocessor/cat.hpp
     boost/preprocessor/stringize.hpp
     boost/range/adaptor/transformed.hpp

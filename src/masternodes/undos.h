@@ -13,7 +13,7 @@ class CUndosView : public virtual CStorageView {
 public:
     void ForEachUndo(std::function<bool(UndoKey const &, CLazySerialize<CUndo>)> callback, UndoKey const & start = {});
 
-    boost::optional<CUndo> GetUndo(UndoKey const & key) const;
+    std::optional<CUndo> GetUndo(UndoKey const & key) const;
     Res SetUndo(UndoKey const & key, CUndo const & undo);
     Res DelUndo(UndoKey const & key);
 

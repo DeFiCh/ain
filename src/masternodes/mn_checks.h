@@ -422,7 +422,7 @@ inline bool IsMintTokenTx(const CTransaction& tx)
     return GuessCustomTxType(tx, metadata) == CustomTxType::MintToken;
 }
 
-inline boost::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(const CTransaction & tx)
+inline std::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(const CTransaction & tx)
 {
     std::vector<unsigned char> metadata;
     if (GuessCustomTxType(tx, metadata) == CustomTxType::AccountToUtxos) {
@@ -431,7 +431,7 @@ inline boost::optional<std::vector<unsigned char>> GetAccountToUtxosMetadata(con
     return {};
 }
 
-inline boost::optional<CAccountToUtxosMessage> GetAccountToUtxosMsg(const CTransaction & tx)
+inline std::optional<CAccountToUtxosMessage> GetAccountToUtxosMsg(const CTransaction & tx)
 {
     const auto metadata = GetAccountToUtxosMetadata(tx);
     if (metadata) {

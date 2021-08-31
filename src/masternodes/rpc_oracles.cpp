@@ -738,7 +738,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
 
-    boost::optional<CTokenCurrencyPair> tokenPair;
+    std::optional<CTokenCurrencyPair> tokenPair;
 
     // parse pagination
     COracleId start = {};

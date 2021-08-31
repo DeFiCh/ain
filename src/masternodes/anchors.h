@@ -403,7 +403,7 @@ public:
         , signature()
     {}
 
-    static boost::optional<CAnchorConfirmMessage> CreateSigned(const CAnchor &anchor, const THeight prevAnchorHeight,
+    static std::optional<CAnchorConfirmMessage> CreateSigned(const CAnchor &anchor, const THeight prevAnchorHeight,
                                                                const uint256 &btcTxHash, CKey const & key, const THeight btcTxHeight);
     uint256 GetHash() const;
     CKeyID GetSigner() const;
