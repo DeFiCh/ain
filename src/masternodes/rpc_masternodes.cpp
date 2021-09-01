@@ -498,30 +498,29 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
 
-    pcustomcsview->ForEachSubNode([&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>){
-        if (key.masternodeID != mn_id) {
+    auto masternodeBlocks = [&](const uint256& masternodeID, uint32_t blockHeight) {
+        if (masternodeID != mn_id) {
             return false;
         }
 
-        if (auto tip = ::ChainActive()[key.blockHeight]) {
+        if (blockHeight <= creationHeight) {
+            return false;
+        }
+
+        if (auto tip = ::ChainActive()[blockHeight]) {
             lastHeight = tip->height;
             ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
         }
 
         return true;
-    },SubNodeBlockTimeKey{mn_id, 0, std::numeric_limits<uint32_t>::max()});
+    };
+
+    pcustomcsview->ForEachSubNode([&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>){
+        return masternodeBlocks(key.masternodeID, key.blockHeight);
+    }, SubNodeBlockTimeKey{mn_id, 0, std::numeric_limits<uint32_t>::max()});
 
     pcustomcsview->ForEachMinterNode([&](MNBlockTimeKey const & key, CLazySerialize<int64_t>) {
-        if (key.masternodeID != mn_id) {
-            return false;
-        }
-
-        if (auto tip = ::ChainActive()[key.blockHeight]) {
-            lastHeight = tip->height;
-            ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
-        }
-
-        return true;
+        return masternodeBlocks(key.masternodeID, key.blockHeight);
     }, MNBlockTimeKey{mn_id, std::numeric_limits<uint32_t>::max()});
 
     auto tip = ::ChainActive()[std::min(lastHeight, uint64_t(Params().GetConsensus().DakotaCrescentHeight)) - 1];
