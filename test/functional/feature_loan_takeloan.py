@@ -80,7 +80,7 @@ class LoanTakeLoanTest (DefiTestFramework):
                                     'symbol': "TSLA",
                                     'name': "Tesla stock token",
                                     'priceFeedId': oracle_id1,
-                                    'mintable': True,
+                                    'mintable': False,
                                     'interest': 1})
 
         self.nodes[0].createloanscheme(150, 0.05, 'LOAN150')
@@ -111,13 +111,6 @@ class LoanTakeLoanTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Cannot find existing vault with id" in errorString)
 
-        try:
-            self.nodes[0].takeloan({
-                    'vaultId': vaultId,
-                    'amounts': "2@TSLA"})
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
 
         try:
             self.nodes[0].takeloan({
@@ -125,7 +118,7 @@ class LoanTakeLoanTest (DefiTestFramework):
                     'amounts': "1@BTC"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan token (1) does not exist" in errorString)
+        assert("Loan token with id (1) does not exist" in errorString)
 
         try:
             self.nodes[0].takeloan({
@@ -142,6 +135,29 @@ class LoanTakeLoanTest (DefiTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Incorrect authorization for" in errorString)
+
+        try:
+            self.nodes[0].takeloan({
+                    'vaultId': vaultId,
+                    'amounts': "1@TSLA"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            print(errorString)
+        assert("Loan cannot be taken on token with id (2) as \"mintable\" is currently false" in errorString)
+
+        setLoanTokenTSLA = self.nodes[0].updateloantoken('2',{
+                                    'mintable': True})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        try:
+            self.nodes[0].takeloan({
+                    'vaultId': vaultId,
+                    'amounts': "2@TSLA"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
 
         self.nodes[0].takeloan({
                     'vaultId': vaultId,

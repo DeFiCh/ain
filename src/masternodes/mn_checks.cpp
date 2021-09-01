@@ -463,7 +463,7 @@ public:
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
-    
+
     Res operator()(CAuctionBidMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
@@ -2199,10 +2199,10 @@ public:
             DCT_ID tokenId = kv.first;
             auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
             if (!loanToken)
-                return Res::Err("Loan token (%s) does not exist!", loanToken->symbol);
+                return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
 
             if (!loanToken->mintable)
-                return Res::Err("Loan cannot be taken on token (%s) as \"mintable\" is currently false",loanToken->symbol);
+                return Res::Err("Loan cannot be taken on token with id (%s) as \"mintable\" is currently false",tokenId.ToString());
 
             res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{kv.first, kv.second});
             if (!res)
@@ -2232,7 +2232,7 @@ public:
 
         return Res::Ok();
     }
-    
+
     Res operator()(const CAuctionBidMessage& obj) const {
         // owner auth
         if (!HasAuth(obj.from)) {
