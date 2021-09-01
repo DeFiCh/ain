@@ -104,6 +104,17 @@ Res CVaultView::EraseAuction(const CVaultId& vaultId, uint32_t height)
     return Res::Err("Auction for vault <%s> not found", vaultId.GetHex());
 }
 
+boost::optional<CAuctionData> CVaultView::GetAuction(const CVaultId& vaultId, uint32_t height)
+{
+    auto it = LowerBound<AuctionHeightKey>(std::make_pair(height, vaultId));
+    for (; it.Valid(); it.Next()) {
+        if (it.Key().second == vaultId) {
+            return it.Value().as<CAuctionData>();
+        }
+    }
+    return {};
+}
+
 Res CVaultView::StoreAuctionBatch(const CVaultId& vaultId, uint32_t id, const CAuctionBatch& batch)
 {
     WriteBy<AuctionBatchKey>(std::make_pair(vaultId, id), batch);
@@ -121,13 +132,10 @@ boost::optional<CAuctionBatch> CVaultView::GetAuctionBatch(const CVaultId& vault
     return ReadBy<AuctionBatchKey, CAuctionBatch>(std::make_pair(vaultId, id));
 }
 
-void CVaultView::ForEachVaultAuction(std::function<bool(const CVaultId&, const CAuctionData&)> callback, uint32_t height)
+void CVaultView::ForEachVaultAuction(std::function<bool(const CVaultId&, uint32_t, const CAuctionData&)> callback, uint32_t height)
 {
     ForEach<AuctionHeightKey, std::pair<uint32_t, CVaultId>, CAuctionData>([&](const std::pair<uint32_t, CVaultId>& pair, const CAuctionData& data) {
-        if (pair.first != height) {
-            return false;
-        }
-        return callback(pair.second, data);
+        return callback(pair.second, pair.first, data);
     }, std::make_pair(height, CVaultId{}));
 }
 
