@@ -8,6 +8,7 @@
 #include <primitives/transaction.h> // For CTransactionRef
 #include <sync.h>
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <stddef.h>
