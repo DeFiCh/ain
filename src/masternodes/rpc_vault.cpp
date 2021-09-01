@@ -456,6 +456,96 @@ UniValue deposittovault(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue auctionbid(const JSONRPCRequest& request) {
+    CWallet *const pwallet = GetWallet(request);
+
+    RPCHelpMan{"auctionbid",
+               "Bid to vault in auction\n" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                    {"vaultid", RPCArg::Type::STR, RPCArg::Optional::NO, "Vault id"},
+                    {"index", RPCArg::Type::NUM, RPCArg::Optional::NO, "Auction index"},
+                    {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get tokens"},
+                    {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount of amount@symbol format"},
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    }
+               },
+               RPCResult{
+                    "\"txid\"                  (string) The transaction id.\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("auctionbid",
+                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 100@TSLA") +
+                       HelpExampleRpc("deposittovault",
+                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 1@DTSLA")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params,
+                 {UniValue::VSTR, UniValue::VNUM, UniValue::VSTR, UniValue::VSTR, UniValue::VARR},
+                 false);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot make auction bid while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    // decode vaultid
+    CVaultId vaultId = ParseHashV(request.params[0], "vaultid");
+    uint32_t index = request.params[1].get_int();
+    auto from = DecodeScript(request.params[2].get_str());
+    CTokenAmount amount = DecodeAmount(pwallet->chain(), request.params[3].get_str(), "amount");
+
+    CAuctionBidMessage msg{vaultId, index, from, amount};
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::DepositToVault)
+                   << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{from};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, request.params[4]);
+
+    CCoinControl coinControl;
+
+     // Set change to from address
+    CTxDestination dest;
+    ExtractDestination(from, dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CAuctionBidMessage{}, coins);
+    }
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -465,6 +555,7 @@ static const CRPCCommand commands[] =
     {"vault",        "getvault",                  &getvault,              {"id"}},
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
+    {"vault",        "auctionbid",                &auctionbid,            {"id", "index", "from", "amount", "inputs"}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {

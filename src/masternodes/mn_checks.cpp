@@ -66,6 +66,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::UpdateVault:         return "UpdateVault";
         case CustomTxType::DepositToVault:      return "DepositToVault";
         case CustomTxType::LoanTakeLoan:        return "LoanTakeLoan";
+        case CustomTxType::AuctionBid:          return "AuctionBid";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -151,6 +152,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
         case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
         case CustomTxType::LoanTakeLoan:            return CLoanTakeLoanMessage{};
+        case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -458,6 +460,11 @@ public:
     }
 
     Res operator()(CLoanTakeLoanMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+    
+    Res operator()(CAuctionBidMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -2224,6 +2231,50 @@ public:
         mnview.SetLoanTakeLoan(takeLoan);
 
         return Res::Ok();
+    }
+    
+    Res operator()(const CAuctionBidMessage& obj) const {
+        // owner auth
+        if (!HasAuth(obj.from)) {
+            return Res::Err("tx must have at least one input from token owner");
+        }
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+
+        // vault under liquidation
+        if (!vault.val->isUnderLiquidation)
+            return Res::Err("Cannot bid to vault which is not under liquidation");
+
+        auto data = mnview.GetAuction(obj.vaultId, height);
+        if (!data)
+            return Res::Err("No auction data to vault %s", obj.vaultId.GetHex());
+
+        auto batch = mnview.GetAuctionBatch(obj.vaultId, obj.index);
+        if (!batch)
+            return Res::Err("No batch to vault/index %s/%d", obj.vaultId.GetHex(), obj.index);
+
+        if (obj.amount.nTokenId != batch->loanAmount.nTokenId)
+            return Res::Err("Bid token does not match auction one");
+
+        auto bid = mnview.GetAuctionBid(obj.vaultId, obj.index);
+        if (!bid) {
+            auto amount = MultiplyAmounts(batch->loanAmount.nValue,  COIN + data->liquidationPenalty);
+            if (amount > obj.amount.nValue)
+                return Res::Err("First bid should include liquidation penalty of %d%%", data->liquidationPenalty * 100 / COIN);
+        } else {
+            auto amount = MultiplyAmounts(bid->second.nValue,  COIN + (COIN / 100));
+            if (amount > obj.amount.nValue)
+                return Res::Err("Bid override should be at least 1%% higher than current one");
+            // immediate refund previous bid
+            CalculateOwnerRewards(bid->first);
+            mnview.AddBalance(bid->first, bid->second);
+        }
+        //check balance
+        CalculateOwnerRewards(obj.from);
+        auto res = mnview.SubBalance(obj.from, obj.amount);
+        return !res ? res : mnview.StoreAuctionBid(obj.vaultId, obj.index, {obj.from, obj.amount});
     }
 
     Res operator()(const CCustomTxMessageNone&) const {
