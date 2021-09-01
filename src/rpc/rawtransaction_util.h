@@ -32,8 +32,6 @@ CTokenAmount DecodeAmount(interfaces::Chain const & chain, UniValue const& amoun
 CBalances DecodeAmounts(interfaces::Chain const & chain, UniValue const& amountsUni, std::string const& name);
 CAccounts DecodeRecipients(interfaces::Chain const & chain, UniValue const& sendTo);
 
-std::function<void(std::string)> JSONRPCErrorThrower(int code, const std::string& prefix);
-
 /**
  * Sign a transaction with the given keystore and previous transactions
  *
