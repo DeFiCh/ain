@@ -60,6 +60,24 @@ struct CDepositToVaultMessage {
     }
 };
 
+struct CAuctionBidMessage {
+    CVaultId vaultId;
+    uint32_t index;
+    CScript from;
+    CTokenAmount amount;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(vaultId);
+        READWRITE(index);
+        READWRITE(from);
+        READWRITE(amount);
+    }
+};
+
 struct CAuctionData {
     uint32_t batchCount;
     CAmount liquidationPenalty;
@@ -103,10 +121,11 @@ public:
 
     Res StoreAuction(const CVaultId& vaultId, uint32_t height, const CAuctionData& data);
     Res EraseAuction(const CVaultId& vaultId, uint32_t height);
+    boost::optional<CAuctionData> GetAuction(const CVaultId& vaultId, uint32_t height);
     Res StoreAuctionBatch(const CVaultId& vaultId, uint32_t id, const CAuctionBatch& batch);
     Res EraseAuctionBatch(const CVaultId& vaultId, uint32_t id);
     boost::optional<CAuctionBatch> GetAuctionBatch(const CVaultId& vaultId, uint32_t id);
-    void ForEachVaultAuction(std::function<bool(const CVaultId&, const CAuctionData&)> callback, uint32_t height);
+    void ForEachVaultAuction(std::function<bool(const CVaultId&, uint32_t, const CAuctionData&)> callback, uint32_t height = 0);
 
     using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
     Res StoreAuctionBid(const CVaultId& vaultId, uint32_t id, COwnerTokenAmount amount);
