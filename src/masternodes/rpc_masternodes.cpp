@@ -498,6 +498,19 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
 
+    pcustomcsview->ForEachSubNode([&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>){
+        if (key.masternodeID != mn_id) {
+            return false;
+        }
+
+        if (auto tip = ::ChainActive()[key.blockHeight]) {
+            lastHeight = tip->height;
+            ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
+        }
+
+        return true;
+    },SubNodeBlockTimeKey{mn_id, 0, std::numeric_limits<uint32_t>::max()});
+
     pcustomcsview->ForEachMinterNode([&](MNBlockTimeKey const & key, CLazySerialize<int64_t>) {
         if (key.masternodeID != mn_id) {
             return false;
@@ -675,7 +688,7 @@ UniValue listanchors(const JSONRPCRequest& request)
 }
 
 static const CRPCCommand commands[] =
-{ 
+{
 //  category        name                     actor (function)        params
 //  --------------- ----------------------   ---------------------   ----------
     {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},

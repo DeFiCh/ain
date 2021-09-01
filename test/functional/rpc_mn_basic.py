@@ -179,7 +179,8 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         assert_raises_rpc_error(-26, 'masternode creation needs owner auth', self.nodes[0].sendrawtransaction, signedTx['hex'])
 
         # Test new register delay
-        mnTx = self.nodes[0].createmasternode(self.nodes[0].getnewaddress("", "legacy"))
+        mnAddress = self.nodes[0].getnewaddress("", "legacy")
+        mnTx = self.nodes[0].createmasternode(mnAddress)
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "PRE_ENABLED")
 
@@ -197,6 +198,11 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # Move ahead to ENABLED state
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "ENABLED")
+
+        # test getmasternodeblocks
+        self.nodes[0].generate(1, address=mnAddress)
+        blocks = self.nodes[0].getmasternodeblocks({'ownerAddress': mnAddress})
+        assert_equal(len(blocks), 1) # not working correctly only mints block 141
 
         # Test new resign delay
         self.nodes[0].resignmasternode(mnTx)
