@@ -153,10 +153,10 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1'))
 
 
-        loans = self.nodes[0].getloan()
+        loans = self.nodes[0].getloaninfo()
 
-        assert_equal(loans['Collateral value (USD)'], Decimal('571.06000000'))
-        assert_equal(loans['Loan value (USD)'], Decimal('300.00599100'))
+        assert_equal(loans['collateralValueUSD'], Decimal('571.06000000'))
+        assert_equal(loans['loanValueUSD'], Decimal('300.00599100'))
 
         vaultId1 = self.nodes[1].createvault( account1, 'LOAN150')
 
@@ -168,10 +168,10 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[1].generate(1)
         self.sync_blocks()
 
-        loans = self.nodes[0].getloan()
+        loans = self.nodes[0].getloaninfo()
 
-        assert_equal(loans['Collateral value (USD)'], Decimal('856.59000000'))
-        assert_equal(loans['Loan value (USD)'], Decimal('300.01797300'))
+        assert_equal(loans['collateralValueUSD'], Decimal('856.59000000'))
+        assert_equal(loans['loanValueUSD'], Decimal('300.01797300'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()

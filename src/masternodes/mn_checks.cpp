@@ -2192,7 +2192,10 @@ public:
             DCT_ID tokenId = kv.first;
             auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
             if (!loanToken)
-                return Res::Err("Loan token (%s) does not exist!", tokenId.ToString());
+                return Res::Err("Loan token (%s) does not exist!", loanToken->symbol);
+
+            if (!loanToken->mintable)
+                return Res::Err("Loan cannot be taken on token (%s) as \"mintable\" is currently false",loanToken->symbol);
 
             res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{kv.first, kv.second});
             if (!res)

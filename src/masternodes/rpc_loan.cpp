@@ -1090,8 +1090,8 @@ UniValue takeloan(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue getloan(const JSONRPCRequest& request) {
-    RPCHelpMan{"getloan",
+UniValue getloaninfo(const JSONRPCRequest& request) {
+    RPCHelpMan{"getloaninfo",
                 "Returns the attributes of loan offered.\n",
                 {},
                 RPCResult
@@ -1099,7 +1099,7 @@ UniValue getloan(const JSONRPCRequest& request) {
                     "{...}     (object) Json object with loan information\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("getloan", "")
+                    HelpExampleCli("getloaninfo", "")
                 },
      }.Check(request);
 
@@ -1112,18 +1112,22 @@ UniValue getloan(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     uint32_t height = ::ChainActive().Height();
-    CAmount totalCollaterals = 0, totalLoans = 0;
+    CAmount totalCollateral = 0, totalLoan = 0;
+
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-        auto collateral = pcustomcsview->GetCollateralAndLoanValue(vaultId, collaterals, height);
+        auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, collaterals, height);
 
-        totalCollaterals += collateral->totalCollaterals();
-        totalLoans += collateral->totalLoans();
-
+        if (rate)
+        {
+            totalCollateral += rate->totalCollaterals();
+            totalLoan += rate->totalLoans();
+        }
+        
         return true;
     });
 
-    ret.pushKV("Collateral value (USD)",ValueFromAmount(totalCollaterals));
-    ret.pushKV("Loan value (USD)",ValueFromAmount(totalLoans));
+    ret.pushKV("collateralValueUSD",ValueFromAmount(totalCollateral));
+    ret.pushKV("loanValueUSD",ValueFromAmount(totalLoan));
 
     return (ret);
 }
@@ -1146,7 +1150,7 @@ static const CRPCCommand commands[] =
     {"loan",        "listloanschemes",           &listloanschemes,       {}},
     {"loan",        "getloanscheme",             &getloanscheme,         {"id"}},
     {"loan",        "takeloan",                  &takeloan,              {"metadata", "inputs"}},
-    {"loan",        "getloan",                   &getloan,               {}},
+    {"loan",        "getloaninfo",               &getloaninfo,           {}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {

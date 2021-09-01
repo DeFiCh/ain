@@ -287,7 +287,7 @@ struct CCollateralLoans {
     std::vector<CTokenAmount> loans; // in USD
 
     uint32_t ratio() const {
-        if (loans.empty()) return 0;
+        if (loans.empty()) return std::numeric_limits<uint32_t>::max();
         return lround(double(totalCollaterals()) / totalLoans() * 100);
     }
 
