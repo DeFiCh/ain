@@ -363,6 +363,7 @@ public:
                 }
             }
         }
+    }
 
     void operator()(const CAuctionBidMessage& obj) const {
         rpcInfo.pushKV("vaultid", obj.vaultId.GetHex());
