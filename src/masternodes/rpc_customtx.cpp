@@ -336,19 +336,19 @@ public:
 
     void operator()(const CVaultMessage& obj) const {
         // Add Vault attributes
-        rpcInfo.pushKV("owneraddress", ScriptToString(obj.ownerAddress));
-        rpcInfo.pushKV("loanschemeid", obj.schemeId);
-        rpcInfo.pushKV("isunderliquidation", obj.isUnderLiquidation);
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
+        rpcInfo.pushKV("loanSchemeId", obj.schemeId);
+        rpcInfo.pushKV("isUnderLiquidation", obj.isUnderLiquidation);
     }
 
     void operator()(const CUpdateVaultMessage& obj) const {
-        rpcInfo.pushKV("vaultid", obj.vaultId.GetHex());
-        rpcInfo.pushKV("owneraddress", ScriptToString(obj.ownerAddress));
-        rpcInfo.pushKV("loanschemeid", obj.schemeId);
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
+        rpcInfo.pushKV("loanSchemeId", obj.schemeId);
     }
 
     void operator()(const CDepositToVaultMessage& obj) const {
-        rpcInfo.pushKV("vaultid", obj.vaultId.GetHex());
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         rpcInfo.pushKV("from", ScriptToString(obj.from));
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
