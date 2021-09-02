@@ -287,6 +287,7 @@ struct CCollateralLoans {
     std::vector<CTokenAmount> loans; // in USD
 
     uint32_t ratio() const {
+        if (loans.empty()) return std::numeric_limits<uint32_t>::max();
         return lround(double(totalCollaterals()) / totalLoans() * 100);
     }
 
@@ -364,6 +365,7 @@ class CCustomCSView
             CLoanView               ::  LoanSetCollateralTokenCreationTx, LoanSetCollateralTokenKey, LoanSetLoanTokenCreationTx,
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
                                         DestroyLoanSchemeKey, LoanInterestedRate, LoanTokenAmount, LoanLiquidationPenalty,
+                                        LoanTakeLoanCreationTx, LoanTakeLoanVaultKey,
             CVaultView              ::  VaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
         >();
     }
@@ -406,6 +408,8 @@ public:
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
     boost::optional<CCollateralLoans> CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
+
+    boost::optional<CCollateralLoans> GetCollateralAndLoanValue(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
 
     void SetDbVersion(int version);
 

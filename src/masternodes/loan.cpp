@@ -306,3 +306,23 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
     }
     return 5 * COIN / 100;
 }
+std::unique_ptr<CLoanView::CLoanTakeLoanImpl> CLoanView::GetLoanTakeLoan(uint256 const & txid) const
+{
+    auto takeLoan = ReadBy<LoanTakeLoanCreationTx,CLoanTakeLoanImpl>(txid);
+    if (takeLoan)
+        return MakeUnique<CLoanTakeLoanImpl>(*takeLoan);
+    return {};
+}
+
+Res CLoanView::SetLoanTakeLoan(CLoanTakeLoanImpl const & takeLoan)
+{
+    WriteBy<LoanTakeLoanCreationTx>(takeLoan.creationTx, takeLoan);
+    WriteBy<LoanTakeLoanVaultKey>(takeLoan.vaultId, takeLoan.creationTx);
+
+    return Res::Ok();
+}
+
+void CLoanView::ForEachLoanTakeLoan(std::function<bool (uint256 const &, CLoanTakeLoanImpl const &)> callback, uint256 const & start)
+{
+    ForEach<LoanTakeLoanCreationTx, uint256, CLoanTakeLoanImpl>(callback, start);
+}
