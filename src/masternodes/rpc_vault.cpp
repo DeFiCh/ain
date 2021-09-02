@@ -14,11 +14,11 @@ namespace {
             loanBalances = AmountsToJSON(loan->balances);
 
         UniValue result{UniValue::VOBJ};
-        result.pushKV("loanschemeid", vault.schemeId);
-        result.pushKV("owneraddress", ScriptToString(vault.ownerAddress));
-        result.pushKV("isunderliquidation", vault.isUnderLiquidation);
-        result.pushKV("collateralamounts", collateralBalances);
-        result.pushKV("loanamount", loanBalances);
+        result.pushKV("loanSchemeId", vault.schemeId);
+        result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
+        result.pushKV("isUnderLiquidation", vault.isUnderLiquidation);
+        result.pushKV("collaterAlamounts", collateralBalances);
+        result.pushKV("loanAmount", loanBalances);
         return result;
     }
 }
@@ -31,8 +31,8 @@ UniValue createvault(const JSONRPCRequest& request) {
                 "Creates a vault transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
-                    {"owneraddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address or \"\" to generate a new address"},
-                    {"loanschemeid", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                    {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address or \"\" to generate a new address"},
+                    {"loanSchemeId", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                         "Unique identifier of the loan scheme (8 chars max). If empty, the default loan scheme will be selected (Optional)"
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -87,7 +87,7 @@ UniValue createvault(const JSONRPCRequest& request) {
             // check address validity
             CTxDestination ownerDest = DecodeDestination(ownerAddress);
             if (!IsValidDestination(ownerDest)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owneraddress address");
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owner address");
             }
         }
     }
@@ -167,9 +167,9 @@ UniValue listvaults(const JSONRPCRequest& request) {
     LOCK(cs_main);
     pcustomcsview->ForEachVault([&](const CVaultId& id, const CVaultMessage& data) {
         UniValue vaultObj{UniValue::VOBJ};
-        vaultObj.pushKV("owneraddress", ScriptToString(data.ownerAddress));
-        vaultObj.pushKV("loanschemeid", data.schemeId);
-        vaultObj.pushKV("isunderliquidation", data.isUnderLiquidation);
+        vaultObj.pushKV("ownerAddress", ScriptToString(data.ownerAddress));
+        vaultObj.pushKV("loanSchemeId", data.schemeId);
+        vaultObj.pushKV("isUnderLiquidation", data.isUnderLiquidation);
         valueArr.pushKV(id.GetHex(), vaultObj);
         return true;
     });
@@ -183,7 +183,7 @@ UniValue getvault(const JSONRPCRequest& request) {
     RPCHelpMan{"getvault",
                "Returns information about vault\n",
                 {
-                    {"vaultid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id",},
+                    {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id",},
                 },
                 RPCResult{
                     "\"json\"                  (string) vault data in json form\n"
@@ -204,7 +204,7 @@ UniValue getvault(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
-    CVaultId vaultId = ParseHashV(request.params[0], "vaultid");
+    CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
 
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
@@ -226,11 +226,11 @@ UniValue updatevault(const JSONRPCRequest& request) {
                "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                        {"vaultid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault id"},
+                        {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vault id"},
                         {"parameters", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                             {
-                                {"owneraddress", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Vault's owner address"},
-                                {"loanschemeid", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Vault's loan scheme id"},
+                                {"ownerAddress", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Vault's owner address"},
+                                {"loanSchemeId", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Vault's loan scheme id"},
                             },
                         },
                         {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
@@ -250,10 +250,10 @@ UniValue updatevault(const JSONRPCRequest& request) {
                RPCExamples{
                        HelpExampleCli(
                                "updatevault",
-                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"owneraddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "loanschemeid": "LOANSCHEME001"}')")
+                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"ownerAddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "loanSchemeId": "LOANSCHEME001"}')")
                        + HelpExampleRpc(
                                "updatevault",
-                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"owneraddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "loanschemeid": "LOANSCHEME001"}')")
+                               R"(84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 '{"ownerAddress": "mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF", "loanSchemeId": "LOANSCHEME001"}')")
                },
     }.Check(request);
 
@@ -272,7 +272,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 must be non-null");
 
     // decode vaultid
-    CVaultId vaultId = ParseHashV(request.params[0], "vaultid");
+    CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     auto vaultRes = pcustomcsview->GetVault(vaultId);
     if (!vaultRes.ok)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, vaultRes.msg);
@@ -284,23 +284,23 @@ UniValue updatevault(const JSONRPCRequest& request) {
     if (request.params[1].isNull()){
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 2 must be non-null and expected as object at least with one of"
-                           "{\"owneraddress\",\"loanschemeid\"}");
+                           "{\"ownerAddress\",\"loanSchemeId\"}");
     }
     UniValue params = request.params[1].get_obj();
-    if(params["owneraddress"].isNull() && params["loanschemeid"].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "At least owneraddress OR loanschemeid must be set");
+    if(params["ownerAddress"].isNull() && params["loanSchemeId"].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "At least ownerAddress OR loanSchemeId must be set");
 
-    if (!params["owneraddress"].isNull()){
-        auto owneraddress = params["owneraddress"].getValStr();
+    if (!params["ownerAddress"].isNull()){
+        auto ownerAddress = params["ownerAddress"].getValStr();
         // check address validity
-        CTxDestination ownerDest = DecodeDestination(owneraddress);
+        CTxDestination ownerDest = DecodeDestination(ownerAddress);
             if (!IsValidDestination(ownerDest)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owneraddress address");
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid ownerAddress address");
             }
-        dbVault.ownerAddress = DecodeScript(owneraddress);
+        dbVault.ownerAddress = DecodeScript(ownerAddress);
     }
-    if(!params["loanschemeid"].isNull()){
-        auto loanschemeid = params["loanschemeid"].getValStr();
+    if(!params["loanSchemeId"].isNull()){
+        auto loanschemeid = params["loanSchemeId"].getValStr();
         dbVault.schemeId = loanschemeid;
     }
 
@@ -367,7 +367,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
                "Deposit collateral token amount to vault\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                    {"vaultid", RPCArg::Type::STR, RPCArg::Optional::NO, "Vault id"},
+                    {"vaultId", RPCArg::Type::STR, RPCArg::Optional::NO, "Vault id"},
                     {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing collateral",},
                     {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount of collateral in amount@symbol format",},
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
@@ -406,7 +406,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments must be non-null");
 
     // decode vaultid
-    CVaultId vaultId = ParseHashV(request.params[0], "vaultid");
+    CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     auto vaultRes = pcustomcsview->GetVault(vaultId);
     if (!vaultRes.ok)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, vaultRes.msg);
@@ -550,7 +550,7 @@ static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
-    {"vault",        "createvault",               &createvault,           {"owneraddress", "schemeid", "inputs"}},
+    {"vault",        "createvault",               &createvault,           {"ownerAddress", "schemeId", "inputs"}},
     {"vault",        "listvaults",                &listvaults,            {}},
     {"vault",        "getvault",                  &getvault,              {"id"}},
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},

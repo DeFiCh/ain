@@ -38,9 +38,9 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].createvault('ffffffffff')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('Error: Invalid owneraddress address' in errorString)
+        assert('Error: Invalid owner address' in errorString)
 
-        # Create vault with invalid loanschemeid and default owneraddress
+        # Create vault with invalid loanschemeid and default owner address
         try:
             self.nodes[0].createvault('', 'FAKELOAN')
         except JSONRPCException as e:
@@ -58,15 +58,15 @@ class VaultTest (DefiTestFramework):
         listVaults = self.nodes[0].listvaults()
         assert(listVaults[vaultId1])
         assert(listVaults[vaultId2])
-        owneraddress1 = listVaults[vaultId1]['owneraddress']
+        owneraddress1 = listVaults[vaultId1]['ownerAddress']
 
         # assert default loanscheme was assigned correctly
-        assert_equal(listVaults[vaultId1]['loanschemeid'], 'LOAN0001')
-        assert_equal(listVaults[vaultId1]['owneraddress'], owneraddress1)
+        assert_equal(listVaults[vaultId1]['loanSchemeId'], 'LOAN0001')
+        assert_equal(listVaults[vaultId1]['ownerAddress'], owneraddress1)
 
         # assert non-default loanscheme was assigned correctly
-        assert_equal(listVaults[vaultId2]['loanschemeid'], 'LOAN0003')
-        assert_equal(listVaults[vaultId2]['owneraddress'], owneraddress2)
+        assert_equal(listVaults[vaultId2]['loanSchemeId'], 'LOAN0003')
+        assert_equal(listVaults[vaultId2]['ownerAddress'], owneraddress2)
 
         # check getvault
 
@@ -79,8 +79,8 @@ class VaultTest (DefiTestFramework):
 
         # success
         vault1 = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault1["loanschemeid"], 'LOAN0001')
-        assert_equal(vault1["owneraddress"], owneraddress1)
+        assert_equal(vault1["loanSchemeId"], 'LOAN0001')
+        assert_equal(vault1["ownerAddress"], owneraddress1)
 
         # updateVault
 
@@ -90,11 +90,11 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].updatevault(vaultId1, params)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("At least owneraddress OR loanschemeid must be set" in errorString)
+        assert("At least ownerAddress OR loanSchemeId must be set" in errorString)
 
         # bad loan scheme id
         try:
-            params = {'loanschemeid': 'FAKELOAN'}
+            params = {'loanSchemeId': 'FAKELOAN'}
             self.nodes[0].updatevault(vaultId1, params)
         except JSONRPCException as e:
             errorString = e.error['message']
@@ -102,11 +102,11 @@ class VaultTest (DefiTestFramework):
 
         # bad owner address
         try:
-            params = {'owneraddress': 'ffffffffff'}
+            params = {'ownerAddress': 'ffffffffff'}
             self.nodes[0].updatevault(vaultId1, params)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Error: Invalid owneraddress address" in errorString)
+        assert("Error: Invalid owner address" in errorString)
 
         # Create or update vault with loan scheme planned to be destroyed
         destruction_height = self.nodes[0].getblockcount() + 3
@@ -122,13 +122,13 @@ class VaultTest (DefiTestFramework):
 
         # update
         try:
-            params = {'loanschemeid':'LOAN0002'}
+            params = {'loanSchemeId':'LOAN0002'}
             self.nodes[0].updatevault(vaultId2, params) # default loan scheme
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Cannot set LOAN0002 as loan scheme, set to be destroyed on block 126" in errorString)
 
-        # check owneraddress auth
+        # check owner address auth
         othersAddress = self.nodes[1].getnewaddress('', 'legacy')
         self.nodes[1].generate(1)
         try:
@@ -139,42 +139,42 @@ class VaultTest (DefiTestFramework):
 
         # update vault scheme
         newAddress = self.nodes[0].getnewaddress('', 'legacy')
-        params = {'loanschemeid': 'LOAN0001', 'owneraddress': newAddress}
+        params = {'loanSchemeId': 'LOAN0001', 'ownerAddress': newAddress}
         self.nodes[0].updatevault(vaultId2, params)
         self.nodes[0].generate(1)
         vault2 = self.nodes[0].getvault(vaultId2)
-        assert_equal(vault2['owneraddress'], newAddress)
-        assert_equal(vault2['loanschemeid'], 'LOAN0001')
+        assert_equal(vault2['ownerAddress'], newAddress)
+        assert_equal(vault2['loanSchemeId'], 'LOAN0001')
 
         # update with non-default loan scheme and delete loan to check automatic update
-        params = {'loanschemeid': 'LOAN0003'}
+        params = {'loaSchemeId': 'LOAN0003'}
         self.nodes[0].updatevault(vaultId2, params)
         self.nodes[0].generate(1)
         vault2 = self.nodes[0].getvault(vaultId2)
-        assert_equal(vault2['loanschemeid'], 'LOAN0003')
+        assert_equal(vault2['loanSchemeId'], 'LOAN0003')
 
         self.nodes[0].destroyloanscheme('LOAN0003')
         self.nodes[0].generate(1)
         vault2 = self.nodes[0].getvault(vaultId2)
-        assert_equal(vault2['loanschemeid'], 'LOAN0001')
+        assert_equal(vault2['loanSchemeId'], 'LOAN0001')
 
         # back to non-default loan scheme and delete scheme with delay
-        params = {'loanschemeid': 'LOAN0004'}
+        params = {'loanSchemeId': 'LOAN0004'}
         self.nodes[0].updatevault(vaultId2, params)
         self.nodes[0].generate(1)
         vault2 = self.nodes[0].getvault(vaultId2)
-        assert_equal(vault2['loanschemeid'], 'LOAN0004')
+        assert_equal(vault2['loanSchemeId'], 'LOAN0004')
 
         destruction_height = self.nodes[0].getblockcount() + 2
         self.nodes[0].destroyloanscheme('LOAN0004', destruction_height)
         self.nodes[0].generate(1)
         vault2 = self.nodes[0].getvault(vaultId2)
-        assert_equal(vault2['loanschemeid'], 'LOAN0004')
+        assert_equal(vault2['loanSchemeId'], 'LOAN0004')
 
         # now LOAN0002 is deleted in next block
         self.nodes[0].generate(1)
         vault2 = self.nodes[0].getvault(vaultId2)
-        assert_equal(vault2['loanschemeid'], 'LOAN0001')
+        assert_equal(vault2['loanSchemeId'], 'LOAN0001')
 
         # Prepare tokens for deposittoloan/takeloan
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
@@ -270,7 +270,7 @@ class VaultTest (DefiTestFramework):
         self.sync_blocks()
 
         vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralamounts'], ['0.70000000@DFI'])
+        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI'])
         acDFI = self.nodes[0].getaccount(accountDFI)
         assert_equal(acDFI, ['99.30000000@DFI'])
 
@@ -284,7 +284,7 @@ class VaultTest (DefiTestFramework):
 
         # Collateral amounts are the same so deposit was not done
         vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralamounts'], ['0.70000000@DFI'])
+        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI'])
         acBTC = self.nodes[1].getaccount(accountBTC)
         assert_equal(acBTC, ['10.00000000@BTC'])
 
@@ -293,7 +293,7 @@ class VaultTest (DefiTestFramework):
         self.nodes[1].generate(1)
 
         vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralamounts'], ['0.70000000@DFI', '0.60000000@BTC'])
+        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI', '0.60000000@BTC'])
         acBTC = self.nodes[1].getaccount(accountBTC)
         assert_equal(acBTC, ['9.40000000@BTC'])
 
@@ -306,7 +306,7 @@ class VaultTest (DefiTestFramework):
         self.nodes[1].generate(1)
 
         vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralamounts'], ['0.70000000@DFI', '0.60000000@BTC'])
+        assert_equal(vault1['collateralAmounts'], ['0.70000000@DFI', '0.60000000@BTC'])
         acBTC = self.nodes[1].getaccount(accountBTC)
         assert_equal(acBTC, ['9.40000000@BTC'])
 
@@ -315,7 +315,7 @@ class VaultTest (DefiTestFramework):
         self.nodes[1].generate(1)
 
         vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['collateralamounts'],['0.70000000@DFI', '0.70000000@BTC'])
+        assert_equal(vault1['collateralAmounts'],['0.70000000@DFI', '0.70000000@BTC'])
         acBTC = self.nodes[1].getaccount(accountBTC)
         assert_equal(acBTC, ['9.30000000@BTC'])
 
