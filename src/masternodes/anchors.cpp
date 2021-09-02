@@ -85,7 +85,7 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestin
     return {};
 }
 
-bool CAnchor::CheckAuthSigs(CTeam const & team, const uint32_t height) const
+bool CAnchor::CheckAuthSigs(CTeam const & team) const
 {
     // Sigs must meet quorum size.
     const auto quorum = GetMinAnchorQuorum(team);
@@ -546,7 +546,7 @@ void CAnchorIndex::CheckPendingAnchors()
         }
 
         // Validate the anchor sigs
-        if (!rec.anchor.CheckAuthSigs(*anchorTeam, anchorCreationHeight)) {
+        if (!rec.anchor.CheckAuthSigs(*anchorTeam)) {
             LogPrint(BCLog::ANCHORING, "Signature validation fails. Deleting anchor txHash %s\n", rec.txHash.ToString());
             deletePending.insert(rec.txHash);
             continue;
