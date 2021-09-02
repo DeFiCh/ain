@@ -147,7 +147,7 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault2['loanSchemeId'], 'LOAN0001')
 
         # update with non-default loan scheme and delete loan to check automatic update
-        params = {'loaSchemeId': 'LOAN0003'}
+        params = {'loanSchemeId': 'LOAN0003'}
         self.nodes[0].updatevault(vaultId2, params)
         self.nodes[0].generate(1)
         vault2 = self.nodes[0].getvault(vaultId2)
