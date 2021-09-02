@@ -65,6 +65,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::Vault:               return "Vault";
         case CustomTxType::UpdateVault:         return "UpdateVault";
         case CustomTxType::DepositToVault:      return "DepositToVault";
+        case CustomTxType::LoanTakeLoan:        return "LoanTakeLoan";
         case CustomTxType::AuctionBid:          return "AuctionBid";
         case CustomTxType::None:                return "None";
     }
@@ -150,6 +151,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::Vault:                   return CVaultMessage{};
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
         case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
+        case CustomTxType::LoanTakeLoan:            return CLoanTakeLoanMessage{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
@@ -453,6 +455,11 @@ public:
     }
 
     Res operator()(CDepositToVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanTakeLoanMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -2153,6 +2160,75 @@ public:
 
         if (totalDFI < totalCollaterals / 2)
             return Res::Err("At least 50%% of the vault must be in DFI.");
+
+        return Res::Ok();
+    }
+
+    Res operator()(const CLoanTakeLoanMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        CLoanTakeLoanImplementation takeLoan;
+        static_cast<CLoanTakeLoan&>(takeLoan) = obj;
+
+        takeLoan.creationHeight = height;
+        takeLoan.creationTx = tx.GetHash();
+
+        const auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+
+        if(vault.val->isUnderLiquidation)
+            return Res::Err("Cannot take loan on vault under liquidation");
+
+        // vault owner auth
+        if (!HasAuth(vault.val->ownerAddress)) {
+            return Res::Err("tx must have at least one input from vault owner");
+        }
+
+        auto scheme = mnview.GetLoanScheme(vault.val->schemeId);
+
+        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+
+        if (!collaterals)
+            return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
+
+        for (const auto& kv : obj.amounts.balances)
+        {
+            DCT_ID tokenId = kv.first;
+            auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
+            if (!loanToken)
+                return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
+
+            if (!loanToken->mintable)
+                return Res::Err("Loan cannot be taken on token with id (%s) as \"mintable\" is currently false",tokenId.ToString());
+
+            res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{kv.first, kv.second});
+            if (!res)
+                return res;
+
+            res = mnview.StoreInterest(height, vault.val->schemeId,tokenId);
+            if (!res)
+                return res;
+
+            auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height);
+            if (!rate || rate->ratio() < scheme->ratio)
+                return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate->ratio(), scheme->ratio);
+
+            res = mnview.AddMintedTokens(loanToken->creationTx, kv.second);
+            if (!res)
+                return res;
+
+            CalculateOwnerRewards(kv.second);
+
+            res = mnview.AddBalance(vault.val->ownerAddress, CTokenAmount{kv.first, kv.second});
+            if (!res)
+                return res;
+        }
+
+        // Write take loan to storage
+        mnview.SetLoanTakeLoan(takeLoan);
 
         return Res::Ok();
     }
