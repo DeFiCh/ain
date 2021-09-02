@@ -677,20 +677,16 @@ namespace pos {
     // Coinages are retained and keep growing. Once subnode 0 mines, subnode 1 should stake again shortly with 
     // higher coinage / TM.
     //
-    bool shouldIgnoreMint(uint8_t subNode, int64_t blockHeight, const std::vector<int64_t>& subNodesBlockTime, const CChainParams& chainParams) {
+    bool shouldIgnoreMint(uint8_t subNode, int64_t blockHeight, int64_t creationHeight, const std::vector<int64_t>& subNodesBlockTime, const CChainParams& chainParams) {
         auto eunosPayaHeight = chainParams.GetConsensus().EunosPayaHeight;
-        if (blockHeight < eunosPayaHeight)
+        if (blockHeight < eunosPayaHeight || creationHeight >= eunosPayaHeight) {
             return false;
+        }
 
-        if (subNode == 1 &&
-            subNodesBlockTime[0] <= eunosPayaHeight &&
-            subNodesBlockTime[2] <= eunosPayaHeight &&
-            subNodesBlockTime[3] <= eunosPayaHeight
-            ) {
+        if (subNode == 1 && subNodesBlockTime[0] == subNodesBlockTime[1]) {
             LogPrint(BCLog::STAKING, "MakeStake: kernel ignored\n");
             return true;
         }
-
         return false;
     }
 
@@ -778,7 +774,7 @@ namespace pos {
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                                              subNodesBlockTime, timelock, ctxState))
                     {
-                        if (shouldIgnoreMint(ctxState.subNode, blockHeight, subNodesBlockTime, chainparams)) 
+                        if (shouldIgnoreMint(ctxState.subNode, blockHeight, creationHeight, subNodesBlockTime, chainparams)) 
                             break;
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
@@ -803,7 +799,7 @@ namespace pos {
                     if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                                              subNodesBlockTime, timelock, ctxState))
                     {
-                        if (shouldIgnoreMint(ctxState.subNode, blockHeight, subNodesBlockTime, chainparams)) 
+                        if (shouldIgnoreMint(ctxState.subNode, blockHeight, creationHeight, subNodesBlockTime, chainparams)) 
                             break;
                         LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
 
