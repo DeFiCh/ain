@@ -17,7 +17,7 @@ namespace {
         result.pushKV("loanSchemeId", vault.schemeId);
         result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
         result.pushKV("isUnderLiquidation", vault.isUnderLiquidation);
-        result.pushKV("collaterAlamounts", collateralBalances);
+        result.pushKV("collateralAmounts", collateralBalances);
         result.pushKV("loanAmount", loanBalances);
         return result;
     }
@@ -295,7 +295,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
         // check address validity
         CTxDestination ownerDest = DecodeDestination(ownerAddress);
             if (!IsValidDestination(ownerDest)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid ownerAddress address");
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owner address");
             }
         dbVault.ownerAddress = DecodeScript(ownerAddress);
     }
