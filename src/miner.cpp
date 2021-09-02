@@ -677,7 +677,9 @@ namespace pos {
     // Coinages are retained and keep growing. Once subnode 0 mines, subnode 1 should stake again shortly with 
     // higher coinage / TM.
     //
-    bool shouldIgnoreMint(uint8_t subNode, int64_t blockHeight, int64_t creationHeight, const std::vector<int64_t>& subNodesBlockTime, const CChainParams& chainParams) {
+    bool shouldIgnoreMint(uint8_t subNode, int64_t blockHeight, int64_t creationHeight, 
+        const std::vector<int64_t>& subNodesBlockTime, const CChainParams& chainParams) {
+            
         auto eunosPayaHeight = chainParams.GetConsensus().EunosPayaHeight;
         if (blockHeight < eunosPayaHeight || creationHeight >= eunosPayaHeight) {
             return false;
