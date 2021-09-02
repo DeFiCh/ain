@@ -88,17 +88,18 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestin
 bool CAnchor::CheckAuthSigs(CTeam const & team, const uint32_t height) const
 {
     // Sigs must meet quorum size.
-    auto quorum = GetMinAnchorQuorum(team);
+    const auto quorum = GetMinAnchorQuorum(team);
     if (sigs.size() < quorum) {
         return error("%s: Anchor auth team quorum not met. Min quorum: %d sigs size %d", __func__, GetMinAnchorQuorum(team), sigs.size());
     }
 
-    auto uniqueKeys = CheckSigs(GetSignHash(), sigs, team);
-    if (height >= Params().GetConsensus().EunosPayaHeight && uniqueKeys < quorum) {
-        return error("%s: Anchor auth team unique key quorum not met. Min quorum: %d keys size %d", __func__, GetMinAnchorQuorum(team), uniqueKeys);
+    // Number of unique sigs must meet the required quorum.
+    const auto uniqueKeys = CheckSigs(GetSignHash(), sigs, team);
+    if (uniqueKeys < quorum) {
+        return error("%s: Anchor auth team unique key quorum not met. Min quorum: %d keys size %d", __func__, quorum, uniqueKeys);
     }
 
-    return uniqueKeys;
+    return true;
 }
 
 const CAnchorAuthIndex::Auth * CAnchorAuthIndex::GetAuth(uint256 const & msgHash) const

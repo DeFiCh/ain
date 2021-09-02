@@ -2057,7 +2057,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView & mnview, CTransaction con
                            finMsg.sigs.size(), quorum);
     }
 
-    if (anchorHeight >= Params().GetConsensus().EunosPayaHeight && uniqueKeys < quorum) {
+    if (uniqueKeys < quorum) {
         return Res::ErrDbg("bad-ar-sigs-quorum", "anchor unique keys (%d) < min quorum (%) ",
                            uniqueKeys, quorum);
     }
