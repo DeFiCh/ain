@@ -1879,7 +1879,7 @@ public:
             return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
         if (obj.priceFeedTxid != loanToken->priceFeedTxid && !mnview.GetOracleData(obj.priceFeedTxid))
-            return Res::Err("oracle (%s) does not exist!", loanToken->priceFeedTxid.GetHex());
+            return Res::Err("oracle (%s) does not exist!", obj.priceFeedTxid.GetHex());
         loanToken->priceFeedTxid = obj.priceFeedTxid;
 
         if (obj.mintable != loanToken->mintable)
