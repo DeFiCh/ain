@@ -1,6 +1,7 @@
 #include <masternodes/mn_rpc.h>
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
+extern std::string tokenAmountString(CTokenAmount const& amount);
 
 namespace {
     UniValue VaultToJSON(const CVaultMessage& vault, const CVaultId& id) {
@@ -564,6 +565,46 @@ UniValue auctionbid(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue listauctions(const JSONRPCRequest& request) {
+
+    RPCHelpMan{"listauction",
+               "List all available auctions\n",
+               {},
+               RPCResult{
+                    "[                         (json array of objects)\n"
+                        "{...}                 (object) Json object with auction information\n"
+                    "]\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listauctions",  "") +
+                       HelpExampleRpc("listauctions", "")
+               },
+    }.Check(request);
+
+    UniValue valueArr{UniValue::VARR};
+
+    LOCK(cs_main);
+    pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, uint32_t height, const CAuctionData& data) {
+        UniValue vaultObj{UniValue::VOBJ};
+        vaultObj.pushKV("vaultId", vaultId.GetHex());
+        vaultObj.pushKV("batchCount", ScriptToString(data.batchCount));
+        vaultObj.pushKV("liquidationPenalty", data.liquidationPenalty);
+        UniValue batchArray{UniValue::VARR};
+        for (uint32_t i = 0; i < data.batchCount; i++) {
+            UniValue batchObj{UniValue::VOBJ};
+            auto batch = pcustomcsview->GetAuctionBatch(vaultId, i);
+            batchObj.pushKV("collaterals", AmountsToJSON(batch->collaterals.balances));
+            batchObj.pushKV("loan", tokenAmountString(batch->loanAmount));
+            batchArray.push_back(batchObj);
+        }
+        vaultObj.pushKV("batches", batchArray);
+        valueArr.push_back(vaultObj);
+        return true;
+    });
+
+    return valueArr;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -574,6 +615,7 @@ static const CRPCCommand commands[] =
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
     {"vault",        "auctionbid",                &auctionbid,            {"id", "index", "from", "amount", "inputs"}},
+    {"vault",        "listauctions",              &listauctions,          {}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {
