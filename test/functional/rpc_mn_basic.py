@@ -21,9 +21,9 @@ class MasternodesRpcBasicTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140'],
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140'],
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140']]
+        self.extra_args = [['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140'],
+                           ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140'],
+                           ['-dummypos=0', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=136', '-eunosheight=140', '-eunospayaheight=140']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listmasternodes()), 8)
@@ -179,7 +179,8 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         assert_raises_rpc_error(-26, 'masternode creation needs owner auth', self.nodes[0].sendrawtransaction, signedTx['hex'])
 
         # Test new register delay
-        mnTx = self.nodes[0].createmasternode(self.nodes[0].getnewaddress("", "legacy"))
+        mnAddress = self.nodes[0].getnewaddress("", "legacy")
+        mnTx = self.nodes[0].createmasternode(mnAddress)
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "PRE_ENABLED")
 
@@ -197,6 +198,15 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         # Move ahead to ENABLED state
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes({}, False)[mnTx], "ENABLED")
+
+        blocks = self.nodes[0].getmasternodeblocks({'ownerAddress': mnAddress})
+        assert_equal(len(blocks), 0) # there is no minted blocks yet
+
+        # test getmasternodeblocks
+        self.nodes[0].generate(1)
+        node0_keys = self.nodes[0].get_genesis_keys()
+        blocks = self.nodes[0].getmasternodeblocks({'operatorAddress': node0_keys.operatorAuthAddress})
+        assert_equal(list(blocks.keys())[0], '162')
 
         # Test new resign delay
         self.nodes[0].resignmasternode(mnTx)
