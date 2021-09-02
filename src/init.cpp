@@ -1070,7 +1070,8 @@ bool AppInitParameterInteraction()
         mempool.setSanityCheck(1.0 / ratio);
     }
     fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
-    fCheckpointsEnabled = gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED);
+    if (gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED))
+        LogPrintf("Warning: -checkpoints does nothing, it will be removed in next release.\n");
 
     hashAssumeValid = uint256S(gArgs.GetArg("-assumevalid", chainparams.GetConsensus().defaultAssumeValid.GetHex()));
     if (!hashAssumeValid.IsNull())

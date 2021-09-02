@@ -130,7 +130,6 @@ bool fHavePruned = false;
 bool fPruneMode = false;
 bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
-bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
 size_t nCustomMemUsage = nDefaultDbCache << 10;
 uint64_t nPruneTarget = 0;
@@ -2890,27 +2889,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         bool pruneStarted = false;
         auto time = GetTimeMillis();
         CCustomCSView pruned(mnview);
-        static uint32_t lastUndoHeight = 0;
         mnview.ForEachUndo([&](UndoKey const & key, CLazySerialize<CUndo>) {
             if (key.height >= it->first) { // don't erase checkpoint height
                 return false;
-            }
-            // keep txs in undo, remove undos for block
-            if (fCheckpointsEnabled && !key.txid.IsNull()) {
-                return true;
             }
             if (!pruneStarted) {
                 pruneStarted = true;
                 LogPrintf("Pruning undo data prior %d, it can take a while...\n", it->first);
             }
             return pruned.DelUndo(key).ok;
-        }, UndoKey{lastUndoHeight});
-        // we need at least one full loop to ensure previous undos are pruned
-        if (!lastUndoHeight) {
-            lastUndoHeight = it->first;
-        }
+        });
         if (pruneStarted) {
-            lastUndoHeight = it->first;
             auto& map = pruned.GetStorage().GetRaw();
             compactBegin = map.begin()->first;
             compactEnd = map.rbegin()->first;
@@ -3578,7 +3567,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                             }
                         }
                     }
-                    if (fCheckpointsEnabled && pindexConnect == pindexMostWork
+                    if (pindexConnect == pindexMostWork
                     && (pindexConnect->nHeight < chainparams.GetConsensus().EunosHeight
                     || state.GetRejectCode() == REJECT_CUSTOMTX)) {
                         // NOTE: Invalidate blocks back to last checkpoint
