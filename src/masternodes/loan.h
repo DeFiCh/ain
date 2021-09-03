@@ -292,8 +292,10 @@ public:
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
     boost::optional<CInterestRate> GetInterestRate(const std::string& loanSchemeID, DCT_ID id);
-    Res StoreInterest(uint32_t height, const std::string& loanSchemeID, DCT_ID id);
-    Res EraseInterest(uint32_t height, const std::string& loanSchemeID, DCT_ID id);
+    Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id);
+    Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id);
+    void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, uint32_t)> callback, const CVaultId& start = {});
+    void TransferVaultInterest(const CVaultId& vaultId, uint32_t height, const std::string& oldScheme, const std::string& newScheme);
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
@@ -320,6 +322,7 @@ public:
     struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
     struct LoanTakeLoanCreationTx           { static constexpr uint8_t prefix() { return 0x1B; } };
     struct LoanTakeLoanVaultKey             { static constexpr uint8_t prefix() { return 0x1C; } };
+    struct LoanInterestByVault              { static constexpr uint8_t prefix() { return 0x1D; } };
 };
 
 #endif // DEFI_MASTERNODES_LOAN_H

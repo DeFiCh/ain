@@ -2941,7 +2941,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             for (const auto& vaultToDefault: vaultsToUpdate){
                 auto newVault = cache.GetVault(vaultToDefault).val;
                 newVault->schemeId = *defaultLoanScheme;
-                cache.UpdateVault(vaultToDefault,*newVault);
+                cache.UpdateVault(vaultToDefault, *newVault);
+                cache.TransferVaultInterest(vaultToDefault, pindex->nHeight, {}, newVault->schemeId);
             }
 
             for (const auto& loanDestroy : loanDestruction) {
@@ -2986,7 +2987,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (int(height) != pindex->nHeight) {
                     return false;
                 }
-                std::set<DCT_ID> tokensLooseInterest;
                 for (uint32_t i = 0; i < data.batchCount; i++) {
                     auto batch = cache.GetAuctionBatch(vaultId, i);
                     assert(batch);
@@ -3017,7 +3017,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         if (amountToFill > 0) {
                             cache.AddLoanToken(vaultId, {batch->loanAmount.nTokenId, amountToFill});
                         }
-                        tokensLooseInterest.insert(batch->loanAmount.nTokenId);
                     } else {
                         cache.AddLoanToken(vaultId, batch->loanAmount);
                         for (const auto& col : batch->collaterals.balances) {
@@ -3030,9 +3029,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 vault.val->isUnderLiquidation = false;
                 cache.StoreVault(vaultId, *vault.val);
                 cache.EraseAuction(vaultId, pindex->nHeight);
-                for (const auto& tokenID : tokensLooseInterest) {
-                    cache.EraseInterest(pindex->nHeight, vault.val->schemeId, tokenID);
-                }
+                cache.TransferVaultInterest(vaultId, pindex->nHeight, vault.val->schemeId, {});
                 return true;
             }, pindex->nHeight);
         }

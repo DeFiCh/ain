@@ -2104,11 +2104,13 @@ public:
             return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
         }
 
+        if (vault.val->schemeId != obj.schemeId)
+            mnview.TransferVaultInterest(obj.vaultId, height, vault.val->schemeId, obj.schemeId);
+
         vault.val->schemeId = obj.schemeId;
         vault.val->ownerAddress = obj.ownerAddress;
         return mnview.StoreVault(obj.vaultId, *vault.val);
     }
-
 
     Res operator()(const CDepositToVaultMessage& obj) const {
         // owner auth
@@ -2218,7 +2220,7 @@ public:
             if (!res)
                 return res;
 
-            res = mnview.StoreInterest(height, vault.val->schemeId,tokenId);
+            res = mnview.StoreInterest(height, obj.vaultId, vault.val->schemeId, tokenId);
             if (!res)
                 return res;
 
@@ -2230,7 +2232,7 @@ public:
             if (!res)
                 return res;
 
-            CalculateOwnerRewards(kv.second);
+            CalculateOwnerRewards(vault.val->ownerAddress);
 
             res = mnview.AddBalance(vault.val->ownerAddress, CTokenAmount{kv.first, kv.second});
             if (!res)
