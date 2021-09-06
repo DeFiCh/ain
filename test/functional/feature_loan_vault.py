@@ -5,10 +5,11 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test Loan Scheme."""
 
+from decimal import Decimal
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_greater_than
 import calendar
 import time
 
@@ -213,7 +214,7 @@ class VaultTest (DefiTestFramework):
         self.sync_blocks()
 
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}]
+        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
 
@@ -245,10 +246,10 @@ class VaultTest (DefiTestFramework):
 
         # Insufficient funds
         try:
-            self.nodes[1].deposittovault(vaultId1, accountBTC, '10@BTC')
+            self.nodes[0].deposittovault(vaultId1, accountDFI, '101@DFI')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("" in errorString)
+        assert("Insufficient funds" in errorString)
 
         # Check from auth
         try:
@@ -318,8 +319,39 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault1['collateralAmounts'],['0.70000000@DFI', '0.70000000@BTC'])
         acBTC = self.nodes[1].getaccount(accountBTC)
         assert_equal(acBTC, ['9.30000000@BTC'])
+        setLoanTokenTx = self.nodes[0].setloantoken({
+                            'symbol': "TSLA",
+                            'name': "Tesla Token",
+                            'priceFeedId': oracle_id1,
+                            'mintable': True,
+                            'interest': 0.01})
 
+        self.nodes[0].generate(1)
+        self.nodes[0].deposittovault(vaultId1, accountDFI, '0.3@DFI')
+        self.nodes[0].generate(1)
+        self.nodes[1].deposittovault(vaultId1, accountBTC, '0.3@BTC')
 
+        self.nodes[0].generate(1)
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "1@DFI"}, {"currency": "USD", "tokenAmount": "1@TSLA"}, {"currency": "USD", "tokenAmount": "1@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[0].takeloan({
+                    'vaultId': vaultId1,
+                    'amounts': "0.5@TSLA"})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+        vault1 = self.nodes[0].getvault(vaultId1)
+        assert_equal(vault1['loanAmount'], ['0.50000000@TSLA'])
+        assert_equal(vault1['collateralValue'], Decimal(2.00000000))
+        assert_greater_than(vault1['loanValue'],Decimal(0.5))
 
 if __name__ == '__main__':
     VaultTest().main()
