@@ -319,12 +319,12 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault1['collateralAmounts'],['0.70000000@DFI', '0.70000000@BTC'])
         acBTC = self.nodes[1].getaccount(accountBTC)
         assert_equal(acBTC, ['9.30000000@BTC'])
-        setLoanTokenTx = self.nodes[0].setloantoken({
-                            'symbol': "TSLA",
-                            'name': "Tesla Token",
-                            'priceFeedId': oracle_id1,
-                            'mintable': True,
-                            'interest': 0.01})
+        self.nodes[0].setloantoken({
+                        'symbol': "TSLA",
+                        'name': "Tesla Token",
+                        'priceFeedId': oracle_id1,
+                        'mintable': True,
+                        'interest': 0.01})
 
         self.nodes[0].generate(1)
         self.nodes[0].deposittovault(vaultId1, accountDFI, '0.3@DFI')
