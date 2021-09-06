@@ -504,7 +504,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         }
 
         if (blockHeight <= creationHeight) {
-            return false;
+            return true;
         }
 
         if (auto tip = ::ChainActive()[blockHeight]) {
