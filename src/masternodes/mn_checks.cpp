@@ -1824,7 +1824,7 @@ public:
         if (!oracle)
             return Res::Err("oracle (%s) does not exist!", collToken.priceFeedTxid.GetHex());
 
-        if (!oracle.val->SupportsPair(token->symbol,"USD"))
+        if (!oracle.val->SupportsPair(token->symbol, "USD"))
             return Res::Err("oracle (%s) does not conntain USD price for this token!", collToken.priceFeedTxid.GetHex());
 
         if (!collToken.activateAfterBlock)
@@ -2057,7 +2057,7 @@ public:
         }
 
         // set loan scheme to default if non provided
-        if(obj.schemeId.empty()){
+        if (obj.schemeId.empty()) {
             if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
                 vault.schemeId = *defaultScheme;
             } else {
