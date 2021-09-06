@@ -542,7 +542,7 @@ static void SeedSleep(CSHA512& hasher, RNGState& rng)
     SeedTimestamp(hasher);
 
     // Sleep for 1ms
-    MilliSleep(1);
+    UninterruptibleSleep(std::chrono::milliseconds{1});
 
     // High-precision timestamp after sleeping (as we commit to both the time before and after, this measures the delay)
     SeedTimestamp(hasher);

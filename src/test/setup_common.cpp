@@ -144,6 +144,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
 TestingSetup::~TestingSetup()
 {
+    scheduler.stop();
     threadGroup.interrupt_all();
     threadGroup.join_all();
     GetMainSignals().FlushBackgroundCallbacks();
