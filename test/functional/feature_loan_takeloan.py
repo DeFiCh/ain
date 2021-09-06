@@ -144,15 +144,11 @@ class LoanTakeLoanTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Loan cannot be taken on token with id (2) as \"mintable\" is currently false" in errorString)
 
-        print(self.nodes[0].listloantokens())
         setLoanTokenTSLA = self.nodes[0].updateloantoken('2',{
                                     'mintable': True})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
-
-        print(self.nodes[0].listloantokens())
-        assert(False)
 
         try:
             self.nodes[0].takeloan({
