@@ -111,10 +111,9 @@ UniValue createvault(const JSONRPCRequest& request) {
         }
     }
     vault.ownerAddress = DecodeScript(ownerAddress);
-    vault.schemeId = pcustomcsview->GetDefaultLoanScheme().get();
 
-    if(request.params.size() > 1){
-        if(!request.params[1].isNull()){
+    if (request.params.size() > 1) {
+        if (!request.params[1].isNull()) {
             vault.schemeId = request.params[1].get_str();
         }
     }

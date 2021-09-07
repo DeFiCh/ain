@@ -987,7 +987,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
                 {
                     {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
-                            {"vaultid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Id of vault used for loan"},
+                            {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Id of vault used for loan"},
                             {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount in amount@token format."},
                         },
                     },
