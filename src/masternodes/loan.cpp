@@ -169,6 +169,12 @@ Res CLoanView::EraseLoanScheme(const std::string& loanSchemeID)
     // Delete loan scheme
     EraseBy<LoanSchemeKey>(loanSchemeID);
 
+    // Delete interest
+    auto it = LowerBound<LoanInterestedRate>(std::make_pair(loanSchemeID, DCT_ID{0}));
+    for (; it.Valid() && it.Key().first == loanSchemeID; it.Next()) {
+        EraseBy<LoanInterestedRate>(it.Key());
+    }
+
     return Res::Ok();
 }
 
@@ -187,7 +193,7 @@ boost::optional<CInterestRate> CLoanView::GetInterestRate(const std::string& loa
     return ReadBy<LoanInterestedRate, CInterestRate>(std::make_pair(loanSchemeID, id));
 }
 
-Res CLoanView::StoreInterest(uint32_t height, const std::string& loanSchemeID, DCT_ID id)
+Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id)
 {
     auto scheme = GetLoanScheme(loanSchemeID);
     if (!scheme) {
@@ -204,6 +210,9 @@ Res CLoanView::StoreInterest(uint32_t height, const std::string& loanSchemeID, D
     if (rate.height > height) {
         return Res::Err("Cannot store height in the past");
     }
+    uint32_t vaultRate = 0;
+    ReadBy<LoanInterestByVault>(std::make_pair(vaultId, id), vaultRate);
+    WriteBy<LoanInterestByVault>(std::make_pair(vaultId, id), ++vaultRate);
     if (rate.height) {
         rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
     }
@@ -215,7 +224,7 @@ Res CLoanView::StoreInterest(uint32_t height, const std::string& loanSchemeID, D
     return Res::Ok();
 }
 
-Res CLoanView::EraseInterest(uint32_t height, const std::string& loanSchemeID, DCT_ID id)
+Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id)
 {
     auto scheme = GetLoanScheme(loanSchemeID);
     if (!scheme) {
@@ -229,15 +238,22 @@ Res CLoanView::EraseInterest(uint32_t height, const std::string& loanSchemeID, D
     if (auto storedRate = GetInterestRate(loanSchemeID, id)) {
         rate = *storedRate;
     }
-    if (rate.count <= 1) {
-        EraseBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id));
-        return Res::Ok();
+    if (rate.count == 0) {
+        return Res::Err("Interest is already 0");
     }
     if (rate.height > height) {
         return Res::Err("Cannot store height in the past");
     }
     if (rate.height == 0) {
         return Res::Err("Data mismatch height == 0");
+    }
+    uint32_t vaultRate = 0;
+    ReadBy<LoanInterestByVault>(std::make_pair(vaultId, id), vaultRate);
+    vaultRate && --vaultRate;
+    if (vaultRate) {
+        WriteBy<LoanInterestByVault>(std::make_pair(vaultId, id), vaultRate);
+    } else {
+        EraseBy<LoanInterestByVault>(std::make_pair(vaultId, id));
     }
     rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
     rate.count--;
@@ -246,6 +262,42 @@ Res CLoanView::EraseInterest(uint32_t height, const std::string& loanSchemeID, D
     rate.interestPerBlock = netInterest * rate.count / (365 * Params().GetConsensus().blocksPerDay());
     WriteBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id), rate);
     return Res::Ok();
+}
+
+void CLoanView::ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, uint32_t)> callback, const CVaultId& start)
+{
+    ForEach<LoanInterestByVault, std::pair<CVaultId, DCT_ID>, uint32_t>([&](const std::pair<CVaultId, DCT_ID>& pair, uint32_t rate) {
+        return callback(pair.first, pair.second, rate);
+    }, std::make_pair(start, DCT_ID{0}));
+}
+
+void CLoanView::TransferVaultInterest(const CVaultId& vaultId, uint32_t height, const std::string& oldScheme, const std::string& newScheme)
+{
+    std::map<DCT_ID, uint32_t> rates;
+    // erase all interest to old scheme
+    auto scheme = GetLoanScheme(oldScheme);
+    ForEachVaultInterest([&](const CVaultId& currentVaultId, DCT_ID id, uint32_t rate) {
+        if (currentVaultId != vaultId) {
+            return false;
+        }
+        if (scheme) {
+            for (uint32_t i = 0; i < rate; i++) {
+                EraseInterest(height, vaultId, oldScheme, id);
+            }
+        } else {
+            EraseBy<LoanInterestByVault>(std::make_pair(vaultId, id));
+        }
+        rates[id] = rate;
+        return true;
+    }, vaultId);
+    // transfer interest to new scheme
+    if (GetLoanScheme(newScheme)) {
+        for (const auto& rate : rates) {
+            for (uint32_t i = 0; i < rate.second; i++) {
+                StoreInterest(height, vaultId, newScheme, rate.first);
+            }
+        }
+    }
 }
 
 Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)

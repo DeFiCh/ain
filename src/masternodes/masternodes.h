@@ -365,7 +365,7 @@ class CCustomCSView
             CLoanView               ::  LoanSetCollateralTokenCreationTx, LoanSetCollateralTokenKey, LoanSetLoanTokenCreationTx,
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
                                         DestroyLoanSchemeKey, LoanInterestedRate, LoanTokenAmount, LoanLiquidationPenalty,
-                                        LoanTakeLoanCreationTx, LoanTakeLoanVaultKey,
+                                        LoanTakeLoanCreationTx, LoanTakeLoanVaultKey, LoanInterestByVault,
             CVaultView              ::  VaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
         >();
     }
@@ -408,8 +408,6 @@ public:
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
     boost::optional<CCollateralLoans> CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
-
-    boost::optional<CCollateralLoans> GetCollateralAndLoanValue(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
 
     void SetDbVersion(int version);
 
