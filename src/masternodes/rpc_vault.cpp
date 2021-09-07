@@ -587,7 +587,7 @@ UniValue listauctions(const JSONRPCRequest& request) {
     pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, uint32_t height, const CAuctionData& data) {
         UniValue vaultObj{UniValue::VOBJ};
         vaultObj.pushKV("vaultId", vaultId.GetHex());
-        vaultObj.pushKV("batchCount", ScriptToString(data.batchCount));
+        vaultObj.pushKV("batchCount", int(data.batchCount));
         vaultObj.pushKV("liquidationPenalty", data.liquidationPenalty);
         UniValue batchArray{UniValue::VARR};
         for (uint32_t i = 0; i < data.batchCount; i++) {
