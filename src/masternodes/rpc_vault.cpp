@@ -4,6 +4,22 @@ extern UniValue AmountsToJSON(TAmounts const & diffs);
 
 namespace {
     UniValue VaultToJSON(const CVaultMessage& vault, const CVaultId& id) {
+        auto height = ::ChainActive().Height();
+        auto collaterals = pcustomcsview->GetVaultCollaterals(id);
+        UniValue collValue{UniValue::VSTR};
+        UniValue loanValue{UniValue::VSTR};
+
+        if(collaterals){
+            auto rate = pcustomcsview->CalculateCollateralizationRatio(id, *collaterals, height);
+            CAmount totalCollateral = 0, totalLoan = 0;
+            if (rate)
+            {
+                totalCollateral += rate->totalCollaterals();
+                totalLoan += rate->totalLoans();
+            }
+            collValue=ValueFromAmount(totalCollateral);
+            loanValue=ValueFromAmount(totalLoan);
+        }
         UniValue collateralBalances{UniValue::VARR};
         UniValue loanBalances{UniValue::VARR};
 
@@ -19,6 +35,8 @@ namespace {
         result.pushKV("isUnderLiquidation", vault.isUnderLiquidation);
         result.pushKV("collateralAmounts", collateralBalances);
         result.pushKV("loanAmount", loanBalances);
+        result.pushKV("collateralValue",collValue);
+        result.pushKV("loanValue",loanValue);
         return result;
     }
 }
