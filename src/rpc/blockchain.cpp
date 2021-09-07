@@ -600,6 +600,7 @@ static UniValue clearmempool(const JSONRPCRequest& request)
 
     std::vector<uint256> vtxid;
     mempool.queryHashes(vtxid);
+    mempool.accountsView().Discard();
 
     UniValue removed(UniValue::VARR);
     for (const uint256& hash : vtxid)

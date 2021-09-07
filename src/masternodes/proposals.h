@@ -141,10 +141,10 @@ public:
     void ForEachPropVote(std::function<bool(CPropId const &, uint8_t, uint256 const &, CPropVoteType)> callback, CMnVotePerCycle const & start = {});
     void ForEachCycleProp(std::function<bool(CPropId const &, CPropObject const &)> callback, uint32_t height);
 
-    struct ByType { static const unsigned char prefix; };
-    struct ByCycle { static const unsigned char prefix; };
-    struct ByMnVote { static const unsigned char prefix; };
-    struct ByStatus { static const unsigned char prefix; };
+    struct ByType   { static constexpr unsigned char prefix() { return 0x2C; } };
+    struct ByCycle  { static constexpr unsigned char prefix() { return 0x2D; } };
+    struct ByMnVote { static constexpr unsigned char prefix() { return 0x2E; } };
+    struct ByStatus { static constexpr unsigned char prefix() { return 0x2F; } };
 };
 
 #endif // DEFI_MASTERNODES_PROPOSALS_H

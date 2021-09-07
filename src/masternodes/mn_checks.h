@@ -20,6 +20,7 @@ class CCoinsViewCache;
 
 class CCustomCSView;
 class CAccountsHistoryView;
+class CCustomTxVisitor;
 
 static const std::vector<unsigned char> DfTxMarker = {'D', 'f', 'T', 'x'};  // 44665478
 
@@ -73,10 +74,23 @@ enum class CustomTxType : uint8_t
     ICXClaimDFCHTLC       = '5',
     ICXCloseOrder         = '6',
     ICXCloseOffer         = '7',
+    // Loans
+    LoanSetCollateralToken= 'c',
+    LoanSetLoanToken      = 'g',
+    LoanUpdateLoanToken   = 'f',
+    LoanScheme            = 'L',
+    DefaultLoanScheme     = 'd',
+    DestroyLoanScheme     = 'D',
+    Vault                 = 'V',
+    UpdateVault           = 'v',
+    DepositToVault        = 'S',
+    LoanTakeLoan          = 'F',
+    AuctionBid            = 'I',
     // On-Chain-Gov
-    CreateCfp             = 'F',
+    CreateCfp             = 'e',
     CreateVoc             = 'E',
-    Vote                  = 'V',
+    Vote                  = 'O',
+
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -110,6 +124,17 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::ICXClaimDFCHTLC:
         case CustomTxType::ICXCloseOrder:
         case CustomTxType::ICXCloseOffer:
+        case CustomTxType::LoanSetCollateralToken:
+        case CustomTxType::LoanSetLoanToken:
+        case CustomTxType::LoanUpdateLoanToken:
+        case CustomTxType::LoanScheme:
+        case CustomTxType::DefaultLoanScheme:
+        case CustomTxType::DestroyLoanScheme:
+        case CustomTxType::Vault:
+        case CustomTxType::UpdateVault:
+        case CustomTxType::DepositToVault:
+        case CustomTxType::LoanTakeLoan:
+        case CustomTxType::AuctionBid:
         case CustomTxType::CreateCfp:
         case CustomTxType::CreateVoc:
         case CustomTxType::Vote:
@@ -140,28 +165,8 @@ inline void Unserialize(Stream& s, CustomTxType & txType) {
     txType = CustomTxCodeToType(ch);
 }
 
-struct CAccountToUtxosMessage;
-struct CAccountToAccountMessage;
-struct CAnchorFinalizationMessage;
-struct CAnyAccountsToAccountsMessage;
-struct CLiquidityMessage;
-struct CPoolSwapMessage;
-struct CRemoveLiquidityMessage;
-struct CUtxosToAccountMessage;
-struct CAppointOracleMessage;
-struct CRemoveOracleAppointMessage;
-struct CUpdateOracleAppointMessage;
-struct CSetOracleDataMessage;
-struct CICXCreateOrderMessage;
-struct CICXMakeOfferMessage;
-struct CICXSubmitDFCHTLCMessage;
-struct CICXSubmitEXTHTLCMessage;
-struct CICXClaimDFCHTLCMessage;
-struct CICXCloseOrderMessage;
-struct CICXCloseOfferMessage;
 struct CCreatePropMessage;
 struct CPropVoteMessage;
-
 struct CCreateMasterNodeMessage {
     char operatorType;
     CKeyID operatorAuthAddress;
@@ -283,6 +288,17 @@ typedef boost::variant<
     CICXClaimDFCHTLCMessage,
     CICXCloseOrderMessage,
     CICXCloseOfferMessage,
+    CLoanSetCollateralTokenMessage,
+    CLoanSetLoanTokenMessage,
+    CLoanUpdateLoanTokenMessage,
+    CLoanSchemeMessage,
+    CDefaultLoanSchemeMessage,
+    CDestroyLoanSchemeMessage,
+    CVaultMessage,
+    CUpdateVaultMessage,
+    CDepositToVaultMessage,
+    CLoanTakeLoanMessage,
+    CAuctionBidMessage,
     CCreatePropMessage,
     CPropVoteMessage
 > CCustomTxMessage;
@@ -362,5 +378,21 @@ inline CAmount GetNonMintedValueOut(const CTransaction & tx, DCT_ID tokenID)
     }
     return tx.GetValueOut(mintingOutputsStart, tokenID);
 }
+
+class CPoolSwap {
+    const CPoolSwapMessage& obj;
+    uint32_t height;
+    CAmount result{0};
+    DCT_ID currentID;
+
+public:
+    std::vector<std::pair<std::string, std::string>> errors;
+
+    CPoolSwap(const CPoolSwapMessage& obj, uint32_t height)
+    : obj(obj), height(height) {}
+
+    std::vector<DCT_ID> CalculateSwaps(CCustomCSView& view);
+    Res ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs);
+};
 
 #endif // DEFI_MASTERNODES_MN_CHECKS_H

@@ -1161,6 +1161,8 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("EXPERIMENTAL warning:", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
 
+    LOCK(cs_main);
+
     uint256 orderTxid= uint256S(request.params[0].getValStr());
     auto order = pcustomcsview->GetICXOrderByCreationTx(orderTxid);
     if (order)
@@ -1238,6 +1240,8 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+
+    LOCK(cs_main);
 
     if (idToken.v != std::numeric_limits<uint32_t>::max())
     {
@@ -1352,6 +1356,8 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+
+    LOCK(cs_main);
 
     auto dfchtlclambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
         if (key.first != offerTxid || !limit)

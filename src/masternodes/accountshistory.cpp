@@ -7,9 +7,6 @@
 #include <masternodes/masternodes.h>
 #include <key_io.h>
 
-/// @Note it's in own database
-const unsigned char CAccountsHistoryView::ByAccountHistoryKey::prefix = 'h';
-
 void CAccountsHistoryView::ForEachAccountHistory(std::function<bool(AccountHistoryKey const &, CLazySerialize<AccountHistoryValue>)> callback, AccountHistoryKey const & start)
 {
     ForEach<ByAccountHistoryKey, AccountHistoryKey, AccountHistoryValue>(callback, start);

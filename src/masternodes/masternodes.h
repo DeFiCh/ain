@@ -11,14 +11,16 @@
 #include <serialize.h>
 #include <masternodes/accounts.h>
 #include <masternodes/anchors.h>
+#include <masternodes/gv.h>
 #include <masternodes/icxorder.h>
 #include <masternodes/incentivefunding.h>
-#include <masternodes/gv.h>
+#include <masternodes/loan.h>
 #include <masternodes/oracles.h>
 #include <masternodes/poolpairs.h>
 #include <masternodes/proposals.h>
 #include <masternodes/tokens.h>
 #include <masternodes/undos.h>
+#include <masternodes/vault.h>
 #include <uint256.h>
 #include <wallet/ismine.h>
 
@@ -206,16 +208,16 @@ public:
     uint16_t GetTimelock(const uint256& nodeId, const CMasternode& node, const uint64_t height) const;
 
     // tags
-    struct ID { static const unsigned char prefix; };
-    struct Operator { static const unsigned char prefix; };
-    struct Owner { static const unsigned char prefix; };
+    struct ID       { static constexpr uint8_t prefix() { return 'M'; } };
+    struct Operator { static constexpr uint8_t prefix() { return 'o'; } };
+    struct Owner    { static constexpr uint8_t prefix() { return 'w'; } };
 
     // For storing last staked block time
-    struct Staker { static const unsigned char prefix; };
-    struct SubNode { static const unsigned char prefix; };
+    struct Staker   { static constexpr uint8_t prefix() { return 'X'; } };
+    struct SubNode  { static constexpr uint8_t prefix() { return 'Z'; } };
 
     // Store long term time lock
-    struct Timelock { static const unsigned char prefix; };
+    struct Timelock { static constexpr uint8_t prefix() { return 'K'; } };
 };
 
 class CLastHeightView : public virtual CStorageView
@@ -223,6 +225,8 @@ class CLastHeightView : public virtual CStorageView
 public:
     int GetLastHeight() const;
     void SetLastHeight(int height);
+
+    struct Height { static constexpr uint8_t prefix() { return 'H'; } };
 };
 
 class CFoundationsDebtView : public virtual CStorageView
@@ -230,6 +234,8 @@ class CFoundationsDebtView : public virtual CStorageView
 public:
     CAmount GetFoundationsDebt() const;
     void SetFoundationsDebt(CAmount debt);
+
+    struct Debt { static constexpr uint8_t prefix() { return 'd'; } };
 };
 
 class CTeamView : public virtual CStorageView
@@ -244,8 +250,9 @@ public:
     boost::optional<CTeam> GetAuthTeam(int height) const;
     boost::optional<CTeam> GetConfirmTeam(int height) const;
 
-    struct AuthTeam { static const unsigned char prefix; };
-    struct ConfirmTeam { static const unsigned char prefix; };
+    struct AuthTeam     { static constexpr uint8_t prefix() { return 'v'; } };
+    struct ConfirmTeam  { static constexpr uint8_t prefix() { return 'V'; } };
+    struct CurrentTeam  { static constexpr uint8_t prefix() { return 't'; } };
 };
 
 class CAnchorRewardsView : public virtual CStorageView
@@ -260,7 +267,7 @@ public:
     void RemoveRewardForAnchor(AnchorTxHash const &btcTxHash);
     void ForEachAnchorReward(std::function<bool(AnchorTxHash const &, CLazySerialize<RewardTxHash>)> callback);
 
-    struct BtcTx { static const unsigned char prefix; };
+    struct BtcTx { static constexpr uint8_t prefix() { return 'r'; } };
 };
 
 class CAnchorConfirmsView : public virtual CStorageView
@@ -274,8 +281,47 @@ public:
     void EraseAnchorConfirmData(const uint256 btcTxHash);
     void ForEachAnchorConfirmData(std::function<bool(const AnchorTxHash &, CLazySerialize<CAnchorConfirmDataPlus>)> callback);
 
-    struct BtcTx { static const unsigned char prefix; };
+    struct BtcTx { static constexpr uint8_t prefix() { return 'x'; } };
 };
+
+struct CCollateralLoans {
+    std::vector<CTokenAmount> collaterals; // in USD
+    std::vector<CTokenAmount> loans; // in USD
+
+    uint32_t ratio() const {
+        if (loans.empty()) return std::numeric_limits<uint32_t>::max();
+        return lround(double(totalCollaterals()) / totalLoans() * 100);
+    }
+
+    uint64_t totalCollaterals() const {
+        uint64_t totalCollaterals = 0;
+        for (const auto& col : collaterals) {
+            totalCollaterals += col.nValue;
+        }
+        return totalCollaterals;
+    }
+
+    uint64_t totalLoans() const {
+        uint64_t totalLoans = 0;
+        for (const auto& loan : loans) {
+            totalLoans += loan.nValue;
+        }
+        return totalLoans;
+    }
+};
+
+template<typename T>
+inline void CheckPrefix()
+{
+}
+
+template<typename T1, typename T2, typename... TN>
+inline void CheckPrefix()
+{
+    static_assert(T1::prefix() != T2::prefix(), "prefixes are equal");
+    CheckPrefix<T1, TN...>();
+    CheckPrefix<T2, TN...>();
+}
 
 class CCustomCSView
         : public CMasternodesView
@@ -292,21 +338,62 @@ class CCustomCSView
         , public CAnchorConfirmsView
         , public COracleView
         , public CICXOrderView
+        , public CLoanView
+        , public CVaultView
         , public CPropsView
 {
+    void CheckPrefixes()
+    {
+        CheckPrefix<
+            CMasternodesView        ::  ID, Operator, Owner, Staker, SubNode, Timelock,
+            CLastHeightView         ::  Height,
+            CTeamView               ::  AuthTeam, ConfirmTeam, CurrentTeam,
+            CFoundationsDebtView    ::  Debt,
+            CAnchorRewardsView      ::  BtcTx,
+            CTokensView             ::  ID, Symbol, CreationTx, LastDctId,
+            CAccountsView           ::  ByBalanceKey, ByHeightKey,
+            CCommunityBalancesView  ::  ById,
+            CUndosView              ::  ByUndoKey,
+            CPoolPairView           ::  ByID, ByPair, ByShare, ByIDPair, ByPoolSwap, ByReserves, ByRewardPct,
+                                        ByPoolReward, ByDailyReward, ByCustomReward, ByTotalLiquidity,
+            CGovView                ::  ByName,
+            CAnchorConfirmsView     ::  BtcTx,
+            COracleView             ::  ByName,
+            CICXOrderView           ::  ICXOrderCreationTx, ICXMakeOfferCreationTx, ICXSubmitDFCHTLCCreationTx,
+                                        ICXSubmitEXTHTLCCreationTx, ICXClaimDFCHTLCCreationTx, ICXCloseOrderCreationTx,
+                                        ICXCloseOfferCreationTx, ICXOrderOpenKey, ICXOrderCloseKey, ICXMakeOfferOpenKey,
+                                        ICXMakeOfferCloseKey, ICXSubmitDFCHTLCOpenKey, ICXSubmitDFCHTLCCloseKey,
+                                        ICXSubmitEXTHTLCOpenKey, ICXSubmitEXTHTLCCloseKey, ICXClaimDFCHTLCKey,
+                                        ICXOrderStatus, ICXOfferStatus, ICXSubmitDFCHTLCStatus, ICXSubmitEXTHTLCStatus, ICXVariables,
+            CLoanView               ::  LoanSetCollateralTokenCreationTx, LoanSetCollateralTokenKey, LoanSetLoanTokenCreationTx,
+                                        LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
+                                        DestroyLoanSchemeKey, LoanInterestedRate, LoanTokenAmount, LoanLiquidationPenalty,
+                                        LoanTakeLoanCreationTx, LoanTakeLoanVaultKey, LoanInterestByVault,
+            CVaultView              ::  VaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey,
+            CPropsView              ::  ByType, ByCycle, ByMnVote, ByStatus
+        >();
+    }
 public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;
 
-    CCustomCSView() = default;
+    CCustomCSView()
+    {
+        CheckPrefixes();
+    }
 
     CCustomCSView(CStorageKV & st)
         : CStorageView(new CFlushableStorageKV(st))
-    {}
+    {
+        CheckPrefixes();
+    }
+
     // cache-upon-a-cache (not a copy!) constructor
     CCustomCSView(CCustomCSView & other)
         : CStorageView(new CFlushableStorageKV(other.DB()))
-    {}
+    {
+        CheckPrefixes();
+    }
 
     // cause depends on current mns:
     CTeamView::CTeam CalcNextTeam(uint256 const & stakeModifier);
@@ -324,6 +411,8 @@ public:
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
+    boost::optional<CCollateralLoans> CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
+
     void SetDbVersion(int version);
 
     int GetDbVersion() const;
@@ -334,6 +423,8 @@ public:
     CFlushableStorageKV& GetStorage() {
         return static_cast<CFlushableStorageKV&>(DB());
     }
+
+    struct DbVersion { static constexpr uint8_t prefix() { return 'D'; } };
 };
 
 std::map<CKeyID, CKey> AmISignerNow(CAnchorData::CTeam const & team);

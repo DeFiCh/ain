@@ -56,6 +56,17 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXClaimDFCHTLC:     return "ICXClaimDFCHTLC";
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
+        case CustomTxType::LoanSetCollateralToken: return "LoanSetCollateralToken";
+        case CustomTxType::LoanSetLoanToken:     return "LoanSetLoanToken";
+        case CustomTxType::LoanUpdateLoanToken:     return "LoanUpdateLoanToken";
+        case CustomTxType::LoanScheme:          return "LoanScheme";
+        case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
+        case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
+        case CustomTxType::Vault:               return "Vault";
+        case CustomTxType::UpdateVault:         return "UpdateVault";
+        case CustomTxType::DepositToVault:      return "DepositToVault";
+        case CustomTxType::LoanTakeLoan:        return "LoanTakeLoan";
+        case CustomTxType::AuctionBid:          return "AuctionBid";
         case CustomTxType::CreateCfp:           return "CreateCfp";
         case CustomTxType::CreateVoc:           return "CreateVoc";
         case CustomTxType::Vote:                return "Vote";
@@ -134,6 +145,17 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXClaimDFCHTLC:         return CICXClaimDFCHTLCMessage{};
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
+        case CustomTxType::LoanSetCollateralToken:  return CLoanSetCollateralTokenMessage{};
+        case CustomTxType::LoanSetLoanToken:        return CLoanSetLoanTokenMessage{};
+        case CustomTxType::LoanUpdateLoanToken:     return CLoanUpdateLoanTokenMessage{};
+        case CustomTxType::LoanScheme:              return CLoanSchemeMessage{};
+        case CustomTxType::DefaultLoanScheme:       return CDefaultLoanSchemeMessage{};
+        case CustomTxType::DestroyLoanScheme:       return CDestroyLoanSchemeMessage{};
+        case CustomTxType::Vault:                   return CVaultMessage{};
+        case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
+        case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
+        case CustomTxType::LoanTakeLoan:            return CLoanTakeLoanMessage{};
+        case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
         case CustomTxType::CreateCfp:               return CCreatePropMessage{};
         case CustomTxType::CreateVoc:               return CCreatePropMessage{};
         case CustomTxType::Vote:                    return CPropVoteMessage{};
@@ -398,6 +420,61 @@ public:
         return !res ? res : serialize(obj);
     }
 
+    Res operator()(CLoanSetCollateralTokenMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanSetLoanTokenMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanUpdateLoanTokenMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanSchemeMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CDefaultLoanSchemeMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CDestroyLoanSchemeMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CUpdateVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CDepositToVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CLoanTakeLoanMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CAuctionBidMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
     Res operator()(CCreatePropMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
@@ -477,7 +554,7 @@ public:
         return Res::Ok();
     }
 
-    Res CheckICXTx() const {
+    Res CheckCustomTx() const {
         if (static_cast<int>(height) < consensus.EunosPayaHeight && tx.vout.size() != 2) {
             return Res::Err("malformed tx vouts ((wrong number of vouts)");
         }
@@ -846,7 +923,12 @@ public:
             }
         }
 
-        return mnview.UpdateToken(token.creationTx, obj.token, false);
+        auto updatedToken = obj.token;
+        if (height >= consensus.FortCanningHeight) {
+            updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        }
+
+        return mnview.UpdateToken(token.creationTx, updatedToken, false);
     }
 
     Res operator()(const CMintTokensMessage& obj) const {
@@ -903,10 +985,11 @@ public:
             return Res::Err("token %s does not exist!", poolPair.idTokenB.ToString());
         }
 
+        const auto symbolLength = height >= consensus.FortCanningHeight ? CToken::MAX_TOKEN_POOLPAIR_LENGTH : CToken::MAX_TOKEN_SYMBOL_LENGTH;
         if (pairSymbol.empty()) {
-            pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+            pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, symbolLength);
         } else {
-            pairSymbol = trim_ws(pairSymbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+            pairSymbol = trim_ws(pairSymbol).substr(0, symbolLength);
         }
 
         CTokenImplementation token;
@@ -964,22 +1047,7 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        auto poolPair = mnview.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
-        if (!poolPair) {
-            return Res::Err("can't find the poolpair!");
-        }
-
-        CPoolPair& pp = poolPair->second;
-        return pp.Swap({obj.idTokenFrom, obj.amountFrom}, obj.maxPrice, [&] (const CTokenAmount &tokenAmount) {
-            auto res = mnview.SetPoolPair(poolPair->first, height, pp);
-            if (!res) {
-                return res;
-            }
-            CalculateOwnerRewards(obj.from);
-            CalculateOwnerRewards(obj.to);
-            res = mnview.SubBalance(obj.from, {obj.idTokenFrom, obj.amountFrom});
-            return !res ? res : mnview.AddBalance(obj.to, tokenAmount);
-        }, static_cast<int>(height));
+        return CPoolSwap(obj, height).ExecuteSwap(mnview, obj.poolIDs);
     }
 
     Res operator()(const CLiquidityMessage& obj) const {
@@ -1176,18 +1244,20 @@ public:
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member");
         }
-        auto msg = obj;
-        auto res = normalizeTokenCurrencyPair(msg.availablePairs);
-        return !res ? res : mnview.AppointOracle(tx.GetHash(), COracle(msg));
+        COracle oracle;
+        static_cast<CAppointOracleMessage&>(oracle) = obj;
+        auto res = normalizeTokenCurrencyPair(oracle.availablePairs);
+        return !res ? res : mnview.AppointOracle(tx.GetHash(), oracle);
     }
 
     Res operator()(const CUpdateOracleAppointMessage& obj) const {
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member");
         }
-        auto msg = obj.newOracleAppoint;
-        auto res = normalizeTokenCurrencyPair(msg.availablePairs);
-        return !res ? res : mnview.UpdateOracle(obj.oracleId, COracle(msg));
+        COracle oracle;
+        static_cast<CAppointOracleMessage&>(oracle) = obj.newOracleAppoint;
+        auto res = normalizeTokenCurrencyPair(oracle.availablePairs);
+        return !res ? res : mnview.UpdateOracle(obj.oracleId, std::move(oracle));
     }
 
     Res operator()(const CRemoveOracleAppointMessage& obj) const {
@@ -1210,7 +1280,7 @@ public:
     }
 
     Res operator()(const CICXCreateOrderMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1240,7 +1310,7 @@ public:
     }
 
     Res operator()(const CICXMakeOfferMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1284,7 +1354,7 @@ public:
     }
 
     Res operator()(const CICXSubmitDFCHTLCMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res) {
             return res;
         }
@@ -1422,7 +1492,7 @@ public:
     }
 
     Res operator()(const CICXSubmitEXTHTLCMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1543,7 +1613,7 @@ public:
     }
 
     Res operator()(const CICXClaimDFCHTLCMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1650,7 +1720,7 @@ public:
     }
 
     Res operator()(const CICXCloseOrderMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1691,7 +1761,7 @@ public:
     }
 
     Res operator()(const CICXCloseOfferMessage& obj) const {
-        auto res = CheckICXTx();
+        auto res = CheckCustomTx();
         if (!res)
             return res;
 
@@ -1753,6 +1823,494 @@ public:
 
         res = mnview.ICXCloseOffer(closeoffer);
         return !res ? res : mnview.ICXCloseMakeOfferTx(*offer, CICXMakeOffer::STATUS_CLOSED);
+    }
+
+    Res operator()(const CLoanSetCollateralTokenMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        CLoanSetCollateralTokenImplementation collToken;
+        static_cast<CLoanSetCollateralToken&>(collToken) = obj;
+
+        collToken.creationTx = tx.GetHash();
+        collToken.creationHeight = height;
+
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        auto token = mnview.GetToken(collToken.idToken);
+        if(!token)
+            return Res::Err("token %s does not exist!", collToken.idToken.ToString());
+
+        auto oracle = mnview.GetOracleData(collToken.priceFeedTxid);
+        if (!oracle)
+            return Res::Err("oracle (%s) does not exist!", collToken.priceFeedTxid.GetHex());
+
+        if (!oracle.val->SupportsPair(token->symbol,"USD"))
+            return Res::Err("oracle (%s) does not conntain USD price for this token!", collToken.priceFeedTxid.GetHex());
+
+        if (!collToken.activateAfterBlock)
+            collToken.activateAfterBlock = height;
+        if (collToken.activateAfterBlock < height)
+            return Res::Err("activateAfterBlock cannot be less than current height!");
+
+        return mnview.LoanCreateSetCollateralToken(collToken);
+    }
+
+    Res operator()(const CLoanSetLoanTokenMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        CLoanSetLoanTokenImplementation loanToken;
+        static_cast<CLoanSetLoanToken&>(loanToken) = obj;
+
+        loanToken.creationTx = tx.GetHash();
+        loanToken.creationHeight = height;
+
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        auto oracle = mnview.GetOracleData(loanToken.priceFeedTxid);
+        if (!oracle)
+            return Res::Err("oracle (%s) does not exist or not valid oracle!", loanToken.priceFeedTxid.GetHex());
+
+        if (!oracle.val->SupportsPair(loanToken.symbol,"USD"))
+            return Res::Err("oracle (%s) does not conntain USD price for this token!", loanToken.priceFeedTxid.GetHex());
+
+
+        CTokenImplementation token;
+        token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
+        token.flags |= (uint8_t)CToken::TokenFlags::LoanToken | (uint8_t)CToken::TokenFlags::DAT;
+
+        token.symbol = trim_ws(loanToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        token.name = trim_ws(loanToken.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        token.creationTx = tx.GetHash();
+        token.creationHeight = height;
+
+        auto tokenId = mnview.CreateToken(token, false);
+        if (!tokenId) {
+            return std::move(tokenId);
+        }
+
+        return mnview.LoanSetLoanToken(loanToken, *(tokenId.val));
+    }
+
+    Res operator()(const CLoanUpdateLoanTokenMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        auto loanToken = mnview.GetLoanSetLoanToken(obj.tokenTx);
+        if (!loanToken)
+            return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
+
+        if (obj.priceFeedTxid != loanToken->priceFeedTxid && !mnview.GetOracleData(obj.priceFeedTxid))
+            return Res::Err("oracle (%s) does not exist!", obj.priceFeedTxid.GetHex());
+        loanToken->priceFeedTxid = obj.priceFeedTxid;
+
+        if (obj.mintable != loanToken->mintable)
+            loanToken->mintable = obj.mintable;
+        if (obj.interest != loanToken->interest)
+            loanToken->interest = obj.interest;
+
+        auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
+        if (!pair)
+            return Res::Err("Loan token (%s) does not exist!", obj.tokenTx.GetHex());
+
+        if (obj.symbol != pair->second.symbol)
+            pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);;
+        if (obj.name != pair->second.name)
+            pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        if (obj.mintable != pair->second.flags && (uint8_t)CToken::TokenFlags::Mintable)
+            pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
+
+        res = mnview.UpdateToken(pair->second.creationTx, static_cast<CToken>(pair->second), false);
+        if (!res)
+            return res;
+
+        return mnview.LoanUpdateLoanToken(*loanToken, pair->first);
+    }
+
+    Res operator()(const CLoanSchemeMessage& obj) const {
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        if (obj.ratio < 100) {
+            return Res::Err("minimum collateral ratio cannot be less than 100");
+        }
+
+        if (obj.rate < 1000000) {
+            return Res::Err("interest rate cannot be less than 0.01");
+        }
+
+        if (obj.identifier.empty() || obj.identifier.length() > 8) {
+            return Res::Err("id cannot be empty or more than 8 chars long");
+        }
+
+        // Look for loan scheme which already has matching rate and ratio
+        bool duplicateLoan = false;
+        std::string duplicateID;
+        mnview.ForEachLoanScheme([&](const std::string& key, const CLoanSchemeData& data)
+        {
+            // Duplicate scheme already exists
+            if (data.ratio == obj.ratio && data.rate == obj.rate) {
+                duplicateLoan = true;
+                duplicateID = key;
+                return false;
+            }
+            return true;
+        });
+
+        if (duplicateLoan) {
+            return Res::Err("Loan scheme %s with same interestrate and mincolratio already exists", duplicateID);
+        } else {
+            // Look for delayed loan scheme which already has matching rate and ratio
+            std::pair<std::string, uint64_t> duplicateKey;
+            mnview.ForEachDelayedLoanScheme([&](const std::pair<std::string, uint64_t>& key, const CLoanSchemeMessage& data)
+            {
+                // Duplicate delayed loan scheme
+                if (data.ratio == obj.ratio && data.rate == obj.rate) {
+                    duplicateLoan = true;
+                    duplicateKey = key;
+                    return false;
+                }
+                return true;
+            });
+
+            if (duplicateLoan) {
+                return Res::Err("Loan scheme %s with same interestrate and mincolratio pending on block %d", duplicateKey.first, duplicateKey.second);
+            }
+        }
+
+        // New loan scheme, no duplicate expected.
+        if (mnview.GetLoanScheme(obj.identifier)) {
+            if (!obj.updateHeight) {
+                return Res::Err("Loan scheme already exist with id %s", obj.identifier);
+            }
+        } else if (obj.updateHeight) {
+            return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
+        }
+
+        // Update set, not max uint64_t which indicates immediate update and not updated on this block.
+        if (obj.updateHeight && obj.updateHeight != std::numeric_limits<uint64_t>::max() && obj.updateHeight != height) {
+            if (obj.updateHeight < height) {
+                return Res::Err("Update height below current block height, set future height");
+            }
+
+            return mnview.StoreDelayedLoanScheme(obj);
+        }
+
+        // If no default yet exist set this one as default.
+        if (!mnview.Exists(CLoanView::DefaultLoanSchemeKey::prefix())) {
+            mnview.StoreDefaultLoanScheme(obj.identifier);
+        }
+
+        return mnview.StoreLoanScheme(obj);
+    }
+
+    Res operator()(const CDefaultLoanSchemeMessage& obj) const {
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        if (obj.identifier.empty() || obj.identifier.length() > 8) {
+            return Res::Err("id cannot be empty or more than 8 chars long");
+        }
+
+        if (!mnview.GetLoanScheme(obj.identifier)) {
+            return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
+        }
+
+        const auto currentID = mnview.GetDefaultLoanScheme();
+        if (currentID && *currentID == obj.identifier) {
+            return Res::Err("Loan scheme with id %s is already set as default", obj.identifier);
+        }
+
+        if (auto height = mnview.GetDestroyLoanScheme(obj.identifier)) {
+            return Res::Err("Cannot set %s as default, set to destroyed on block %d", obj.identifier, *height);
+        }
+
+        return mnview.StoreDefaultLoanScheme(obj.identifier);;
+    }
+
+    Res operator()(const CDestroyLoanSchemeMessage& obj) const {
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member!");
+        }
+
+        if (obj.identifier.empty() || obj.identifier.length() > 8) {
+            return Res::Err("id cannot be empty or more than 8 chars long");
+        }
+
+        if (!mnview.GetLoanScheme(obj.identifier)) {
+            return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
+        }
+
+        const auto currentID = mnview.GetDefaultLoanScheme();
+        if (currentID && *currentID == obj.identifier) {
+            return Res::Err("Cannot destroy default loan scheme, set new default first");
+        }
+
+        // Update set and not updated on this block.
+        if (obj.height && obj.height != height) {
+            if (obj.height < height) {
+                return Res::Err("Destruction height below current block height, set future height");
+            }
+
+            return mnview.StoreDelayedDestroyScheme(obj);
+        }
+
+        return mnview.EraseLoanScheme(obj.identifier);
+    }
+
+    Res operator()(const CVaultMessage& obj) const {
+        auto vault = obj;
+
+        // owner auth
+        if (!HasAuth(obj.ownerAddress)) {
+            return Res::Err("tx must have at least one input from token owner %s", obj.ownerAddress.GetHex());
+        }
+
+        // set loan scheme to default if non provided
+        if(obj.schemeId.empty()){
+            if (auto defaultScheme = mnview.GetDefaultLoanScheme()){
+                vault.schemeId = *defaultScheme;
+            } else {
+                return Res::Err("There is not default loan scheme");
+            }
+        }
+
+        // loan scheme exists
+        if (!mnview.GetLoanScheme(vault.schemeId)) {
+            return Res::Err("Cannot find existing loan scheme with id %s", vault.schemeId);
+        }
+
+        // check loan scheme is not to be destroyed
+        if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId)) {
+            return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
+        }
+
+        auto vaultId = tx.GetHash();
+        return mnview.StoreVault(vaultId, vault);
+    }
+
+    Res operator()(const CUpdateVaultMessage& obj) const {
+
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+
+        // vault under liquidation
+        if(vault.val->isUnderLiquidation)
+            return Res::Err("Cannot update vault under liquidation");
+
+        // owner auth
+        if (!HasAuth(vault.val->ownerAddress)) {
+            return Res::Err("tx must have at least one input from token owner");
+        }
+
+        // loan scheme exists
+        if (!mnview.GetLoanScheme(obj.schemeId))
+            return Res::Err("Cannot find existing loan scheme with id %s", obj.schemeId);
+
+        // loan scheme is not set to be destroyed
+        if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId)) {
+            return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
+        }
+
+        if (vault.val->schemeId != obj.schemeId)
+            mnview.TransferVaultInterest(obj.vaultId, height, vault.val->schemeId, obj.schemeId);
+
+        vault.val->schemeId = obj.schemeId;
+        vault.val->ownerAddress = obj.ownerAddress;
+        return mnview.StoreVault(obj.vaultId, *vault.val);
+    }
+
+    Res operator()(const CDepositToVaultMessage& obj) const {
+        // owner auth
+        if (!HasAuth(obj.from)) {
+            return Res::Err("tx must have at least one input from token owner");
+        }
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+
+        // vault under liquidation
+        if(vault.val->isUnderLiquidation)
+            return Res::Err("Cannot deposit to vault under liquidation");
+
+        //check balance
+        CalculateOwnerRewards(obj.from);
+        auto resSub = mnview.SubBalance(obj.from, obj.amount);
+        if (!resSub)
+            return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), resSub.msg);
+
+        //check first deposit DFI
+        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+        if (!collaterals && obj.amount.nTokenId != DCT_ID{0})
+            return Res::Err("First deposit must be in DFI");
+
+        auto res = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
+        if (!res || obj.amount.nTokenId == DCT_ID{0})
+            return res;
+
+        // Update collaterals after success AddVaultCollateral()
+        collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+        CAmount totalDFI = 0, totalCollaterals = 0;
+        for (const auto& col : collaterals->balances) {
+
+            auto loanSetCollToken = mnview.HasLoanSetCollateralToken({col.first, height}); // for priceFeedId
+            if (!loanSetCollToken)
+                return Res::Err("Token with id %s does not exist as collateral token", loanSetCollToken->idToken.ToString());
+
+            auto cToken = mnview.GetToken(loanSetCollToken->idToken); // for symbol
+            if (!cToken)
+                return Res::Err("token %s does not exist.", cToken->symbol);
+
+            auto oracle = mnview.GetOracleData(loanSetCollToken->priceFeedTxid);
+            if (!oracle)
+                return Res::Err("oracle <%s> not found.", loanSetCollToken->priceFeedTxid.GetHex());
+
+            auto price = oracle.val->GetTokenPrice(cToken->symbol, "USD");
+            if (!price)
+                return Res::Err("oracle <%s> does not provide %s/USD price.", loanSetCollToken->priceFeedTxid.GetHex(), cToken->symbol);
+
+            auto amount = MultiplyAmounts(*price.val, col.second);
+
+            if (cToken->symbol == "DFI")
+                totalDFI += amount;
+
+            totalCollaterals += amount;
+        }
+
+        if (totalDFI < totalCollaterals / 2)
+            return Res::Err("At least 50%% of the vault must be in DFI.");
+
+        return Res::Ok();
+    }
+
+    Res operator()(const CLoanTakeLoanMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        CLoanTakeLoanImplementation takeLoan;
+        static_cast<CLoanTakeLoan&>(takeLoan) = obj;
+
+        takeLoan.creationHeight = height;
+        takeLoan.creationTx = tx.GetHash();
+
+        const auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+
+        if(vault.val->isUnderLiquidation)
+            return Res::Err("Cannot take loan on vault under liquidation");
+
+        // vault owner auth
+        if (!HasAuth(vault.val->ownerAddress)) {
+            return Res::Err("tx must have at least one input from vault owner");
+        }
+
+        auto scheme = mnview.GetLoanScheme(vault.val->schemeId);
+
+        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+
+        if (!collaterals)
+            return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
+
+        for (const auto& kv : obj.amounts.balances)
+        {
+            DCT_ID tokenId = kv.first;
+            auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
+            if (!loanToken)
+                return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
+
+            if (!loanToken->mintable)
+                return Res::Err("Loan cannot be taken on token with id (%s) as \"mintable\" is currently false",tokenId.ToString());
+
+            res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{kv.first, kv.second});
+            if (!res)
+                return res;
+
+            res = mnview.StoreInterest(height, obj.vaultId, vault.val->schemeId, tokenId);
+            if (!res)
+                return res;
+
+            auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height);
+            if (!rate || rate->ratio() < scheme->ratio)
+                return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate->ratio(), scheme->ratio);
+
+            res = mnview.AddMintedTokens(loanToken->creationTx, kv.second);
+            if (!res)
+                return res;
+
+            CalculateOwnerRewards(vault.val->ownerAddress);
+
+            res = mnview.AddBalance(vault.val->ownerAddress, CTokenAmount{kv.first, kv.second});
+            if (!res)
+                return res;
+        }
+
+        // Write take loan to storage
+        mnview.SetLoanTakeLoan(takeLoan);
+
+        return Res::Ok();
+    }
+
+    Res operator()(const CAuctionBidMessage& obj) const {
+        // owner auth
+        if (!HasAuth(obj.from)) {
+            return Res::Err("tx must have at least one input from token owner");
+        }
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+
+        // vault under liquidation
+        if (!vault.val->isUnderLiquidation)
+            return Res::Err("Cannot bid to vault which is not under liquidation");
+
+        auto data = mnview.GetAuction(obj.vaultId, height);
+        if (!data)
+            return Res::Err("No auction data to vault %s", obj.vaultId.GetHex());
+
+        auto batch = mnview.GetAuctionBatch(obj.vaultId, obj.index);
+        if (!batch)
+            return Res::Err("No batch to vault/index %s/%d", obj.vaultId.GetHex(), obj.index);
+
+        if (obj.amount.nTokenId != batch->loanAmount.nTokenId)
+            return Res::Err("Bid token does not match auction one");
+
+        auto bid = mnview.GetAuctionBid(obj.vaultId, obj.index);
+        if (!bid) {
+            auto amount = MultiplyAmounts(batch->loanAmount.nValue,  COIN + data->liquidationPenalty);
+            if (amount > obj.amount.nValue)
+                return Res::Err("First bid should include liquidation penalty of %d%%", data->liquidationPenalty * 100 / COIN);
+        } else {
+            auto amount = MultiplyAmounts(bid->second.nValue,  COIN + (COIN / 100));
+            if (amount > obj.amount.nValue)
+                return Res::Err("Bid override should be at least 1%% higher than current one");
+            // immediate refund previous bid
+            CalculateOwnerRewards(bid->first);
+            mnview.AddBalance(bid->first, bid->second);
+        }
+        //check balance
+        CalculateOwnerRewards(obj.from);
+        auto res = mnview.SubBalance(obj.from, obj.amount);
+        return !res ? res : mnview.StoreAuctionBid(obj.vaultId, obj.index, {obj.from, obj.amount});
     }
 
     Res operator()(const CCreatePropMessage& obj) const {
@@ -2205,4 +2763,202 @@ bool IsMempooledCustomTxCreate(const CTxMemPool & pool, const uint256 & txid)
         return txType == CustomTxType::CreateMasternode || txType == CustomTxType::CreateToken;
     }
     return false;
+}
+
+std::vector<DCT_ID> CPoolSwap::CalculateSwaps(CCustomCSView& view) {
+
+    // For tokens to be traded get all pairs and pool IDs
+    std::multimap<uint32_t, DCT_ID> fromPoolsID, toPoolsID;
+    view.ForEachPoolPair([&](DCT_ID const & id, const CPoolPair& pool) {
+        if (pool.idTokenA == obj.idTokenFrom) {
+            fromPoolsID.emplace(pool.idTokenB.v, id);
+        } else if (pool.idTokenB == obj.idTokenFrom) {
+            fromPoolsID.emplace(pool.idTokenA.v, id);
+        }
+
+        if (pool.idTokenA == obj.idTokenTo) {
+            toPoolsID.emplace(pool.idTokenB.v, id);
+        } else if (pool.idTokenB == obj.idTokenTo) {
+            toPoolsID.emplace(pool.idTokenA.v, id);
+        }
+        return true;
+    }, {0});
+
+    if (fromPoolsID.empty() || toPoolsID.empty()) {
+        return {};
+    }
+
+    // Find intersection on key
+    std::map<uint32_t, DCT_ID> commonPairs;
+    set_intersection(fromPoolsID.begin(), fromPoolsID.end(), toPoolsID.begin(), toPoolsID.end(),
+                     std::inserter(commonPairs, commonPairs.begin()),
+                     [](std::pair<uint32_t, DCT_ID> a, std::pair<uint32_t, DCT_ID> b) {
+        return a.first < b.first;
+    });
+
+    // Loop through all common pairs and record direct pool to pool swaps
+    std::vector<std::vector<DCT_ID>> poolPaths;
+    for (const auto& item : commonPairs) {
+
+        // Loop through all source/intermediate pools matching common pairs
+        const auto poolFromIDs = fromPoolsID.equal_range(item.first);
+        for (auto fromID = poolFromIDs.first; fromID != poolFromIDs.second; ++fromID) {
+
+            // Loop through all destination pools matching common pairs
+            const auto poolToIDs = toPoolsID.equal_range(item.first);
+            for (auto toID = poolToIDs.first; toID != poolToIDs.second; ++toID) {
+
+                // Add to pool paths
+                poolPaths.push_back({fromID->second, toID->second});
+            }
+        }
+    }
+
+    // Look for pools that bridges token. Might be in addition to common token pairs paths.
+    view.ForEachPoolPair([&](DCT_ID const & id, const CPoolPair& pool) {
+
+        // Loop through from pool multimap on unique keys only
+        for (auto fromIt = fromPoolsID.begin(); fromIt != fromPoolsID.end(); fromIt = fromPoolsID.equal_range(fromIt->first).second) {
+
+            // Loop through to pool multimap on unique keys only
+            for (auto toIt = toPoolsID.begin(); toIt != toPoolsID.end(); toIt = toPoolsID.equal_range(toIt->first).second) {
+
+                // If a pool pairs matches from pair and to pair add it to the pool paths
+                if ((fromIt->first == pool.idTokenA.v && toIt->first == pool.idTokenB.v) ||
+                (fromIt->first == pool.idTokenB.v && toIt->first == pool.idTokenA.v)) {
+                    poolPaths.push_back({fromIt->second, id, toIt->second});
+                }
+            }
+        }
+        return true;
+    }, {0});
+
+    // Record best pair
+    std::pair<std::vector<DCT_ID>, CAmount> bestPair{{}, 0};
+
+    // Loop through all common pairs
+    for (const auto& path : poolPaths) {
+
+        // Test on copy of view
+        CCustomCSView dummy(view);
+
+        // Execute pool path
+        auto res = ExecuteSwap(dummy, path);
+
+        // Add error for RPC user feedback
+        if (!res) {
+            const auto token = dummy.GetToken(currentID);
+            if (token) {
+                errors.emplace_back(token->symbol, res.msg);
+            }
+        }
+
+        // Record amount if more than previous or default value
+        if (res && result > bestPair.second) {
+            bestPair = {path, result};
+        }
+    }
+
+    return bestPair.first;
+}
+
+Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
+
+    CTokenAmount swapAmountResult{{},0};
+    Res poolResult = Res::Ok();
+
+    // No composite swap allowed before Fort Canning
+    if (height < Params().GetConsensus().FortCanningHeight && !poolIDs.empty()) {
+        poolIDs.clear();
+    }
+
+    CCustomCSView intermediateView(view);
+
+    // Single swap if no pool IDs provided
+    auto poolPrice = POOLPRICE_MAX;
+    boost::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
+    if (poolIDs.empty()) {
+        poolPair = intermediateView.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
+        if (!poolPair) {
+            return Res::Err("Cannot find the pool pair.");
+        }
+
+        // Add single swap pool to vector for loop
+        poolIDs.push_back(poolPair->first);
+
+        // Get legacy max price
+        poolPrice = obj.maxPrice;
+    }
+
+    for (size_t i{0}; i < poolIDs.size(); ++i) {
+
+        // Also used to generate pool specific error messages for RPC users
+        currentID = poolIDs[i];
+
+        // Use single swap pool if already found
+        boost::optional<CPoolPair> pool;
+        if (poolPair) {
+            pool = poolPair->second;
+        }
+        else // Or get pools from IDs provided for composite swap
+        {
+            pool = intermediateView.GetPoolPair(currentID);
+            if (!pool) {
+                return Res::Err("Cannot find the pool pair.");
+            }
+        }
+
+        // Set amount to be swapped in pool
+        CTokenAmount swapAmount{obj.idTokenFrom, obj.amountFrom};
+
+        // If set use amount from previous loop
+        if (swapAmountResult.nValue != 0) {
+            swapAmount = swapAmountResult;
+        }
+
+        // Check if last pool swap
+        bool lastSwap = i + 1 == poolIDs.size();
+
+        // Perform swap
+        poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
+            auto res = intermediateView.SetPoolPair(currentID, height, *pool);
+            if (!res) {
+                return res;
+            }
+
+            // Update owner rewards if not being called from RPC
+            intermediateView.CalculateOwnerRewards(obj.from, height);
+
+            if (lastSwap) {
+                intermediateView.CalculateOwnerRewards(obj.to, height);
+            }
+
+            // Save swap amount for next loop
+            swapAmountResult = tokenAmount;
+
+            // Update balances
+            res = intermediateView.SubBalance(obj.from, swapAmount);
+            return !res ? res : intermediateView.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
+            }, static_cast<int>(height));
+
+        if (!poolResult) {
+            return poolResult;
+        }
+    }
+
+    // Reject if price paid post-swap above max price provided
+    if (height >= Params().GetConsensus().FortCanningHeight && obj.maxPrice != POOLPRICE_MAX) {
+        const CAmount userMaxPrice = obj.maxPrice.integer * COIN + obj.maxPrice.fraction;
+        if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {
+            return Res::Err("Price is higher than indicated.");
+        }
+    }
+
+    // Flush changes
+    intermediateView.Flush();
+
+    // Assign to result for loop testing best pool swap result
+    result = swapAmountResult.nValue;
+
+    return poolResult;
 }

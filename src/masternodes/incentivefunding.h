@@ -46,7 +46,7 @@ public:
     Res SubCommunityBalance(CommunityAccountType account, CAmount amount);
 
     // tags
-    struct ById { static const unsigned char prefix; };
+    struct ById { static constexpr uint8_t prefix() { return 'F'; } };
 };
 
 #endif //DEFI_MASTERNODES_INCENTIVEFUNDING_H

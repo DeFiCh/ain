@@ -162,16 +162,18 @@ DEFI_CORE_H = \
   masternodes/gv.h \
   masternodes/icxorder.h \
   masternodes/incentivefunding.h \
+  masternodes/loan.h \
   masternodes/masternodes.h \
   masternodes/mn_checks.h \
   masternodes/mn_rpc.h \
   masternodes/res.h \
-  masternodes/tokens.h \
+  masternodes/oracles.h \
   masternodes/poolpairs.h \
   masternodes/proposals.h \
+  masternodes/tokens.h \
   masternodes/undo.h \
   masternodes/undos.h \
-  masternodes/oracles.h \
+  masternodes/vault.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -373,6 +375,7 @@ libdefi_server_a_SOURCES = \
   masternodes/gv.cpp \
   masternodes/icxorder.cpp \
   masternodes/incentivefunding.cpp \
+  masternodes/loan.cpp \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
@@ -380,15 +383,18 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_customtx.cpp \
   masternodes/rpc_masternodes.cpp \
   masternodes/rpc_icxorderbook.cpp \
+  masternodes/rpc_loan.cpp \
   masternodes/rpc_oracles.cpp \
   masternodes/rpc_poolpair.cpp \
   masternodes/rpc_proposals.cpp \
   masternodes/rpc_tokens.cpp \
+  masternodes/rpc_vault.cpp \
   masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
   masternodes/proposals.cpp \
   masternodes/skipped_txs.cpp \
   masternodes/undos.cpp \
+  masternodes/vault.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \

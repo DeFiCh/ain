@@ -6,10 +6,11 @@
 #ifndef DEFI_AMOUNT_H
 #define DEFI_AMOUNT_H
 
+#include <arith_uint256.h>
+#include <masternodes/res.h>
+#include <serialize.h>
 #include <stdint.h>
 #include <util/strencodings.h>
-#include <serialize.h>
-#include <masternodes/res.h>
 
 #include <map>
 
@@ -76,7 +77,7 @@ struct DCT_ID {
 
 static const CAmount COIN = 100000000;
 
-//Converts the given value to decimal format string with COIN precision. 
+//Converts the given value to decimal format string with COIN precision.
 inline std::string GetDecimaleString(CAmount nValue)
 {
     const bool sign = nValue < 0;
@@ -103,6 +104,16 @@ inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
         return Res::Err("overflow");
     }
     return {(CAmount) sum, Res::Ok()};
+}
+
+inline CAmount MultiplyAmounts(CAmount a, CAmount b)
+{
+    return (arith_uint256(a) * arith_uint256(b) / arith_uint256(COIN)).GetLow64();
+}
+
+inline CAmount DivideAmounts(CAmount a, CAmount b)
+{
+    return (arith_uint256(a) * arith_uint256(COIN) / arith_uint256(b)).GetLow64();
 }
 
 struct CTokenAmount { // simple std::pair is less informative

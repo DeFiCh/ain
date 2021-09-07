@@ -23,6 +23,7 @@ class CToken
 public:
     static const uint8_t MAX_TOKEN_NAME_LENGTH = 128;
     static const uint8_t MAX_TOKEN_SYMBOL_LENGTH = 8;
+    static const uint8_t MAX_TOKEN_POOLPAIR_LENGTH = 16;
     enum class TokenFlags : uint8_t
     {
         None = 0,
@@ -31,6 +32,7 @@ public:
         DAT = 0x04,
         LPS = 0x08, // Liquidity Pool Share
         Finalized = 0x10, // locked forever
+        LoanToken = 0x20, // token created for loan
         Default = TokenFlags::Mintable | TokenFlags::Tradeable
     };
 
@@ -69,6 +71,10 @@ public:
     inline bool IsFinalized() const
     {
         return flags & (uint8_t)TokenFlags::Finalized;
+    }
+    inline bool IsLoanToken () const
+    {
+        return flags & (uint8_t)TokenFlags::LoanToken;
     }
     inline Res IsValidSymbol() const
     {
@@ -153,10 +159,10 @@ public:
     Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
 
     // tags
-    struct ID { static const unsigned char prefix; };
-    struct Symbol { static const unsigned char prefix; };
-    struct CreationTx { static const unsigned char prefix; };
-    struct LastDctId { static const unsigned char prefix; };
+    struct ID           { static constexpr uint8_t prefix() { return 'T'; } };
+    struct Symbol       { static constexpr uint8_t prefix() { return 'S'; } };
+    struct CreationTx   { static constexpr uint8_t prefix() { return 'c'; } };
+    struct LastDctId    { static constexpr uint8_t prefix() { return 'L'; } };
 
 private:
     // have to incapsulate "last token id" related methods here

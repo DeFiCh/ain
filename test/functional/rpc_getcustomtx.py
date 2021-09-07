@@ -15,9 +15,9 @@ class TokensRPCGetCustomTX(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120'], # Wallet TXs
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-txindex=1'], # Transaction index
-                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120']] # Will not find historical TXs
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-fortcanningheight=120'], # Wallet TXs
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-fortcanningheight=120', '-txindex=1'], # Transaction index
+                           ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50', '-dakotaheight=120', '-fortcanningheight=120']] # Will not find historical TXs
 
     def run_test(self):
         self.nodes[0].generate(101)
@@ -468,6 +468,63 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result['valid'], True)
         assert_equal(result['results']['collateralamount'], Decimal("2.00000000"))
         assert_equal(result['results']['masternodeoperator'], collateral)
+        assert_equal(result['blockHeight'], blockheight)
+        assert_equal(result['blockhash'], blockhash)
+        assert_equal(result['confirmations'], 1)
+
+        # Test set loan scheme
+        loan_txid = self.nodes[0].createloanscheme(1000, 0.5, 'LOANMAX')
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # Get block hash and height of update tx
+        blockheight = self.nodes[0].getblockcount()
+        blockhash = self.nodes[0].getblockhash(blockheight)
+
+        # Get custom TX
+        result = self.nodes[1].getcustomtx(loan_txid)
+        assert_equal(result['type'], "LoanScheme")
+        assert_equal(result['valid'], True)
+        assert_equal(result['results']['id'], "LOANMAX")
+        assert_equal(result['results']['mincolratio'], 1000)
+        assert_equal(result['results']['interestrate'], Decimal("0.50000000"))
+        assert_equal(result['results']['updateHeight'], False)
+        assert_equal(result['blockHeight'], blockheight)
+        assert_equal(result['blockhash'], blockhash)
+        assert_equal(result['confirmations'], 1)
+
+        # Test changing the loan scheme
+        self.nodes[0].createloanscheme(100, 5, 'LOAN001')
+        self.nodes[0].generate(1)
+        default_txid = self.nodes[0].setdefaultloanscheme('LOAN001')
+        self.nodes[0].generate(1)
+
+        # Get block hash and height of update tx
+        blockheight = self.nodes[0].getblockcount()
+        blockhash = self.nodes[0].getblockhash(blockheight)
+
+        # Get custom TX
+        result = self.nodes[1].getcustomtx(default_txid)
+        assert_equal(result['type'], "DefaultLoanScheme")
+        assert_equal(result['valid'], True)
+        assert_equal(result['results']['id'], "LOAN001")
+        assert_equal(result['blockHeight'], blockheight)
+        assert_equal(result['blockhash'], blockhash)
+        assert_equal(result['confirmations'], 1)
+
+        # Test destroying a loan scheme
+        destroy_txid = self.nodes[0].destroyloanscheme('LOANMAX')
+        self.nodes[0].generate(1)
+
+        # Get block hash and height of update tx
+        blockheight = self.nodes[0].getblockcount()
+        blockhash = self.nodes[0].getblockhash(blockheight)
+
+        # Get custom TX
+        result = self.nodes[1].getcustomtx(destroy_txid)
+        assert_equal(result['type'], "DestroyLoanScheme")
+        assert_equal(result['valid'], True)
+        assert_equal(result['results']['id'], "LOANMAX")
         assert_equal(result['blockHeight'], blockheight)
         assert_equal(result['blockhash'], blockhash)
         assert_equal(result['confirmations'], 1)

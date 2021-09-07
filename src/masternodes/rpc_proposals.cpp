@@ -97,7 +97,7 @@ UniValue createcfp(const JSONRPCRequest& request)
     }
 
     if (!data["amount"].isNull()) {
-        amount = data["amount"].get_int() * COIN;
+        amount = AmountFromValue(data["amount"]);
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<amount> is required");
     }
@@ -297,7 +297,7 @@ UniValue vote(const JSONRPCRequest& request)
     auto mnId = ParseHashV(request.params[1].get_str(), "masternodeId");
     auto vote = CPropVoteType::VoteNeutral;
 
-    auto voteStr = request.params[2].get_str();
+    auto voteStr = ToLower(request.params[2].get_str());
     if (voteStr == "no") {
         vote = CPropVoteType::VoteNo;
     } else if (voteStr == "yes") {

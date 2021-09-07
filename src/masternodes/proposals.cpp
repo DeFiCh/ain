@@ -4,11 +4,6 @@
 
 #include <masternodes/proposals.h>
 
-const unsigned char CPropsView::ByType::prefix = 0x10;
-const unsigned char CPropsView::ByCycle::prefix = 0x11;
-const unsigned char CPropsView::ByMnVote::prefix = 0x12;
-const unsigned char CPropsView::ByStatus::prefix = 0x13;
-
 std::string CPropTypeToString(const CPropType status)
 {
     switch(status) {
