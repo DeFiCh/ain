@@ -25,7 +25,25 @@ class LoanTest (DefiTestFramework):
             ]
 
     def run_test(self):
-        self.nodes[0].generate(219)
+        self.nodes[0].generate(120)
+        self.nodes[0].createloanscheme(200, 1, 'LOAN0001')
+        self.nodes[0].createloanscheme(150, 0.5, 'LOAN0002')
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setdefaultloanscheme('LOAN0001')
+        self.nodes[0].generate(1)
+
+        vaultId1 = self.nodes[0].createvault('') # default loan scheme
+        self.nodes[0].generate(1)
+
+        vault1 = self.nodes[0].getvault(vaultId1)
+
+        # Prepare tokens for deposittoloan/takeloan
+        assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
+
+        print("Generating initial chain...")
+        self.nodes[0].generate(100)
+
         self.nodes[0].createtoken({
             "symbol": "BTC",
             "name": "BTC token",
@@ -68,21 +86,13 @@ class LoanTest (DefiTestFramework):
                                     'priceFeedId': oracle_id1})
         self.nodes[0].generate(1)
 
-        # Create loan schemes
-        self.nodes[0].createloanscheme(200, 1, 'LOAN0001')
-        self.nodes[0].generate(1)
-        self.nodes[0].createloanscheme(150, 0.5, 'LOAN0002')
-        self.nodes[0].generate(1)
-
-        # Create vault
-        vaultId1 = self.nodes[0].createvault('') # default loan scheme
-        self.nodes[0].generate(1)
-
         # deposit DFI and BTC to vault1
-        self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
+        self.nodes[0].deposittovault(vaultId1, accountDFI, '1000@DFI')
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId1, account, '1000@BTC')
+        self.nodes[0].deposittovault(vaultId1, accountBTC, '1000@BTC')
         self.nodes[0].generate(1)
+
+        vault1 = self.nodes[0].getvault(vaultId1)
 
         # set TSLA as loan token
         self.nodes[0].setloantoken({
