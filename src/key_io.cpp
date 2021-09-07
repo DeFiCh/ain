@@ -5,13 +5,10 @@
 #include <base58.h>
 #include <bech32.h>
 #include <chainparams.h>
-#include <script/script.h>
 #include <util/strencodings.h>
 
-#include <algorithm>
 #include <assert.h>
 #include <string.h>
-#include <algorithm>
 
 namespace {
 class DestinationEncoder
