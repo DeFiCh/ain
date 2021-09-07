@@ -89,12 +89,19 @@ class CreateLoanSchemeTest (DefiTestFramework):
         self.nodes[0].createloanscheme(150, 5, 'LOAN0001')
         self.nodes[0].generate(1)
 
-        # Try getloanscheme with wron id
+        # Try to get a loan scheme with too long an ID
         try:
-            self.nodes[0].getloanscheme('FAKELOAN')
+            self.nodes[0].getloanscheme('scheme123')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot find existing loan scheme with id FAKELOAN" in errorString)
+        assert("id cannot be empty or more than 8 chars long" in errorString)
+
+        # Try getloanscheme with wrong id
+        try:
+            self.nodes[0].getloanscheme('scheme12')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Cannot find existing loan scheme with id " in errorString)
 
         # Get loan scheme
         loanscheme = self.nodes[0].getloanscheme('LOAN0001')

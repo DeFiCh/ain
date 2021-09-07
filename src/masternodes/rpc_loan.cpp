@@ -965,6 +965,9 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
 
     auto loanSchemeId = request.params[0].getValStr();
 
+    if (loanSchemeId.empty() || loanSchemeId.length() > 8)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "id cannot be empty or more than 8 chars long");
+
     LOCK(cs_main);
     auto loanScheme = pcustomcsview->GetLoanScheme(loanSchemeId);
     if (!loanScheme)
