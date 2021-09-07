@@ -2128,7 +2128,7 @@ public:
         CalculateOwnerRewards(obj.from);
         auto resSub = mnview.SubBalance(obj.from, obj.amount);
         if (!resSub)
-            return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", obj.from.GetHex(), resSub.msg);
+            return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), resSub.msg);
 
         //check first deposit DFI
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
