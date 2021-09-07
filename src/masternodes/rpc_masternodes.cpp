@@ -157,7 +157,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
     }
 
     // check type here cause need operatorAuthKey. all other validation (for owner for ex.) in further apply/create
-    if (operatorDest.which() != 1 && operatorDest.which() != 4) {
+    if (operatorDest.index() != 1 && operatorDest.index() != 4) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "operatorAddress (" + operatorAddress + ") does not refer to a P2PKH or P2WPKH address");
     }
 
@@ -165,11 +165,11 @@ UniValue createmasternode(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Address (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
     }
 
-    CKeyID const operatorAuthKey = operatorDest.which() == 1 ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest));
+    CKeyID const operatorAuthKey = operatorDest.index() == 1 ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
-             << static_cast<char>(operatorDest.which()) << operatorAuthKey;
+             << static_cast<char>(operatorDest.index()) << operatorAuthKey;
 
     if (eunosPaya) {
         metadata << timelock;
@@ -735,10 +735,10 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         CKeyID ownerAddressID;
         auto ownerAddress = identifier["ownerAddress"].getValStr();
         auto ownerDest = DecodeDestination(ownerAddress);
-        if (ownerDest.which() == 1) {
-            ownerAddressID = CKeyID(*boost::get<PKHash>(&ownerDest));
-        } else if (ownerDest.which() == WitV0KeyHashType) {
-            ownerAddressID = CKeyID(*boost::get<WitnessV0KeyHash>(&ownerDest));
+        if (ownerDest.index() == 1) {
+            ownerAddressID = CKeyID(std::get<PKHash>(ownerDest));
+        } else if (ownerDest.index() == WitV0KeyHashType) {
+            ownerAddressID = CKeyID(std::get<WitnessV0KeyHash>(ownerDest));
         } else {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid P2PKH address");
         }
@@ -754,10 +754,10 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
         CKeyID operatorAddressID;
         auto operatorAddress = identifier["operatorAddress"].getValStr();
         auto operatorDest = DecodeDestination(operatorAddress);
-        if (operatorDest.which() == 1) {
-            operatorAddressID = CKeyID(*boost::get<PKHash>(&operatorDest));
-        } else if (operatorDest.which() == WitV0KeyHashType) {
-            operatorAddressID = CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest));
+        if (operatorDest.index() == 1) {
+            operatorAddressID = CKeyID(std::get<PKHash>(operatorDest));
+        } else if (operatorDest.index() == WitV0KeyHashType) {
+            operatorAddressID = CKeyID(std::get<WitnessV0KeyHash>(operatorDest));
         } else {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid P2PKH address");
         }

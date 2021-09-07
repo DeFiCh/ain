@@ -32,15 +32,15 @@ std::vector<CTransactionRef> CChainParams::CreateGenesisMasternodes()
         txNew.vin[0].scriptSig = CScript(); // << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
 
         CTxDestination operatorDest = DecodeDestination(addrs.operatorAddress, *this);
-        assert(operatorDest.which() == PKHashType || operatorDest.which() == WitV0KeyHashType);
+        assert(operatorDest.index() == PKHashType || operatorDest.index() == WitV0KeyHashType);
         CTxDestination ownerDest = DecodeDestination(addrs.ownerAddress, *this);
-        assert(ownerDest.which() == PKHashType || ownerDest.which() == WitV0KeyHashType);
+        assert(ownerDest.index() == PKHashType || ownerDest.index() == WitV0KeyHashType);
 
-        CKeyID operatorAuthKey = operatorDest.which() == PKHashType ? CKeyID(*boost::get<PKHash>(&operatorDest)) : CKeyID(*boost::get<WitnessV0KeyHash>(&operatorDest)) ;
+        CKeyID operatorAuthKey = operatorDest.index() == PKHashType ? CKeyID(std::get<PKHash>(operatorDest)) : CKeyID(std::get<WitnessV0KeyHash>(operatorDest)) ;
         genesisTeam.insert(operatorAuthKey);
         CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
         metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode)
-                 << static_cast<char>(operatorDest.which()) << operatorAuthKey;
+                 << static_cast<char>(operatorDest.index()) << operatorAuthKey;
 
         CScript scriptMeta;
         scriptMeta << OP_RETURN << ToByteVector(metadata);

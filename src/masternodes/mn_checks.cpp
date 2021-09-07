@@ -162,7 +162,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
 
 extern std::string ScriptToString(CScript const& script);
 
-class CCustomMetadataParseVisitor : public boost::static_visitor<Res>
+class CCustomMetadataParseVisitor
 {
     uint32_t height;
     const Consensus::Params& consensus;
@@ -528,7 +528,7 @@ public:
     }
 };
 
-class CCustomTxVisitor : public boost::static_visitor<Res>
+class CCustomTxVisitor
 {
 protected:
     uint32_t height;
@@ -874,12 +874,12 @@ public:
         CMasternode node;
         CTxDestination dest;
         if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
-            if (dest.which() == PKHashType) {
+            if (dest.index() == PKHashType) {
                 node.ownerType = 1;
-                node.ownerAuthAddress = CKeyID(*boost::get<PKHash>(&dest));
-            } else if (dest.which() == WitV0KeyHashType) {
+                node.ownerAuthAddress = CKeyID(std::get<PKHash>(dest));
+            } else if (dest.index() == WitV0KeyHashType) {
                 node.ownerType = 4;
-                node.ownerAuthAddress = CKeyID(*boost::get<WitnessV0KeyHash>(&dest));
+                node.ownerAuthAddress = CKeyID(std::get<WitnessV0KeyHash>(dest));
             }
         }
         node.creationHeight = height;
@@ -2981,7 +2981,7 @@ public:
 
 Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, const std::vector<unsigned char>& metadata, CCustomTxMessage& txMessage) {
     try {
-        return boost::apply_visitor(CCustomMetadataParseVisitor(height, consensus, metadata), txMessage);
+        return std::visit(CCustomMetadataParseVisitor(height, consensus, metadata), txMessage);
     } catch (const std::exception& e) {
         return Res::Err(e.what());
     } catch (...) {
@@ -2991,8 +2991,8 @@ Res CustomMetadataParse(uint32_t height, const Consensus::Params& consensus, con
 
 Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage, uint64_t time) {
     try {
-        return boost::apply_visitor(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time), txMessage);
-    } catch (const std::exception& e) {
+        return std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time), txMessage);
+    } catch (const std::bad_variant_access& e) {
         return Res::Err(e.what());
     } catch (...) {
         return Res::Err("unexpected error");
@@ -3001,8 +3001,8 @@ Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
 
 Res CustomTxRevert(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTransaction& tx, uint32_t height, const Consensus::Params& consensus, const CCustomTxMessage& txMessage) {
     try {
-        return boost::apply_visitor(CCustomTxRevertVisitor(tx, height, coins, mnview, consensus), txMessage);
-    } catch (const std::exception& e) {
+        return std::visit(CCustomTxRevertVisitor(tx, height, coins, mnview, consensus), txMessage);
+    } catch (const std::bad_variant_access& e) {
         return Res::Err(e.what());
     } catch (...) {
         return Res::Err("unexpected error");
