@@ -320,11 +320,11 @@ class VaultTest (DefiTestFramework):
         acBTC = self.nodes[1].getaccount(accountBTC)
         assert_equal(acBTC, ['9.30000000@BTC'])
         self.nodes[0].setloantoken({
-                        'symbol': "TSLA",
-                        'name': "Tesla Token",
-                        'priceFeedId': oracle_id1,
-                        'mintable': True,
-                        'interest': 0.01})
+                            'symbol': "TSLA",
+                            'name': "Tesla Token",
+                            'priceFeedId': oracle_id1,
+                            'mintable': True,
+                            'interest': 0.01})
 
         self.nodes[0].generate(1)
         self.nodes[0].deposittovault(vaultId1, accountDFI, '0.3@DFI')
@@ -352,6 +352,19 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault1['loanAmount'], ['0.50000000@TSLA'])
         assert_equal(vault1['collateralValue'], Decimal(2.00000000))
         assert_greater_than(vault1['loanValue'],Decimal(0.5))
+
+        # make vault enter under liquidation state
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+        vault1 = self.nodes[0].getvault(vaultId1)
+
+        # check auction list is populated
+        listAcutions = self.nodes[0].listauctions()
+        assert_equal(len(listAcutions), 1)
 
 if __name__ == '__main__':
     VaultTest().main()
