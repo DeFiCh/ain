@@ -48,11 +48,7 @@ void CreateCollateralToken(CCustomCSView &mnview, DCT_ID id, const uint256& pric
 {
     CLoanSetCollateralTokenImplementation collateralToken;
     collateralToken.idToken = id;
-<<<<<<< HEAD
     collateralToken.factor = COIN;
-=======
-    collateralToken.factor = 1;
->>>>>>> 463074a1fe49b1ee04543ca169e96010a0e7cb0c
     collateralToken.creationHeight = 0;
     collateralToken.creationTx = NextTx();
     collateralToken.priceFeedTxid = priceTx;
