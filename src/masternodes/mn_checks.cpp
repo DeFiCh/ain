@@ -1905,7 +1905,7 @@ public:
             pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);;
         if (obj.name != pair->second.name)
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        if (obj.mintable != pair->second.flags && (uint8_t)CToken::TokenFlags::Mintable)
+        if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
 
         res = mnview.UpdateToken(pair->second.creationTx, static_cast<CToken>(pair->second), false);
