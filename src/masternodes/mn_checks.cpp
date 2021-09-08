@@ -1868,7 +1868,7 @@ public:
             return std::move(tokenId);
         }
 
-        if (!oracle.val->SupportsPair(loanToken.symbol,"USD"))
+        if (!oracle.val->SupportsPair(token.symbol,"USD"))
             return Res::Err("oracle (%s) does not contain USD price for this token!", loanToken.priceFeedTxid.GetHex());
 
         return mnview.LoanSetLoanToken(loanToken, *(tokenId.val));
@@ -1913,7 +1913,7 @@ public:
 
             if (!oracle)
                 return Res::Err("oracle (%s) does not exist!", obj.priceFeedTxid.GetHex());
-            if (!oracle.val->SupportsPair(loanToken->symbol,"USD"))
+            if (!oracle.val->SupportsPair(pair->second.symbol,"USD"))
                 return Res::Err("oracle (%s) does not contain USD price for this token!", loanToken->priceFeedTxid.GetHex());
 
             loanToken->priceFeedTxid = obj.priceFeedTxid;
