@@ -171,7 +171,7 @@ public:
         consensus.token.creationFee = 100 * COIN;
         consensus.token.collateralAmount = 1 * COIN;
 
-        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
+        consensus.spv.creationFee = 546; // Bitcoin's dust legacy addresses
         consensus.spv.anchorSubsidy = 0 * COIN;
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
@@ -389,7 +389,7 @@ public:
         consensus.token.creationFee = 100 * COIN;
         consensus.token.collateralAmount = 1 * COIN;
 
-        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
+        consensus.spv.creationFee = 546; // Bitcoin's dust legacy addresses
         consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY";
         consensus.spv.anchors_address = "mpAkq2LyaUvKrJm2agbswrkn3QG9febnqL";
         consensus.spv.anchorSubsidy = 0 * COIN;
@@ -567,7 +567,7 @@ public:
         consensus.token.creationFee = 100 * COIN;
         consensus.token.collateralAmount = 1 * COIN;
 
-        consensus.spv.creationFee = 100000; // should be > bitcoin's dust
+        consensus.spv.creationFee = 546; // Bitcoin's dust legacy addresses
         consensus.spv.wallet_xpub = "tpubD9RkyYW1ixvD9vXVpYB1ka8rPZJaEQoKraYN7YnxbBxxsRYEMZgRTDRGEo1MzQd7r5KWxH8eRaQDVDaDuT4GnWgGd17xbk6An6JMdN4dwsY"; /// @note devnet matter
         consensus.spv.anchors_address = "mpAkq2LyaUvKrJm2agbswrkn3QG9febnqL"; /// @note devnet matter
         consensus.spv.anchorSubsidy = 0 * COIN;
@@ -739,7 +739,7 @@ public:
         consensus.token.creationFee = 1 * COIN;
         consensus.token.collateralAmount = 10 * COIN;
 
-        consensus.spv.creationFee = 1000; // should be > bitcoin's dust
+        consensus.spv.creationFee = 546; // Bitcoin's dust legacy addresses
         consensus.spv.wallet_xpub = "tpubDA2Mn6LMJ35tYaA1Noxirw2WDzmgKEDKLRbSs2nwF8TTsm2iB6hBJmNjAAEbDqYzZLdThLykWDcytGzKDrjUzR9ZxdmSbFz7rt18vFRYjt9";
         consensus.spv.anchors_address = "n1h1kShnyiw3qRR6MM1FnwShaNVoVwBTnF";
         consensus.spv.anchorSubsidy = 0 * COIN;
