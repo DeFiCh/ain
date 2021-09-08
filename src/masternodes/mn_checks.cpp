@@ -1825,7 +1825,7 @@ public:
             return Res::Err("oracle (%s) does not exist!", collToken.priceFeedTxid.GetHex());
 
         if (!oracle.val->SupportsPair(token->symbol, "USD"))
-            return Res::Err("oracle (%s) does not conntain USD price for this token!", collToken.priceFeedTxid.GetHex());
+            return Res::Err("oracle (%s) does not contain USD price for this token!", collToken.priceFeedTxid.GetHex());
 
         if (!collToken.activateAfterBlock)
             collToken.activateAfterBlock = height;
@@ -1869,7 +1869,7 @@ public:
         }
 
         if (!oracle.val->SupportsPair(loanToken.symbol,"USD"))
-            return Res::Err("oracle (%s) does not conntain USD price for this token!", loanToken.priceFeedTxid.GetHex());
+            return Res::Err("oracle (%s) does not contain USD price for this token!", loanToken.priceFeedTxid.GetHex());
 
         return mnview.LoanSetLoanToken(loanToken, *(tokenId.val));
     }
@@ -1914,7 +1914,7 @@ public:
             if (!oracle)
                 return Res::Err("oracle (%s) does not exist!", obj.priceFeedTxid.GetHex());
             if (!oracle.val->SupportsPair(loanToken->symbol,"USD"))
-                return Res::Err("oracle (%s) does not conntain USD price for this token!", loanToken->priceFeedTxid.GetHex());
+                return Res::Err("oracle (%s) does not contain USD price for this token!", loanToken->priceFeedTxid.GetHex());
 
             loanToken->priceFeedTxid = obj.priceFeedTxid;
         }
