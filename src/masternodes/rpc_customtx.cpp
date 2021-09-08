@@ -366,11 +366,10 @@ public:
     }
 
     void operator()(const CAuctionBidMessage& obj) const {
-        rpcInfo.pushKV("vaultid", obj.vaultId.GetHex());
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         rpcInfo.pushKV("index", int64_t(obj.index));
         rpcInfo.pushKV("from", ScriptToString(obj.from));
         rpcInfo.pushKV("amount", obj.amount.ToString());
-
     }
 
     void operator()(const CCustomTxMessageNone&) const {
