@@ -220,6 +220,7 @@ void Shutdown(InitInterfaces& interfaces)
     scheduler.stop();
     threadGroup.interrupt_all();
     threadGroup.join_all();
+    StopScriptCheckWorkerThreads();
 
     // After the threads that potentially access these pointers have been stopped,
     // destruct and reset all to nullptr.
@@ -1108,15 +1109,6 @@ bool AppInitParameterInteraction()
         incrementalRelayFee = CFeeRate(n);
     }
 
-    // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
-    nScriptCheckThreads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
-    if (nScriptCheckThreads <= 0)
-        nScriptCheckThreads += GetNumCores();
-    if (nScriptCheckThreads <= 1)
-        nScriptCheckThreads = 0;
-    else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
-        nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
-
     // block pruning; get the amount of disk space (in MiB) to allot for block & undo files
     int64_t nPruneArg = gArgs.GetArg("-prune", 0);
     if (nPruneArg < 0) {
@@ -1326,10 +1318,23 @@ bool AppInitMain(InitInterfaces& interfaces)
     InitSignatureCache();
     InitScriptExecutionCache();
 
-    LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
-    if (nScriptCheckThreads) {
-        for (int i=0; i<nScriptCheckThreads-1; i++)
-            threadGroup.create_thread([i]() { return ThreadScriptCheck(i); });
+    int script_threads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
+    if (script_threads <= 0) {
+        // -par=0 means autodetect (number of cores - 1 script threads)
+        // -par=-n means "leave n cores free" (number of cores - n - 1 script threads)
+        script_threads += GetNumCores();
+    }
+
+    // Subtract 1 because the main thread counts towards the par threads
+    script_threads = std::max(script_threads - 1, 0);
+
+    // Number of script-checking threads <= MAX_SCRIPTCHECK_THREADS
+    script_threads = std::min(script_threads, MAX_SCRIPTCHECK_THREADS);
+
+    LogPrintf("Script verification uses %d additional threads\n", script_threads);
+    if (script_threads >= 1) {
+        g_parallel_script_checks = true;
+        StartScriptCheckWorkerThreads(script_threads);
     }
 
     // Start the lightweight task scheduler thread

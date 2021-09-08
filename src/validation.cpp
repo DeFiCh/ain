@@ -123,7 +123,7 @@ CBlockIndex *pindexBestHeader = nullptr;
 Mutex g_best_block_mutex;
 std::condition_variable g_best_block_cv;
 uint256 g_best_block;
-int nScriptCheckThreads = 0;
+bool g_parallel_script_checks{false};
 std::atomic_bool fImporting(false);
 std::atomic_bool fReindex(false);
 bool fHavePruned = false;
@@ -1869,9 +1869,14 @@ static bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState&
 
 static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
 
-void ThreadScriptCheck(int worker_num) {
-    util::ThreadRename(strprintf("scriptch.%i", worker_num));
-    scriptcheckqueue.Thread();
+void StartScriptCheckWorkerThreads(int threads_num)
+{
+    scriptcheckqueue.StartWorkerThreads(threads_num);
+}
+
+void StopScriptCheckWorkerThreads()
+{
+    scriptcheckqueue.StopWorkerThreads();
 }
 
 VersionBitsCache versionbitscache GUARDED_BY(cs_main);
@@ -2371,7 +2376,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CBlockUndo blockundo;
 
-    CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
+    CCheckQueueControl<CScriptCheck> control(fScriptChecks && g_parallel_script_checks ? &scriptcheckqueue : nullptr);
 
     std::vector<std::pair<AccountHistoryKey, AccountHistoryValue>> writeBurnEntries;
     std::vector<int> prevheights;
@@ -2438,7 +2443,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr)) {
+            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], g_parallel_script_checks ? &vChecks : nullptr)) {
                 if (state.GetReason() == ValidationInvalidReason::TX_NOT_STANDARD) {
                     // CheckInputs may return NOT_STANDARD for extra flags we passed,
                     // but we can't return that, as it's not defined for a block, so
