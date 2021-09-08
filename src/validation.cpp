@@ -2983,14 +2983,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     return true;
                 });
             }
-            cache.ForEachVaultAuction([&](const CVaultId& vaultId, uint32_t height, const CAuctionData& data) {
-                if (int(height) != pindex->nHeight) {
+            cache.ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
+                if (int(auction.height) != pindex->nHeight) {
                     return false;
                 }
                 for (uint32_t i = 0; i < data.batchCount; i++) {
-                    auto batch = cache.GetAuctionBatch(vaultId, i);
+                    auto batch = cache.GetAuctionBatch(auction.vaultId, i);
                     assert(batch);
-                    if (auto bid = cache.GetAuctionBid(vaultId, i)) {
+                    if (auto bid = cache.GetAuctionBid(auction.vaultId, i)) {
                         auto amountToFill = DivideAmounts(bid->second.nValue, COIN + data.liquidationPenalty);
                         auto amountToBurn = bid->second.nValue - amountToFill;
                         if (amountToBurn > 0) {
@@ -3015,23 +3015,23 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                         // return rest loan to vault if any
                         amountToFill -= batch->loanAmount.nValue;
                         if (amountToFill > 0) {
-                            cache.AddLoanToken(vaultId, {batch->loanAmount.nTokenId, amountToFill});
+                            cache.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amountToFill});
                         }
                     } else {
-                        cache.AddLoanToken(vaultId, batch->loanAmount);
+                        cache.AddLoanToken(auction.vaultId, batch->loanAmount);
                         for (const auto& col : batch->collaterals.balances) {
-                            cache.AddVaultCollateral(vaultId, {col.first, col.second});
+                            cache.AddVaultCollateral(auction.vaultId, {col.first, col.second});
                         }
                     }
                 }
-                auto vault = cache.GetVault(vaultId);
+                auto vault = cache.GetVault(auction.vaultId);
                 assert(vault);
                 vault.val->isUnderLiquidation = false;
-                cache.StoreVault(vaultId, *vault.val);
-                cache.EraseAuction(vaultId, pindex->nHeight);
-                cache.TransferVaultInterest(vaultId, pindex->nHeight, vault.val->schemeId, {});
+                cache.StoreVault(auction.vaultId, *vault.val);
+                cache.EraseAuction(auction.vaultId, pindex->nHeight);
+                cache.TransferVaultInterest(auction.vaultId, pindex->nHeight, vault.val->schemeId, {});
                 return true;
-            }, pindex->nHeight);
+            }, {CVaultId{}, static_cast<uint32_t>(pindex->nHeight)});
         }
 
         // construct undo
