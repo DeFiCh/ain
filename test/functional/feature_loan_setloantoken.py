@@ -77,7 +77,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
                             'interest': 1})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("oracle (" + oracle_id1 + ") does not conntain USD price for this token" in errorString)
+        assert("oracle (" + oracle_id1 + ") does not contain USD price for this token" in errorString)
 
         setLoanTokenTx = self.nodes[0].setloantoken({
                             'symbol': "TSLAAAA",
