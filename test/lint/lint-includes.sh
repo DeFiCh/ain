@@ -68,8 +68,6 @@ EXPECTED_BOOST_INCLUDES=(
     boost/preprocessor/cat.hpp
     boost/preprocessor/stringize.hpp
     boost/range/adaptor/transformed.hpp
-    boost/scoped_ptr.hpp
-    boost/shared_ptr.hpp
     boost/signals2/connection.hpp
     boost/signals2/last_value.hpp
     boost/signals2/signal.hpp
