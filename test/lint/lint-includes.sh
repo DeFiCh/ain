@@ -79,7 +79,6 @@ EXPECTED_BOOST_INCLUDES=(
     boost/test/unit_test.hpp
     boost/thread.hpp
     boost/thread/condition_variable.hpp
-    boost/thread/mutex.hpp
     boost/thread/thread.hpp
 )
 
