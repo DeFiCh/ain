@@ -4,40 +4,58 @@ extern UniValue AmountsToJSON(TAmounts const & diffs);
 extern std::string tokenAmountString(CTokenAmount const& amount);
 
 namespace {
-    UniValue VaultToJSON(const CVaultMessage& vault, const CVaultId& id) {
-        auto height = ::ChainActive().Height();
-        auto collaterals = pcustomcsview->GetVaultCollaterals(id);
-        UniValue collValue{UniValue::VSTR};
-        UniValue loanValue{UniValue::VSTR};
-
-        if(collaterals){
-            auto rate = pcustomcsview->CalculateCollateralizationRatio(id, *collaterals, height);
-            CAmount totalCollateral = 0, totalLoan = 0;
-            if (rate)
-            {
-                totalCollateral += rate->totalCollaterals();
-                totalLoan += rate->totalLoans();
-            }
-            collValue=ValueFromAmount(totalCollateral);
-            loanValue=ValueFromAmount(totalLoan);
+    UniValue BatchToJSON(const CVaultId& vaultId, uint32_t batchCount) {
+        UniValue batchArray{UniValue::VARR};
+        for (uint32_t i = 0; i < batchCount; i++) {
+            UniValue batchObj{UniValue::VOBJ};
+            auto batch = pcustomcsview->GetAuctionBatch(vaultId, i);
+            batchObj.pushKV("index", int(i));
+            batchObj.pushKV("collaterals", AmountsToJSON(batch->collaterals.balances));
+            batchObj.pushKV("loan", tokenAmountString(batch->loanAmount));
+            batchArray.push_back(batchObj);
         }
-        UniValue collateralBalances{UniValue::VARR};
-        UniValue loanBalances{UniValue::VARR};
+        return batchArray;
+    }
 
-        if(auto collateral = pcustomcsview->GetVaultCollaterals(id))
-            collateralBalances = AmountsToJSON(collateral->balances);
-
-        if(auto loan = pcustomcsview->GetLoanTokens(id))
-            loanBalances = AmountsToJSON(loan->balances);
-
+    UniValue VaultToJSON(const CVaultMessage& vault, const CVaultId& vaultId) {
         UniValue result{UniValue::VOBJ};
         result.pushKV("loanSchemeId", vault.schemeId);
         result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
         result.pushKV("isUnderLiquidation", vault.isUnderLiquidation);
-        result.pushKV("collateralAmounts", collateralBalances);
-        result.pushKV("loanAmount", loanBalances);
-        result.pushKV("collateralValue",collValue);
-        result.pushKV("loanValue",loanValue);
+
+        if (vault.isUnderLiquidation) {
+            if (auto data = pcustomcsview->GetAuction(vaultId, ::ChainActive().Height()))
+                result.pushKV("batches", BatchToJSON(vaultId, data->batchCount));
+        } else {
+            UniValue collValue{UniValue::VSTR};
+            UniValue loanValue{UniValue::VSTR};
+
+            auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+            if (collaterals) {
+                auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, *collaterals, ::ChainActive().Height());
+                CAmount totalCollateral = 0, totalLoan = 0;
+                if (rate) {
+                    totalCollateral += rate->totalCollaterals();
+                    totalLoan += rate->totalLoans();
+                }
+                collValue = ValueFromAmount(totalCollateral);
+                loanValue = ValueFromAmount(totalLoan);
+            }
+
+            UniValue collateralBalances{UniValue::VARR};
+            UniValue loanBalances{UniValue::VARR};
+
+            if (collaterals)
+                collateralBalances = AmountsToJSON(collaterals->balances);
+
+            if (auto loan = pcustomcsview->GetLoanTokens(vaultId))
+                loanBalances = AmountsToJSON(loan->balances);
+
+            result.pushKV("collateralAmounts", collateralBalances);
+            result.pushKV("loanAmount", loanBalances);
+            result.pushKV("collateralValue", collValue);
+            result.pushKV("loanValue", loanValue);
+        }
         return result;
     }
 }
@@ -289,7 +307,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
     if (request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 must be non-null");
 
-    // decode vaultid
+    // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     auto vaultRes = pcustomcsview->GetVault(vaultId);
     if (!vaultRes.ok)
@@ -423,7 +441,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
     if (request.params[0].isNull() || request.params[1].isNull() || request.params[2].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments must be non-null");
 
-    // decode vaultid
+    // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     auto vaultRes = pcustomcsview->GetVault(vaultId);
     if (!vaultRes.ok)
@@ -481,7 +499,7 @@ UniValue auctionbid(const JSONRPCRequest& request) {
                "Bid to vault in auction\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                    {"vaultid", RPCArg::Type::STR, RPCArg::Optional::NO, "Vault id"},
+                    {"vaultId", RPCArg::Type::STR, RPCArg::Optional::NO, "Vault id"},
                     {"index", RPCArg::Type::NUM, RPCArg::Optional::NO, "Auction index"},
                     {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get tokens"},
                     {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount of amount@symbol format"},
@@ -517,8 +535,8 @@ UniValue auctionbid(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
-    // decode vaultid
-    CVaultId vaultId = ParseHashV(request.params[0], "vaultid");
+    // decode vaultId
+    CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     uint32_t index = request.params[1].get_int();
     auto from = DecodeScript(request.params[2].get_str());
     CTokenAmount amount = DecodeAmount(pwallet->chain(), request.params[3].get_str(), "amount");
@@ -583,20 +601,12 @@ UniValue listauctions(const JSONRPCRequest& request) {
     UniValue valueArr{UniValue::VARR};
 
     LOCK(cs_main);
-    pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, uint32_t height, const CAuctionData& data) {
+    pcustomcsview->ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
         UniValue vaultObj{UniValue::VOBJ};
-        vaultObj.pushKV("vaultId", vaultId.GetHex());
-        vaultObj.pushKV("batchCount", int(data.batchCount));
-        vaultObj.pushKV("liquidationPenalty", data.liquidationPenalty);
-        UniValue batchArray{UniValue::VARR};
-        for (uint32_t i = 0; i < data.batchCount; i++) {
-            UniValue batchObj{UniValue::VOBJ};
-            auto batch = pcustomcsview->GetAuctionBatch(vaultId, i);
-            batchObj.pushKV("collaterals", AmountsToJSON(batch->collaterals.balances));
-            batchObj.pushKV("loan", tokenAmountString(batch->loanAmount));
-            batchArray.push_back(batchObj);
-        }
-        vaultObj.pushKV("batches", batchArray);
+        vaultObj.pushKV("vaultId", auction.vaultId.GetHex());
+        vaultObj.pushKV("batchCount", int64_t(data.batchCount));
+        vaultObj.pushKV("liquidationPenalty", ValueFromAmount(data.liquidationPenalty * 100));
+        vaultObj.pushKV("batches", BatchToJSON(auction.vaultId, data.batchCount));
         valueArr.push_back(vaultObj);
         return true;
     });

@@ -83,15 +83,15 @@ void CVaultView::ForEachVaultCollateral(std::function<bool(const CVaultId&, cons
 Res CVaultView::StoreAuction(const CVaultId& vaultId, uint32_t height, const CAuctionData& data)
 {
     auto auctionHeight = height + Params().GetConsensus().blocksCollateralAuction();
-    WriteBy<AuctionHeightKey>(std::make_pair(auctionHeight, vaultId), data);
+    WriteBy<AuctionHeightKey>(AuctionKey{vaultId, auctionHeight}, data);
     return Res::Ok();
 }
 
 Res CVaultView::EraseAuction(const CVaultId& vaultId, uint32_t height)
 {
-    auto it = LowerBound<AuctionHeightKey>(std::make_pair(height, vaultId));
+    auto it = LowerBound<AuctionHeightKey>(AuctionKey{vaultId, height});
     for (; it.Valid(); it.Next()) {
-        if (it.Key().second == vaultId) {
+        if (it.Key().vaultId == vaultId) {
             CAuctionData data = it.Value();
             for (uint32_t i = 0; i < data.batchCount; i++) {
                 EraseAuctionBid(vaultId, i);
@@ -106,9 +106,9 @@ Res CVaultView::EraseAuction(const CVaultId& vaultId, uint32_t height)
 
 boost::optional<CAuctionData> CVaultView::GetAuction(const CVaultId& vaultId, uint32_t height)
 {
-    auto it = LowerBound<AuctionHeightKey>(std::make_pair(height, vaultId));
+    auto it = LowerBound<AuctionHeightKey>(AuctionKey{vaultId, height});
     for (; it.Valid(); it.Next()) {
-        if (it.Key().second == vaultId) {
+        if (it.Key().vaultId == vaultId) {
             return it.Value().as<CAuctionData>();
         }
     }
@@ -132,11 +132,11 @@ boost::optional<CAuctionBatch> CVaultView::GetAuctionBatch(const CVaultId& vault
     return ReadBy<AuctionBatchKey, CAuctionBatch>(std::make_pair(vaultId, id));
 }
 
-void CVaultView::ForEachVaultAuction(std::function<bool(const CVaultId&, uint32_t, const CAuctionData&)> callback, uint32_t height)
+void CVaultView::ForEachVaultAuction(std::function<bool(const AuctionKey&, const CAuctionData&)> callback, AuctionKey const & start)
 {
-    ForEach<AuctionHeightKey, std::pair<uint32_t, CVaultId>, CAuctionData>([&](const std::pair<uint32_t, CVaultId>& pair, const CAuctionData& data) {
-        return callback(pair.second, pair.first, data);
-    }, std::make_pair(height, CVaultId{}));
+    ForEach<AuctionHeightKey, AuctionKey, CAuctionData>([&](const AuctionKey& auction, const CAuctionData& data) {
+        return callback(auction, data);
+    }, start);
 }
 
 Res CVaultView::StoreAuctionBid(const CVaultId& vaultId, uint32_t id, COwnerTokenAmount amount)
