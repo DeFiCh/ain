@@ -33,7 +33,7 @@ enum CustomTxErrCodes : uint32_t {
 
 enum class CustomTxType : uint8_t
 {
-    None = 0,
+    None                  = 0,
     // masternodes:
     CreateMasternode      = 'C',
     ResignMasternode      = 'R',
@@ -90,7 +90,6 @@ enum class CustomTxType : uint8_t
     CreateCfp             = 'e',
     CreateVoc             = 'E',
     Vote                  = 'O',
-
 };
 
 inline CustomTxType CustomTxCodeToType(uint8_t ch) {
@@ -165,8 +164,6 @@ inline void Unserialize(Stream& s, CustomTxType & txType) {
     txType = CustomTxCodeToType(ch);
 }
 
-struct CCreatePropMessage;
-struct CPropVoteMessage;
 struct CCreateMasterNodeMessage {
     char operatorType;
     CKeyID operatorAuthAddress;

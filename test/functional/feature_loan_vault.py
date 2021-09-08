@@ -227,12 +227,12 @@ class VaultTest (DefiTestFramework):
 
         self.nodes[0].setcollateraltoken({
                                     'token': idDFI,
-                                    'factor': 0.5,
+                                    'factor': 1,
                                     'priceFeedId': oracle_id1})
 
         self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
-                                    'factor': 0.9,
+                                    'factor': 1,
                                     'priceFeedId': oracle_id1})
 
         self.nodes[0].generate(1)
