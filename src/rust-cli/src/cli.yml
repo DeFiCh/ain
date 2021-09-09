@@ -1,0 +1,6 @@
+name: defi-rust-cli
+args:
+  - rpcuser:
+      help: Username for JSON-RPC connections.
+      long: rpcuser
+      takes_value: true
