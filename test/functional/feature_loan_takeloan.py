@@ -167,6 +167,10 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1'))
 
+        interest = self.nodes[0].getinterest('LOAN150')[0]
+
+        assert_equal(interest['totalInterest'], Decimal('0.00001997'))
+        assert_equal(interest['interestPerBlock'], Decimal('0.00001997'))
 
         loans = self.nodes[0].getloaninfo()
 
@@ -182,6 +186,11 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         self.nodes[1].generate(1)
         self.sync_blocks()
+
+        interest = self.nodes[0].getinterest('LOAN150', 'TSLA')[0]
+
+        assert_equal(interest['totalInterest'], 3 * Decimal('0.00001997'))
+        assert_equal(interest['interestPerBlock'], Decimal('0.00001997'))
 
         loans = self.nodes[0].getloaninfo()
 
