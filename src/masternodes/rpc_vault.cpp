@@ -10,7 +10,7 @@ namespace {
         UniValue collValue{UniValue::VSTR};
         UniValue loanValue{UniValue::VSTR};
 
-        if(collaterals){
+        if (collaterals){
             auto rate = pcustomcsview->CalculateCollateralizationRatio(id, *collaterals, height);
             CAmount totalCollateral = 0, totalLoan = 0;
             if (rate)
@@ -36,8 +36,8 @@ namespace {
         result.pushKV("isUnderLiquidation", vault.isUnderLiquidation);
         result.pushKV("collateralAmounts", collateralBalances);
         result.pushKV("loanAmount", loanBalances);
-        result.pushKV("collateralValue",collValue);
-        result.pushKV("loanValue",loanValue);
+        result.pushKV("collateralValue", collValue);
+        result.pushKV("loanValue", loanValue);
         return result;
     }
 }
@@ -79,10 +79,6 @@ UniValue createvault(const JSONRPCRequest& request) {
                 },
     }.Check(request);
 
-    if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot createvault while still in Initial Block Download");
-
-    pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
     CVaultMessage vault;
@@ -566,7 +562,7 @@ UniValue auctionbid(const JSONRPCRequest& request) {
 
 UniValue listauctions(const JSONRPCRequest& request) {
 
-    RPCHelpMan{"listauction",
+    RPCHelpMan{"listauctions",
                "List all available auctions\n",
                {},
                RPCResult{
