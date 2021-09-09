@@ -33,8 +33,6 @@
 #include <wallet/wallet.h>
 #include <warnings.h>
 
-#include <boost/thread.hpp>
-
 #include <memory>
 #include <stdint.h>
 
@@ -120,7 +118,7 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey & mint
     int64_t nTried = 0;
 
     while (true) {
-        boost::this_thread::interruption_point();
+        if (ShutdownRequested()) break;
 
         try {
             auto status = staker.init(Params());
