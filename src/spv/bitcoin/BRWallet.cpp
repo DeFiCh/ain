@@ -33,14 +33,7 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <inttypes.h>
-#include <limits.h>
-#include <float.h>
 
-//#include <compat.h>
-
-#include <boost/thread.hpp>
-
-//#include <pthread.h>
 #include <assert.h>
 
 uint256 to_uint256(const UInt256 & i)
