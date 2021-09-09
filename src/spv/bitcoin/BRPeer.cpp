@@ -35,6 +35,7 @@
 #include <float.h>
 #include <inttypes.h>
 #include <string.h>
+#include <thread>
 
 #include <compat.h>
 
@@ -44,7 +45,7 @@
 //#include <errno.h>
 //#include <netdb.h>
 //#include <sys/socket.h>
-//#include <sys/time.h>
+#include <sys/time.h>
 //#include <netinet/in.h>
 //#include <arpa/inet.h>
 
@@ -90,7 +91,7 @@
 
 char const * spv_logfilename = NULL;
 int spv_log2console = 1;
-boost::mutex log_mutex;
+std::mutex log_mutex;
 
 typedef enum {
     inv_undefined = 0,
@@ -138,8 +139,8 @@ typedef struct {
     void (**volatile pongCallback)(void *info, int success);
     void *volatile mempoolInfo;
     void (*volatile mempoolCallback)(void *info, int success);
-    std::unique_ptr<boost::thread> thread;
-    boost::mutex lock;
+    std::unique_ptr<std::thread> thread;
+    std::mutex lock;
 } BRPeerContext;
 
 void BRPeerSendVersionMessage(BRPeer *peer);
@@ -1280,9 +1281,7 @@ int BRPeerConnect(BRPeer *peer)
             // No race - set before the thread starts.
             ctx->disconnectTime = tv.tv_sec + (double)tv.tv_usec/1000000 + CONNECT_TIMEOUT;
             {
-                boost::thread::attributes attrs;
-                attrs.set_stack_size(PTHREAD_STACK_SIZE);
-                ctx->thread.reset(new boost::thread(attrs, boost::bind(_peerThreadRoutine, peer)));
+                ctx->thread.reset(new std::thread(std::bind(_peerThreadRoutine, peer)));
                 ctx->thread->detach();
                 ctx->lock.unlock();
                 return 1; // thread successful run

@@ -29,9 +29,10 @@
 #include "BRMerkleBlock.h"
 #include "BRAddress.h"
 #include "BRInt.h"
+
 #include <stddef.h>
 #include <inttypes.h>
-#include <boost/thread.hpp>
+#include <mutex>
 
 /// define logs
 #define console_peer_log(peer, ...) { \
@@ -84,7 +85,7 @@
 
 extern char const * spv_logfilename;
 extern int spv_log2console;
-extern boost::mutex log_mutex;
+extern std::mutex log_mutex;
 
 #ifndef INET6_ADDRSTRLEN // defined in netinet/in.h
 #define INET6_ADDRSTRLEN 46
