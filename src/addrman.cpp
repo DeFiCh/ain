@@ -5,6 +5,7 @@
 
 #include <addrman.h>
 
+#include <cmath>
 #include <hash.h>
 #include <serialize.h>
 
@@ -59,7 +60,7 @@ double CAddrInfo::GetChance(int64_t nNow) const
         fChance *= 0.01;
 
     // deprioritize 66% after each failed attempt, but at most 1/28th to avoid the search taking forever or overly penalizing outages.
-    fChance *= pow(0.66, std::min(nAttempts, 8));
+    fChance *= std::pow(0.66, std::min(nAttempts, 8));
 
     return fChance;
 }
