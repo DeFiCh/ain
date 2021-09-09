@@ -31,7 +31,6 @@ void CScheduler::serviceQueue()
     while (!shouldStop()) {
         try {
             if (!shouldStop() && taskQueue.empty()) {
-                reverse_lock<std::unique_lock<std::mutex> > rlock(lock);
                 // Use this chance to get more entropy
                 RandAddSeedSleep();
             }
@@ -71,18 +70,6 @@ void CScheduler::serviceQueue()
     }
     --nThreadsServicingQueue;
     newTaskScheduled.notify_one();
-}
-
-void CScheduler::stop(bool drain)
-{
-    {
-        LOCK(newTaskMutex);
-        if (drain)
-            stopWhenEmpty = true;
-        else
-            stopRequested = true;
-    }
-    newTaskScheduled.notify_all();
 }
 
 void CScheduler::schedule(CScheduler::Function f, std::chrono::system_clock::time_point t)
