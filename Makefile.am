@@ -11,6 +11,16 @@ endif
 
 export PYTHONPATH
 
+CARGO_BUILD=cargo build $(CARGOFLAGS)
+DEFI_RUST_CLI_DIR = $(top_srcdir)/src/rust-cli
+if ENABLE_DEBUG
+DEFI_RUST_CLI_BIN_DIR = debug
+else
+DEFI_RUST_CLI_BIN_DIR = release
+endif
+DEFI_RUST_CLI_TARGET_DIR = $(DEFI_RUST_CLI_DIR)/target
+
+
 if BUILD_DEFI_LIBS
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libdeficonsensus.pc
@@ -18,6 +28,7 @@ endif
 
 DEFID_BIN=$(top_builddir)/src/$(DEFI_DAEMON_NAME)$(EXEEXT)
 DEFI_CLI_BIN=$(top_builddir)/src/$(DEFI_CLI_NAME)$(EXEEXT)
+DEFI_RUST_CLI_BIN=$(top_builddir)/src/$(DEFI_RUST_CLI_NAME)$(EXEEXT)
 DEFI_TX_BIN=$(top_builddir)/src/$(DEFI_TX_NAME)$(EXEEXT)
 DEFI_WALLET_BIN=$(top_builddir)/src/$(DEFI_WALLET_TOOL_NAME)$(EXEEXT)
 DEFI_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEXT)
@@ -178,6 +189,10 @@ $(DEFID_BIN): FORCE
 $(DEFI_CLI_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
+$(DEFI_RUST_CLI_BIN): FORCE
+	$(CARGO_BUILD) --manifest-path $(DEFI_RUST_CLI_DIR)/Cargo.toml
+	cp -p $(DEFI_RUST_CLI_TARGET_DIR)/$(DEFI_RUST_CLI_BIN_DIR)/$(DEFI_RUST_CLI_NAME) $(DEFI_RUST_CLI_BIN)
+
 $(DEFI_TX_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
@@ -313,8 +328,11 @@ endif
 clean-docs:
 	rm -rf doc/doxygen
 
-clean-local: clean-docs
+clean-rust-cli:
+	rm -rf $(DEFI_RUST_CLI_TARGET_DIR)
+	rm -rf $(DEFI_RUST_CLI_BIN)
+
+clean-local: clean-docs clean-rust-cli
 	rm -rf coverage_percent.txt test_defi.coverage/ total.coverage/ test/tmp/ cache/ $(OSX_APP)
 	rm -rf test/functional/__pycache__ test/functional/test_framework/__pycache__ test/cache share/rpcauth/__pycache__
 	rm -rf osx_volname dist/ dpi36.background.tiff dpi72.background.tiff
-

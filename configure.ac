@@ -19,6 +19,9 @@ DEFI_DAEMON_NAME=defid
 DEFI_CLI_NAME=defi-cli
 DEFI_TX_NAME=defi-tx
 DEFI_WALLET_TOOL_NAME=defi-wallet
+DEFI_RUST_CLI_NAME=defi-rust-cli
+
+CARGOFLAGS=--release
 
 dnl Unless the user specified ARFLAGS, force it to be cr
 AC_ARG_VAR(ARFLAGS, [Flags for the archiver, defaults to <cr> if not set])
@@ -223,6 +226,7 @@ AC_ARG_ENABLE([debug],
                     [use compiler flags and macros suited for debugging (default is no)])],
     [enable_debug=$enableval],
     [enable_debug=no])
+AM_CONDITIONAL(ENABLE_DEBUG, test "$enable_debug" != no)
 
 # Enable different -fsanitize options
 AC_ARG_WITH([sanitizers],
@@ -249,6 +253,7 @@ AX_CHECK_COMPILE_FLAG([-Werror],[CXXFLAG_WERROR="-Werror"],[CXXFLAG_WERROR=""])
 
 if test "x$enable_debug" = xyes; then
   # Clear default -g -O2 flags
+  CARGOFLAGS=""
   if test "x$CXXFLAGS_overridden" = xno; then
 	CXXFLAGS=""
   fi
@@ -428,6 +433,12 @@ AC_ARG_ENABLE([util-cli],
   [build defi-cli])],
   [build_defi_cli=$enableval],
   [build_defi_cli=$build_defi_utils])
+
+AC_ARG_ENABLE([util-rust-cli],
+  [AS_HELP_STRING([--enable-defi-rust-cli],
+  [build defi-rust-cli])],
+  [build_defi_rust_cli=$enableval],
+  [build_defi_rust_cli=$build_defi_utils])
 
 AC_ARG_ENABLE([util-tx],
   [AS_HELP_STRING([--enable-util-tx],
@@ -935,6 +946,7 @@ if test "x$enable_fuzz" = "xyes"; then
   AC_MSG_WARN(enable-fuzz will disable all other targets)
   build_defi_utils=no
   build_defi_cli=no
+  build_defi_rust_cli=no
   build_defi_tx=no
   build_defi_wallet=no
   build_defid=no
@@ -1285,6 +1297,10 @@ AC_MSG_CHECKING([whether to build defi-cli])
 AM_CONDITIONAL([BUILD_DEFI_CLI], [test x$build_defi_cli = xyes])
 AC_MSG_RESULT($build_defi_cli)
 
+AC_MSG_CHECKING([whether to build defi-rust-cli])
+AM_CONDITIONAL([BUILD_DEFI_RUST_CLI], [test x$build_defi_rust_cli = xyes])
+AC_MSG_RESULT($build_defi_rust_cli)
+
 AC_MSG_CHECKING([whether to build defi-tx])
 AM_CONDITIONAL([BUILD_DEFI_TX], [test x$build_defi_tx = xyes])
 AC_MSG_RESULT($build_defi_tx)
@@ -1421,6 +1437,8 @@ AC_SUBST(DEFI_DAEMON_NAME)
 AC_SUBST(DEFI_CLI_NAME)
 AC_SUBST(DEFI_TX_NAME)
 AC_SUBST(DEFI_WALLET_TOOL_NAME)
+AC_SUBST(DEFI_RUST_CLI_NAME)
+AC_SUBST(CARGOFLAGS)
 
 AC_SUBST(RELDFLAGS)
 AC_SUBST(DEBUG_CPPFLAGS)
@@ -1540,4 +1558,5 @@ echo "  CXX           = $CXX"
 echo "  CXXFLAGS      = $DEBUG_CXXFLAGS $HARDENED_CXXFLAGS $WARN_CXXFLAGS $NOWARN_CXXFLAGS $ERROR_CXXFLAGS $GPROF_CXXFLAGS $CXXFLAGS"
 echo "  LDFLAGS       = $PTHREAD_CFLAGS $HARDENED_LDFLAGS $GPROF_LDFLAGS $LDFLAGS"
 echo "  ARFLAGS       = $ARFLAGS"
+echo "  CARGOFLAGS    = $CARGOFLAGS"
 echo
