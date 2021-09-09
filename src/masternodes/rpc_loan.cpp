@@ -1135,6 +1135,70 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     return (ret);
 }
 
+UniValue getinterest(const JSONRPCRequest& request) {
+    RPCHelpMan{"getinterest",
+                "Returns the global and per block interest by loan scheme.\n",
+                {
+                    {"id", RPCArg::Type::STR, RPCArg::Optional::NO, "Unique identifier of the loan scheme (8 chars max)."},
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The tokens's symbol, id or creation tx"},
+                },
+                RPCResult
+                {
+                    "{...}     (object) Json object with interest information\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("getinterest", "LOAN0001 TSLA")
+                },
+     }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValueType()}, false);
+
+    auto loanSchemeId = request.params[0].get_str();
+    auto tokenStr = trim_ws(request.params[1].getValStr());
+
+    if (loanSchemeId.empty() || loanSchemeId.length() > 8)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "id cannot be empty or more than 8 chars long");
+
+    LOCK(cs_main);
+
+    if (!pcustomcsview->GetLoanScheme(loanSchemeId))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot find existing loan scheme with id " + loanSchemeId);
+
+    DCT_ID id{~0u};
+
+    if (!tokenStr.empty() && !pcustomcsview->GetTokenGuessId(tokenStr, id))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
+
+    const auto mask = id.v;
+    if (id.v == ~0u)
+        id.v = 0;
+
+    UniValue ret(UniValue::VARR);
+    uint32_t height = ::ChainActive().Height();
+
+    pcustomcsview->ForEachInterest([&](const std::string& schemeId, DCT_ID tokenId, CInterestRate rate) {
+        if (schemeId != loanSchemeId)
+            return false;
+
+        if ((tokenId.v & mask) != tokenId.v)
+            return false;
+
+        auto token = pcustomcsview->GetToken(tokenId);
+        if (!token)
+            return true;
+
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("token", token->CreateSymbolKey(tokenId));
+        obj.pushKV("totalInterest", ValueFromAmount(TotalInterest(rate, height)));
+        obj.pushKV("interestPerBlock", ValueFromAmount(rate.interestPerBlock));
+        ret.push_back(obj);
+
+        return true;
+    }, loanSchemeId, id);
+
+    return ret;
+}
+
 
 static const CRPCCommand commands[] =
 {
@@ -1154,6 +1218,7 @@ static const CRPCCommand commands[] =
     {"loan",        "getloanscheme",             &getloanscheme,         {"id"}},
     {"loan",        "takeloan",                  &takeloan,              {"metadata", "inputs"}},
     {"loan",        "getloaninfo",               &getloaninfo,           {}},
+    {"loan",        "getinterest",               &getinterest,           {"id", "token"}},
 };
 
 void RegisterLoanRPCCommands(CRPCTable& tableRPC) {

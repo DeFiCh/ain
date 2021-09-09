@@ -836,7 +836,7 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
             auto oracle = GetOracleData(token->priceFeedTxid);
             assert(oracle);
             auto price = GetOraclePriceUSD(*oracle.val, token->symbol);
-            auto value = loan.second + rate->interestToHeight + ((height - rate->height + 1) * rate->interestPerBlock);
+            auto value = loan.second + MultiplyAmounts(loan.second, TotalInterest(*rate, height));
             ret.loans.push_back({loan.first, MultiplyAmounts(price, value)});
         }
     }
