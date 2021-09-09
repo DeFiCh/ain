@@ -61,7 +61,7 @@ public:
     std::string symbol;
     std::string name;
     uint256 priceFeedTxid;
-    bool mintable = false;
+    bool mintable = true;
     CAmount interest = 0;
 
     ADD_SERIALIZE_METHODS;
