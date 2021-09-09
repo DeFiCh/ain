@@ -390,3 +390,24 @@ void CLoanView::ForEachLoanTakeLoan(std::function<bool (uint256 const &, CLoanTa
 {
     ForEach<LoanTakeLoanCreationTx, uint256, CLoanTakeLoanImpl>(callback, start);
 }
+
+std::unique_ptr<CLoanView::CLoanPaybackLoanImpl> CLoanView::GetLoanPaybackLoan(uint256 const & txid) const
+{
+    auto loanPayback = ReadBy<LoanPaybackLoanCreationTx,CLoanPaybackLoanImpl>(txid);
+    if (loanPayback)
+        return MakeUnique<CLoanPaybackLoanImpl>(*loanPayback);
+    return {};
+}
+
+Res CLoanView::SetLoanPaybackLoan(CLoanPaybackLoanImpl const & loanPayback)
+{
+    WriteBy<LoanPaybackLoanCreationTx>(loanPayback.creationTx, loanPayback);
+    WriteBy<LoanPaybackLoanVaultKey>(loanPayback.vaultId, loanPayback.creationTx);
+
+    return Res::Ok();
+}
+
+void CLoanView::ForEachLoanPaybackLoan(std::function<bool (uint256 const &, CLoanPaybackLoanImpl const &)> callback, uint256 const & start)
+{
+    ForEach<LoanPaybackLoanCreationTx, uint256, CLoanPaybackLoanImpl>(callback, start);
+}
