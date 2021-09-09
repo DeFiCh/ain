@@ -9,7 +9,6 @@
 
 #include <init.h>
 
-#include <addrman.h>
 #include <amount.h>
 #include <banman.h>
 #include <blockfilter.h>
@@ -22,7 +21,6 @@
 #include <httpserver.h>
 #include <index/blockfilterindex.h>
 #include <index/txindex.h>
-#include <interfaces/chain.h>
 #include <key.h>
 #include <key_io.h>
 #include <masternodes/accountshistory.h>
@@ -71,10 +69,7 @@
 #include <sys/stat.h>
 #endif
 
-#include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/thread.hpp>
 
 #if ENABLE_ZMQ
 #include <zmq/zmqabstractnotifier.h>
@@ -157,7 +152,7 @@ NODISCARD static bool CreatePidFile()
 
 static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 
-static boost::thread_group threadGroup;
+std::vector<std::thread> threadGroup;
 static CScheduler scheduler;
 
 void Interrupt()
@@ -216,10 +211,11 @@ void Shutdown(InitInterfaces& interfaces)
     StopTorControl();
 
     // After everything has been shut down, but before things get flushed, stop the
-    // CScheduler/checkqueue threadGroup
+    // CScheduler/checkqueue threaGroup
     scheduler.stop();
-    threadGroup.interrupt_all();
-    threadGroup.join_all();
+    for (auto& thread : threadGroup) {
+        if (thread.joinable()) thread.join();
+    }
     StopScriptCheckWorkerThreads();
 
     // After the threads that potentially access these pointers have been stopped,
@@ -1339,7 +1335,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // Start the lightweight task scheduler thread
     CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
-    threadGroup.create_thread(std::bind(&TraceThread<CScheduler::Function>, "scheduler", serviceLoop));
+    scheduler.m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { scheduler.serviceQueue(); }); });
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
     GetMainSignals().RegisterWithMempoolSignals(mempool);
@@ -1842,7 +1838,9 @@ bool AppInitMain(InitInterfaces& interfaces)
         vImportFiles.push_back(strFile);
     }
 
-    threadGroup.create_thread(std::bind(&ThreadImport, vImportFiles));
+    threadGroup.emplace_back(ThreadImport, vImportFiles);
+
+    scheduler.m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { scheduler.serviceQueue(); }); });
 
     // Wait for genesis block to be processed
     {
@@ -2036,13 +2034,11 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
 
         // Mint proof-of-stake blocks in background
-        threadGroup.create_thread(
-            std::bind(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
-                // Run ThreadStaker
-                pos::ThreadStaker threadStaker;
-                threadStaker(std::move(stakersParams), std::move(chainparams));
-            }
-        ));
+        threadGroup.emplace_back(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
+            // Run ThreadStaker
+            pos::ThreadStaker threadStaker;
+            threadStaker(stakersParams, chainparams);
+        });
     }
 
     return true;
