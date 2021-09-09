@@ -79,6 +79,12 @@ UniValue createvault(const JSONRPCRequest& request) {
                 },
     }.Check(request);
 
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
     CVaultMessage vault;
@@ -210,12 +216,6 @@ UniValue getvault(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
 
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot create transactions while still in Initial Block Download");
-    }
-
-    pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
