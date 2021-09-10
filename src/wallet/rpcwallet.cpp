@@ -1398,6 +1398,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
                     {"skip", RPCArg::Type::NUM, /* default */ "0", "The number of transactions to skip"},
                     {"include_watchonly", RPCArg::Type::BOOL, /* default */ "true for watch-only wallets, otherwise false", "Include transactions to watch-only addresses (see 'importaddress')"},
                     {"exclude_custom_tx", RPCArg::Type::BOOL, /* default */ "false to include all transactions, otherwise exclude custom transactions", "Exclude custom transactions"},
+                    {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"},
                 },
                 RPCResult{
             "[\n"
@@ -1456,9 +1457,14 @@ UniValue listtransactions(const JSONRPCRequest& request)
     int nCount = 10;
     if (!request.params[1].isNull())
         nCount = request.params[1].get_int();
+    if (nCount < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
+
     int nFrom = 0;
     if (!request.params[2].isNull())
         nFrom = request.params[2].get_int();
+    if (nFrom < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
     isminefilter filter = ISMINE_SPENDABLE;
 
     if (ParseIncludeWatchonly(request.params[3], *pwallet)) {
@@ -1469,13 +1475,15 @@ UniValue listtransactions(const JSONRPCRequest& request)
     if (!request.params[4].isNull())
         exclude_custom_tx = request.params[4].get_bool();
 
-    if (nCount < 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
-    if (nFrom < 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+    std::string jsonFormat{"list"};
+    if(!request.params[5].isNull())
+    {
+        jsonFormat = request.params[5].getValStr();
+        if (jsonFormat != "list" && jsonFormat != "object")
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+    }
 
-    UniValue ret(UniValue::VARR);
-
+    UniValue ret{UniValue::VARR};
     {
         auto locked_chain = pwallet->chain().lock();
         LOCK2(pwallet->cs_wallet, locked_chain->mutex());
@@ -1516,8 +1524,14 @@ UniValue listtransactions(const JSONRPCRequest& request)
     ret.clear();
     ret.setArray();
     ret.push_backV(arrTmp);
-
+    if( jsonFormat != "list" ){
+        UniValue retObj{UniValue::VOBJ};
+        for(auto tx : arrTmp)
+            retObj.pushKV(tx["txid"].getValStr(), tx);
+        return retObj;
+    }
     return ret;
+
 }
 
 static UniValue listsinceblock(const JSONRPCRequest& request)

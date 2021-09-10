@@ -11,6 +11,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_array_result,
     assert_equal,
+    assert_raises_rpc_error,
     hex_str_to_bytes,
 )
 
@@ -101,6 +102,12 @@ class ListTransactionsTest(DefiTestFramework):
                             {"category": "receive", "amount": Decimal("0.1")},
                             {"txid": txid, "label": "watchonly"})
 
+        listTx = self.nodes[0].listtransactions("watchonly", 100, 0, True, False, "object")
+        assert type(listTx) is dict
+        listTx = self.nodes[0].listtransactions("watchonly", 100, 0, True, False, "list")
+        assert type(listTx) is list
+        assert_raises_rpc_error(-8, "Invalid json format",
+                                self.nodes[0].listtransactions, "watchonly", 100, 0, True, False, "array")
         self.run_rbf_opt_in_test()
 
     # Check that the opt-in-rbf flag works properly, for sent and received
