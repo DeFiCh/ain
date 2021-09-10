@@ -61,7 +61,7 @@ public:
     std::string symbol;
     std::string name;
     uint256 priceFeedTxid;
-    bool mintable = false;
+    bool mintable = true;
     CAmount interest = 0;
 
     ADD_SERIALIZE_METHODS;
@@ -219,6 +219,9 @@ struct CInterestRate
     }
 };
 
+// calculate total interest to height including it
+CAmount TotalInterest(const CInterestRate& rate, uint32_t height);
+
 class CLoanTakeLoan
 {
 public:
@@ -294,6 +297,7 @@ public:
     boost::optional<CInterestRate> GetInterestRate(const std::string& loanSchemeID, DCT_ID id);
     Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id);
     Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id);
+    void ForEachInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID = {}, DCT_ID id = {0});
     void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, uint32_t)> callback, const CVaultId& start = {});
     void TransferVaultInterest(const CVaultId& vaultId, uint32_t height, const std::string& oldScheme, const std::string& newScheme);
 

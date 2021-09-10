@@ -193,6 +193,11 @@ boost::optional<CInterestRate> CLoanView::GetInterestRate(const std::string& loa
     return ReadBy<LoanInterestedRate, CInterestRate>(std::make_pair(loanSchemeID, id));
 }
 
+CAmount TotalInterest(const CInterestRate& rate, uint32_t height)
+{
+    return rate.interestToHeight + ((height - rate.height + 1) * rate.interestPerBlock);
+}
+
 Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id)
 {
     auto scheme = GetLoanScheme(loanSchemeID);
@@ -262,6 +267,13 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     rate.interestPerBlock = netInterest * rate.count / (365 * Params().GetConsensus().blocksPerDay());
     WriteBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id), rate);
     return Res::Ok();
+}
+
+void CLoanView::ForEachInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID, DCT_ID id)
+{
+    ForEach<LoanInterestedRate, std::pair<std::string, DCT_ID>, CInterestRate>([&](const std::pair<std::string, DCT_ID>& pair, CInterestRate rate) {
+        return callback(pair.first, pair.second, rate);
+    }, std::make_pair(loanSchemeID, id));
 }
 
 void CLoanView::ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, uint32_t)> callback, const CVaultId& start)
