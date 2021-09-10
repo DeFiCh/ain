@@ -883,8 +883,7 @@ std::optional<int> UpdateHeightValidation(const std::string& argName, const std:
     if (gArgs.IsArgSet(argFlag)) {
         int64_t height = gArgs.GetArg(argFlag, argTarget);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            std::string lowerArgName(argFlag);
-            std::transform(lowerArgName.begin(), lowerArgName.end(), lowerArgName.begin(), ::tolower);
+            std::string lowerArgName = ToLower(argFlag);
             throw std::runtime_error(strprintf(
                 "Activation height %ld for %s is out of valid range. Use -1 to disable %s.",
                 height, argName, lowerArgName));
