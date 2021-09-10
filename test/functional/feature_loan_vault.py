@@ -5,10 +5,11 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test Loan Scheme."""
 
+from decimal import Decimal
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_greater_than
 import calendar
 import time
 
@@ -347,6 +348,11 @@ class VaultTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        vault1 = self.nodes[0].getvault(vaultId1)
+        assert_equal(vault1['loanAmount'], ['0.50002863@TSLA'])
+        assert_equal(vault1['collateralValue'], Decimal(2.00000000))
+        assert_greater_than(vault1['loanValue'],Decimal(0.50002863))
 
         # make vault enter under liquidation state
         oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
