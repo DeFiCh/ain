@@ -13,11 +13,11 @@
 #include <util/strencodings.h>
 #include <versionbitsinfo.h>
 
+#include <algorithm>
 #include <cassert>
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
 
 bool fMockNetwork = false;
 
@@ -929,7 +929,8 @@ std::optional<int> UpdateHeightValidation(const std::string& argName, const std:
     if (gArgs.IsArgSet(argFlag)) {
         int64_t height = gArgs.GetArg(argFlag, argTarget);
         if (height < -1 || height >= std::numeric_limits<int>::max()) {
-            auto lowerArgName = boost::to_lower_copy(argName);
+            std::string lowerArgName(argFlag);
+            std::transform(lowerArgName.begin(), lowerArgName.end(), lowerArgName.begin(), ::tolower);
             throw std::runtime_error(strprintf(
                 "Activation height %ld for %s is out of valid range. Use -1 to disable %s.",
                 height, argName, lowerArgName));
