@@ -514,7 +514,7 @@ UniValue auctionbid(const JSONRPCRequest& request) {
                RPCExamples{
                        HelpExampleCli("auctionbid",
                         "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 100@TSLA") +
-                       HelpExampleRpc("deposittovault",
+                       HelpExampleRpc("auctionbid",
                         "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 1@DTSLA")
                },
     }.Check(request);
@@ -537,7 +537,7 @@ UniValue auctionbid(const JSONRPCRequest& request) {
 
     CAuctionBidMessage msg{vaultId, index, from, amount};
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    markedMetadata << static_cast<unsigned char>(CustomTxType::DepositToVault)
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AuctionBid)
                    << msg;
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
