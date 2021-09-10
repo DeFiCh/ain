@@ -2060,7 +2060,7 @@ public:
 
         // owner auth
         if (!HasAuth(obj.ownerAddress)) {
-            return Res::Err("tx must have at least one input from token owner %s", obj.ownerAddress.GetHex());
+            return Res::Err("tx must have at least one input from token owner");
         }
 
         // set loan scheme to default if non provided
