@@ -907,8 +907,11 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
 UniValue listloanschemes(const JSONRPCRequest& request) {
 
     RPCHelpMan{"listloanschemes",
-               "List all available loan schemes.\n",
-               {},
+               "List all available loan schemes\n",
+               {
+                    {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                    "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"},
+               },
                RPCResult{
                        "[                         (json array of objects)\n"
                        "  {\n"
@@ -925,6 +928,12 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    std::string jsonFormat{"list"};
+    if(!request.params[0].isNull()){
+        jsonFormat = request.params[0].getValStr();
+        if(jsonFormat != "list" && jsonFormat != "object")
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+    }
     auto cmp = [](const CLoanScheme& a, const CLoanScheme& b) {
         return a.ratio == b.ratio ? a.rate < b.rate : a.ratio < b.ratio;
     };
@@ -943,18 +952,22 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
 
     auto defaultLoan = pcustomcsview->GetDefaultLoanScheme();
 
-    UniValue ret(UniValue::VARR);
+    UniValue ret = (jsonFormat == "list") ? UniValue::VARR : UniValue::VOBJ;
     for (const auto& item : loans) {
-        UniValue arr(UniValue::VOBJ);
-        arr.pushKV("id", item.identifier);
-        arr.pushKV("mincolratio", static_cast<uint64_t>(item.ratio));
-        arr.pushKV("interestrate", ValueFromAmount(item.rate));
+        UniValue obj(UniValue::VOBJ);
+        if (jsonFormat == "list")
+            obj.pushKV("id", item.identifier);
+        obj.pushKV("mincolratio", static_cast<uint64_t>(item.ratio));
+        obj.pushKV("interestrate", ValueFromAmount(item.rate));
         if (defaultLoan && *defaultLoan == item.identifier) {
-            arr.pushKV("default", true);
+            obj.pushKV("default", true);
         } else {
-            arr.pushKV("default", false);
+            obj.pushKV("default", false);
         }
-        ret.push_back(arr);
+        if( jsonFormat == "list")
+            ret.push_back(obj);
+        else
+            ret.pushKV(item.identifier, obj);
     }
 
     return ret;

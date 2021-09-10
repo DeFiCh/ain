@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 from decimal import Decimal
 
 class CreateLoanSchemeTest (DefiTestFramework):
@@ -223,6 +223,13 @@ class CreateLoanSchemeTest (DefiTestFramework):
         assert_equal(results[5]['mincolratio'], 1000)
         assert_equal(results[5]['interestrate'], Decimal('0.50000000'))
         assert_equal(results[5]['default'], True)
+
+        results = self.nodes[0].listloanschemes("object")
+        assert type(results) is dict
+        results = self.nodes[0].listloanschemes("list")
+        assert type(results) is list
+        assert_raises_rpc_error(-8, "Invalid json format", self.nodes[0].listloanschemes, "array")
+
 
         # Test changing the default loan scheme without ID
         try:
