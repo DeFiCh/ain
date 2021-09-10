@@ -255,6 +255,7 @@ BASE_SCRIPTS = [
     'feature_accounts_validation.py',
     'feature_listaccounts_pagination.py',
     'rpc_help.py',
+    'feature_loan.py',
     'feature_help.py',
     'feature_shutdown.py',
     'feature_oracles.py',
