@@ -6,7 +6,7 @@
 """Test listaccounts RPC pagination"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 class AccountsValidatingTest(DefiTestFramework):
     def set_test_params(self):
@@ -97,6 +97,10 @@ class AccountsValidatingTest(DefiTestFramework):
         result2 = node1.listaccounts(pagination)
         #check for length, we should get 2 entries since listaccounts RPC should return all accounts even with pagination.
         assert_equal(len(result2), 2)
+        assert(type(result2) is list)
+        result2 = node1.listaccounts({}, False, False, False, "object")
+        assert(type(result2) is dict)
+        assert_raises_rpc_error(-8, "Invalid json format", node1.listaccounts, {}, False, False, False, "array")
 
 if __name__ == '__main__':
     AccountsValidatingTest().main ()

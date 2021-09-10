@@ -16,7 +16,7 @@ UniValue AmountsToJSON(TAmounts const & diffs) {
     return obj;
 }
 
-UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexed_amounts) {
+UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool verbose, bool indexedAmounts, std::string jsonFormat) {
     // encode CScript into JSON
     UniValue ownerObj(UniValue::VOBJ);
     ScriptPubKeyToUniv(owner, ownerObj, true);
@@ -30,10 +30,11 @@ UniValue accountToJSON(CScript const& owner, CTokenAmount const& amount, bool ve
     }
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("key", owner.GetHex() + "@" + amount.nTokenId.ToString());
+    if (jsonFormat == "list")
+        obj.pushKV("key", owner.GetHex() + "@" + amount.nTokenId.ToString());
     obj.pushKV("owner", ownerObj);
 
-    if (indexed_amounts) {
+    if (indexedAmounts) {
         UniValue amountObj(UniValue::VOBJ);
         amountObj.pushKV(amount.nTokenId.ToString(), ValueFromAmount(amount.nValue));
         obj.pushKV("amount", amountObj);
@@ -269,9 +270,11 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                         "Format of amounts output (default = false): (true: {tokenid:amount}, false: \"amount@tokenid\")"},
                        {"is_mine_only", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
                         "Get balances about all accounts belonging to the wallet"},
+                       {"jsonformat", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                       "Formats output as list or as object. Possible values \"list\"|\"object\" (default = \"list\")"},
                },
                RPCResult{
-                       "{id:{...},...}     (array) Json object with accounts information\n"
+                       "[{...},...]     (array) Json list with accounts information\n"
                },
                RPCExamples{
                        HelpExampleCli("listaccounts", "")
@@ -313,16 +316,22 @@ UniValue listaccounts(const JSONRPCRequest& request) {
     if (request.params.size() > 1) {
         verbose = request.params[1].get_bool();
     }
-    bool indexed_amounts = false;
+    bool indexedAmounts = false;
     if (request.params.size() > 2) {
-        indexed_amounts = request.params[2].get_bool();
+        indexedAmounts = request.params[2].get_bool();
     }
     bool isMineOnly = false;
     if (request.params.size() > 3) {
         isMineOnly = request.params[3].get_bool();
     }
+    std::string jsonFormat{"list"};
+    if (request.params.size() > 4) {
+        jsonFormat = request.params[4].getValStr();
+        if (jsonFormat != "list" && jsonFormat != "object")
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid json format");
+    }
 
-    UniValue ret(UniValue::VARR);
+    UniValue ret = (jsonFormat == "list") ? UniValue::VARR : UniValue::VOBJ;
 
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
@@ -341,7 +350,13 @@ UniValue listaccounts(const JSONRPCRequest& request) {
             if (account != owner) {
                 return false;
             }
-            ret.push_back(accountToJSON(owner, balance, verbose, indexed_amounts));
+            auto obj = accountToJSON(owner, balance, verbose, indexedAmounts, jsonFormat);
+            if (jsonFormat == "list")
+                ret.push_back(obj);
+            else
+                ret.pushKV(owner.GetHex() + "@" + balance.nTokenId.ToString(), obj);
+
+
             return --limit != 0;
         }, {account, start.tokenID});
 
