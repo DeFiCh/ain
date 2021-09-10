@@ -831,7 +831,7 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     // dummy encode, mintingOutputsStart isn't filled
     CScript scriptMeta;
     {
-        std::vector<unsigned char> dummyMetadata(std::min((msg.balances.balances.size() * to.size()) * 40, (size_t)1024)); // heuristic to increse tx size before funding
+        std::vector<unsigned char> dummyMetadata(std::min((msg.balances.balances.size() * to.size()) * 40, (size_t)1024) * 2); // heuristic to increse tx size before funding
         scriptMeta << OP_RETURN << dummyMetadata;
     }
 
