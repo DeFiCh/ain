@@ -1344,7 +1344,6 @@ bool AppInitMain(InitInterfaces& interfaces)
     }
 
     // Start the lightweight task scheduler thread
-    CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
     scheduler.m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { scheduler.serviceQueue(); }); });
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
@@ -1849,8 +1848,6 @@ bool AppInitMain(InitInterfaces& interfaces)
     }
 
     threadGroup.emplace_back(ThreadImport, vImportFiles);
-
-    scheduler.m_service_thread = std::thread([&] { TraceThread("scheduler", [&] { scheduler.serviceQueue(); }); });
 
     // Wait for genesis block to be processed
     {
