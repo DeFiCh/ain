@@ -750,6 +750,10 @@ private:
 
     //! Mark a block as not having block data
     void EraseBlockData(CBlockIndex* index) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
+    void ProcessIcxData(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
+
+    void ProcessLoanData(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams);
 };
 
 /** Mark a block as precious and reorganize.
