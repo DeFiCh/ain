@@ -48,8 +48,15 @@ namespace {
             if (collaterals)
                 collateralBalances = AmountsToJSON(collaterals->balances);
 
-            if (auto loan = pcustomcsview->GetLoanTokens(vaultId))
-                loanBalances = AmountsToJSON(loan->balances);
+            if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)){
+                TAmounts balancesInterest{};
+                for (const auto& loan : loanTokens->balances) {
+                    auto rate = pcustomcsview->GetInterestRate(vault.schemeId, loan.first);
+                    CAmount value = loan.second + MultiplyAmounts(loan.second, TotalInterest(*rate, ::ChainActive().Height()));
+                    balancesInterest.insert({loan.first, value});
+                }
+                loanBalances = AmountsToJSON(balancesInterest);
+            }
 
             result.pushKV("collateralAmounts", collateralBalances);
             result.pushKV("loanAmount", loanBalances);

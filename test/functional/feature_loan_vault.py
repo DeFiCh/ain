@@ -348,10 +348,11 @@ class VaultTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
         self.sync_blocks()
+
         vault1 = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault1['loanAmount'], ['0.50000000@TSLA'])
+        assert_equal(vault1['loanAmount'], ['0.50002863@TSLA'])
         assert_equal(vault1['collateralValue'], Decimal(2.00000000))
-        assert_greater_than(vault1['loanValue'],Decimal(0.5))
+        assert_greater_than(vault1['loanValue'],Decimal(0.50002863))
 
         # make vault enter under liquidation state
         oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
@@ -361,10 +362,6 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
         vault1 = self.nodes[0].getvault(vaultId1)
-
-        # check auction list is populated
-        listAcutions = self.nodes[0].listauctions()
-        assert_equal(len(listAcutions), 1)
-
+        assert_equal(vault1['isUnderLiquidation'], True)
 if __name__ == '__main__':
     VaultTest().main()
