@@ -825,46 +825,47 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     return result;
 }
 
-namespace {
-    CAmount GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
-        arith_uint256 weightedSum = 0;
-        uint64_t numLiveOracles = 0, sumWeights = 0;
-        view.ForEachOracle([&](const COracleId&, COracle oracle) {
-            if (!oracle.SupportsPair(token, currency)) {
-                return true;
+ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
+    arith_uint256 weightedSum = 0;
+    uint64_t numLiveOracles = 0, sumWeights = 0;
+    view.ForEachOracle([&](const COracleId&, COracle oracle) {
+        if (!oracle.SupportsPair(token, currency)) {
+            return true;
+        }
+        for (const auto& tokenPrice : oracle.tokenPrices) {
+            if (token != tokenPrice.first) {
+                continue;
             }
-            for (const auto& tokenPrice : oracle.tokenPrices) {
-                if (token != tokenPrice.first) {
+            for (const auto& price : tokenPrice.second) {
+                if (currency != price.first) {
                     continue;
                 }
-                for (const auto& price : tokenPrice.second) {
-                    if (currency != price.first) {
-                        continue;
-                    }
-                    const auto& pricePair = price.second;
-                    auto amount = pricePair.first;
-                    auto timestamp = pricePair.second;
-                    if (!diffInHour(timestamp, lastBlockTime)) {
-                        continue;
-                    }
-                    ++numLiveOracles;
-                    sumWeights += oracle.weightage;
-                    weightedSum += arith_uint256(amount) * arith_uint256(oracle.weightage);
+                const auto& pricePair = price.second;
+                auto amount = pricePair.first;
+                auto timestamp = pricePair.second;
+                if (!diffInHour(timestamp, lastBlockTime)) {
+                    continue;
                 }
+                ++numLiveOracles;
+                sumWeights += oracle.weightage;
+                weightedSum += arith_uint256(amount) * arith_uint256(oracle.weightage);
             }
-            return true;
-        });
-
-        if (numLiveOracles == 0) {
-            throw JSONRPCError(RPC_MISC_ERROR, "no live oracles for specified request");
         }
+        return true;
+    });
 
-        if (sumWeights == 0) {
-            throw JSONRPCError(RPC_MISC_ERROR, "all live oracles which meet specified request, have zero weight");
-        }
-
-        return (weightedSum / arith_uint256(sumWeights)).GetLow64();
+    if (numLiveOracles < 2) {
+        return Res::Err("no live oracles for specified request");
     }
+
+    if (sumWeights == 0) {
+        return Res::Err("all live oracles which meet specified request, have zero weight");
+    }
+
+    return ResVal<CAmount>((weightedSum / arith_uint256(sumWeights)).GetLow64(), Res::Ok());
+}
+
+namespace {
 
     UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
 
@@ -907,12 +908,12 @@ namespace {
             const auto& currency = tokenCurrency.second;
             item.pushKV(oraclefields::Token, token);
             item.pushKV(oraclefields::Currency, currency);
-            try {
-                auto price = GetAggregatePrice(view, token, currency, lastBlockTime);
-                item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(price));
+            auto price = GetAggregatePrice(view, token, currency, lastBlockTime);
+            if (price) {
+                item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(*price.val));
                 item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsValid);
-            } catch (const UniValue& error) {
-                item.pushKV(oraclefields::ValidityFlag, error["message"]);
+            } else {
+                item.pushKV(oraclefields::ValidityFlag, price.msg);
             }
             result.push_back(item);
             limit--;
@@ -962,7 +963,9 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     CCustomCSView view(*pcustomcsview);
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
-    return ValueFromAmount(result);
+    if (!result)
+        throw JSONRPCError(RPC_MISC_ERROR, result.msg);
+    return ValueFromAmount(*result.val);
 }
 
 UniValue listprices(const JSONRPCRequest& request) {
