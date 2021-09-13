@@ -340,14 +340,8 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, order});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXCreateOrderMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
     ret.pushKV("txid", signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
@@ -489,15 +483,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, makeoffer});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXMakeOfferMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -640,15 +626,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, submitdfchtlc});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXSubmitDFCHTLCMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -797,15 +775,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, submitexthtlc});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXSubmitEXTHTLCMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -908,15 +878,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, claimdfchtlc});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXClaimDFCHTLCMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -1013,15 +975,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, closeorder});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXCloseOrderMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -1119,15 +1073,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, closeoffer});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXCloseOfferMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");

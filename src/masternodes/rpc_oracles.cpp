@@ -165,15 +165,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CAppointOracleMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -289,15 +281,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CUpdateOracleAppointMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -379,15 +363,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CRemoveOracleAppointMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -471,86 +447,80 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     CMutableTransaction rawTx{};
     CTransactionRef optAuthTx;
 
-    // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
-
-        auto parseDataItem = [&](const UniValue &value) -> std::pair<std::string, std::pair<CAmount, std::string>> {
-            if (!value.exists(oraclefields::Currency)) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
-            }
-            if (!value.exists(oraclefields::TokenAmount)) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::TokenAmount).msg);
-            }
-
-            auto currency = value[oraclefields::Currency].getValStr();
-            auto tokenAmount = value[oraclefields::TokenAmount].getValStr();
-            auto amounts = ParseTokenAmount(tokenAmount);
-            if (!amounts.ok) {
-                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, amounts.msg);
-            }
-
-            return std::make_pair(currency, *amounts.val);
-        };
-
-        CTokenPrices tokenPrices;
-
-        for (const auto &value : prices.get_array().getValues()) {
-            std::string currency;
-            std::pair<CAmount, std::string> tokenAmount;
-            std::tie(currency, tokenAmount) = parseDataItem(value);
-            tokenPrices[tokenAmount.second][currency] = tokenAmount.first;
+    auto parseDataItem = [&](const UniValue &value) -> std::pair<std::string, std::pair<CAmount, std::string>> {
+        if (!value.exists(oraclefields::Currency)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
+        }
+        if (!value.exists(oraclefields::TokenAmount)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::TokenAmount).msg);
         }
 
-        CSetOracleDataMessage msg{oracleId, timestamp, std::move(tokenPrices)};
+        auto currency = value[oraclefields::Currency].getValStr();
+        auto tokenAmount = value[oraclefields::TokenAmount].getValStr();
+        auto amounts = ParseTokenAmount(tokenAmount);
+        if (!amounts.ok) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, amounts.msg);
+        }
 
+        return std::make_pair(currency, *amounts.val);
+    };
+
+    CTokenPrices tokenPrices;
+
+    for (const auto &value : prices.get_array().getValues()) {
+        std::string currency;
+        std::pair<CAmount, std::string> tokenAmount;
+        std::tie(currency, tokenAmount) = parseDataItem(value);
+        tokenPrices[tokenAmount.second][currency] = tokenAmount.first;
+    }
+
+    CSetOracleDataMessage msg{oracleId, timestamp, std::move(tokenPrices)};
+
+    CScript oracleAddress;
+    {
+        LOCK(cs_main);
         // check if tx parameters are valid
-
-        auto oracleRes = mnview.GetOracleData(oracleId);
+        auto oracleRes = pcustomcsview->GetOracleData(oracleId);
         if (!oracleRes.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, oracleRes.msg);
         }
-
-        // encode
-        CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-        markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData)
-                       << msg;
-
-        CScript scriptMeta;
-        scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
-
-        int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
-        const auto txVersion = GetTransactionVersion(targetHeight);
-        rawTx = CMutableTransaction(txVersion);
-        rawTx.vout.emplace_back(0, scriptMeta);
-
-        UniValue const &txInputs = request.params[3];
-
-        std::set<CScript> auths;
-        auths.insert({oracleRes.val->oracleAddress});
-
-        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
-
-        CCoinControl coinControl;
-
-        // Set change to auth address if there's only one auth address
-        if (auths.size() == 1) {
-            CTxDestination dest;
-            ExtractDestination(*auths.cbegin(), dest);
-            if (IsValidDestination(dest)) {
-                coinControl.destChange = dest;
-            }
-        }
-
-        fund(rawTx, pwallet, optAuthTx, &coinControl);
-
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CSetOracleDataMessage{}, coins);
+        oracleAddress = oracleRes.val->oracleAddress;
     }
+
+    // encode
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::SetOracleData)
+                    << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    rawTx = CMutableTransaction(txVersion);
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    UniValue const &txInputs = request.params[3];
+
+    std::set<CScript> auths{oracleAddress};
+
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to auth address if there's only one auth address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
