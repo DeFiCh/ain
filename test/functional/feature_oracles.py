@@ -209,6 +209,10 @@ class OraclesTest(DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "10.1@PT"}, {"currency": "USD", "tokenAmount": "5@GOLD"}]
         self.nodes[2].setoracledata(oracle_id1, timestamp, oracle1_prices)
 
+        oracle_id3 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
+        self.synchronize(node=0)
+
+        self.nodes[2].setoracledata(oracle_id3, timestamp, oracle1_prices)
         self.synchronize(node=2)
 
         oracle_data_json = self.nodes[1].getoracledata(oracle_id1)
@@ -329,13 +333,15 @@ class OraclesTest(DefiTestFramework):
         ]
 
         self.nodes[2].setoracledata(oracle_id1, timestamp - 7200, token_prices1)
+        self.nodes[2].setoracledata(oracle_id3, timestamp - 7200, [{"currency":"USD", "tokenAmount":"7@PT"}])
 
         self.synchronize(node=2, full=True)
 
         pt_in_usd_raw_prices = self.nodes[1].listlatestrawprices({"currency":"USD", "token":"PT"})
 
-        assert_equal(len(pt_in_usd_raw_prices), 1)
+        assert_equal(len(pt_in_usd_raw_prices), 2)
         assert_equal(pt_in_usd_raw_prices[0]['state'], 'expired')
+        assert_equal(pt_in_usd_raw_prices[1]['state'], 'expired')
 
         # === check date in range 0 -> now+300s (5 minutes) ===
         token_prices1 = [{"currency":"USD", "tokenAmount":"7@PT"}]
