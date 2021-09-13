@@ -385,18 +385,20 @@ std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion,
     return result;
 }
 
-void execTestTx(const CTransaction& tx, uint32_t height, const std::vector<unsigned char>& metadata, CCustomTxMessage txMessage, const CCoinsViewCache& coins) {
+void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuthTx) {
+    std::vector<unsigned char> metadata;
+    auto txType = GuessCustomTxType(tx, metadata);
+    auto txMessage = customTypeToMessage(txType);
     auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
     if (res) {
+        LOCK(cs_main);
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coins, *optAuthTx, height);
         CCustomCSView view(*pcustomcsview);
         res = CustomTxVisit(view, coins, tx, height, Params().GetConsensus(), txMessage);
     }
     if (!res) {
-        std::vector<unsigned char> data;
-        auto txType = GuessCustomTxType(tx, data);
-        if (data != metadata) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, "tx <-> metadata mismatch");
-        }
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {
             throw JSONRPCError(RPC_INVALID_REQUEST,
                                strprintf("Test %sTx execution failed: not enough balance on owner's account, call utxostoaccount to increase it.\n%s", ToString(txType), res.msg));
@@ -493,13 +495,8 @@ UniValue setgov(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        execTestTx(CTransaction(rawTx), targetHeight, ToByteVector(varStream), CGovernanceMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 

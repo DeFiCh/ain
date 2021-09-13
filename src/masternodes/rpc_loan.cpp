@@ -147,14 +147,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, collToken});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanSetCollateralTokenMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -366,14 +359,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, loanToken});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanSetLoanTokenMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -493,14 +479,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<CLoanSetLoanToken>(*loanToken), loanToken->creationTx});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanUpdateLoanTokenMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -607,14 +586,7 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, loanScheme});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanSchemeMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -702,14 +674,7 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, loanScheme});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanSchemeMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -785,14 +750,7 @@ UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, defaultScheme});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CDefaultLoanSchemeMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -872,14 +830,7 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, destroyScheme});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CDestroyLoanSchemeMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -1081,14 +1032,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, takeLoan});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CLoanTakeLoanMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
