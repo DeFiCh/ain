@@ -2677,10 +2677,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         // close expired orders, refund all expired DFC HTLCs at this block height
-        if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
-        {
-            ProcessIcxData(pindex, cache, chainparams);
-        }
+        ProcessICXEvents(pindex, cache, chainparams);
 
         // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
         if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
@@ -2747,9 +2744,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         mapBurnAmounts.clear();
 
-        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
-            ProcessLoanData(pindex, cache, chainparams);
-        }
+        ProcessLoanEvents(pindex, cache, chainparams);
 
         // construct undo
         auto& flushable = cache.GetStorage();
@@ -2822,7 +2817,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     return true;
 }
 
-void CChainState::ProcessIcxData(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().EunosHeight) {
+        return;
+    }
+
     bool isPreEunosPaya = pindex->nHeight < chainparams.GetConsensus().EunosPayaHeight;
 
     cache.ForEachICXOrderExpire([&](CICXOrderView::StatusKey const& key, uint8_t status) {
@@ -2961,8 +2960,12 @@ void CChainState::ProcessIcxData(const CBlockIndex* pindex, CCustomCSView& cache
     },  pindex->nHeight);
 }
 
-void CChainState::ProcessLoanData(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
+void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
 {
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
+        return;
+    }
+
     std::vector<CLoanSchemeMessage> loanUpdates;
     cache.ForEachDelayedLoanScheme([&pindex, &loanUpdates](const std::pair<std::string, uint64_t>& key, const CLoanSchemeMessage& loanScheme) {
         if (key.second == pindex->nHeight) {
