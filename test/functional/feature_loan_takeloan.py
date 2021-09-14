@@ -59,7 +59,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         idDFI = list(self.nodes[0].gettoken(symbolDFI).keys())[0]
         idBTC = list(self.nodes[0].gettoken(symbolBTC).keys())[0]
-        idUSDT = list(self.nodes[0].gettoken(symboldUSD).keys())[0]
+        iddUSD = list(self.nodes[0].gettoken(symboldUSD).keys())[0]
 
         self.nodes[0].minttokens("10000@"+ symboldUSD)
 
@@ -70,12 +70,12 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         # create pool USDT-DFI
         self.nodes[0].createpoolpair({
-            "tokenA": idUSDT,
+            "tokenA": iddUSD,
             "tokenB": idDFI,
             "commission": Decimal('0.002'),
             "status": True,
             "ownerAddress": poolOwner,
-            "pairSymbol": "USDT-DFI",
+            "pairSymbol": "dUSD-DFI",
         }, [])
 
         self.nodes[0].utxostoaccount({account0: "1000@" + symbolDFI})
@@ -199,11 +199,11 @@ class LoanTakeLoanTest (DefiTestFramework):
         # create pool TSLA
         self.nodes[0].createpoolpair({
             "tokenA": idTSLA,
-            "tokenB": idUSDT,
+            "tokenB": symboldUSD,
             "commission": Decimal('0.002'),
             "status": True,
             "ownerAddress": poolOwner,
-            "pairSymbol": "TSLA-USDT",
+            "pairSymbol": "TSLA-dUSD",
         }, [])
         self.nodes[0].generate(1)
         self.sync_blocks()
