@@ -2063,7 +2063,8 @@ public:
     }
 
     Res operator()(const CVaultMessage& obj) const {
-        auto vault = obj;
+        CVaultData vault{};
+        static_cast<CVaultMessage&>(vault) = obj;
 
         // owner auth
         if (!HasAuth(obj.ownerAddress)) {
@@ -2098,14 +2099,14 @@ public:
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
-            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
 
         // vault under liquidation
-        if(vault.val->isUnderLiquidation)
+        if(vault->isUnderLiquidation)
             return Res::Err("Cannot update vault under liquidation");
 
         // owner auth
-        if (!HasAuth(vault.val->ownerAddress)) {
+        if (!HasAuth(vault->ownerAddress)) {
             return Res::Err("tx must have at least one input from token owner");
         }
 
@@ -2118,12 +2119,12 @@ public:
             return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
         }
 
-        if (vault.val->schemeId != obj.schemeId)
-            mnview.TransferVaultInterest(obj.vaultId, height, vault.val->schemeId, obj.schemeId);
+        if (vault->schemeId != obj.schemeId)
+            mnview.TransferVaultInterest(obj.vaultId, height, vault->schemeId, obj.schemeId);
 
-        vault.val->schemeId = obj.schemeId;
-        vault.val->ownerAddress = obj.ownerAddress;
-        return mnview.StoreVault(obj.vaultId, *vault.val);
+        vault->schemeId = obj.schemeId;
+        vault->ownerAddress = obj.ownerAddress;
+        return mnview.StoreVault(obj.vaultId, *vault);
     }
 
     Res operator()(const CDepositToVaultMessage& obj) const {
@@ -2134,10 +2135,10 @@ public:
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
-            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
 
         // vault under liquidation
-        if(vault.val->isUnderLiquidation)
+        if(vault->isUnderLiquidation)
             return Res::Err("Cannot deposit to vault under liquidation");
 
         //check balance
@@ -2203,17 +2204,17 @@ public:
 
         const auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
-            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
 
-        if(vault.val->isUnderLiquidation)
+        if(vault->isUnderLiquidation)
             return Res::Err("Cannot take loan on vault under liquidation");
 
         // vault owner auth
-        if (!HasAuth(vault.val->ownerAddress)) {
+        if (!HasAuth(vault->ownerAddress)) {
             return Res::Err("tx must have at least one input from vault owner");
         }
 
-        auto scheme = mnview.GetLoanScheme(vault.val->schemeId);
+        auto scheme = mnview.GetLoanScheme(vault->schemeId);
 
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
 
@@ -2234,7 +2235,7 @@ public:
             if (!res)
                 return res;
 
-            res = mnview.StoreInterest(height, obj.vaultId, vault.val->schemeId, tokenId);
+            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId);
             if (!res)
                 return res;
 
@@ -2246,9 +2247,9 @@ public:
             if (!res)
                 return res;
 
-            CalculateOwnerRewards(vault.val->ownerAddress);
+            CalculateOwnerRewards(vault->ownerAddress);
 
-            res = mnview.AddBalance(vault.val->ownerAddress, CTokenAmount{kv.first, kv.second});
+            res = mnview.AddBalance(vault->ownerAddress, CTokenAmount{kv.first, kv.second});
             if (!res)
                 return res;
         }
@@ -2361,10 +2362,10 @@ public:
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
-            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
 
         // vault under liquidation
-        if (!vault.val->isUnderLiquidation)
+        if (!vault->isUnderLiquidation)
             return Res::Err("Cannot bid to vault which is not under liquidation");
 
         auto data = mnview.GetAuction(obj.vaultId, height);

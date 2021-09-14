@@ -3003,10 +3003,11 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     auto defaultLoanScheme = cache.GetDefaultLoanScheme();
     for (const auto& vaultToDefault : vaultsToUpdate) {
-        auto newVault = cache.GetVault(vaultToDefault).val;
-        newVault->schemeId = *defaultLoanScheme;
-        cache.UpdateVault(vaultToDefault, *newVault);
-        cache.TransferVaultInterest(vaultToDefault, pindex->nHeight, {}, newVault->schemeId);
+        auto vault = cache.GetVault(vaultToDefault);
+        assert(vault);
+        vault->schemeId = *defaultLoanScheme;
+        cache.UpdateVault(vaultToDefault, *vault);
+        cache.TransferVaultInterest(vaultToDefault, pindex->nHeight, {}, vault->schemeId);
     }
 
     for (const auto& loanDestroy : loanDestruction) {
@@ -3022,13 +3023,13 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             }
             auto vault = cache.GetVault(vaultId);
             assert(vault);
-            auto scheme = cache.GetLoanScheme(vault.val->schemeId);
+            auto scheme = cache.GetLoanScheme(vault->schemeId);
             assert(scheme);
             if (scheme->ratio <= collateral->ratio()) {
                 return true;
             }
-            vault.val->isUnderLiquidation = true;
-            cache.StoreVault(vaultId, *vault.val);
+            vault->isUnderLiquidation = true;
+            cache.StoreVault(vaultId, *vault);
             auto loanTokens = cache.GetLoanTokens(vaultId);
             assert(loanTokens);
             for (const auto& loan : loanTokens->balances) {
@@ -3080,10 +3081,10 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         }
         auto vault = cache.GetVault(auction.vaultId);
         assert(vault);
-        vault.val->isUnderLiquidation = false;
-        cache.StoreVault(auction.vaultId, *vault.val);
+        vault->isUnderLiquidation = false;
+        cache.StoreVault(auction.vaultId, *vault);
         cache.EraseAuction(auction.vaultId, pindex->nHeight);
-        cache.TransferVaultInterest(auction.vaultId, pindex->nHeight, vault.val->schemeId, {});
+        cache.TransferVaultInterest(auction.vaultId, pindex->nHeight, vault->schemeId, {});
         return true;
     }, {CVaultId{}, static_cast<uint32_t>(pindex->nHeight)});
 }

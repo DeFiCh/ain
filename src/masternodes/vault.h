@@ -15,7 +15,6 @@ using CVaultId = uint256;
 struct CVaultMessage {
     CScript ownerAddress;
     std::string schemeId;
-    bool isUnderLiquidation{false};
 
     ADD_SERIALIZE_METHODS;
 
@@ -24,6 +23,18 @@ struct CVaultMessage {
     {
         READWRITE(ownerAddress);
         READWRITE(schemeId);
+    }
+};
+
+struct CVaultData : public CVaultMessage {
+    bool isUnderLiquidation;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITEAS(CVaultMessage, *this);
         READWRITE(isUnderLiquidation);
     }
 };
@@ -123,10 +134,10 @@ struct AuctionKey {
 class CVaultView : public virtual CStorageView
 {
 public:
-    Res StoreVault(const CVaultId&, const CVaultMessage&);
-    ResVal<CVaultMessage> GetVault(const CVaultId&) const;
+    Res StoreVault(const CVaultId&, const CVaultData&);
+    boost::optional<CVaultData> GetVault(const CVaultId&) const;
     Res UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault);
-    void ForEachVault(std::function<bool(const CVaultId&, const CVaultMessage&)> callback);
+    void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback);
 
     Res AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
     Res SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
