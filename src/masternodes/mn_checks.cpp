@@ -58,7 +58,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
         case CustomTxType::LoanSetCollateralToken: return "LoanSetCollateralToken";
         case CustomTxType::LoanSetLoanToken:     return "LoanSetLoanToken";
-        case CustomTxType::LoanUpdateLoanToken:     return "LoanUpdateLoanToken";
+        case CustomTxType::LoanUpdateLoanToken: return "LoanUpdateLoanToken";
         case CustomTxType::LoanScheme:          return "LoanScheme";
         case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
         case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
@@ -66,6 +66,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::UpdateVault:         return "UpdateVault";
         case CustomTxType::DepositToVault:      return "DepositToVault";
         case CustomTxType::LoanTakeLoan:        return "LoanTakeLoan";
+        case CustomTxType::LoanPaybackLoan:     return "LoanPaybackLoan";
         case CustomTxType::AuctionBid:          return "AuctionBid";
         case CustomTxType::None:                return "None";
     }
@@ -152,6 +153,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
         case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
         case CustomTxType::LoanTakeLoan:            return CLoanTakeLoanMessage{};
+        case CustomTxType::LoanPaybackLoan:         return CLoanPaybackLoanMessage{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
@@ -464,6 +466,11 @@ public:
         return !res ? res : serialize(obj);
     }
 
+    Res operator()(CLoanPaybackLoanMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
     Res operator()(CAuctionBidMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
@@ -548,7 +555,7 @@ public:
         return Res::Ok();
     }
 
-    Res ICXTransfer(DCT_ID id, CAmount amount, CScript const & from, CScript const & to) const {
+    Res TransferTokenBalance(DCT_ID id, CAmount amount, CScript const & from, CScript const & to) const {
         assert(!from.empty() || !to.empty());
 
         CTokenAmount tokenAmount{id, amount};
@@ -1279,7 +1286,7 @@ public:
             // subtract the balance from tokenFrom to dedicate them for the order
             CScript txidAddr(order.creationTx.begin(), order.creationTx.end());
             CalculateOwnerRewards(order.ownerAddress);
-            res = ICXTransfer(order.idToken, order.amountFrom, order.ownerAddress, txidAddr);
+            res = TransferTokenBalance(order.idToken, order.amountFrom, order.ownerAddress, txidAddr);
         }
 
         return !res ? res : mnview.ICXCreateOrder(order);
@@ -1324,7 +1331,7 @@ public:
 
         // locking takerFee in offer txidaddr
         CalculateOwnerRewards(makeoffer.ownerAddress);
-        res = ICXTransfer(DCT_ID{0}, makeoffer.takerFee, makeoffer.ownerAddress, txidAddr);
+        res = TransferTokenBalance(DCT_ID{0}, makeoffer.takerFee, makeoffer.ownerAddress, txidAddr);
 
         return !res ? res : mnview.ICXMakeOffer(makeoffer);
     }
@@ -1401,7 +1408,7 @@ public:
             // refund the rest of locked takerFee if there is difference
             if (offer->takerFee - takerFee) {
                 CalculateOwnerRewards(offer->ownerAddress);
-                res = ICXTransfer(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress);
+                res = TransferTokenBalance(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress);
                 if (!res)
                     return res;
 
@@ -1411,13 +1418,13 @@ public:
             }
 
             // burn takerFee
-            res = ICXTransfer(DCT_ID{0}, offer->takerFee, offerTxidAddr, consensus.burnAddress);
+            res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, offerTxidAddr, consensus.burnAddress);
             if (!res)
                 return res;
 
             // burn makerDeposit
             CalculateOwnerRewards(order->ownerAddress);
-            res = ICXTransfer(DCT_ID{0}, offer->takerFee, order->ownerAddress, consensus.burnAddress);
+            res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, order->ownerAddress, consensus.burnAddress);
             if (!res)
                 return res;
 
@@ -1463,7 +1470,7 @@ public:
         // subtract the balance from order txidaddr or offer owner address and dedicate them for the dfc htlc
         CScript htlcTxidAddr(submitdfchtlc.creationTx.begin(), submitdfchtlc.creationTx.end());
 
-        res = ICXTransfer(order->idToken, submitdfchtlc.amount, srcAddr, htlcTxidAddr);
+        res = TransferTokenBalance(order->idToken, submitdfchtlc.amount, srcAddr, htlcTxidAddr);
         return !res ? res : mnview.ICXSubmitDFCHTLC(submitdfchtlc);
     }
 
@@ -1566,7 +1573,7 @@ public:
             // refund the rest of locked takerFee if there is difference
             if (offer->takerFee - takerFee) {
                 CalculateOwnerRewards(offer->ownerAddress);
-                res = ICXTransfer(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress);
+                res = TransferTokenBalance(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress);
                 if (!res)
                     return res;
 
@@ -1576,13 +1583,13 @@ public:
             }
 
             // burn takerFee
-            res = ICXTransfer(DCT_ID{0}, offer->takerFee, offerTxidAddr, consensus.burnAddress);
+            res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, offerTxidAddr, consensus.burnAddress);
             if (!res)
                 return res;
 
             // burn makerDeposit
             CalculateOwnerRewards(order->ownerAddress);
-            res = ICXTransfer(DCT_ID{0}, offer->takerFee, order->ownerAddress, consensus.burnAddress);
+            res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, order->ownerAddress, consensus.burnAddress);
         }
 
         return !res ? res : mnview.ICXSubmitEXTHTLC(submitexthtlc);
@@ -1634,27 +1641,27 @@ public:
         if (order->orderType == CICXOrder::TYPE_INTERNAL)
         {
             CalculateOwnerRewards(offer->ownerAddress);
-            res = ICXTransfer(order->idToken, dfchtlc->amount, htlcTxidAddr, offer->ownerAddress);
+            res = TransferTokenBalance(order->idToken, dfchtlc->amount, htlcTxidAddr, offer->ownerAddress);
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
-            res = ICXTransfer(order->idToken, dfchtlc->amount, htlcTxidAddr, order->ownerAddress);
+            res = TransferTokenBalance(order->idToken, dfchtlc->amount, htlcTxidAddr, order->ownerAddress);
         if (!res)
             return res;
 
         // refund makerDeposit
-        res = ICXTransfer(DCT_ID{0}, offer->takerFee, CScript(), order->ownerAddress);
+        res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, CScript(), order->ownerAddress);
         if (!res)
             return res;
 
         // makerIncentive
-        res = ICXTransfer(DCT_ID{0}, offer->takerFee * 25 / 100, CScript(), order->ownerAddress);
+        res = TransferTokenBalance(DCT_ID{0}, offer->takerFee * 25 / 100, CScript(), order->ownerAddress);
         if (!res)
             return res;
 
         // maker bonus only on fair dBTC/BTC (1:1) trades for now
         DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
         if (order->idToken == BTC && order->orderPrice == COIN) {
-            res = ICXTransfer(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
+            res = TransferTokenBalance(BTC, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
             if (!res)
                 return res;
         }
@@ -1727,7 +1734,7 @@ public:
             // subtract the balance from txidAddr and return to owner
             CScript txidAddr(order->creationTx.begin(), order->creationTx.end());
             CalculateOwnerRewards(order->ownerAddress);
-            res = ICXTransfer(order->idToken, order->amountToFill, txidAddr, order->ownerAddress);
+            res = TransferTokenBalance(order->idToken, order->amountToFill, txidAddr, order->ownerAddress);
             if (!res)
                 return res;
         }
@@ -1775,7 +1782,7 @@ public:
             // subtract takerFee from txidAddr and return to owner
             CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
             CalculateOwnerRewards(offer->ownerAddress);
-            res = ICXTransfer(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress);
+            res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress);
             if (!res)
                 return res;
         }
@@ -1785,13 +1792,13 @@ public:
             CalculateOwnerRewards(offer->ownerAddress);
             if (isPreEunosPaya)
             {
-                res = ICXTransfer(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
+                res = TransferTokenBalance(order->idToken, offer->amount, txidAddr, offer->ownerAddress);
                 if (!res)
                     return res;
             }
             if (!mnview.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya))
             {
-                res = ICXTransfer(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress);
+                res = TransferTokenBalance(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress);
                 if (!res)
                     return res;
             }
@@ -2248,6 +2255,100 @@ public:
 
         // Write take loan to storage
         mnview.SetLoanTakeLoan(takeLoan);
+
+        return Res::Ok();
+    }
+
+    Res operator()(const CLoanPaybackLoanMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        CLoanPaybackLoanImplementation loanPayback;
+        static_cast<CLoanPaybackLoan&>(loanPayback) = obj;
+
+        loanPayback.creationHeight = height;
+        loanPayback.creationTx = tx.GetHash();
+
+        const auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+
+        if(vault.val->isUnderLiquidation)
+            return Res::Err("Cannot payback loan on vault under liquidation");
+
+        // vault owner auth
+        if (!HasAuth(vault.val->ownerAddress)) {
+            return Res::Err("tx must have at least one input from vault owner");
+        }
+
+        auto scheme = mnview.GetLoanScheme(vault.val->schemeId);
+
+        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+
+        if (!collaterals)
+            return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
+
+        for (const auto& kv : obj.amounts.balances)
+        {
+            DCT_ID tokenId = kv.first;
+            auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
+            if (!loanToken)
+                return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
+
+            auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
+            if (!loanAmounts)
+                return Res::Err("There are no loans on this vault (%s)!", obj.vaultId.GetHex());
+
+            auto it = loanAmounts->balances.find(tokenId);
+            if (it == loanAmounts->balances.end())
+                return Res::Err("There is no loan on token (%s) in this vault!",loanToken->symbol);
+
+            auto rate  = mnview.GetInterestRate(vault.val->schemeId, tokenId);
+            if (!rate)
+                return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
+
+            auto totalInterestAmount = MultiplyAmounts(it->second, TotalInterest(*rate,height));
+            auto totalLoanAmount = it->second + totalInterestAmount;
+            CAmount subLoan = 0, subInterest = 0;
+
+            if (kv.second >= totalLoanAmount)
+            {
+                subLoan = it->second;
+                subInterest = totalInterestAmount;
+            }
+            else
+            {
+                subLoan = kv.second - MultiplyAmounts(kv.second, totalInterestAmount);
+                subInterest = MultiplyAmounts(kv.second, totalInterestAmount);
+            }
+
+            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
+            if (!res)
+                return res;
+
+            res = mnview.EraseInterest(height, obj.vaultId, vault.val->schemeId, tokenId);
+            if (!res)
+                return res;
+
+            res = mnview.SubMintedTokens(loanToken->creationTx, subLoan);
+            if (!res)
+                return res;
+
+            CalculateOwnerRewards(vault.val->ownerAddress);
+
+            res = mnview.SubBalance(vault.val->ownerAddress, CTokenAmount{kv.first, subLoan});
+            if (!res)
+                return res;
+
+            // burn interest Token->USD->DFI->burnAddress
+            res = SwapToDFIOverUSD(mnview, kv.first, subInterest, vault.val->ownerAddress, consensus.burnAddress, height);
+            if (!res)
+                return res;
+        }
+
+        // Write loan payback to storage
+        mnview.SetLoanPaybackLoan(loanPayback);
 
         return Res::Ok();
     }
@@ -2879,3 +2980,38 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
 
     return poolResult;
 }
+
+Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height)
+{
+    CPoolSwapMessage obj;
+
+    obj.from = from;
+    obj.to = to;
+    obj.idTokenFrom = tokenId;
+    obj.idTokenTo = DCT_ID{0};
+    obj.amountFrom = amount;
+    obj.maxPrice = POOLPRICE_MAX;
+
+    auto poolSwap = CPoolSwap(obj, height);
+    auto token = mnview.GetToken(tokenId);
+    if (!token)
+        return Res::Err("Cannot find token with id %s!", tokenId.ToString());
+
+    auto dUsdToken = mnview.GetToken("dUSD");
+    if (!dUsdToken)
+        return Res::Err("Cannot find token dUSD");
+
+    auto poolTokendUSD = mnview.GetPoolPair(tokenId,dUsdToken->first);
+    if (!poolTokendUSD)
+        return Res::Err("Cannot find pool pair %s-dUSD!", token->symbol);
+
+    auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
+    if (!pooldUSDDFI)
+        return Res::Err("Cannot find pool pair USDT-DFI!");
+
+    // swap tokenID -> USD -> DFI
+    auto res = poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
+
+    return res;
+}
+

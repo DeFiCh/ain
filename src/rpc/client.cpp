@@ -238,6 +238,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "updateloantoken", 1, "inputs" },
     { "takeloan", 0, "metadata" },
     { "takeloan", 1, "inputs" },
+    { "loanpayback", 0, "metadata" },
+    { "loanpayback", 1, "inputs" },
     { "createloanscheme", 0, "mincolratio" },
     { "createloanscheme", 1, "interestrate" },
     { "updateloanscheme", 0, "mincolratio" },
