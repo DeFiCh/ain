@@ -306,14 +306,9 @@ public:
         rpcInfo.pushKV("symbol", obj.symbol);
         rpcInfo.pushKV("name", obj.name);
         rpcInfo.pushKV("priceFeedId", obj.priceFeedId.first + "/" + obj.priceFeedId.second);
-        rpcInfo.pushKV("mintable", obj.mintable);
-        rpcInfo.pushKV("interest", obj.interest);
     }
 
     void operator()(const CLoanUpdateLoanTokenMessage& obj) const {
-        rpcInfo.pushKV("tokenTx", obj.tokenTx.GetHex());
-        rpcInfo.pushKV("symbol", obj.symbol);
-        rpcInfo.pushKV("name", obj.name);
         rpcInfo.pushKV("priceFeedId", obj.priceFeedId.first + "/" + obj.priceFeedId.second);
         rpcInfo.pushKV("mintable", obj.mintable);
         rpcInfo.pushKV("interest", obj.interest);

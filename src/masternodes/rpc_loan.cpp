@@ -1,5 +1,7 @@
 #include <masternodes/mn_rpc.h>
 
+#define MINIMUM_PRICEFEED_LENGTH 8
+
 extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 
 UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& collToken)
@@ -1025,7 +1027,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
 
-    if (!metaObj["to"].isNull()) 
+    if (!metaObj["to"].isNull())
         takeLoan.to = DecodeScript(metaObj["to"].getValStr());
 
     if (!metaObj["amounts"].isNull())

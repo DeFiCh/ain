@@ -2168,6 +2168,7 @@ public:
             if (col.first == DCT_ID{0}) {
                 if (!MoneyRange(col.second))
                     return Res::Err("Exceed max money range");
+            if (loanSetCollToken->idToken == DCT_ID{0})
                 totalDFI += amount;
             }
 
