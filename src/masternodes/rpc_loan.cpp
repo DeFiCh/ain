@@ -961,7 +961,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("takeloan", R"('{"loanTokenId":5,"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"amount":10,"ownerAddress":"mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF"}')")
+                        HelpExampleCli("takeloan", R"('{"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"amount":"10@TSLA"}')")
                         },
      }.Check(request);
 
@@ -975,7 +975,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
     if (request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
-                           "{\"loanTokenId\",\"vaultId\",\"amount\",\"owneraddress\"}");
+                           "{\"vaultId\",\"amounts\"}");
 
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
@@ -1008,6 +1008,111 @@ UniValue takeloan(const JSONRPCRequest& request) {
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::LoanTakeLoan)
              << takeLoan;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{vault.val->ownerAddress};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
+
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    CCoinControl coinControl;
+
+    // Return change to auth address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest))
+        coinControl.destChange = dest;
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue loanpayback(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"loanpayback",
+                "Creates (and submits to local node and network) a tx to return the loan in desired amount.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                        {
+                            {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Id of vault used for loan"},
+                            {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount in amount@token format."},
+                        },
+                    },
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                        "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("loanpayback", R"('{"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"amount":"10@TSLA"}')")
+                        },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot loanpayback while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
+    if (request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameters, argument 1 must be non-null and expected as object at least with "
+                           "{\"vaultId\",\"amounts\"}");
+
+    UniValue metaObj = request.params[0].get_obj();
+    UniValue const & txInputs = request.params[1];
+
+    CLoanPaybackLoan loanPayback;
+
+    if (!metaObj["vaultId"].isNull())
+        loanPayback.vaultId = uint256S(metaObj["vaultId"].getValStr());
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
+
+    // Get vault if exists, vault owner used as auth.
+    auto vault = pcustomcsview->GetVault(loanPayback.vaultId);
+    if (!vault) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Cannot find existing vault with id " + loanPayback.vaultId.GetHex());
+    }
+
+    if (!metaObj["amounts"].isNull())
+        loanPayback.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
+
+    int targetHeight;
+    {
+        LOCK(cs_main);
+
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::LoanPaybackLoan)
+             << loanPayback;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -1161,6 +1266,7 @@ static const CRPCCommand commands[] =
     {"loan",        "listloanschemes",           &listloanschemes,       {}},
     {"loan",        "getloanscheme",             &getloanscheme,         {"id"}},
     {"loan",        "takeloan",                  &takeloan,              {"metadata", "inputs"}},
+    {"loan",        "loanpayback",               &loanpayback,           {"metadata", "inputs"}},
     {"loan",        "getloaninfo",               &getloaninfo,           {}},
     {"loan",        "getinterest",               &getinterest,           {"id", "token"}},
 };

@@ -85,6 +85,7 @@ enum class CustomTxType : uint8_t
     UpdateVault        = 'v',
     DepositToVault     = 'S',
     LoanTakeLoan       = 'F',
+    LoanPaybackLoan    = 'H',
     AuctionBid         = 'I'
 
 };
@@ -130,6 +131,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::UpdateVault:
         case CustomTxType::DepositToVault:
         case CustomTxType::LoanTakeLoan:
+        case CustomTxType::LoanPaybackLoan:
         case CustomTxType::AuctionBid:
         case CustomTxType::None:
             return type;
@@ -289,6 +291,7 @@ typedef boost::variant<
     CUpdateVaultMessage,
     CDepositToVaultMessage,
     CLoanTakeLoanMessage,
+    CLoanPaybackLoanMessage,
     CAuctionBidMessage
 > CCustomTxMessage;
 
@@ -302,6 +305,8 @@ Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
+Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height);
+
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
 */

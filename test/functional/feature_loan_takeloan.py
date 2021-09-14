@@ -29,29 +29,70 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[1].generate(100)
         self.sync_blocks()
 
+        account0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        account1 = self.nodes[1].get_genesis_keys().ownerAuthAddress
+
+        symbolDFI = "DFI"
+        symbolBTC = "BTC"
+        symboldUSD = "dUSD"
+        symbolTSLA = "TSLA"
+
         self.nodes[0].createtoken({
-            "symbol": "BTC",
+            "symbol": symbolBTC,
             "name": "BTC token",
             "isDAT": True,
             "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
         })
 
-        self.nodes[0].generate(10)
+        self.nodes[0].generate(1)
         self.sync_blocks()
 
-        symbolDFI = "DFI"
-        symbolBTC = "BTC"
+        self.nodes[0].createtoken({
+            "symbol": symboldUSD,
+            "name": "Theter USD",
+            "isDAT": True,
+            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
+        })
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
 
         idDFI = list(self.nodes[0].gettoken(symbolDFI).keys())[0]
         idBTC = list(self.nodes[0].gettoken(symbolBTC).keys())[0]
+        iddUSD = list(self.nodes[0].gettoken(symboldUSD).keys())[0]
 
-        account0 = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        account1 = self.nodes[1].get_genesis_keys().ownerAuthAddress
+        self.nodes[0].minttokens("10000@"+ symboldUSD)
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        poolOwner = self.nodes[0].getnewaddress("", "legacy")
+
+        # create pool USDT-DFI
+        self.nodes[0].createpoolpair({
+            "tokenA": iddUSD,
+            "tokenB": idDFI,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "dUSD-DFI",
+        }, [])
+
         self.nodes[0].utxostoaccount({account0: "1000@" + symbolDFI})
         self.nodes[1].utxostoaccount({account1: "100@" + symbolDFI})
 
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # transfer
+        self.nodes[0].addpoolliquidity({
+            account0: ["300@" + symboldUSD, "100@" + symbolDFI]
+        }, account0, [])
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"},{"currency": "USD", "token": "TSLA"}]
+        price_feeds1 = [{"currency": "USD", "token": symbolDFI}, {"currency": "USD", "token": symbolBTC},{"currency": "USD", "token": symbolTSLA}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
 
         self.nodes[0].generate(1)
@@ -77,13 +118,13 @@ class LoanTakeLoanTest (DefiTestFramework):
                                     'priceFeedId': oracle_id1})
 
         setLoanTokenTSLA = self.nodes[0].setloantoken({
-                                    'symbol': "TSLA",
+                                    'symbol': symbolTSLA,
                                     'name': "Tesla stock token",
                                     'priceFeedId': oracle_id1,
                                     'mintable': False,
                                     'interest': 1})
 
-        self.nodes[0].createloanscheme(150, 0.05, 'LOAN150')
+        self.nodes[0].createloanscheme(150, 5, 'LOAN150')
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -106,7 +147,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         try:
             self.nodes[0].takeloan({
                     'vaultId': setLoanTokenTSLA,
-                    'amounts': "1@TSLA"})
+                    'amounts': "1@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Cannot find existing vault with id" in errorString)
@@ -115,10 +156,10 @@ class LoanTakeLoanTest (DefiTestFramework):
         try:
             self.nodes[0].takeloan({
                     'vaultId': vaultId,
-                    'amounts': "1@BTC"})
+                    'amounts': "1@" + symbolBTC})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan token with id (1) does not exist" in errorString)
+        assert("Loan token with id (" + idBTC + ") does not exist" in errorString)
 
         try:
             self.nodes[0].takeloan({
@@ -131,7 +172,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         try:
             self.nodes[1].takeloan({
                     'vaultId': vaultId,
-                    'amounts': "1@TSLA"})
+                    'amounts': "1@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Incorrect authorization for" in errorString)
@@ -139,28 +180,52 @@ class LoanTakeLoanTest (DefiTestFramework):
         try:
             self.nodes[0].takeloan({
                     'vaultId': vaultId,
-                    'amounts': "1@TSLA"})
+                    'amounts': "1@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Loan cannot be taken on token with id (2) as \"mintable\" is currently false" in errorString)
+        assert("Loan cannot be taken on token with id (" + idTSLA + ") as \"mintable\" is currently false" in errorString)
 
-        setLoanTokenTSLA = self.nodes[0].updateloantoken('2',{
+        setLoanTokenTSLA = self.nodes[0].updateloantoken(idTSLA,{
                                     'mintable': True})
 
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[0].minttokens("1@"+ symbolTSLA)
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # create pool TSLA
+        self.nodes[0].createpoolpair({
+            "tokenA": idTSLA,
+            "tokenB": symboldUSD,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "TSLA-dUSD",
+        }, [])
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # transfer
+        self.nodes[0].addpoolliquidity({
+            account0: ["1@" + symbolTSLA, "300@" + symboldUSD]
+        }, account0, [])
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         try:
             self.nodes[0].takeloan({
                     'vaultId': vaultId,
-                    'amounts': "2@TSLA"})
+                    'amounts': "2@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
 
         self.nodes[0].takeloan({
                     'vaultId': vaultId,
-                    'amounts': "1@TSLA"})
+                    'amounts': "1@" + symbolTSLA})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -169,33 +234,52 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         interest = self.nodes[0].getinterest('LOAN150')[0]
 
-        assert_equal(interest['totalInterest'], Decimal('0.00001997'))
-        assert_equal(interest['interestPerBlock'], Decimal('0.00001997'))
+        assert_equal(interest['totalInterest'], Decimal('0.00011415'))
+        assert_equal(interest['interestPerBlock'], Decimal('0.00011415'))
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('571.06000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('300.00599100'))
+        assert_equal(loans['loanValueUSD'], Decimal('300.03424500'))
 
         vaultId1 = self.nodes[1].createvault( account1, 'LOAN150')
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
-        self.nodes[1].deposittovault(vaultId1, account1, "100@DFI")
+        self.nodes[1].deposittovault(vaultId1, account1, "100@" + symbolDFI)
 
         self.nodes[1].generate(1)
         self.sync_blocks()
 
-        interest = self.nodes[0].getinterest('LOAN150', 'TSLA')[0]
+        interest = self.nodes[0].getinterest('LOAN150', symbolTSLA)[0]
 
-        assert_equal(interest['totalInterest'], 3 * Decimal('0.00001997'))
-        assert_equal(interest['interestPerBlock'], Decimal('0.00001997'))
+        assert_equal(interest['totalInterest'],  3 * Decimal('0.00011415'))
+        assert_equal(interest['interestPerBlock'], Decimal('0.00011415'))
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('856.59000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('300.01797300'))
+        assert_equal(loans['loanValueUSD'], Decimal('300.10273500'))
+
+        try:
+            self.nodes[0].loanpayback({
+                        'vaultId': vaultId,
+                        'amounts': "0.5@" + symbolTSLA})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        vaultInfo = self.nodes[0].getvault(vaultId)
+
+        assert_equal(vaultInfo['loanAmount'], ['0.50039960@' + symbolTSLA])
+
+        loans = self.nodes[0].getloaninfo()
+
+        assert_equal(loans['collateralValueUSD'], Decimal('856.59000000'))
+        assert_equal(loans['loanValueUSD'], Decimal('150.11988000'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()

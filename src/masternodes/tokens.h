@@ -157,6 +157,7 @@ public:
 
     Res BayfrontFlagsCleanup();
     Res AddMintedTokens(uint256 const & tokenTx, CAmount const & amount);
+    Res SubMintedTokens(uint256 const & tokenTx, CAmount const & amount);
 
     // tags
     struct ID           { static constexpr uint8_t prefix() { return 'T'; } };

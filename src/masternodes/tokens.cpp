@@ -263,6 +263,24 @@ Res CTokensView::AddMintedTokens(const uint256 &tokenTx, CAmount const & amount)
     return Res::Ok();
 }
 
+Res CTokensView::SubMintedTokens(const uint256 &tokenTx, CAmount const & amount)
+{
+    auto pair = GetTokenByCreationTx(tokenTx);
+    if (!pair) {
+        return Res::Err("token with creationTx %s does not exist!", tokenTx.ToString());
+    }
+    CTokenImpl & tokenImpl = pair->second;
+
+    auto resMinted = tokenImpl.minted - amount;
+    if (resMinted < 0) {
+        return Res::Err("not enough tokens exist to subtract this amount");
+    }
+    tokenImpl.minted = resMinted;
+
+    WriteBy<ID>(pair->first, tokenImpl);
+    return Res::Ok();
+}
+
 DCT_ID CTokensView::IncrementLastDctId()
 {
     DCT_ID result{DCT_ID_START};
