@@ -1827,13 +1827,6 @@ public:
         if(!token)
             return Res::Err("token %s does not exist!", collToken.idToken.ToString());
 
-        auto oracle = mnview.GetOracleData(collToken.priceFeedTxid);
-        if (!oracle)
-            return Res::Err("oracle (%s) does not exist!", collToken.priceFeedTxid.GetHex());
-
-        if (!oracle.val->SupportsPair(token->symbol, "USD"))
-            return Res::Err("oracle (%s) does not contain USD price for this token!", collToken.priceFeedTxid.GetHex());
-
         if (!collToken.activateAfterBlock)
             collToken.activateAfterBlock = height;
         if (collToken.activateAfterBlock < height)
@@ -1857,10 +1850,6 @@ public:
             return Res::Err("tx not from foundation member!");
         }
 
-        auto oracle = mnview.GetOracleData(loanToken.priceFeedTxid);
-        if (!oracle)
-            return Res::Err("oracle (%s) does not exist or not valid oracle!", loanToken.priceFeedTxid.GetHex());
-
         CTokenImplementation token;
         token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
         token.flags |= (uint8_t)CToken::TokenFlags::LoanToken | (uint8_t)CToken::TokenFlags::DAT;
@@ -1874,9 +1863,6 @@ public:
         if (!tokenId) {
             return std::move(tokenId);
         }
-
-        if (!oracle.val->SupportsPair(token.symbol,"USD"))
-            return Res::Err("oracle (%s) does not contain USD price for this token!", loanToken.priceFeedTxid.GetHex());
 
         return mnview.LoanSetLoanToken(loanToken, *(tokenId.val));
     }
@@ -1907,24 +1893,14 @@ public:
             pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);;
         if (obj.name != pair->second.name)
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+        if (obj.priceFeed != loanToken->priceFeed)
+            loanToken->priceFeed = obj.priceFeed;
         if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
 
         res = mnview.UpdateToken(pair->second.creationTx, static_cast<CToken>(pair->second), false);
         if (!res)
             return res;
-
-        if (obj.priceFeedTxid != loanToken->priceFeedTxid)
-        {
-            auto oracle = mnview.GetOracleData(obj.priceFeedTxid);
-
-            if (!oracle)
-                return Res::Err("oracle (%s) does not exist!", obj.priceFeedTxid.GetHex());
-            if (!oracle.val->SupportsPair(pair->second.symbol,"USD"))
-                return Res::Err("oracle (%s) does not contain USD price for this token!", loanToken->priceFeedTxid.GetHex());
-
-            loanToken->priceFeedTxid = obj.priceFeedTxid;
-        }
 
         return mnview.LoanUpdateLoanToken(*loanToken, pair->first);
     }
@@ -2163,21 +2139,9 @@ public:
             if (!loanSetCollToken)
                 return Res::Err("Token with id %s does not exist as collateral token", loanSetCollToken->idToken.ToString());
 
-            auto cToken = mnview.GetToken(loanSetCollToken->idToken); // for symbol
-            if (!cToken)
-                return Res::Err("token %s does not exist.", cToken->symbol);
-
-            auto oracle = mnview.GetOracleData(loanSetCollToken->priceFeedTxid);
-            if (!oracle)
-                return Res::Err("oracle <%s> not found.", loanSetCollToken->priceFeedTxid.GetHex());
-
-            auto price = oracle.val->GetTokenPrice(cToken->symbol, "USD");
-            if (!price)
-                return Res::Err("oracle <%s> does not provide %s/USD price.", loanSetCollToken->priceFeedTxid.GetHex(), cToken->symbol);
-
             auto amount = MultiplyAmounts(*price.val, col.second);
 
-            if (cToken->symbol == "DFI")
+            if (loanSetCollToken->symbol == "DFI")
                 totalDFI += amount;
 
             totalCollaterals += amount;

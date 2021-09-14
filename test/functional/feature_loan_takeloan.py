@@ -91,36 +91,20 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": symbolDFI}, {"currency": "USD", "token": symbolBTC},{"currency": "USD", "token": symbolTSLA}]
-        oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
-
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        self.nodes[0].setoracledata(oracle_id1, 1612237937,
-                                      [{'currency': "USD",
-                                       'tokenAmount': "2.8553@DFI"},
-                                       {'currency': "USD",
-                                       'tokenAmount': "48523@BTC"},
-                                       {'currency': "USD",
-                                       'tokenAmount': "300@TSLA"},
-                                      ])
-
         self.nodes[0].setcollateraltoken({
                                     'token': idDFI,
                                     'factor': 1,
-                                    'priceFeedId': oracle_id1})
+                                    'priceFeedId': "DFI/USD"})
 
         self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
                                     'factor': 1,
-                                    'priceFeedId': oracle_id1})
+                                    'priceFeedId': "BTC/USD"})
 
         setLoanTokenTSLA = self.nodes[0].setloantoken({
                                     'symbol': symbolTSLA,
                                     'name': "Tesla stock token",
-                                    'priceFeedId': oracle_id1,
+                                    'priceFeedId': "TSLA/USD",
                                     'mintable': False,
                                     'interest': 1})
 
