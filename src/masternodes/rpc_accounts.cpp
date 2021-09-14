@@ -1140,19 +1140,19 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     if (!noRewards) {
         // revert previous tx to restore account balances to maxBlockHeight
-        auto it = paccountHistoryDB->LowerBound<CAccountsHistoryView::ByAccountHistoryKey>(startKey);
-        if (it.Valid() && (it.Prev(), it.Valid())) {
-            paccountHistoryDB->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
-                if (!isMatchOwner(key.owner)) {
-                    return false;
-                }
-                if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
-                    return true;
-                }
-                CScopeAccountReverter(mnview, key.owner, value.diff);
-                return it.Key().blockHeight != key.blockHeight;
-            }, {account, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
-        }
+        paccountHistoryDB->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
+            if (startKey.blockHeight > key.blockHeight) {
+                return false;
+            }
+            if (!isMatchOwner(key.owner)) {
+                return false;
+            }
+            if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
+                return true;
+            }
+            CScopeAccountReverter(mnview, key.owner, value.diff);
+            return true;
+        }, {account, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
     }
 
     paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
