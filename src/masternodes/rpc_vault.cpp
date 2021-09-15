@@ -31,16 +31,17 @@ namespace {
             UniValue loanValue{UniValue::VSTR};
 
             auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
-            if (collaterals) {
-                auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, *collaterals, ::ChainActive().Height());
-                CAmount totalCollateral = 0, totalLoan = 0;
-                if (rate) {
-                    totalCollateral += rate->totalCollaterals();
-                    totalLoan += rate->totalLoans();
-                }
-                collValue = ValueFromAmount(totalCollateral);
-                loanValue = ValueFromAmount(totalLoan);
+            if(!collaterals) collaterals = CBalances{};
+            auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, *collaterals, ::ChainActive().Height());
+            CAmount totalCollateral = 0, totalLoan = 0;
+            uint32_t ratio = 0;
+            if (rate) {
+                totalCollateral += rate->totalCollaterals();
+                totalLoan += rate->totalLoans();
+                ratio = rate->ratio();
             }
+            collValue = ValueFromAmount(totalCollateral);
+            loanValue = ValueFromAmount(totalLoan);
 
             UniValue collateralBalances{UniValue::VARR};
             UniValue loanBalances{UniValue::VARR};
@@ -62,6 +63,7 @@ namespace {
             result.pushKV("loanAmount", loanBalances);
             result.pushKV("collateralValue", collValue);
             result.pushKV("loanValue", loanValue);
+            result.pushKV("currentRatio", (int)ratio);
         }
         return result;
     }
