@@ -1633,6 +1633,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     CAmount burntDFI{0};
     CAmount burntFee{0};
+    CAmount auctionFee{0};
+    CAmount paybackFee{0};
     CBalances burntTokens;
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
@@ -1650,6 +1652,22 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         if (value.category == uint8_t(CustomTxType::CreateMasternode) || value.category == uint8_t(CustomTxType::CreateToken)) {
             for (auto const & diff : value.diff) {
                 burntFee += diff.second;
+            }
+            return true;
+        }
+
+        // withdraw burn
+        if (value.category == uint8_t(CustomTxType::LoanPaybackLoan)) {
+            for (auto const & diff : value.diff) {
+                paybackFee += diff.second;
+            }
+            return true;
+        }
+
+        // auction burn
+        if (value.category == uint8_t(CustomTxType::AuctionBid)) {
+            for (auto const & diff : value.diff) {
+                auctionFee += diff.second;
             }
             return true;
         }
@@ -1675,6 +1693,14 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }
     result.pushKV("tokens", tokens);
     result.pushKV("feeburn", ValueFromAmount(burntFee));
+
+    if (auctionFee) {
+        result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+    }
+
+    if (paybackFee) {
+        result.pushKV("paybackburn", ValueFromAmount(paybackFee));
+    }
 
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
