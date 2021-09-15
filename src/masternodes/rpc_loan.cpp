@@ -1090,22 +1090,22 @@ UniValue loanpayback(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
 
-    // Get vault if exists, vault owner used as auth.
-    auto vault = pcustomcsview->GetVault(loanPayback.vaultId);
-    if (!vault) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Cannot find existing vault with id " + loanPayback.vaultId.GetHex());
-    }
-
     if (!metaObj["amounts"].isNull())
         loanPayback.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
 
     int targetHeight;
+    CScript ownerAddress;
     {
         LOCK(cs_main);
-
         targetHeight = ::ChainActive().Height() + 1;
+        // Get vault if exists, vault owner used as auth.
+        auto vault = pcustomcsview->GetVault(loanPayback.vaultId);
+        if (!vault) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER,"Cannot find existing vault with id " + loanPayback.vaultId.GetHex());
+        }
+        ownerAddress = vault->ownerAddress;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -1119,7 +1119,7 @@ UniValue loanpayback(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths{vault.val->ownerAddress};
+    std::set<CScript> auths{ownerAddress};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     rawTx.vout.emplace_back(0, scriptMeta);

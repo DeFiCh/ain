@@ -2275,15 +2275,15 @@ public:
         if (!vault)
             return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
 
-        if(vault.val->isUnderLiquidation)
+        if(vault->isUnderLiquidation)
             return Res::Err("Cannot payback loan on vault under liquidation");
 
         // vault owner auth
-        if (!HasAuth(vault.val->ownerAddress)) {
+        if (!HasAuth(vault->ownerAddress)) {
             return Res::Err("tx must have at least one input from vault owner");
         }
 
-        auto scheme = mnview.GetLoanScheme(vault.val->schemeId);
+        auto scheme = mnview.GetLoanScheme(vault->schemeId);
 
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
 
@@ -2305,7 +2305,7 @@ public:
             if (it == loanAmounts->balances.end())
                 return Res::Err("There is no loan on token (%s) in this vault!",loanToken->symbol);
 
-            auto rate  = mnview.GetInterestRate(vault.val->schemeId, tokenId);
+            auto rate  = mnview.GetInterestRate(vault->schemeId, tokenId);
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
@@ -2328,7 +2328,7 @@ public:
             if (!res)
                 return res;
 
-            res = mnview.EraseInterest(height, obj.vaultId, vault.val->schemeId, tokenId);
+            res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId);
             if (!res)
                 return res;
 
@@ -2336,14 +2336,14 @@ public:
             if (!res)
                 return res;
 
-            CalculateOwnerRewards(vault.val->ownerAddress);
+            CalculateOwnerRewards(vault->ownerAddress);
 
-            res = mnview.SubBalance(vault.val->ownerAddress, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubBalance(vault->ownerAddress, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
 
             // burn interest Token->USD->DFI->burnAddress
-            res = SwapToDFIOverUSD(mnview, kv.first, subInterest, vault.val->ownerAddress, consensus.burnAddress, height);
+            res = SwapToDFIOverUSD(mnview, kv.first, subInterest, vault->ownerAddress, consensus.burnAddress, height);
             if (!res)
                 return res;
         }
