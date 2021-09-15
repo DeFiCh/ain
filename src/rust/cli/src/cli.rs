@@ -3,7 +3,7 @@ use crate::commands::rpc_api::RpcMethod;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "defi-rust-cli")]
+#[structopt(name = "defi-cli")]
 #[structopt(version = env!("CARGO_PKG_VERSION"))]
 #[structopt(about = env!("CARGO_PKG_DESCRIPTION"))]
 #[structopt(author = env!("CARGO_PKG_AUTHORS"))]
