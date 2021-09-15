@@ -2894,13 +2894,11 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
         poolIDs.clear();
     }
 
-    CCustomCSView intermediateView(view);
-
     // Single swap if no pool IDs provided
     auto poolPrice = POOLPRICE_MAX;
     boost::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
     if (poolIDs.empty()) {
-        poolPair = intermediateView.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
+        poolPair = view.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
         if (!poolPair) {
             return Res::Err("Cannot find the pool pair.");
         }
@@ -2924,7 +2922,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
         }
         else // Or get pools from IDs provided for composite swap
         {
-            pool = intermediateView.GetPoolPair(currentID);
+            pool = view.GetPoolPair(currentID);
             if (!pool) {
                 return Res::Err("Cannot find the pool pair.");
             }
@@ -2943,11 +2941,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
 
         // Perform swap
         poolResult = pool->Swap(swapAmount, poolPrice, [&] (const CTokenAmount &tokenAmount) {
-            auto res = intermediateView.SetPoolPair(currentID, height, *pool);
+            auto res = view.SetPoolPair(currentID, height, *pool);
             if (!res) {
                 return res;
             }
 
+            CCustomCSView intermediateView(view);
             // Update owner rewards if not being called from RPC
             intermediateView.CalculateOwnerRewards(obj.from, height);
 
@@ -2955,13 +2954,26 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
                 intermediateView.CalculateOwnerRewards(obj.to, height);
             }
 
+            intermediateView.Flush();
+
             // Save swap amount for next loop
             swapAmountResult = tokenAmount;
 
+            // hide interemidiate swaps
+            auto& currentView = lastSwap || i == 0 ? view : intermediateView;
+
             // Update balances
-            res = intermediateView.SubBalance(obj.from, swapAmount);
-            return !res ? res : intermediateView.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
-            }, static_cast<int>(height));
+            res = currentView.SubBalance(obj.from, swapAmount);
+            if (!res) {
+                return res;
+            }
+            res = currentView.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
+            if (!res) {
+                return res;
+            }
+            intermediateView.Flush();
+            return res;
+        }, static_cast<int>(height));
 
         if (!poolResult) {
             return poolResult;
@@ -2975,9 +2987,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
             return Res::Err("Price is higher than indicated.");
         }
     }
-
-    // Flush changes
-    intermediateView.Flush();
 
     // Assign to result for loop testing best pool swap result
     result = swapAmountResult.nValue;
