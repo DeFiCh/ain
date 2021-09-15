@@ -198,6 +198,12 @@ CAmount TotalInterest(const CInterestRate& rate, uint32_t height)
     return rate.interestToHeight + ((height - rate.height + 1) * rate.interestPerBlock);
 }
 
+CAmount InterestPerBlock(uint32_t count, CAmount tokenInterest, CAmount schemeInterest)
+{
+    auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
+    return netInterest * count / (365 * Params().GetConsensus().blocksPerDay());
+}
+
 Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id)
 {
     auto scheme = GetLoanScheme(loanSchemeID);
@@ -223,8 +229,7 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     }
     rate.count++;
     rate.height = height;
-    int64_t netInterest = scheme->rate + token->interest;
-    rate.interestPerBlock = netInterest * rate.count / (365 * Params().GetConsensus().blocksPerDay());
+    rate.interestPerBlock = InterestPerBlock(rate.count, token->interest, scheme->rate);
     WriteBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id), rate);
     return Res::Ok();
 }
@@ -263,8 +268,7 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
     rate.count--;
     rate.height = height;
-    int64_t netInterest = scheme->rate + token->interest;
-    rate.interestPerBlock = netInterest * rate.count / (365 * Params().GetConsensus().blocksPerDay());
+    rate.interestPerBlock = InterestPerBlock(rate.count, token->interest, scheme->rate);
     WriteBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id), rate);
     return Res::Ok();
 }

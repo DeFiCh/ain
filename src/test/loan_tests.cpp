@@ -91,7 +91,7 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->count, 3);
     BOOST_CHECK_EQUAL(rate->height, 1);
-    auto netInterest = scheme->rate + tokenInterest;
+    auto netInterest = (scheme->rate + tokenInterest) / 100;
     BOOST_CHECK_EQUAL(rate->interestPerBlock, netInterest * rate->count / (365 * Params().GetConsensus().blocksPerDay()));
 
     auto interestToHeight = rate->interestPerBlock + rate->interestToHeight;

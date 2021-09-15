@@ -234,13 +234,13 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         interest = self.nodes[0].getinterest('LOAN150')[0]
 
-        assert_equal(interest['totalInterest'], Decimal('0.00011415'))
-        assert_equal(interest['interestPerBlock'], Decimal('0.00011415'))
+        assert_equal(interest['totalInterest'], Decimal('0.00000114'))
+        assert_equal(interest['interestPerBlock'], Decimal('0.00000114'))
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('571.06000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('300.03424500'))
+        assert_equal(loans['loanValueUSD'], Decimal('300.00034200'))
 
         vaultId1 = self.nodes[1].createvault( account1, 'LOAN150')
 
@@ -254,13 +254,13 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         interest = self.nodes[0].getinterest('LOAN150', symbolTSLA)[0]
 
-        assert_equal(interest['totalInterest'],  3 * Decimal('0.00011415'))
-        assert_equal(interest['interestPerBlock'], Decimal('0.00011415'))
+        assert_equal(interest['totalInterest'],  3 * Decimal('0.00000114'))
+        assert_equal(interest['interestPerBlock'], Decimal('0.00000114'))
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('856.59000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('300.10273500'))
+        assert_equal(loans['loanValueUSD'], Decimal('300.00102600'))
 
         try:
             self.nodes[0].loanpayback({
@@ -274,12 +274,12 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         vaultInfo = self.nodes[0].getvault(vaultId)
 
-        assert_equal(vaultInfo['loanAmount'], ['0.50039960@' + symbolTSLA])
+        assert_equal(vaultInfo['loanAmount'], ['0.50000399@' + symbolTSLA])
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('856.59000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('150.11988000'))
+        assert_equal(loans['loanValueUSD'], Decimal('150.00119700'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()
