@@ -4,11 +4,7 @@ use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Get the number of block in the longest chain.")]
-pub struct GetBlockCountCmd {
-    /// Arguments to be passed to the RPC.
-    #[structopt(long)]
-    pub args: Vec<String>,
-}
+pub struct GetBlockCountCmd {}
 
 impl GetBlockCountCmd {
     pub fn run(&self, client: &Client) -> Result<(), Error> {
