@@ -10,7 +10,6 @@ build
 src/defi
 src/defid
 src/defi-cli
-src/defi-rust-cli
 src/defi-tx
 src/defi-wallet
 src/test/test_defi
@@ -134,6 +133,10 @@ dist/
 # VSCode extension LocalHistory
 .history
 
+<<<<<<< HEAD
 # Added by cargo
 
 src/rust-cli/target
+=======
+src/rust/cli/target
+>>>>>>> use root .gitignore
