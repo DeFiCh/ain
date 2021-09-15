@@ -916,7 +916,7 @@ public:
                     }
                 }
             } else {
-                view.SubBalance(owner, {balance.first, amount});
+                view.SubBalance(owner, {balance.first, -amount});
                 if (IsPoolShare) {
                     if (view.GetBalance(owner, balance.first).nValue == 0) {
                         view.DelShare(balance.first, owner);
