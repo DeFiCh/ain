@@ -1,0 +1,14 @@
+[package]
+name = "defi-cli"
+version = "0.1.0"
+edition = "2018"
+authors = [
+    "DeFi Blockchain Developers <engineering@defichain.com>"
+]
+description = "DeFichain CLI"
+
+[dependencies]
+structopt = "0.3"
+jsonrpc = "0.12.0"
+serde = "1"
+serde_json = "1"
