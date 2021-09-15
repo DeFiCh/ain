@@ -2186,7 +2186,7 @@ public:
         if (totalDFI < totalCollaterals / 2)
             return Res::Err("At least 50%% of the vault must be in DFI thus first deposit must be DFI");
 
-        auto loanScheme = mnview.GetLoanScheme(vault.val->schemeId);
+        auto loanScheme = mnview.GetLoanScheme(vault->schemeId);
         auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height);
         if (!rate || rate->ratio() < loanScheme->ratio)
             return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate->ratio(), loanScheme->ratio);

@@ -247,7 +247,7 @@ BASE_SCRIPTS = [
     'feature_logging.py',
     'feature_loan_scheme.py',
     'feature_loan_vault.py',
-    'feature_loan.py'
+    'feature_loan.py',
     'p2p_node_network_limited.py',
     'p2p_permissions.py',
     'feature_blocksdir.py',
