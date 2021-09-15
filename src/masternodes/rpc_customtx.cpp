@@ -338,7 +338,6 @@ public:
         // Add Vault attributes
         rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
         rpcInfo.pushKV("loanSchemeId", obj.schemeId);
-        rpcInfo.pushKV("isUnderLiquidation", obj.isUnderLiquidation);
     }
 
     void operator()(const CUpdateVaultMessage& obj) const {

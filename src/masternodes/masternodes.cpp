@@ -820,7 +820,7 @@ inline CAmount GetOraclePriceUSD(COracle& oracle, std::string const & symbol)
 boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height)
 {
     auto vault = GetVault(vaultId);
-    if (!vault || vault.val->isUnderLiquidation) {
+    if (!vault || vault->isUnderLiquidation) {
         return {};
     }
 
@@ -831,7 +831,7 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
         for (const auto& loan : loanTokens->balances) {
             auto token = GetLoanSetLoanTokenByID(loan.first);
             assert(token);
-            auto rate = GetInterestRate(vault.val->schemeId, loan.first);
+            auto rate = GetInterestRate(vault->schemeId, loan.first);
             assert(rate && rate->height <= height);
             auto oracle = GetOracleData(token->priceFeedTxid);
             assert(oracle);
