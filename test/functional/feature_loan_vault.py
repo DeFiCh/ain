@@ -242,7 +242,8 @@ class VaultTest (DefiTestFramework):
             self.nodes[1].deposittovault(vaultId1, accountBTC, '1@BTC')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("First deposit must be in DFI" in errorString)
+        assert("At least 50% of the vault must be in DFI thus first deposit must be DFI" in errorString)
+
 
         # Insufficient funds
         try:

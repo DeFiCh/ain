@@ -2128,10 +2128,14 @@ public:
     }
 
     Res operator()(const CDepositToVaultMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
         // owner auth
-        if (!HasAuth(obj.from)) {
+        if (!HasAuth(obj.from))
             return Res::Err("tx must have at least one input from token owner");
-        }
+
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
@@ -2147,17 +2151,11 @@ public:
         if (!resSub)
             return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), resSub.msg);
 
-        //check first deposit DFI
-        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-        if (!collaterals && obj.amount.nTokenId != DCT_ID{0})
-            return Res::Err("First deposit must be in DFI");
-
-        auto res = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
-        if (!res || obj.amount.nTokenId == DCT_ID{0})
+        res = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
+        if (!res)
             return res;
 
-        // Update collaterals after success AddVaultCollateral()
-        collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         CAmount totalDFI = 0, totalCollaterals = 0;
         for (const auto& col : collaterals->balances) {
 
@@ -2186,7 +2184,12 @@ public:
         }
 
         if (totalDFI < totalCollaterals / 2)
-            return Res::Err("At least 50%% of the vault must be in DFI.");
+            return Res::Err("At least 50%% of the vault must be in DFI thus first deposit must be DFI");
+
+        auto loanScheme = mnview.GetLoanScheme(vault->schemeId);
+        auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height);
+        if (!rate || rate->ratio() < loanScheme->ratio)
+            return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate->ratio(), loanScheme->ratio);
 
         return Res::Ok();
     }

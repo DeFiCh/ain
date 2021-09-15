@@ -5,15 +5,14 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test Loan."""
 
+from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import (
-    assert_equal,
-    assert_raises_rpc_error,
-)
+from test_framework.util import assert_equal
 
 import calendar
 import time
+from decimal import Decimal
 
 class LoanTest (DefiTestFramework):
     def set_test_params(self):
@@ -25,10 +24,16 @@ class LoanTest (DefiTestFramework):
             ]
 
     def run_test(self):
-        self.nodes[0].generate(219)
+        self.nodes[0].generate(300)
         self.nodes[0].createtoken({
             "symbol": "BTC",
             "name": "BTC token",
+            "isDAT": True,
+            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
+        })
+        self.nodes[0].createtoken({
+            "symbol": "USD",
+            "name": "USD token",
             "isDAT": True,
             "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
         })
@@ -75,7 +80,7 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Create vault
-        vaultId1 = self.nodes[0].createvault('') # default loan scheme
+        vaultId1 = self.nodes[0].createvault(account, '') # default loan scheme
         self.nodes[0].generate(1)
 
         # deposit DFI and BTC to vault1
@@ -90,7 +95,7 @@ class LoanTest (DefiTestFramework):
                             'name': "Tesla Token",
                             'priceFeedId': oracle_id1,
                             'mintable': True,
-                            'interest': 0})
+                            'interest': 1})
         self.nodes[0].generate(1)
 
         # take loan
@@ -98,6 +103,17 @@ class LoanTest (DefiTestFramework):
                     'vaultId': vaultId1,
                     'amounts': "1000@TSLA"})
         self.nodes[0].generate(1)
+        accountBal = self.nodes[0].getaccount(account)
+        assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1000.00000000@TSLA'])
+
+        self.nodes[0].generate(60) # ~1 Month
+        vault1 = self.nodes[0].getvault(vaultId1)
+        interests = self.nodes[0].getinterest(
+            vault1['loanSchemeId'],
+            'TSLA'
+        )
+        totalLoanInterests = (1+interests[0]['totalInterest']) * 1000 # Initial loan taken
+        assert_equal(Decimal(vault1['loanAmount'][0].split("@")[0]), totalLoanInterests)
 
         # Trigger liquidation updating price in oracle
         oracle1_prices = [{"currency": "USD", "tokenAmount": "20@TSLA"}]
@@ -105,9 +121,80 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(10)
 
+        # Auction tests
         auctionlist = self.nodes[0].listauctions()
         assert_equal(len(auctionlist[0]['batches']), 2)
-        assert_raises_rpc_error(None, "First bid should include liquidation penalty of 5%", self.nodes[0].auctionbid, vaultId1, 0, account, "500@TSLA")
+
+        # Fail auction bid
+        try:
+            self.nodes[0].auctionbid(vaultId1, 0, account, "500@TSLA")
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("First bid should include liquidation penalty of 5%" in errorString)
+
+        self.nodes[0].minttokens("1000@TSLA")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].auctionbid(vaultId1, 0, account, "525@TSLA")
+        self.nodes[0].generate(1)
+        accountBal = self.nodes[0].getaccount(account)
+        assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1475.00000000@TSLA'])
+
+        # new account for new bidder
+        self.nodes[0].generate(1)
+        account2 = self.nodes[0].getnewaddress()
+        self.nodes[0].accounttoaccount(account, {account2: "1000@TSLA"} )
+        self.nodes[0].generate(1)
+
+
+        # Fail auction bid less that 1% higher
+        try:
+            self.nodes[0].auctionbid(vaultId1, 0, account2, "530@TSLA") # just under 1%
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Bid override should be at least 1% higher than current one" in errorString)
+
+        self.nodes[0].auctionbid(vaultId1, 0, account2, "550@TSLA") # above 1%
+        self.nodes[0].generate(1)
+
+        # check balances are right after greater bid
+        account2Bal = self.nodes[0].getaccount(account2)
+        accountBal = self.nodes[0].getaccount(account)
+        assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1000.00000000@TSLA'])
+        assert_equal(account2Bal, ['450.00000000@TSLA'])
+
+        # let auction end and check account balances
+        self.nodes[0].generate(36)
+        account2Bal = self.nodes[0].getaccount(account2)
+        accountBal = self.nodes[0].getaccount(account)
+        vault1 = self.nodes[0].getvault(vaultId1)
+        assert_equal(vault1['isUnderLiquidation'], True)
+        assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1000.00000000@TSLA'])
+        # auction winner account has now first batch collaterals
+        assert_equal(account2Bal, ['500.00000000@DFI', '500.00000000@BTC', '450.00000000@TSLA'])
+
+        # check that still auction due to 1 batch without bid
+        auctionlist = self.nodes[0].listauctions()
+        assert_equal(len(auctionlist[0]['batches']), 1)
+
+        self.nodes[0].auctionbid(vaultId1, 0, account, "700@TSLA") # above 5% and leave vault with some loan to exit liquidation state
+        self.nodes[0].generate(40) # let auction end
+
+        accountBal = self.nodes[0].getaccount(account)
+        vault1 = self.nodes[0].getvault(vaultId1)
+        assert_equal(vault1['isUnderLiquidation'], False)
+        assert_equal(accountBal, ['1500.00000000@DFI', '1500.00000000@BTC', '300.00000000@TSLA'])
+
+        try:
+            self.nodes[0].deposittovault(vaultId1, account, '100@DFI')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
+
+        self.nodes[0].deposittovault(vaultId1, account, '600@DFI')
+        self.nodes[0].generate(1)
+        vault1 = self.nodes[0].getvault(vaultId1)
+        assert_equal(vault1['collateralAmounts'], ['600.00000000@DFI'])
 
 if __name__ == '__main__':
     LoanTest().main()
