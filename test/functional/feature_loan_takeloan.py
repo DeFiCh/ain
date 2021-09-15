@@ -272,6 +272,9 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        # loan payback burn
+        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00022754'))
+
         vaultInfo = self.nodes[0].getvault(vaultId)
 
         assert_equal(vaultInfo['loanAmount'], ['0.50000399@' + symbolTSLA])

@@ -1669,6 +1669,9 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
     mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
 
+    // erase auction fee history
+    pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, uint32_t(pindex->nHeight), ~0u});
+
     // Undo community balance increments
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
 
@@ -3047,38 +3050,46 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         });
     }
 
-    cache.ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
+    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), nullptr, pburnHistoryDB.get());
+
+    view.ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
         if (int(auction.height) != pindex->nHeight) {
             return false;
         }
         for (uint32_t i = 0; i < data.batchCount; i++) {
-            auto batch = cache.GetAuctionBatch(auction.vaultId, i);
+            auto batch = view.GetAuctionBatch(auction.vaultId, i);
             assert(batch);
-            if (auto bid = cache.GetAuctionBid(auction.vaultId, i)) {
+            if (auto bid = view.GetAuctionBid(auction.vaultId, i)) {
                 auto amountToFill = DivideAmounts(bid->second.nValue, COIN + data.liquidationPenalty);
                 auto amountToBurn = bid->second.nValue - amountToFill;
                 if (amountToBurn > 0) {
-                    cache.AddBalance(chainparams.GetConsensus().burnAddress, {bid->second.nTokenId, amountToBurn});
-                    auto res = SwapToDFIOverUSD(cache, bid->second.nTokenId, amountToBurn, chainparams.GetConsensus().burnAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
+                    CScript tmpAddress(auction.vaultId.begin(), auction.vaultId.end());
+                    view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToBurn});
+                    auto res = SwapToDFIOverUSD(view, bid->second.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
                     if (!res)
                         LogPrintf("SwapToDFIOverUSD failed: %s\n", res.msg);
                 }
-                cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
+                view.CalculateOwnerRewards(bid->first, pindex->nHeight);
                 for (const auto& col : batch->collaterals.balances) {
-                    cache.AddBalance(bid->first, {col.first, col.second});
+                    view.AddBalance(bid->first, {col.first, col.second});
                 }
                 // return rest loan to vault if any
                 amountToFill -= batch->loanAmount.nValue;
                 if (amountToFill > 0) {
-                    cache.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amountToFill});
+                    view.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amountToFill});
                 }
             } else {
-                cache.AddLoanToken(auction.vaultId, batch->loanAmount);
+                view.AddLoanToken(auction.vaultId, batch->loanAmount);
                 for (const auto& col : batch->collaterals.balances) {
-                    cache.AddVaultCollateral(auction.vaultId, {col.first, col.second});
+                    view.AddVaultCollateral(auction.vaultId, {col.first, col.second});
                 }
             }
         }
+
+        // flush all changes
+        view.Flush();
+        pburnHistoryDB->Flush();
+
         auto vault = cache.GetVault(auction.vaultId);
         assert(vault);
         vault->isUnderLiquidation = false;
