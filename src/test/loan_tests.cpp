@@ -184,7 +184,7 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, nft_id));
     BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, nft_id));
 
-    CVaultMessage msg;
+    CVaultData msg{};
     msg.schemeId = id;
     BOOST_REQUIRE(mnview.StoreVault(vault_id, msg));
 

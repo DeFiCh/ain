@@ -2,44 +2,34 @@
 #include <chainparams.h>
 #include <masternodes/vault.h>
 
-Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultMessage& vault)
+Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultData& vault)
 {
-    if (!WriteBy<VaultKey>(vaultId, vault)) {
-        return Res::Err("Failed to create new vault <%s>", vaultId.GetHex());
-    }
-
+    WriteBy<VaultKey>(vaultId, vault);
     return Res::Ok();
 }
 
-ResVal<CVaultMessage> CVaultView::GetVault(const CVaultId& vaultId) const
+boost::optional<CVaultData> CVaultView::GetVault(const CVaultId& vaultId) const
 {
-    CVaultMessage vault{};
-    if (!ReadBy<VaultKey>(vaultId, vault)) {
-        return Res::Err("vault <%s> not found", vaultId.GetHex());
-    }
-    return ResVal<CVaultMessage>(vault, Res::Ok());
+    return ReadBy<VaultKey, CVaultData>(vaultId);
 }
 
 Res CVaultView::UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault)
 {
-    CVaultMessage vault{};
-    if (!ReadBy<VaultKey>(vaultId, vault)) {
-        return Res::Err("vault <%s> not found", vaultId.GetHex());
+    auto vault = GetVault(vaultId);
+    if (!vault) {
+        return Res::Err("Vault <%s> not found", vaultId.GetHex());
     }
 
-    vault.ownerAddress = newVault.ownerAddress;
-    vault.schemeId = newVault.schemeId;
+    vault->ownerAddress = newVault.ownerAddress;
+    vault->schemeId = newVault.schemeId;
 
-    if (!WriteBy<VaultKey>(vaultId, vault)) {
-        return Res::Err("failed to save vault <%s>", vaultId.GetHex());
-    }
-
+    WriteBy<VaultKey>(vaultId, *vault);
     return Res::Ok();
 }
 
-void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultMessage&)> callback)
+void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback)
 {
-    ForEach<VaultKey, CVaultId, CVaultMessage>(callback);
+    ForEach<VaultKey, CVaultId, CVaultData>(callback);
 }
 
 Res CVaultView::AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)

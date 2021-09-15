@@ -76,7 +76,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].getvault('5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('vault <5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf> not found' in errorString)
+        assert('Vault <5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf> not found' in errorString)
 
         # success
         vault1 = self.nodes[0].getvault(vaultId1)
@@ -263,7 +263,7 @@ class VaultTest (DefiTestFramework):
             self.nodes[0].deposittovault("76a9148080dad765cbfd1c38f95e88592e24e43fb642828a948b2a457a8ba8ac", accountDFI, '1@DFI')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("vault <76a9148080dad765cbfd1c38f95e88592e24e43fb642828a948b2a457a8ba8ac> not found" in errorString)
+        assert("Vault <76a9148080dad765cbfd1c38f95e88592e24e43fb642828a948b2a457a8ba8ac> not found" in errorString)
 
         self.nodes[0].deposittovault(vaultId1, accountDFI, '0.7@DFI')
 

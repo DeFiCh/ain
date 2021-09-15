@@ -150,7 +150,7 @@ class LoanTakeLoanTest (DefiTestFramework):
                     'amounts': "1@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot find existing vault with id" in errorString)
+        assert("Vault <{}> not found".format(setLoanTokenTSLA) in errorString)
 
 
         try:

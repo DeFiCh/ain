@@ -17,7 +17,7 @@ namespace {
         return batchArray;
     }
 
-    UniValue VaultToJSON(const CVaultMessage& vault, const CVaultId& vaultId) {
+    UniValue VaultToJSON(const CVaultId& vaultId, const CVaultData& vault) {
         UniValue result{UniValue::VOBJ};
         result.pushKV("loanSchemeId", vault.schemeId);
         result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
@@ -201,7 +201,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
     UniValue valueArr{UniValue::VOBJ};
 
     LOCK(cs_main);
-    pcustomcsview->ForEachVault([&](const CVaultId& id, const CVaultMessage& data) {
+    pcustomcsview->ForEachVault([&](const CVaultId& id, const CVaultData& data) {
         UniValue vaultObj{UniValue::VOBJ};
         vaultObj.pushKV("ownerAddress", ScriptToString(data.ownerAddress));
         vaultObj.pushKV("loanSchemeId", data.schemeId);
@@ -239,12 +239,12 @@ UniValue getvault(const JSONRPCRequest& request) {
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
 
-    auto vaultRes = mnview.GetVault(vaultId);
-    if (!vaultRes.ok) {
-        throw JSONRPCError(RPC_DATABASE_ERROR, vaultRes.msg);
+    auto vault = mnview.GetVault(vaultId);
+    if (!vault) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Vault <%s> not found", vaultId.GetHex()));
     }
 
-    return VaultToJSON(*vaultRes.val, vaultId);
+    return VaultToJSON(vaultId, *vault);
 }
 
 UniValue updatevault(const JSONRPCRequest& request) {
@@ -301,15 +301,28 @@ UniValue updatevault(const JSONRPCRequest& request) {
     if (request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 must be non-null");
 
-    // decode vaultId
+    int targetHeight;
+    CVaultMessage vault;
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
-    auto vaultRes = pcustomcsview->GetVault(vaultId);
-    if (!vaultRes.ok)
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, vaultRes.msg);
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+        // decode vaultId
+        auto storedVault = pcustomcsview->GetVault(vaultId);
+        if (!storedVault)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", vaultId.GetHex()));
 
-    CVaultMessage dbVault{vaultRes.val.get()};
-    if(dbVault.isUnderLiquidation)
-        throw JSONRPCError(RPC_TRANSACTION_REJECTED, "Vault is under liquidation.");
+        if(storedVault->isUnderLiquidation)
+            throw JSONRPCError(RPC_TRANSACTION_REJECTED, "Vault is under liquidation.");
+
+        vault = *storedVault;
+    }
+
+    CUpdateVaultMessage msg{
+        vaultId,
+        vault.ownerAddress,
+        vault.schemeId
+    };
 
     if (request.params[1].isNull()){
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -317,34 +330,22 @@ UniValue updatevault(const JSONRPCRequest& request) {
                            "{\"ownerAddress\",\"loanSchemeId\"}");
     }
     UniValue params = request.params[1].get_obj();
-    if(params["ownerAddress"].isNull() && params["loanSchemeId"].isNull())
+    if (params["ownerAddress"].isNull() && params["loanSchemeId"].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "At least ownerAddress OR loanSchemeId must be set");
 
     if (!params["ownerAddress"].isNull()){
         auto ownerAddress = params["ownerAddress"].getValStr();
         // check address validity
         CTxDestination ownerDest = DecodeDestination(ownerAddress);
-            if (!IsValidDestination(ownerDest)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owner address");
-            }
-        dbVault.ownerAddress = DecodeScript(ownerAddress);
+        if (!IsValidDestination(ownerDest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owner address");
+        }
+        msg.ownerAddress = DecodeScript(ownerAddress);
     }
     if(!params["loanSchemeId"].isNull()){
         auto loanschemeid = params["loanSchemeId"].getValStr();
-        dbVault.schemeId = loanschemeid;
+        msg.schemeId = loanschemeid;
     }
-
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
-
-    CUpdateVaultMessage msg{
-        vaultId,
-        dbVault.ownerAddress,
-        dbVault.schemeId
-    };
 
     // encode
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -360,7 +361,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
 
     UniValue const &txInputs = request.params[2];
     CTransactionRef optAuthTx;
-    std::set<CScript> auths{vaultRes.val->ownerAddress};
+    std::set<CScript> auths{vault.ownerAddress};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     CCoinControl coinControl;
@@ -429,9 +430,6 @@ UniValue deposittovault(const JSONRPCRequest& request) {
 
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
-    auto vaultRes = pcustomcsview->GetVault(vaultId);
-    if (!vaultRes.ok)
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, vaultRes.msg);
     std::string from = request.params[1].get_str();
     CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), from);
 
