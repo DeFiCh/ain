@@ -28,8 +28,8 @@ pub struct Opt {
     #[structopt(
       short,
       long,
-      default_value = "mainnet",
-      possible_values = &["testnet", "mainnet", "regtest", "devnet"]
+      default_value = "main",
+      possible_values = &["main", "testnet", "regtest", "devnet"]
     )]
     pub chain: Chain,
 
