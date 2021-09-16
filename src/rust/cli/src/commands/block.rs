@@ -8,13 +8,9 @@ pub struct GetBlockCountCmd {}
 
 impl GetBlockCountCmd {
     pub fn run(&self, client: &Client) -> Result<(), Error> {
-        match client.get_block_count() {
-            Ok(data) => {
-                println!("{}", data);
-                Ok(())
-            }
-            Err(e) => Err(Error::from(e)),
-        }
+        let data = client.get_block_count()?;
+        println!("{}", data);
+        Ok(())
     }
 }
 
@@ -28,17 +24,12 @@ pub struct GetBlockHashCmd {
 
 impl GetBlockHashCmd {
     pub fn run(&self, client: &Client) -> Result<(), Error> {
-        let res = if let Some(height) = self.height {
-            client.get_block_hash(height)
+        let data = if let Some(height) = self.height {
+            client.get_block_hash(height)?
         } else {
-            client.get_best_block_hash()
+            client.get_best_block_hash()?
         };
-        match res {
-            Ok(data) => {
-                println!("{}", data);
-                Ok(())
-            }
-            Err(e) => Err(Error::from(e)),
-        }
+        println!("{}", data);
+        Ok(())
     }
 }
