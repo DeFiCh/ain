@@ -11,23 +11,8 @@
 #include <script/script.h>
 
 using PriceFeedPair = std::pair<std::string, std::string>;
-struct CPriceFeed
-{
-public:
-    PriceFeedPair priceFeedId;
-    CAmount activePrice{0};
-    CAmount nextPrice{0};
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(priceFeedId);
-        READWRITE(activePrice);
-        READWRITE(nextPrice);
-    }
-};
-class CLoanSetCollateralToken : public CPriceFeed
+class CLoanSetCollateralToken
 {
 public:
     DCT_ID idToken{UINT_MAX};

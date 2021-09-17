@@ -1,7 +1,5 @@
 #include <masternodes/mn_rpc.h>
 
-#define MINIMUM_PRICEFEED_LENGTH 8
-
 extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 
 UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& collToken)
@@ -122,7 +120,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"factor\" must not be null");
 
-    collToken.priceFeedId = DecodePriceFeed(metaObj);
+    collToken.priceFeed = DecodePriceFeed(metaObj);
 
     if (!metaObj["activateAfterBlock"].isNull())
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
@@ -349,7 +347,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     if (!metaObj["name"].isNull())
         loanToken.name = trim_ws(metaObj["name"].getValStr());
 
-    loanToken.priceFeedId = DecodePriceFeed(metaObj);
+    loanToken.priceFeed = DecodePriceFeed(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken.mintable = metaObj["mintable"].getBool();
@@ -483,7 +481,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
         loanToken->name = trim_ws(metaObj["name"].getValStr());
 
     if (!metaObj["priceFeedId"].isNull())
-        loanToken->priceFeedId = DecodePriceFeed(metaObj);
+        loanToken->priceFeed = DecodePriceFeed(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken->mintable = metaObj["mintable"].getBool();
