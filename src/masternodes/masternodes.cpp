@@ -810,18 +810,11 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     return UpdateBalancesHeight(owner, targetHeight);
 }
 
-inline CAmount GetOraclePriceUSD(COracle& oracle, std::string const & symbol)
-{
-    auto price = oracle.GetTokenPrice(symbol, "USD");
-    assert(price);
-    return *price.val;
-}
-
-boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height)
+ResVal<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime)
 {
     auto vault = GetVault(vaultId);
     if (!vault || vault->isUnderLiquidation) {
-        return {};
+        return Res::Err("Vault is under liquidation");
     }
 
     CCollateralLoans ret;
@@ -833,24 +826,26 @@ boost::optional<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio
             assert(token);
             auto rate = GetInterestRate(vault->schemeId, loan.first);
             assert(rate && rate->height <= height);
-            auto oracle = GetOracleData(token->priceFeedTxid);
-            assert(oracle);
-            auto price = GetOraclePriceUSD(*oracle.val, token->symbol);
+            auto price = GetAggregatePrice(*this, token->priceFeed.first, token->priceFeed.second, blockTime);
+            if (!price) {
+                return std::move(price);
+            }
             auto value = loan.second + MultiplyAmounts(loan.second, TotalInterest(*rate, height));
-            ret.loans.push_back({loan.first, MultiplyAmounts(price, value)});
+            ret.loans.push_back({loan.first, MultiplyAmounts(*price.val, value)});
         }
     }
 
     for (const auto& col : collaterals.balances) {
         auto token = HasLoanSetCollateralToken({col.first, height});
         assert(token);
-        auto oracle = GetOracleData(token->priceFeedTxid);
-        assert(oracle);
-        auto price = GetOraclePriceUSD(*oracle.val, GetToken(col.first)->symbol);
-        ret.collaterals.push_back({col.first, MultiplyAmounts(token->factor, MultiplyAmounts(price, col.second))});
+        auto price = GetAggregatePrice(*this, token->priceFeed.first, token->priceFeed.second, blockTime);
+        if (!price) {
+            return std::move(price);
+        }
+        ret.collaterals.push_back({col.first, MultiplyAmounts(token->factor, MultiplyAmounts(*price.val, col.second))});
     }
 
-    return ret;
+    return ResVal<CCollateralLoans>(ret, Res::Ok());
 }
 
 uint256 CCustomCSView::MerkleRoot() {

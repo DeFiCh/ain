@@ -10,7 +10,8 @@
 #include <masternodes/vault.h>
 #include <script/script.h>
 
-typedef std::pair<std::string, std::string> PriceFeedPair;
+using PriceFeedPair = std::pair<std::string, std::string>;
+
 class CLoanSetCollateralToken
 {
 public:

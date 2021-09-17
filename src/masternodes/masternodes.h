@@ -408,7 +408,7 @@ public:
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
-    boost::optional<CCollateralLoans> CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height);
+    ResVal<CCollateralLoans> CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime);
 
     void SetDbVersion(int version);
 

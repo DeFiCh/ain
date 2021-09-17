@@ -854,7 +854,9 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
         return true;
     });
 
-    if (numLiveOracles < 2) {
+    static const auto minimumLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
+
+    if (numLiveOracles < minimumLiveOracles) {
         return Res::Err("no live oracles for specified request");
     }
 

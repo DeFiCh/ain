@@ -57,6 +57,20 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         try:
             self.nodes[0].setcollateraltoken({
                             'token': idDFI,
+                            'factor': 1,
+                            'priceFeedId': "DFI/USD"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Price feed DFI/USD does not belong to any oracle" in errorString)
+
+        oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
+        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}]
+        self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
+        self.nodes[0].generate(1)
+
+        try:
+            self.nodes[0].setcollateraltoken({
+                            'token': idDFI,
                             'factor': 2,
                             'priceFeedId': "DFI/USD"})
         except JSONRPCException as e:

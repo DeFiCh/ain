@@ -10,6 +10,8 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal
 
+import calendar
+import time
 from decimal import Decimal
 
 class LoanTakeLoanTest (DefiTestFramework):
@@ -84,6 +86,18 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
+        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
+        oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
+        self.nodes[0].generate(1)
+
+        # feed oracle
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}, {"currency": "USD", "tokenAmount": "10@DFI"}, {"currency": "USD", "tokenAmount": "10@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
         # transfer
         self.nodes[0].addpoolliquidity({
             account0: ["300@" + symboldUSD, "100@" + symbolDFI]
@@ -135,7 +149,6 @@ class LoanTakeLoanTest (DefiTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Vault <{}> not found".format(setLoanTokenTSLA) in errorString)
-
 
         try:
             self.nodes[0].takeloan({
@@ -199,14 +212,6 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        try:
-            self.nodes[0].takeloan({
-                    'vaultId': vaultId,
-                    'amounts': "2@" + symbolTSLA})
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
-
         self.nodes[0].takeloan({
                     'vaultId': vaultId,
                     'amounts': "1@" + symbolTSLA})
@@ -223,8 +228,8 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         loans = self.nodes[0].getloaninfo()
 
-        assert_equal(loans['collateralValueUSD'], Decimal('571.06000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('300.00034200'))
+        assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
+        assert_equal(loans['loanValueUSD'], Decimal('10.00001140'))
 
         vaultId1 = self.nodes[1].createvault( account1, 'LOAN150')
 
@@ -238,13 +243,13 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         interest = self.nodes[0].getinterest('LOAN150', symbolTSLA)[0]
 
-        assert_equal(interest['totalInterest'],  3 * Decimal('0.00000114'))
+        assert_equal(interest['totalInterest'], 3 * Decimal('0.00000114'))
         assert_equal(interest['interestPerBlock'], Decimal('0.00000114'))
 
         loans = self.nodes[0].getloaninfo()
 
-        assert_equal(loans['collateralValueUSD'], Decimal('856.59000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('300.00102600'))
+        assert_equal(loans['collateralValueUSD'], Decimal('3000.00000000'))
+        assert_equal(loans['loanValueUSD'], Decimal('10.00003420'))
 
         try:
             self.nodes[0].loanpayback({
@@ -265,8 +270,8 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         loans = self.nodes[0].getloaninfo()
 
-        assert_equal(loans['collateralValueUSD'], Decimal('856.59000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('150.00119700'))
+        assert_equal(loans['collateralValueUSD'], Decimal('3000.00000000'))
+        assert_equal(loans['loanValueUSD'], Decimal('5.00003990'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()

@@ -1,7 +1,5 @@
 #include <masternodes/mn_rpc.h>
 
-#define MINIMUM_PRICEFEED_LENGTH 8
-
 extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 
 UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& collToken)
@@ -37,6 +35,26 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(loanToken.creationTx.GetHex(), loanTokenObj);
     return (ret);
+}
+
+PriceFeedPair DecodePriceFeed(const UniValue& value)
+{
+    auto tokenCurrency = value["priceFeedId"].getValStr();
+
+    if (tokenCurrency.empty())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"priceFeedId\" must be non-null");
+
+    auto delim = tokenCurrency.find('/');
+    if (delim == tokenCurrency.npos || tokenCurrency.find('/', delim + 1) != tokenCurrency.npos)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "price feed not in valid format - token/currency!");
+
+    auto token = trim_ws(tokenCurrency.substr(0, std::min(delim, size_t(CToken::MAX_TOKEN_SYMBOL_LENGTH))));
+    auto currency = trim_ws(tokenCurrency.substr(delim + 1, CToken::MAX_TOKEN_SYMBOL_LENGTH));
+
+    if (token.empty() || currency.empty())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "token/currency contains empty string");
+
+    return std::make_pair(token, currency);
 }
 
 UniValue setcollateraltoken(const JSONRPCRequest& request) {
@@ -96,20 +114,14 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
         tokenSymbol = trim_ws(metaObj["token"].getValStr());
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"token\" must not be null");
+
     if (!metaObj["factor"].isNull())
         collToken.factor = AmountFromValue(metaObj["factor"]);
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"factor\" must not be null");
-    if (!metaObj["priceFeedId"].isNull())
-    {
-        std::string tmp = trim_ws(metaObj["priceFeedId"].getValStr());
-        if (tmp.length() < MINIMUM_PRICEFEED_LENGTH || tmp.find("/") == tmp.npos)
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"price feed not in valid format - token/currency!");
-        collToken.priceFeed.first = tmp.substr(0, tmp.find("/"));
-        collToken.priceFeed.second = tmp.substr(tmp.find("/")+1, tmp.length()-1);
-    }
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"priceFeedId\" must be non-null");
+
+    collToken.priceFeed = DecodePriceFeed(metaObj);
+
     if (!metaObj["activateAfterBlock"].isNull())
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
 
@@ -319,20 +331,15 @@ UniValue setloantoken(const JSONRPCRequest& request) {
         loanToken.symbol = trim_ws(metaObj["symbol"].getValStr());
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"symbol\" must not be null");
+
     if (!metaObj["name"].isNull())
         loanToken.name = trim_ws(metaObj["name"].getValStr());
-    if (!metaObj["priceFeedId"].isNull())
-    {
-        std::string tmp = trim_ws(metaObj["priceFeedId"].getValStr());
-        if (tmp.length() < MINIMUM_PRICEFEED_LENGTH || tmp.find("/") == tmp.npos)
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"price feed not in valid format - token/currency!");
-        loanToken.priceFeed.first = tmp.substr(0, tmp.find("/"));
-        loanToken.priceFeed.second = tmp.substr(tmp.find("/")+1, tmp.length()-1);
-    }
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"priceFeedId\" must be non-null");
+
+    loanToken.priceFeed = DecodePriceFeed(metaObj);
+
     if (!metaObj["mintable"].isNull())
         loanToken.mintable = metaObj["mintable"].getBool();
+
     if (!metaObj["interest"].isNull())
         loanToken.interest = AmountFromValue(metaObj["interest"]);
     else
@@ -457,18 +464,16 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 
     if (!metaObj["symbol"].isNull())
         loanToken->symbol = trim_ws(metaObj["symbol"].getValStr());
+
     if (!metaObj["name"].isNull())
         loanToken->name = trim_ws(metaObj["name"].getValStr());
+
     if (!metaObj["priceFeedId"].isNull())
-    {
-        std::string tmp = trim_ws(metaObj["priceFeedId"].getValStr());
-        if (tmp.length() < MINIMUM_PRICEFEED_LENGTH || tmp.find("/") == tmp.npos)
-            throw JSONRPCError(RPC_INVALID_PARAMETER,"price feed not in valid format - token/currency!");
-        loanToken->priceFeed.first = tmp.substr(0, tmp.find("/"));
-        loanToken->priceFeed.second = tmp.substr(tmp.find("/")+1, tmp.length()-1);
-    }
+        loanToken->priceFeed = DecodePriceFeed(metaObj);
+
     if (!metaObj["mintable"].isNull())
         loanToken->mintable = metaObj["mintable"].getBool();
+
     if (!metaObj["interest"].isNull())
         loanToken->interest = AmountFromValue(metaObj["interest"]);
 
@@ -1183,14 +1188,15 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     uint32_t height = ::ChainActive().Height();
     CAmount totalCollateral = 0, totalLoan = 0;
+    auto lastBlockTime = ::ChainActive()[height]->GetBlockTime();
 
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-        auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, collaterals, height);
+        auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, collaterals, height, lastBlockTime);
 
         if (rate)
         {
-            totalCollateral += rate->totalCollaterals();
-            totalLoan += rate->totalLoans();
+            totalCollateral += rate.val->totalCollaterals();
+            totalLoan += rate.val->totalLoans();
         }
 
         return true;

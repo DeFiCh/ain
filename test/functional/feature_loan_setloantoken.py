@@ -29,15 +29,12 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         self.nodes[1].generate(100)
         self.sync_blocks()
 
-        tokenTxid = self.nodes[0].createtoken({
+        self.nodes[0].createtoken({
             "symbol": "BTC",
             "name": "BTC token",
             "isDAT": True,
             "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
         })
-
-        self.nodes[0].generate(1)
-        self.sync_blocks()
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -51,7 +48,13 @@ class LoanSetLoanTokenTest (DefiTestFramework):
                             'interest': 1})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("oracle (" + tokenTxid + ") does not exist" in errorString)
+        assert("Price feed TSLA/USD does not belong to any oracle" in errorString)
+
+        oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
+        price_feeds1 = [{"currency": "USD", "token": "TSLA"}]
+        self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
+        self.nodes[0].generate(1)
+        self.sync_blocks()
 
         try:
             self.nodes[0].setloantoken({
@@ -68,7 +71,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             self.nodes[0].setloantoken({
                             'symbol': "TSLAA",
                             'name': "Tesla stock token",
-                            'priceFeedId': "",
+                            'priceFeedId': "aa",
                             'mintable': False,
                             'interest': 1})
         except JSONRPCException as e:
