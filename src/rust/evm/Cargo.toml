@@ -1,0 +1,21 @@
+[package]
+name = "sputnikvm-ffi"
+version = "0.0.0"
+authors = ["Wei Tang <hi@that.world>"]
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+libc = "0.2"
+etcommon-bigint = { version = "0.2", default-features = false }
+sputnikvm = { version = "0.10", default-features = false }
+sputnikvm-network-classic = { version = "0.10.1", default-features = false }
+etcommon-block = "0.3"
+
+[features]
+default = ["std", "c-secp256k1", "rlp"]
+rlp = ["etcommon-bigint/rlp", "sputnikvm-network-classic/rlp"]
+c-secp256k1 = ["sputnikvm/c-secp256k1", "sputnikvm-network-classic/c-secp256k1"]
+rust-secp256k1 = ["sputnikvm/rust-secp256k1", "sputnikvm-network-classic/rust-secp256k1"]
+std = ["sputnikvm/std", "sputnikvm-network-classic/std"]
