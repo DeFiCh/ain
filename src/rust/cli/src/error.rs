@@ -25,7 +25,10 @@ impl From<serde_json::error::Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::JsonRpc(ref e) => write!(f, "JSON-RPC error: {}", e),
+            Error::JsonRpc(ref e) => match e {
+                jsonrpc::error::Error::Rpc(e) => writeln!(f, r"{}", e.message),
+                _ => write!(f, "JSON-RPC error: {:#?}", e),
+            },
             Error::Json(ref e) => write!(f, "JSON error: {}", e),
         }
     }

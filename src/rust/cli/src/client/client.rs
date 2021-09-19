@@ -61,10 +61,11 @@ impl Client {
         self.call("getblockcount", &[])
     }
 
-    /// Returns the numbers of block in the longest chain.
+    /// Returns the numbers of block at specific height.
     pub fn get_block_hash(&self, height: u64) -> Result<String, Error> {
         self.call("getblockhash", &[height.into()])
     }
+
     /// Returns the numbers of block in the longest chain.
     pub fn get_best_block_hash(&self) -> Result<String, Error> {
         self.call("getbestblockhash", &[])
