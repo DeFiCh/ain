@@ -1,5 +1,5 @@
-#ifndef DEFI_EVM_SPUTNIKVM_H
-#define DEFI_EVM_SPUTNIKVM_H
+#ifndef DEFI_RUST_EVM_SPUTNIKVM_H
+#define DEFI_RUST_EVM_SPUTNIKVM_H
 
 #ifdef __cplusplus
 extern "C"{
@@ -376,4 +376,4 @@ sputnikvm_out_copy_data(sputnikvm_vm_t *vm,unsigned char *w);
 }
 #endif
 
-#endif // DEFI_EVM_SPUTNIKVM_H
+#endif // DEFI_RUST_EVM_SPUTNIKVM_H

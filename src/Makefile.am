@@ -22,7 +22,7 @@ endif
 LIBDEFI_SPV=libdefi_spv.a
 SPV_INCLUDES=-I. -I./spv -I./spv/support -I./spv/bitcoin -I./spv/bcash
 
-EVM_INCLUDES=-I./evm
+EVM_INCLUDES=-I./rust/evm
 
 DEFI_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 
