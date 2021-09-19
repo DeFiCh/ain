@@ -240,6 +240,14 @@ if test "x$enable_cli_v2" = xyes; then
   CLI_VERSION=2
 fi
 
+# Enable EVM
+AC_ARG_ENABLE([evm],
+    [AS_HELP_STRING([--enable-evm],
+                    [Enable EVM (default is no)])],
+    [enable_evm=$enableval],
+    [enable_evm=no])
+AM_CONDITIONAL(ENABLE_EVM, test "$enable_evm" != no)
+
 # Enable different -fsanitize options
 AC_ARG_WITH([sanitizers],
     [AS_HELP_STRING([--with-sanitizers],
@@ -1558,6 +1566,7 @@ echo "  sanitizers    = $use_sanitizers"
 echo "  debug enabled = $enable_debug"
 echo "  gprof enabled = $enable_gprof"
 echo "  werror        = $enable_werror"
+echo "  evm enabled   = $enable_evm"
 echo
 echo "  target os     = $TARGET_OS"
 echo "  build os      = $BUILD_OS"

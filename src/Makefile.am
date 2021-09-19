@@ -22,6 +22,8 @@ endif
 LIBDEFI_SPV=libdefi_spv.a
 SPV_INCLUDES=-I. -I./spv -I./spv/support -I./spv/bitcoin -I./spv/bcash
 
+EVM_INCLUDES=-I./evm
+
 DEFI_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS)
 
 DEFI_INCLUDES += -I$(srcdir)/secp256k1/include
@@ -62,6 +64,10 @@ LIBDEFI_CRYPTO_SHANI = crypto/libdefi_crypto_shani.a
 LIBDEFI_CRYPTO += $(LIBDEFI_CRYPTO_SHANI)
 endif
 
+if ENABLE_EVM
+LIBDEFI_EVM = evm/libsputnikvm_ffi.a
+endif
+
 $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
@@ -77,7 +83,8 @@ EXTRA_LIBRARIES += \
   $(LIBDEFI_CLI) \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_WALLET_TOOL) \
-  $(LIBDEFI_ZMQ)
+  $(LIBDEFI_ZMQ) \
+  $(LIBDEFI_EVM)
 
 lib_LTLIBRARIES = $(LIBDEFICONSENSUS)
 
@@ -700,7 +707,8 @@ defi_cli_LDADD = \
   $(LIBDEFI_CLI) \
   $(LIBUNIVALUE) \
   $(LIBDEFI_UTIL) \
-  $(LIBDEFI_CRYPTO)
+  $(LIBDEFI_CRYPTO) \
+  $(LIBDEFI_EVM)
 
 defi_cli_LDADD += $(BOOST_LIBS) $(EVENT_LIBS)
 #
