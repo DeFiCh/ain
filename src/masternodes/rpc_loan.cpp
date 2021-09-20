@@ -11,7 +11,7 @@ UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& c
         return (UniValue::VNULL);
     collTokenObj.pushKV("token", token->CreateSymbolKey(collToken.idToken));
     collTokenObj.pushKV("factor", ValueFromAmount(collToken.factor));
-    collTokenObj.pushKV("priceFeedId", collToken.priceFeedTxid.GetHex());
+    collTokenObj.pushKV("priceFeedId", collToken.priceFeed.first + "/" + collToken.priceFeed.second);
     if (collToken.activateAfterBlock)
         collTokenObj.pushKV("activateAfterBlock", static_cast<int>(collToken.activateAfterBlock));
 
@@ -29,12 +29,32 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
         return (UniValue::VNULL);
 
     loanTokenObj.pushKV("token",tokenToJSON(tokenId, *static_cast<CTokenImplementation*>(token.get()), true));
-    loanTokenObj.pushKV("priceFeedId", loanToken.priceFeedTxid.GetHex());
+    loanTokenObj.pushKV("priceFeedId", loanToken.priceFeed.first + "/" + loanToken.priceFeed.second);
     loanTokenObj.pushKV("interest", ValueFromAmount(loanToken.interest));
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV(loanToken.creationTx.GetHex(), loanTokenObj);
     return (ret);
+}
+
+PriceFeedPair DecodePriceFeed(const UniValue& value)
+{
+    auto tokenCurrency = value["priceFeedId"].getValStr();
+
+    if (tokenCurrency.empty())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"priceFeedId\" must be non-null");
+
+    auto delim = tokenCurrency.find('/');
+    if (delim == tokenCurrency.npos || tokenCurrency.find('/', delim + 1) != tokenCurrency.npos)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "price feed not in valid format - token/currency!");
+
+    auto token = trim_ws(tokenCurrency.substr(0, std::min(delim, size_t(CToken::MAX_TOKEN_SYMBOL_LENGTH))));
+    auto currency = trim_ws(tokenCurrency.substr(delim + 1, CToken::MAX_TOKEN_SYMBOL_LENGTH));
+
+    if (token.empty() || currency.empty())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "token/currency contains empty string");
+
+    return std::make_pair(token, currency);
 }
 
 UniValue setcollateraltoken(const JSONRPCRequest& request) {
@@ -48,7 +68,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
                         {
                             {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Symbol or id of collateral token"},
                             {"factor", RPCArg::Type::NUM, RPCArg::Optional::NO, "Collateralization factor"},
-                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "txid of oracle feeding the price"},
+                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
                             {"activateAfterBlock", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "changes will be active after the block height (Optional)"},
                         },
                     },
@@ -68,7 +88,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("setcollateraltoken", R"('{"token":"XXX","factor":"150","priceFeedId":"txid"}')")
+                        HelpExampleCli("setcollateraltoken", R"('{"token":"TSLA","factor":"150","priceFeedId":"TSLA/USD"}')")
                         },
      }.Check(request);
 
@@ -94,14 +114,14 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
         tokenSymbol = trim_ws(metaObj["token"].getValStr());
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"token\" must not be null");
+
     if (!metaObj["factor"].isNull())
         collToken.factor = AmountFromValue(metaObj["factor"]);
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"factor\" must not be null");
-    if (!metaObj["priceFeedId"].isNull())
-        collToken.priceFeedTxid = uint256S(metaObj["priceFeedId"].getValStr());
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"priceFeedId\" must be non-null");
+
+    collToken.priceFeed = DecodePriceFeed(metaObj);
+
     if (!metaObj["activateAfterBlock"].isNull())
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
 
@@ -265,8 +285,8 @@ UniValue setloantoken(const JSONRPCRequest& request) {
                         {
                             {"symbol", RPCArg::Type::STR, RPCArg::Optional::NO, "Token's symbol (unique), not longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
                             {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's name (optional), not longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
-                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "txid of oracle feeding the price"},
-                            {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Token's 'Mintable' property (bool, optional), default is 'False'"},
+                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
+                            {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Token's 'Mintable' property (bool, optional), default is 'True'"},
                             {"interest", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Interest rate (default: 0)"},
                         },
                     },
@@ -286,7 +306,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("setloantoken", R"('{"symbol":"USDC","name":"USD Cake coin","priceFeedId":"txid","mintable":false,"interest":"0.03"}')")
+                        HelpExampleCli("setloantoken", R"('{"symbol":"TSLA","name":"TSLA stock token","priceFeedId":"TSLA/USD","interest":"3"}')")
                         },
      }.Check(request);
 
@@ -311,14 +331,15 @@ UniValue setloantoken(const JSONRPCRequest& request) {
         loanToken.symbol = trim_ws(metaObj["symbol"].getValStr());
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"symbol\" must not be null");
+
     if (!metaObj["name"].isNull())
         loanToken.name = trim_ws(metaObj["name"].getValStr());
-    if (!metaObj["priceFeedId"].isNull())
-        loanToken.priceFeedTxid = uint256S(metaObj["priceFeedId"].getValStr());
-    else
-        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"priceFeedId\" must be non-null");
+
+    loanToken.priceFeed = DecodePriceFeed(metaObj);
+
     if (!metaObj["mintable"].isNull())
         loanToken.mintable = metaObj["mintable"].getBool();
+
     if (!metaObj["interest"].isNull())
         loanToken.interest = AmountFromValue(metaObj["interest"]);
     else
@@ -376,7 +397,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
                         {
                             {"symbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's symbol (unique), not longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
                             {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's name (optional), not longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
-                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "txid of oracle feeding the price"},
+                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "token/currency pair to use for price of token"},
                             {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Token's 'Mintable' property (bool, optional), default is 'True'"},
                             {"interest", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Interest rate (optional)."},
                         },
@@ -397,7 +418,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("updateloantoken", R"('"token":"XXX", {"priceFeedId":"txid", "mintable": true, "interest": 0.03}')")
+                        HelpExampleCli("updateloantoken", R"('"token":"TSLAAA", {"symbol":"TSLA","priceFeedId":"TSLA/USD", "mintable": true, "interest": 0.03}')")
                         },
      }.Check(request);
 
@@ -443,12 +464,16 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
 
     if (!metaObj["symbol"].isNull())
         loanToken->symbol = trim_ws(metaObj["symbol"].getValStr());
+
     if (!metaObj["name"].isNull())
         loanToken->name = trim_ws(metaObj["name"].getValStr());
+
     if (!metaObj["priceFeedId"].isNull())
-        loanToken->priceFeedTxid = uint256S(metaObj["priceFeedId"].getValStr());
+        loanToken->priceFeed = DecodePriceFeed(metaObj);
+
     if (!metaObj["mintable"].isNull())
         loanToken->mintable = metaObj["mintable"].getBool();
+
     if (!metaObj["interest"].isNull())
         loanToken->interest = AmountFromValue(metaObj["interest"]);
 
@@ -1163,14 +1188,15 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     uint32_t height = ::ChainActive().Height();
     CAmount totalCollateral = 0, totalLoan = 0;
+    auto lastBlockTime = ::ChainActive()[height]->GetBlockTime();
 
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-        auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, collaterals, height);
+        auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, collaterals, height, lastBlockTime);
 
         if (rate)
         {
-            totalCollateral += rate->totalCollaterals();
-            totalLoan += rate->totalLoans();
+            totalCollateral += rate.val->totalCollaterals();
+            totalLoan += rate.val->totalLoans();
         }
 
         return true;

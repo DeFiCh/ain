@@ -297,7 +297,7 @@ public:
         if (auto token = mnview.GetToken(obj.idToken))
             rpcInfo.pushKV("token", token->CreateSymbolKey(obj.idToken));
         rpcInfo.pushKV("factor", ValueFromAmount(obj.factor));
-        rpcInfo.pushKV("priceFeedId", obj.priceFeedTxid.GetHex());
+        rpcInfo.pushKV("priceFeedId", obj.priceFeed.first + "/" + obj.priceFeed.second);
         if (obj.activateAfterBlock)
             rpcInfo.pushKV("activateAfterBlock", static_cast<int>(obj.activateAfterBlock));
     }
@@ -305,7 +305,7 @@ public:
     void operator()(const CLoanSetLoanTokenMessage& obj) const {
         rpcInfo.pushKV("symbol", obj.symbol);
         rpcInfo.pushKV("name", obj.name);
-        rpcInfo.pushKV("priceFeedTxid", obj.priceFeedTxid.GetHex());
+        rpcInfo.pushKV("priceFeedId", obj.priceFeed.first + "/" + obj.priceFeed.second);
         rpcInfo.pushKV("mintable", obj.mintable);
         rpcInfo.pushKV("interest", obj.interest);
     }
@@ -314,7 +314,7 @@ public:
         rpcInfo.pushKV("tokenTx", obj.tokenTx.GetHex());
         rpcInfo.pushKV("symbol", obj.symbol);
         rpcInfo.pushKV("name", obj.name);
-        rpcInfo.pushKV("priceFeedTxid", obj.priceFeedTxid.GetHex());
+        rpcInfo.pushKV("priceFeedId", obj.priceFeed.first + "/" + obj.priceFeed.second);
         rpcInfo.pushKV("mintable", obj.mintable);
         rpcInfo.pushKV("interest", obj.interest);
     }

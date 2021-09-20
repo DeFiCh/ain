@@ -66,11 +66,11 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].setcollateraltoken({
                                     'token': "DFI",
                                     'factor': 1,
-                                    'priceFeedId': oracle_id1})
+                                    'priceFeedId': "DFI/USD"})
         self.nodes[0].setcollateraltoken({
                                     'token': "BTC",
                                     'factor': 1,
-                                    'priceFeedId': oracle_id1})
+                                    'priceFeedId': "BTC/USD"})
         self.nodes[0].generate(1)
 
         # Create loan schemes
@@ -93,7 +93,7 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].setloantoken({
                             'symbol': "TSLA",
                             'name': "Tesla Token",
-                            'priceFeedId': oracle_id1,
+                            'priceFeedId': "TSLA/USD",
                             'mintable': True,
                             'interest': 1})
         self.nodes[0].generate(1)
