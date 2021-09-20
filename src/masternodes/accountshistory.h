@@ -107,6 +107,7 @@ public:
     CAccountsHistoryEraser(CCustomCSView & storage, uint32_t height, uint32_t txn, CAccountsHistoryView* historyView, CAccountsHistoryView* burnView);
     Res AddBalance(CScript const & owner, CTokenAmount amount) override;
     Res SubBalance(CScript const & owner, CTokenAmount amount) override;
+    Res SubFeeBurn(CScript const & owner);
     bool Flush();
 };
 

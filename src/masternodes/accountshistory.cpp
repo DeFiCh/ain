@@ -113,6 +113,14 @@ Res CAccountsHistoryEraser::SubBalance(CScript const & owner, CTokenAmount)
     return Res::Ok();
 }
 
+Res CAccountsHistoryEraser::SubFeeBurn(CScript const & owner)
+{
+    if (burnView) {
+        burnAccounts.insert(owner);
+    }
+    return Res::Ok();
+}
+
 bool CAccountsHistoryEraser::Flush()
 {
     if (historyView) {
@@ -125,7 +133,7 @@ bool CAccountsHistoryEraser::Flush()
             burnView->EraseAccountHistory({account, height, txn});
         }
     }
-    return CCustomCSView::Flush();
+    return Res::Ok(); // makes sure no changes are applyed to underlaying view
 }
 
 std::unique_ptr<CAccountHistoryStorage> paccountHistoryDB;

@@ -2406,6 +2406,11 @@ public:
 
 class CCustomTxRevertVisitor : public CCustomTxVisitor
 {
+    Res EraseHistory(const CScript& owner) const {
+        // notify account changes, no matter Sub or Add
+       return mnview.AddBalance(owner, {});
+    }
+
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
 
@@ -2440,76 +2445,191 @@ public:
                             obj.poolPair.idTokenA.ToString(),
                             obj.poolPair.idTokenB.ToString());
         }
-
         return mnview.RevertCreateToken(tx.GetHash());
     }
 
     Res operator()(const CMintTokensMessage& obj) const {
         for (const auto& kv : obj.balances) {
             DCT_ID tokenId = kv.first;
-
             auto token = mnview.GetToken(tokenId);
             if (!token) {
                 return Res::Err("token %s does not exist!", tokenId.ToString());
             }
             auto tokenImpl = static_cast<const CTokenImplementation&>(*token);
-
             const Coin& coin = coins.AccessCoin(COutPoint(tokenImpl.creationTx, 1));
-            // notify account changes
-            mnview.AddBalance(coin.out.scriptPubKey, {});
+            EraseHistory(coin.out.scriptPubKey);
         }
         return Res::Ok();
     }
 
     Res operator()(const CPoolSwapMessage& obj) const {
-        // notify account changes
-        mnview.AddBalance(obj.to, {});
-        return mnview.SubBalance(obj.from, {});
+        EraseHistory(obj.to);
+        return EraseHistory(obj.from);
     }
 
     Res operator()(const CLiquidityMessage& obj) const {
-        // notify account changes
         for (const auto& kv : obj.from) {
-            mnview.SubBalance(kv.first, {});
+            EraseHistory(kv.first);
         }
-        return mnview.AddBalance(obj.shareAddress, {});
+        return EraseHistory(obj.shareAddress);
     }
 
     Res operator()(const CRemoveLiquidityMessage& obj) const {
-        // notify account changes
-        return mnview.SubBalance(obj.from, {});
+        return EraseHistory(obj.from);
     }
 
     Res operator()(const CUtxosToAccountMessage& obj) const {
-        // notify account changes
         for (const auto& account : obj.to) {
-            mnview.AddBalance(account.first, {});
+            EraseHistory(account.first);
         }
         return Res::Ok();
     }
 
     Res operator()(const CAccountToUtxosMessage& obj) const {
-        // notify account changes
-        return mnview.SubBalance(obj.from, {});
+        return EraseHistory(obj.from);
     }
 
     Res operator()(const CAccountToAccountMessage& obj) const {
-        // notify account changes
         for (const auto& account : obj.to) {
-            mnview.AddBalance(account.first, {});
+            EraseHistory(account.first);
         }
-        return mnview.SubBalance(obj.from, {});
+        return EraseHistory(obj.from);
     }
 
     Res operator()(const CAnyAccountsToAccountsMessage& obj) const {
-        // notify account changes
         for (const auto& account : obj.to) {
-            mnview.AddBalance(account.first, {});
+            EraseHistory(account.first);
         }
         for (const auto& account : obj.from) {
-            mnview.AddBalance(account.first, {});
+            EraseHistory(account.first);
         }
         return Res::Ok();
+    }
+
+    Res operator()(const CICXCreateOrderMessage& obj) const {
+        if (obj.orderType == CICXOrder::TYPE_INTERNAL) {
+            auto hash = tx.GetHash();
+            EraseHistory({hash.begin(), hash.end()});
+            EraseHistory(obj.ownerAddress);
+        }
+        return Res::Ok();
+    }
+
+    Res operator()(const CICXMakeOfferMessage& obj) const {
+        auto hash = tx.GetHash();
+        EraseHistory({hash.begin(), hash.end()});
+        return EraseHistory(obj.ownerAddress);
+    }
+
+    Res operator()(const CICXSubmitDFCHTLCMessage& obj) const {
+        auto offer = mnview.GetICXMakeOfferByCreationTx(obj.offerTx);
+        if (!offer)
+            return Res::Err("offer with creation tx %s does not exists!", obj.offerTx.GetHex());
+
+        auto order = mnview.GetICXOrderByCreationTx(offer->orderTx);
+        if (!order)
+            return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
+
+        EraseHistory(offer->ownerAddress);
+        if (order->orderType == CICXOrder::TYPE_INTERNAL) {
+            CScript orderTxidAddr(order->creationTx.begin(), order->creationTx.end());
+            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
+            EraseHistory(orderTxidAddr);
+            EraseHistory(offerTxidAddr);
+            EraseHistory(consensus.burnAddress);
+        }
+        auto hash = tx.GetHash();
+        return EraseHistory({hash.begin(), hash.end()});
+    }
+
+    Res operator()(const CICXSubmitEXTHTLCMessage& obj) const {
+        auto offer = mnview.GetICXMakeOfferByCreationTx(obj.offerTx);
+        if (!offer)
+            return Res::Err("order with creation tx %s does not exists!", obj.offerTx.GetHex());
+
+        auto order = mnview.GetICXOrderByCreationTx(offer->orderTx);
+        if (!order)
+            return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
+
+        if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
+            CScript offerTxidAddr(offer->creationTx.begin(), offer->creationTx.end());
+            EraseHistory(offerTxidAddr);
+            EraseHistory(offer->ownerAddress);
+            EraseHistory(consensus.burnAddress);
+        }
+        return Res::Ok();
+    }
+
+    Res operator()(const CICXClaimDFCHTLCMessage& obj) const {
+        auto dfchtlc = mnview.GetICXSubmitDFCHTLCByCreationTx(obj.dfchtlcTx);
+        if (!dfchtlc)
+            return Res::Err("dfc htlc with creation tx %s does not exists!", obj.dfchtlcTx.GetHex());
+
+        auto offer = mnview.GetICXMakeOfferByCreationTx(dfchtlc->offerTx);
+        if (!offer)
+            return Res::Err("offer with creation tx %s does not exists!", dfchtlc->offerTx.GetHex());
+
+        auto order = mnview.GetICXOrderByCreationTx(offer->orderTx);
+        if (!order)
+            return Res::Err("order with creation tx %s does not exists!", offer->orderTx.GetHex());
+
+        CScript htlcTxidAddr(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
+        EraseHistory(htlcTxidAddr);
+        EraseHistory(order->ownerAddress);
+        if (order->orderType == CICXOrder::TYPE_INTERNAL)
+            EraseHistory(offer->ownerAddress);
+        return Res::Ok();
+    }
+
+    Res operator()(const CICXCloseOrderMessage& obj) const {
+        std::unique_ptr<CICXOrderImplemetation> order;
+        if (!(order = mnview.GetICXOrderByCreationTx(obj.orderTx)))
+            return Res::Err("order with creation tx %s does not exists!", obj.orderTx.GetHex());
+
+        if (order->orderType == CICXOrder::TYPE_INTERNAL) {
+            CScript txidAddr(order->creationTx.begin(), order->creationTx.end());
+            EraseHistory(txidAddr);
+            EraseHistory(order->ownerAddress);
+        }
+        return Res::Ok();
+    }
+
+    Res operator()(const CICXCloseOfferMessage& obj) const {
+        std::unique_ptr<CICXMakeOfferImplemetation> offer;
+        if (!(offer = mnview.GetICXMakeOfferByCreationTx(obj.offerTx)))
+            return Res::Err("offer with creation tx %s does not exists!", obj.offerTx.GetHex());
+
+        CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
+        EraseHistory(txidAddr);
+        return EraseHistory(offer->ownerAddress);
+    }
+
+    Res operator()(const CDepositToVaultMessage& obj) const {
+        return EraseHistory(obj.from);
+    }
+
+    Res operator()(const CLoanTakeLoanMessage& obj) const {
+        const auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+
+        return EraseHistory(vault->ownerAddress);
+    }
+
+    Res operator()(const CLoanPaybackLoanMessage& obj) const {
+        const auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+
+        EraseHistory(consensus.burnAddress);
+        return EraseHistory(vault->ownerAddress);
+    }
+
+    Res operator()(const CAuctionBidMessage& obj) const {
+        if (auto bid = mnview.GetAuctionBid(obj.vaultId, obj.index))
+            EraseHistory(bid->first);
+
+        return EraseHistory(obj.from);
     }
 };
 
@@ -2574,6 +2694,11 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
     CAccountsHistoryEraser view(mnview, height, txn, historyView, burnView);
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
+
+        // Track burn fee
+        if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
+            view.SubFeeBurn(tx.vout[0].scriptPubKey);
+        }
     }
     if (!res) {
         res.msg = strprintf("%sRevertTx: %s", ToString(txType), res.msg);
