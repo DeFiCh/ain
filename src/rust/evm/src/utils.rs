@@ -6,24 +6,32 @@ use std::ffi::{CStr, CString};
 #[no_mangle]
 pub extern "C" fn u256_from_str(s: *const c_char) -> c_u256 {
     unsafe {
-        let slice = CStr::from_ptr(s).to_str().unwrap();
-        c_u256::from(U256::from(slice))
+        let u256_as_str = CStr::from_ptr(s).to_str().unwrap();
+        c_u256::from(U256::from(u256_as_str))
     }
 }
 
 #[no_mangle]
 pub extern "C" fn h256_from_str(s: *const c_char) -> c_h256 {
     unsafe {
-        let slice = CStr::from_ptr(s).to_str().unwrap();
-        c_h256::from(H256::from(slice))
+        let h256_as_str = CStr::from_ptr(s).to_str().unwrap();
+        c_h256::from(H256::from(h256_as_str))
     }
 }
 
 #[no_mangle]
 pub extern "C" fn address_from_str(s: *const c_char) -> c_address {
     unsafe {
-        let slice = CStr::from_ptr(s).to_str().unwrap();
-        c_address::from(Address::from(slice))
+        let address_as_str = CStr::from_ptr(s).to_str().unwrap();
+        c_address::from(Address::from(address_as_str))
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn gas_from_str(s: *const c_char) -> c_address {
+    unsafe {
+        let gas_as_str = CStr::from_ptr(s).to_str().unwrap();
+        c_address::from(Address::from(gas_as_str))
     }
 }
 

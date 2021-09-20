@@ -30,6 +30,8 @@ typedef struct {
 extern void
 print_gas(sputnikvm_gas g);
 
+sputnikvm_gas gas_from_str(const char *s);
+
 /**
  * Unsigned 256-bit integer.
  */

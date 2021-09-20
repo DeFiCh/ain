@@ -65,11 +65,14 @@ LIBDEFI_CRYPTO += $(LIBDEFI_CRYPTO_SHANI)
 endif
 
 if ENABLE_EVM
-LIBDEFI_EVM = evm/libsputnikvm_ffi.a
+LIBDEFI_EVM = rust/evm/libsputnikvm_ffi.a
 endif
 
 $(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
+
+$(LIBDEFI_EVM): $(wildcard rust/evm/src/*)
+	$(AM_V_at)$(MAKE) -C rust/evm
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -83,8 +86,7 @@ EXTRA_LIBRARIES += \
   $(LIBDEFI_CLI) \
   $(LIBDEFI_WALLET) \
   $(LIBDEFI_WALLET_TOOL) \
-  $(LIBDEFI_ZMQ) \
-  $(LIBDEFI_EVM)
+  $(LIBDEFI_ZMQ)
 
 lib_LTLIBRARIES = $(LIBDEFICONSENSUS)
 
