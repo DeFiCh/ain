@@ -31,27 +31,33 @@ DCT_ID CreateToken(CCustomCSView &mnview, const std::string& symbol, const std::
     return *res.val;
 }
 
-DCT_ID CreateLoanToken(CCustomCSView &mnview, const std::string& symbol, const std::string& name, const uint256& priceTx, CAmount interest)
+DCT_ID CreateLoanToken(CCustomCSView &mnview, const std::string& symbol, const std::string& name, const std::string& priceFeed, CAmount interest)
 {
     CLoanSetLoanTokenImplementation loanToken;
     loanToken.interest = interest;
     loanToken.symbol = symbol;
     loanToken.name = name;
-    loanToken.priceFeedTxid = priceTx;
+    if (!priceFeed.empty()) {
+        auto delim = priceFeed.find('/');
+        loanToken.priceFeed = std::make_pair(priceFeed.substr(0, delim), priceFeed.substr(delim + 1));
+    }
     loanToken.creationTx = NextTx();
     auto id = CreateToken(mnview, symbol, name);
     mnview.LoanSetLoanToken(loanToken, id);
     return id;
 }
 
-void CreateCollateralToken(CCustomCSView &mnview, DCT_ID id, const uint256& priceTx)
+void CreateCollateralToken(CCustomCSView &mnview, DCT_ID id, const std::string& priceFeed)
 {
     CLoanSetCollateralTokenImplementation collateralToken;
     collateralToken.idToken = id;
     collateralToken.factor = COIN;
     collateralToken.creationHeight = 0;
     collateralToken.creationTx = NextTx();
-    collateralToken.priceFeedTxid = priceTx;
+    if (!priceFeed.empty()) {
+        auto delim = priceFeed.find('/');
+        collateralToken.priceFeed = std::make_pair(priceFeed.substr(0, delim), priceFeed.substr(delim + 1));
+    }
     mnview.LoanCreateSetCollateralToken(collateralToken);
 }
 
@@ -66,7 +72,7 @@ void CreateScheme(CCustomCSView &mnview, const std::string& name, uint32_t ratio
 
 extern std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances);
 
-BOOST_FIXTURE_TEST_SUITE(loan_tests, TestingSetup)
+BOOST_FIXTURE_TEST_SUITE(loan_tests, TestChain100Setup)
 
 BOOST_AUTO_TEST_CASE(loan_iterest_rate)
 {
@@ -76,7 +82,7 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     CreateScheme(mnview, id, 150, 2 * COIN);
 
     const CAmount tokenInterest = 5 * COIN;
-    auto token_id = CreateLoanToken(mnview, "TST", "TEST", NextTx(), tokenInterest);
+    auto token_id = CreateLoanToken(mnview, "TST", "TEST", "", tokenInterest);
     auto scheme = mnview.GetLoanScheme(id);
     BOOST_REQUIRE(scheme);
     BOOST_CHECK_EQUAL(scheme->ratio, 150);
@@ -171,11 +177,11 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     mnview.AppointOracle(oracle_id, oracle);
 
     auto dfi_id = DCT_ID{0};
-    auto tesla_id = CreateLoanToken(mnview, "TSLA", "TESLA", oracle_id, 5 * COIN);
-    auto nft_id = CreateLoanToken(mnview, "NFT", "NFT", oracle_id, 2 * COIN);
+    auto tesla_id = CreateLoanToken(mnview, "TSLA", "TESLA", "TSLA/USD", 5 * COIN);
+    auto nft_id = CreateLoanToken(mnview, "NFT", "NFT", "NFT/USD", 2 * COIN);
     auto btc_id = CreateToken(mnview, "BTC", "BITCOIN");
-    CreateCollateralToken(mnview, dfi_id, oracle_id);
-    CreateCollateralToken(mnview, btc_id, oracle_id);
+    CreateCollateralToken(mnview, dfi_id, "DFI/USD");
+    CreateCollateralToken(mnview, btc_id, "BTC/USD");
 
     auto vault_id = NextTx();
     BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, tesla_id));
@@ -209,9 +215,9 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     BOOST_CHECK_EQUAL(collaterals->balances[dfi_id], 2 * COIN);
     BOOST_CHECK_EQUAL(collaterals->balances[btc_id], 3 * COIN);
 
-    auto colls = mnview.CalculateCollateralizationRatio(vault_id, *collaterals, 10);
-    BOOST_REQUIRE(colls);
-    BOOST_CHECK_EQUAL(colls->ratio(), 78);
+    auto colls = mnview.CalculateCollateralizationRatio(vault_id, *collaterals, 10, 0);
+    BOOST_REQUIRE(colls.ok);
+    BOOST_CHECK_EQUAL(colls.val->ratio(), 78);
 }
 
 BOOST_AUTO_TEST_CASE(auction_batch_creator)

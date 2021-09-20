@@ -628,7 +628,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height);
+        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -643,12 +643,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // CoinsViewCache instead of create its own
         if (!CheckSequenceLocks(pool, tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
             return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, REJECT_NONSTANDARD, "non-BIP68-final");
-
-        /// @todo tokens: optimize place for CheckTxInputs call related to token's auth (cache auth outputs or smth)
-//        CAmount nFees = 0;
-//        if (!Consensus::CheckTxInputs(tx, state, view, pcustomcsview.get(), GetSpendHeight(view), nFees)) {
-//            return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
-//        }
 
         // Check for non-standard pay-to-script-hash in inputs
         if (fRequireStandard && !AreInputsStandard(tx, view))
@@ -3020,7 +3014,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-            auto collateral = cache.CalculateCollateralizationRatio(vaultId, collaterals, pindex->nHeight);
+            auto collateral = cache.CalculateCollateralizationRatio(vaultId, collaterals, pindex->nHeight, pindex->nTime);
             if (!collateral) {
                 return true;
             }
@@ -3028,7 +3022,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             assert(vault);
             auto scheme = cache.GetLoanScheme(vault->schemeId);
             assert(scheme);
-            if (scheme->ratio <= collateral->ratio()) {
+            if (scheme->ratio <= collateral.val->ratio()) {
                 return true;
             }
             vault->isUnderLiquidation = true;
@@ -3041,7 +3035,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             for (const auto& col : collaterals.balances) {
                 cache.SubVaultCollateral(vaultId, {col.first, col.second});
             }
-            auto batches = CollectAuctionBatches(*collateral, collaterals.balances, loanTokens->balances);
+            auto batches = CollectAuctionBatches(*collateral.val, collaterals.balances, loanTokens->balances);
             for (auto i = 0u; i < batches.size(); i++) {
                 cache.StoreAuctionBatch(vaultId, i, batches[i]);
             }

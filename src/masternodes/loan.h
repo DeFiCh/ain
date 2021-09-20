@@ -10,12 +10,14 @@
 #include <masternodes/vault.h>
 #include <script/script.h>
 
+using PriceFeedPair = std::pair<std::string, std::string>;
+
 class CLoanSetCollateralToken
 {
 public:
     DCT_ID idToken{UINT_MAX};
     CAmount factor;
-    uint256 priceFeedTxid;
+    PriceFeedPair priceFeed;
     uint32_t activateAfterBlock = 0;
 
     ADD_SERIALIZE_METHODS;
@@ -24,7 +26,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(idToken);
         READWRITE(factor);
-        READWRITE(priceFeedTxid);
+        READWRITE(priceFeed);
         READWRITE(activateAfterBlock);
     }
 };
@@ -60,7 +62,7 @@ class CLoanSetLoanToken
 public:
     std::string symbol;
     std::string name;
-    uint256 priceFeedTxid;
+    PriceFeedPair priceFeed;
     bool mintable = true;
     CAmount interest = 0;
 
@@ -70,7 +72,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(symbol);
         READWRITE(name);
-        READWRITE(priceFeedTxid);
+        READWRITE(priceFeed);
         READWRITE(mintable);
         READWRITE(interest);
     }
