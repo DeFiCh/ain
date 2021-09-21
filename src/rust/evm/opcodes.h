@@ -1,3 +1,6 @@
+#ifndef DEFI_RUST_EVM_OPCODES_H
+#define DEFI_RUST_EVM_OPCODES_H
+
 enum Opcodes
 {
 	STOP = 0x00,		        ///< halts execution
@@ -155,3 +158,5 @@ enum Opcodes
 	INVALID = 0xfe,		      ///< invalid instruction for expressing runtime errors (e.g., division-by-zero)
 	SELFDESTRUCT = 0xff	    ///< halt execution and register account for later deletion
 };
+
+#endif // DEFI_RUST_EVM_OPCODES_H
