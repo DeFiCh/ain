@@ -1838,7 +1838,10 @@ public:
             collToken.activateAfterBlock = height;
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
-
+        auto price = GetAggregatePrice(mnview, collToken.priceFeedId.first, collToken.priceFeedId.second, time);
+        if(!price)
+            return Res::Err(price.msg);
+        collToken.activePrice = *price.val;
         if (!oraclePriceFeed(collToken.priceFeedId))
             return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.priceFeedId.first, collToken.priceFeedId.second);
 
@@ -1855,6 +1858,10 @@ public:
 
         loanToken.creationTx = tx.GetHash();
         loanToken.creationHeight = height;
+        auto price = GetAggregatePrice(mnview, loanToken.priceFeedId.first, loanToken.priceFeedId.second, time);
+        if(!price)
+            return Res::Err(price.msg);
+        loanToken.activePrice = *price.val;
 
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
