@@ -2157,11 +2157,17 @@ public:
             if (!loanSetCollToken)
                 return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
 
+            auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, time);
+            if (!price)
+                return Res::Err("%s/%s: %s", loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, price.msg);
+
             auto amount = MultiplyAmounts(*price.val, col.second);
             if (*price.val > COIN && amount < col.second)
                 return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(*price.val));
 
-            if (loanSetCollToken->symbol == "DFI")
+            if (col.first == DCT_ID{0}) {
+                if (!MoneyRange(col.second))
+                    return Res::Err("Exceed max money range");
                 totalDFI += amount;
             }
 
