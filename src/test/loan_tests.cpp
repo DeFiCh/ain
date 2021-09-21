@@ -160,7 +160,7 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     const std::string id("sch1");
     CreateScheme(mnview, id, 150, 2 * COIN);
 
-    COracle oracle;
+    COracle oracle{};
     oracle.availablePairs = {
         {"DFI", "USD"},
         {"BTC", "USD"},
