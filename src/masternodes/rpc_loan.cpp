@@ -1,5 +1,7 @@
 #include <masternodes/mn_rpc.h>
 
+#define MINIMUM_PRICEFEED_LENGTH 8
+
 extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
 
 UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& collToken)
