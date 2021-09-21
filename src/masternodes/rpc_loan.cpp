@@ -120,7 +120,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"factor\" must not be null");
 
-    collToken.priceFeed = DecodePriceFeed(metaObj);
+    collToken.priceFeedId = DecodePriceFeed(metaObj);
 
     if (!metaObj["activateAfterBlock"].isNull())
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
@@ -347,7 +347,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     if (!metaObj["name"].isNull())
         loanToken.name = trim_ws(metaObj["name"].getValStr());
 
-    loanToken.priceFeed = DecodePriceFeed(metaObj);
+    loanToken.priceFeedId = DecodePriceFeed(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken.mintable = metaObj["mintable"].getBool();
@@ -481,7 +481,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
         loanToken->name = trim_ws(metaObj["name"].getValStr());
 
     if (!metaObj["priceFeedId"].isNull())
-        loanToken->priceFeed = DecodePriceFeed(metaObj);
+        loanToken->priceFeedId = DecodePriceFeed(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken->mintable = metaObj["mintable"].getBool();

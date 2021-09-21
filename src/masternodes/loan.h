@@ -11,13 +11,27 @@
 #include <script/script.h>
 
 using PriceFeedPair = std::pair<std::string, std::string>;
+struct CPriceFeed
+{
+public:
+    PriceFeedPair priceFeedId;
+    CAmount activePrice{0};
+    CAmount nextPrice{0};
 
-class CLoanSetCollateralToken
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(priceFeedId);
+        READWRITE(activePrice);
+        READWRITE(nextPrice);
+    }
+};
+class CLoanSetCollateralToken : public CPriceFeed
 {
 public:
     DCT_ID idToken{UINT_MAX};
     CAmount factor;
-    PriceFeedPair priceFeed;
     uint32_t activateAfterBlock = 0;
 
     ADD_SERIALIZE_METHODS;
@@ -27,7 +41,6 @@ public:
         READWRITEAS(CPriceFeed, *this);
         READWRITE(idToken);
         READWRITE(factor);
-        READWRITE(priceFeed);
         READWRITE(activateAfterBlock);
     }
 };
@@ -63,7 +76,6 @@ class CLoanSetLoanToken : public CPriceFeed
 public:
     std::string symbol;
     std::string name;
-    PriceFeedPair priceFeed;
     bool mintable = true;
     CAmount interest = 0;
 
@@ -74,7 +86,6 @@ public:
         READWRITEAS(CPriceFeed, *this);
         READWRITE(symbol);
         READWRITE(name);
-        READWRITE(priceFeed);
         READWRITE(mintable);
         READWRITE(interest);
     }

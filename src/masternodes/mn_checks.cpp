@@ -1859,8 +1859,8 @@ public:
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (!oraclePriceFeed(loanToken.priceFeed))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.priceFeed.first, loanToken.priceFeed.second);
+        if (!oraclePriceFeed(loanToken.priceFeedId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.priceFeedId.first, loanToken.priceFeedId.second);
 
         CTokenImplementation token;
         token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
@@ -2164,9 +2164,9 @@ public:
             if (!price)
                 return Res::Err("%s/%s: %s", loanSetCollToken->priceFeedId.first, loanSetCollToken->priceFeedId.second, price.msg);
 
-            auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, time);
+            auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeedId.first, loanSetCollToken->priceFeedId.second, time);
             if (!price)
-                return Res::Err("%s/%s: %s", loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, price.msg);
+                return Res::Err("%s/%s: %s", loanSetCollToken->priceFeedId.first, loanSetCollToken->priceFeedId.second, price.msg);
 
             auto amount = MultiplyAmounts(*price.val, col.second);
             if (*price.val > COIN && amount < col.second)
