@@ -75,6 +75,7 @@ help() {
 # ----------- Direct builds ---------------
 
 build_deps() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
     local make_deps_args=${MAKE_DEPS_ARGS:-}
     local make_jobs=${MAKE_JOBS}
 
@@ -82,7 +83,7 @@ build_deps() {
     pushd ./depends >/dev/null
     # XREF: #make-deps
     # shellcheck disable=SC2086
-    make -j${make_jobs} ${make_deps_args}
+    make HOST="${target}" -j${make_jobs} ${make_deps_args}
     popd >/dev/null 
 }
 
@@ -110,7 +111,7 @@ build_make() {
 }
 
 build() {
-    build_deps
+    build_deps "$@"
     build_conf "$@"
     build_make "$@"
 }
