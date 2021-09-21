@@ -16,9 +16,10 @@ setup_vars() {
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
     RELEASE_DIR=${RELEASE_DIR:-"./build"}
 
-    EXTRA_CONF_ARGS=${EXTRA_CONF_ARGS:-}
-    EXTRA_MAKE_ARGS=${EXTRA_MAKE_ARGS:-}
-    EXTRA_MAKE_DEPENDS_ARGS=${EXTRA_MAKE_DEPENDS_ARGS:-}
+    MAKE_JOBS=${MAKE_JOBS:-$(nproc)}
+    MAKE_CONF_ARGS=${MAKE_CONF_ARGS:-}
+    MAKE_ARGS=${MAKE_ARGS:-}
+    MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
 
     # shellcheck disable=SC2206
     # This intentionally word-splits the array as env arg can only be strings.
@@ -73,22 +74,45 @@ help() {
 
 # ----------- Direct builds ---------------
 
+build_deps() {
+    local make_deps_args=${MAKE_DEPS_ARGS:-}
+    local make_jobs=${MAKE_JOBS}
 
-build() {
-    local target=${1:-"x86_64-pc-linux-gnu"}
-    local extra_conf_opts=${EXTRA_CONF_ARGS:-}
-    local extra_make_args=${EXTRA_MAKE_ARGS:--j $(nproc)}
-    local extra_make_depends_args=${EXTRA_MAKE_DEPENDS_ARGS:--j $(nproc)}
-
-    echo "> build: ${target}"
+    echo "> build-deps"
     pushd ./depends >/dev/null
-    # XREF: #depends-make
-    make NO_QT=1 ${extra_make_depends_args}
-    popd >/dev/null
+    # XREF: #make-deps
+    # shellcheck disable=SC2086
+    make -j${make_jobs} ${make_deps_args}
+    popd >/dev/null 
+}
+
+build_conf() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
+    local make_conf_opts=${MAKE_CONF_ARGS:-}
+    local make_jobs=${MAKE_JOBS}
+
+    echo "> build-conf: ${target}"
+    
     ./autogen.sh
     # XREF: #make-configure
-    ./configure CC=clang-11 CXX=clang++-11 --prefix="$(pwd)/depends/${target}" ${extra_conf_opts}
-    make ${extra_make_args}
+    # shellcheck disable=SC2086
+    ./configure --prefix="$(pwd)/depends/${target}" ${make_conf_opts}
+}
+
+build_make() {
+    local target=${1:-"x86_64-pc-linux-gnu"}
+    local make_args=${MAKE_ARGS:-}
+    local make_jobs=${MAKE_JOBS}
+
+    echo "> build: ${target}"
+    # shellcheck disable=SC2086
+    make -j${make_jobs} ${make_args}
+}
+
+build() {
+    build_deps
+    build_conf "$@"
+    build_make "$@"
 }
 
 deploy() {
@@ -107,7 +131,7 @@ deploy() {
     echo "> deploy into: ${release_dir} from ${versioned_release_path}"
 
     pushd "${release_dir}" >/dev/null
-    rm -rf ./${versioned_name} && mkdir "${versioned_name}"
+    rm -rf "./${versioned_name}" && mkdir "${versioned_name}"
     popd >/dev/null
 
     make prefix=/ DESTDIR="${versioned_release_path}" install && cp README.md "${versioned_release_path}/"
@@ -128,7 +152,7 @@ package() {
     local pkg_tar_file_name="${pkg_name}.tar.gz"
 
     local pkg_path
-    pkg_path="$(readlink -m ${release_dir}/${pkg_tar_file_name})"
+    pkg_path="$(readlink -m "${release_dir}/${pkg_tar_file_name}")"
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_release_dir="${release_dir}/${versioned_name}"
@@ -319,19 +343,22 @@ git_version() {
     fi
 
     echo "> version: ${IMAGE_VERSION}"
-    echo "BUILD_VERSION=${IMAGE_VERSION}" >> $GITHUB_ENV # GitHub Actions
+    echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV" # GitHub Actions
 }
 
 pkg_install_deps() {
-    sudo apt update && sudo apt dist-upgrade -y
-    sudo apt install -y software-properties-common build-essential libtool autotools-dev automake \
+    apt update && apt install -y \
+        software-properties-common build-essential libtool autotools-dev automake \
         pkg-config bsdmainutils python3 libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         curl cmake
+}
+
+pkg_install_llvm() {
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh
-    sudo ./llvm.sh 11
+    ./llvm.sh 11
 }
 
 pkg_ensure_mac_sdk() {
