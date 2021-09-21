@@ -11,22 +11,36 @@
 #include <script/script.h>
 
 using PriceFeedPair = std::pair<std::string, std::string>;
+struct CPriceFeed
+{
+public:
+    PriceFeedPair priceFeedId;
+    CAmount activePrice{0};
+    CAmount nextPrice{0};
 
-class CLoanSetCollateralToken
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(priceFeedId);
+        READWRITE(activePrice);
+        READWRITE(nextPrice);
+    }
+};
+class CLoanSetCollateralToken : public CPriceFeed
 {
 public:
     DCT_ID idToken{UINT_MAX};
     CAmount factor;
-    PriceFeedPair priceFeed;
     uint32_t activateAfterBlock = 0;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CPriceFeed, *this);
         READWRITE(idToken);
         READWRITE(factor);
-        READWRITE(priceFeed);
         READWRITE(activateAfterBlock);
     }
 };
@@ -57,12 +71,11 @@ struct CLoanSetCollateralTokenMessage : public CLoanSetCollateralToken {
     }
 };
 
-class CLoanSetLoanToken
+class CLoanSetLoanToken : public CPriceFeed
 {
 public:
     std::string symbol;
     std::string name;
-    PriceFeedPair priceFeed;
     bool mintable = true;
     CAmount interest = 0;
 
@@ -70,9 +83,9 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITEAS(CPriceFeed, *this);
         READWRITE(symbol);
         READWRITE(name);
-        READWRITE(priceFeed);
         READWRITE(mintable);
         READWRITE(interest);
     }
@@ -319,6 +332,7 @@ public:
 
     std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanSetCollateralToken(uint256 const & txid) const;
     Res LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
+    Res LoanUpdateCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken);
     void ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
     std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanSetCollateralToken(CollateralTokenKey const & key);
 

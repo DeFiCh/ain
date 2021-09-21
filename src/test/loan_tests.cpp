@@ -39,7 +39,7 @@ DCT_ID CreateLoanToken(CCustomCSView &mnview, const std::string& symbol, const s
     loanToken.name = name;
     if (!priceFeed.empty()) {
         auto delim = priceFeed.find('/');
-        loanToken.priceFeed = std::make_pair(priceFeed.substr(0, delim), priceFeed.substr(delim + 1));
+        loanToken.priceFeedId = std::make_pair(priceFeed.substr(0, delim), priceFeed.substr(delim + 1));
     }
     loanToken.creationTx = NextTx();
     auto id = CreateToken(mnview, symbol, name);
@@ -56,7 +56,7 @@ void CreateCollateralToken(CCustomCSView &mnview, DCT_ID id, const std::string& 
     collateralToken.creationTx = NextTx();
     if (!priceFeed.empty()) {
         auto delim = priceFeed.find('/');
-        collateralToken.priceFeed = std::make_pair(priceFeed.substr(0, delim), priceFeed.substr(delim + 1));
+        collateralToken.priceFeedId = std::make_pair(priceFeed.substr(0, delim), priceFeed.substr(delim + 1));
     }
     mnview.LoanCreateSetCollateralToken(collateralToken);
 }

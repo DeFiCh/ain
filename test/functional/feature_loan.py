@@ -52,15 +52,21 @@ class LoanTest (DefiTestFramework):
 
         # setup oracle
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
-        oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
+        price_feeds = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
+        oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds, 10)
+        self.nodes[0].generate(1)
+        oracle_address2 = self.nodes[0].getnewaddress("", "legacy")
+        oracle_id2 = self.nodes[0].appointoracle(oracle_address2, price_feeds, 10)
         self.nodes[0].generate(1)
 
         # feed oracle
         oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}, {"currency": "USD", "tokenAmount": "10@DFI"}, {"currency": "USD", "tokenAmount": "10@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(1)
+        oracle2_prices = [{"currency": "USD", "tokenAmount": "15@TSLA"}, {"currency": "USD", "tokenAmount": "15@DFI"}, {"currency": "USD", "tokenAmount": "15@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id2, timestamp, oracle2_prices)
+        self.nodes[0].generate(6) # one hour to fill active price
 
         # set DFI an BTC as collateral tokens
         self.nodes[0].setcollateraltoken({
@@ -96,7 +102,7 @@ class LoanTest (DefiTestFramework):
                             'priceFeedId': "TSLA/USD",
                             'mintable': True,
                             'interest': 1})
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(100)
 
         # take loan
         self.nodes[0].takeloan({
@@ -117,8 +123,10 @@ class LoanTest (DefiTestFramework):
 
         # Trigger liquidation updating price in oracle
         oracle1_prices = [{"currency": "USD", "tokenAmount": "20@TSLA"}]
+        oracle2_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].setoracledata(oracle_id2, timestamp, oracle2_prices)
         self.nodes[0].generate(10)
 
         # Auction tests

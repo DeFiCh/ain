@@ -1839,8 +1839,8 @@ public:
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
-        if (!oraclePriceFeed(collToken.priceFeed))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.priceFeed.first, collToken.priceFeed.second);
+        if (!oraclePriceFeed(collToken.priceFeedId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.priceFeedId.first, collToken.priceFeedId.second);
 
         return mnview.LoanCreateSetCollateralToken(collToken);
     }
@@ -1902,10 +1902,10 @@ public:
             pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);;
         if (obj.name != pair->second.name)
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        if (obj.priceFeed != loanToken->priceFeed) {
-            if (!oraclePriceFeed(obj.priceFeed))
-                return Res::Err("Price feed %s/%s does not belong to any oracle", obj.priceFeed.first, obj.priceFeed.second);
-            loanToken->priceFeed = obj.priceFeed;
+        if (obj.priceFeedId != loanToken->priceFeedId) {
+            if (!oraclePriceFeed(obj.priceFeedId))
+                return Res::Err("Price feed %s/%s does not belong to any oracle", obj.priceFeedId.first, obj.priceFeedId.second);
+            loanToken->priceFeedId = obj.priceFeedId;
         }
         if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
@@ -2157,9 +2157,9 @@ public:
             if (!loanSetCollToken)
                 return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
 
-            auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, time);
+            auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeedId.first, loanSetCollToken->priceFeedId.second, time);
             if (!price)
-                return Res::Err("%s/%s: %s", loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, price.msg);
+                return Res::Err("%s/%s: %s", loanSetCollToken->priceFeedId.first, loanSetCollToken->priceFeedId.second, price.msg);
 
             auto amount = MultiplyAmounts(*price.val, col.second);
             if (*price.val > COIN && amount < col.second)
@@ -2233,13 +2233,9 @@ public:
             if (!res)
                 return res;
 
-            auto price = GetAggregatePrice(mnview, loanToken->priceFeed.first, loanToken->priceFeed.second, time);
-            if (!price)
-                return Res::Err("%s/%s: %s", loanToken->priceFeed.first, loanToken->priceFeed.second, price.msg);
-
-            auto amount = MultiplyAmounts(*price.val, kv.second);
-            if (*price.val > COIN && amount < kv.second)
-                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(*price.val));
+            auto amount = MultiplyAmounts(loanToken->activePrice, kv.second);
+            if (loanToken->activePrice > COIN && amount < kv.second)
+                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(loanToken->activePrice));
 
             auto prevLoans = totalLoans;
             totalLoans += amount;

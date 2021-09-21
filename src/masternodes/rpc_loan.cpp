@@ -11,7 +11,7 @@ UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& c
         return (UniValue::VNULL);
     collTokenObj.pushKV("token", token->CreateSymbolKey(collToken.idToken));
     collTokenObj.pushKV("factor", ValueFromAmount(collToken.factor));
-    collTokenObj.pushKV("priceFeedId", collToken.priceFeed.first + "/" + collToken.priceFeed.second);
+    collTokenObj.pushKV("priceFeedId", collToken.priceFeedId.first + "/" + collToken.priceFeedId.second);
     if (collToken.activateAfterBlock)
         collTokenObj.pushKV("activateAfterBlock", static_cast<int>(collToken.activateAfterBlock));
 
@@ -29,7 +29,7 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
         return (UniValue::VNULL);
 
     loanTokenObj.pushKV("token",tokenToJSON(tokenId, *static_cast<CTokenImplementation*>(token.get()), true));
-    loanTokenObj.pushKV("priceFeedId", loanToken.priceFeed.first + "/" + loanToken.priceFeed.second);
+    loanTokenObj.pushKV("priceFeedId", loanToken.priceFeedId.first + "/" + loanToken.priceFeedId.second);
     loanTokenObj.pushKV("interest", ValueFromAmount(loanToken.interest));
 
     UniValue ret(UniValue::VOBJ);
@@ -120,7 +120,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"factor\" must not be null");
 
-    collToken.priceFeed = DecodePriceFeed(metaObj);
+    collToken.priceFeedId = DecodePriceFeed(metaObj);
 
     if (!metaObj["activateAfterBlock"].isNull())
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
@@ -347,7 +347,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     if (!metaObj["name"].isNull())
         loanToken.name = trim_ws(metaObj["name"].getValStr());
 
-    loanToken.priceFeed = DecodePriceFeed(metaObj);
+    loanToken.priceFeedId = DecodePriceFeed(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken.mintable = metaObj["mintable"].getBool();
@@ -481,7 +481,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
         loanToken->name = trim_ws(metaObj["name"].getValStr());
 
     if (!metaObj["priceFeedId"].isNull())
-        loanToken->priceFeed = DecodePriceFeed(metaObj);
+        loanToken->priceFeedId = DecodePriceFeed(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken->mintable = metaObj["mintable"].getBool();
