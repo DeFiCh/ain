@@ -206,9 +206,8 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.sync_blocks()
 
         # transfer
-        self.nodes[0].addpoolliquidity({
-            account0: ["1@" + symbolTSLA, "300@" + symboldUSD]
-        }, account0, [])
+        self.nodes[0].addpoolliquidity({account0: ["1@" + symbolTSLA, "300@" + symboldUSD]}, account0, [])
+
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -233,12 +232,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         vaultId1 = self.nodes[1].createvault( account1, 'LOAN150')
 
-        self.nodes[1].generate(1)
-        self.sync_blocks()
-
-        self.nodes[1].deposittovault(vaultId1, account1, "100@" + symbolDFI)
-
-        self.nodes[1].generate(1)
+        self.nodes[1].generate(2)
         self.sync_blocks()
 
         interest = self.nodes[0].getinterest('LOAN150', symbolTSLA)[0]
@@ -248,30 +242,56 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         loans = self.nodes[0].getloaninfo()
 
-        assert_equal(loans['collateralValueUSD'], Decimal('3000.00000000'))
+        assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
         assert_equal(loans['loanValueUSD'], Decimal('10.00003420'))
 
         try:
             self.nodes[0].loanpayback({
-                        'vaultId': vaultId,
+                        'vaultId': setLoanTokenTSLA,
                         'amounts': "0.5@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
+        assert("Cannot find existing vault with id" in errorString)
+
+        try:
+            self.nodes[0].loanpayback({
+                        'vaultId': vaultId1,
+                        'amounts': "0.5@" + symbolTSLA})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Vault with id " + vaultId1 + " has no collaterals" in errorString)
+
+        self.nodes[1].deposittovault(vaultId1, account1, "100@" + symbolDFI)
+
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        try:
+            self.nodes[0].loanpayback({
+                        'vaultId': vaultId1,
+                        'amounts': "0.5@" + symbolTSLA})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("There are no loans on this vault" in errorString)
+
+        self.nodes[0].loanpayback({
+                    'vaultId': vaultId,
+                    'amounts': "0.5@" + symbolTSLA})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         # loan payback burn
-        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00022754'))
+        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00028443'))
 
         vaultInfo = self.nodes[0].getvault(vaultId)
 
-        assert_equal(vaultInfo['loanAmount'], ['0.50000399@' + symbolTSLA])
+        assert_equal(vaultInfo['loanAmount'], ['0.50000513@' + symbolTSLA])
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('3000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('5.00003990'))
+        assert_equal(loans['loanValueUSD'], Decimal('5.00005130'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()
