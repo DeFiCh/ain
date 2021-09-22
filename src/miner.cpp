@@ -239,7 +239,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         coinbaseTx.vout.resize(2);
 
         // Explicitly set miner reward
-        coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
+        coinbaseTx.vout[0].nValue = nFees + CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
 
         // Community payment always expected
         coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
