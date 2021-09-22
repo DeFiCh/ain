@@ -1,6 +1,8 @@
 #ifndef DEFI_RUST_EVM_SPUTNIKVM_H
 #define DEFI_RUST_EVM_SPUTNIKVM_H
 
+#include <cstdint>
+
 #ifdef __cplusplus
 extern "C"{
 #endif 
@@ -30,7 +32,7 @@ typedef struct {
 extern void
 print_gas(sputnikvm_gas g);
 
-sputnikvm_gas gas_from_str(const char *s);
+sputnikvm_gas gas_from_u64(uint64_t g);
 
 /**
  * Unsigned 256-bit integer.
@@ -59,8 +61,8 @@ sputnikvm_h256 h256_from_str(const char *s);
  * CREATE_ACTION.
  */
 typedef unsigned char sputnikvm_action;
-extern const unsigned char CALL_ACTION;
-extern const unsigned char CREATE_ACTION;
+extern const sputnikvm_action CALL_ACTION;
+extern const sputnikvm_action CREATE_ACTION;
 
 /**
  * Represents a valid EVM transaction. Used when creating a new VM
@@ -116,7 +118,11 @@ typedef struct {
 } sputnikvm_log;
 
 typedef enum {
-  account_change_increase_balance, account_change_decrease_balance, account_change_full, account_change_create, account_change_removed
+  ACCOUNT_CHANGE_INCREASE_BALANCE,
+  ACCOUNT_CHANGE_DECRASE_BALANCE,
+  ACCOUNT_CHANGE_FULL,
+  ACCOUNT_CHANGE_CREATE,
+  ACCOUNT_CHANGE_REMOVED
 } sputnikvm_account_change_type;
 
 typedef struct {
@@ -342,6 +348,12 @@ sputnikvm_account_changes_copy_code(sputnikvm_vm_t *vm, sputnikvm_address addres
  */
 extern sputnikvm_gas
 sputnikvm_used_gas(sputnikvm_vm_t *vm);
+
+/**
+ * Return the available gas for the VM.
+ */
+extern sputnikvm_gas
+sputnikvm_available_gas(sputnikvm_vm_t *vm);
 
 /**
  * Default all-zero transaction value.
