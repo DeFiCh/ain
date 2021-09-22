@@ -2281,11 +2281,6 @@ public:
         if(vault->isUnderLiquidation)
             return Res::Err("Cannot payback loan on vault under liquidation");
 
-        // vault owner auth
-        if (!HasAuth(vault->ownerAddress)) {
-            return Res::Err("tx must have at least one input from vault owner");
-        }
-
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
 
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);

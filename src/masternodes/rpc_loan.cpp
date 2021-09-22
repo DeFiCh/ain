@@ -1121,7 +1121,6 @@ UniValue loanpayback(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
 
     int targetHeight;
-    CScript ownerAddress;
     {
         LOCK(cs_main);
         targetHeight = ::ChainActive().Height() + 1;
@@ -1130,7 +1129,6 @@ UniValue loanpayback(const JSONRPCRequest& request) {
         if (!vault) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,"Cannot find existing vault with id " + loanPayback.vaultId.GetHex());
         }
-        ownerAddress = vault->ownerAddress;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -1144,7 +1142,7 @@ UniValue loanpayback(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths{ownerAddress};
+    std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     rawTx.vout.emplace_back(0, scriptMeta);
