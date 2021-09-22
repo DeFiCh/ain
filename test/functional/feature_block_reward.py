@@ -6,12 +6,10 @@
 """Test account mining behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import (
     assert_greater_than,
     assert_equal
 )
-from decimal import Decimal
 
 class BlockRewardTest(DefiTestFramework):
     def set_test_params(self):
@@ -27,9 +25,9 @@ class BlockRewardTest(DefiTestFramework):
         assert_equal(result[0]["amounts"][0], '134.99983200@DFI')
 
         account = node.getnewaddress()
-        txid = node.utxostoaccount({account: "1.1@0"})
-        txid = node.utxostoaccount({account: "1.2@0"})
-        txid = node.utxostoaccount({account: "1.3@0"})
+        node.utxostoaccount({account: "1.1@0"})
+        node.utxostoaccount({account: "1.2@0"})
+        node.utxostoaccount({account: "1.3@0"})
         node.generate(1)
 
         result = node.listaccounthistory("mine", {"depth":0})
