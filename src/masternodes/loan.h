@@ -11,37 +11,22 @@
 #include <script/script.h>
 
 using PriceFeedPair = std::pair<std::string, std::string>;
-struct CPriceFeed
-{
-public:
-    PriceFeedPair priceFeedId;
-    CAmount activePrice{0};
-    CAmount nextPrice{0};
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(priceFeedId);
-        READWRITE(activePrice);
-        READWRITE(nextPrice);
-    }
-};
-class CLoanSetCollateralToken : public CPriceFeed
+class CLoanSetCollateralToken
 {
 public:
     DCT_ID idToken{UINT_MAX};
     CAmount factor;
     uint32_t activateAfterBlock = 0;
+    PriceFeedPair priceFeedId;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CPriceFeed, *this);
         READWRITE(idToken);
         READWRITE(factor);
         READWRITE(activateAfterBlock);
+        READWRITE(priceFeedId);
     }
 };
 
@@ -71,23 +56,24 @@ struct CLoanSetCollateralTokenMessage : public CLoanSetCollateralToken {
     }
 };
 
-class CLoanSetLoanToken : public CPriceFeed
+class CLoanSetLoanToken
 {
 public:
     std::string symbol;
     std::string name;
     bool mintable = true;
     CAmount interest = 0;
+    PriceFeedPair priceFeedId;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CPriceFeed, *this);
         READWRITE(symbol);
         READWRITE(name);
         READWRITE(mintable);
         READWRITE(interest);
+        READWRITE(priceFeedId);
     }
 };
 

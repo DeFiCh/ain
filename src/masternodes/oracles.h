@@ -21,6 +21,7 @@ using CPriceTimePair = std::pair<CAmount, int64_t>;
 using CTokenCurrencyPair = std::pair<std::string, std::string>;
 using CTokenPrices = std::map<std::string, std::map<std::string, CAmount>>;
 using CTokenPricePoints = std::map<std::string, std::map<std::string, CPriceTimePair>>;
+using PriceFeedPair = std::pair<std::string, std::string>;
 
 struct CAppointOracleMessage {
     CScript oracleAddress;
@@ -98,6 +99,27 @@ struct COracle : public CAppointOracleMessage {
     }
 };
 
+struct CPriceFeed
+{
+public:
+    PriceFeedPair priceFeedId;
+    int64_t timestamp;
+    CAmount activePrice{0};
+    CAmount nextPrice{0};
+    bool valid{true};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(priceFeedId);
+        READWRITE(timestamp);
+        READWRITE(activePrice);
+        READWRITE(nextPrice);
+        READWRITE(valid);
+    }
+};
+
 /// View for managing oracles and their data
 class COracleView : public virtual CStorageView
 {
@@ -122,6 +144,14 @@ public:
     void ForEachOracle(std::function<bool(const COracleId&, CLazySerialize<COracle>)> callback, const COracleId& start = {});
 
     struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
+
+    Res SetPriceFeed(const CPriceFeed& PriceFeed);
+
+    Res UpdatePriceFeed(const PriceFeedPair& PriceFeedPair, const CPriceFeed& priceFeed);
+
+    ResVal<CPriceFeed> GetPriceFeedData(const PriceFeedPair& priceFeedId);
+
+    struct PriceFeedKey { static constexpr uint8_t prefix() { return 'y'; } };
 };
 
 #endif // DEFI_MASTERNODES_ORACLES_H

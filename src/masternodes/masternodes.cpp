@@ -827,14 +827,18 @@ ResVal<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio(CVaultId
             auto rate = GetInterestRate(vault->schemeId, loan.first);
             assert(rate && rate->height <= height);
             auto value = loan.second + MultiplyAmounts(loan.second, TotalInterest(*rate, height));
-            ret.loans.push_back({loan.first, MultiplyAmounts(token->activePrice, value)});
+            auto priceFeed = GetPriceFeedData(token->priceFeedId);
+            assert(priceFeed);
+            ret.loans.push_back({loan.first, MultiplyAmounts(priceFeed.val->activePrice, value)});
         }
     }
 
     for (const auto& col : collaterals.balances) {
         auto token = HasLoanSetCollateralToken({col.first, height});
         assert(token);
-        ret.collaterals.push_back({col.first, MultiplyAmounts(token->factor, MultiplyAmounts(token->activePrice, col.second))});
+        auto priceFeed = GetPriceFeedData(token->priceFeedId);
+        assert(priceFeed);
+        ret.collaterals.push_back({col.first, MultiplyAmounts(token->factor, MultiplyAmounts(priceFeed.val->activePrice, col.second))});
     }
 
     return ResVal<CCollateralLoans>(ret, Res::Ok());

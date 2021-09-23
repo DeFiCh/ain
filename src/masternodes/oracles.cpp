@@ -131,3 +131,38 @@ void COracleView::ForEachOracle(std::function<bool(const COracleId&, CLazySerial
 {
     ForEach<ByName, COracleId, COracle>(callback, start);
 }
+
+
+Res COracleView::SetPriceFeed(const CPriceFeed& PriceFeed){
+
+    if (!WriteBy<PriceFeedKey>(PriceFeed.priceFeedId, PriceFeed)) {
+        return Res::Err("failed to set new price feed <%s/%s>", PriceFeed.priceFeedId.first, PriceFeed.priceFeedId.second);
+    }
+
+    return Res::Ok();
+}
+
+Res COracleView::UpdatePriceFeed(const PriceFeedPair& PriceFeedId, const CPriceFeed& PriceFeed){
+
+    CPriceFeed priceFeed{};
+    if (!ReadBy<PriceFeedKey>(PriceFeedId, priceFeed)) {
+        return Res::Err("price feed <%s/%s> not found", PriceFeedId.first, PriceFeedId.second);
+    }
+
+    if (!WriteBy<PriceFeedKey>(PriceFeedId, PriceFeed)) {
+        return Res::Err("failed to save price feed <%s/%s>", PriceFeedId.first, PriceFeedId.second);
+    }
+
+    return Res::Ok();
+}
+
+ResVal<CPriceFeed> COracleView::GetPriceFeedData(const PriceFeedPair& priceFeedId)
+{
+    CPriceFeed priceFeed;
+    if (!ReadBy<PriceFeedKey>(priceFeedId, priceFeed)) {
+        return Res::Err("pricefeed <%s/%s> not found", priceFeedId.first, priceFeedId.second);
+    }
+
+    return ResVal<CPriceFeed>(priceFeed, Res::Ok());
+
+}
