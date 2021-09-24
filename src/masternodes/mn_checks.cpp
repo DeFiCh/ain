@@ -2318,8 +2318,8 @@ public:
             }
             else
             {
-                subLoan = kv.second - MultiplyAmounts(kv.second, totalInterestAmount);
                 subInterest = MultiplyAmounts(kv.second, totalInterestAmount);
+                subLoan = kv.second - subInterest;
             }
 
             res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
@@ -2341,6 +2341,7 @@ public:
                 return res;
 
             // burn interest Token->USD->DFI->burnAddress
+            std::cout << subInterest << std::endl;
             res = SwapToDFIOverUSD(mnview, kv.first, subInterest, vault->ownerAddress, consensus.burnAddress, height);
             if (!res)
                 return res;
@@ -2987,7 +2988,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
     return poolResult;
 }
 
-Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height)
+Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height)
 {
     CPoolSwapMessage obj;
 
