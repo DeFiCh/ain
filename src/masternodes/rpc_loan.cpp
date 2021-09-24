@@ -176,71 +176,41 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
     RPCHelpMan{"getcollateraltoken",
                 "Return collateral token information.\n",
                 {
-                    {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                        {
-                            {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Symbol or id of collateral token"},
-                            {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Valid at specified height"},
-                        },
-                    },
+                    {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Symbol or id of collateral token"},
                 },
                 RPCResult
                 {
                     "{...}     (object) Json object with collateral token information\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("getcollateraltoken", "")
+                    HelpExampleCli("getcollateraltoken", "DFI")
                 },
      }.Check(request);
 
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+    if (request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameters, arguments 1 must be non-null and expected as string for token symbol or id");
+
     UniValue ret(UniValue::VOBJ);
-    std::string tokenSymbol;
-    DCT_ID idToken = {std::numeric_limits<uint32_t>::max()}, currentToken = {std::numeric_limits<uint32_t>::max()};
+    std::string tokenSymbol = request.params[0].get_str();
+    DCT_ID idToken;
 
     LOCK(cs_main);
+
     uint32_t height = ::ChainActive().Height();
 
-    if (request.params.size() > 0)
+    auto token = pcustomcsview->GetTokenGuessId(trim_ws(tokenSymbol), idToken);
+    if (!token)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
+
+    CollateralTokenKey start{idToken, height};
+
+    auto collToken = pcustomcsview->HasLoanSetCollateralToken(start);
+    if (collToken && collToken->factor)
     {
-        UniValue byObj = request.params[0].get_obj();
-
-        if (!byObj["token"].isNull())
-        {
-            auto token = pcustomcsview->GetTokenGuessId(trim_ws(byObj["token"].getValStr()), idToken);
-            if (!token)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
-        }
-        if (!byObj["height"].isNull())
-            height = (size_t) byObj["height"].get_int64();
+        ret.pushKVs(setCollateralTokenToJSON(*collToken));
     }
-
-    CollateralTokenKey start{DCT_ID{0}, height};
-    if (idToken.v != std::numeric_limits<uint32_t>::max())
-    {
-        start.id = idToken;
-        auto collToken = pcustomcsview->HasLoanSetCollateralToken(start);
-        if (collToken && collToken->factor)
-        {
-            ret.pushKVs(setCollateralTokenToJSON(*collToken));
-        }
-
-        return (ret);
-    }
-
-    pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx) {
-
-        if (idToken.v != std::numeric_limits<uint32_t>::max() && key.id != idToken)
-            return false;
-
-        if (key.height > height || currentToken == key.id) return true;
-
-        currentToken = key.id;
-        auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
-        if (collToken && collToken->factor)
-        {
-            ret.pushKVs(setCollateralTokenToJSON(*collToken));
-        }
-        return true;
-    }, start);
 
     return (ret);
 }
@@ -248,8 +218,17 @@ UniValue getcollateraltoken(const JSONRPCRequest& request) {
 
 UniValue listcollateraltokens(const JSONRPCRequest& request) {
     RPCHelpMan{"listcollateraltokens",
-                "Return list of all created collateral tokens.\n",
-                {},
+                "Return list of all created collateral tokens. If no parameters passed it will return all current valid setcollateraltoken transactions.\n",
+                {
+                    {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Symbol or id of collateral token"},
+                            {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Valid at specified height"},
+                            {"all", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Alltime setcollateraltoken transactions"},
+                        },
+                    },
+
+                },
                 RPCResult
                 {
                     "{...}     (object) Json object with collateral token information\n"
@@ -260,16 +239,63 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
      }.Check(request);
 
     UniValue ret(UniValue::VOBJ);
+    DCT_ID idToken = {std::numeric_limits<uint32_t>::max()}, currentToken = {std::numeric_limits<uint32_t>::max()};
+    uint32_t height = ::ChainActive().Height();
+    bool all = false;
+
+    if (request.params.size() > 0)
+    {
+        UniValue byObj = request.params[0].get_obj();
+        std::string tokenSymbol;
+
+        if (!byObj["token"].isNull())
+        {
+            tokenSymbol = trim_ws(byObj["token"].getValStr());
+            auto token = pcustomcsview->GetTokenGuessId(tokenSymbol, idToken);
+            if (!token)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
+        }
+        if (!byObj["height"].isNull())
+            height = (size_t) byObj["height"].get_int64();
+        if (!byObj["all"].isNull())
+            all =  byObj["all"].get_bool();
+    }
 
     LOCK(cs_main);
-    pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx) {
+
+    CollateralTokenKey start{DCT_ID{0}, height};
+    if (idToken.v != std::numeric_limits<uint32_t>::max())
+        start.id = idToken;
+
+    if (all)
+    {
+        pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
+        {
+            auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
+            if (collToken)
+                ret.pushKVs(setCollateralTokenToJSON(*collToken));
+
+            return true;
+        });
+
+        return (ret);
+    }
+
+    pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
+    {
+        if (idToken.v != std::numeric_limits<uint32_t>::max() && key.id != idToken)
+            return false;
+
+        if ((key.height > height || currentToken == key.id)) return true;
+
+        currentToken = key.id;
         auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
         if (collToken)
         {
             ret.pushKVs(setCollateralTokenToJSON(*collToken));
         }
         return true;
-    });
+    }, start);
 
     return (ret);
 }
@@ -1178,7 +1204,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
 
-    ret.pushKV("Collateral tokens",getcollateraltoken(request));
+    ret.pushKV("Collateral tokens",listcollateraltokens(request));
     ret.pushKV("Loan tokens",listloantokens(request));
     ret.pushKV("Loan schemes",listloanschemes(request));
 

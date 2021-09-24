@@ -38,6 +38,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         symbolBTC = "BTC"
         symboldUSD = "dUSD"
         symbolTSLA = "TSLA"
+        symbolGOOGL = "GOOGL"
 
         self.nodes[0].createtoken({
             "symbol": symbolBTC,
@@ -87,12 +88,19 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.sync_blocks()
 
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds1 = [{"currency": "USD", "token": "DFI"}, {"currency": "USD", "token": "BTC"}, {"currency": "USD", "token": "TSLA"}]
+        price_feeds1 = [{"currency": "USD", "token": "DFI"},
+                        {"currency": "USD", "token": "BTC"},
+                        {"currency": "USD", "token": "TSLA"},
+                        {"currency": "USD", "token": "GOOGL"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # feed oracle
-        oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}, {"currency": "USD", "tokenAmount": "10@DFI"}, {"currency": "USD", "tokenAmount": "10@BTC"}]
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"},
+                          {"currency": "USD", "tokenAmount": "10@GOOGL"},
+                          {"currency": "USD", "tokenAmount": "10@DFI"},
+                          {"currency": "USD", "tokenAmount": "10@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(1)
@@ -115,12 +123,28 @@ class LoanTakeLoanTest (DefiTestFramework):
                                     'factor': 1,
                                     'priceFeedId': "BTC/USD"})
 
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
         setLoanTokenTSLA = self.nodes[0].setloantoken({
                                     'symbol': symbolTSLA,
                                     'name': "Tesla stock token",
                                     'priceFeedId': "TSLA/USD",
                                     'mintable': False,
                                     'interest': 1})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        setLoanTokenGOOGL = self.nodes[0].setloantoken({
+                                    'symbol': symbolGOOGL,
+                                    'name': "Tesla stock token",
+                                    'priceFeedId': "TSLA/USD",
+                                    'mintable': True,
+                                    'interest': 2})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
 
         self.nodes[0].createloanscheme(150, 5, 'LOAN150')
 
@@ -129,8 +153,9 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         loantokens = self.nodes[0].listloantokens()
 
-        assert_equal(len(loantokens), 1)
+        assert_equal(len(loantokens), 2)
         idTSLA = list(loantokens[setLoanTokenTSLA]["token"])[0]
+        idGOOGL = list(loantokens[setLoanTokenGOOGL]["token"])[0]
 
         vaultId = self.nodes[0].createvault( account0, 'LOAN150')
 
@@ -188,7 +213,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        self.nodes[0].minttokens("1@"+ symbolTSLA)
+        self.nodes[0].minttokens(["1@" + symbolTSLA, "1@" + symbolGOOGL])
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -202,33 +227,51 @@ class LoanTakeLoanTest (DefiTestFramework):
             "ownerAddress": poolOwner,
             "pairSymbol": "TSLA-dUSD",
         }, [])
+
+        # create pool GOOGL
+        self.nodes[0].createpoolpair({
+            "tokenA": idGOOGL,
+            "tokenB": symboldUSD,
+            "commission": Decimal('0.002'),
+            "status": True,
+            "ownerAddress": poolOwner,
+            "pairSymbol": "GOOGL-dUSD",
+        }, [])
+
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         # transfer
         self.nodes[0].addpoolliquidity({account0: ["1@" + symbolTSLA, "300@" + symboldUSD]}, account0, [])
+        self.nodes[0].addpoolliquidity({account0: ["1@" + symbolGOOGL, "400@" + symboldUSD]}, account0, [])
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         self.nodes[0].takeloan({
                     'vaultId': vaultId,
-                    'amounts': "1@" + symbolTSLA})
+                    'amounts': ["1@" + symbolTSLA, "2@" + symbolGOOGL]})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1'))
+        assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2'))
 
-        interest = self.nodes[0].getinterest('LOAN150')[0]
+        interest = self.nodes[0].getinterest('LOAN150', symbolTSLA)[0]
 
         assert_equal(interest['totalInterest'], Decimal('0.00000114'))
         assert_equal(interest['interestPerBlock'], Decimal('0.00000114'))
 
+        interest = self.nodes[0].getinterest('LOAN150', symbolGOOGL)[0]
+
+        assert_equal(interest['totalInterest'], Decimal('0.00000133'))
+        assert_equal(interest['interestPerBlock'], Decimal('0.00000133'))
+
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('10.00001140'))
+        assert_equal(loans['loanValueUSD'], Decimal('30.00003800'))
 
         vaultId1 = self.nodes[1].createvault( account1, 'LOAN150')
 
@@ -240,11 +283,15 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(interest['totalInterest'], 3 * Decimal('0.00000114'))
         assert_equal(interest['interestPerBlock'], Decimal('0.00000114'))
 
+        interest = self.nodes[0].getinterest('LOAN150', symbolGOOGL)[0]
+
+        assert_equal(interest['totalInterest'], 3 * Decimal('0.00000133'))
+        assert_equal(interest['interestPerBlock'], Decimal('0.00000133'))
+
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('10.00003420'))
-
+        assert_equal(loans['loanValueUSD'], Decimal('30.00011400'))
         try:
             self.nodes[0].loanpayback({
                         'vaultId': setLoanTokenTSLA,
@@ -276,22 +323,21 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         self.nodes[0].loanpayback({
                     'vaultId': vaultId,
-                    'amounts': "0.5@" + symbolTSLA})
+                    'amounts': ["0.5@" + symbolTSLA, "1@" + symbolGOOGL]})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         # loan payback burn
-        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00028443'))
-
         vaultInfo = self.nodes[0].getvault(vaultId)
 
-        assert_equal(vaultInfo['loanAmount'], ['0.50000513@' + symbolTSLA])
+        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00205154'))
+        assert_equal(vaultInfo['loanAmount'], ['0.50000513@' + symbolTSLA, '1.00001862@' + symbolGOOGL])
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('3000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('5.00005130'))
+        assert_equal(loans['loanValueUSD'], Decimal('15.00023750'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()
