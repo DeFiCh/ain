@@ -3072,6 +3072,9 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 if (amountToFill > 0) {
                     view.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amountToFill});
                 }
+                if (auto loanToken = view.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
+                    view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue);
+                }
             } else {
                 view.AddLoanToken(auction.vaultId, batch->loanAmount);
                 for (const auto& col : batch->collaterals.balances) {
@@ -3080,18 +3083,18 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             }
         }
 
-        // flush all changes
-        view.Flush();
-        pburnHistoryDB->Flush();
-
-        auto vault = cache.GetVault(auction.vaultId);
+        auto vault = view.GetVault(auction.vaultId);
         assert(vault);
         vault->isUnderLiquidation = false;
-        cache.StoreVault(auction.vaultId, *vault);
-        cache.EraseAuction(auction.vaultId, pindex->nHeight);
-        cache.TransferVaultInterest(auction.vaultId, pindex->nHeight, vault->schemeId, {});
+        view.StoreVault(auction.vaultId, *vault);
+        view.EraseAuction(auction.vaultId, pindex->nHeight);
+        view.TransferVaultInterest(auction.vaultId, pindex->nHeight, vault->schemeId, {});
         return true;
     }, {CVaultId{}, static_cast<uint32_t>(pindex->nHeight)});
+
+    // flush all changes
+    view.Flush();
+    pburnHistoryDB->Flush();
 }
 
 bool CChainState::FlushStateToDisk(

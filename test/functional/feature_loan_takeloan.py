@@ -331,13 +331,13 @@ class LoanTakeLoanTest (DefiTestFramework):
         # loan payback burn
         vaultInfo = self.nodes[0].getvault(vaultId)
 
-        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00205154'))
-        assert_equal(vaultInfo['loanAmount'], ['0.50000513@' + symbolTSLA, '1.00001862@' + symbolGOOGL])
+        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00116798'))
+        assert_equal(vaultInfo['loanAmount'], ['0.50000513@' + symbolTSLA, '1.00001197@' + symbolGOOGL])
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('3000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('15.00023750'))
+        assert_equal(loans['loanValueUSD'], Decimal('15.00017100'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()

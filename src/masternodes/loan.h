@@ -192,14 +192,14 @@ struct CDefaultLoanSchemeMessage
 
 struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
 {
-    uint64_t height{0};
+    uint64_t destroyHeight{0};
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CDefaultLoanSchemeMessage, *this);
-        READWRITE(height);
+        READWRITE(destroyHeight);
     }
 };
 

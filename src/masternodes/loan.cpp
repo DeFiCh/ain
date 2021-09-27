@@ -103,7 +103,7 @@ Res CLoanView::StoreDelayedLoanScheme(const CLoanSchemeMessage& loanScheme)
 
 Res CLoanView::StoreDelayedDestroyScheme(const CDestroyLoanSchemeMessage& loanScheme)
 {
-    WriteBy<DestroyLoanSchemeKey>(loanScheme.identifier, loanScheme.height);
+    WriteBy<DestroyLoanSchemeKey>(loanScheme.identifier, loanScheme.destroyHeight);
 
     return Res::Ok();
 }
