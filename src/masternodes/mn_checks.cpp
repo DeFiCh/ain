@@ -2280,27 +2280,30 @@ public:
         loanPayback.creationHeight = height;
         loanPayback.creationTx = tx.GetHash();
 
-        const auto vault = mnview.GetVault(obj.vaultId);
+        const auto vault = mnview.GetVault(loanPayback.vaultId);
         if (!vault)
-            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
+            return Res::Err("Cannot find existing vault with id %s", loanPayback.vaultId.GetHex());
 
         if (vault->isUnderLiquidation)
             return Res::Err("Cannot payback loan on vault under liquidation");
 
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         if (!collaterals)
-            return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
+            return Res::Err("Vault with id %s has no collaterals", loanPayback.vaultId.GetHex());
 
-        for (const auto& kv : obj.amounts.balances)
+        if (!HasAuth(loanPayback.from))
+            return Res::Err("tx must have at least one input from token owner");
+
+        for (const auto& kv : loanPayback.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
             auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
 
-            auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
+            auto loanAmounts = mnview.GetLoanTokens(loanPayback.vaultId);
             if (!loanAmounts)
-                return Res::Err("There are no loans on this vault (%s)!", obj.vaultId.GetHex());
+                return Res::Err("There are no loans on this vault (%s)!", loanPayback.vaultId.GetHex());
 
             auto it = loanAmounts->balances.find(tokenId);
             if (it == loanAmounts->balances.end())
@@ -2328,11 +2331,11 @@ public:
                 subLoan = subAmount - subInterest;
             }
 
-            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubLoanToken(loanPayback.vaultId, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
 
-            res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId);
+            res = mnview.EraseInterest(height, loanPayback.vaultId, vault->schemeId, tokenId);
             if (!res)
                 return res;
 
@@ -2340,14 +2343,14 @@ public:
             if (!res)
                 return res;
 
-            CalculateOwnerRewards(vault->ownerAddress);
+            CalculateOwnerRewards(loanPayback.from);
 
-            res = mnview.SubBalance(vault->ownerAddress, CTokenAmount{kv.first, subAmount});
+            res = mnview.SubBalance(loanPayback.from, CTokenAmount{kv.first, subAmount});
             if (!res)
                 return res;
 
             // burn interest Token->USD->DFI->burnAddress
-            res = SwapToDFIOverUSD(mnview, kv.first, subInterest, vault->ownerAddress, consensus.burnAddress, height);
+            res = SwapToDFIOverUSD(mnview, kv.first, subInterest, loanPayback.from, consensus.burnAddress, height);
             if (!res)
                 return res;
         }
