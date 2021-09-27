@@ -845,7 +845,7 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
     CDestroyLoanSchemeMessage destroyScheme;
     destroyScheme.identifier = request.params[0].get_str();
     if (!request.params[1].isNull()) {
-        destroyScheme.height = request.params[1].get_int();
+        destroyScheme.destroyHeight = request.params[1].get_int();
     }
 
     int targetHeight;
