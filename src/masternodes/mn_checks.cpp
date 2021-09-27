@@ -1991,7 +1991,7 @@ public:
         }
 
         // If no default yet exist set this one as default.
-        if (!mnview.Exists(CLoanView::DefaultLoanSchemeKey::prefix())) {
+        if (!mnview.GetDefaultLoanScheme()) {
             mnview.StoreDefaultLoanScheme(obj.identifier);
         }
 
@@ -2042,13 +2042,21 @@ public:
         }
 
         // Update set and not updated on this block.
-        if (obj.height && obj.height != height) {
-            if (obj.height < height) {
+        if (obj.destroyHeight && obj.destroyHeight != height) {
+            if (obj.destroyHeight < height) {
                 return Res::Err("Destruction height below current block height, set future height");
             }
-
             return mnview.StoreDelayedDestroyScheme(obj);
         }
+
+        mnview.ForEachVault([&](const CVaultId& vaultId, CVaultData vault) {
+            if (vault.schemeId == obj.identifier) {
+                vault.schemeId = *mnview.GetDefaultLoanScheme();
+                mnview.TransferVaultInterest(vaultId, height, {}, vault.schemeId);
+                mnview.StoreVault(vaultId, vault);
+            }
+            return true;
+        });
 
         return mnview.EraseLoanScheme(obj.identifier);
     }
@@ -2150,7 +2158,7 @@ public:
 
             auto loanSetCollToken = mnview.HasLoanSetCollateralToken({col.first, height}); // for priceFeedId
             if (!loanSetCollToken)
-                return Res::Err("Token with id %s does not exist as collateral token", loanSetCollToken->idToken.ToString());
+                return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
 
             auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, time);
             if (!price)
@@ -2175,10 +2183,10 @@ public:
         if (totalDFI < totalCollaterals / 2)
             return Res::Err("At least 50%% of the vault must be in DFI thus first deposit must be DFI");
 
-        auto loanScheme = mnview.GetLoanScheme(vault->schemeId);
+        auto scheme = mnview.GetLoanScheme(vault->schemeId);
         auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height, time);
-        if (!rate || rate.val->ratio() < loanScheme->ratio)
-            return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate.val->ratio(), loanScheme->ratio);
+        if (!rate || rate.val->ratio() < scheme->ratio)
+            return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate.val->ratio(), scheme->ratio);
 
         return Res::Ok();
     }
@@ -2205,10 +2213,7 @@ public:
         if (!HasAuth(vault->ownerAddress))
             return Res::Err("tx must have at least one input from vault owner");
 
-        auto scheme = mnview.GetLoanScheme(vault->schemeId);
-
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-
         if (!collaterals)
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
@@ -2255,6 +2260,7 @@ public:
                 return res;
         }
 
+        auto scheme = mnview.GetLoanScheme(vault->schemeId);
         auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height, time);
         if (!rate || rate.val->ratio() < scheme->ratio)
             return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate.val->ratio(), scheme->ratio);
@@ -2278,13 +2284,10 @@ public:
         if (!vault)
             return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
 
-        if(vault->isUnderLiquidation)
+        if (vault->isUnderLiquidation)
             return Res::Err("Cannot payback loan on vault under liquidation");
 
-        auto scheme = mnview.GetLoanScheme(vault->schemeId);
-
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-
         if (!collaterals)
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
@@ -2307,19 +2310,22 @@ public:
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-            auto totalInterestAmount = MultiplyAmounts(it->second, TotalInterest(*rate,height));
+            auto totalInterest = TotalInterest(*rate, height);
+            auto totalInterestAmount = MultiplyAmounts(it->second, totalInterest);
             auto totalLoanAmount = it->second + totalInterestAmount;
-            CAmount subLoan = 0, subInterest = 0;
+            CAmount subLoan = 0, subInterest = 0, subAmount = 0;
 
             if (kv.second >= totalLoanAmount)
             {
                 subLoan = it->second;
+                subAmount = totalLoanAmount;
                 subInterest = totalInterestAmount;
             }
             else
             {
-                subInterest = MultiplyAmounts(kv.second, totalInterestAmount);
-                subLoan = kv.second - subInterest;
+                subAmount = kv.second;
+                subInterest = MultiplyAmounts(subAmount, totalInterest);
+                subLoan = subAmount - subInterest;
             }
 
             res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
@@ -2336,12 +2342,11 @@ public:
 
             CalculateOwnerRewards(vault->ownerAddress);
 
-            res = mnview.SubBalance(vault->ownerAddress, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubBalance(vault->ownerAddress, CTokenAmount{kv.first, subAmount});
             if (!res)
                 return res;
 
             // burn interest Token->USD->DFI->burnAddress
-            std::cout << subInterest << std::endl;
             res = SwapToDFIOverUSD(mnview, kv.first, subInterest, vault->ownerAddress, consensus.burnAddress, height);
             if (!res)
                 return res;
@@ -2378,11 +2383,11 @@ public:
 
         auto bid = mnview.GetAuctionBid(obj.vaultId, obj.index);
         if (!bid) {
-            auto amount = MultiplyAmounts(batch->loanAmount.nValue,  COIN + data->liquidationPenalty);
+            auto amount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data->liquidationPenalty);
             if (amount > obj.amount.nValue)
                 return Res::Err("First bid should include liquidation penalty of %d%%", data->liquidationPenalty * 100 / COIN);
         } else {
-            auto amount = MultiplyAmounts(bid->second.nValue,  COIN + (COIN / 100));
+            auto amount = MultiplyAmounts(bid->second.nValue, COIN + (COIN / 100));
             if (amount > obj.amount.nValue)
                 return Res::Err("Bid override should be at least 1%% higher than current one");
             // immediate refund previous bid

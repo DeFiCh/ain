@@ -332,6 +332,7 @@ public:
 
     void operator()(const CDestroyLoanSchemeMessage& obj) const {
         rpcInfo.pushKV("id", obj.identifier);
+        rpcInfo.pushKV("destroyHeight", obj.destroyHeight);
     }
 
     void operator()(const CVaultMessage& obj) const {
