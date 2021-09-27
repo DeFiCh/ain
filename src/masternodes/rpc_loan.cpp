@@ -1096,6 +1096,7 @@ UniValue loanpayback(const JSONRPCRequest& request) {
                     {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Id of vault used for loan"},
+                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing repayment tokens",},
                             {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount in amount@token format."},
                         },
                     },
@@ -1115,7 +1116,8 @@ UniValue loanpayback(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("loanpayback", R"('{"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"amount":"10@TSLA"}')")
+                        HelpExampleCli("loanpayback", R"('{"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"from":"<address>",
+                                                            "amount":"10@TSLA"}')")
                         },
     }.Check(request);
 
@@ -1141,10 +1143,19 @@ UniValue loanpayback(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
 
+    if (!metaObj["from"].isNull())
+        loanPayback.from = DecodeScript(metaObj["from"].getValStr());
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"from\" must not be null");
+
     if (!metaObj["amounts"].isNull())
         loanPayback.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"amounts\" must not be null");
+
+    if (!::IsMine(*pwallet, loanPayback.from))
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           strprintf("Address (%s) is not owned by the wallet", metaObj["from"].getValStr()));
 
     int targetHeight;
     {
@@ -1168,7 +1179,7 @@ UniValue loanpayback(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
+    std::set<CScript> auths{loanPayback.from};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs);
 
     rawTx.vout.emplace_back(0, scriptMeta);

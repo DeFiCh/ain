@@ -286,6 +286,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         try:
             self.nodes[0].loanpayback({
                         'vaultId': setLoanTokenTSLA,
+                        'from': account0,
                         'amounts': "0.5@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
@@ -294,6 +295,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         try:
             self.nodes[0].loanpayback({
                         'vaultId': vaultId1,
+                        'from': account0,
                         'amounts': "0.5@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
@@ -307,6 +309,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         try:
             self.nodes[0].loanpayback({
                         'vaultId': vaultId1,
+                        'from': account0,
                         'amounts': "0.5@" + symbolTSLA})
         except JSONRPCException as e:
             errorString = e.error['message']
@@ -314,6 +317,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         self.nodes[0].loanpayback({
                     'vaultId': vaultId,
+                    'from': account0,
                     'amounts': ["0.5@" + symbolTSLA, "1@" + symbolGOOGL]})
 
         self.nodes[0].generate(1)
