@@ -993,6 +993,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
                     {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Id of vault used for loan"},
+                            {"to", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Address to transfer tokens (optional)"},
                             {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount in amount@token format."},
                         },
                     },
@@ -1037,6 +1038,9 @@ UniValue takeloan(const JSONRPCRequest& request) {
         takeLoan.vaultId = uint256S(metaObj["vaultId"].getValStr());
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"vaultId\" must be non-null");
+
+    if (!metaObj["to"].isNull()) 
+        takeLoan.to = DecodeScript(metaObj["to"].getValStr());
 
     if (!metaObj["amounts"].isNull())
         takeLoan.amounts = DecodeAmounts(pwallet->chain(), metaObj["amounts"], "");
@@ -1096,7 +1100,7 @@ UniValue loanpayback(const JSONRPCRequest& request) {
                     {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
                         {
                             {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Id of vault used for loan"},
-                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing repayment tokens",},
+                            {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing repayment tokens"},
                             {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount in amount@token format."},
                         },
                     },

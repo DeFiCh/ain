@@ -394,7 +394,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
                "Deposit collateral token amount to vault\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                    {"vaultId", RPCArg::Type::STR, RPCArg::Optional::NO, "Vault id"},
+                    {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vault id"},
                     {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address containing collateral",},
                     {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount of collateral in amount@symbol format",},
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
@@ -481,7 +481,7 @@ UniValue auctionbid(const JSONRPCRequest& request) {
                "Bid to vault in auction\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
-                    {"vaultId", RPCArg::Type::STR, RPCArg::Optional::NO, "Vault id"},
+                    {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vault id"},
                     {"index", RPCArg::Type::NUM, RPCArg::Optional::NO, "Auction index"},
                     {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get tokens"},
                     {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount of amount@symbol format"},
