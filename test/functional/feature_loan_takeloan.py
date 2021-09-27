@@ -123,9 +123,6 @@ class LoanTakeLoanTest (DefiTestFramework):
                                     'factor': 1,
                                     'priceFeedId': "BTC/USD"})
 
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
         setLoanTokenTSLA = self.nodes[0].setloantoken({
                                     'symbol': symbolTSLA,
                                     'name': "Tesla stock token",
@@ -133,18 +130,12 @@ class LoanTakeLoanTest (DefiTestFramework):
                                     'mintable': False,
                                     'interest': 1})
 
-        self.nodes[0].generate(1)
-        self.sync_blocks()
-
         setLoanTokenGOOGL = self.nodes[0].setloantoken({
                                     'symbol': symbolGOOGL,
                                     'name': "Tesla stock token",
                                     'priceFeedId': "TSLA/USD",
                                     'mintable': True,
                                     'interest': 2})
-
-        self.nodes[0].generate(1)
-        self.sync_blocks()
 
         self.nodes[0].createloanscheme(150, 5, 'LOAN150')
 
@@ -332,7 +323,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         vaultInfo = self.nodes[0].getvault(vaultId)
 
         assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00116798'))
-        assert_equal(vaultInfo['loanAmount'], ['0.50000513@' + symbolTSLA, '1.00001197@' + symbolGOOGL])
+        assert_equal(vaultInfo['loanAmount'].sort(), ['0.50000513@' + symbolTSLA, '1.00001197@' + symbolGOOGL].sort())
 
         loans = self.nodes[0].getloaninfo()
 
