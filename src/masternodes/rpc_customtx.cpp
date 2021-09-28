@@ -355,6 +355,9 @@ public:
 
     void operator()(const CLoanTakeLoanMessage& obj) const {
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        if (!obj.to.empty())
+            rpcInfo.pushKV("to", ScriptToString(obj.to));
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         for (auto const & kv : obj.amounts.balances) {
             if (auto token = mnview.GetToken(kv.first)) {
                 auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
@@ -367,6 +370,7 @@ public:
 
     void operator()(const CLoanPaybackLoanMessage& obj) const {
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("from", ScriptToString(obj.from));
         for (auto const & kv : obj.amounts.balances) {
             if (auto token = mnview.GetToken(kv.first)) {
                 auto tokenImpl = static_cast<CTokenImplementation const&>(*token);
