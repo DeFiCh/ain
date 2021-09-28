@@ -95,10 +95,10 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
 
     auto rate = mnview.GetInterestRate(id, token_id);
     BOOST_REQUIRE(rate);
-    BOOST_CHECK_EQUAL(rate->count, 3);
+    BOOST_CHECK_EQUAL(rate->count, 3 * COIN);
     BOOST_CHECK_EQUAL(rate->height, 1);
     auto netInterest = (scheme->rate + tokenInterest) / 100;
-    BOOST_CHECK_EQUAL(rate->interestPerBlock, netInterest * rate->count / (365 * Params().GetConsensus().blocksPerDay()));
+    BOOST_CHECK_EQUAL(rate->interestPerBlock, MultiplyAmounts(netInterest, rate->count) / (365 * Params().GetConsensus().blocksPerDay()));
 
     auto interestToHeight = rate->interestPerBlock + rate->interestToHeight;
     BOOST_REQUIRE(mnview.StoreInterest(5, vault_id, id, token_id));
@@ -106,21 +106,21 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
 
     rate = mnview.GetInterestRate(id, token_id);
     BOOST_REQUIRE(rate);
-    BOOST_CHECK_EQUAL(rate->count, 5);
+    BOOST_CHECK_EQUAL(rate->count, 5 * COIN);
     BOOST_CHECK_EQUAL(rate->height, 5);
     BOOST_CHECK_EQUAL(rate->interestToHeight, 4 * interestToHeight);
-    BOOST_CHECK_EQUAL(rate->interestPerBlock, netInterest * rate->count / (365 * Params().GetConsensus().blocksPerDay()));
+    BOOST_CHECK_EQUAL(rate->interestPerBlock, MultiplyAmounts(netInterest, rate->count) / (365 * Params().GetConsensus().blocksPerDay()));
 
     interestToHeight = rate->interestPerBlock + rate->interestToHeight;
     BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id));
     rate = mnview.GetInterestRate(id, token_id);
 
     BOOST_REQUIRE(rate);
-    BOOST_CHECK_EQUAL(rate->count, 4);
+    BOOST_CHECK_EQUAL(rate->count, 4 * COIN);
     BOOST_CHECK_EQUAL(rate->interestToHeight, interestToHeight);
-    BOOST_CHECK_EQUAL(rate->interestPerBlock, netInterest * rate->count / (365 * Params().GetConsensus().blocksPerDay()));
+    BOOST_CHECK_EQUAL(rate->interestPerBlock, MultiplyAmounts(netInterest, rate->count) / (365 * Params().GetConsensus().blocksPerDay()));
 
-    mnview.ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID id, uint32_t rate_count) {
+    mnview.ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID id, CAmount rate_count) {
         BOOST_REQUIRE(vaultId == vault_id);
         BOOST_REQUIRE(id == token_id);
         BOOST_REQUIRE(id == token_id);
@@ -128,27 +128,49 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
         return true;
     }, vault_id);
 
-    for (int i = 0; i < 4; i++) {
-        BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id));
-    }
+    const std::string id2("sch2");
+    CreateScheme(mnview, id2, 150, 2 * COIN);
 
+    mnview.TransferVaultInterest(vault_id, 6, id, id2);
     rate = mnview.GetInterestRate(id, token_id);
+    BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->count, 0);
     BOOST_CHECK_EQUAL(rate->interestPerBlock, 0);
     BOOST_CHECK_EQUAL(rate->interestToHeight, interestToHeight);
 
-    BOOST_REQUIRE(!mnview.EraseInterest(6, vault_id, id, token_id));
+    rate = mnview.GetInterestRate(id2, token_id);
+    BOOST_REQUIRE(rate);
+    BOOST_CHECK_EQUAL(rate->count, 4 * COIN);
+
+    mnview.ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID id, CAmount rate_count) {
+        BOOST_REQUIRE(vaultId == vault_id);
+        BOOST_REQUIRE(id == token_id);
+        BOOST_REQUIRE(id == token_id);
+        BOOST_CHECK_EQUAL(rate_count, rate->count);
+        return true;
+    }, vault_id);
+
+    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id2, token_id, 0.5 * COIN));
+    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id2, token_id, COIN));
+    BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id2, token_id, 3 * COIN));
+
+    rate = mnview.GetInterestRate(id2, token_id);
+    BOOST_REQUIRE(rate);
+    BOOST_CHECK_EQUAL(rate->count, 0);
+    BOOST_CHECK_EQUAL(rate->interestPerBlock, 0);
+
+    BOOST_REQUIRE(!mnview.EraseInterest(6, vault_id, id2, token_id));
 
     bool noInterestRecords = true;
-    mnview.ForEachVaultInterest([&](const CVaultId&, DCT_ID, uint32_t) {
+    mnview.ForEachVaultInterest([&](const CVaultId&, DCT_ID, CAmount) {
         noInterestRecords = false;
         return true;
     }, vault_id);
 
     BOOST_REQUIRE(noInterestRecords);
 
-    BOOST_REQUIRE(mnview.EraseLoanScheme(id));
-    rate = mnview.GetInterestRate(id, token_id);
+    BOOST_REQUIRE(mnview.EraseLoanScheme(id2));
+    rate = mnview.GetInterestRate(id2, token_id);
 
     BOOST_REQUIRE(!rate);
 }

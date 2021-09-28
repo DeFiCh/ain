@@ -204,7 +204,7 @@ struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
 
 struct CInterestRate
 {
-    uint32_t count = 0;
+    CAmount count = 0;
     uint32_t height = 0;
     CAmount interestToHeight = 0;
     CAmount interestPerBlock = 0;
@@ -343,10 +343,10 @@ public:
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
     boost::optional<CInterestRate> GetInterestRate(const std::string& loanSchemeID, DCT_ID id);
-    Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id);
-    Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id);
+    Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount part = COIN);
+    Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount part = COIN);
     void ForEachInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID = {}, DCT_ID id = {0});
-    void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, uint32_t)> callback, const CVaultId& start = {});
+    void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CAmount)> callback, const CVaultId& start = {});
     void TransferVaultInterest(const CVaultId& vaultId, uint32_t height, const std::string& oldScheme, const std::string& newScheme);
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);

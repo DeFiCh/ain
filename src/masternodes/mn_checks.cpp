@@ -2429,7 +2429,8 @@ public:
             if (!res)
                 return res;
 
-            res = mnview.EraseInterest(height, loanPayback.vaultId, vault->schemeId, tokenId);
+            auto partAmount = DivideAmounts(subLoan, it->second);
+            res = mnview.EraseInterest(height, loanPayback.vaultId, vault->schemeId, tokenId, partAmount);
             if (!res)
                 return res;
 

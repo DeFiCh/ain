@@ -320,6 +320,12 @@ class LoanTakeLoanTest (DefiTestFramework):
                     'from': account0,
                     'amounts': ["0.5@" + symbolTSLA, "1@" + symbolGOOGL]})
 
+        for interest in self.nodes[0].getinterest('LOAN150'):
+            if interest['token'] == symbolTSLA:
+                assert_equal(interest['totalInterest'], Decimal('0.00000456'))
+            elif interest['token'] == symbolGOOGL:
+                assert_equal(interest['totalInterest'], Decimal('0.00000532'))
+
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -336,7 +342,33 @@ class LoanTakeLoanTest (DefiTestFramework):
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('3000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('15.00017100'))
+        assert_equal(loans['loanValueUSD'], Decimal('15.00018040'))
+
+        for interest in self.nodes[0].getinterest('LOAN150'):
+            if interest['token'] == symbolTSLA:
+                assert_equal(interest['totalInterest'], Decimal('0.00000513'))
+            elif interest['token'] == symbolGOOGL:
+                assert_equal(interest['totalInterest'], Decimal('0.00000598'))
+
+        self.nodes[0].loanpayback({
+                    'vaultId': vaultId,
+                    'from': account0,
+                    'amounts': ["0.5@" + symbolTSLA, "1@" + symbolGOOGL]})
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        loans = self.nodes[0].getloaninfo()
+
+        assert_equal(loans['collateralValueUSD'], Decimal('3000.00000000'))
+        assert_equal(loans['loanValueUSD'], Decimal('0.00018990'))
+
+        # principal is payed interest became 0
+        for interest in self.nodes[0].getinterest('LOAN150'):
+            if interest['token'] == symbolTSLA:
+                assert_equal(interest['interestPerBlock'], Decimal('0'))
+            elif interest['token'] == symbolGOOGL:
+                assert_equal(interest['interestPerBlock'], Decimal('0'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()
