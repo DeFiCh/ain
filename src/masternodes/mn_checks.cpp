@@ -2317,19 +2317,17 @@ public:
             auto totalInterest = TotalInterest(*rate, height);
             auto totalInterestAmount = MultiplyAmounts(it->second, totalInterest);
             auto totalLoanAmount = it->second + totalInterestAmount;
-            CAmount subLoan = 0, subInterest = 0, subAmount = 0;
+            CAmount subLoan = 0, subInterest = 0;
 
             if (kv.second >= totalLoanAmount)
             {
                 subLoan = it->second;
-                subAmount = totalLoanAmount;
                 subInterest = totalInterestAmount;
             }
             else
             {
-                subAmount = kv.second;
-                subInterest = MultiplyAmounts(subAmount, totalInterest);
-                subLoan = subAmount - subInterest;
+                subInterest = MultiplyAmounts(kv.second, totalInterest);
+                subLoan = kv.second - subInterest;
             }
 
             res = mnview.SubLoanToken(loanPayback.vaultId, CTokenAmount{kv.first, subLoan});
@@ -2345,8 +2343,8 @@ public:
                 return res;
 
             CalculateOwnerRewards(loanPayback.from);
-
-            res = mnview.SubBalance(loanPayback.from, CTokenAmount{kv.first, subAmount});
+            // subtract loan amount first, interest is burning below
+            res = mnview.SubBalance(loanPayback.from, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
 
@@ -3038,6 +3036,11 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
         poolPrice = obj.maxPrice;
     }
 
+    CCustomCSView mnview(view);
+    mnview.CalculateOwnerRewards(obj.from, height);
+    mnview.CalculateOwnerRewards(obj.to, height);
+    mnview.Flush();
+
     for (size_t i{0}; i < poolIDs.size(); ++i) {
 
         // Also used to generate pool specific error messages for RPC users
@@ -3074,32 +3077,25 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView& view, std::vector<DCT_ID> poolIDs) {
                 return res;
             }
 
-            CCustomCSView intermediateView(view);
-            // Update owner rewards if not being called from RPC
-            intermediateView.CalculateOwnerRewards(obj.from, height);
-
-            if (lastSwap) {
-                intermediateView.CalculateOwnerRewards(obj.to, height);
-            }
-
-            intermediateView.Flush();
-
             // Save swap amount for next loop
             swapAmountResult = tokenAmount;
 
+            CCustomCSView intermediateView(view);
             // hide interemidiate swaps
-            auto& currentView = lastSwap || i == 0 ? view : intermediateView;
-
-            // Update balances
-            res = currentView.SubBalance(obj.from, swapAmount);
-            if (!res) {
-                return res;
-            }
-            res = currentView.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
+            auto& subView = i == 0 ? view : intermediateView;
+            res = subView.SubBalance(obj.from, swapAmount);
             if (!res) {
                 return res;
             }
             intermediateView.Flush();
+
+            auto& addView = lastSwap ? view : intermediateView;
+            res = addView.AddBalance(lastSwap ? obj.to : obj.from, tokenAmount);
+            if (!res) {
+                return res;
+            }
+            intermediateView.Flush();
+
             return res;
         }, static_cast<int>(height));
 
