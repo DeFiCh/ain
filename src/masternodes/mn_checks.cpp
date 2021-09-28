@@ -2178,10 +2178,6 @@ public:
             if (!price)
                 return Res::Err("%s/%s: %s", loanSetCollToken->priceFeedId.first, loanSetCollToken->priceFeedId.second, price.msg);
 
-            auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeedId.first, loanSetCollToken->priceFeedId.second, time);
-            if (!price)
-                return Res::Err("%s/%s: %s", loanSetCollToken->priceFeedId.first, loanSetCollToken->priceFeedId.second, price.msg);
-
             auto amount = MultiplyAmounts(*price.val, col.second);
             if (*price.val > COIN && amount < col.second)
                 return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(*price.val));
