@@ -323,6 +323,10 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        assert_equal(self.nodes[0].listaccounthistory(account0)[0]['amounts'].sort(), ['-1.00000000@GOOGL', '-0.50000000@TSLA'].sort())
+        assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('0.5'))
+        assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('1'))
+
         # loan payback burn
         vaultInfo = self.nodes[0].getvault(vaultId)
 
