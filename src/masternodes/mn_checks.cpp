@@ -2253,9 +2253,10 @@ public:
             if (!res)
                 return res;
 
-            CalculateOwnerRewards(vault->ownerAddress);
-
-            res = mnview.AddBalance(vault->ownerAddress, CTokenAmount{kv.first, kv.second});
+            const auto& address = !takeLoan.to.empty() ? takeLoan.to
+                                                       : vault->ownerAddress;
+            CalculateOwnerRewards(address);
+            res = mnview.AddBalance(address, CTokenAmount{kv.first, kv.second});
             if (!res)
                 return res;
         }
