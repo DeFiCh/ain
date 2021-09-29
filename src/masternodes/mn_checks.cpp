@@ -66,6 +66,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::CloseVault:          return "CloseVault";
         case CustomTxType::UpdateVault:         return "UpdateVault";
         case CustomTxType::DepositToVault:      return "DepositToVault";
+        case CustomTxType::WithdrawFromVault:   return "WithdrawFromVault";
         case CustomTxType::LoanTakeLoan:        return "LoanTakeLoan";
         case CustomTxType::LoanPaybackLoan:     return "LoanPaybackLoan";
         case CustomTxType::AuctionBid:          return "AuctionBid";
@@ -154,6 +155,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::CloseVault:              return CCloseVaultMessage{};
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
         case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
+        case CustomTxType::WithdrawFromVault:       return CWithdrawFromVaultMessage{};
         case CustomTxType::LoanTakeLoan:            return CLoanTakeLoanMessage{};
         case CustomTxType::LoanPaybackLoan:         return CLoanPaybackLoanMessage{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
@@ -464,6 +466,11 @@ public:
     }
 
     Res operator()(CDepositToVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CWithdrawFromVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -2283,16 +2290,77 @@ public:
         return Res::Ok();
     }
 
-    Res operator()(const CLoanTakeLoanMessage& obj) const {
+    Res operator()(const CWithdrawFromVaultMessage& obj) const {
         auto res = CheckCustomTx();
         if (!res)
             return res;
 
-        CLoanTakeLoanImplementation takeLoan;
-        static_cast<CLoanTakeLoan&>(takeLoan) = obj;
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
 
-        takeLoan.creationHeight = height;
-        takeLoan.creationTx = tx.GetHash();
+        // vault under liquidation
+        if (vault->isUnderLiquidation)
+            return Res::Err("Cannot withdraw from vault under liquidation");
+
+        res = mnview.SubVaultCollateral(obj.vaultId, obj.amount);
+        if (!res)
+            return res;
+
+        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+
+        if (collaterals)
+        {
+            uint64_t totalDFI = 0, totalCollaterals = 0;
+            for (const auto& col : collaterals->balances) {
+
+                auto loanSetCollToken = mnview.HasLoanSetCollateralToken({col.first, height}); // for priceFeedId
+                if (!loanSetCollToken)
+                    return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
+
+                auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, time);
+                if (!price)
+                    return Res::Err("%s/%s: %s", loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, price.msg);
+
+                auto amount = MultiplyAmounts(*price.val, col.second);
+                if (*price.val > COIN && amount < col.second)
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(*price.val));
+
+                if (col.first == DCT_ID{0}) {
+                    if (!MoneyRange(col.second))
+                        return Res::Err("Exceed max money range");
+                    totalDFI += amount;
+                }
+            }
+
+            if (totalDFI < totalCollaterals / 2)
+                return Res::Err("At least 50%% of the vault must be in DFI thus first deposit must be DFI");
+
+            auto scheme = mnview.GetLoanScheme(vault->schemeId);
+            auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height, time);
+            if (!rate || rate.val->ratio() < scheme->ratio)
+                return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate.val->ratio(), scheme->ratio);
+        }
+        else
+        {
+            auto loans = mnview.GetLoanTokens(obj.vaultId);
+
+            if (loans)
+                return Res::Err("Cannot withdraw all collaterals as there is still loan in this vault");
+        }
+
+        res = mnview.AddBalance(obj.to, obj.amount);
+        if (!res)
+            return Res::Err("Can't add balance of %s: %s\n", ScriptToString(obj.to), res.msg);
+
+        return Res::Ok();
+    }
+
+    Res operator()(const CLoanTakeLoanMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
 
         const auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
@@ -2361,8 +2429,7 @@ public:
         if (!rate || rate.val->ratio() < scheme->ratio)
             return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate.val->ratio(), scheme->ratio);
 
-        // Write take loan to storage
-       return mnview.SetLoanTakeLoan(takeLoan);
+        return Res::Ok();
     }
 
     Res operator()(const CLoanPaybackLoanMessage& obj) const {
@@ -2370,36 +2437,30 @@ public:
         if (!res)
             return res;
 
-        CLoanPaybackLoanImplementation loanPayback;
-        static_cast<CLoanPaybackLoan&>(loanPayback) = obj;
-
-        loanPayback.creationHeight = height;
-        loanPayback.creationTx = tx.GetHash();
-
-        const auto vault = mnview.GetVault(loanPayback.vaultId);
+        const auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
-            return Res::Err("Cannot find existing vault with id %s", loanPayback.vaultId.GetHex());
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
 
         if (vault->isUnderLiquidation)
             return Res::Err("Cannot payback loan on vault under liquidation");
 
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         if (!collaterals)
-            return Res::Err("Vault with id %s has no collaterals", loanPayback.vaultId.GetHex());
+            return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
-        if (!HasAuth(loanPayback.from))
+        if (!HasAuth(obj.from))
             return Res::Err("tx must have at least one input from token owner");
 
-        for (const auto& kv : loanPayback.amounts.balances)
+        for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
             auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
 
-            auto loanAmounts = mnview.GetLoanTokens(loanPayback.vaultId);
+            auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
             if (!loanAmounts)
-                return Res::Err("There are no loans on this vault (%s)!", loanPayback.vaultId.GetHex());
+                return Res::Err("There are no loans on this vault (%s)!", obj.vaultId.GetHex());
 
             auto it = loanAmounts->balances.find(tokenId);
             if (it == loanAmounts->balances.end())
@@ -2425,12 +2486,12 @@ public:
                 subLoan = kv.second - subInterest;
             }
 
-            res = mnview.SubLoanToken(loanPayback.vaultId, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
 
             auto partAmount = DivideAmounts(subLoan, it->second);
-            res = mnview.EraseInterest(height, loanPayback.vaultId, vault->schemeId, tokenId, partAmount);
+            res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, partAmount);
             if (!res)
                 return res;
 
@@ -2438,20 +2499,19 @@ public:
             if (!res)
                 return res;
 
-            CalculateOwnerRewards(loanPayback.from);
+            CalculateOwnerRewards(obj.from);
             // subtract loan amount first, interest is burning below
-            res = mnview.SubBalance(loanPayback.from, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubBalance(obj.from, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
 
             // burn interest Token->USD->DFI->burnAddress
-            res = SwapToDFIOverUSD(mnview, kv.first, subInterest, loanPayback.from, consensus.burnAddress, height);
+            res = SwapToDFIOverUSD(mnview, kv.first, subInterest, obj.from, consensus.burnAddress, height);
             if (!res)
                 return res;
         }
 
-        // Write loan payback to storage
-        return mnview.SetLoanPaybackLoan(loanPayback);
+        return Res::Ok();
     }
 
     Res operator()(const CAuctionBidMessage& obj) const {

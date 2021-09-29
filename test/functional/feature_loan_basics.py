@@ -370,5 +370,34 @@ class LoanTakeLoanTest (DefiTestFramework):
             elif interest['token'] == symbolGOOGL:
                 assert_equal(interest['interestPerBlock'], Decimal('0'))
 
+        try:
+            self.nodes[0].withdrawfromvault(vaultId, account0, "200@" + symbolDFI)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Cannot withdraw all collaterals as there is still loan in this vault" in errorString)
+
+        try:
+            self.nodes[0].withdrawfromvault(vaultId, account0, "199@" + symbolDFI)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
+
+        self.nodes[0].withdrawfromvault(vaultId, account0, "100@" + symbolDFI)
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        loans = self.nodes[0].getloaninfo()
+
+        assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
+        assert_equal(loans['loanValueUSD'], Decimal('15.00017100'))
+
+        vaultInfo = self.nodes[0].getvault(vaultId)
+
+        self.nodes[0].loanpayback({
+                    'vaultId': vaultId,
+                    'from': account0,
+                    'amounts': vaultInfo['loanAmount']})
+
 if __name__ == '__main__':
     LoanTakeLoanTest().main()

@@ -1018,7 +1018,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
 
-    CLoanTakeLoan takeLoan;
+    CLoanTakeLoanMessage takeLoan;
 
     if (!metaObj["vaultId"].isNull())
         takeLoan.vaultId = uint256S(metaObj["vaultId"].getValStr());
@@ -1126,7 +1126,7 @@ UniValue loanpayback(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
 
-    CLoanPaybackLoan loanPayback;
+    CLoanPaybackLoanMessage loanPayback;
 
     if (!metaObj["vaultId"].isNull())
         loanPayback.vaultId = uint256S(metaObj["vaultId"].getValStr());

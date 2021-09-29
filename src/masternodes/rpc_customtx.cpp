@@ -353,6 +353,12 @@ public:
         rpcInfo.pushKV("amount", obj.amount.ToString());
     }
 
+    void operator()(const CWithdrawFromVaultMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("to", ScriptToString(obj.to));
+        rpcInfo.pushKV("amount", obj.amount.ToString());
+    }
+
     void operator()(const CLoanTakeLoanMessage& obj) const {
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         if (!obj.to.empty())

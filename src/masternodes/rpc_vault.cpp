@@ -597,7 +597,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
                  false);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot update vault while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot upddeposittovaultate vault while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
@@ -635,6 +635,93 @@ UniValue deposittovault(const JSONRPCRequest& request) {
      // Set change to from address
     CTxDestination dest;
     ExtractDestination(DecodeScript(from), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue withdrawfromvault(const JSONRPCRequest& request) {
+    CWallet *const pwallet = GetWallet(request);
+
+    RPCHelpMan{"withdrawfromvault",
+               "Withdraw collateral token amount from vault\n" +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                    {"vaultId", RPCArg::Type::STR, RPCArg::Optional::NO, "Vault id"},
+                    {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination address for withdraw of collateral",},
+                    {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount of collateral in amount@symbol format",},
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                    {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    }
+               },
+               RPCResult{
+                    "\"txid\"                  (string) The transaction id.\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("withdrawfromvault",
+                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 1@DFI") +
+                       HelpExampleRpc("withdrawfromvault",
+                        "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i, mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF, 1@DFI")
+               },
+    }.Check(request);
+
+    RPCTypeCheck(request.params,
+                 {UniValue::VSTR, UniValue::VSTR, UniValue::VSTR, UniValue::VARR},
+                 false);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot withdrawfromvault while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    if (request.params[0].isNull() || request.params[1].isNull() || request.params[2].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments must be non-null");
+
+    // decode vaultId
+    CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
+    std::string to = request.params[1].get_str();
+    CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), to);
+
+    CWithdrawFromVaultMessage msg{vaultId, DecodeScript(to), amount};
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::WithdrawFromVault)
+                   << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    UniValue const & txInputs = request.params[3];
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{DecodeScript(to)};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+     // Set change to from address
+    CTxDestination dest;
+    ExtractDestination(DecodeScript(to), dest);
     if (IsValidDestination(dest)) {
         coinControl.destChange = dest;
     }
@@ -837,6 +924,7 @@ static const CRPCCommand commands[] =
     {"vault",        "getvault",                  &getvault,              {"id"}},
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
+    {"vault",        "withdrawfromvault",         &withdrawfromvault,     {"id", "to", "amount", "inputs"}},
     {"vault",        "auctionbid",                &auctionbid,            {"id", "index", "from", "amount", "inputs"}},
     {"vault",        "listauctions",              &listauctions,          {"pagination"}},
 };

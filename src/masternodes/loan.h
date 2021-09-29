@@ -223,7 +223,7 @@ struct CInterestRate
 // calculate total interest to height including it
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height);
 
-class CLoanTakeLoan
+class CLoanTakeLoanMessage
 {
 public:
     CVaultId vaultId;
@@ -240,33 +240,7 @@ public:
     }
 };
 
-class CLoanTakeLoanImplementation : public CLoanTakeLoan
-{
-public:
-    uint256 creationTx;
-    int32_t creationHeight = -1;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CLoanTakeLoan, *this);
-        READWRITE(creationTx);
-        READWRITE(creationHeight);
-    }
-};
-
-struct CLoanTakeLoanMessage : public CLoanTakeLoan {
-    using CLoanTakeLoan::CLoanTakeLoan;
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CLoanTakeLoan, *this);
-    }
-};
-
-class CLoanPaybackLoan
+class CLoanPaybackLoanMessage
 {
 public:
     CVaultId vaultId;
@@ -283,38 +257,10 @@ public:
     }
 };
 
-class CLoanPaybackLoanImplementation : public CLoanPaybackLoan
-{
-public:
-    uint256 creationTx;
-    int32_t creationHeight = -1;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CLoanPaybackLoan, *this);
-        READWRITE(creationTx);
-        READWRITE(creationHeight);
-    }
-};
-
-struct CLoanPaybackLoanMessage : public CLoanPaybackLoan {
-    using CLoanPaybackLoan::CLoanPaybackLoan;
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CLoanPaybackLoan, *this);
-    }
-};
-
 class CLoanView : public virtual CStorageView {
 public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
     using CLoanSetLoanTokenImpl = CLoanSetLoanTokenImplementation;
-    using CLoanTakeLoanImpl = CLoanTakeLoanImplementation;
-    using CLoanPaybackLoanImpl = CLoanPaybackLoanImplementation;
 
     std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanSetCollateralToken(uint256 const & txid) const;
     Res LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
@@ -356,14 +302,6 @@ public:
 
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
-
-    std::unique_ptr<CLoanTakeLoanImpl> GetLoanTakeLoan(uint256 const & txid) const;
-    Res SetLoanTakeLoan(CLoanTakeLoanImpl const & takeLoan);
-    void ForEachLoanTakeLoan(std::function<bool (uint256 const &, CLoanTakeLoanImpl const &)> callback, uint256 const & start = uint256());
-
-    std::unique_ptr<CLoanPaybackLoanImpl> GetLoanPaybackLoan(uint256 const & txid) const;
-    Res SetLoanPaybackLoan(CLoanPaybackLoanImpl const & loanPayback);
-    void ForEachLoanPaybackLoan(std::function<bool (uint256 const &, CLoanPaybackLoanImpl const &)> callback, uint256 const & start = uint256());
 
     struct LoanSetCollateralTokenCreationTx { static constexpr uint8_t prefix() { return 0x10; } };
     struct LoanSetCollateralTokenKey        { static constexpr uint8_t prefix() { return 0x11; } };

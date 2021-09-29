@@ -85,6 +85,22 @@ struct CDepositToVaultMessage {
     }
 };
 
+struct CWithdrawFromVaultMessage {
+    CVaultId vaultId;
+    CScript to;
+    CTokenAmount amount;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(vaultId);
+        READWRITE(to);
+        READWRITE(amount);
+    }
+};
+
 struct CAuctionBidMessage {
     CVaultId vaultId;
     uint32_t index;
