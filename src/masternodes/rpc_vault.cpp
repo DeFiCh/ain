@@ -286,7 +286,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
         }
     }
 
-    UniValue valueArr{UniValue::VOBJ};
+    UniValue valueArr{UniValue::VARR};
 
     LOCK(cs_main);
 
@@ -296,12 +296,12 @@ UniValue listvaults(const JSONRPCRequest& request) {
             && (loanSchemeId.empty() || loanSchemeId == data.schemeId)
             && (isUnderLiquidation == data.isUnderLiquidation)
             ) {
-
             UniValue vaultObj{UniValue::VOBJ};
+            vaultObj.pushKV("vaultId", id.GetHex());
             vaultObj.pushKV("ownerAddress", ScriptToString(data.ownerAddress));
             vaultObj.pushKV("loanSchemeId", data.schemeId);
             vaultObj.pushKV("isUnderLiquidation", data.isUnderLiquidation);
-            valueArr.pushKV(id.GetHex(), vaultObj);
+            valueArr.push_back(vaultObj);
 
             limit--;
         }
