@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->count, 0);
     BOOST_CHECK_EQUAL(rate->interestPerBlock, 0);
-    BOOST_CHECK_EQUAL(rate->interestToHeight, interestToHeight);
+    BOOST_CHECK_EQUAL(rate->interestToHeight, 0);
 
     rate = mnview.GetInterestRate(id2, token_id);
     BOOST_REQUIRE(rate);

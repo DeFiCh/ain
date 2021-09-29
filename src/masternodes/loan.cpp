@@ -288,6 +288,9 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     } else {
         rate.count -= part;
     }
+    if (!rate.count) {
+        rate.interestToHeight = 0;
+    }
     rate.height = height;
     rate.interestPerBlock = InterestPerBlock(rate.count, token->interest, scheme->rate);
     WriteBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id), rate);
