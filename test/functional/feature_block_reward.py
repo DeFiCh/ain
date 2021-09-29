@@ -21,8 +21,12 @@ class BlockRewardTest(DefiTestFramework):
         node = self.nodes[0]
         node.generate(120)
 
+        newBaseBlockSubsidy = 405.0400
+        masternodePortion = 0.3333 # 33.33%
+        mingBaseReward = newBaseBlockSubsidy * masternodePortion
+
         result = node.listaccounthistory("mine", {"depth":0})
-        assert_equal(result[0]["amounts"][0], '134.99983200@DFI')
+        assert_equal(result[0]["amounts"][0], f'{mingBaseReward:.8f}@DFI')
 
         account = node.getnewaddress()
         node.utxostoaccount({account: "1.1@0"})
@@ -33,7 +37,7 @@ class BlockRewardTest(DefiTestFramework):
         result = node.listaccounthistory("mine", {"depth":0})
         for subResult in result:
             if subResult["type"] == "blockReward":
-                assert_greater_than(subResult["amounts"][0], '134.99983200@DFI')
+                assert_greater_than(subResult["amounts"][0], f'{mingBaseReward:.8f}@DFI')
 
 if __name__ == '__main__':
     BlockRewardTest().main ()
