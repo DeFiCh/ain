@@ -261,7 +261,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
     }
 
     // parse pagination
-    size_t limit = 1000000;
+    size_t limit = 100;
     CVaultId start = {};
     bool including_start = true;
     {
