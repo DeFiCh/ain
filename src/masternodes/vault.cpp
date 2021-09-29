@@ -27,9 +27,9 @@ Res CVaultView::UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVau
     return Res::Ok();
 }
 
-void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback)
+void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start)
 {
-    ForEach<VaultKey, CVaultId, CVaultData>(callback);
+    ForEach<VaultKey, CVaultId, CVaultData>(callback, start);
 }
 
 Res CVaultView::AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)

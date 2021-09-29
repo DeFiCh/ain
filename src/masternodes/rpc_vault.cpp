@@ -190,29 +190,124 @@ UniValue listvaults(const JSONRPCRequest& request) {
 
     RPCHelpMan{"listvaults",
                "List all available vaults\n",
-               {},
+               {
+                    {
+                       "options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {
+                                "ownerAddress", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                "Address of the vault owner."
+                            },
+                            {
+                                "loanSchemeId", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                "Vault's loan scheme id"
+                            },
+                            {
+                                "isUnderLiquidation", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                "Wether the vault is under liquidation. (default = false)"
+                            },
+                        },
+                    },
+                    {
+                       "pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {
+                                "start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                                "Optional first key to iterate from, in lexicographical order. "
+                                "Typically it's set to last ID from previous request."
+                            },
+                            {
+                                "including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                "If true, then iterate including starting position. False by default"
+                            },
+                            {
+                                "limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Maximum number of orders to return, 100 by default"
+                            },
+                        },
+                    },
+               },
                RPCResult{
                     "[                         (json array of objects)\n"
                         "{...}                 (object) Json object with vault information\n"
                     "]\n"
                },
                RPCExamples{
-                       HelpExampleCli("listvaults",  "") +
-                       HelpExampleRpc("listvaults", "")
+                       HelpExampleCli("listvaults", "")
+                       + HelpExampleCli("listvaults", "'{\"loanSchemeId\": \"LOAN1502\"}'")
+                       + HelpExampleCli("listvaults", "'{\"loanSchemeId\": \"LOAN1502\"}' '{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", ""\"including_start\": true, ""\"limit\":100}'")
+                       + HelpExampleCli("listvaults", "{} '{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", ""\"including_start\": true, ""\"limit\":100}'")
+                       + HelpExampleRpc("listvaults", "")
+                       + HelpExampleRpc("listvaults", "'{\"loanSchemeId\": \"LOAN1502\"}'")
+                       + HelpExampleRpc("listvaults", "'{\"loanSchemeId\": \"LOAN1502\"}' '{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", ""\"including_start\": true, ""\"limit\":100}'")
+                       + HelpExampleRpc("listvaults", "{} '{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", ""\"including_start\": true, ""\"limit\":100}'")
                },
     }.Check(request);
+
+    CScript ownerAddress;
+    std::string loanSchemeId;
+    bool isUnderLiquidation = false;
+    if (request.params.size() > 0) {
+        UniValue optionsObj = request.params[0].get_obj();
+        if (!optionsObj["ownerAddress"].isNull()) {
+            ownerAddress = DecodeScript(optionsObj["ownerAddress"].getValStr());
+        }
+        if (!optionsObj["loanSchemeId"].isNull()) {
+            loanSchemeId = optionsObj["loanSchemeId"].getValStr();
+        }
+        if (!optionsObj["isUnderLiquidation"].isNull()) {
+            isUnderLiquidation = optionsObj["isUnderLiquidation"].getBool();
+        }
+    }
+
+    // parse pagination
+    size_t limit = 1000000;
+    CVaultId start = {};
+    bool including_start = true;
+    {
+        if (request.params.size() > 1) {
+            UniValue paginationObj = request.params[1].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                including_start = false;
+                start = ParseHashV(paginationObj["start"], "start");
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                start = ArithToUint256(UintToArith256(start) + arith_uint256{1});
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
 
     UniValue valueArr{UniValue::VOBJ};
 
     LOCK(cs_main);
+
     pcustomcsview->ForEachVault([&](const CVaultId& id, const CVaultData& data) {
-        UniValue vaultObj{UniValue::VOBJ};
-        vaultObj.pushKV("ownerAddress", ScriptToString(data.ownerAddress));
-        vaultObj.pushKV("loanSchemeId", data.schemeId);
-        vaultObj.pushKV("isUnderLiquidation", data.isUnderLiquidation);
-        valueArr.pushKV(id.GetHex(), vaultObj);
-        return true;
-    });
+        if (
+            (ownerAddress.empty() || ownerAddress == data.ownerAddress)
+            && (loanSchemeId.empty() || loanSchemeId == data.schemeId)
+            && (isUnderLiquidation == data.isUnderLiquidation)
+            ) {
+
+            UniValue vaultObj{UniValue::VOBJ};
+            vaultObj.pushKV("ownerAddress", ScriptToString(data.ownerAddress));
+            vaultObj.pushKV("loanSchemeId", data.schemeId);
+            vaultObj.pushKV("isUnderLiquidation", data.isUnderLiquidation);
+            valueArr.pushKV(id.GetHex(), vaultObj);
+
+            limit--;
+        }
+
+        return limit != 0;
+    }, start);
 
     return valueArr;
 }
@@ -595,7 +690,7 @@ static const CRPCCommand commands[] =
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
     {"vault",        "createvault",               &createvault,           {"ownerAddress", "schemeId", "inputs"}},
-    {"vault",        "listvaults",                &listvaults,            {}},
+    {"vault",        "listvaults",                &listvaults,            { "options", "pagination" } },
     {"vault",        "getvault",                  &getvault,              {"id"}},
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},

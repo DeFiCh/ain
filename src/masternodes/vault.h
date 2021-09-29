@@ -137,7 +137,7 @@ public:
     Res StoreVault(const CVaultId&, const CVaultData&);
     boost::optional<CVaultData> GetVault(const CVaultId&) const;
     Res UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault);
-    void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback);
+    void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start = {});
 
     Res AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
     Res SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
