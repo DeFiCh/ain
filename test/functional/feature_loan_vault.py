@@ -64,11 +64,15 @@ class VaultTest (DefiTestFramework):
 
         # check listVaults filter by ownerAddres
         listVaults = self.nodes[0].listvaults({ "ownerAddress": ownerAddress2 })
-        assert(len([vault for vault in listVaults if vault["ownerAddress"] == ownerAddress2]) == 3)
+        assert(len(listVaults) == 3)
+        for vault in listVaults:
+            assert(vault["ownerAddress"] == ownerAddress2)
 
         # check listVaults filter by loanSchemeId
         listVaults = self.nodes[0].listvaults({ "loanSchemeId": "LOAN0003" })
-        assert(len([vault for vault in listVaults if vault["loanSchemeId"] == "LOAN0003"]) == 2)
+        assert(len(listVaults) == 2)
+        for vault in listVaults:
+            assert(vault["loanSchemeId"] == "LOAN0003")
 
         # check listVaults pagination
         listVaults = self.nodes[0].listvaults({}, {"limit": 1})
