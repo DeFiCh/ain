@@ -244,7 +244,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    CScript ownerAddress;
+    CScript ownerAddress = {};
     std::string loanSchemeId;
     bool isUnderLiquidation = false;
     if (request.params.size() > 0) {
@@ -292,8 +292,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
 
     pcustomcsview->ForEachVault([&](const CVaultId& id, const CVaultData& data) {
         if (
-            (ownerAddress.empty() || ownerAddress == data.ownerAddress)
-            && (loanSchemeId.empty() || loanSchemeId == data.schemeId)
+            (loanSchemeId.empty() || loanSchemeId == data.schemeId)
             && (isUnderLiquidation == data.isUnderLiquidation)
             ) {
             UniValue vaultObj{UniValue::VOBJ};
@@ -307,7 +306,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
         }
 
         return limit != 0;
-    }, start);
+    }, start, ownerAddress);
 
     return valueArr;
 }
