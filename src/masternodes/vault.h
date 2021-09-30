@@ -137,7 +137,7 @@ public:
     Res StoreVault(const CVaultId&, const CVaultData&);
     boost::optional<CVaultData> GetVault(const CVaultId&) const;
     Res UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault);
-    void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback);
+    void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start = {}, const CScript& ownerAddress = {});
 
     Res AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
     Res SubVaultCollateral(const CVaultId& vaultId, CTokenAmount amount);
@@ -158,6 +158,7 @@ public:
     boost::optional<COwnerTokenAmount> GetAuctionBid(const CVaultId& vaultId, uint32_t id);
 
     struct VaultKey         { static constexpr uint8_t prefix() { return 0x20; } };
+    struct OwnerVaultKey    { static constexpr uint8_t prefix() { return 0x25; } };
     struct CollateralKey    { static constexpr uint8_t prefix() { return 0x21; } };
     struct AuctionBatchKey  { static constexpr uint8_t prefix() { return 0x22; } };
     struct AuctionHeightKey { static constexpr uint8_t prefix() { return 0x23; } };
