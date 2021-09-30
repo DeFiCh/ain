@@ -15,7 +15,7 @@ class BlockRewardTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-eunosheight=100', '-eunosheight=100', '-subsidytest=1']]
+        self.extra_args = [['-txnotokens=0', '-amkheight=50', '-eunosheight=100', '-eunosheight=100', '-fortcanningheight=110', '-subsidytest=1']]
 
     def run_test(self):
         node = self.nodes[0]
