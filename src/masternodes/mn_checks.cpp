@@ -37,6 +37,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::CreatePoolPair:      return "CreatePoolPair";
         case CustomTxType::UpdatePoolPair:      return "UpdatePoolPair";
         case CustomTxType::PoolSwap:            return "PoolSwap";
+        case CustomTxType::PoolSwapV2:          return "PoolSwap";
         case CustomTxType::AddPoolLiquidity:    return "AddPoolLiquidity";
         case CustomTxType::RemovePoolLiquidity: return "RemovePoolLiquidity";
         case CustomTxType::UtxosToAccount:      return "UtxosToAccount";
@@ -112,6 +113,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::CreatePoolPair:          return CCreatePoolPairMessage{};
         case CustomTxType::UpdatePoolPair:          return CUpdatePoolPairMessage{};
         case CustomTxType::PoolSwap:                return CPoolSwapMessage{};
+        case CustomTxType::PoolSwapV2:              return CPoolSwapMessageV2{};
         case CustomTxType::AddPoolLiquidity:        return CLiquidityMessage{};
         case CustomTxType::RemovePoolLiquidity:     return CRemoveLiquidityMessage{};
         case CustomTxType::UtxosToAccount:          return CUtxosToAccountMessage{};
@@ -267,6 +269,13 @@ public:
         return !res ? res : serialize(obj);
     }
 
+    Res isPostFortCanningFork() const {
+        if(static_cast<int>(height) < consensus.FortCanningHeight) {
+            return Res::Err("called before FortCanning height");
+        }
+        return Res::Ok();
+    }
+
     Res operator()(CCreatePoolPairMessage& obj) const {
         auto res = isPostBayfrontFork();
         if (!res) {
@@ -382,6 +391,11 @@ public:
 
     Res operator()(CICXCloseOfferMessage& obj) const {
         auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CPoolSwapMessageV2& obj) const {
+        auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
 
@@ -939,7 +953,16 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        return CPoolSwap(obj, height).ExecuteSwap(mnview, obj.poolIDs);
+        return CPoolSwap(obj, height).ExecuteSwap(mnview, {});
+    }
+
+    Res operator()(const CPoolSwapMessageV2& obj) const {
+        // check auth
+        if (!HasAuth(obj.swapInfo.from)) {
+            return Res::Err("tx must have at least one input from account owner");
+        }
+
+        return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
     }
 
     Res operator()(const CLiquidityMessage& obj) const {
@@ -1781,6 +1804,10 @@ public:
         // notify account changes
         mnview.AddBalance(obj.to, {});
         return mnview.SubBalance(obj.from, {});
+    }
+
+    Res operator()(const CPoolSwapMessageV2& obj) const {
+        return (*this)(obj.swapInfo);
     }
 
     Res operator()(const CLiquidityMessage& obj) const {
