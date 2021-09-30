@@ -54,8 +54,8 @@ class VaultTest (DefiTestFramework):
 
         ownerAddress2 = self.nodes[0].getnewaddress('', 'legacy')
         vaultId2 = self.nodes[0].createvault(ownerAddress2, 'LOAN0001')
-        vaultId3 = self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
-        vaultId4 = self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
+        self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
+        self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
         self.nodes[0].generate(1)
 
         # check listvaults
