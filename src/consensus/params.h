@@ -146,7 +146,7 @@ struct Params {
         return blocks;
     }
 
-    uint32_t blocksPriceUpdate() const {
+    uint32_t blocksFixedIntervalPrice() const {
         static const uint32_t blocks = 60 * 60 / pos.nTargetSpacing;
         return blocks;
     }

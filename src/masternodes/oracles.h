@@ -21,7 +21,7 @@ using CPriceTimePair = std::pair<CAmount, int64_t>;
 using CTokenCurrencyPair = std::pair<std::string, std::string>;
 using CTokenPrices = std::map<std::string, std::map<std::string, CAmount>>;
 using CTokenPricePoints = std::map<std::string, std::map<std::string, CPriceTimePair>>;
-using PriceFeedPair = std::pair<std::string, std::string>;
+using CFixedIntervalPriceId = std::pair<std::string, std::string>;
 
 struct CAppointOracleMessage {
     CScript oracleAddress;
@@ -99,14 +99,13 @@ struct COracle : public CAppointOracleMessage {
     }
 };
 
-struct CPriceFeed
+struct CFixedIntervalPrice
 {
 public:
-    PriceFeedPair priceFeedId;
+    CFixedIntervalPriceId priceFeedId;
     int64_t timestamp;
-    CAmount activePrice{0};
-    CAmount nextPrice{0};
-    bool valid{true};
+    std::vector<CAmount> priceRecord{0, 0}; // priceHistory[0] = active price, priceHistory[1] = next price
+    bool valid{false};
 
     ADD_SERIALIZE_METHODS;
 
@@ -114,8 +113,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(priceFeedId);
         READWRITE(timestamp);
-        READWRITE(activePrice);
-        READWRITE(nextPrice);
+        READWRITE(priceRecord);
         READWRITE(valid);
     }
 };
@@ -145,13 +143,13 @@ public:
 
     struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
 
-    Res SetPriceFeed(const CPriceFeed& PriceFeed);
+    Res SetFixedIntervalPrice(const CFixedIntervalPrice& PriceFeed);
 
-    Res UpdatePriceFeed(const PriceFeedPair& PriceFeedPair, const CPriceFeed& priceFeed);
+    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CFixedIntervalPriceId& priceFeedId, const bool& create=false);
 
-    ResVal<CPriceFeed> GetPriceFeedData(const PriceFeedPair& priceFeedId);
+    void ForEachFixedIntervalPrice(std::function<bool(const CFixedIntervalPriceId&, CLazySerialize<CFixedIntervalPrice>)> callback, const CFixedIntervalPriceId& start = {});
 
-    struct PriceFeedKey { static constexpr uint8_t prefix() { return 'y'; } };
+    struct FixedIntervalPriceKey { static constexpr uint8_t prefix() { return 'y'; } };
 };
 
 #endif // DEFI_MASTERNODES_ORACLES_H

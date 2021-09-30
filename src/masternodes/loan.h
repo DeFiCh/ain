@@ -10,14 +10,14 @@
 #include <masternodes/vault.h>
 #include <script/script.h>
 
-using PriceFeedPair = std::pair<std::string, std::string>;
+using CFixedIntervalPriceId = std::pair<std::string, std::string>;
 class CLoanSetCollateralToken
 {
 public:
     DCT_ID idToken{UINT_MAX};
     CAmount factor;
     uint32_t activateAfterBlock = 0;
-    PriceFeedPair priceFeedId;
+    CFixedIntervalPriceId fixedIntervalPriceId;
 
     ADD_SERIALIZE_METHODS;
 
@@ -26,7 +26,7 @@ public:
         READWRITE(idToken);
         READWRITE(factor);
         READWRITE(activateAfterBlock);
-        READWRITE(priceFeedId);
+        READWRITE(fixedIntervalPriceId);
     }
 };
 
@@ -63,7 +63,7 @@ public:
     std::string name;
     bool mintable = true;
     CAmount interest = 0;
-    PriceFeedPair priceFeedId;
+    CFixedIntervalPriceId fixedIntervalPriceId;
 
     ADD_SERIALIZE_METHODS;
 
@@ -73,7 +73,7 @@ public:
         READWRITE(name);
         READWRITE(mintable);
         READWRITE(interest);
-        READWRITE(priceFeedId);
+        READWRITE(fixedIntervalPriceId);
     }
 };
 

@@ -2742,6 +2742,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         mapBurnAmounts.clear();
 
         ProcessLoanEvents(pindex, cache, chainparams);
+        ProcessOracleEvents(pindex, cache, chainparams);
 
         // construct undo
         auto& flushable = cache.GetStorage();
@@ -3091,39 +3092,31 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         view.TransferVaultInterest(auction.vaultId, pindex->nHeight, vault->schemeId, {});
         return true;
     }, {CVaultId{}, static_cast<uint32_t>(pindex->nHeight)});
+}
 
-    // flush all changes
-    view.Flush();
-    pburnHistoryDB->Flush();
-    auto priceHeight = pindex->nHeight + Params().GetConsensus().blocksPriceUpdate();
-    cache.ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx) {
-        auto collateralToken = cache.GetLoanSetCollateralToken(collTokenTx);
-        assert(collateralToken);
-        if( (pindex->nHeight - collateralToken->creationHeight) % priceHeight == 0)
-        {
-            auto priceFeed = cache.GetPriceFeedData(collateralToken->priceFeedId);
-            assert(priceFeed);
-            priceFeed.val->activePrice = priceFeed.val->nextPrice;
-            priceFeed.val->nextPrice = GetAggregatePrice(cache, collateralToken->priceFeedId.first, collateralToken->priceFeedId.second, pindex->nTime);
-            cache.UpdatePriceFeed(collateralToken->priceFeedId, priceFeed);
-        }
-        return true;
-    });
+void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
+        return;
+    }
 
-    cache.ForEachLoanSetLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
-        if( (pindex->nHeight - loanToken.creationHeight) % priceHeight == 0)
-        {
-            auto updateLoanToken = loanToken;
-
-            auto priceFeed = cache.GetPriceFeedData(loanToken.priceFeedId);
-            assert(priceFeed);
-            priceFeed.val->activePrice = priceFeed.val->nextPrice;
-            priceFeed.val->nextPrice = GetAggregatePrice(cache, loanToken.priceFeedId.first, loanToken.priceFeedId.second, pindex->nTime);
-            cache.UpdatePriceFeed(loanToken.priceFeedId, priceFeed);
-        }
-        return true;
-    });
-
+    auto priceHeight = Params().GetConsensus().blocksFixedIntervalPrice();
+    if(pindex->nHeight % priceHeight == 0){
+        cache.ForEachFixedIntervalPrice([&](const CFixedIntervalPriceId& id, CFixedIntervalPrice fixedIntervalPrice){
+            auto aggregatePrice = GetAggregatePrice(cache, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, pindex->nTime);
+            if(!aggregatePrice){
+                LogPrintf("Error getting aggregate price: %s\n", aggregatePrice.msg);
+                return true;
+            }
+            fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
+            fixedIntervalPrice.priceRecord[1] = aggregatePrice;
+            fixedIntervalPrice.valid = (std::abs(fixedIntervalPrice.priceRecord[1] - fixedIntervalPrice.priceRecord[0]) < fixedIntervalPrice.priceRecord[0]*0.3);
+            fixedIntervalPrice.timestamp = GetSystemTimeInSeconds();
+            auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
+            if (!res)
+                LogPrintf("Setting fixed interval price failed: %s\n", res.msg);
+            return true;
+        });
+    }
 }
 
 bool CChainState::FlushStateToDisk(

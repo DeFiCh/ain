@@ -297,7 +297,7 @@ public:
         if (auto token = mnview.GetToken(obj.idToken))
             rpcInfo.pushKV("token", token->CreateSymbolKey(obj.idToken));
         rpcInfo.pushKV("factor", ValueFromAmount(obj.factor));
-        rpcInfo.pushKV("priceFeedId", obj.priceFeedId.first + "/" + obj.priceFeedId.second);
+        rpcInfo.pushKV("fixedIntervalPriceId", obj.fixedIntervalPriceId.first + "/" + obj.fixedIntervalPriceId.second);
         if (obj.activateAfterBlock)
             rpcInfo.pushKV("activateAfterBlock", static_cast<int>(obj.activateAfterBlock));
     }
@@ -305,11 +305,11 @@ public:
     void operator()(const CLoanSetLoanTokenMessage& obj) const {
         rpcInfo.pushKV("symbol", obj.symbol);
         rpcInfo.pushKV("name", obj.name);
-        rpcInfo.pushKV("priceFeedId", obj.priceFeedId.first + "/" + obj.priceFeedId.second);
+        rpcInfo.pushKV("fixedIntervalPriceId", obj.fixedIntervalPriceId.first + "/" + obj.fixedIntervalPriceId.second);
     }
 
     void operator()(const CLoanUpdateLoanTokenMessage& obj) const {
-        rpcInfo.pushKV("priceFeedId", obj.priceFeedId.first + "/" + obj.priceFeedId.second);
+        rpcInfo.pushKV("fixedIntervalPriceId", obj.fixedIntervalPriceId.first + "/" + obj.fixedIntervalPriceId.second);
         rpcInfo.pushKV("mintable", obj.mintable);
         rpcInfo.pushKV("interest", obj.interest);
     }

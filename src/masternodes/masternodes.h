@@ -355,7 +355,7 @@ class CCustomCSView
                                         ByPoolReward, ByDailyReward, ByCustomReward, ByTotalLiquidity,
             CGovView                ::  ByName,
             CAnchorConfirmsView     ::  BtcTx,
-            COracleView             ::  ByName, PriceFeedKey,
+            COracleView             ::  ByName, FixedIntervalPriceKey,
             CICXOrderView           ::  ICXOrderCreationTx, ICXMakeOfferCreationTx, ICXSubmitDFCHTLCCreationTx,
                                         ICXSubmitEXTHTLCCreationTx, ICXClaimDFCHTLCCreationTx, ICXCloseOrderCreationTx,
                                         ICXCloseOfferCreationTx, ICXOrderOpenKey, ICXOrderCloseKey, ICXMakeOfferOpenKey,

@@ -116,24 +116,24 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].setcollateraltoken({
                                     'token': idDFI,
                                     'factor': 1,
-                                    'priceFeedId': "DFI/USD"})
+                                    'fixedIntervalPriceId': "DFI/USD"})
 
         self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
                                     'factor': 1,
-                                    'priceFeedId': "BTC/USD"})
+                                    'fixedIntervalPriceId': "BTC/USD"})
 
         setLoanTokenTSLA = self.nodes[0].setloantoken({
                                     'symbol': symbolTSLA,
                                     'name': "Tesla stock token",
-                                    'priceFeedId': "TSLA/USD",
+                                    'fixedIntervalPriceId': "TSLA/USD",
                                     'mintable': False,
                                     'interest': 1})
 
         setLoanTokenGOOGL = self.nodes[0].setloantoken({
                                     'symbol': symbolGOOGL,
                                     'name': "Tesla stock token",
-                                    'priceFeedId': "TSLA/USD",
+                                    'fixedIntervalPriceId': "TSLA/USD",
                                     'mintable': True,
                                     'interest': 2})
 

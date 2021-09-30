@@ -754,7 +754,7 @@ public:
         return Res::Ok();
     }
 
-    bool oraclePriceFeed(const PriceFeedPair& priceFeed) const {
+    bool oraclePriceFeed(const CFixedIntervalPriceId& priceFeed) const {
         bool found = false;
         mnview.ForEachOracle([&](const COracleId&, COracle oracle) {
             return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
@@ -1839,15 +1839,15 @@ public:
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
-        CPriceFeed priceFeed;
-        priceFeed.priceFeedId = collToken.priceFeedId;
-        priceFeed.activePrice = GetAggregatePrice(mnview, collToken.priceFeedId.first, collToken.priceFeedId.second, time);
-        priceFeed.nextPrice = GetAggregatePrice(mnview, collToken.priceFeedId.first, collToken.priceFeedId.second, time);
-        priceFeed.timestamp = time;
-        mnview.SetPriceFeed(priceFeed);
 
-        if (!oraclePriceFeed(collToken.priceFeedId))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.priceFeedId.first, collToken.priceFeedId.second);
+        if (!oraclePriceFeed(collToken.fixedIntervalPriceId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second);
+
+        CFixedIntervalPrice fixedIntervalPrice;
+        fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
+        fixedIntervalPrice.priceRecord[1] = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
+        fixedIntervalPrice.timestamp = time;
+        mnview.SetFixedIntervalPrice(fixedIntervalPrice);
 
         return mnview.LoanCreateSetCollateralToken(collToken);
     }
@@ -1863,18 +1863,17 @@ public:
         loanToken.creationTx = tx.GetHash();
         loanToken.creationHeight = height;
 
-        CPriceFeed priceFeed;
-        priceFeed.priceFeedId = loanToken.priceFeedId;
-        priceFeed.activePrice = GetAggregatePrice(mnview, loanToken.priceFeedId.first, loanToken.priceFeedId.second, time);
-        priceFeed.nextPrice = GetAggregatePrice(mnview, loanToken.priceFeedId.first, loanToken.priceFeedId.second, time);
-        priceFeed.timestamp = time;
-        mnview.SetPriceFeed(priceFeed);
+        CFixedIntervalPrice fixedIntervalPrice;
+        fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
+        fixedIntervalPrice.priceRecord[1] = GetAggregatePrice(mnview, loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second, time);
+        fixedIntervalPrice.timestamp = time;
+        mnview.SetFixedIntervalPrice(fixedIntervalPrice);
 
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (!oraclePriceFeed(loanToken.priceFeedId))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.priceFeedId.first, loanToken.priceFeedId.second);
+        if (!oraclePriceFeed(loanToken.fixedIntervalPriceId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second);
 
         CTokenImplementation token;
         token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
@@ -1919,10 +1918,10 @@ public:
             pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);;
         if (obj.name != pair->second.name)
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        if (obj.priceFeedId != loanToken->priceFeedId) {
-            if (!oraclePriceFeed(obj.priceFeedId))
-                return Res::Err("Price feed %s/%s does not belong to any oracle", obj.priceFeedId.first, obj.priceFeedId.second);
-            loanToken->priceFeedId = obj.priceFeedId;
+        if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
+            if (!oraclePriceFeed(obj.fixedIntervalPriceId))
+                return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
+            loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;
         }
         if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
@@ -2174,9 +2173,9 @@ public:
             if (!loanSetCollToken)
                 return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
 
-            auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeedId.first, loanSetCollToken->priceFeedId.second, time);
+            auto price = GetAggregatePrice(mnview, loanSetCollToken->fixedIntervalPriceId.first, loanSetCollToken->fixedIntervalPriceId.second, time);
             if (!price)
-                return Res::Err("%s/%s: %s", loanSetCollToken->priceFeedId.first, loanSetCollToken->priceFeedId.second, price.msg);
+                return Res::Err("%s/%s: %s", loanSetCollToken->fixedIntervalPriceId.first, loanSetCollToken->fixedIntervalPriceId.second, price.msg);
 
             auto amount = MultiplyAmounts(*price.val, col.second);
             if (*price.val > COIN && amount < col.second)
@@ -2185,7 +2184,9 @@ public:
             if (col.first == DCT_ID{0}) {
                 if (!MoneyRange(col.second))
                     return Res::Err("Exceed max money range");
-            if (loanSetCollToken->idToken == DCT_ID{0})
+            }
+
+            if (loanSetCollToken->idToken == DCT_ID{0}){
                 totalDFI += amount;
             }
 
@@ -2251,13 +2252,13 @@ public:
             if (!res)
                 return res;
 
-            auto priceFeed = mnview.GetPriceFeedData(loanToken->priceFeedId);
+            auto priceFeed = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
 
-            auto amount = MultiplyAmounts(priceFeed.val->activePrice, kv.second);
-            if (priceFeed.val->activePrice > COIN && amount < kv.second)
-                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(priceFeed.val->activePrice));
+            auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], kv.second);
+            if (priceFeed.val->priceRecord[0] > COIN && amount < kv.second)
+                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(priceFeed.val->priceRecord[0]));
 
             auto prevLoans = totalLoans;
             totalLoans += amount;

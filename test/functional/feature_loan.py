@@ -63,20 +63,22 @@ class LoanTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}, {"currency": "USD", "tokenAmount": "10@DFI"}, {"currency": "USD", "tokenAmount": "10@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(1)
         oracle2_prices = [{"currency": "USD", "tokenAmount": "15@TSLA"}, {"currency": "USD", "tokenAmount": "15@DFI"}, {"currency": "USD", "tokenAmount": "15@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id2, timestamp, oracle2_prices)
-        self.nodes[0].generate(6) # one hour to fill active price
+        self.nodes[0].generate(1)
 
         # set DFI an BTC as collateral tokens
         self.nodes[0].setcollateraltoken({
                                     'token': "DFI",
                                     'factor': 1,
-                                    'priceFeedId': "DFI/USD"})
+                                    'fixedIntervalPriceId': "DFI/USD"})
+        self.nodes[0].generate(1)
         self.nodes[0].setcollateraltoken({
                                     'token': "BTC",
                                     'factor': 1,
-                                    'priceFeedId': "BTC/USD"})
+                                    'fixedIntervalPriceId': "BTC/USD"})
         self.nodes[0].generate(1)
 
         # Create loan schemes
@@ -99,11 +101,10 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].setloantoken({
                             'symbol': "TSLA",
                             'name': "Tesla Token",
-                            'priceFeedId': "TSLA/USD",
+                            'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': True,
                             'interest': 1})
-        self.nodes[0].generate(100)
-
+        self.nodes[0].generate(6)
         # take loan
         self.nodes[0].takeloan({
                     'vaultId': vaultId1,
@@ -123,19 +124,20 @@ class LoanTest (DefiTestFramework):
 
         # Trigger liquidation updating price in oracle
         oracle1_prices = [{"currency": "USD", "tokenAmount": "20@TSLA"}]
-        oracle2_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}]
+        oracle2_prices = [{"currency": "USD", "tokenAmount": "30@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].setoracledata(oracle_id2, timestamp, oracle2_prices)
-        self.nodes[0].generate(10)
+        self.nodes[0].generate(60)
 
         # Auction tests
         auctionlist = self.nodes[0].listauctions()
-        assert_equal(len(auctionlist[0]['batches']), 2)
+        assert_equal(len(auctionlist[0]['batches']), 3)
+        vault1 = self.nodes[0].getvault(vaultId1)
 
         # Fail auction bid
         try:
-            self.nodes[0].auctionbid(vaultId1, 0, account, "500@TSLA")
+            self.nodes[0].auctionbid(vaultId1, 0, account, "410@TSLA")
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("First bid should include liquidation penalty of 5%" in errorString)

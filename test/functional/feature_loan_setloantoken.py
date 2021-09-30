@@ -43,7 +43,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             self.nodes[0].setloantoken({
                             'symbol': "TSLA",
                             'name': "Tesla stock token",
-                            'priceFeedId': "TSLA/USD",
+                            'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': False,
                             'interest': 1})
         except JSONRPCException as e:
@@ -60,7 +60,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             self.nodes[0].setloantoken({
                             'symbol': "TSLA",
                             'name': "Tesla stock token",
-                            'priceFeedId': "TSLA/USD",
+                            'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': False,
                             'interest': -1})
         except JSONRPCException as e:
@@ -71,7 +71,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             self.nodes[0].setloantoken({
                             'symbol': "TSLAA",
                             'name': "Tesla stock token",
-                            'priceFeedId': "aa",
+                            'fixedIntervalPriceId': "aa",
                             'mintable': False,
                             'interest': 1})
         except JSONRPCException as e:
@@ -81,7 +81,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         setLoanTokenTx = self.nodes[0].setloantoken({
                             'symbol': "TSLAAAA",
                             'name': "Tesla",
-                            'priceFeedId': "TSLA/USD",
+                            'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': False,
                             'interest': 1})
 
@@ -95,7 +95,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["symbol"], "TSLAAAA")
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["name"], "Tesla")
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["mintable"], False)
-        assert_equal(loantokens[setLoanTokenTx]["priceFeedId"], "TSLA/USD")
+        assert_equal(loantokens[setLoanTokenTx]["fixedIntervalPriceId"], "TSLA/USD")
         assert_equal(loantokens[setLoanTokenTx]["interest"], Decimal('1'))
 
         self.nodes[0].updateloantoken("TSLAAAA",{
@@ -114,7 +114,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["symbol"], "TSLA")
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["name"], "Tesla stock token")
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["mintable"], True)
-        assert_equal(loantokens[setLoanTokenTx]["priceFeedId"], "TSLA/USD")
+        assert_equal(loantokens[setLoanTokenTx]["fixedIntervalPriceId"], "TSLA/USD")
         assert_equal(loantokens[setLoanTokenTx]["interest"], Decimal('3'))
 
 if __name__ == '__main__':

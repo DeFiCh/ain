@@ -11,7 +11,7 @@ UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& c
         return (UniValue::VNULL);
     collTokenObj.pushKV("token", token->CreateSymbolKey(collToken.idToken));
     collTokenObj.pushKV("factor", ValueFromAmount(collToken.factor));
-    collTokenObj.pushKV("priceFeedId", collToken.priceFeedId.first + "/" + collToken.priceFeedId.second);
+    collTokenObj.pushKV("fixedIntervalPriceId", collToken.fixedIntervalPriceId.first + "/" + collToken.fixedIntervalPriceId.second);
     if (collToken.activateAfterBlock)
         collTokenObj.pushKV("activateAfterBlock", static_cast<int>(collToken.activateAfterBlock));
 
@@ -29,7 +29,7 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
         return (UniValue::VNULL);
 
     loanTokenObj.pushKV("token",tokenToJSON(tokenId, *static_cast<CTokenImplementation*>(token.get()), true));
-    loanTokenObj.pushKV("priceFeedId", loanToken.priceFeedId.first + "/" + loanToken.priceFeedId.second);
+    loanTokenObj.pushKV("fixedIntervalPriceId", loanToken.fixedIntervalPriceId.first + "/" + loanToken.fixedIntervalPriceId.second);
     loanTokenObj.pushKV("interest", ValueFromAmount(loanToken.interest));
 
     UniValue ret(UniValue::VOBJ);
@@ -37,12 +37,12 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
     return (ret);
 }
 
-PriceFeedPair DecodePriceFeed(const UniValue& value)
+CFixedIntervalPriceId DecodePriceFeed(const UniValue& value)
 {
-    auto tokenCurrency = value["priceFeedId"].getValStr();
+    auto tokenCurrency = value["fixedIntervalPriceId"].getValStr();
 
     if (tokenCurrency.empty())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"priceFeedId\" must be non-null");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"fixedIntervalPriceId\" must be non-null");
 
     auto delim = tokenCurrency.find('/');
     if (delim == tokenCurrency.npos || tokenCurrency.find('/', delim + 1) != tokenCurrency.npos)
@@ -68,7 +68,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
                         {
                             {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Symbol or id of collateral token"},
                             {"factor", RPCArg::Type::NUM, RPCArg::Optional::NO, "Collateralization factor"},
-                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
+                            {"fixedIntervalPriceId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
                             {"activateAfterBlock", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "changes will be active after the block height (Optional)"},
                         },
                     },
@@ -88,7 +88,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("setcollateraltoken", R"('{"token":"TSLA","factor":"150","priceFeedId":"TSLA/USD"}')")
+                        HelpExampleCli("setcollateraltoken", R"('{"token":"TSLA","factor":"150","fixedIntervalPriceId":"TSLA/USD"}')")
                         },
      }.Check(request);
 
@@ -102,7 +102,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     if (request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
-                           "{\"token\",\"factor\",\"priceFeedId\"}");
+                           "{\"token\",\"factor\",\"fixedIntervalPriceId\"}");
 
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
@@ -120,7 +120,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"factor\" must not be null");
 
-    collToken.priceFeedId = DecodePriceFeed(metaObj);
+    collToken.fixedIntervalPriceId = DecodePriceFeed(metaObj);
 
     if (!metaObj["activateAfterBlock"].isNull())
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
@@ -297,7 +297,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
                         {
                             {"symbol", RPCArg::Type::STR, RPCArg::Optional::NO, "Token's symbol (unique), not longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
                             {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's name (optional), not longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
-                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
+                            {"fixedIntervalPriceId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
                             {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Token's 'Mintable' property (bool, optional), default is 'True'"},
                             {"interest", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Interest rate (default: 0)"},
                         },
@@ -318,7 +318,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("setloantoken", R"('{"symbol":"TSLA","name":"TSLA stock token","priceFeedId":"TSLA/USD","interest":"3"}')")
+                        HelpExampleCli("setloantoken", R"('{"symbol":"TSLA","name":"TSLA stock token","fixedIntervalPriceId":"TSLA/USD","interest":"3"}')")
                         },
      }.Check(request);
 
@@ -332,7 +332,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     if (request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,
                            "Invalid parameters, arguments 1 must be non-null and expected as object at least with "
-                           "{\"token\",\"factor\",\"priceFeedId\"}");
+                           "{\"token\",\"factor\",\"fixedIntervalPriceId\"}");
 
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
@@ -347,7 +347,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     if (!metaObj["name"].isNull())
         loanToken.name = trim_ws(metaObj["name"].getValStr());
 
-    loanToken.priceFeedId = DecodePriceFeed(metaObj);
+    loanToken.fixedIntervalPriceId = DecodePriceFeed(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken.mintable = metaObj["mintable"].getBool();
@@ -409,7 +409,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
                         {
                             {"symbol", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's symbol (unique), not longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
                             {"name", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Token's name (optional), not longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
-                            {"priceFeedId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "token/currency pair to use for price of token"},
+                            {"fixedIntervalPriceId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "token/currency pair to use for price of token"},
                             {"mintable", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Token's 'Mintable' property (bool, optional), default is 'True'"},
                             {"interest", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Interest rate (optional)."},
                         },
@@ -430,7 +430,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("updateloantoken", R"('"token":"TSLAAA", {"symbol":"TSLA","priceFeedId":"TSLA/USD", "mintable": true, "interest": 0.03}')")
+                        HelpExampleCli("updateloantoken", R"('"token":"TSLAAA", {"symbol":"TSLA","fixedIntervalPriceId":"TSLA/USD", "mintable": true, "interest": 0.03}')")
                         },
      }.Check(request);
 
@@ -480,8 +480,8 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
     if (!metaObj["name"].isNull())
         loanToken->name = trim_ws(metaObj["name"].getValStr());
 
-    if (!metaObj["priceFeedId"].isNull())
-        loanToken->priceFeedId = DecodePriceFeed(metaObj);
+    if (!metaObj["fixedIntervalPriceId"].isNull())
+        loanToken->fixedIntervalPriceId = DecodePriceFeed(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken->mintable = metaObj["mintable"].getBool();

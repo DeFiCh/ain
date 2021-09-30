@@ -133,36 +133,31 @@ void COracleView::ForEachOracle(std::function<bool(const COracleId&, CLazySerial
 }
 
 
-Res COracleView::SetPriceFeed(const CPriceFeed& PriceFeed){
+Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalPrice){
 
-    if (!WriteBy<PriceFeedKey>(PriceFeed.priceFeedId, PriceFeed)) {
-        return Res::Err("failed to set new price feed <%s/%s>", PriceFeed.priceFeedId.first, PriceFeed.priceFeedId.second);
+    if (!WriteBy<FixedIntervalPriceKey>(fixedIntervalPrice.priceFeedId, fixedIntervalPrice)) {
+        return Res::Err("failed to set new price feed <%s/%s>", fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second);
     }
 
     return Res::Ok();
 }
 
-Res COracleView::UpdatePriceFeed(const PriceFeedPair& PriceFeedId, const CPriceFeed& PriceFeed){
-
-    CPriceFeed priceFeed{};
-    if (!ReadBy<PriceFeedKey>(PriceFeedId, priceFeed)) {
-        return Res::Err("price feed <%s/%s> not found", PriceFeedId.first, PriceFeedId.second);
-    }
-
-    if (!WriteBy<PriceFeedKey>(PriceFeedId, PriceFeed)) {
-        return Res::Err("failed to save price feed <%s/%s>", PriceFeedId.first, PriceFeedId.second);
-    }
-
-    return Res::Ok();
-}
-
-ResVal<CPriceFeed> COracleView::GetPriceFeedData(const PriceFeedPair& priceFeedId)
+ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CFixedIntervalPriceId& fixedIntervalPriceId, const bool& create)
 {
-    CPriceFeed priceFeed;
-    if (!ReadBy<PriceFeedKey>(priceFeedId, priceFeed)) {
-        return Res::Err("pricefeed <%s/%s> not found", priceFeedId.first, priceFeedId.second);
+    CFixedIntervalPrice fixedIntervalPrice;
+    if (!ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceId, fixedIntervalPrice)) {
+        if(!create)
+            return Res::Err("fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceId.first, fixedIntervalPriceId.second);
+
+        fixedIntervalPrice.priceFeedId = fixedIntervalPriceId;
+        SetFixedIntervalPrice(fixedIntervalPrice);
     }
 
-    return ResVal<CPriceFeed>(priceFeed, Res::Ok());
+    return ResVal<CFixedIntervalPrice>(fixedIntervalPrice, Res::Ok());
 
+}
+
+void COracleView::ForEachFixedIntervalPrice(std::function<bool(const CFixedIntervalPriceId&, CLazySerialize<CFixedIntervalPrice>)> callback, const CFixedIntervalPriceId& start)
+{
+    ForEach<FixedIntervalPriceKey, CFixedIntervalPriceId, CFixedIntervalPrice>(callback, start);
 }

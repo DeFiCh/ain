@@ -49,7 +49,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
             self.nodes[0].setcollateraltoken({
                             'token': "DOGE",
                             'factor': 1,
-                            'priceFeedId': "DFI/USD"})
+                            'fixedIntervalPriceId': "DFI/USD"})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Token DOGE does not exist" in errorString)
@@ -58,7 +58,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
             self.nodes[0].setcollateraltoken({
                             'token': idDFI,
                             'factor': 1,
-                            'priceFeedId': "DFI/USD"})
+                            'fixedIntervalPriceId': "DFI/USD"})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Price feed DFI/USD does not belong to any oracle" in errorString)
@@ -72,7 +72,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
             self.nodes[0].setcollateraltoken({
                             'token': idDFI,
                             'factor': 2,
-                            'priceFeedId': "DFI/USD"})
+                            'fixedIntervalPriceId': "DFI/USD"})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("setCollateralToken factor must be lower or equal than 1" in errorString)
@@ -81,7 +81,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
             self.nodes[0].setcollateraltoken({
                             'token': idDFI,
                             'factor': -1,
-                            'priceFeedId': "DFI/USD"})
+                            'fixedIntervalPriceId': "DFI/USD"})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Amount out of range" in errorString)
@@ -90,7 +90,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
             self.nodes[0].setcollateraltoken({
                             'token': idDFI,
                             'factor': 1,
-                            'priceFeedId': "Blabla"})
+                            'fixedIntervalPriceId': "Blabla"})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("price feed not in valid format - token/currency" in errorString)
@@ -98,12 +98,12 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         collTokenTx1 = self.nodes[0].setcollateraltoken({
                                     'token': idDFI,
                                     'factor': 0.5,
-                                    'priceFeedId': "DFI/USD"})
+                                    'fixedIntervalPriceId': "DFI/USD"})
 
         collTokenTx3 = self.nodes[0].setcollateraltoken({
                                     'token': idDFI,
                                     'factor': 1,
-                                    'priceFeedId': "DFI/USD",
+                                    'fixedIntervalPriceId': "DFI/USD",
                                     'activateAfterBlock': 135})
 
         self.nodes[0].generate(1)
@@ -114,12 +114,12 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         assert_equal(len(collTokens), 2)
         assert_equal(collTokens[collTokenTx1]["token"], symbolDFI)
         assert_equal(collTokens[collTokenTx1]["factor"], Decimal('0.5'))
-        assert_equal(collTokens[collTokenTx1]["priceFeedId"], "DFI/USD")
+        assert_equal(collTokens[collTokenTx1]["fixedIntervalPriceId"], "DFI/USD")
 
         collTokenTx2 = self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
                                     'factor': 0.9,
-                                    'priceFeedId': "BTC/USD"})
+                                    'fixedIntervalPriceId': "BTC/USD"})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -129,7 +129,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         assert_equal(len(collTokens), 3)
         assert_equal(collTokens[collTokenTx2]["token"], symbolBTC)
         assert_equal(collTokens[collTokenTx2]["factor"], Decimal('0.9'))
-        assert_equal(collTokens[collTokenTx2]["priceFeedId"], "BTC/USD")
+        assert_equal(collTokens[collTokenTx2]["fixedIntervalPriceId"], "BTC/USD")
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -170,7 +170,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
                                     'factor': 0,
-                                    'priceFeedId': "BTC/USD"})
+                                    'fixedIntervalPriceId': "BTC/USD"})
 
         self.nodes[0].generate(1)
         self.sync_blocks()
