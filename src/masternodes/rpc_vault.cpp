@@ -291,6 +291,10 @@ UniValue listvaults(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     pcustomcsview->ForEachVault([&](const CVaultId& id, const CVaultData& data) {
+        if (!ownerAddress.empty() && ownerAddress != data.ownerAddress) {
+            return false;
+        }
+
         if (
             (loanSchemeId.empty() || loanSchemeId == data.schemeId)
             && (isUnderLiquidation == data.isUnderLiquidation)
