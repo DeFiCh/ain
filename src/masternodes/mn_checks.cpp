@@ -2121,7 +2121,7 @@ public:
 
         vault->schemeId = obj.schemeId;
         vault->ownerAddress = obj.ownerAddress;
-        return mnview.StoreVault(obj.vaultId, *vault);
+        return mnview.UpdateVault(obj.vaultId, *vault);
     }
 
     Res operator()(const CDepositToVaultMessage& obj) const {
