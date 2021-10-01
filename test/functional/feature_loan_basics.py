@@ -403,5 +403,19 @@ class LoanTakeLoanTest (DefiTestFramework):
                 assert_equal(interest['totalInterest'], Decimal('0.00000000'))
                 assert_equal(interest['interestPerBlock'], Decimal('0.00000000'))
 
+        self.nodes[0].withdrawfromvault(vaultId, account0, "100@" + symbolDFI)
+
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        vaultInfo = self.nodes[0].getvault(vaultId)
+        assert_equal(vaultInfo['collateralAmounts'], [])
+        assert_equal(vaultInfo['collateralValue'], Decimal('0.00000000'))
+        assert_equal(vaultInfo['loanValue'], Decimal('0.00000000'))
+
+        loans = self.nodes[0].getloaninfo()
+        assert_equal(loans['collateralValueUSD'], Decimal('1000.00000000'))
+        assert_equal(loans['loanValueUSD'], Decimal('0.00000000'))
+
 if __name__ == '__main__':
     LoanTakeLoanTest().main()
