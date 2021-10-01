@@ -705,7 +705,7 @@ UniValue listauctions(const JSONRPCRequest& request) {
             }
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
-                start = AuctionKey::FromString(paginationObj["start"].get_str());
+                start.vaultId = ParseHashV(paginationObj["start"], "start");
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -725,10 +725,10 @@ UniValue listauctions(const JSONRPCRequest& request) {
     pcustomcsview->ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
         UniValue vaultObj{UniValue::VOBJ};
         vaultObj.pushKV("vaultId", auction.vaultId.GetHex());
+        vaultObj.pushKV("liquidationHeight", int64_t(auction.height));
         vaultObj.pushKV("batchCount", int64_t(data.batchCount));
         vaultObj.pushKV("liquidationPenalty", ValueFromAmount(data.liquidationPenalty * 100));
         vaultObj.pushKV("batches", BatchToJSON(auction.vaultId, data.batchCount));
-        vaultObj.pushKV("auctionId", auction.ToString()); // auctionId used for pagination
         valueArr.push_back(vaultObj);
 
         limit--;

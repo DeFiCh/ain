@@ -129,23 +129,6 @@ struct AuctionKey {
         READWRITE(vaultId);
         READWRITE(WrapBigEndian(height));
     }
-
-    inline std::string ToString() const {
-        return vaultId.GetHex() + std::to_string(height);
-    }
-
-    static AuctionKey FromString(std::string auctionId) {
-        try {
-            return {
-                uint256S(auctionId.substr(0,64)),
-                static_cast<uint32_t>(std::stoul(auctionId.substr(64)))
-            };
-        } catch (...) {
-            throw std::runtime_error(strprintf(
-                "Wrongly formatted auctionId : %s.",
-                auctionId));
-        }
-    }
 };
 
 class CVaultView : public virtual CStorageView

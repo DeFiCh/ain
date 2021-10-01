@@ -5,14 +5,12 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test Loan."""
 
-from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal
 
 import calendar
 import time
-from decimal import Decimal
 
 class LoanTest (DefiTestFramework):
     def set_test_params(self):
@@ -88,7 +86,7 @@ class LoanTest (DefiTestFramework):
         for id in vaultsId:
             self.nodes[0].deposittovault(id, account, '100@DFI')
         self.nodes[0].generate(1)
-        
+
         # deposit BTC to vaults
         for id in vaultsId:
             self.nodes[0].deposittovault(id, account, '100@BTC')
@@ -126,10 +124,10 @@ class LoanTest (DefiTestFramework):
 
         secondAuction = auctionlist[1] # get second auction to test pagination
 
-        auctionlist = self.nodes[0].listauctions({ "start": secondAuction["auctionId"] })
+        auctionlist = self.nodes[0].listauctions({ "start": secondAuction["vaultId"] })
         assert_equal(len(auctionlist), vault_number - 2)
 
-        auctionlist = self.nodes[0].listauctions({ "start": secondAuction["auctionId"], "including_start": True })
+        auctionlist = self.nodes[0].listauctions({ "start": secondAuction["vaultId"], "including_start": True })
         assert_equal(len(auctionlist), vault_number - 1)
         assert_equal(secondAuction, auctionlist[0])
 
