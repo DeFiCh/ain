@@ -2347,7 +2347,7 @@ public:
             auto loans = mnview.GetLoanTokens(obj.vaultId);
 
             if (loans)
-                return Res::Err("Cannot withdraw all collaterals as there is still loan in this vault");
+                return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
         }
 
         res = mnview.AddBalance(obj.to, obj.amount);
