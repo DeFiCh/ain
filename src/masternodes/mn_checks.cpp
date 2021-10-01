@@ -2129,6 +2129,9 @@ public:
         if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId))
             return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
 
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot update vault when any of the asset's price is invalid");
+
         if (vault->schemeId != obj.schemeId)
             mnview.TransferVaultInterest(obj.vaultId, height, vault->schemeId, obj.schemeId);
 
@@ -2232,6 +2235,9 @@ public:
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         if (!collaterals)
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
+
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot update vault when any of the asset's price is invalid");
 
         uint64_t totalLoans = 0;
         for (const auto& kv : obj.amounts.balances)

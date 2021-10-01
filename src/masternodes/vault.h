@@ -160,6 +160,7 @@ public:
     struct VaultKey         { static constexpr uint8_t prefix() { return 0x20; } };
     struct OwnerVaultKey    { static constexpr uint8_t prefix() { return 0x25; } };
     struct CollateralKey    { static constexpr uint8_t prefix() { return 0x21; } };
+    struct LoanKey          { static constexpr uint8_t prefix() { return 0x21; } };
     struct AuctionBatchKey  { static constexpr uint8_t prefix() { return 0x22; } };
     struct AuctionHeightKey { static constexpr uint8_t prefix() { return 0x23; } };
     struct AuctionBidKey    { static constexpr uint8_t prefix() { return 0x24; } };
