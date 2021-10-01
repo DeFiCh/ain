@@ -250,6 +250,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "updatevault", 1, "parameters" },
     { "updatevault", 2, "inputs" },
     { "deposittovault", 3, "inputs" },
+    { "auctionbid", 1, "index" },
     { "auctionbid", 4, "inputs" },
     { "listvaults", 0, "options" },
     { "listvaults", 1, "pagination" },

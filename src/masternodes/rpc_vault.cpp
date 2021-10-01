@@ -12,6 +12,9 @@ namespace {
             batchObj.pushKV("index", int(i));
             batchObj.pushKV("collaterals", AmountsToJSON(batch->collaterals.balances));
             batchObj.pushKV("loan", tokenAmountString(batch->loanAmount));
+            if (auto bid = pcustomcsview->GetAuctionBid(vaultId, i)) {
+                batchObj.pushKV("highestBid", tokenAmountString(bid->second));
+            }
             batchArray.push_back(batchObj);
         }
         return batchArray;
@@ -327,7 +330,7 @@ UniValue getvault(const JSONRPCRequest& request) {
                     "\"json\"                  (string) vault data in json form\n"
                 },
                RPCExamples{
-                       HelpExampleCli("getvault",  "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf") +
+                       HelpExampleCli("getvault", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf") +
                        HelpExampleRpc("getvault", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf")
                },
     }.Check(request);
