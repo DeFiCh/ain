@@ -160,6 +160,7 @@ BASE_SCRIPTS = [
     'feature_loan_setcollateraltoken.py',
     'feature_loan_setloantoken.py',
     'feature_loan_takeloan.py',
+    'feature_loan_listauctions.py',
     'feature_any_accounts_to_accounts.py',
     'feature_sendtokenstoaddress.py',
     'feature_poolswap.py',
