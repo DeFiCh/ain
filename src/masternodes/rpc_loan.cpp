@@ -222,7 +222,6 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
                 {
                     {"by", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
-                            {"token", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Symbol or id of collateral token"},
                             {"height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Valid at specified height"},
                             {"all", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED, "Alltime setcollateraltoken transactions"},
                         },
@@ -239,7 +238,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
      }.Check(request);
 
     UniValue ret(UniValue::VOBJ);
-    DCT_ID idToken = {std::numeric_limits<uint32_t>::max()}, currentToken = {std::numeric_limits<uint32_t>::max()};
+    DCT_ID currentToken = {std::numeric_limits<uint32_t>::max()};
     uint32_t height = ::ChainActive().Height();
     bool all = false;
 
@@ -248,13 +247,6 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
         UniValue byObj = request.params[0].get_obj();
         std::string tokenSymbol;
 
-        if (!byObj["token"].isNull())
-        {
-            tokenSymbol = trim_ws(byObj["token"].getValStr());
-            auto token = pcustomcsview->GetTokenGuessId(tokenSymbol, idToken);
-            if (!token)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
-        }
         if (!byObj["height"].isNull())
             height = (size_t) byObj["height"].get_int64();
         if (!byObj["all"].isNull())
@@ -264,9 +256,6 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     CollateralTokenKey start{DCT_ID{0}, height};
-    if (idToken.v != std::numeric_limits<uint32_t>::max())
-        start.id = idToken;
-
     if (all)
     {
         pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
@@ -283,9 +272,6 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
 
     pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
     {
-        if (idToken.v != std::numeric_limits<uint32_t>::max() && key.id != idToken)
-            return false;
-
         if ((key.height > height || currentToken == key.id)) return true;
 
         currentToken = key.id;
