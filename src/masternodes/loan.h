@@ -204,7 +204,6 @@ struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
 
 struct CInterestRate
 {
-    CAmount count = 0;
     uint32_t height = 0;
     CAmount interestToHeight = 0;
     CAmount interestPerBlock = 0;
@@ -213,7 +212,6 @@ struct CInterestRate
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(count);
         READWRITE(height);
         READWRITE(interestToHeight);
         READWRITE(interestPerBlock);
@@ -288,11 +286,11 @@ public:
     void ForEachDelayedLoanScheme(std::function<bool (const std::pair<std::string, uint64_t>&, const CLoanSchemeMessage&)> callback);
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
-    boost::optional<CInterestRate> GetInterestRate(const std::string& loanSchemeID, DCT_ID id);
-    Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount part = COIN);
-    Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount part = COIN);
+    boost::optional<CInterestRate> GetInterestRate(const CVaultId& vaultId, DCT_ID id);
+    Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased);
+    Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
     void ForEachInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID = {}, DCT_ID id = {0});
-    void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CAmount)> callback, const CVaultId& start = {});
+    void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& start = {});
     void TransferVaultInterest(const CVaultId& vaultId, uint32_t height, const std::string& oldScheme, const std::string& newScheme);
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
@@ -311,7 +309,6 @@ public:
     struct DefaultLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x15; } };
     struct DelayedLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x16; } };
     struct DestroyLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x17; } };
-    struct LoanInterestedRate               { static constexpr uint8_t prefix() { return 0x18; } };
     struct LoanTokenAmount                  { static constexpr uint8_t prefix() { return 0x19; } };
     struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
     struct LoanTakeLoanCreationTx           { static constexpr uint8_t prefix() { return 0x1B; } };

@@ -2394,8 +2394,7 @@ public:
             res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{kv.first, kv.second});
             if (!res)
                 return res;
-
-            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId);
+            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, kv.second);
             if (!res)
                 return res;
 
@@ -2416,7 +2415,7 @@ public:
             if (!res)
                 return res;
 
-            const auto& address = !takeLoan.to.empty() ? takeLoan.to
+            const auto& address = !obj.to.empty() ? obj.to
                                                        : vault->ownerAddress;
             CalculateOwnerRewards(address);
             res = mnview.AddBalance(address, CTokenAmount{kv.first, kv.second});
@@ -2466,32 +2465,26 @@ public:
             if (it == loanAmounts->balances.end())
                 return Res::Err("There is no loan on token (%s) in this vault!",loanToken->symbol);
 
-            auto rate  = mnview.GetInterestRate(vault->schemeId, tokenId);
+            auto rate  = mnview.GetInterestRate(obj.vaultId, tokenId);
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-            auto totalInterest = TotalInterest(*rate, height);
-            auto totalInterestAmount = MultiplyAmounts(it->second, totalInterest);
-            auto totalLoanAmount = it->second + totalInterestAmount;
-            CAmount subLoan = 0, subInterest = 0;
+            auto subInterest = TotalInterest(*rate, height);
+            auto subLoan = kv.second - subInterest;
 
-            if (kv.second >= totalLoanAmount)
+            if (kv.second < subInterest)
             {
+                subInterest = kv.second;
+                subLoan = 0;
+            }
+            else if (it->second - subLoan < 0)
                 subLoan = it->second;
-                subInterest = totalInterestAmount;
-            }
-            else
-            {
-                subInterest = MultiplyAmounts(kv.second, totalInterest);
-                subLoan = kv.second - subInterest;
-            }
 
             res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
 
-            auto partAmount = DivideAmounts(subLoan, it->second);
-            res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, partAmount);
+            res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, subLoan, subInterest);
             if (!res)
                 return res;
 

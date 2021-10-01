@@ -1211,9 +1211,9 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    uint32_t height = ::ChainActive().Height();
+    uint32_t height = ::ChainActive().Height() + 1;
     CAmount totalCollateral = 0, totalLoan = 0;
-    auto lastBlockTime = ::ChainActive()[height]->GetBlockTime();
+    auto lastBlockTime = ::ChainActive()[::ChainActive().Height()]->GetBlockTime();
 
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
         auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, collaterals, height, lastBlockTime);
@@ -1267,19 +1267,16 @@ UniValue getinterest(const JSONRPCRequest& request) {
     if (!tokenStr.empty() && !pcustomcsview->GetTokenGuessId(tokenStr, id))
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
 
-    const auto mask = id.v;
-    if (id.v == ~0u)
-        id.v = 0;
-
     UniValue ret(UniValue::VARR);
-    uint32_t height = ::ChainActive().Height();
+    uint32_t height = ::ChainActive().Height() + 1;
 
-    pcustomcsview->ForEachInterest([&](const std::string& schemeId, DCT_ID tokenId, CInterestRate rate) {
-        if (schemeId != loanSchemeId)
-            return false;
-
-        if ((tokenId.v & mask) != tokenId.v)
-            return false;
+    pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate)
+    {
+        auto vault = pcustomcsview->GetVault(vaultId);
+        if (!vault || vault->schemeId != loanSchemeId)
+            return true;
+        if ((id != DCT_ID{~0U}) && tokenId != id)
+            return true;
 
         auto token = pcustomcsview->GetToken(tokenId);
         if (!token)
@@ -1289,10 +1286,11 @@ UniValue getinterest(const JSONRPCRequest& request) {
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
         obj.pushKV("totalInterest", ValueFromAmount(TotalInterest(rate, height)));
         obj.pushKV("interestPerBlock", ValueFromAmount(rate.interestPerBlock));
+
         ret.push_back(obj);
 
         return true;
-    }, loanSchemeId, id);
+    });
 
     return ret;
 }
