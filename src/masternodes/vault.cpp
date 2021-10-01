@@ -5,6 +5,7 @@
 Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultData& vault)
 {
     WriteBy<VaultKey>(vaultId, vault);
+    WriteBy<OwnerVaultKey>(std::make_pair(vault.ownerAddress, vaultId), '\0');
     return Res::Ok();
 }
 
@@ -20,16 +21,23 @@ Res CVaultView::UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVau
         return Res::Err("Vault <%s> not found", vaultId.GetHex());
     }
 
+    EraseBy<OwnerVaultKey>(std::make_pair(vault->ownerAddress, vaultId));
+
     vault->ownerAddress = newVault.ownerAddress;
     vault->schemeId = newVault.schemeId;
 
-    WriteBy<VaultKey>(vaultId, *vault);
-    return Res::Ok();
+    return StoreVault(vaultId, *vault);
 }
 
-void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback)
+void CVaultView::ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start, const CScript& ownerAddress)
 {
-    ForEach<VaultKey, CVaultId, CVaultData>(callback);
+    if (ownerAddress.empty()) {
+        ForEach<VaultKey, CVaultId, CVaultData>(callback, start);
+    } else {
+        ForEach<OwnerVaultKey, std::pair<CScript, CVaultId>, char>([&](const std::pair<CScript, CVaultId>& key, const char) {
+            return callback(key.second, *GetVault(key.second));
+        }, std::make_pair(ownerAddress, start));
+    }
 }
 
 Res CVaultView::AddVaultCollateral(const CVaultId& vaultId, CTokenAmount amount)

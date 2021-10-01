@@ -48,26 +48,35 @@ class VaultTest (DefiTestFramework):
             errorString = e.error['message']
         assert('Cannot find existing loan scheme with id FAKELOAN' in errorString)
 
-        # create 2 vaults
-        vaultId1 = self.nodes[0].createvault('') # default loan scheme
+        # create 4 vaults
+        ownerAddress1 = self.nodes[0].getnewaddress('', 'legacy')
+        vaultId1 = self.nodes[0].createvault(ownerAddress1) # default loan scheme
 
-        owneraddress2 = self.nodes[0].getnewaddress('', 'legacy')
-        vaultId2 = self.nodes[0].createvault(owneraddress2, 'LOAN0003')
+        ownerAddress2 = self.nodes[0].getnewaddress('', 'legacy')
+        vaultId2 = self.nodes[0].createvault(ownerAddress2, 'LOAN0001')
+        self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
+        self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
         self.nodes[0].generate(1)
 
         # check listvaults
         listVaults = self.nodes[0].listvaults()
-        assert(listVaults[vaultId1])
-        assert(listVaults[vaultId2])
-        owneraddress1 = listVaults[vaultId1]['ownerAddress']
+        assert(len(listVaults) == 4)
 
-        # assert default loanscheme was assigned correctly
-        assert_equal(listVaults[vaultId1]['loanSchemeId'], 'LOAN0001')
-        assert_equal(listVaults[vaultId1]['ownerAddress'], owneraddress1)
+        # check listVaults filter by ownerAddres
+        listVaults = self.nodes[0].listvaults({ "ownerAddress": ownerAddress2 })
+        assert(len(listVaults) == 3)
+        for vault in listVaults:
+            assert(vault["ownerAddress"] == ownerAddress2)
 
-        # assert non-default loanscheme was assigned correctly
-        assert_equal(listVaults[vaultId2]['loanSchemeId'], 'LOAN0003')
-        assert_equal(listVaults[vaultId2]['ownerAddress'], owneraddress2)
+        # check listVaults filter by loanSchemeId
+        listVaults = self.nodes[0].listvaults({ "loanSchemeId": "LOAN0003" })
+        assert(len(listVaults) == 2)
+        for vault in listVaults:
+            assert(vault["loanSchemeId"] == "LOAN0003")
+
+        # check listVaults pagination
+        listVaults = self.nodes[0].listvaults({}, {"limit": 1})
+        assert(len(listVaults) == 1)
 
         # check getvault
 
@@ -81,7 +90,7 @@ class VaultTest (DefiTestFramework):
         # success
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1["loanSchemeId"], 'LOAN0001')
-        assert_equal(vault1["ownerAddress"], owneraddress1)
+        assert_equal(vault1["ownerAddress"], ownerAddress1)
 
         # updateVault
 
