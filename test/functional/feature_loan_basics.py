@@ -358,7 +358,8 @@ class LoanTakeLoanTest (DefiTestFramework):
             self.nodes[0].withdrawfromvault(vaultId, account0, "200@" + symbolDFI)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot withdraw all collaterals as there is still loan in this vault" in errorString)
+            print(errorString)
+        assert("Cannot withdraw all collaterals as there are still active loans in this vault" in errorString)
 
         try:
             self.nodes[0].withdrawfromvault(vaultId, account0, "199@" + symbolDFI)
@@ -392,7 +393,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(vaultInfo['loanAmount'].sort(), ['0.00000000@' + symbolTSLA, '0.00000000@' + symbolGOOGL].sort())
         assert_equal(self.nodes[0].listaccounthistory(account0)[0]['amounts'].sort(), ['-1.00000000@GOOGL', '-0.50000000@TSLA'].sort())
-        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00443691'))
+        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00443692'))
 
         for interest in self.nodes[0].getinterest('LOAN150'):
             if interest['token'] == symbolTSLA:
