@@ -535,8 +535,8 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
     RPCHelpMan{"isappliedcustomtx",
                "\nChecks that custom transaction was affected on chain\n",
                {
-                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A transaction hash"},
-                    {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The height of block which contain tx"}
+                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A transaction hash"},
+                    {"blockHeight", RPCArg::Type::NUM, RPCArg::Optional::NO, "The height of block which contain tx"}
                },
                RPCResult{
                        "(bool) The boolean indicate that custom transaction was affected on chain\n"

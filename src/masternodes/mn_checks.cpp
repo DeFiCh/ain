@@ -1904,9 +1904,13 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
     std::vector<unsigned char> metadata;
-    auto txType = GuessCustomTxType(tx, metadata);
+    const auto metadataValidation = height >= consensus.FortCanningHeight;
+    auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
     if (txType == CustomTxType::None) {
         return res;
+    }
+    if (metadataValidation && txType == CustomTxType::Reject) {
+        return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), historyView, burnView);
