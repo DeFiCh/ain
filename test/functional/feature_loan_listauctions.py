@@ -108,8 +108,6 @@ class LoanTest (DefiTestFramework):
                     'amounts': "10@TSLA"})
         self.nodes[0].generate(1)
 
-        vaults = self.nodes[0].listvaults()
-
         # Trigger liquidation updating price in oracle
         oracle1_prices = [{"currency": "USD", "tokenAmount": "1000@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
