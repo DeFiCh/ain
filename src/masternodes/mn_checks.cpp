@@ -1845,9 +1845,15 @@ public:
 
         CFixedIntervalPrice fixedIntervalPrice;
         fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
-        fixedIntervalPrice.priceRecord[1] = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
+        auto price = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
+        if(!price)
+            return Res::Err(price.msg);
+
+        fixedIntervalPrice.priceRecord[1] = price;
         fixedIntervalPrice.timestamp = time;
-        mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+        auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+        if(!resSetFixedPrice)
+            return Res::Err(resSetFixedPrice.msg);
 
         return mnview.LoanCreateSetCollateralToken(collToken);
     }
@@ -1865,9 +1871,14 @@ public:
 
         CFixedIntervalPrice fixedIntervalPrice;
         fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
-        fixedIntervalPrice.priceRecord[1] = GetAggregatePrice(mnview, loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second, time);
+        auto nextPrice = GetAggregatePrice(mnview, loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second, time);
+        if(!nextPrice)
+            return Res::Err(nextPrice.msg);
+        fixedIntervalPrice.priceRecord[1] = nextPrice;
         fixedIntervalPrice.timestamp = time;
-        mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+        auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+        if(!resSetFixedPrice)
+            return Res::Err(resSetFixedPrice.msg);
 
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");

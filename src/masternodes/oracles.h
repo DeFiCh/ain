@@ -105,7 +105,7 @@ public:
     CFixedIntervalPriceId priceFeedId;
     int64_t timestamp;
     std::vector<CAmount> priceRecord{0, 0}; // priceHistory[0] = active price, priceHistory[1] = next price
-    bool valid{false};
+    bool isValid(const double deviationThreshold = 0.3) const; // 0-1 value for deviation threshold
 
     ADD_SERIALIZE_METHODS;
 
@@ -114,7 +114,6 @@ public:
         READWRITE(priceFeedId);
         READWRITE(timestamp);
         READWRITE(priceRecord);
-        READWRITE(valid);
     }
 };
 

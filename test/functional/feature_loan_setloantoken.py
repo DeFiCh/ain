@@ -11,6 +11,8 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal
 
 from decimal import Decimal
+import calendar
+import time
 
 class LoanSetLoanTokenTest (DefiTestFramework):
     def set_test_params(self):
@@ -48,11 +50,11 @@ class LoanSetLoanTokenTest (DefiTestFramework):
                             'interest': 1})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Price feed TSLA/USD does not belong to any oracle" in errorString)
+        assert("no live oracles for specified request" in errorString)
 
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
         price_feeds1 = [{"currency": "USD", "token": "TSLA"}]
-        self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
+        oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -77,6 +79,11 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("price feed not in valid format - token/currency" in errorString)
+
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "1@TSLA"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(1)
 
         setLoanTokenTx = self.nodes[0].setloantoken({
                             'symbol': "TSLAAAA",

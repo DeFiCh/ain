@@ -103,7 +103,7 @@ class LoanTakeLoanTest (DefiTestFramework):
                           {"currency": "USD", "tokenAmount": "10@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(60) # let fixed price update
         self.sync_blocks()
 
         # transfer

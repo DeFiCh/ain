@@ -132,6 +132,14 @@ void COracleView::ForEachOracle(std::function<bool(const COracleId&, CLazySerial
     ForEach<ByName, COracleId, COracle>(callback, start);
 }
 
+bool CFixedIntervalPrice::isValid(const double deviationThreshold) const
+{
+    return (
+        priceRecord[0] >= 0 &&
+        priceRecord[1] > 0 &&
+        (std::abs(priceRecord[1] - priceRecord[0]) < priceRecord[0] * deviationThreshold)
+    );
+}
 
 Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalPrice){
 

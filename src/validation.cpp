@@ -3109,7 +3109,6 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
             }
             fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
             fixedIntervalPrice.priceRecord[1] = aggregatePrice;
-            fixedIntervalPrice.valid = (std::abs(fixedIntervalPrice.priceRecord[1] - fixedIntervalPrice.priceRecord[0]) < fixedIntervalPrice.priceRecord[0]*0.3);
             fixedIntervalPrice.timestamp = GetSystemTimeInSeconds();
             auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
             if (!res)
