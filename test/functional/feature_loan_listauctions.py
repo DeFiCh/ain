@@ -109,7 +109,6 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         vaults = self.nodes[0].listvaults()
-        print("vaults :", vaults)
 
         # Trigger liquidation updating price in oracle
         oracle1_prices = [{"currency": "USD", "tokenAmount": "1000@TSLA"}]
@@ -119,15 +118,14 @@ class LoanTest (DefiTestFramework):
 
         # Auction tests
         auctionlist = self.nodes[0].listauctions()
-        print("auction list :", auctionlist)
         assert_equal(len(auctionlist), vault_number) # all vaults should be under liquidation
 
         secondAuction = auctionlist[1] # get second auction to test pagination
 
-        auctionlist = self.nodes[0].listauctions({ "start": secondAuction["vaultId"] })
+        auctionlist = self.nodes[0].listauctions({ "start": { "vaultId": secondAuction["vaultId"], "height": secondAuction["liquidationHeight"] }})
         assert_equal(len(auctionlist), vault_number - 2)
 
-        auctionlist = self.nodes[0].listauctions({ "start": secondAuction["vaultId"], "including_start": True })
+        auctionlist = self.nodes[0].listauctions({ "start": { "vaultId": secondAuction["vaultId"], "height": secondAuction["liquidationHeight"] }, "including_start": True })
         assert_equal(len(auctionlist), vault_number - 1)
         assert_equal(secondAuction, auctionlist[0])
 

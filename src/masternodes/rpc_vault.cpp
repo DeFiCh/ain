@@ -668,9 +668,17 @@ UniValue listauctions(const JSONRPCRequest& request) {
                        "pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
                             {
-                                "start", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
-                                "Optional first key to iterate from, in lexicographical order. "
-                                "Typically it's set to last ID from previous request."
+                                "start", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {
+                                        "vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                                        "Vault id"
+                                    },
+                                    {
+                                        "height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                        "Height to iterate from"
+                                    }
+                                }
                             },
                             {
                                 "including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
@@ -690,9 +698,9 @@ UniValue listauctions(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("listauctions",  "") +
-                       HelpExampleCli("listauctions", "{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", ""\"including_start\": true, ""\"limit\":100}'") +
+                       HelpExampleCli("listauctions", "'{\"start\": {\"vaultId\":\"eeea650e5de30b77d17e3907204d200dfa4996e5c4d48b000ae8e70078fe7542\", \"height\": 1000}, \"including_start\": true, ""\"limit\":100}'") +
                        HelpExampleRpc("listauctions",  "") +
-                       HelpExampleRpc("listauctions", "{\"start\":\"3ef9fd5bd1d0ce94751e6286710051361e8ef8fac43cca9cb22397bf0d17e013\", ""\"including_start\": true, ""\"limit\":100}'")
+                       HelpExampleRpc("listauctions", "'{\"start\": {\"vaultId\":\"eeea650e5de30b77d17e3907204d200dfa4996e5c4d48b000ae8e70078fe7542\", \"height\": 1000}, \"including_start\": true, ""\"limit\":100}'")
                },
     }.Check(request);
 
@@ -707,8 +715,14 @@ UniValue listauctions(const JSONRPCRequest& request) {
                 limit = (size_t) paginationObj["limit"].get_int64();
             }
             if (!paginationObj["start"].isNull()) {
+                UniValue startObj = paginationObj["start"].get_obj();
                 including_start = false;
-                start.vaultId = ParseHashV(paginationObj["start"], "start");
+                if (!startObj["vaultId"].isNull()) {
+                    start.vaultId = ParseHashV(startObj["vaultId"], "vaultId");
+                }
+                if (!startObj["height"].isNull()) {
+                    start.height = startObj["height"].get_int64();
+                }
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
