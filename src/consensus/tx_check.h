@@ -27,8 +27,8 @@ bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fChe
 bool ParseScriptByMarker(CScript const & script,
                          const std::vector<unsigned char> & marker,
                          std::vector<unsigned char> & metadata,
-                         bool& metaOpcodeCheck);
-bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metaOpcodeCheck = false);
-bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metaOpcodeCheck = false);
+                         bool& hasAdditionalOpcodes);
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool hasAdditionalOpcodes = false);
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool hasAdditionalOpcodes = false);
 
 #endif // DEFI_CONSENSUS_TX_CHECK_H

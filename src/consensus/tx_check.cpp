@@ -67,7 +67,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 bool ParseScriptByMarker(CScript const & script,
                          const std::vector<unsigned char> & marker,
                          std::vector<unsigned char> & metadata,
-                         bool& metaOpcodeCheck)
+                         bool& hasAdditionalOpcodes)
 {
     opcodetype opcode;
     auto pc = script.begin();
@@ -82,9 +82,9 @@ bool ParseScriptByMarker(CScript const & script,
     }
 
     // Check that no more opcodes are found in the script
-    if (metaOpcodeCheck) {
+    if (hasAdditionalOpcodes) {
         if (script.GetOp(pc, opcode)) {
-            metaOpcodeCheck = false;
+            hasAdditionalOpcodes = false;
             return false;
         }
     }
@@ -93,18 +93,18 @@ bool ParseScriptByMarker(CScript const & script,
     return true;
 }
 
-bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metaOpcodeCheck)
+bool IsAnchorRewardTx(CTransaction const & tx, std::vector<unsigned char> & metadata, bool hasAdditionalOpcodes)
 {
     if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
         return false;
     }
-    return ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarker, metadata, metaOpcodeCheck);
+    return ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarker, metadata, hasAdditionalOpcodes);
 }
 
-bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metaOpcodeCheck)
+bool IsAnchorRewardTxPlus(CTransaction const & tx, std::vector<unsigned char> & metadata, bool hasAdditionalOpcodes)
 {
     if (!tx.IsCoinBase() || tx.vout.size() != 2 || tx.vout[0].nValue != 0) {
         return false;
     }
-    return ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarkerPlus, metadata, metaOpcodeCheck);
+    return ParseScriptByMarker(tx.vout[0].scriptPubKey, DfAnchorFinalizeTxMarkerPlus, metadata, hasAdditionalOpcodes);
 }
