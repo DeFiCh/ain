@@ -1080,8 +1080,17 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             reverter = MakeUnique<CScopeAccountReverter>(view, key.owner, valueLazy.get().diff);
         }
 
+        bool accountRecord = true;
+        auto workingHeight = key.blockHeight;
+
         if (shouldSkipBlock(key.blockHeight)) {
-            return true;
+            // show rewards in interval [startBlock, lastHeight)
+            if (!noRewards && startBlock > workingHeight) {
+                accountRecord = false;
+                workingHeight = startBlock;
+            } else {
+                return true;
+            }
         }
 
         if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
@@ -1110,8 +1119,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             lastHeight = maxBlockHeight;
         }
 
-        if (tokenFilter.empty() || hasToken(value.diff)) {
-            auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+        if (accountRecord && (tokenFilter.empty() || hasToken(value.diff))) {
+            auto& array = ret.emplace(workingHeight, UniValue::VARR).first->second;
             array.push_back(accounthistoryToJSON(key, value));
             if (shouldSearchInWallet) {
                 txs.insert(value.txid);
@@ -1119,8 +1128,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             --count;
         }
 
-        if (!noRewards && count) {
-            onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
+        if (!noRewards && count && lastHeight > workingHeight) {
+            onPoolRewards(view, key.owner, workingHeight, lastHeight,
                 [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
                         auto& array = ret.emplace(height, UniValue::VARR).first->second;
@@ -1131,7 +1140,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             );
         }
 
-        lastHeight = key.blockHeight;
+        lastHeight = workingHeight;
 
         return count != 0 || isMine;
     };
