@@ -297,10 +297,10 @@ inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsig
     if (tx.vout.empty()) {
         return CustomTxType::None;
     }
-    const auto metaCheckState = metadataValidation;
-    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, metadataValidation)) {
-        // If meta length check bool changes state reject TX
-        if (metadataValidation != metaCheckState) {
+    bool hasAdditionalOpcodes{false};
+    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes)) {
+        // If metadata contains additional opcodes mark as Reject.
+        if (metadataValidation && hasAdditionalOpcodes) {
             return CustomTxType::Reject;
         }
         return CustomTxType::None;
