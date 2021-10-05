@@ -12,6 +12,9 @@ namespace {
             batchObj.pushKV("index", int(i));
             batchObj.pushKV("collaterals", AmountsToJSON(batch->collaterals.balances));
             batchObj.pushKV("loan", tokenAmountString(batch->loanAmount));
+            if (auto bid = pcustomcsview->GetAuctionBid(vaultId, i)) {
+                batchObj.pushKV("highestBid", tokenAmountString(bid->second));
+            }
             batchArray.push_back(batchObj);
         }
         return batchArray;
@@ -327,7 +330,7 @@ UniValue getvault(const JSONRPCRequest& request) {
                     "\"json\"                  (string) vault data in json form\n"
                 },
                RPCExamples{
-                       HelpExampleCli("getvault",  "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf") +
+                       HelpExampleCli("getvault", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf") +
                        HelpExampleRpc("getvault", "5474b2e9bfa96446e5ef3c9594634e1aa22d3a0722cb79084d61253acbdf87bf")
                },
     }.Check(request);
@@ -660,7 +663,34 @@ UniValue listauctions(const JSONRPCRequest& request) {
 
     RPCHelpMan{"listauctions",
                "List all available auctions\n",
-               {},
+               {
+                   {
+                       "pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {
+                                "start", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {
+                                        "vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                                        "Vault id"
+                                    },
+                                    {
+                                        "height", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                        "Height to iterate from"
+                                    }
+                                }
+                            },
+                            {
+                                "including_start", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
+                                "If true, then iterate including starting position. False by default"
+                            },
+                            {
+                                "limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Maximum number of orders to return, 100 by default"
+                            },
+                        },
+                    },
+               },
                RPCResult{
                     "[                         (json array of objects)\n"
                         "{...}                 (object) Json object with auction information\n"
@@ -668,9 +698,43 @@ UniValue listauctions(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("listauctions",  "") +
-                       HelpExampleRpc("listauctions", "")
+                       HelpExampleCli("listauctions", "'{\"start\": {\"vaultId\":\"eeea650e5de30b77d17e3907204d200dfa4996e5c4d48b000ae8e70078fe7542\", \"height\": 1000}, \"including_start\": true, ""\"limit\":100}'") +
+                       HelpExampleRpc("listauctions",  "") +
+                       HelpExampleRpc("listauctions", "'{\"start\": {\"vaultId\":\"eeea650e5de30b77d17e3907204d200dfa4996e5c4d48b000ae8e70078fe7542\", \"height\": 1000}, \"including_start\": true, ""\"limit\":100}'")
                },
     }.Check(request);
+
+    // parse pagination
+    size_t limit = 100;
+    AuctionKey start = {};
+    bool including_start = true;
+    {
+        if (request.params.size() > 0) {
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                UniValue startObj = paginationObj["start"].get_obj();
+                including_start = false;
+                if (!startObj["vaultId"].isNull()) {
+                    start.vaultId = ParseHashV(startObj["vaultId"], "vaultId");
+                }
+                if (!startObj["height"].isNull()) {
+                    start.height = startObj["height"].get_int64();
+                }
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+            if (!including_start) {
+                start.vaultId = ArithToUint256(UintToArith256(start.vaultId) + arith_uint256{1});
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
 
     UniValue valueArr{UniValue::VARR};
 
@@ -678,12 +742,15 @@ UniValue listauctions(const JSONRPCRequest& request) {
     pcustomcsview->ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
         UniValue vaultObj{UniValue::VOBJ};
         vaultObj.pushKV("vaultId", auction.vaultId.GetHex());
+        vaultObj.pushKV("liquidationHeight", int64_t(auction.height));
         vaultObj.pushKV("batchCount", int64_t(data.batchCount));
         vaultObj.pushKV("liquidationPenalty", ValueFromAmount(data.liquidationPenalty * 100));
         vaultObj.pushKV("batches", BatchToJSON(auction.vaultId, data.batchCount));
         valueArr.push_back(vaultObj);
-        return true;
-    });
+
+        limit--;
+        return limit != 0;
+    }, start);
 
     return valueArr;
 }
@@ -693,12 +760,12 @@ static const CRPCCommand commands[] =
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
     {"vault",        "createvault",               &createvault,           {"ownerAddress", "schemeId", "inputs"}},
-    {"vault",        "listvaults",                &listvaults,            { "options", "pagination" } },
+    {"vault",        "listvaults",                &listvaults,            {"options", "pagination"}},
     {"vault",        "getvault",                  &getvault,              {"id"}},
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
     {"vault",        "auctionbid",                &auctionbid,            {"id", "index", "from", "amount", "inputs"}},
-    {"vault",        "listauctions",              &listauctions,          {}},
+    {"vault",        "listauctions",              &listauctions,          {"pagination"}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {
