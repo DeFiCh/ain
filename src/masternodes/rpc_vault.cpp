@@ -82,7 +82,7 @@ UniValue createvault(const JSONRPCRequest& request) {
                 "Creates a vault transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
-                    {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address or \"\" to generate a new address"},
+                    {"ownerAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address"},
                     {"loanSchemeId", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
                         "Unique identifier of the loan scheme (8 chars max). If empty, the default loan scheme will be selected (Optional)"
                     },
@@ -117,32 +117,10 @@ UniValue createvault(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
-    CVaultMessage vault;
-    std::string ownerAddress{};
-    if(request.params.size() > 0){
-        ownerAddress = request.params[0].getValStr();
-        if(ownerAddress.empty()){
-            // generate new address
-            LOCK(pwallet->cs_wallet);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, false);
 
-            if (!pwallet->CanGetAddresses()) {
-                throw JSONRPCError(RPC_WALLET_ERROR, "Error: This wallet has no available keys");
-            }
-            CTxDestination dest;
-            std::string error;
-            if (!pwallet->GetNewDestination(OutputType::LEGACY, "*", dest, error)) {
-                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
-            }
-            ownerAddress = EncodeDestination(dest);
-        } else {
-            // check address validity
-            CTxDestination ownerDest = DecodeDestination(ownerAddress);
-            if (!IsValidDestination(ownerDest)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid owner address");
-            }
-        }
-    }
-    vault.ownerAddress = DecodeScript(ownerAddress);
+    CVaultMessage vault;
+    vault.ownerAddress = DecodeScript(request.params[0].getValStr());
 
     if (request.params.size() > 1) {
         if (!request.params[1].isNull()) {
@@ -167,7 +145,101 @@ UniValue createvault(const JSONRPCRequest& request) {
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths{vault.ownerAddress};
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
+
+    rawTx.vout.emplace_back(Params().GetConsensus().vaultCreationFee, scriptMeta);
+
+    CCoinControl coinControl;
+
+    // Set change to foundation address
+    if (auths.size() == 1) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue closevault(const JSONRPCRequest& request) {
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    RPCHelpMan{"closevault",
+                "Close vault transaction.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
+                {
+                    {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vaul to be close"},
+                    {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address to receive collaterals (if any) and half fee back"},
+                    {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
+                        "A json array of json objects",
+                            {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                     {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
+                   "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("closevault", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF") +
+                    HelpExampleRpc("closevault", "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF")
+                },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot closevault while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, false);
+
+    int targetHeight;
+    CScript ownerAddress;
+    CCloseVaultMessage msg;
+    msg.vaultId = ParseHashV(request.params[0], "vaultId");
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+        // decode vaultId
+        auto vault = pcustomcsview->GetVault(msg.vaultId);
+        if (!vault)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", msg.vaultId.GetHex()));
+
+        if (vault->isUnderLiquidation)
+            throw JSONRPCError(RPC_TRANSACTION_REJECTED, "Vault is under liquidation.");
+
+        ownerAddress = vault->ownerAddress;
+    }
+
+    msg.to = DecodeScript(request.params[1].getValStr());
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::CloseVault)
+             << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{ownerAddress};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2]);
 
     rawTx.vout.emplace_back(0, scriptMeta);
@@ -760,6 +832,7 @@ static const CRPCCommand commands[] =
 //  category        name                         actor (function)        params
 //  --------------- ----------------------       ---------------------   ----------
     {"vault",        "createvault",               &createvault,           {"ownerAddress", "schemeId", "inputs"}},
+    {"vault",        "closevault",                &closevault,            {"id", "returnAddress", "inputs"}},
     {"vault",        "listvaults",                &listvaults,            {"options", "pagination"}},
     {"vault",        "getvault",                  &getvault,              {"id"}},
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},

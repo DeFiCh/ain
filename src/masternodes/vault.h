@@ -39,6 +39,20 @@ struct CVaultData : public CVaultMessage {
     }
 };
 
+struct CCloseVaultMessage {
+    CVaultId vaultId;
+    CScript to;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(vaultId);
+        READWRITE(to);
+    }
+};
+
 struct CUpdateVaultMessage {
     CVaultId vaultId;
     CScript ownerAddress;
@@ -135,6 +149,7 @@ class CVaultView : public virtual CStorageView
 {
 public:
     Res StoreVault(const CVaultId&, const CVaultData&);
+    Res EraseVault(const CVaultId&);
     boost::optional<CVaultData> GetVault(const CVaultId&) const;
     Res UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault);
     void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start = {}, const CScript& ownerAddress = {});
