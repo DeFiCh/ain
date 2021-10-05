@@ -311,12 +311,14 @@ inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsig
 
     bool hasAdditionalOpcodes{false};
     if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes)) {
-        // If metadata contains additional opcodes mark as Reject.
-        if (metadataValidation && hasAdditionalOpcodes) {
-            return CustomTxType::Reject;
-        }
         return CustomTxType::None;
     }
+
+    // If metadata contains additional opcodes mark as Reject.
+    if (metadataValidation && hasAdditionalOpcodes) {
+        return CustomTxType::Reject;
+    }
+
     auto txType = CustomTxCodeToType(metadata[0]);
     metadata.erase(metadata.begin());
     // Reject if marker has been found but no known type or None explicitly set.

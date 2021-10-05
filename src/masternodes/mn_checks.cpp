@@ -56,6 +56,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXClaimDFCHTLC:     return "ICXClaimDFCHTLC";
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
+        case CustomTxType::Reject:              return "Reject";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -131,6 +132,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ICXClaimDFCHTLC:         return CICXClaimDFCHTLCMessage{};
         case CustomTxType::ICXCloseOrder:           return CICXCloseOrderMessage{};
         case CustomTxType::ICXCloseOffer:           return CICXCloseOfferMessage{};
+        case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
