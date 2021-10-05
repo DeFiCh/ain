@@ -297,6 +297,18 @@ inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsig
     if (tx.vout.empty()) {
         return CustomTxType::None;
     }
+
+    // Check all other vouts for DfTx marker and reject if found
+    if (metadataValidation) {
+        for (size_t i{1}; i < tx.vout.size(); ++i) {
+            std::vector<unsigned char> dummydata;
+            bool dummyOpcodes{false};
+            if (ParseScriptByMarker(tx.vout[i].scriptPubKey, DfTxMarker, dummydata, dummyOpcodes)) {
+                return CustomTxType::Reject;
+            }
+        }
+    }
+
     bool hasAdditionalOpcodes{false};
     if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes)) {
         // If metadata contains additional opcodes mark as Reject.
