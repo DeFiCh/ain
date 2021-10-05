@@ -309,6 +309,7 @@ public:
     struct DefaultLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x15; } };
     struct DelayedLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x16; } };
     struct DestroyLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x17; } };
+    struct LoanInterestByScheme             { static constexpr uint8_t prefix() { return 0x18; } };
     struct LoanTokenAmount                  { static constexpr uint8_t prefix() { return 0x19; } };
     struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
     struct LoanTakeLoanCreationTx           { static constexpr uint8_t prefix() { return 0x1B; } };

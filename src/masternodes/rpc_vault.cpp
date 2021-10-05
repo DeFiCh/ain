@@ -22,6 +22,7 @@ namespace {
 
     UniValue VaultToJSON(const CVaultId& vaultId, const CVaultData& vault) {
         UniValue result{UniValue::VOBJ};
+        result.pushKV("vaultId", vaultId.GetHex());
         result.pushKV("loanSchemeId", vault.schemeId);
         result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
         result.pushKV("isUnderLiquidation", vault.isUnderLiquidation);
@@ -37,7 +38,7 @@ namespace {
             auto blockTime = ::ChainActive()[height]->GetBlockTime();
             auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
             if(!collaterals) collaterals = CBalances{};
-            auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, *collaterals, height, blockTime);
+            auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, *collaterals, height + 1, blockTime);
             CAmount totalCollateral = 0, totalLoan = 0;
             uint32_t ratio = 0;
             if (rate) {
@@ -58,7 +59,7 @@ namespace {
                 TAmounts balancesInterest{};
                 for (const auto& loan : loanTokens->balances) {
                     auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
-                    CAmount value = loan.second + TotalInterest(*rate, ::ChainActive().Height() + 1);
+                    CAmount value = loan.second + TotalInterest(*rate, height + 1);
                     balancesInterest.insert({loan.first, value});
                 }
                 loanBalances = AmountsToJSON(balancesInterest);

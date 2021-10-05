@@ -222,18 +222,23 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
         return Res::Err("No such loan token id %s", id.ToString());
     }
 
-    CInterestRate rate{};
+    CInterestRate rate{}, schemeRate;
     ReadBy<LoanInterestByVault>(std::make_pair(vaultId, id), rate);
+    ReadBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), schemeRate);
+
     if (rate.height > height) {
         return Res::Err("Cannot store height in the past");
     }
     if (rate.height) {
         rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
+        schemeRate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
     }
-    rate.height = height;
+    schemeRate.height = rate.height = height;
     rate.interestPerBlock += InterestPerBlock(loanIncreased, token->interest, scheme->rate);
+    schemeRate.interestPerBlock += InterestPerBlock(loanIncreased, token->interest, scheme->rate);
 
     WriteBy<LoanInterestByVault>(std::make_pair(vaultId, id), rate);
+    WriteBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), schemeRate);
 
     return Res::Ok();
 }
@@ -249,8 +254,10 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
         return Res::Err("No such loan token id %s", id.ToString());
     }
 
-    CInterestRate rate{};
+    CInterestRate rate{}, schemeRate{};
     ReadBy<LoanInterestByVault>(std::make_pair(vaultId, id), rate);
+    ReadBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), schemeRate);
+
     if (rate.height > height) {
         return Res::Err("Cannot store height in the past");
     }
@@ -259,10 +266,14 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     }
     rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
     rate.interestToHeight -= interestDecreased;
-    rate.height = height;
+    schemeRate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
+    schemeRate.interestToHeight -= interestDecreased;
+    schemeRate.height = rate.height = height;
     rate.interestPerBlock -= InterestPerBlock(loanDecreased, token->interest, scheme->rate);
+    schemeRate.interestPerBlock -= InterestPerBlock(loanDecreased, token->interest, scheme->rate);
 
     WriteBy<LoanInterestByVault>(std::make_pair(vaultId, id), rate);
+    WriteBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), schemeRate);
 
     return Res::Ok();
 }
