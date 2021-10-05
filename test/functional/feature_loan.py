@@ -112,15 +112,14 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         accountBal = self.nodes[0].getaccount(account)
         assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1000.00000000@TSLA'])
-
-        self.nodes[0].generate(60) # ~1 Month
+        self.nodes[0].generate(60) # ~10 hours
         vault1 = self.nodes[0].getvault(vaultId1)
         interests = self.nodes[0].getinterest(
             vault1['loanSchemeId'],
             'TSLA'
         )
-        totalLoanInterests = (1+interests[0]['totalInterest']) * 1000 # Initial loan taken
-        assert_equal(Decimal(vault1['loanAmount'][0].split("@")[0]), totalLoanInterests)
+        totalLoanAmount = (1000+interests[0]['totalInterest']) # Initial loan taken
+        assert_equal(Decimal(vault1['loanAmount'][0].split("@")[0]), totalLoanAmount)
 
         # Trigger liquidation updating price in oracle
         oracle1_prices = [{"currency": "USD", "tokenAmount": "20@TSLA"}]
