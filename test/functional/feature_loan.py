@@ -128,7 +128,7 @@ class LoanTest (DefiTestFramework):
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].setoracledata(oracle_id2, timestamp, oracle2_prices)
-        self.nodes[0].generate(60)
+        self.nodes[0].generate(36)
 
         # Auction tests
         auctionlist = self.nodes[0].listauctions()
@@ -174,26 +174,29 @@ class LoanTest (DefiTestFramework):
         assert_equal(account2Bal, ['450.00000000@TSLA'])
 
         # let auction end and check account balances
-        self.nodes[0].generate(36)
+        self.nodes[0].generate(6)
+        block = self.nodes[0].getblockcount()
         account2Bal = self.nodes[0].getaccount(account2)
         accountBal = self.nodes[0].getaccount(account)
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1['isUnderLiquidation'], True)
         assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1000.00000000@TSLA'])
         # auction winner account has now first batch collaterals
-        assert_equal(account2Bal, ['500.00000000@DFI', '500.00000000@BTC', '450.00000000@TSLA'])
+        assert_equal(account2Bal, ['400.00000000@DFI', '400.00000000@BTC', '450.00000000@TSLA'])
 
         # check that still auction due to 1 batch without bid
         auctionlist = self.nodes[0].listauctions()
-        assert_equal(len(auctionlist[0]['batches']), 1)
+        assert_equal(len(auctionlist[0]['batches']), 2)
 
-        self.nodes[0].auctionbid(vaultId1, 0, account, "700@TSLA") # above 5% and leave vault with some loan to exit liquidation state
+        self.nodes[0].auctionbid(vaultId1, 0, account, "507@TSLA") # above 5% and leave vault with some loan to exit liquidation state
+        self.nodes[0].generate(40) # let auction end
+        self.nodes[0].auctionbid(vaultId1, 0, account, "254@TSLA") # above 5% and leave vault with some loan to exit liquidation state
         self.nodes[0].generate(40) # let auction end
 
         accountBal = self.nodes[0].getaccount(account)
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1['isUnderLiquidation'], False)
-        assert_equal(accountBal, ['1500.00000000@DFI', '1500.00000000@BTC', '300.00000000@TSLA'])
+        assert_equal(accountBal, ['1600.00000000@DFI', '1600.00000000@BTC', '239.00000000@TSLA'])
 
         try:
             self.nodes[0].deposittovault(vaultId1, account, '100@DFI')

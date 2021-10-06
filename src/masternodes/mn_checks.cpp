@@ -2405,7 +2405,8 @@ public:
         if (!vault->isUnderLiquidation)
             return Res::Err("Cannot bid to vault which is not under liquidation");
 
-        auto data = mnview.GetAuction(obj.vaultId, height);
+        auto auctionHeight = height - Params().GetConsensus().blocksCollateralAuction();
+        auto data = mnview.GetAuction(obj.vaultId, auctionHeight);
         if (!data)
             return Res::Err("No auction data to vault %s", obj.vaultId.GetHex());
 

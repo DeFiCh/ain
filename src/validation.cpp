@@ -3045,51 +3045,53 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         });
     }
 
-    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), nullptr, pburnHistoryDB.get());
+    //
+    //CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), nullptr, pburnHistoryDB.get());
 
-    view.ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
-        if (int(auction.height) != pindex->nHeight) {
+    cache.ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
+        if (auction.height!= pindex->nHeight) {
             return false;
         }
         for (uint32_t i = 0; i < data.batchCount; i++) {
-            auto batch = view.GetAuctionBatch(auction.vaultId, i);
+            auto batch = cache.GetAuctionBatch(auction.vaultId, i);
             assert(batch);
-            if (auto bid = view.GetAuctionBid(auction.vaultId, i)) {
+            if (auto bid = cache.GetAuctionBid(auction.vaultId, i)) {
                 auto amountToFill = DivideAmounts(bid->second.nValue, COIN + data.liquidationPenalty);
                 auto amountToBurn = bid->second.nValue - amountToFill;
                 if (amountToBurn > 0) {
+
                     CScript tmpAddress(auction.vaultId.begin(), auction.vaultId.end());
-                    view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToBurn});
-                    auto res = SwapToDFIOverUSD(view, bid->second.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
+                    cache.AddBalance(tmpAddress, {bid->second.nTokenId, amountToBurn});
+                    auto res = SwapToDFIOverUSD(cache, bid->second.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
                     if (!res)
                         LogPrintf("SwapToDFIOverUSD failed: %s\n", res.msg);
                 }
-                view.CalculateOwnerRewards(bid->first, pindex->nHeight);
+                cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
                 for (const auto& col : batch->collaterals.balances) {
-                    view.AddBalance(bid->first, {col.first, col.second});
+                    cache.AddBalance(bid->first, {col.first, col.second});
                 }
                 // return rest loan to vault if any
                 amountToFill -= batch->loanAmount.nValue;
                 if (amountToFill > 0) {
-                    view.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amountToFill});
+                    cache.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amountToFill});
                 }
-                if (auto loanToken = view.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
-                    view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue);
+                if (auto loanToken = cache.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
+                    cache.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue);
                 }
             } else {
-                view.AddLoanToken(auction.vaultId, batch->loanAmount);
+                cache.AddLoanToken(auction.vaultId, batch->loanAmount);
                 for (const auto& col : batch->collaterals.balances) {
-                    view.AddVaultCollateral(auction.vaultId, {col.first, col.second});
+                    cache.AddVaultCollateral(auction.vaultId, {col.first, col.second});
                 }
             }
         }
 
-        auto vault = view.GetVault(auction.vaultId);
+        auto vault = cache.GetVault(auction.vaultId);
         assert(vault);
         vault->isUnderLiquidation = false;
-        view.StoreVault(auction.vaultId, *vault);
-        view.EraseAuction(auction.vaultId, pindex->nHeight);
-        view.TransferVaultInterest(auction.vaultId, pindex->nHeight, vault->schemeId, {});
+        cache.StoreVault(auction.vaultId, *vault);
+        cache.EraseAuction(auction.vaultId, pindex->nHeight);
+        cache.TransferVaultInterest(auction.vaultId, pindex->nHeight, vault->schemeId, {});
         return true;
     }, {CVaultId{}, static_cast<uint32_t>(pindex->nHeight)});
 }
