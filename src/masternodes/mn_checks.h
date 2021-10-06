@@ -52,6 +52,7 @@ enum class CustomTxType : uint8_t
     CreatePoolPair        = 'p',
     UpdatePoolPair        = 'u',
     PoolSwap              = 's',
+    PoolSwapV2            = 'i',
     AddPoolLiquidity      = 'l',
     RemovePoolLiquidity   = 'r',
     // accounts
@@ -90,6 +91,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::CreatePoolPair:
         case CustomTxType::UpdatePoolPair:
         case CustomTxType::PoolSwap:
+        case CustomTxType::PoolSwapV2:
         case CustomTxType::AddPoolLiquidity:
         case CustomTxType::RemovePoolLiquidity:
         case CustomTxType::UtxosToAccount:
@@ -260,6 +262,7 @@ typedef boost::variant<
     CCreatePoolPairMessage,
     CUpdatePoolPairMessage,
     CPoolSwapMessage,
+    CPoolSwapMessageV2,
     CLiquidityMessage,
     CRemoveLiquidityMessage,
     CUtxosToAccountMessage,

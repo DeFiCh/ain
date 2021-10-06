@@ -140,7 +140,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         # Try a swap before liquidity added
         ltc_to_doge_from = 10
         try:
-            self.nodes[0].poolswap({
+            self.nodes[0].compositeswap({
                 "from": source,
                 "tokenFrom": symbolLTC,
                 "amountFrom": ltc_to_doge_from,
@@ -168,7 +168,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         }, collateral, [])
         self.nodes[0].generate(1)
 
-        self.nodes[0].poolswap({
+        self.nodes[0].compositeswap({
             "from": source,
             "tokenFrom": symbolLTC,
             "amountFrom": ltc_to_doge_from,
@@ -193,7 +193,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
         self.nodes[0].clearmempool()
 
-        self.nodes[0].poolswap({
+        self.nodes[0].compositeswap({
             "from": source,
             "tokenFrom": symbolLTC,
             "amountFrom": ltc_to_doge_from,
@@ -218,7 +218,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         self.nodes[0].clearmempool()
 
         try:
-            self.nodes[0].poolswap({
+            self.nodes[0].compositeswap({
                 "from": source,
                 "tokenFrom": symbolLTC,
                 "amountFrom": ltc_to_doge_from,
@@ -242,7 +242,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         }, collateral, [])
         self.nodes[0].generate(1)
 
-        self.nodes[0].poolswap({
+        self.nodes[0].compositeswap({
             "from": source,
             "tokenFrom": symbolLTC,
             "amountFrom": ltc_to_doge_from,
@@ -272,7 +272,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         tsla_to_ltc_from = 1
         errorString = ""
         try:
-            self.nodes[0].poolswap({
+            self.nodes[0].compositeswap({
                 "from": source,
                 "tokenFrom": symbolTSLA,
                 "amountFrom": tsla_to_ltc_from,
@@ -296,7 +296,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         # Now swap TSLA to
         errorString = ""
         try:
-            self.nodes[0].poolswap({
+            self.nodes[0].compositeswap({
                 "from": source,
                 "tokenFrom": symbolTSLA,
                 "amountFrom": tsla_to_ltc_from,
@@ -315,7 +315,7 @@ class PoolPairCompositeTest(DefiTestFramework):
 
         # Test max price
         try:
-            self.nodes[0].poolswap({
+            self.nodes[0].compositeswap({
                 "from": source,
                 "tokenFrom": symbolTSLA,
                 "amountFrom": tsla_to_ltc_from,
@@ -327,7 +327,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             errorString = e.error['message']
         assert('"LTC-DFI":"Price is higher than indicated."' in errorString)
 
-        self.nodes[0].poolswap({
+        self.nodes[0].compositeswap({
             "from": source,
             "tokenFrom": symbolTSLA,
             "amountFrom": tsla_to_ltc_from,
@@ -371,7 +371,7 @@ class PoolPairCompositeTest(DefiTestFramework):
 
         # Test max price
         try:
-            self.nodes[0].poolswap({
+            self.nodes[0].compositeswap({
                 "from": source,
                 "tokenFrom": symbolTSLA,
                 "amountFrom": tsla_to_ltc_from,
@@ -384,7 +384,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         assert('"LTC-DFI":"Price is higher than indicated."' in errorString)
         assert('"LTC-USDC":"Price is higher than indicated."' in errorString)
 
-        self.nodes[0].poolswap({
+        self.nodes[0].compositeswap({
             "from": source,
             "tokenFrom": symbolTSLA,
             "amountFrom": tsla_to_ltc_from,
