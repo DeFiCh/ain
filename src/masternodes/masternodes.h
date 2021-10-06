@@ -366,7 +366,7 @@ class CCustomCSView
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
                                         DestroyLoanSchemeKey, LoanInterestedRate, LoanTokenAmount, LoanLiquidationPenalty,
                                         LoanTakeLoanCreationTx, LoanTakeLoanVaultKey, LoanInterestByVault, LoanPaybackLoanCreationTx,
-                                        LoanPaybackLoanVaultKey,
+                                        LoanPaybackLoanVaultKey, LoanKey,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
         >();
     }

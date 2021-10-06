@@ -175,7 +175,6 @@ class LoanTest (DefiTestFramework):
 
         # let auction end and check account balances
         self.nodes[0].generate(6)
-        block = self.nodes[0].getblockcount()
         account2Bal = self.nodes[0].getaccount(account2)
         accountBal = self.nodes[0].getaccount(account)
         vault1 = self.nodes[0].getvault(vaultId1)
@@ -190,16 +189,16 @@ class LoanTest (DefiTestFramework):
 
         self.nodes[0].auctionbid(vaultId1, 0, account, "507@TSLA") # above 5% and leave vault with some loan to exit liquidation state
         self.nodes[0].generate(40) # let auction end
-        self.nodes[0].auctionbid(vaultId1, 0, account, "254@TSLA") # above 5% and leave vault with some loan to exit liquidation state
+        self.nodes[0].auctionbid(vaultId1, 0, account, "255@TSLA") # above 5% and leave vault with some loan to exit liquidation state
         self.nodes[0].generate(40) # let auction end
 
         accountBal = self.nodes[0].getaccount(account)
         vault1 = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault1['isUnderLiquidation'], False)
-        assert_equal(accountBal, ['1600.00000000@DFI', '1600.00000000@BTC', '239.00000000@TSLA'])
 
+        assert_equal(vault1['isUnderLiquidation'], False)
+        assert_equal(accountBal, ['1600.00000000@DFI', '1600.00000000@BTC', '238.00000000@TSLA'])
         try:
-            self.nodes[0].deposittovault(vaultId1, account, '100@DFI')
+            self.nodes[0].deposittovault(vaultId1, account, '1@DFI')
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
