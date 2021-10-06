@@ -34,6 +34,8 @@ enum CustomTxErrCodes : uint32_t {
 enum class CustomTxType : uint8_t
 {
     None = 0,
+    Reject = 1, // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
+
     // masternodes:
     CreateMasternode      = 'C',
     ResignMasternode      = 'R',
@@ -107,6 +109,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::ICXClaimDFCHTLC:
         case CustomTxType::ICXCloseOrder:
         case CustomTxType::ICXCloseOffer:
+        case CustomTxType::Reject:
         case CustomTxType::None:
             return type;
     }
@@ -290,15 +293,38 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransactio
 /*
  * Checks if given tx is probably one of 'CustomTx', returns tx type and serialized metadata in 'data'
 */
-inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata){
+inline CustomTxType GuessCustomTxType(CTransaction const & tx, std::vector<unsigned char> & metadata, bool metadataValidation = false){
     if (tx.vout.empty()) {
         return CustomTxType::None;
     }
-    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata)) {
+
+    // Check all other vouts for DfTx marker and reject if found
+    if (metadataValidation) {
+        for (size_t i{1}; i < tx.vout.size(); ++i) {
+            std::vector<unsigned char> dummydata;
+            bool dummyOpcodes{false};
+            if (ParseScriptByMarker(tx.vout[i].scriptPubKey, DfTxMarker, dummydata, dummyOpcodes)) {
+                return CustomTxType::Reject;
+            }
+        }
+    }
+
+    bool hasAdditionalOpcodes{false};
+    if (!ParseScriptByMarker(tx.vout[0].scriptPubKey, DfTxMarker, metadata, hasAdditionalOpcodes)) {
         return CustomTxType::None;
     }
+
+    // If metadata contains additional opcodes mark as Reject.
+    if (metadataValidation && hasAdditionalOpcodes) {
+        return CustomTxType::Reject;
+    }
+
     auto txType = CustomTxCodeToType(metadata[0]);
     metadata.erase(metadata.begin());
+    // Reject if marker has been found but no known type or None explicitly set.
+    if (txType == CustomTxType::None) {
+        return CustomTxType::Reject;
+    }
     return txType;
 }
 
