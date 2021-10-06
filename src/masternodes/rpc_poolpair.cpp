@@ -72,7 +72,8 @@ UniValue poolShareToJSON(DCT_ID const & poolId, CScript const & provider, CAmoun
     UniValue poolObj(UniValue::VOBJ);
     poolObj.pushKV("poolID", poolId.ToString());
     poolObj.pushKV("owner", ScriptToString(provider));
-    poolObj.pushKV("%", uint64_t(amount*100/poolPair.totalLiquidity));
+    CAmount percentage = (arith_uint256(amount * 100) * arith_uint256(COIN) / arith_uint256(poolPair.totalLiquidity)).GetLow64();
+    poolObj.pushKV("%", ValueFromAmount(percentage));
 
     if (verbose) {
         poolObj.pushKV("amount", ValueFromAmount(amount));
@@ -189,9 +190,9 @@ UniValue listpoolpairs(const JSONRPCRequest& request) {
         const auto token = pcustomcsview->GetToken(id);
         if (token) {
             ret.pushKVs(poolToJSON(id, pool, *token, verbose));
+            limit--;
         }
 
-        limit--;
         return limit != 0;
     }, start);
 
@@ -816,35 +817,9 @@ UniValue poolswap(const JSONRPCRequest& request) {
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
-    // If no direct swap found search for composite swap
-    if (!pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
-
-        // Base error message
-        std::string errorMsg{"Cannot find usable pool pair."};
-
-        if (targetHeight >= Params().GetConsensus().FortCanningHeight) {
-            auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
-            poolSwapMsg.poolIDs = compositeSwap.CalculateSwaps(*pcustomcsview);
-
-            // Populate composite pool errors if any
-            if (poolSwapMsg.poolIDs.empty() && !compositeSwap.errors.empty()) {
-                errorMsg += " Details: (";
-                for (size_t i{0}; i < compositeSwap.errors.size(); ++i) {
-                    errorMsg += "\"" + compositeSwap.errors[i].first + "\":\"" +  compositeSwap.errors[i].second + "\"" + (i + 1 < compositeSwap.errors.size() ? "," : "");
-                }
-                errorMsg += ")";
-            }
-        }
-
-        // Bo composite or direct pools found
-        if (poolSwapMsg.poolIDs.empty()) {
-            throw JSONRPCError(RPC_INVALID_REQUEST, errorMsg);
-        }
-    }
-
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::PoolSwap)
-             << poolSwapMsg;
+    metadata << static_cast<unsigned char>(CustomTxType::PoolSwap);
+    metadata << poolSwapMsg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -878,6 +853,144 @@ UniValue poolswap(const JSONRPCRequest& request) {
             AddCoins(coins, *optAuthTx, targetHeight);
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolSwapMsg});
         execTestTx(CTransaction(rawTx), targetHeight, metadata, CPoolSwapMessage{}, coins);
+    }
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue compositeswap(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"compositeswap",
+               "\nCreates (and submits to local node and network) a composite swap (swap between multiple poolpairs) transaction with given metadata.\n"
+               "The second optional argument (may be empty array) is an array of specific UTXOs to spend." +
+               HelpRequiringPassphrase(pwallet) + "\n",
+               {
+                   {"metadata", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                       {
+                           {"from", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "Address of the owner of tokenA."},
+                           {"tokenFrom", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "One of the keys may be specified (id/symbol)"},
+                           {"amountFrom", RPCArg::Type::NUM, RPCArg::Optional::NO,
+                                       "tokenFrom coins amount"},
+                           {"to", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "Address of the owner of tokenB."},
+                           {"tokenTo", RPCArg::Type::STR, RPCArg::Optional::NO,
+                                       "One of the keys may be specified (id/symbol)"},
+                           {"maxPrice", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                       "Maximum acceptable price"},
+                       },
+                   },
+                   {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                       {
+                           {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                               {
+                                   {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                   {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                               },
+                           },
+                       },
+                   },
+               },
+                      RPCResult{
+                          "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+                      },
+                             RPCExamples{
+                                 HelpExampleCli("compositeswap",   "'{\"from\":\"MyAddress\","
+                                                                    "\"tokenFrom\":\"MyToken1\","
+                                                                    "\"amountFrom\":\"0.001\","
+                                                                    "\"to\":\"Address\","
+                                                                    "\"tokenTo\":\"Token2\","
+                                                                    "\"maxPrice\":\"0.01\""
+                                                                    "}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                                         + HelpExampleRpc("compositeswap", "'{\"from\":\"MyAddress\","
+                                                                            "\"tokenFrom\":\"MyToken1\","
+                                                                            "\"amountFrom\":\"0.001\","
+                                                                            "\"to\":\"Address\","
+                                                                            "\"tokenTo\":\"Token2\","
+                                                                            "\"maxPrice\":\"0.01\""
+                                                                            "}' '[{\"txid\":\"id\",\"vout\":0}]'")
+                             },
+              }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    if (targetHeight < Params().GetConsensus().FortCanningHeight) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "compositeswap is available post Fort Canning");
+    }
+
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+
+    CPoolSwapMessageV2 poolSwapMsgV2{};
+    CPoolSwapMessage& poolSwapMsg = poolSwapMsgV2.swapInfo;
+    CheckAndFillPoolSwapMessage(request, poolSwapMsg);
+
+    {
+        LOCK(cs_main);
+        // If no direct swap found search for composite swap
+        if (!pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo)) {
+
+            auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
+            poolSwapMsgV2.poolIDs = compositeSwap.CalculateSwaps(*pcustomcsview);
+
+            // No composite or direct pools found
+            if (poolSwapMsgV2.poolIDs.empty()) {
+                // Base error message
+                std::string errorMsg{"Cannot find usable pool pair."};
+                if (!compositeSwap.errors.empty()) {
+                    errorMsg += " Details: (";
+                    for (size_t i{0}; i < compositeSwap.errors.size(); ++i) {
+                        errorMsg += '"' + compositeSwap.errors[i].first + "\":\"" +  compositeSwap.errors[i].second + '"' + (i + 1 < compositeSwap.errors.size() ? "," : "");
+                    }
+                    errorMsg += ')';
+                }
+                throw JSONRPCError(RPC_INVALID_REQUEST, errorMsg);
+            }
+        }
+    }
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::PoolSwapV2);
+    metadata << poolSwapMsgV2;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    UniValue const & txInputs = request.params[1];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{poolSwapMsg.from};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to from address
+    CTxDestination dest;
+    ExtractDestination(poolSwapMsg.from, dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    // fund
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    {
+        LOCK(cs_main);
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
+        if (optAuthTx)
+            AddCoins(coins, *optAuthTx, targetHeight);
+        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, poolSwapMsgV2});
+        execTestTx(CTransaction(rawTx), targetHeight, metadata, CPoolSwapMessageV2{}, coins);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -1065,6 +1178,7 @@ static const CRPCCommand commands[] =
     {"poolpair",    "createpoolpair",        &createpoolpair,        {"metadata", "inputs"}},
     {"poolpair",    "updatepoolpair",        &updatepoolpair,        {"metadata", "inputs"}},
     {"poolpair",    "poolswap",              &poolswap,              {"metadata", "inputs"}},
+    {"poolpair",    "compositeswap",         &compositeswap,         {"metadata", "inputs"}},
     {"poolpair",    "listpoolshares",        &listpoolshares,        {"pagination", "verbose", "is_mine_only"}},
     {"poolpair",    "testpoolswap",          &testpoolswap,          {"metadata"}},
 };
