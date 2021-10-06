@@ -336,6 +336,11 @@ public:
         rpcInfo.pushKV("loanSchemeId", obj.schemeId);
     }
 
+    void operator()(const CCloseVaultMessage& obj) const {
+        rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
+        rpcInfo.pushKV("to", ScriptToString(obj.to));
+    }
+
     void operator()(const CUpdateVaultMessage& obj) const {
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));

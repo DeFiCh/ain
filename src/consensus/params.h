@@ -196,6 +196,8 @@ struct Params {
     };
     SpvParams spv;
 
+    CAmount vaultCreationFee;
+
     std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
     std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;
 };

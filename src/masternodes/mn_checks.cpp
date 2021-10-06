@@ -63,6 +63,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
         case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
         case CustomTxType::Vault:               return "Vault";
+        case CustomTxType::CloseVault:          return "CloseVault";
         case CustomTxType::UpdateVault:         return "UpdateVault";
         case CustomTxType::DepositToVault:      return "DepositToVault";
         case CustomTxType::LoanTakeLoan:        return "LoanTakeLoan";
@@ -150,6 +151,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::DefaultLoanScheme:       return CDefaultLoanSchemeMessage{};
         case CustomTxType::DestroyLoanScheme:       return CDestroyLoanSchemeMessage{};
         case CustomTxType::Vault:                   return CVaultMessage{};
+        case CustomTxType::CloseVault:              return CCloseVaultMessage{};
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
         case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
         case CustomTxType::LoanTakeLoan:            return CLoanTakeLoanMessage{};
@@ -447,6 +449,11 @@ public:
     }
 
     Res operator()(CVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CCloseVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -1945,6 +1952,11 @@ public:
     }
 
     Res operator()(const CLoanSchemeMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res) {
+            return res;
+        }
+
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member!");
         }
@@ -2023,6 +2035,11 @@ public:
     }
 
     Res operator()(const CDefaultLoanSchemeMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res) {
+            return res;
+        }
+
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member!");
         }
@@ -2048,6 +2065,11 @@ public:
     }
 
     Res operator()(const CDestroyLoanSchemeMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res) {
+            return res;
+        }
+
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member!");
         }
@@ -2086,13 +2108,14 @@ public:
     }
 
     Res operator()(const CVaultMessage& obj) const {
+
+        auto vaultCreationFee = consensus.vaultCreationFee;
+        if (tx.vout[0].nValue != vaultCreationFee || tx.vout[0].nTokenId != DCT_ID{0}) {
+            return Res::Err("malformed tx vouts, creation vault fee is %s DFI", GetDecimaleString(vaultCreationFee));
+        }
+
         CVaultData vault{};
         static_cast<CVaultMessage&>(vault) = obj;
-
-        // owner auth
-        if (!HasAuth(obj.ownerAddress)) {
-            return Res::Err("tx must have at least one input from token owner");
-        }
 
         // set loan scheme to default if non provided
         if (obj.schemeId.empty()) {
@@ -2117,7 +2140,46 @@ public:
         return mnview.StoreVault(vaultId, vault);
     }
 
+    Res operator()(const CCloseVaultMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+
+        // vault under liquidation
+        if (vault->isUnderLiquidation)
+            return Res::Err("Cannot close vault under liquidation");
+
+        // owner auth
+        if (!HasAuth(vault->ownerAddress))
+            return Res::Err("tx must have at least one input from token owner");
+
+        if (mnview.GetLoanTokens(obj.vaultId))
+            return Res::Err("Vault <%s> has loans", obj.vaultId.GetHex());
+
+        CalculateOwnerRewards(obj.to);
+        if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
+            for (const auto& col : collaterals->balances) {
+                auto res = mnview.AddBalance(obj.to, {col.first, col.second});
+                if (!res)
+                    return res;
+            }
+        }
+
+        // return half fee, the rest is burned at creation
+        auto feeBack = consensus.vaultCreationFee / 2;
+        res = mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack});
+        return !res ? res : mnview.EraseVault(obj.vaultId);
+    }
+
     Res operator()(const CUpdateVaultMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
 
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
@@ -2392,10 +2454,14 @@ public:
     }
 
     Res operator()(const CAuctionBidMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
         // owner auth
-        if (!HasAuth(obj.from)) {
+        if (!HasAuth(obj.from))
             return Res::Err("tx must have at least one input from token owner");
-        }
+
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
@@ -2431,7 +2497,7 @@ public:
         }
         //check balance
         CalculateOwnerRewards(obj.from);
-        auto res = mnview.SubBalance(obj.from, obj.amount);
+        res = mnview.SubBalance(obj.from, obj.amount);
         return !res ? res : mnview.StoreAuctionBid(obj.vaultId, obj.index, {obj.from, obj.amount});
     }
 
@@ -2761,6 +2827,11 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         // Track burn fee
         if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
             view.AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
+        }
+        if (txType == CustomTxType::Vault) {
+            // burn the half, the rest is returned on close vault
+            auto burnFee = tx.vout[0].nValue / 2;
+            view.AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
         }
     }
     // list of transactions which aren't allowed to fail:
