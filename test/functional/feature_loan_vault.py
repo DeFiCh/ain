@@ -355,7 +355,6 @@ class VaultTest (DefiTestFramework):
         self.sync_blocks()
 
         interest = self.nodes[0].getinterest('LOAN0001')[0]
-        print(interest)
         assert_equal(interest['interestPerBlock'], Decimal('4.7E-7'))
 
         vault1 = self.nodes[0].getvault(vaultId1)

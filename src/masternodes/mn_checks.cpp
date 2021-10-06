@@ -2105,7 +2105,6 @@ public:
         mnview.ForEachVault([&](const CVaultId& vaultId, CVaultData vault) {
             if (vault.schemeId == obj.identifier) {
                 vault.schemeId = *mnview.GetDefaultLoanScheme();
-                mnview.TransferVaultInterest(vaultId, height, {}, vault.schemeId);
                 mnview.StoreVault(vaultId, vault);
             }
             return true;
@@ -2212,9 +2211,6 @@ public:
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot update vault when any of the asset's price is invalid");
 
-        if (vault->schemeId != obj.schemeId)
-            mnview.TransferVaultInterest(obj.vaultId, height, vault->schemeId, obj.schemeId);
-
         vault->schemeId = obj.schemeId;
         vault->ownerAddress = obj.ownerAddress;
         return mnview.UpdateVault(obj.vaultId, *vault);
@@ -2308,9 +2304,7 @@ public:
         if (!res)
             return res;
 
-        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-
-        if (collaterals)
+        if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
         {
             uint64_t totalDFI = 0, totalCollaterals = 0;
             for (const auto& col : collaterals->balances) {
@@ -2344,17 +2338,11 @@ public:
         }
         else
         {
-            auto loans = mnview.GetLoanTokens(obj.vaultId);
-
-            if (loans)
+            if (mnview.GetLoanTokens(obj.vaultId))
                 return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
         }
 
-        res = mnview.AddBalance(obj.to, obj.amount);
-        if (!res)
-            return Res::Err("Can't add balance of %s: %s\n", ScriptToString(obj.to), res.msg);
-
-        return Res::Ok();
+        return mnview.AddBalance(obj.to, obj.amount);
     }
 
     Res operator()(const CLoanTakeLoanMessage& obj) const {
@@ -2416,7 +2404,7 @@ public:
                 return res;
 
             const auto& address = !obj.to.empty() ? obj.to
-                                                       : vault->ownerAddress;
+                                                  : vault->ownerAddress;
             CalculateOwnerRewards(address);
             res = mnview.AddBalance(address, CTokenAmount{kv.first, kv.second});
             if (!res)
@@ -2443,8 +2431,7 @@ public:
         if (vault->isUnderLiquidation)
             return Res::Err("Cannot payback loan on vault under liquidation");
 
-        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-        if (!collaterals)
+        if (!mnview.GetVaultCollaterals(obj.vaultId))
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
         if (!HasAuth(obj.from))
@@ -2465,7 +2452,7 @@ public:
             if (it == loanAmounts->balances.end())
                 return Res::Err("There is no loan on token (%s) in this vault!",loanToken->symbol);
 
-            auto rate  = mnview.GetInterestRate(obj.vaultId, tokenId);
+            auto rate  = mnview.GetInterestRate(vault->schemeId, tokenId);
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 

@@ -358,7 +358,6 @@ class LoanTakeLoanTest (DefiTestFramework):
             self.nodes[0].withdrawfromvault(vaultId, account0, "200@" + symbolDFI)
         except JSONRPCException as e:
             errorString = e.error['message']
-            print(errorString)
         assert("Cannot withdraw all collaterals as there are still active loans in this vault" in errorString)
 
         try:

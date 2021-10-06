@@ -1267,16 +1267,19 @@ UniValue getinterest(const JSONRPCRequest& request) {
     if (!tokenStr.empty() && !pcustomcsview->GetTokenGuessId(tokenStr, id))
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
 
+    const auto mask = id.v;
+    if (id.v == ~0u)
+        id.v = 0;
+
     UniValue ret(UniValue::VARR);
     uint32_t height = ::ChainActive().Height() + 1;
 
-    pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate)
-    {
-        auto vault = pcustomcsview->GetVault(vaultId);
-        if (!vault || vault->schemeId != loanSchemeId)
-            return true;
-        if ((id != DCT_ID{~0U}) && tokenId != id)
-            return true;
+    pcustomcsview->ForEachSchemeInterest([&](const std::string& schemeId, DCT_ID tokenId, CInterestRate rate) {
+        if (schemeId != loanSchemeId)
+            return false;
+
+        if ((tokenId.v & mask) != tokenId.v)
+            return false;
 
         auto token = pcustomcsview->GetToken(tokenId);
         if (!token)
@@ -1286,11 +1289,10 @@ UniValue getinterest(const JSONRPCRequest& request) {
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
         obj.pushKV("totalInterest", ValueFromAmount(TotalInterest(rate, height)));
         obj.pushKV("interestPerBlock", ValueFromAmount(rate.interestPerBlock));
-
         ret.push_back(obj);
 
         return true;
-    });
+    }, loanSchemeId, id);
 
     return ret;
 }

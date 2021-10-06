@@ -58,7 +58,7 @@ namespace {
             if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)){
                 TAmounts balancesInterest{};
                 for (const auto& loan : loanTokens->balances) {
-                    auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
+                    auto rate = pcustomcsview->GetInterestRate(vault.schemeId, loan.first);
                     CAmount value = loan.second + TotalInterest(*rate, height + 1);
                     balancesInterest.insert({loan.first, value});
                 }

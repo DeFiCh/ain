@@ -3005,7 +3005,6 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         assert(vault);
         vault->schemeId = *defaultLoanScheme;
         cache.UpdateVault(vaultToDefault, *vault);
-        cache.TransferVaultInterest(vaultToDefault, pindex->nHeight, {}, vault->schemeId);
     }
 
     for (const auto& loanDestroy : loanDestruction) {
@@ -3090,7 +3089,6 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         vault->isUnderLiquidation = false;
         view.StoreVault(auction.vaultId, *vault);
         view.EraseAuction(auction.vaultId, pindex->nHeight);
-        view.TransferVaultInterest(auction.vaultId, pindex->nHeight, vault->schemeId, {});
         return true;
     }, {CVaultId{}, static_cast<uint32_t>(pindex->nHeight)});
 

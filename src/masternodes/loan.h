@@ -204,9 +204,9 @@ struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
 
 struct CInterestRate
 {
-    uint32_t height = 0;
-    CAmount interestToHeight = 0;
-    CAmount interestPerBlock = 0;
+    uint32_t height;
+    CAmount interestToHeight;
+    CAmount interestPerBlock;
 
     ADD_SERIALIZE_METHODS;
 
@@ -286,12 +286,11 @@ public:
     void ForEachDelayedLoanScheme(std::function<bool (const std::pair<std::string, uint64_t>&, const CLoanSchemeMessage&)> callback);
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
-    boost::optional<CInterestRate> GetInterestRate(const CVaultId& vaultId, DCT_ID id);
+    boost::optional<CInterestRate> GetInterestRate(const std::string& loanSchemeID, DCT_ID id);
     Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased);
     Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
     void ForEachInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID = {}, DCT_ID id = {0});
-    void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& start = {});
-    void TransferVaultInterest(const CVaultId& vaultId, uint32_t height, const std::string& oldScheme, const std::string& newScheme);
+    void ForEachSchemeInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID = {}, DCT_ID id = {0});
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
@@ -314,7 +313,6 @@ public:
     struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
     struct LoanTakeLoanCreationTx           { static constexpr uint8_t prefix() { return 0x1B; } };
     struct LoanTakeLoanVaultKey             { static constexpr uint8_t prefix() { return 0x1C; } };
-    struct LoanInterestByVault              { static constexpr uint8_t prefix() { return 0x1D; } };
     struct LoanPaybackLoanCreationTx        { static constexpr uint8_t prefix() { return 0x1E; } };
     struct LoanPaybackLoanVaultKey          { static constexpr uint8_t prefix() { return 0x1F; } };
 };
