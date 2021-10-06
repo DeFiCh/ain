@@ -179,10 +179,27 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
 
     auto dfi_id = DCT_ID{0};
     auto tesla_id = CreateLoanToken(mnview, "TSLA", "TESLA", "TSLA/USD", 5 * COIN);
+    CFixedIntervalPrice fixedIntervalPrice{};
+    fixedIntervalPrice.priceFeedId = {"TSLA", "USD"};
+    fixedIntervalPrice.priceRecord[1] = 3*COIN;
+    fixedIntervalPrice.priceRecord[0] = 3*COIN;
+    BOOST_REQUIRE(mnview.SetFixedIntervalPrice(fixedIntervalPrice));
     auto nft_id = CreateLoanToken(mnview, "NFT", "NFT", "NFT/USD", 2 * COIN);
+    fixedIntervalPrice.priceFeedId = {"NFT", "USD"};
+    fixedIntervalPrice.priceRecord[1] = 2*COIN;
+    fixedIntervalPrice.priceRecord[0] = 2*COIN;
+    BOOST_REQUIRE(mnview.SetFixedIntervalPrice(fixedIntervalPrice));
     auto btc_id = CreateToken(mnview, "BTC", "BITCOIN");
     CreateCollateralToken(mnview, dfi_id, "DFI/USD");
+    fixedIntervalPrice.priceFeedId = {"DFI", "USD"};
+    fixedIntervalPrice.priceRecord[1] = 5*COIN;
+    fixedIntervalPrice.priceRecord[0] = 5*COIN;
+    BOOST_REQUIRE(mnview.SetFixedIntervalPrice(fixedIntervalPrice));
     CreateCollateralToken(mnview, btc_id, "BTC/USD");
+    fixedIntervalPrice.priceFeedId = {"BTC", "USD"};
+    fixedIntervalPrice.priceRecord[1] = 10*COIN;
+    fixedIntervalPrice.priceRecord[0] = 10*COIN;
+    BOOST_REQUIRE(mnview.SetFixedIntervalPrice(fixedIntervalPrice));
 
     auto vault_id = NextTx();
     BOOST_REQUIRE(mnview.StoreInterest(1, vault_id, id, tesla_id));
