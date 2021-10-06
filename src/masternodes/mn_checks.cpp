@@ -2405,8 +2405,7 @@ public:
         if (!vault->isUnderLiquidation)
             return Res::Err("Cannot bid to vault which is not under liquidation");
 
-        auto auctionHeight = height - Params().GetConsensus().blocksCollateralAuction();
-        auto data = mnview.GetAuction(obj.vaultId, auctionHeight);
+        auto data = mnview.GetAuction(obj.vaultId, height);
         if (!data)
             return Res::Err("No auction data to vault %s", obj.vaultId.GetHex());
 
@@ -3184,5 +3183,27 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     auto res = poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
 
     return res;
+}
+bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height){
+        if(auto collaterals = mnview.GetVaultCollaterals(vaultId)){
+            for(const auto collateral: collaterals->balances){
+                auto collateralToken = mnview.HasLoanSetCollateralToken({collateral.first, height});
+                if(auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId)){
+                    if (!fixedIntervalPrice.val->isValid())
+                        return false;
+                }
+            }
+        }
+        if(auto loans = mnview.GetLoanTokens(vaultId)){
+            for(const auto loan: loans->balances){
+                auto loanToken = mnview.GetLoanSetLoanTokenByID(loan.first);
+                if(auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)){
+                    if (!fixedIntervalPrice.val->isValid())
+                        return false;
+                }
+
+            }
+        }
+        return true;
 }
 
