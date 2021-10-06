@@ -9,6 +9,18 @@ Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultData& vault)
     return Res::Ok();
 }
 
+Res CVaultView::EraseVault(const CVaultId& vaultId)
+{
+    auto vault = GetVault(vaultId);
+    if (!vault) {
+        return Res::Err("Vault <%s> not found", vaultId.GetHex());
+    }
+    EraseBy<VaultKey>(vaultId);
+    EraseBy<CollateralKey>(vaultId);
+    EraseBy<OwnerVaultKey>(std::make_pair(vault->ownerAddress, vaultId));
+    return Res::Ok();
+}
+
 boost::optional<CVaultData> CVaultView::GetVault(const CVaultId& vaultId) const
 {
     return ReadBy<VaultKey, CVaultData>(vaultId);
