@@ -163,6 +163,7 @@ public:
     struct AuctionBatchKey  { static constexpr uint8_t prefix() { return 0x22; } };
     struct AuctionHeightKey { static constexpr uint8_t prefix() { return 0x23; } };
     struct AuctionBidKey    { static constexpr uint8_t prefix() { return 0x24; } };
+    struct LoanKey          { static constexpr uint8_t prefix() { return 0x26; } };
 };
 
 #endif // DEFI_MASTERNODES_VAULT_H

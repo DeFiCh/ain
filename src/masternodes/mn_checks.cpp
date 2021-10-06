@@ -754,7 +754,7 @@ public:
         return Res::Ok();
     }
 
-    bool oraclePriceFeed(const PriceFeedPair& priceFeed) const {
+    bool oraclePriceFeed(const CFixedIntervalPriceId& priceFeed) const {
         bool found = false;
         mnview.ForEachOracle([&](const COracleId&, COracle oracle) {
             return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
@@ -1839,8 +1839,21 @@ public:
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
-        if (!oraclePriceFeed(collToken.priceFeed))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.priceFeed.first, collToken.priceFeed.second);
+
+        if (!oraclePriceFeed(collToken.fixedIntervalPriceId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second);
+
+        CFixedIntervalPrice fixedIntervalPrice;
+        fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
+        auto price = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
+        if(!price)
+            return Res::Err(price.msg);
+
+        fixedIntervalPrice.priceRecord[1] = price;
+        fixedIntervalPrice.timestamp = time;
+        auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+        if(!resSetFixedPrice)
+            return Res::Err(resSetFixedPrice.msg);
 
         return mnview.LoanCreateSetCollateralToken(collToken);
     }
@@ -1856,11 +1869,22 @@ public:
         loanToken.creationTx = tx.GetHash();
         loanToken.creationHeight = height;
 
+        CFixedIntervalPrice fixedIntervalPrice;
+        fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
+        auto nextPrice = GetAggregatePrice(mnview, loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second, time);
+        if(!nextPrice)
+            return Res::Err(nextPrice.msg);
+        fixedIntervalPrice.priceRecord[1] = nextPrice;
+        fixedIntervalPrice.timestamp = time;
+        auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+        if(!resSetFixedPrice)
+            return Res::Err(resSetFixedPrice.msg);
+
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (!oraclePriceFeed(loanToken.priceFeed))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.priceFeed.first, loanToken.priceFeed.second);
+        if (!oraclePriceFeed(loanToken.fixedIntervalPriceId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second);
 
         CTokenImplementation token;
         token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
@@ -1905,10 +1929,10 @@ public:
             pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);;
         if (obj.name != pair->second.name)
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        if (obj.priceFeed != loanToken->priceFeed) {
-            if (!oraclePriceFeed(obj.priceFeed))
-                return Res::Err("Price feed %s/%s does not belong to any oracle", obj.priceFeed.first, obj.priceFeed.second);
-            loanToken->priceFeed = obj.priceFeed;
+        if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
+            if (!oraclePriceFeed(obj.fixedIntervalPriceId))
+                return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
+            loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;
         }
         if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
@@ -2116,6 +2140,9 @@ public:
         if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId))
             return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
 
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot update vault when any of the asset's price is invalid");
+
         if (vault->schemeId != obj.schemeId)
             mnview.TransferVaultInterest(obj.vaultId, height, vault->schemeId, obj.schemeId);
 
@@ -2160,9 +2187,9 @@ public:
             if (!loanSetCollToken)
                 return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
 
-            auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, time);
+            auto price = GetAggregatePrice(mnview, loanSetCollToken->fixedIntervalPriceId.first, loanSetCollToken->fixedIntervalPriceId.second, time);
             if (!price)
-                return Res::Err("%s/%s: %s", loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, price.msg);
+                return Res::Err("%s/%s: %s", loanSetCollToken->fixedIntervalPriceId.first, loanSetCollToken->fixedIntervalPriceId.second, price.msg);
 
             auto amount = MultiplyAmounts(*price.val, col.second);
             if (*price.val > COIN && amount < col.second)
@@ -2171,6 +2198,9 @@ public:
             if (col.first == DCT_ID{0}) {
                 if (!MoneyRange(col.second))
                     return Res::Err("Exceed max money range");
+            }
+
+            if (loanSetCollToken->idToken == DCT_ID{0}){
                 totalDFI += amount;
             }
 
@@ -2217,6 +2247,9 @@ public:
         if (!collaterals)
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot update vault when any of the asset's price is invalid");
+
         uint64_t totalLoans = 0;
         for (const auto& kv : obj.amounts.balances)
         {
@@ -2236,13 +2269,13 @@ public:
             if (!res)
                 return res;
 
-            auto price = GetAggregatePrice(mnview, loanToken->priceFeed.first, loanToken->priceFeed.second, time);
-            if (!price)
-                return Res::Err("%s/%s: %s", loanToken->priceFeed.first, loanToken->priceFeed.second, price.msg);
+            auto priceFeed = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
+            if (!priceFeed)
+                return Res::Err(priceFeed.msg);
 
-            auto amount = MultiplyAmounts(*price.val, kv.second);
-            if (*price.val > COIN && amount < kv.second)
-                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(*price.val));
+            auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], kv.second);
+            if (priceFeed.val->priceRecord[0] > COIN && amount < kv.second)
+                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(priceFeed.val->priceRecord[0]));
 
             auto prevLoans = totalLoans;
             totalLoans += amount;
@@ -3150,5 +3183,27 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     auto res = poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
 
     return res;
+}
+bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height){
+        if(auto collaterals = mnview.GetVaultCollaterals(vaultId)){
+            for(const auto collateral: collaterals->balances){
+                auto collateralToken = mnview.HasLoanSetCollateralToken({collateral.first, height});
+                if(auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId)){
+                    if (!fixedIntervalPrice.val->isValid())
+                        return false;
+                }
+            }
+        }
+        if(auto loans = mnview.GetLoanTokens(vaultId)){
+            for(const auto loan: loans->balances){
+                auto loanToken = mnview.GetLoanSetLoanTokenByID(loan.first);
+                if(auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)){
+                    if (!fixedIntervalPrice.val->isValid())
+                        return false;
+                }
+
+            }
+        }
+        return true;
 }
 

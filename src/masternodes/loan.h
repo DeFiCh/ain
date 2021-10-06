@@ -10,15 +10,14 @@
 #include <masternodes/vault.h>
 #include <script/script.h>
 
-using PriceFeedPair = std::pair<std::string, std::string>;
-
+using CFixedIntervalPriceId = std::pair<std::string, std::string>;
 class CLoanSetCollateralToken
 {
 public:
     DCT_ID idToken{UINT_MAX};
     CAmount factor;
-    PriceFeedPair priceFeed;
     uint32_t activateAfterBlock = 0;
+    CFixedIntervalPriceId fixedIntervalPriceId;
 
     ADD_SERIALIZE_METHODS;
 
@@ -26,8 +25,8 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(idToken);
         READWRITE(factor);
-        READWRITE(priceFeed);
         READWRITE(activateAfterBlock);
+        READWRITE(fixedIntervalPriceId);
     }
 };
 
@@ -62,9 +61,9 @@ class CLoanSetLoanToken
 public:
     std::string symbol;
     std::string name;
-    PriceFeedPair priceFeed;
     bool mintable = true;
     CAmount interest = 0;
+    CFixedIntervalPriceId fixedIntervalPriceId;
 
     ADD_SERIALIZE_METHODS;
 
@@ -72,9 +71,9 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(symbol);
         READWRITE(name);
-        READWRITE(priceFeed);
         READWRITE(mintable);
         READWRITE(interest);
+        READWRITE(fixedIntervalPriceId);
     }
 };
 
@@ -319,6 +318,7 @@ public:
 
     std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanSetCollateralToken(uint256 const & txid) const;
     Res LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
+    Res LoanUpdateCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken);
     void ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start = {DCT_ID{0}, UINT_MAX});
     std::unique_ptr<CLoanSetCollateralTokenImpl> HasLoanSetCollateralToken(CollateralTokenKey const & key);
 

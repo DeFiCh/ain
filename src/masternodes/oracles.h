@@ -21,6 +21,7 @@ using CPriceTimePair = std::pair<CAmount, int64_t>;
 using CTokenCurrencyPair = std::pair<std::string, std::string>;
 using CTokenPrices = std::map<std::string, std::map<std::string, CAmount>>;
 using CTokenPricePoints = std::map<std::string, std::map<std::string, CPriceTimePair>>;
+using CFixedIntervalPriceId = std::pair<std::string, std::string>;
 
 struct CAppointOracleMessage {
     CScript oracleAddress;
@@ -98,6 +99,24 @@ struct COracle : public CAppointOracleMessage {
     }
 };
 
+struct CFixedIntervalPrice
+{
+public:
+    CFixedIntervalPriceId priceFeedId;
+    int64_t timestamp;
+    std::vector<CAmount> priceRecord{0, 0}; // priceHistory[0] = active price, priceHistory[1] = next price
+    bool isValid(const int64_t deviationThreshold = 3 * COIN / 10) const; // 0-1 value for deviation threshold
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(priceFeedId);
+        READWRITE(timestamp);
+        READWRITE(priceRecord);
+    }
+};
+
 /// View for managing oracles and their data
 class COracleView : public virtual CStorageView
 {
@@ -122,6 +141,14 @@ public:
     void ForEachOracle(std::function<bool(const COracleId&, CLazySerialize<COracle>)> callback, const COracleId& start = {});
 
     struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
+
+    Res SetFixedIntervalPrice(const CFixedIntervalPrice& PriceFeed);
+
+    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CFixedIntervalPriceId& priceFeedId, const bool& create=false);
+
+    void ForEachFixedIntervalPrice(std::function<bool(const CFixedIntervalPriceId&, CLazySerialize<CFixedIntervalPrice>)> callback, const CFixedIntervalPriceId& start = {});
+
+    struct FixedIntervalPriceKey { static constexpr uint8_t prefix() { return 'y'; } };
 };
 
 #endif // DEFI_MASTERNODES_ORACLES_H

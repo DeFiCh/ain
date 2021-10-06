@@ -28,6 +28,19 @@ Res CLoanView::LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & 
     return Res::Ok();
 }
 
+Res CLoanView::LoanUpdateCollateralToken(CLoanSetCollateralTokenImpl const & collateralToken)
+{
+    if (collateralToken.factor > COIN)
+        return Res::Err("setCollateralToken factor must be lower or equal than %s!", GetDecimaleString(COIN));
+    if (collateralToken.factor < 0)
+        return Res::Err("setCollateralToken factor must not be negative!");
+
+    CollateralTokenKey key{collateralToken.idToken, collateralToken.activateAfterBlock};
+    WriteBy<LoanSetCollateralTokenKey>(key, collateralToken.creationTx);
+
+    return Res::Ok();
+}
+
 void CLoanView::ForEachLoanSetCollateralToken(std::function<bool (CollateralTokenKey const &, uint256 const &)> callback, CollateralTokenKey const & start)
 {
     ForEach<LoanSetCollateralTokenKey, CollateralTokenKey, uint256>(callback, start);
