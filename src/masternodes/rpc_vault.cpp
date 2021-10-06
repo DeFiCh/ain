@@ -61,8 +61,11 @@ namespace {
                     auto rate = pcustomcsview->GetInterestRate(vault.schemeId, loan.first);
                     if (!rate)
                         continue;
-                    auto loanPart = DivideAmounts(loan.second, rate->interestLoan);
-                    CAmount value = loan.second + MultiplyAmounts(loanPart, TotalInterest(*rate, height + 1));
+                    auto value = loan.second;
+                    if (rate->interestLoan > 0) {
+                        auto loanPart = DivideAmounts(loan.second, rate->interestLoan);
+                        value += MultiplyAmounts(loanPart, TotalInterest(*rate, height + 1));
+                    }
                     balancesInterest.insert({loan.first, value});
                 }
                 loanBalances = AmountsToJSON(balancesInterest);

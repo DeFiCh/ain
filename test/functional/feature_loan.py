@@ -144,10 +144,13 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].minttokens("1000@TSLA")
         self.nodes[0].generate(1)
 
-        self.nodes[0].auctionbid(vaultId1, 0, account, "525@TSLA")
+        self.nodes[0].auctionbid(vaultId1, 0, account, "550@TSLA")
         self.nodes[0].generate(1)
+
+        batches = self.nodes[0].listauctions()[0]['batches']
+        assert_equal(batches[0]['highestBid'], '550.00000000@TSLA')
         accountBal = self.nodes[0].getaccount(account)
-        assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1475.00000000@TSLA'])
+        assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1450.00000000@TSLA'])
 
         # new account for new bidder
         self.nodes[0].generate(1)
@@ -155,22 +158,21 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].accounttoaccount(account, {account2: "1000@TSLA"} )
         self.nodes[0].generate(1)
 
-
         # Fail auction bid less that 1% higher
         try:
-            self.nodes[0].auctionbid(vaultId1, 0, account2, "530@TSLA") # just under 1%
+            self.nodes[0].auctionbid(vaultId1, 0, account2, "555@TSLA") # just under 1%
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Bid override should be at least 1% higher than current one" in errorString)
 
-        self.nodes[0].auctionbid(vaultId1, 0, account2, "550@TSLA") # above 1%
+        self.nodes[0].auctionbid(vaultId1, 0, account2, "555.5@TSLA") # above 1%
         self.nodes[0].generate(1)
 
         # check balances are right after greater bid
         account2Bal = self.nodes[0].getaccount(account2)
         accountBal = self.nodes[0].getaccount(account)
         assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1000.00000000@TSLA'])
-        assert_equal(account2Bal, ['450.00000000@TSLA'])
+        assert_equal(account2Bal, ['444.50000000@TSLA'])
 
         # let auction end and check account balances
         self.nodes[0].generate(6)
@@ -180,22 +182,22 @@ class LoanTest (DefiTestFramework):
         assert_equal(vault1['isUnderLiquidation'], True)
         assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1000.00000000@TSLA'])
         # auction winner account has now first batch collaterals
-        assert_equal(account2Bal, ['400.00000000@DFI', '400.00000000@BTC', '450.00000000@TSLA'])
+        assert_equal(account2Bal, ['400.00000000@DFI', '400.00000000@BTC', '444.50000000@TSLA'])
 
         # check that still auction due to 1 batch without bid
         auctionlist = self.nodes[0].listauctions()
         assert_equal(len(auctionlist[0]['batches']), 2)
 
-        self.nodes[0].auctionbid(vaultId1, 0, account, "507@TSLA") # above 5% and leave vault with some loan to exit liquidation state
+        self.nodes[0].auctionbid(vaultId1, 0, account, "515@TSLA") # above 5% and leave vault with some loan to exit liquidation state
         self.nodes[0].generate(40) # let auction end
-        self.nodes[0].auctionbid(vaultId1, 0, account, "255@TSLA") # above 5% and leave vault with some loan to exit liquidation state
+        self.nodes[0].auctionbid(vaultId1, 0, account, "259@TSLA")
         self.nodes[0].generate(40) # let auction end
 
-        accountBal = self.nodes[0].getaccount(account)
         vault1 = self.nodes[0].getvault(vaultId1)
+        accountBal = self.nodes[0].getaccount(account)
 
         assert_equal(vault1['isUnderLiquidation'], False)
-        assert_equal(accountBal, ['1600.00000000@DFI', '1600.00000000@BTC', '238.00000000@TSLA'])
+        assert_equal(accountBal, ['1600.00000000@DFI', '1600.00000000@BTC', '226.00000000@TSLA'])
         try:
             self.nodes[0].deposittovault(vaultId1, account, '1@DFI')
         except JSONRPCException as e:

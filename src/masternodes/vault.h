@@ -136,6 +136,7 @@ struct CAuctionData {
 struct CAuctionBatch {
     CBalances collaterals;
     CTokenAmount loanAmount;
+    CAmount loanInterest;
 
     ADD_SERIALIZE_METHODS;
 
@@ -144,6 +145,7 @@ struct CAuctionBatch {
     {
         READWRITE(collaterals);
         READWRITE(loanAmount);
+        READWRITE(loanInterest);
     }
 };
 
@@ -189,12 +191,11 @@ public:
     boost::optional<COwnerTokenAmount> GetAuctionBid(const CVaultId& vaultId, uint32_t id);
 
     struct VaultKey         { static constexpr uint8_t prefix() { return 0x20; } };
-    struct OwnerVaultKey    { static constexpr uint8_t prefix() { return 0x25; } };
-    struct CollateralKey    { static constexpr uint8_t prefix() { return 0x21; } };
-    struct AuctionBatchKey  { static constexpr uint8_t prefix() { return 0x22; } };
-    struct AuctionHeightKey { static constexpr uint8_t prefix() { return 0x23; } };
-    struct AuctionBidKey    { static constexpr uint8_t prefix() { return 0x24; } };
-    struct LoanKey          { static constexpr uint8_t prefix() { return 0x26; } };
+    struct OwnerVaultKey    { static constexpr uint8_t prefix() { return 0x21; } };
+    struct CollateralKey    { static constexpr uint8_t prefix() { return 0x22; } };
+    struct AuctionBatchKey  { static constexpr uint8_t prefix() { return 0x23; } };
+    struct AuctionHeightKey { static constexpr uint8_t prefix() { return 0x24; } };
+    struct AuctionBidKey    { static constexpr uint8_t prefix() { return 0x25; } };
 };
 
 #endif // DEFI_MASTERNODES_VAULT_H

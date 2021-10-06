@@ -9,7 +9,7 @@ from decimal import Decimal
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error
+from test_framework.util import assert_equal, assert_raises_rpc_error
 import calendar
 import time
 class VaultTest (DefiTestFramework):
@@ -53,7 +53,7 @@ class VaultTest (DefiTestFramework):
 
         ownerAddress2 = self.nodes[0].getnewaddress('', 'legacy')
         vaultId2 = self.nodes[0].createvault(ownerAddress2, 'LOAN0001')
-
+        self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
         self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
         self.nodes[0].generate(1)
         self.sync_all()

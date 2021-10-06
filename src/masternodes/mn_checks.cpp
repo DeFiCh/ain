@@ -2304,6 +2304,9 @@ public:
         if (!res)
             return res;
 
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot update vault when any of the asset's price is invalid");
+
         if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
         {
             uint64_t totalDFI = 0, totalCollaterals = 0;
@@ -2313,13 +2316,13 @@ public:
                 if (!loanSetCollToken)
                     return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
 
-                auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, time);
-                if (!price)
-                    return Res::Err("%s/%s: %s", loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, price.msg);
+                auto priceFeed = mnview.GetFixedIntervalPrice(loanSetCollToken->fixedIntervalPriceId);
+                if (!priceFeed)
+                    return Res::Err(priceFeed.msg);
 
-                auto amount = MultiplyAmounts(*price.val, col.second);
-                if (*price.val > COIN && amount < col.second)
-                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(*price.val));
+                auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], col.second);
+                if (priceFeed.val->priceRecord[0] > COIN && amount < col.second)
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(priceFeed.val->priceRecord[0]));
 
                 if (col.first == DCT_ID{0}) {
                     if (!MoneyRange(col.second))
@@ -2456,8 +2459,14 @@ public:
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-            auto loanPart = DivideAmounts(it->second, rate->interestLoan);
-            auto subInterest = MultiplyAmounts(loanPart, TotalInterest(*rate, height));
+            CAmount subInterest = 0;
+
+            if (rate->interestLoan > 0)
+            {
+                auto loanPart = DivideAmounts(it->second, rate->interestLoan);
+                subInterest = MultiplyAmounts(loanPart, TotalInterest(*rate, height));
+            }
+
             auto subLoan = kv.second - subInterest;
 
             if (kv.second < subInterest)
@@ -3297,26 +3306,21 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
 
     return res;
 }
-bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height){
-        if(auto collaterals = mnview.GetVaultCollaterals(vaultId)){
-            for(const auto collateral: collaterals->balances){
-                auto collateralToken = mnview.HasLoanSetCollateralToken({collateral.first, height});
-                if(auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId)){
-                    if (!fixedIntervalPrice.val->isValid())
-                        return false;
-                }
-            }
-        }
-        if(auto loans = mnview.GetLoanTokens(vaultId)){
-            for(const auto loan: loans->balances){
-                auto loanToken = mnview.GetLoanSetLoanTokenByID(loan.first);
-                if(auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)){
-                    if (!fixedIntervalPrice.val->isValid())
-                        return false;
-                }
 
-            }
-        }
-        return true;
+bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height)
+{
+    if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
+        for (const auto collateral : collaterals->balances)
+            if (auto collateralToken = mnview.HasLoanSetCollateralToken({collateral.first, height}))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
+                    if (!fixedIntervalPrice.val->isValid())
+                        return false;
+
+    if (auto loans = mnview.GetLoanTokens(vaultId))
+        for (const auto loan : loans->balances)
+            if (auto loanToken = mnview.GetLoanSetLoanTokenByID(loan.first))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
+                    if (!fixedIntervalPrice.val->isValid())
+                        return false;
+    return true;
 }
-
