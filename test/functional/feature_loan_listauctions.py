@@ -58,17 +58,17 @@ class LoanTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}, {"currency": "USD", "tokenAmount": "10@DFI"}, {"currency": "USD", "tokenAmount": "10@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(10)
 
         # set DFI an BTC as collateral tokens
         self.nodes[0].setcollateraltoken({
                                     'token': "DFI",
                                     'factor': 1,
-                                    'priceFeedId': "DFI/USD"})
+                                    'fixedIntervalPriceId': "DFI/USD"})
         self.nodes[0].setcollateraltoken({
                                     'token': "BTC",
                                     'factor': 1,
-                                    'priceFeedId': "BTC/USD"})
+                                    'fixedIntervalPriceId': "BTC/USD"})
         self.nodes[0].generate(1)
 
         # Create loan schemes
@@ -96,7 +96,7 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].setloantoken({
                             'symbol': "TSLA",
                             'name': "Tesla Token",
-                            'priceFeedId': "TSLA/USD",
+                            'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': True,
                             'interest': 1})
         self.nodes[0].generate(1)
@@ -112,7 +112,7 @@ class LoanTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "1000@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(10)
+        self.nodes[0].generate(16)
 
         # Auction tests
         auctionlist = self.nodes[0].listauctions()

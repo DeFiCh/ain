@@ -103,7 +103,7 @@ class LoanTakeLoanTest (DefiTestFramework):
                           {"currency": "USD", "tokenAmount": "10@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(60) # let fixed price update
         self.sync_blocks()
 
         # transfer
@@ -116,24 +116,24 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].setcollateraltoken({
                                     'token': idDFI,
                                     'factor': 1,
-                                    'priceFeedId': "DFI/USD"})
+                                    'fixedIntervalPriceId': "DFI/USD"})
 
         self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
                                     'factor': 1,
-                                    'priceFeedId': "BTC/USD"})
+                                    'fixedIntervalPriceId': "BTC/USD"})
 
         setLoanTokenTSLA = self.nodes[0].setloantoken({
                                     'symbol': symbolTSLA,
                                     'name': "Tesla stock token",
-                                    'priceFeedId': "TSLA/USD",
+                                    'fixedIntervalPriceId': "TSLA/USD",
                                     'mintable': False,
                                     'interest': 1})
 
         setLoanTokenGOOGL = self.nodes[0].setloantoken({
                                     'symbol': symbolGOOGL,
                                     'name': "Tesla stock token",
-                                    'priceFeedId': "TSLA/USD",
+                                    'fixedIntervalPriceId': "TSLA/USD",
                                     'mintable': True,
                                     'interest': 2})
 

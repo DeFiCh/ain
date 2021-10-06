@@ -2742,6 +2742,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         mapBurnAmounts.clear();
 
         ProcessLoanEvents(pindex, cache, chainparams);
+        ProcessOracleEvents(pindex, cache, chainparams);
 
         // construct undo
         auto& flushable = cache.GetStorage();
@@ -3047,7 +3048,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), nullptr, pburnHistoryDB.get());
 
     view.ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
-        if (int(auction.height) != pindex->nHeight) {
+        if (auction.height!= pindex->nHeight) {
             return false;
         }
         for (uint32_t i = 0; i < data.batchCount; i++) {
@@ -3057,6 +3058,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto amountToFill = DivideAmounts(bid->second.nValue, COIN + data.liquidationPenalty);
                 auto amountToBurn = bid->second.nValue - amountToFill;
                 if (amountToBurn > 0) {
+
                     CScript tmpAddress(auction.vaultId.begin(), auction.vaultId.end());
                     view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToBurn});
                     auto res = SwapToDFIOverUSD(view, bid->second.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
@@ -3092,9 +3094,32 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         return true;
     }, {CVaultId{}, static_cast<uint32_t>(pindex->nHeight)});
 
-    // flush all changes
     view.Flush();
     pburnHistoryDB->Flush();
+}
+
+void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
+        return;
+    }
+
+    auto priceHeight = Params().GetConsensus().blocksFixedIntervalPrice();
+    if(pindex->nHeight % priceHeight == 0){
+        cache.ForEachFixedIntervalPrice([&](const CFixedIntervalPriceId& id, CFixedIntervalPrice fixedIntervalPrice){
+            auto aggregatePrice = GetAggregatePrice(cache, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, pindex->nTime);
+            if(!aggregatePrice){
+                LogPrintf("Error getting aggregate price: %s\n", aggregatePrice.msg);
+                return true;
+            }
+            fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
+            fixedIntervalPrice.priceRecord[1] = aggregatePrice;
+            fixedIntervalPrice.timestamp = GetSystemTimeInSeconds();
+            auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
+            if (!res)
+                LogPrintf("Setting fixed interval price failed: %s\n", res.msg);
+            return true;
+        });
+    }
 }
 
 bool CChainState::FlushStateToDisk(
