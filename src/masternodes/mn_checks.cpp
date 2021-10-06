@@ -2450,13 +2450,14 @@ public:
 
             auto it = loanAmounts->balances.find(tokenId);
             if (it == loanAmounts->balances.end())
-                return Res::Err("There is no loan on token (%s) in this vault!",loanToken->symbol);
+                return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
-            auto rate  = mnview.GetInterestRate(vault->schemeId, tokenId);
+            auto rate = mnview.GetInterestRate(vault->schemeId, tokenId);
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-            auto subInterest = TotalInterest(*rate, height);
+            auto loanPart = DivideAmounts(it->second, rate->interestLoan);
+            auto subInterest = MultiplyAmounts(loanPart, TotalInterest(*rate, height));
             auto subLoan = kv.second - subInterest;
 
             if (kv.second < subInterest)

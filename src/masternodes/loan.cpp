@@ -202,13 +202,12 @@ boost::optional<CInterestRate> CLoanView::GetInterestRate(const std::string& loa
 
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height)
 {
-    return rate.interestToHeight + ((height - rate.height) * rate.interestPerBlock);
+    return rate.interestToHeight + ((height - rate.height) * InterestPerBlock(rate));
 }
 
-CAmount InterestPerBlock(CAmount amount, CAmount tokenInterest, CAmount schemeInterest)
+CAmount InterestPerBlock(const CInterestRate& rate)
 {
-    auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
-    return MultiplyAmounts(netInterest, amount) / (365 * Params().GetConsensus().blocksPerDay());
+    return MultiplyAmounts(rate.interestNet, rate.interestLoan) / (365 * Params().GetConsensus().blocksPerDay());
 }
 
 Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased)
@@ -228,11 +227,12 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     if (rate.height > height) {
         return Res::Err("Cannot store height in the past");
     }
+    rate.interestNet = (token->interest + scheme->rate) / 100; // in %
     if (rate.height) {
-        rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
+        rate.interestToHeight = TotalInterest(rate, height);
     }
     rate.height = height;
-    rate.interestPerBlock += InterestPerBlock(loanIncreased, token->interest, scheme->rate);
+    rate.interestLoan += loanIncreased;
 
     WriteBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), rate);
     return Res::Ok();
@@ -258,11 +258,10 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     if (rate.height == 0) {
         return Res::Err("Data mismatch height == 0");
     }
-    rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
+    rate.interestToHeight = TotalInterest(rate, height);
     rate.interestToHeight = std::max(CAmount{0}, rate.interestToHeight - interestDecreased);
     rate.height = height;
-    rate.interestPerBlock -= InterestPerBlock(loanDecreased, token->interest, scheme->rate);
-    rate.interestPerBlock = std::max(CAmount{0}, rate.interestPerBlock);
+    rate.interestLoan = std::max(CAmount{0}, rate.interestLoan - loanDecreased);
 
     WriteBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), rate);
     return Res::Ok();

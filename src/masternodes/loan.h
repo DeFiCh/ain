@@ -205,21 +205,23 @@ struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
 struct CInterestRate
 {
     uint32_t height;
+    CAmount interestNet;
+    CAmount interestLoan;
     CAmount interestToHeight;
-    CAmount interestPerBlock;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(height);
+        READWRITE(interestNet);
+        READWRITE(interestLoan);
         READWRITE(interestToHeight);
-        READWRITE(interestPerBlock);
     }
 };
 
-// calculate total interest to height including it
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height);
+CAmount InterestPerBlock(const CInterestRate& rate);
 
 class CLoanTakeLoanMessage
 {
@@ -311,10 +313,6 @@ public:
     struct LoanInterestByScheme             { static constexpr uint8_t prefix() { return 0x18; } };
     struct LoanTokenAmount                  { static constexpr uint8_t prefix() { return 0x19; } };
     struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
-    struct LoanTakeLoanCreationTx           { static constexpr uint8_t prefix() { return 0x1B; } };
-    struct LoanTakeLoanVaultKey             { static constexpr uint8_t prefix() { return 0x1C; } };
-    struct LoanPaybackLoanCreationTx        { static constexpr uint8_t prefix() { return 0x1E; } };
-    struct LoanPaybackLoanVaultKey          { static constexpr uint8_t prefix() { return 0x1F; } };
 };
 
 #endif // DEFI_MASTERNODES_LOAN_H

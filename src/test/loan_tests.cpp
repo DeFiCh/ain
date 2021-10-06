@@ -95,33 +95,28 @@ BOOST_AUTO_TEST_CASE(loan_iterest_rate)
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->interestToHeight, 0);
     BOOST_CHECK_EQUAL(rate->height, 1);
-    auto netInterest = (scheme->rate + tokenInterest) / 100;
-    BOOST_CHECK_EQUAL(rate->interestPerBlock, MultiplyAmounts(netInterest, 1 * COIN) / (365 * Params().GetConsensus().blocksPerDay()));
 
-    auto interestPerBlock = rate->interestPerBlock;
+    auto interestPerBlock = InterestPerBlock(*rate);
     BOOST_REQUIRE(mnview.StoreInterest(5, vault_id, id, token_id, 1 * COIN));
 
     rate = mnview.GetInterestRate(id, token_id);
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->height, 5);
     BOOST_CHECK_EQUAL(rate->interestToHeight, 4 * interestPerBlock);
-    BOOST_CHECK_EQUAL(rate->interestPerBlock, interestPerBlock + MultiplyAmounts(netInterest, 1 * COIN) / (365 * Params().GetConsensus().blocksPerDay()));
 
     auto interestToHeight = rate->interestToHeight;
-    interestPerBlock = rate->interestPerBlock;
+    interestPerBlock = InterestPerBlock(*rate);
     BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, interestToHeight + interestPerBlock));
     rate = mnview.GetInterestRate(id, token_id);
 
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->interestToHeight, 0);
-    BOOST_CHECK_EQUAL(rate->interestPerBlock, interestPerBlock - MultiplyAmounts(netInterest, 1 * COIN) / (365 * Params().GetConsensus().blocksPerDay()));
 
     BOOST_REQUIRE(mnview.EraseInterest(6, vault_id, id, token_id, 1 * COIN, 0));
 
     rate = mnview.GetInterestRate(id, token_id);
     BOOST_REQUIRE(rate);
     BOOST_CHECK_EQUAL(rate->interestToHeight, 0);
-    BOOST_CHECK_EQUAL(rate->interestPerBlock, 0);
 }
 
 BOOST_AUTO_TEST_CASE(collateralization_ratio)

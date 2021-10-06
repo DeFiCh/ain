@@ -1288,7 +1288,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
         obj.pushKV("totalInterest", ValueFromAmount(TotalInterest(rate, height)));
-        obj.pushKV("interestPerBlock", ValueFromAmount(rate.interestPerBlock));
+        obj.pushKV("interestPerBlock", ValueFromAmount(InterestPerBlock(rate)));
         ret.push_back(obj);
 
         return true;

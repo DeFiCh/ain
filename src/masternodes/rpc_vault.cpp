@@ -59,7 +59,10 @@ namespace {
                 TAmounts balancesInterest{};
                 for (const auto& loan : loanTokens->balances) {
                     auto rate = pcustomcsview->GetInterestRate(vault.schemeId, loan.first);
-                    CAmount value = loan.second + TotalInterest(*rate, height + 1);
+                    if (!rate)
+                        continue;
+                    auto loanPart = DivideAmounts(loan.second, rate->interestLoan);
+                    CAmount value = loan.second + MultiplyAmounts(loanPart, TotalInterest(*rate, height + 1));
                     balancesInterest.insert({loan.first, value});
                 }
                 loanBalances = AmountsToJSON(balancesInterest);

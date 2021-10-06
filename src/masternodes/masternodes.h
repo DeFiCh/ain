@@ -364,9 +364,7 @@ class CCustomCSView
                                         ICXOrderStatus, ICXOfferStatus, ICXSubmitDFCHTLCStatus, ICXSubmitEXTHTLCStatus, ICXVariables,
             CLoanView               ::  LoanSetCollateralTokenCreationTx, LoanSetCollateralTokenKey, LoanSetLoanTokenCreationTx,
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
-                                        DestroyLoanSchemeKey, LoanTokenAmount, LoanLiquidationPenalty,
-                                        LoanTakeLoanCreationTx, LoanTakeLoanVaultKey, LoanInterestByScheme, LoanPaybackLoanCreationTx,
-                                        LoanPaybackLoanVaultKey, LoanKey,
+                                        DestroyLoanSchemeKey, LoanInterestByScheme, LoanTokenAmount, LoanLiquidationPenalty,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
         >();
     }
