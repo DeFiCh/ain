@@ -2741,8 +2741,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         mapBurnAmounts.clear();
 
-        ProcessLoanEvents(pindex, cache, chainparams);
         ProcessOracleEvents(pindex, cache, chainparams);
+        ProcessLoanEvents(pindex, cache, chainparams);
 
         // construct undo
         auto& flushable = cache.GetStorage();

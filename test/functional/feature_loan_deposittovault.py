@@ -85,7 +85,7 @@ class DepositToVaultTest (DefiTestFramework):
                                     'factor': 1,
                                     'fixedIntervalPriceId': "BTC/USD"})
 
-        self.nodes[0].generate(6)
+        self.nodes[0].generate(7)
         self.sync_blocks()
 
         self.nodes[0].createloanscheme(200, 1, 'LOAN0001')
@@ -200,7 +200,7 @@ class DepositToVaultTest (DefiTestFramework):
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
 
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(8)
         self.sync_blocks()
 
         self.nodes[0].takeloan({
@@ -223,7 +223,7 @@ class DepositToVaultTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(60) # let fixed price update
+        self.nodes[0].generate(11) # let fixed price update
         self.sync_blocks()
 
         vault1 = self.nodes[1].getvault(vaultId1)
