@@ -82,8 +82,10 @@ enum class CustomTxType : uint8_t
     DefaultLoanScheme  = 'd',
     DestroyLoanScheme  = 'D',
     Vault              = 'V',
+    CloseVault         = 'e',
     UpdateVault        = 'v',
     DepositToVault     = 'S',
+    WithdrawFromVault  = 'J',
     LoanTakeLoan       = 'F',
     LoanPaybackLoan    = 'H',
     AuctionBid         = 'I'
@@ -128,8 +130,10 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::DefaultLoanScheme:
         case CustomTxType::DestroyLoanScheme:
         case CustomTxType::Vault:
+        case CustomTxType::CloseVault:
         case CustomTxType::UpdateVault:
         case CustomTxType::DepositToVault:
+        case CustomTxType::WithdrawFromVault:
         case CustomTxType::LoanTakeLoan:
         case CustomTxType::LoanPaybackLoan:
         case CustomTxType::AuctionBid:
@@ -288,8 +292,10 @@ typedef boost::variant<
     CDefaultLoanSchemeMessage,
     CDestroyLoanSchemeMessage,
     CVaultMessage,
+    CCloseVaultMessage,
     CUpdateVaultMessage,
     CDepositToVaultMessage,
+    CWithdrawFromVaultMessage,
     CLoanTakeLoanMessage,
     CLoanPaybackLoanMessage,
     CAuctionBidMessage
@@ -305,6 +311,7 @@ Res CustomTxVisit(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView& mnview, const CTransaction& tx, int height, const uint256& prevStakeModifier, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView& mnview, const CTransaction& tx, int height, const std::vector<unsigned char>& metadata, const Consensus::Params& consensusParams);
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime);
+bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height);
 Res SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CScript const & from, CScript const & to, uint32_t height);
 
 /*

@@ -11,23 +11,21 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal
 
 from decimal import Decimal
+import calendar
+import time
 
 class LoanSetLoanTokenTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2
+        self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
         print("Generating initial chain...")
-        self.nodes[0].generate(25)
-        self.sync_blocks()
-        self.nodes[1].generate(100)
-        self.sync_blocks()
+        self.nodes[0].generate(101)
 
         self.nodes[0].createtoken({
             "symbol": "BTC",
@@ -37,30 +35,28 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         })
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         try:
             self.nodes[0].setloantoken({
                             'symbol': "TSLA",
                             'name': "Tesla stock token",
-                            'priceFeedId': "TSLA/USD",
+                            'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': False,
                             'interest': 1})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Price feed TSLA/USD does not belong to any oracle" in errorString)
+        assert("no live oracles for specified request" in errorString)
 
         oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
         price_feeds1 = [{"currency": "USD", "token": "TSLA"}]
-        self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
+        oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         try:
             self.nodes[0].setloantoken({
                             'symbol': "TSLA",
                             'name': "Tesla stock token",
-                            'priceFeedId': "TSLA/USD",
+                            'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': False,
                             'interest': -1})
         except JSONRPCException as e:
@@ -71,22 +67,26 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             self.nodes[0].setloantoken({
                             'symbol': "TSLAA",
                             'name': "Tesla stock token",
-                            'priceFeedId': "aa",
+                            'fixedIntervalPriceId': "aa",
                             'mintable': False,
                             'interest': 1})
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("price feed not in valid format - token/currency" in errorString)
 
+        oracle1_prices = [{"currency": "USD", "tokenAmount": "1@TSLA"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(1)
+
         setLoanTokenTx = self.nodes[0].setloantoken({
                             'symbol': "TSLAAAA",
                             'name': "Tesla",
-                            'priceFeedId': "TSLA/USD",
+                            'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': False,
                             'interest': 1})
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         loantokens = self.nodes[0].listloantokens()
 
@@ -95,7 +95,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["symbol"], "TSLAAAA")
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["name"], "Tesla")
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["mintable"], False)
-        assert_equal(loantokens[setLoanTokenTx]["priceFeedId"], "TSLA/USD")
+        assert_equal(loantokens[setLoanTokenTx]["fixedIntervalPriceId"], "TSLA/USD")
         assert_equal(loantokens[setLoanTokenTx]["interest"], Decimal('1'))
 
         self.nodes[0].updateloantoken("TSLAAAA",{
@@ -105,7 +105,6 @@ class LoanSetLoanTokenTest (DefiTestFramework):
                             'interest': 3})
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         loantokens = self.nodes[0].listloantokens()
 
@@ -114,7 +113,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["symbol"], "TSLA")
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["name"], "Tesla stock token")
         assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["mintable"], True)
-        assert_equal(loantokens[setLoanTokenTx]["priceFeedId"], "TSLA/USD")
+        assert_equal(loantokens[setLoanTokenTx]["fixedIntervalPriceId"], "TSLA/USD")
         assert_equal(loantokens[setLoanTokenTx]["interest"], Decimal('3'))
 
 if __name__ == '__main__':

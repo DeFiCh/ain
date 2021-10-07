@@ -181,6 +181,8 @@ public:
         consensus.spv.anchors_address = "1FtZwEZKknoquUb6DyQHFZ6g6oomXJYEcb";
         consensus.spv.minConfirmations = 6;
 
+        consensus.vaultCreationFee = 2 * COIN;
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
 
@@ -401,6 +403,8 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
+        consensus.vaultCreationFee = 1 * COIN;
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
@@ -581,6 +585,8 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
+        consensus.vaultCreationFee = 1 * COIN;
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
@@ -754,6 +760,8 @@ public:
         consensus.spv.subsidyIncreasePeriod = 60;
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 6;
+
+        consensus.vaultCreationFee = 1 * COIN;
 
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 50);       // 0.1 per block

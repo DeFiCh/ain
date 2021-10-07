@@ -39,6 +39,20 @@ struct CVaultData : public CVaultMessage {
     }
 };
 
+struct CCloseVaultMessage {
+    CVaultId vaultId;
+    CScript to;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(vaultId);
+        READWRITE(to);
+    }
+};
+
 struct CUpdateVaultMessage {
     CVaultId vaultId;
     CScript ownerAddress;
@@ -67,6 +81,22 @@ struct CDepositToVaultMessage {
     {
         READWRITE(vaultId);
         READWRITE(from);
+        READWRITE(amount);
+    }
+};
+
+struct CWithdrawFromVaultMessage {
+    CVaultId vaultId;
+    CScript to;
+    CTokenAmount amount;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(vaultId);
+        READWRITE(to);
         READWRITE(amount);
     }
 };
@@ -106,6 +136,7 @@ struct CAuctionData {
 struct CAuctionBatch {
     CBalances collaterals;
     CTokenAmount loanAmount;
+    CAmount loanInterest;
 
     ADD_SERIALIZE_METHODS;
 
@@ -114,6 +145,7 @@ struct CAuctionBatch {
     {
         READWRITE(collaterals);
         READWRITE(loanAmount);
+        READWRITE(loanInterest);
     }
 };
 
@@ -126,8 +158,8 @@ struct AuctionKey {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action)
     {
-        READWRITE(vaultId);
         READWRITE(WrapBigEndian(height));
+        READWRITE(vaultId);
     }
 };
 
@@ -135,6 +167,7 @@ class CVaultView : public virtual CStorageView
 {
 public:
     Res StoreVault(const CVaultId&, const CVaultData&);
+    Res EraseVault(const CVaultId&);
     boost::optional<CVaultData> GetVault(const CVaultId&) const;
     Res UpdateVault(const CVaultId& vaultId, const CVaultMessage& newVault);
     void ForEachVault(std::function<bool(const CVaultId&, const CVaultData&)> callback, const CVaultId& start = {}, const CScript& ownerAddress = {});
@@ -158,11 +191,11 @@ public:
     boost::optional<COwnerTokenAmount> GetAuctionBid(const CVaultId& vaultId, uint32_t id);
 
     struct VaultKey         { static constexpr uint8_t prefix() { return 0x20; } };
-    struct OwnerVaultKey    { static constexpr uint8_t prefix() { return 0x25; } };
-    struct CollateralKey    { static constexpr uint8_t prefix() { return 0x21; } };
-    struct AuctionBatchKey  { static constexpr uint8_t prefix() { return 0x22; } };
-    struct AuctionHeightKey { static constexpr uint8_t prefix() { return 0x23; } };
-    struct AuctionBidKey    { static constexpr uint8_t prefix() { return 0x24; } };
+    struct OwnerVaultKey    { static constexpr uint8_t prefix() { return 0x21; } };
+    struct CollateralKey    { static constexpr uint8_t prefix() { return 0x22; } };
+    struct AuctionBatchKey  { static constexpr uint8_t prefix() { return 0x23; } };
+    struct AuctionHeightKey { static constexpr uint8_t prefix() { return 0x24; } };
+    struct AuctionBidKey    { static constexpr uint8_t prefix() { return 0x25; } };
 };
 
 #endif // DEFI_MASTERNODES_VAULT_H

@@ -826,23 +826,19 @@ ResVal<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio(CVaultId
             assert(token);
             auto rate = GetInterestRate(vault->schemeId, loan.first);
             assert(rate && rate->height <= height);
-            auto price = GetAggregatePrice(*this, token->priceFeed.first, token->priceFeed.second, blockTime);
-            if (!price) {
-                return std::move(price);
-            }
-            auto value = loan.second + MultiplyAmounts(loan.second, TotalInterest(*rate, height));
-            ret.loans.push_back({loan.first, MultiplyAmounts(*price.val, value)});
+            auto value = loan.second + TotalInterest(*rate, height);
+            auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
+            assert(priceFeed);
+            ret.loans.push_back({loan.first, MultiplyAmounts(priceFeed.val->priceRecord[0], value)});
         }
     }
 
     for (const auto& col : collaterals.balances) {
         auto token = HasLoanSetCollateralToken({col.first, height});
         assert(token);
-        auto price = GetAggregatePrice(*this, token->priceFeed.first, token->priceFeed.second, blockTime);
-        if (!price) {
-            return std::move(price);
-        }
-        ret.collaterals.push_back({col.first, MultiplyAmounts(token->factor, MultiplyAmounts(*price.val, col.second))});
+        auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
+        assert(priceFeed);
+        ret.collaterals.push_back({col.first, MultiplyAmounts(token->factor, MultiplyAmounts(priceFeed.val->priceRecord[0], col.second))});
     }
 
     return ResVal<CCollateralLoans>(ret, Res::Ok());
