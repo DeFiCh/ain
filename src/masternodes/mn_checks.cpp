@@ -63,8 +63,10 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
         case CustomTxType::DestroyLoanScheme:   return "DestroyLoanScheme";
         case CustomTxType::Vault:               return "Vault";
+        case CustomTxType::CloseVault:          return "CloseVault";
         case CustomTxType::UpdateVault:         return "UpdateVault";
         case CustomTxType::DepositToVault:      return "DepositToVault";
+        case CustomTxType::WithdrawFromVault:   return "WithdrawFromVault";
         case CustomTxType::LoanTakeLoan:        return "LoanTakeLoan";
         case CustomTxType::LoanPaybackLoan:     return "LoanPaybackLoan";
         case CustomTxType::AuctionBid:          return "AuctionBid";
@@ -150,8 +152,10 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::DefaultLoanScheme:       return CDefaultLoanSchemeMessage{};
         case CustomTxType::DestroyLoanScheme:       return CDestroyLoanSchemeMessage{};
         case CustomTxType::Vault:                   return CVaultMessage{};
+        case CustomTxType::CloseVault:              return CCloseVaultMessage{};
         case CustomTxType::UpdateVault:             return CUpdateVaultMessage{};
         case CustomTxType::DepositToVault:          return CDepositToVaultMessage{};
+        case CustomTxType::WithdrawFromVault:       return CWithdrawFromVaultMessage{};
         case CustomTxType::LoanTakeLoan:            return CLoanTakeLoanMessage{};
         case CustomTxType::LoanPaybackLoan:         return CLoanPaybackLoanMessage{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
@@ -451,12 +455,22 @@ public:
         return !res ? res : serialize(obj);
     }
 
+    Res operator()(CCloseVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
     Res operator()(CUpdateVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
 
     Res operator()(CDepositToVaultMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CWithdrawFromVaultMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -754,7 +768,7 @@ public:
         return Res::Ok();
     }
 
-    bool oraclePriceFeed(const PriceFeedPair& priceFeed) const {
+    bool oraclePriceFeed(const CFixedIntervalPriceId& priceFeed) const {
         bool found = false;
         mnview.ForEachOracle([&](const COracleId&, COracle oracle) {
             return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
@@ -1839,8 +1853,21 @@ public:
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
-        if (!oraclePriceFeed(collToken.priceFeed))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.priceFeed.first, collToken.priceFeed.second);
+
+        if (!oraclePriceFeed(collToken.fixedIntervalPriceId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second);
+
+        CFixedIntervalPrice fixedIntervalPrice;
+        fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
+        auto price = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
+        if(!price)
+            return Res::Err(price.msg);
+
+        fixedIntervalPrice.priceRecord[1] = price;
+        fixedIntervalPrice.timestamp = time;
+        auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+        if(!resSetFixedPrice)
+            return Res::Err(resSetFixedPrice.msg);
 
         return mnview.LoanCreateSetCollateralToken(collToken);
     }
@@ -1856,11 +1883,22 @@ public:
         loanToken.creationTx = tx.GetHash();
         loanToken.creationHeight = height;
 
+        CFixedIntervalPrice fixedIntervalPrice;
+        fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
+        auto nextPrice = GetAggregatePrice(mnview, loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second, time);
+        if(!nextPrice)
+            return Res::Err(nextPrice.msg);
+        fixedIntervalPrice.priceRecord[1] = nextPrice;
+        fixedIntervalPrice.timestamp = time;
+        auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
+        if(!resSetFixedPrice)
+            return Res::Err(resSetFixedPrice.msg);
+
         if (!HasFoundationAuth())
             return Res::Err("tx not from foundation member!");
 
-        if (!oraclePriceFeed(loanToken.priceFeed))
-            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.priceFeed.first, loanToken.priceFeed.second);
+        if (!oraclePriceFeed(loanToken.fixedIntervalPriceId))
+            return Res::Err("Price feed %s/%s does not belong to any oracle", loanToken.fixedIntervalPriceId.first, loanToken.fixedIntervalPriceId.second);
 
         CTokenImplementation token;
         token.flags = loanToken.mintable ? (uint8_t)CToken::TokenFlags::Default : (uint8_t)CToken::TokenFlags::Tradeable;
@@ -1905,10 +1943,10 @@ public:
             pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);;
         if (obj.name != pair->second.name)
             pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-        if (obj.priceFeed != loanToken->priceFeed) {
-            if (!oraclePriceFeed(obj.priceFeed))
-                return Res::Err("Price feed %s/%s does not belong to any oracle", obj.priceFeed.first, obj.priceFeed.second);
-            loanToken->priceFeed = obj.priceFeed;
+        if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
+            if (!oraclePriceFeed(obj.fixedIntervalPriceId))
+                return Res::Err("Price feed %s/%s does not belong to any oracle", obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second);
+            loanToken->fixedIntervalPriceId = obj.fixedIntervalPriceId;
         }
         if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
             pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
@@ -1921,6 +1959,11 @@ public:
     }
 
     Res operator()(const CLoanSchemeMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res) {
+            return res;
+        }
+
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member!");
         }
@@ -1999,6 +2042,11 @@ public:
     }
 
     Res operator()(const CDefaultLoanSchemeMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res) {
+            return res;
+        }
+
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member!");
         }
@@ -2024,6 +2072,11 @@ public:
     }
 
     Res operator()(const CDestroyLoanSchemeMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res) {
+            return res;
+        }
+
         if (!HasFoundationAuth()) {
             return Res::Err("tx not from foundation member!");
         }
@@ -2052,7 +2105,6 @@ public:
         mnview.ForEachVault([&](const CVaultId& vaultId, CVaultData vault) {
             if (vault.schemeId == obj.identifier) {
                 vault.schemeId = *mnview.GetDefaultLoanScheme();
-                mnview.TransferVaultInterest(vaultId, height, {}, vault.schemeId);
                 mnview.StoreVault(vaultId, vault);
             }
             return true;
@@ -2062,13 +2114,14 @@ public:
     }
 
     Res operator()(const CVaultMessage& obj) const {
+
+        auto vaultCreationFee = consensus.vaultCreationFee;
+        if (tx.vout[0].nValue != vaultCreationFee || tx.vout[0].nTokenId != DCT_ID{0}) {
+            return Res::Err("malformed tx vouts, creation vault fee is %s DFI", GetDecimaleString(vaultCreationFee));
+        }
+
         CVaultData vault{};
         static_cast<CVaultMessage&>(vault) = obj;
-
-        // owner auth
-        if (!HasAuth(obj.ownerAddress)) {
-            return Res::Err("tx must have at least one input from token owner");
-        }
 
         // set loan scheme to default if non provided
         if (obj.schemeId.empty()) {
@@ -2093,7 +2146,46 @@ public:
         return mnview.StoreVault(vaultId, vault);
     }
 
+    Res operator()(const CCloseVaultMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+
+        // vault under liquidation
+        if (vault->isUnderLiquidation)
+            return Res::Err("Cannot close vault under liquidation");
+
+        // owner auth
+        if (!HasAuth(vault->ownerAddress))
+            return Res::Err("tx must have at least one input from token owner");
+
+        if (mnview.GetLoanTokens(obj.vaultId))
+            return Res::Err("Vault <%s> has loans", obj.vaultId.GetHex());
+
+        CalculateOwnerRewards(obj.to);
+        if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
+            for (const auto& col : collaterals->balances) {
+                auto res = mnview.AddBalance(obj.to, {col.first, col.second});
+                if (!res)
+                    return res;
+            }
+        }
+
+        // return half fee, the rest is burned at creation
+        auto feeBack = consensus.vaultCreationFee / 2;
+        res = mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack});
+        return !res ? res : mnview.EraseVault(obj.vaultId);
+    }
+
     Res operator()(const CUpdateVaultMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
 
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
@@ -2116,8 +2208,8 @@ public:
         if (auto height = mnview.GetDestroyLoanScheme(obj.schemeId))
             return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
 
-        if (vault->schemeId != obj.schemeId)
-            mnview.TransferVaultInterest(obj.vaultId, height, vault->schemeId, obj.schemeId);
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot update vault when any of the asset's price is invalid");
 
         vault->schemeId = obj.schemeId;
         vault->ownerAddress = obj.ownerAddress;
@@ -2160,9 +2252,9 @@ public:
             if (!loanSetCollToken)
                 return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
 
-            auto price = GetAggregatePrice(mnview, loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, time);
+            auto price = GetAggregatePrice(mnview, loanSetCollToken->fixedIntervalPriceId.first, loanSetCollToken->fixedIntervalPriceId.second, time);
             if (!price)
-                return Res::Err("%s/%s: %s", loanSetCollToken->priceFeed.first, loanSetCollToken->priceFeed.second, price.msg);
+                return Res::Err("%s/%s: %s", loanSetCollToken->fixedIntervalPriceId.first, loanSetCollToken->fixedIntervalPriceId.second, price.msg);
 
             auto amount = MultiplyAmounts(*price.val, col.second);
             if (*price.val > COIN && amount < col.second)
@@ -2171,6 +2263,9 @@ public:
             if (col.first == DCT_ID{0}) {
                 if (!MoneyRange(col.second))
                     return Res::Err("Exceed max money range");
+            }
+
+            if (loanSetCollToken->idToken == DCT_ID{0}){
                 totalDFI += amount;
             }
 
@@ -2191,16 +2286,72 @@ public:
         return Res::Ok();
     }
 
-    Res operator()(const CLoanTakeLoanMessage& obj) const {
+    Res operator()(const CWithdrawFromVaultMessage& obj) const {
         auto res = CheckCustomTx();
         if (!res)
             return res;
 
-        CLoanTakeLoanImplementation takeLoan;
-        static_cast<CLoanTakeLoan&>(takeLoan) = obj;
+        // vault exists
+        auto vault = mnview.GetVault(obj.vaultId);
+        if (!vault)
+            return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
 
-        takeLoan.creationHeight = height;
-        takeLoan.creationTx = tx.GetHash();
+        // vault under liquidation
+        if (vault->isUnderLiquidation)
+            return Res::Err("Cannot withdraw from vault under liquidation");
+
+        res = mnview.SubVaultCollateral(obj.vaultId, obj.amount);
+        if (!res)
+            return res;
+
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot update vault when any of the asset's price is invalid");
+
+        if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
+        {
+            uint64_t totalDFI = 0, totalCollaterals = 0;
+            for (const auto& col : collaterals->balances) {
+
+                auto loanSetCollToken = mnview.HasLoanSetCollateralToken({col.first, height}); // for priceFeedId
+                if (!loanSetCollToken)
+                    return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
+
+                auto priceFeed = mnview.GetFixedIntervalPrice(loanSetCollToken->fixedIntervalPriceId);
+                if (!priceFeed)
+                    return Res::Err(priceFeed.msg);
+
+                auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], col.second);
+                if (priceFeed.val->priceRecord[0] > COIN && amount < col.second)
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(priceFeed.val->priceRecord[0]));
+
+                if (col.first == DCT_ID{0}) {
+                    if (!MoneyRange(col.second))
+                        return Res::Err("Exceed max money range");
+                    totalDFI += amount;
+                }
+            }
+
+            if (totalDFI < totalCollaterals / 2)
+                return Res::Err("At least 50%% of the vault must be in DFI thus first deposit must be DFI");
+
+            auto scheme = mnview.GetLoanScheme(vault->schemeId);
+            auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height, time);
+            if (!rate || rate.val->ratio() < scheme->ratio)
+                return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate.val->ratio(), scheme->ratio);
+        }
+        else
+        {
+            if (mnview.GetLoanTokens(obj.vaultId))
+                return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
+        }
+
+        return mnview.AddBalance(obj.to, obj.amount);
+    }
+
+    Res operator()(const CLoanTakeLoanMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
 
         const auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
@@ -2217,6 +2368,9 @@ public:
         if (!collaterals)
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot update vault when any of the asset's price is invalid");
+
         uint64_t totalLoans = 0;
         for (const auto& kv : obj.amounts.balances)
         {
@@ -2231,18 +2385,17 @@ public:
             res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{kv.first, kv.second});
             if (!res)
                 return res;
-
-            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId);
+            res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, kv.second);
             if (!res)
                 return res;
 
-            auto price = GetAggregatePrice(mnview, loanToken->priceFeed.first, loanToken->priceFeed.second, time);
-            if (!price)
-                return Res::Err("%s/%s: %s", loanToken->priceFeed.first, loanToken->priceFeed.second, price.msg);
+            auto priceFeed = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
+            if (!priceFeed)
+                return Res::Err(priceFeed.msg);
 
-            auto amount = MultiplyAmounts(*price.val, kv.second);
-            if (*price.val > COIN && amount < kv.second)
-                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(*price.val));
+            auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], kv.second);
+            if (priceFeed.val->priceRecord[0] > COIN && amount < kv.second)
+                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(priceFeed.val->priceRecord[0]));
 
             auto prevLoans = totalLoans;
             totalLoans += amount;
@@ -2253,8 +2406,8 @@ public:
             if (!res)
                 return res;
 
-            const auto& address = !takeLoan.to.empty() ? takeLoan.to
-                                                       : vault->ownerAddress;
+            const auto& address = !obj.to.empty() ? obj.to
+                                                  : vault->ownerAddress;
             CalculateOwnerRewards(address);
             res = mnview.AddBalance(address, CTokenAmount{kv.first, kv.second});
             if (!res)
@@ -2266,8 +2419,7 @@ public:
         if (!rate || rate.val->ratio() < scheme->ratio)
             return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate.val->ratio(), scheme->ratio);
 
-        // Write take loan to storage
-       return mnview.SetLoanTakeLoan(takeLoan);
+        return Res::Ok();
     }
 
     Res operator()(const CLoanPaybackLoanMessage& obj) const {
@@ -2275,66 +2427,61 @@ public:
         if (!res)
             return res;
 
-        CLoanPaybackLoanImplementation loanPayback;
-        static_cast<CLoanPaybackLoan&>(loanPayback) = obj;
-
-        loanPayback.creationHeight = height;
-        loanPayback.creationTx = tx.GetHash();
-
-        const auto vault = mnview.GetVault(loanPayback.vaultId);
+        const auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
-            return Res::Err("Cannot find existing vault with id %s", loanPayback.vaultId.GetHex());
+            return Res::Err("Cannot find existing vault with id %s", obj.vaultId.GetHex());
 
         if (vault->isUnderLiquidation)
             return Res::Err("Cannot payback loan on vault under liquidation");
 
-        auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-        if (!collaterals)
-            return Res::Err("Vault with id %s has no collaterals", loanPayback.vaultId.GetHex());
+        if (!mnview.GetVaultCollaterals(obj.vaultId))
+            return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
-        if (!HasAuth(loanPayback.from))
+        if (!HasAuth(obj.from))
             return Res::Err("tx must have at least one input from token owner");
 
-        for (const auto& kv : loanPayback.amounts.balances)
+        for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
             auto loanToken = mnview.GetLoanSetLoanTokenByID(tokenId);
             if (!loanToken)
                 return Res::Err("Loan token with id (%s) does not exist!", tokenId.ToString());
 
-            auto loanAmounts = mnview.GetLoanTokens(loanPayback.vaultId);
+            auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
             if (!loanAmounts)
-                return Res::Err("There are no loans on this vault (%s)!", loanPayback.vaultId.GetHex());
+                return Res::Err("There are no loans on this vault (%s)!", obj.vaultId.GetHex());
 
             auto it = loanAmounts->balances.find(tokenId);
             if (it == loanAmounts->balances.end())
-                return Res::Err("There is no loan on token (%s) in this vault!",loanToken->symbol);
+                return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
-            auto rate  = mnview.GetInterestRate(vault->schemeId, tokenId);
+            auto rate = mnview.GetInterestRate(vault->schemeId, tokenId);
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-            auto totalInterest = TotalInterest(*rate, height);
-            auto totalInterestAmount = MultiplyAmounts(it->second, totalInterest);
-            auto totalLoanAmount = it->second + totalInterestAmount;
-            CAmount subLoan = 0, subInterest = 0;
+            CAmount subInterest = 0;
 
-            if (kv.second >= totalLoanAmount)
+            if (rate->interestLoan > 0)
             {
+                auto loanPart = DivideAmounts(it->second, rate->interestLoan);
+                subInterest = MultiplyAmounts(loanPart, TotalInterest(*rate, height));
+            }
+
+            auto subLoan = kv.second - subInterest;
+
+            if (kv.second < subInterest)
+            {
+                subInterest = kv.second;
+                subLoan = 0;
+            }
+            else if (it->second - subLoan < 0)
                 subLoan = it->second;
-                subInterest = totalInterestAmount;
-            }
-            else
-            {
-                subInterest = MultiplyAmounts(kv.second, totalInterest);
-                subLoan = kv.second - subInterest;
-            }
 
-            res = mnview.SubLoanToken(loanPayback.vaultId, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
 
-            res = mnview.EraseInterest(height, loanPayback.vaultId, vault->schemeId, tokenId);
+            res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, subLoan, subInterest);
             if (!res)
                 return res;
 
@@ -2342,27 +2489,30 @@ public:
             if (!res)
                 return res;
 
-            CalculateOwnerRewards(loanPayback.from);
+            CalculateOwnerRewards(obj.from);
             // subtract loan amount first, interest is burning below
-            res = mnview.SubBalance(loanPayback.from, CTokenAmount{kv.first, subLoan});
+            res = mnview.SubBalance(obj.from, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
 
             // burn interest Token->USD->DFI->burnAddress
-            res = SwapToDFIOverUSD(mnview, kv.first, subInterest, loanPayback.from, consensus.burnAddress, height);
+            res = SwapToDFIOverUSD(mnview, kv.first, subInterest, obj.from, consensus.burnAddress, height);
             if (!res)
                 return res;
         }
 
-        // Write loan payback to storage
-        return mnview.SetLoanPaybackLoan(loanPayback);
+        return Res::Ok();
     }
 
     Res operator()(const CAuctionBidMessage& obj) const {
+        auto res = CheckCustomTx();
+        if (!res)
+            return res;
+
         // owner auth
-        if (!HasAuth(obj.from)) {
+        if (!HasAuth(obj.from))
             return Res::Err("tx must have at least one input from token owner");
-        }
+
         // vault exists
         auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
@@ -2398,7 +2548,7 @@ public:
         }
         //check balance
         CalculateOwnerRewards(obj.from);
-        auto res = mnview.SubBalance(obj.from, obj.amount);
+        res = mnview.SubBalance(obj.from, obj.amount);
         return !res ? res : mnview.StoreAuctionBid(obj.vaultId, obj.index, {obj.from, obj.amount});
     }
 
@@ -2728,6 +2878,11 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         // Track burn fee
         if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
             view.AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
+        }
+        if (txType == CustomTxType::Vault) {
+            // burn the half, the rest is returned on close vault
+            auto burnFee = tx.vout[0].nValue / 2;
+            view.AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
         }
     }
     // list of transactions which aren't allowed to fail:
@@ -3152,3 +3307,20 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     return res;
 }
 
+bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t height)
+{
+    if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
+        for (const auto collateral : collaterals->balances)
+            if (auto collateralToken = mnview.HasLoanSetCollateralToken({collateral.first, height}))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
+                    if (!fixedIntervalPrice.val->isValid())
+                        return false;
+
+    if (auto loans = mnview.GetLoanTokens(vaultId))
+        for (const auto loan : loans->balances)
+            if (auto loanToken = mnview.GetLoanSetLoanTokenByID(loan.first))
+                if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
+                    if (!fixedIntervalPrice.val->isValid())
+                        return false;
+    return true;
+}

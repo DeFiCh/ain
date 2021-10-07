@@ -355,7 +355,7 @@ class CCustomCSView
                                         ByPoolReward, ByDailyReward, ByCustomReward, ByTotalLiquidity,
             CGovView                ::  ByName,
             CAnchorConfirmsView     ::  BtcTx,
-            COracleView             ::  ByName,
+            COracleView             ::  ByName, FixedIntervalPriceKey,
             CICXOrderView           ::  ICXOrderCreationTx, ICXMakeOfferCreationTx, ICXSubmitDFCHTLCCreationTx,
                                         ICXSubmitEXTHTLCCreationTx, ICXClaimDFCHTLCCreationTx, ICXCloseOrderCreationTx,
                                         ICXCloseOfferCreationTx, ICXOrderOpenKey, ICXOrderCloseKey, ICXMakeOfferOpenKey,
@@ -364,9 +364,7 @@ class CCustomCSView
                                         ICXOrderStatus, ICXOfferStatus, ICXSubmitDFCHTLCStatus, ICXSubmitEXTHTLCStatus, ICXVariables,
             CLoanView               ::  LoanSetCollateralTokenCreationTx, LoanSetCollateralTokenKey, LoanSetLoanTokenCreationTx,
                                         LoanSetLoanTokenKey, LoanSchemeKey, DefaultLoanSchemeKey, DelayedLoanSchemeKey,
-                                        DestroyLoanSchemeKey, LoanInterestedRate, LoanTokenAmount, LoanLiquidationPenalty,
-                                        LoanTakeLoanCreationTx, LoanTakeLoanVaultKey, LoanInterestByVault, LoanPaybackLoanCreationTx,
-                                        LoanPaybackLoanVaultKey,
+                                        DestroyLoanSchemeKey, LoanInterestByScheme, LoanTokenAmount, LoanLiquidationPenalty,
             CVaultView              ::  VaultKey, OwnerVaultKey, CollateralKey, AuctionBatchKey, AuctionHeightKey, AuctionBidKey
         >();
     }

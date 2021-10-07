@@ -159,7 +159,8 @@ BASE_SCRIPTS = [
     'feature_icx_orderbook_errors.py',
     'feature_loan_setcollateraltoken.py',
     'feature_loan_setloantoken.py',
-    'feature_loan_takeloan.py',
+    'feature_loan_basics.py',
+    'feature_loan_listauctions.py',
     'feature_any_accounts_to_accounts.py',
     'feature_sendtokenstoaddress.py',
     'feature_poolswap.py',
@@ -247,6 +248,7 @@ BASE_SCRIPTS = [
     'feature_logging.py',
     'feature_loan_scheme.py',
     'feature_loan_vault.py',
+    'feature_loan_deposittovault.py',
     'feature_loan.py',
     'p2p_node_network_limited.py',
     'p2p_permissions.py',
@@ -256,7 +258,6 @@ BASE_SCRIPTS = [
     'feature_accounts_validation.py',
     'feature_listaccounts_pagination.py',
     'rpc_help.py',
-    'feature_loan.py',
     'feature_help.py',
     'feature_shutdown.py',
     'feature_oracles.py',
@@ -325,7 +326,7 @@ def main():
     logging.basicConfig(format='%(message)s', level=logging_level)
 
     # Create base test directory
-    tmpdir = "%s/test_runner_₿_🏃_%s" % (args.tmpdirprefix, datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+    tmpdir = "%s/test_runner_%s" % (args.tmpdirprefix, datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     os.makedirs(tmpdir)
 

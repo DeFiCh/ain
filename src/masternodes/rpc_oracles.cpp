@@ -910,12 +910,12 @@ namespace {
             const auto& currency = tokenCurrency.second;
             item.pushKV(oraclefields::Token, token);
             item.pushKV(oraclefields::Currency, currency);
-            auto price = GetAggregatePrice(view, token, currency, lastBlockTime);
-            if (price) {
-                item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(*price.val));
+            auto aggregatePrice = GetAggregatePrice(view, token, currency, lastBlockTime);
+            if (aggregatePrice) {
+                item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(*aggregatePrice.val));
                 item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsValid);
             } else {
-                item.pushKV(oraclefields::ValidityFlag, price.msg);
+                item.pushKV(oraclefields::ValidityFlag, aggregatePrice.msg);
             }
             result.push_back(item);
             limit--;

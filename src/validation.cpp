@@ -2140,7 +2140,7 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoa
     auto maxCollBalances = collBalances;
     auto maxLoans = totalLoans;
     auto CreateAuctionBatch = [&maxCollBalances, &collBalances](CTokenAmount loanAmount, CAmount chunk) {
-        CAuctionBatch batch;
+        CAuctionBatch batch{};
         batch.loanAmount = loanAmount;
         for (const auto& tAmount : collBalances) {
             auto& maxCollBalance = maxCollBalances[tAmount.first];
@@ -2741,6 +2741,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         mapBurnAmounts.clear();
 
+        ProcessOracleEvents(pindex, cache, chainparams);
         ProcessLoanEvents(pindex, cache, chainparams);
 
         // construct undo
@@ -3004,7 +3005,6 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         assert(vault);
         vault->schemeId = *defaultLoanScheme;
         cache.UpdateVault(vaultToDefault, *vault);
-        cache.TransferVaultInterest(vaultToDefault, pindex->nHeight, {}, vault->schemeId);
     }
 
     for (const auto& loanDestroy : loanDestruction) {
@@ -3029,7 +3029,16 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             cache.StoreVault(vaultId, *vault);
             auto loanTokens = cache.GetLoanTokens(vaultId);
             assert(loanTokens);
+            CBalances totalInterest;
             for (const auto& loan : loanTokens->balances) {
+                auto rate = cache.GetInterestRate(vault->schemeId, loan.first);
+                assert(rate);
+                if (rate->interestLoan > 0) {
+                    auto loanPart = DivideAmounts(loan.second, rate->interestLoan);
+                    auto subInterest = MultiplyAmounts(loanPart, TotalInterest(*rate, pindex->nHeight));
+                    cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, loan.first, loan.second, subInterest);
+                    totalInterest.Add({loan.first, subInterest});
+                }
                 cache.SubLoanToken(vaultId, {loan.first, loan.second});
             }
             for (const auto& col : collaterals.balances) {
@@ -3037,7 +3046,16 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             }
             auto batches = CollectAuctionBatches(*collateral.val, collaterals.balances, loanTokens->balances);
             for (auto i = 0u; i < batches.size(); i++) {
-                cache.StoreAuctionBatch(vaultId, i, batches[i]);
+                auto& batch = batches[i];
+                auto tokenId = batch.loanAmount.nTokenId;
+                auto interest = totalInterest.balances[tokenId];
+                if (interest > 0) {
+                    auto balance = loanTokens->balances[tokenId];
+                    auto interestPart = DivideAmounts(batch.loanAmount.nValue, balance);
+                    batch.loanInterest = MultiplyAmounts(interestPart, interest);
+                    batch.loanAmount.Add(batch.loanInterest);
+                }
+                cache.StoreAuctionBatch(vaultId, i, batch);
             }
             cache.StoreAuction(vaultId, pindex->nHeight, CAuctionData{uint32_t(batches.size()), cache.GetLoanLiquidationPenalty()});
             return true;
@@ -3047,33 +3065,32 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), nullptr, pburnHistoryDB.get());
 
     view.ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
-        if (int(auction.height) != pindex->nHeight) {
+        if (auction.height != uint32_t(pindex->nHeight)) {
             return false;
         }
         for (uint32_t i = 0; i < data.batchCount; i++) {
             auto batch = view.GetAuctionBatch(auction.vaultId, i);
             assert(batch);
             if (auto bid = view.GetAuctionBid(auction.vaultId, i)) {
-                auto amountToFill = DivideAmounts(bid->second.nValue, COIN + data.liquidationPenalty);
-                auto amountToBurn = bid->second.nValue - amountToFill;
+                auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
+                assert(bid->second.nValue >= penaltyAmount);
+                auto amountToBurn = bid->second.nValue - penaltyAmount + batch->loanInterest;
                 if (amountToBurn > 0) {
                     CScript tmpAddress(auction.vaultId.begin(), auction.vaultId.end());
                     view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToBurn});
                     auto res = SwapToDFIOverUSD(view, bid->second.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
-                    if (!res)
-                        LogPrintf("SwapToDFIOverUSD failed: %s\n", res.msg);
                 }
                 view.CalculateOwnerRewards(bid->first, pindex->nHeight);
                 for (const auto& col : batch->collaterals.balances) {
                     view.AddBalance(bid->first, {col.first, col.second});
                 }
                 // return rest loan to vault if any
-                amountToFill -= batch->loanAmount.nValue;
+                auto amountToFill = bid->second.nValue - penaltyAmount;
                 if (amountToFill > 0) {
                     view.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amountToFill});
                 }
                 if (auto loanToken = view.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
-                    view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue);
+                    view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
                 }
             } else {
                 view.AddLoanToken(auction.vaultId, batch->loanAmount);
@@ -3088,13 +3105,35 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         vault->isUnderLiquidation = false;
         view.StoreVault(auction.vaultId, *vault);
         view.EraseAuction(auction.vaultId, pindex->nHeight);
-        view.TransferVaultInterest(auction.vaultId, pindex->nHeight, vault->schemeId, {});
         return true;
     }, {CVaultId{}, static_cast<uint32_t>(pindex->nHeight)});
 
-    // flush all changes
     view.Flush();
     pburnHistoryDB->Flush();
+}
+
+void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
+        return;
+    }
+
+    auto priceHeight = Params().GetConsensus().blocksFixedIntervalPrice();
+    if(pindex->nHeight % priceHeight == 0){
+        cache.ForEachFixedIntervalPrice([&](const CFixedIntervalPriceId& id, CFixedIntervalPrice fixedIntervalPrice){
+            auto aggregatePrice = GetAggregatePrice(cache, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, pindex->nTime);
+            if(!aggregatePrice){
+                LogPrintf("Error getting aggregate price: %s\n", aggregatePrice.msg);
+                return true;
+            }
+            fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
+            fixedIntervalPrice.priceRecord[1] = aggregatePrice;
+            fixedIntervalPrice.timestamp = GetSystemTimeInSeconds();
+            auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
+            if (!res)
+                LogPrintf("Setting fixed interval price failed: %s\n", res.msg);
+            return true;
+        });
+    }
 }
 
 bool CChainState::FlushStateToDisk(
