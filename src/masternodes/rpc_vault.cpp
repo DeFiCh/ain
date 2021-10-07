@@ -110,10 +110,10 @@ UniValue createvault(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                    HelpExampleCli("createvault", "") +
-                   HelpExampleCli("createvault", "" "LOAN0001") +
+                   HelpExampleCli("createvault", "\"\" LOAN0001") +
                    HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv LOAN0001") +
                    HelpExampleCli("createvault", "") +
-                   HelpExampleRpc("createvault", "\"\", LOAN0001")+
+                   HelpExampleRpc("createvault", "\"\", LOAN0001") +
                    HelpExampleRpc("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv, LOAN0001")
                 },
     }.Check(request);
@@ -124,7 +124,7 @@ UniValue createvault(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
     LockedCoinsScopedGuard lcGuard(pwallet);
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, false);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, true);
 
     CVaultMessage vault;
     vault.ownerAddress = DecodeScript(request.params[0].getValStr());
