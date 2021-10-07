@@ -16,20 +16,16 @@ import time
 
 class LoanSetLoanTokenTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2
+        self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
         print("Generating initial chain...")
-        self.nodes[0].generate(25)
-        self.sync_blocks()
-        self.nodes[1].generate(100)
-        self.sync_blocks()
+        self.nodes[0].generate(101)
 
         self.nodes[0].createtoken({
             "symbol": "BTC",
@@ -39,7 +35,6 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         })
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         try:
             self.nodes[0].setloantoken({
@@ -56,7 +51,6 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         price_feeds1 = [{"currency": "USD", "token": "TSLA"}]
         oracle_id1 = self.nodes[0].appointoracle(oracle_address1, price_feeds1, 10)
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         try:
             self.nodes[0].setloantoken({
@@ -93,7 +87,6 @@ class LoanSetLoanTokenTest (DefiTestFramework):
                             'interest': 1})
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         loantokens = self.nodes[0].listloantokens()
 
@@ -112,7 +105,6 @@ class LoanSetLoanTokenTest (DefiTestFramework):
                             'interest': 3})
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         loantokens = self.nodes[0].listloantokens()
 

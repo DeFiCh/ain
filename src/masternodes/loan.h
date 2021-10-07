@@ -16,8 +16,8 @@ class CLoanSetCollateralToken
 public:
     DCT_ID idToken{UINT_MAX};
     CAmount factor;
-    uint32_t activateAfterBlock = 0;
     CFixedIntervalPriceId fixedIntervalPriceId;
+    uint32_t activateAfterBlock = 0;
 
     ADD_SERIALIZE_METHODS;
 
@@ -25,8 +25,8 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(idToken);
         READWRITE(factor);
-        READWRITE(activateAfterBlock);
         READWRITE(fixedIntervalPriceId);
+        READWRITE(activateAfterBlock);
     }
 };
 
@@ -61,9 +61,9 @@ class CLoanSetLoanToken
 public:
     std::string symbol;
     std::string name;
+    CFixedIntervalPriceId fixedIntervalPriceId;
     bool mintable = true;
     CAmount interest = 0;
-    CFixedIntervalPriceId fixedIntervalPriceId;
 
     ADD_SERIALIZE_METHODS;
 
@@ -71,9 +71,9 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(symbol);
         READWRITE(name);
+        READWRITE(fixedIntervalPriceId);
         READWRITE(mintable);
         READWRITE(interest);
-        READWRITE(fixedIntervalPriceId);
     }
 };
 

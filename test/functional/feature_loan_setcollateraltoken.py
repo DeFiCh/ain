@@ -16,20 +16,16 @@ import time
 
 class LoanSetCollateralTokenTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2
+        self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1'],
             ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-fortcanningheight=50', '-eunosheight=50', '-txindex=1']]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1) # only one token == DFI
 
         print("Generating initial chain...")
-        self.nodes[0].generate(25)
-        self.sync_blocks()
-        self.nodes[1].generate(100)
-        self.sync_blocks()
+        self.nodes[0].generate(101)
 
         self.nodes[0].createtoken({
             "symbol": "BTC",
@@ -39,7 +35,6 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         })
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         symbolDFI = "DFI"
         symbolBTC = "BTC"
@@ -127,7 +122,6 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
                                     'activateAfterBlock': 135})
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         collTokens = self.nodes[0].listcollateraltokens({'all': True})
 
@@ -142,7 +136,6 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
                                     'fixedIntervalPriceId': "BTC/USD"})
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         collTokens = self.nodes[0].listcollateraltokens({'all': True})
 
@@ -152,7 +145,6 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         assert_equal(collTokens[collTokenTx2]["fixedIntervalPriceId"], "BTC/USD")
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         collTokens = self.nodes[0].listcollateraltokens({'all': True})
 
@@ -164,16 +156,15 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
 
         assert_equal(collTokens[collTokenTx1]["token"], symbolDFI)
         assert_equal(collTokens[collTokenTx1]["factor"], Decimal('0.5'))
-        assert_equal(collTokens[collTokenTx1]["activateAfterBlock"], 129)
+        assert_equal(collTokens[collTokenTx1]["activateAfterBlock"], 105)
 
         collTokens = self.nodes[0].getcollateraltoken(idBTC)
 
         assert_equal(collTokens[collTokenTx2]["token"], symbolBTC)
         assert_equal(collTokens[collTokenTx2]["factor"], Decimal('0.9'))
-        assert_equal(collTokens[collTokenTx2]["activateAfterBlock"], 130)
+        assert_equal(collTokens[collTokenTx2]["activateAfterBlock"], 106)
 
-        self.nodes[0].generate(6)
-        self.sync_blocks()
+        self.nodes[0].generate(30)
 
         collTokens = self.nodes[0].getcollateraltoken(idDFI)
 
@@ -185,7 +176,7 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
 
         assert_equal(collTokens[collTokenTx2]["token"], symbolBTC)
         assert_equal(collTokens[collTokenTx2]["factor"], Decimal('0.9'))
-        assert_equal(collTokens[collTokenTx2]["activateAfterBlock"], 130)
+        assert_equal(collTokens[collTokenTx2]["activateAfterBlock"], 106)
 
         self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
@@ -193,7 +184,6 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
                                     'fixedIntervalPriceId': "BTC/USD"})
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         collTokens = self.nodes[0].listcollateraltokens()
         assert_equal(len(collTokens), 2)

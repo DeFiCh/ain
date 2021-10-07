@@ -14,10 +14,9 @@ import time
 
 class LoanTest (DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2
+        self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-                ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1'],
                 ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1', '-fortcanningheight=1']
             ]
 
@@ -58,7 +57,7 @@ class LoanTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}, {"currency": "USD", "tokenAmount": "10@DFI"}, {"currency": "USD", "tokenAmount": "10@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(10)
+        self.nodes[0].generate(7)
 
         # set DFI an BTC as collateral tokens
         self.nodes[0].setcollateraltoken({
@@ -99,7 +98,7 @@ class LoanTest (DefiTestFramework):
                             'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': True,
                             'interest': 1})
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(8) # let active price update
 
         # take loan
         for id in vaultsId:
@@ -112,7 +111,7 @@ class LoanTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "1000@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(16)
+        self.nodes[0].generate(7)
 
         # Auction tests
         auctionlist = self.nodes[0].listauctions()

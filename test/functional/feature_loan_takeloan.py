@@ -103,7 +103,7 @@ class LoanTakeLoanTest (DefiTestFramework):
                           {"currency": "USD", "tokenAmount": "10@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(60) # let fixed price update
+        self.nodes[0].generate(7) # let fixed price update
         self.sync_blocks()
 
         # transfer
@@ -155,7 +155,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         self.nodes[0].deposittovault(vaultId, account0, "200@DFI")
 
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(4) # let active price update
         self.sync_blocks()
 
         try:
