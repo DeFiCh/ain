@@ -204,26 +204,26 @@ struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
 
 struct CInterestRate
 {
-    uint32_t count = 0;
-    uint32_t height = 0;
-    CAmount interestToHeight = 0;
-    CAmount interestPerBlock = 0;
+    uint32_t height;
+    CAmount interestNet;
+    CAmount interestLoan;
+    CAmount interestToHeight;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(count);
         READWRITE(height);
+        READWRITE(interestNet);
+        READWRITE(interestLoan);
         READWRITE(interestToHeight);
-        READWRITE(interestPerBlock);
     }
 };
 
-// calculate total interest to height including it
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height);
+CAmount InterestPerBlock(const CInterestRate& rate);
 
-class CLoanTakeLoan
+class CLoanTakeLoanMessage
 {
 public:
     CVaultId vaultId;
@@ -240,33 +240,7 @@ public:
     }
 };
 
-class CLoanTakeLoanImplementation : public CLoanTakeLoan
-{
-public:
-    uint256 creationTx;
-    int32_t creationHeight = -1;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CLoanTakeLoan, *this);
-        READWRITE(creationTx);
-        READWRITE(creationHeight);
-    }
-};
-
-struct CLoanTakeLoanMessage : public CLoanTakeLoan {
-    using CLoanTakeLoan::CLoanTakeLoan;
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CLoanTakeLoan, *this);
-    }
-};
-
-class CLoanPaybackLoan
+class CLoanPaybackLoanMessage
 {
 public:
     CVaultId vaultId;
@@ -283,38 +257,10 @@ public:
     }
 };
 
-class CLoanPaybackLoanImplementation : public CLoanPaybackLoan
-{
-public:
-    uint256 creationTx;
-    int32_t creationHeight = -1;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CLoanPaybackLoan, *this);
-        READWRITE(creationTx);
-        READWRITE(creationHeight);
-    }
-};
-
-struct CLoanPaybackLoanMessage : public CLoanPaybackLoan {
-    using CLoanPaybackLoan::CLoanPaybackLoan;
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CLoanPaybackLoan, *this);
-    }
-};
-
 class CLoanView : public virtual CStorageView {
 public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
     using CLoanSetLoanTokenImpl = CLoanSetLoanTokenImplementation;
-    using CLoanTakeLoanImpl = CLoanTakeLoanImplementation;
-    using CLoanPaybackLoanImpl = CLoanPaybackLoanImplementation;
 
     std::unique_ptr<CLoanSetCollateralTokenImpl> GetLoanSetCollateralToken(uint256 const & txid) const;
     Res LoanCreateSetCollateralToken(CLoanSetCollateralTokenImpl const & collToken);
@@ -343,11 +289,10 @@ public:
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
     boost::optional<CInterestRate> GetInterestRate(const std::string& loanSchemeID, DCT_ID id);
-    Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id);
-    Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id);
+    Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased);
+    Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
     void ForEachInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID = {}, DCT_ID id = {0});
-    void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, uint32_t)> callback, const CVaultId& start = {});
-    void TransferVaultInterest(const CVaultId& vaultId, uint32_t height, const std::string& oldScheme, const std::string& newScheme);
+    void ForEachSchemeInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID = {}, DCT_ID id = {0});
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
@@ -357,14 +302,6 @@ public:
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
 
-    std::unique_ptr<CLoanTakeLoanImpl> GetLoanTakeLoan(uint256 const & txid) const;
-    Res SetLoanTakeLoan(CLoanTakeLoanImpl const & takeLoan);
-    void ForEachLoanTakeLoan(std::function<bool (uint256 const &, CLoanTakeLoanImpl const &)> callback, uint256 const & start = uint256());
-
-    std::unique_ptr<CLoanPaybackLoanImpl> GetLoanPaybackLoan(uint256 const & txid) const;
-    Res SetLoanPaybackLoan(CLoanPaybackLoanImpl const & loanPayback);
-    void ForEachLoanPaybackLoan(std::function<bool (uint256 const &, CLoanPaybackLoanImpl const &)> callback, uint256 const & start = uint256());
-
     struct LoanSetCollateralTokenCreationTx { static constexpr uint8_t prefix() { return 0x10; } };
     struct LoanSetCollateralTokenKey        { static constexpr uint8_t prefix() { return 0x11; } };
     struct LoanSetLoanTokenCreationTx       { static constexpr uint8_t prefix() { return 0x12; } };
@@ -373,14 +310,9 @@ public:
     struct DefaultLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x15; } };
     struct DelayedLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x16; } };
     struct DestroyLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x17; } };
-    struct LoanInterestedRate               { static constexpr uint8_t prefix() { return 0x18; } };
+    struct LoanInterestByScheme             { static constexpr uint8_t prefix() { return 0x18; } };
     struct LoanTokenAmount                  { static constexpr uint8_t prefix() { return 0x19; } };
     struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
-    struct LoanTakeLoanCreationTx           { static constexpr uint8_t prefix() { return 0x1B; } };
-    struct LoanTakeLoanVaultKey             { static constexpr uint8_t prefix() { return 0x1C; } };
-    struct LoanInterestByVault              { static constexpr uint8_t prefix() { return 0x1D; } };
-    struct LoanPaybackLoanCreationTx        { static constexpr uint8_t prefix() { return 0x1E; } };
-    struct LoanPaybackLoanVaultKey          { static constexpr uint8_t prefix() { return 0x1F; } };
 };
 
 #endif // DEFI_MASTERNODES_LOAN_H

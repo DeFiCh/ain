@@ -1018,7 +1018,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
 
-    CLoanTakeLoan takeLoan;
+    CLoanTakeLoanMessage takeLoan;
 
     if (!metaObj["vaultId"].isNull())
         takeLoan.vaultId = uint256S(metaObj["vaultId"].getValStr());
@@ -1126,7 +1126,7 @@ UniValue loanpayback(const JSONRPCRequest& request) {
     UniValue metaObj = request.params[0].get_obj();
     UniValue const & txInputs = request.params[1];
 
-    CLoanPaybackLoan loanPayback;
+    CLoanPaybackLoanMessage loanPayback;
 
     if (!metaObj["vaultId"].isNull())
         loanPayback.vaultId = uint256S(metaObj["vaultId"].getValStr());
@@ -1211,9 +1211,9 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    uint32_t height = ::ChainActive().Height();
+    uint32_t height = ::ChainActive().Height() + 1;
     CAmount totalCollateral = 0, totalLoan = 0;
-    auto lastBlockTime = ::ChainActive()[height]->GetBlockTime();
+    auto lastBlockTime = ::ChainActive()[::ChainActive().Height()]->GetBlockTime();
 
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
         auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, collaterals, height, lastBlockTime);
@@ -1272,9 +1272,9 @@ UniValue getinterest(const JSONRPCRequest& request) {
         id.v = 0;
 
     UniValue ret(UniValue::VARR);
-    uint32_t height = ::ChainActive().Height();
+    uint32_t height = ::ChainActive().Height() + 1;
 
-    pcustomcsview->ForEachInterest([&](const std::string& schemeId, DCT_ID tokenId, CInterestRate rate) {
+    pcustomcsview->ForEachSchemeInterest([&](const std::string& schemeId, DCT_ID tokenId, CInterestRate rate) {
         if (schemeId != loanSchemeId)
             return false;
 
@@ -1288,7 +1288,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
         obj.pushKV("totalInterest", ValueFromAmount(TotalInterest(rate, height)));
-        obj.pushKV("interestPerBlock", ValueFromAmount(rate.interestPerBlock));
+        obj.pushKV("interestPerBlock", ValueFromAmount(InterestPerBlock(rate)));
         ret.push_back(obj);
 
         return true;

@@ -182,12 +182,6 @@ Res CLoanView::EraseLoanScheme(const std::string& loanSchemeID)
     // Delete loan scheme
     EraseBy<LoanSchemeKey>(loanSchemeID);
 
-    // Delete interest
-    auto it = LowerBound<LoanInterestedRate>(std::make_pair(loanSchemeID, DCT_ID{0}));
-    for (; it.Valid() && it.Key().first == loanSchemeID; it.Next()) {
-        EraseBy<LoanInterestedRate>(it.Key());
-    }
-
     return Res::Ok();
 }
 
@@ -203,21 +197,20 @@ void CLoanView::EraseDelayedDestroyScheme(const std::string& loanSchemeID)
 
 boost::optional<CInterestRate> CLoanView::GetInterestRate(const std::string& loanSchemeID, DCT_ID id)
 {
-    return ReadBy<LoanInterestedRate, CInterestRate>(std::make_pair(loanSchemeID, id));
+    return ReadBy<LoanInterestByScheme, CInterestRate>(std::make_pair(loanSchemeID, id));
 }
 
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height)
 {
-    return rate.interestToHeight + ((height - rate.height + 1) * rate.interestPerBlock);
+    return rate.interestToHeight + ((height - rate.height) * InterestPerBlock(rate));
 }
 
-CAmount InterestPerBlock(uint32_t count, CAmount tokenInterest, CAmount schemeInterest)
+CAmount InterestPerBlock(const CInterestRate& rate)
 {
-    auto netInterest = (tokenInterest + schemeInterest) / 100; // in %
-    return netInterest * count / (365 * Params().GetConsensus().blocksPerDay());
+    return MultiplyAmounts(rate.interestNet, rate.interestLoan) / (365 * Params().GetConsensus().blocksPerDay());
 }
 
-Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id)
+Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased)
 {
     auto scheme = GetLoanScheme(loanSchemeID);
     if (!scheme) {
@@ -227,27 +220,25 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     if (!token) {
         return Res::Err("No such loan token id %s", id.ToString());
     }
+
     CInterestRate rate{};
-    if (auto storedRate = GetInterestRate(loanSchemeID, id)) {
-        rate = *storedRate;
-    }
+    ReadBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), rate);
+
     if (rate.height > height) {
         return Res::Err("Cannot store height in the past");
     }
-    uint32_t vaultRate = 0;
-    ReadBy<LoanInterestByVault>(std::make_pair(vaultId, id), vaultRate);
-    WriteBy<LoanInterestByVault>(std::make_pair(vaultId, id), ++vaultRate);
+    rate.interestNet = (token->interest + scheme->rate) / 100; // in %
     if (rate.height) {
-        rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
+        rate.interestToHeight = TotalInterest(rate, height);
     }
-    rate.count++;
     rate.height = height;
-    rate.interestPerBlock = InterestPerBlock(rate.count, token->interest, scheme->rate);
-    WriteBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id), rate);
+    rate.interestLoan += loanIncreased;
+
+    WriteBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), rate);
     return Res::Ok();
 }
 
-Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id)
+Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased)
 {
     auto scheme = GetLoanScheme(loanSchemeID);
     if (!scheme) {
@@ -257,76 +248,30 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     if (!token) {
         return Res::Err("No such loan token id %s", id.ToString());
     }
+
     CInterestRate rate{};
-    if (auto storedRate = GetInterestRate(loanSchemeID, id)) {
-        rate = *storedRate;
-    }
-    if (rate.count == 0) {
-        return Res::Err("Interest is already 0");
-    }
+    ReadBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), rate);
+
     if (rate.height > height) {
         return Res::Err("Cannot store height in the past");
     }
     if (rate.height == 0) {
         return Res::Err("Data mismatch height == 0");
     }
-    uint32_t vaultRate = 0;
-    ReadBy<LoanInterestByVault>(std::make_pair(vaultId, id), vaultRate);
-    vaultRate && --vaultRate;
-    if (vaultRate) {
-        WriteBy<LoanInterestByVault>(std::make_pair(vaultId, id), vaultRate);
-    } else {
-        EraseBy<LoanInterestByVault>(std::make_pair(vaultId, id));
-    }
-    rate.interestToHeight += (height - rate.height) * rate.interestPerBlock;
-    rate.count--;
+    rate.interestToHeight = TotalInterest(rate, height);
+    rate.interestToHeight = std::max(CAmount{0}, rate.interestToHeight - interestDecreased);
     rate.height = height;
-    rate.interestPerBlock = InterestPerBlock(rate.count, token->interest, scheme->rate);
-    WriteBy<LoanInterestedRate>(std::make_pair(loanSchemeID, id), rate);
+    rate.interestLoan = std::max(CAmount{0}, rate.interestLoan - loanDecreased);
+
+    WriteBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), rate);
     return Res::Ok();
 }
 
-void CLoanView::ForEachInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID, DCT_ID id)
+void CLoanView::ForEachSchemeInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID, DCT_ID id)
 {
-    ForEach<LoanInterestedRate, std::pair<std::string, DCT_ID>, CInterestRate>([&](const std::pair<std::string, DCT_ID>& pair, CInterestRate rate) {
+    ForEach<LoanInterestByScheme, std::pair<std::string, DCT_ID>, CInterestRate>([&](const std::pair<std::string, DCT_ID>& pair, CInterestRate rate) {
         return callback(pair.first, pair.second, rate);
     }, std::make_pair(loanSchemeID, id));
-}
-
-void CLoanView::ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, uint32_t)> callback, const CVaultId& start)
-{
-    ForEach<LoanInterestByVault, std::pair<CVaultId, DCT_ID>, uint32_t>([&](const std::pair<CVaultId, DCT_ID>& pair, uint32_t rate) {
-        return callback(pair.first, pair.second, rate);
-    }, std::make_pair(start, DCT_ID{0}));
-}
-
-void CLoanView::TransferVaultInterest(const CVaultId& vaultId, uint32_t height, const std::string& oldScheme, const std::string& newScheme)
-{
-    std::map<DCT_ID, uint32_t> rates;
-    // erase all interest to old scheme
-    auto scheme = GetLoanScheme(oldScheme);
-    ForEachVaultInterest([&](const CVaultId& currentVaultId, DCT_ID id, uint32_t rate) {
-        if (currentVaultId != vaultId) {
-            return false;
-        }
-        if (scheme) {
-            for (uint32_t i = 0; i < rate; i++) {
-                EraseInterest(height, vaultId, oldScheme, id);
-            }
-        } else {
-            EraseBy<LoanInterestByVault>(std::make_pair(vaultId, id));
-        }
-        rates[id] = rate;
-        return true;
-    }, vaultId);
-    // transfer interest to new scheme
-    if (GetLoanScheme(newScheme)) {
-        for (const auto& rate : rates) {
-            for (uint32_t i = 0; i < rate.second; i++) {
-                StoreInterest(height, vaultId, newScheme, rate.first);
-            }
-        }
-    }
 }
 
 Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
@@ -386,45 +331,4 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
         return penalty;
     }
     return 5 * COIN / 100;
-}
-std::unique_ptr<CLoanView::CLoanTakeLoanImpl> CLoanView::GetLoanTakeLoan(uint256 const & txid) const
-{
-    auto takeLoan = ReadBy<LoanTakeLoanCreationTx,CLoanTakeLoanImpl>(txid);
-    if (takeLoan)
-        return MakeUnique<CLoanTakeLoanImpl>(*takeLoan);
-    return {};
-}
-
-Res CLoanView::SetLoanTakeLoan(CLoanTakeLoanImpl const & takeLoan)
-{
-    WriteBy<LoanTakeLoanCreationTx>(takeLoan.creationTx, takeLoan);
-    WriteBy<LoanTakeLoanVaultKey>(takeLoan.vaultId, takeLoan.creationTx);
-
-    return Res::Ok();
-}
-
-void CLoanView::ForEachLoanTakeLoan(std::function<bool (uint256 const &, CLoanTakeLoanImpl const &)> callback, uint256 const & start)
-{
-    ForEach<LoanTakeLoanCreationTx, uint256, CLoanTakeLoanImpl>(callback, start);
-}
-
-std::unique_ptr<CLoanView::CLoanPaybackLoanImpl> CLoanView::GetLoanPaybackLoan(uint256 const & txid) const
-{
-    auto loanPayback = ReadBy<LoanPaybackLoanCreationTx,CLoanPaybackLoanImpl>(txid);
-    if (loanPayback)
-        return MakeUnique<CLoanPaybackLoanImpl>(*loanPayback);
-    return {};
-}
-
-Res CLoanView::SetLoanPaybackLoan(CLoanPaybackLoanImpl const & loanPayback)
-{
-    WriteBy<LoanPaybackLoanCreationTx>(loanPayback.creationTx, loanPayback);
-    WriteBy<LoanPaybackLoanVaultKey>(loanPayback.vaultId, loanPayback.creationTx);
-
-    return Res::Ok();
-}
-
-void CLoanView::ForEachLoanPaybackLoan(std::function<bool (uint256 const &, CLoanPaybackLoanImpl const &)> callback, uint256 const & start)
-{
-    ForEach<LoanPaybackLoanCreationTx, uint256, CLoanPaybackLoanImpl>(callback, start);
 }

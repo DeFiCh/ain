@@ -9,7 +9,7 @@ from decimal import Decimal
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error
+from test_framework.util import assert_equal, assert_raises_rpc_error
 import calendar
 import time
 class VaultTest (DefiTestFramework):
@@ -56,6 +56,7 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
         self.nodes[0].createvault(ownerAddress2, 'LOAN0003')
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # 4 * 0.5, fee is 1DFI in regtest
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('2'))
@@ -328,7 +329,7 @@ class VaultTest (DefiTestFramework):
                             'name': "Tesla Token",
                             'fixedIntervalPriceId': "TSLA/USD",
                             'mintable': True,
-                            'interest': 0.01})
+                            'interest': 2})
 
         self.nodes[0].generate(1)
         self.nodes[0].deposittovault(vaultId1, accountDFI, '0.3@DFI')
@@ -353,10 +354,13 @@ class VaultTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        interest = self.nodes[0].getinterest('LOAN0001')[0]
+        assert_equal(interest['interestPerBlock'], Decimal('4.7E-7'))
+
         vault1 = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault1['loanAmount'], ['0.50000028@TSLA'])
-        assert_equal(vault1['collateralValue'], Decimal(2.00000000))
-        assert_greater_than(vault1['loanValue'],Decimal(0.50000028))
+        assert_equal(vault1['loanAmount'], ['0.50000047@TSLA'])
+        assert_equal(vault1['collateralValue'], Decimal('2.00000000'))
+        assert_equal(vault1['loanValue'],Decimal('0.50000047'))
 
         # make vault enter under liquidation state
         oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
