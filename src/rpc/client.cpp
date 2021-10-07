@@ -280,6 +280,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "updatepoolpair", 1, "inputs" },
     { "poolswap", 0, "metadata" },
     { "poolswap", 1, "inputs" },
+    { "compositeswap", 0, "metadata" },
+    { "compositeswap", 1, "inputs" },
     { "testpoolswap", 0, "metadata"},
     { "listpoolshares", 0, "pagination" },
     { "listpoolshares", 1, "verbose" },

@@ -23,8 +23,6 @@
 
 #include <algorithm>
 
-using namespace std;
-
 std::string ToString(CustomTxType type) {
     switch (type)
     {
@@ -37,6 +35,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::CreatePoolPair:      return "CreatePoolPair";
         case CustomTxType::UpdatePoolPair:      return "UpdatePoolPair";
         case CustomTxType::PoolSwap:            return "PoolSwap";
+        case CustomTxType::PoolSwapV2:          return "PoolSwap";
         case CustomTxType::AddPoolLiquidity:    return "AddPoolLiquidity";
         case CustomTxType::RemovePoolLiquidity: return "RemovePoolLiquidity";
         case CustomTxType::UtxosToAccount:      return "UtxosToAccount";
@@ -57,7 +56,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::ICXCloseOrder:       return "ICXCloseOrder";
         case CustomTxType::ICXCloseOffer:       return "ICXCloseOffer";
         case CustomTxType::LoanSetCollateralToken: return "LoanSetCollateralToken";
-        case CustomTxType::LoanSetLoanToken:     return "LoanSetLoanToken";
+        case CustomTxType::LoanSetLoanToken:    return "LoanSetLoanToken";
         case CustomTxType::LoanUpdateLoanToken: return "LoanUpdateLoanToken";
         case CustomTxType::LoanScheme:          return "LoanScheme";
         case CustomTxType::DefaultLoanScheme:   return "DefaultLoanScheme";
@@ -70,6 +69,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::LoanTakeLoan:        return "LoanTakeLoan";
         case CustomTxType::LoanPaybackLoan:     return "LoanPaybackLoan";
         case CustomTxType::AuctionBid:          return "AuctionBid";
+        case CustomTxType::Reject:              return "Reject";
         case CustomTxType::None:                return "None";
     }
     return "None";
@@ -126,6 +126,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::CreatePoolPair:          return CCreatePoolPairMessage{};
         case CustomTxType::UpdatePoolPair:          return CUpdatePoolPairMessage{};
         case CustomTxType::PoolSwap:                return CPoolSwapMessage{};
+        case CustomTxType::PoolSwapV2:              return CPoolSwapMessageV2{};
         case CustomTxType::AddPoolLiquidity:        return CLiquidityMessage{};
         case CustomTxType::RemovePoolLiquidity:     return CRemoveLiquidityMessage{};
         case CustomTxType::UtxosToAccount:          return CUtxosToAccountMessage{};
@@ -159,6 +160,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::LoanTakeLoan:            return CLoanTakeLoanMessage{};
         case CustomTxType::LoanPaybackLoan:         return CLoanPaybackLoanMessage{};
         case CustomTxType::AuctionBid:              return CAuctionBidMessage{};
+        case CustomTxType::Reject:                  return CCustomTxMessageNone{};
         case CustomTxType::None:                    return CCustomTxMessageNone{};
     }
     return CCustomTxMessageNone{};
@@ -417,6 +419,11 @@ public:
 
     Res operator()(CICXCloseOfferMessage& obj) const {
         auto res = isPostEunosFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CPoolSwapMessageV2& obj) const {
+        auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
 
@@ -1052,7 +1059,16 @@ public:
             return Res::Err("tx must have at least one input from account owner");
         }
 
-        return CPoolSwap(obj, height).ExecuteSwap(mnview, obj.poolIDs);
+        return CPoolSwap(obj, height).ExecuteSwap(mnview, {});
+    }
+
+    Res operator()(const CPoolSwapMessageV2& obj) const {
+        // check auth
+        if (!HasAuth(obj.swapInfo.from)) {
+            return Res::Err("tx must have at least one input from account owner");
+        }
+
+        return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs);
     }
 
     Res operator()(const CLiquidityMessage& obj) const {
@@ -2620,6 +2636,10 @@ public:
         return EraseHistory(obj.from);
     }
 
+    Res operator()(const CPoolSwapMessageV2& obj) const {
+        return (*this)(obj.swapInfo);
+    }
+
     Res operator()(const CLiquidityMessage& obj) const {
         for (const auto& kv : obj.from) {
             EraseHistory(kv.first);
@@ -2761,12 +2781,20 @@ public:
         return EraseHistory(obj.from);
     }
 
+    Res operator()(const CCloseVaultMessage& obj) const {
+        return EraseHistory(obj.to);
+    }
+
     Res operator()(const CLoanTakeLoanMessage& obj) const {
         const auto vault = mnview.GetVault(obj.vaultId);
         if (!vault)
             return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
 
-        return EraseHistory(vault->ownerAddress);
+        return EraseHistory(!obj.to.empty() ? obj.to : vault->ownerAddress);
+    }
+
+    Res operator()(const CWithdrawFromVaultMessage& obj) const {
+        return EraseHistory(obj.to);
     }
 
     Res operator()(const CLoanPaybackLoanMessage& obj) const {
@@ -2774,6 +2802,7 @@ public:
         if (!vault)
             return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
 
+        EraseHistory(obj.from);
         EraseHistory(consensus.burnAddress);
         return EraseHistory(vault->ownerAddress);
     }
@@ -2866,9 +2895,13 @@ Res ApplyCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CTr
         return res;
     }
     std::vector<unsigned char> metadata;
-    auto txType = GuessCustomTxType(tx, metadata);
+    const auto metadataValidation = height >= consensus.FortCanningHeight;
+    auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
     if (txType == CustomTxType::None) {
         return res;
+    }
+    if (metadataValidation && txType == CustomTxType::Reject) {
+        return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType), historyView, burnView);

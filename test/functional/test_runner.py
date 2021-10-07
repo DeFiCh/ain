@@ -135,6 +135,7 @@ BASE_SCRIPTS = [
     'rpc_getchaintips.py',
     'rpc_misc.py',
     'rpc_mn_basic.py',
+    'feature_reject_customtxs.py',
     'feature_initdist.py',
     'feature_tokens_basic.py',
     'feature_tokens_minting.py',
@@ -266,6 +267,7 @@ BASE_SCRIPTS = [
     'feature_burn_address.py',
     'feature_eunos_balances.py',
     'feature_sendutxosfrom.py',
+    'feature_block_reward.py',
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]

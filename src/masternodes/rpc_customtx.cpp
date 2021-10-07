@@ -130,7 +130,7 @@ public:
         rpcInfo.pushKV("to", dest);
     }
 
-    void operator()(CAccountToAccountMessage& obj) const {
+    void operator()(const CAccountToAccountMessage& obj) const {
         rpcInfo.pushKV("from", ScriptToString(obj.from));
         rpcInfo.pushKV("to", accountsInfo(obj.to));
     }
@@ -180,6 +180,22 @@ public:
         rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
         rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
+    }
+
+    void operator()(const CPoolSwapMessageV2& obj) const {
+        (*this)(obj.swapInfo);
+        std::string str;
+        for (auto& id : obj.poolIDs) {
+            if (auto token = mnview.GetToken(id)) {
+                if (!str.empty()) {
+                    str += '/';
+                }
+                str += token->symbol;
+            }
+        }
+        if (!str.empty()) {
+            rpcInfo.pushKV("compositeDex", str);
+        }
     }
 
     void operator()(const CGovernanceMessage& obj) const {

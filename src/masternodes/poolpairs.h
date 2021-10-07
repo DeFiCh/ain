@@ -52,7 +52,6 @@ struct CPoolSwapMessage {
     DCT_ID idTokenFrom, idTokenTo;
     CAmount amountFrom;
     PoolPrice maxPrice;
-    std::vector<DCT_ID> poolIDs{};
 
     std::string ToString() const {
         return "(" + from.GetHex() + ":" + std::to_string(amountFrom) +"@"+ idTokenFrom.ToString() + "->" + to.GetHex() + ":?@" + idTokenTo.ToString() +")";
@@ -68,11 +67,19 @@ struct CPoolSwapMessage {
         READWRITE(to);
         READWRITE(idTokenTo);
         READWRITE(maxPrice);
+    }
+};
 
-        // Only available after FortCanning
-        if (!s.eof()) {
-            READWRITE(poolIDs);
-        }
+struct CPoolSwapMessageV2 {
+    CPoolSwapMessage swapInfo;
+    std::vector<DCT_ID> poolIDs;
+
+    ADD_SERIALIZE_METHODS
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(swapInfo);
+        READWRITE(poolIDs);
     }
 };
 
