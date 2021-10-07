@@ -223,7 +223,7 @@ class DepositToVaultTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(11) # let fixed price update
+        self.nodes[0].generate(12) # let fixed price update
         self.sync_blocks()
 
         vault1 = self.nodes[1].getvault(vaultId1)
