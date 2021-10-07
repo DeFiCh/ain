@@ -400,8 +400,11 @@ std::vector<int64_t> CMasternodesView::GetSubNodesBlockTime(const CKeyID & minte
     for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
         ForEachSubNode([&](const SubNodeBlockTimeKey &key, int64_t blockTime)
         {
-            if (key.masternodeID == nodeId)
-            {
+            if (height >= Params().GetConsensus().FortCanningHeight) {
+                if (key.masternodeID == nodeId && key.subnode == i) {
+                    times[i] = blockTime;
+                }
+            } else if (key.masternodeID == nodeId) {
                 times[i] = blockTime;
             }
 
