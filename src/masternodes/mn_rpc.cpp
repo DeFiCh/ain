@@ -419,7 +419,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"setgov",
-               "\nSet special 'governance' variables. Two types of them implemented for now: LP_SPLITS and LP_DAILY_DFI_REWARD\n",
+               "\nSet special 'governance' variables:: ICX_TAKERFEE_PER_BTC, LP_LOAN_SPLITS, LP_SPLITS\n",
                {
                     {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variables",
                         {
@@ -442,7 +442,7 @@ UniValue setgov(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("setgov", "'{\"LP_SPLITS\": {\"2\":0.2,\"3\":0.8}'")
-                       + HelpExampleRpc("setgov", "'{\"LP_DAILY_DFI_REWARD\":109440}'")
+                       + HelpExampleRpc("setgov", "'{\"ICX_TAKERFEE_PER_BTC\":109440}'")
                },
     }.Check(request);
 
@@ -502,7 +502,8 @@ UniValue setgov(const JSONRPCRequest& request) {
 
 UniValue getgov(const JSONRPCRequest& request) {
     RPCHelpMan{"getgov",
-               "\nReturns information about governance variable. Two types of them implemented for now: LP_SPLITS and LP_DAILY_DFI_REWARD\n",
+               "\nReturns information about governance variable:\n"
+               "ICX_TAKERFEE_PER_BTC, LP_DAILY_DFI_REWARD, LP_DAILY_LOAN_REWARD, LP_LOAN_SPLITS, LP_SPLITS\n",
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Variable name"},

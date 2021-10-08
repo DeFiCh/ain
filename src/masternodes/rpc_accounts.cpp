@@ -1463,8 +1463,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
     {
         // Skip these as any unused balance will be burnt.
-        if (kv.first == CommunityAccountType::Swap ||
-            kv.first == CommunityAccountType::Futures ||
+        if (kv.first == CommunityAccountType::Loan ||
             kv.first == CommunityAccountType::Options) {
             continue;
         }

@@ -21,6 +21,7 @@
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
+#include <masternodes/govvariables/lp_daily_loan_reward.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <policy/fees.h>
@@ -2024,8 +2025,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 Res res = Res::Ok();
 
                 // Swap, Futures and Options currently unused and all go to Unallocated (burnt) pot.
-                if (kv.first == CommunityAccountType::Swap ||
-                    kv.first == CommunityAccountType::Futures ||
+                if (kv.first == CommunityAccountType::Loan ||
                     kv.first == CommunityAccountType::Options)
                 {
                     res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
@@ -2079,8 +2079,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 // Remove Swap, Futures and Options balances from Unallocated
-                if (kv.first == CommunityAccountType::Swap ||
-                    kv.first == CommunityAccountType::Futures ||
+                if (kv.first == CommunityAccountType::Loan ||
                     kv.first == CommunityAccountType::Options)
                 {
                     mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
@@ -2129,6 +2128,26 @@ static uint32_t GetNextBurnPosition() {
 Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts)
 {
     return mapBurnAmounts[from].AddBalances(amounts.balances);
+}
+
+template<typename GovVar>
+static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator& incentivePair, CCustomCSView& cache, int nHeight) {
+    if (incentivePair != Params().GetConsensus().newNonUTXOSubsidies.end())
+    {
+        CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(nHeight, Params().GetConsensus()), incentivePair->second);
+        subsidy *= Params().GetConsensus().blocksPerDay();
+        // Change daily LP reward if it has changed
+        auto var = cache.GetVariable(GovVar::TypeName());
+        if (var) {
+            // Cast to avoid UniValue in GovVariable Export/ImportserliazedSplits.emplace(it.first.v, it.second);
+            auto lpVar = dynamic_cast<GovVar*>(var.get());
+            if (lpVar && lpVar->dailyReward != subsidy) {
+                lpVar->dailyReward = subsidy;
+                lpVar->Apply(cache, nHeight);
+                cache.SetVariable(*lpVar);
+            }
+        }
+    }
 }
 
 std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances)
@@ -2623,22 +2642,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
         {
             const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::IncentiveFunding);
-            if (incentivePair != chainparams.GetConsensus().newNonUTXOSubsidies.end())
-            {
-                CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus()), incentivePair->second);
-                subsidy *= chainparams.GetConsensus().blocksPerDay();
-                // Change daily LP reward if it has changed
-                auto var = cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName());
-                if (var) {
-                    // Cast to avoid UniValue in GovVariable Export/Import
-                    auto lpVar = dynamic_cast<LP_DAILY_DFI_REWARD*>(var.get());
-                    if (lpVar && lpVar->dailyReward != subsidy) {
-                        lpVar->dailyReward = subsidy;
-                        lpVar->Apply(cache, pindex->nHeight);
-                        cache.SetVariable(*lpVar);
-                    }
-                }
-            }
+            UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
+        }
+
+        // Hard coded LP_DAILY_LOAN_REWARD change
+        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
+        {
+            const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::Loan);
+            UpdateDailyGovVariables<LP_DAILY_LOAN_REWARD>(incentivePair, cache, pindex->nHeight);
         }
 
         // hardfork commissions update
