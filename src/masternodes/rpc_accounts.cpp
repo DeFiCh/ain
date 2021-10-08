@@ -1032,9 +1032,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     if (accounts == "mine") {
         isMine = true;
         filter = ISMINE_SPENDABLE;
-    } else if (accounts == "all") {
-        depth = std::min(depth, limit);
-    } else {
+    } else if (accounts != "all") {
         account = DecodeScript(accounts);
         isMine = IsMineCached(*pwallet, account) & ISMINE_ALL;
         isMatchOwner = [&account](CScript const & owner) {
