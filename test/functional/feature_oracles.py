@@ -25,10 +25,10 @@ class OraclesTest(DefiTestFramework):
         # node2: non foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=200'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=200'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=200'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=200']]
 
     @staticmethod
     def find_address_tx(node, address):
@@ -349,6 +349,18 @@ class OraclesTest(DefiTestFramework):
         future_timestamp = (calendar.timegm(time.gmtime()))+310 # add 5 minutes +10s for slow tests case
         assert_raises_rpc_error(-8, 'timestamp cannot be negative, zero or over 5 minutes in the future',
                                 self.nodes[2].setoracledata, oracle_id1, future_timestamp, token_prices1)
+
+        # === check price not be zero
+        token_prices1 = [{"currency":"USD", "tokenAmount":"1@PT"}]
+        tx = self.nodes[2].setoracledata(oracle_id1, timestamp, token_prices1)
+        rawTx = self.nodes[2].getrawtransaction(tx)
+        self.nodes[2].clearmempool()
+
+        # HACK replace token amount to 0
+        rawTx = rawTx.replace('e1f50500', '00000000')
+        signedTx = self.nodes[2].signrawtransactionwithwallet(rawTx)
+        assert_equal(signedTx['complete'], True)
+        assert_raises_rpc_error(-26, 'Amount out of range', self.nodes[2].sendrawtransaction, signedTx['hex'])
 
         # === check for invalid oracle id
         assert_raises_rpc_error(-20, 'oracle <{}> not found'.format(invalid_oracle_id),
