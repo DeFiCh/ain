@@ -202,7 +202,7 @@ boost::optional<CInterestRate> CLoanView::GetInterestRate(const std::string& loa
 
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height)
 {
-    return rate.interestToHeight + ((height - rate.height) * InterestPerBlock(rate));
+    return rate.interestToHeight + ((height - rate.height + 1) * InterestPerBlock(rate));
 }
 
 CAmount InterestPerBlock(const CInterestRate& rate)
@@ -224,12 +224,12 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
     CInterestRate rate{};
     ReadBy<LoanInterestByScheme>(std::make_pair(loanSchemeID, id), rate);
 
-    if (rate.height > height) {
+    if (rate.height > height || height == 0) {
         return Res::Err("Cannot store height in the past");
     }
     rate.interestNet = (token->interest + scheme->rate) / 100; // in %
     if (rate.height) {
-        rate.interestToHeight = TotalInterest(rate, height);
+        rate.interestToHeight = TotalInterest(rate, height - 1);
     }
     rate.height = height;
     rate.interestLoan += loanIncreased;
@@ -258,7 +258,7 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     if (rate.height == 0) {
         return Res::Err("Data mismatch height == 0");
     }
-    rate.interestToHeight = TotalInterest(rate, height);
+    rate.interestToHeight = TotalInterest(rate, height - 1);
     rate.interestToHeight = std::max(CAmount{0}, rate.interestToHeight - interestDecreased);
     rate.height = height;
     rate.interestLoan = std::max(CAmount{0}, rate.interestLoan - loanDecreased);
