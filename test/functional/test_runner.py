@@ -250,6 +250,7 @@ BASE_SCRIPTS = [
     'feature_loan_scheme.py',
     'feature_loan_vault.py',
     'feature_loan_deposittovault.py',
+    'feature_loan_priceupdate.py',
     'feature_loan.py',
     'p2p_node_network_limited.py',
     'p2p_permissions.py',

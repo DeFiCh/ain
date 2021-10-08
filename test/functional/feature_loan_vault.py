@@ -246,6 +246,13 @@ class VaultTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
         self.sync_blocks()
+        try:
+            self.nodes[1].deposittovault(vaultId1, accountBTC, '1@BTC')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Cannot deposit to vault while any of the asset's price is invalid" in errorString)
+        self.nodes[0].generate(5) # let price update to enter valid state
+
         # Try make first deposit other than DFI breaking 50% DFI ondition
         try:
             self.nodes[1].deposittovault(vaultId1, accountBTC, '1@BTC')
