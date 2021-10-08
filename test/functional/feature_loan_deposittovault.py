@@ -213,9 +213,9 @@ class DepositToVaultTest (DefiTestFramework):
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1['isUnderLiquidation'], False)
         assert_equal(vault1['collateralAmounts'], ['1.00000000@DFI', '1.00000000@BTC'])
-        assert_equal(vault1['loanAmount'], ['0.50000009@TSLA'])
+        assert_equal(vault1['loanAmount'], ['0.50000018@TSLA'])
         assert_equal(vault1['collateralValue'], Decimal(2.00000000))
-        assert_greater_than(Decimal(0.50000009), vault1['loanValue'])
+        assert_greater_than(Decimal(0.50000018), vault1['loanValue'])
         assert_equal(vault1['currentRatio'], 400)
 
 
@@ -223,7 +223,7 @@ class DepositToVaultTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(12) # let fixed price update
+        self.nodes[0].generate(11) # let fixed price update
         self.sync_blocks()
 
         vault1 = self.nodes[1].getvault(vaultId1)

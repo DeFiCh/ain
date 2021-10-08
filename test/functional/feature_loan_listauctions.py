@@ -111,7 +111,7 @@ class LoanTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "1000@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(8)
+        self.nodes[0].generate(7)
 
         # Auction tests
         auctionlist = self.nodes[0].listauctions()
