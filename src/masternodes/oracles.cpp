@@ -132,7 +132,7 @@ void COracleView::ForEachOracle(std::function<bool(const COracleId&, CLazySerial
     ForEach<ByName, COracleId, COracle>(callback, start);
 }
 
-bool CFixedIntervalPrice::isValidInternal(const int64_t deviationThreshold) const
+bool CFixedIntervalPrice::isValidInternal(const CAmount deviationThreshold) const
 {
     return (
         priceRecord[0] > 0 &&
@@ -142,9 +142,11 @@ bool CFixedIntervalPrice::isValidInternal(const int64_t deviationThreshold) cons
 }
 
 bool CFixedIntervalPrice::isValid() const{
-    uint64_t deviation = 3 * COIN / 10;
+    CAmount threshold = 30;
+    CAmount deviation = MultiplyAmounts(threshold, COIN);
     return isValidInternal(deviation);
 }
+
 Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalPrice){
 
     if (!WriteBy<FixedIntervalPriceKey>(fixedIntervalPrice.priceFeedId, fixedIntervalPrice)) {
@@ -154,19 +156,14 @@ Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalP
     return Res::Ok();
 }
 
-ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CFixedIntervalPriceId& fixedIntervalPriceId, const bool& create)
+ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CFixedIntervalPriceId& fixedIntervalPriceId)
 {
     CFixedIntervalPrice fixedIntervalPrice;
     if (!ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceId, fixedIntervalPrice)) {
-        if(!create)
             return Res::Err("fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceId.first, fixedIntervalPriceId.second);
-
-        fixedIntervalPrice.priceFeedId = fixedIntervalPriceId;
-        SetFixedIntervalPrice(fixedIntervalPrice);
     }
 
     return ResVal<CFixedIntervalPrice>(fixedIntervalPrice, Res::Ok());
-
 }
 
 void COracleView::ForEachFixedIntervalPrice(std::function<bool(const CFixedIntervalPriceId&, CLazySerialize<CFixedIntervalPrice>)> callback, const CFixedIntervalPriceId& start)

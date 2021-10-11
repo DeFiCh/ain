@@ -3018,13 +3018,17 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             if (!collateral) {
                 return true;
             }
+
+            if(!IsVaultPriceValid(cache, vaultId, pindex->nHeight))
+                return true;
+
             auto vault = cache.GetVault(vaultId);
             assert(vault);
             auto scheme = cache.GetLoanScheme(vault->schemeId);
             assert(scheme);
-            if (scheme->ratio <= collateral.val->ratio()) {
+            if (scheme->ratio <= collateral.val->ratio())
                 return true;
-            }
+
             vault->isUnderLiquidation = true;
             cache.StoreVault(vaultId, *vault);
             auto loanTokens = cache.GetLoanTokens(vaultId);
@@ -3127,7 +3131,7 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
             }
             fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
             fixedIntervalPrice.priceRecord[1] = aggregatePrice;
-            fixedIntervalPrice.timestamp = GetSystemTimeInSeconds();
+            fixedIntervalPrice.timestamp = pindex->nTime;
             auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
             if (!res)
                 LogPrintf("Setting fixed interval price failed: %s\n", res.msg);

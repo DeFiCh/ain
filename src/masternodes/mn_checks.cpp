@@ -2234,7 +2234,7 @@ public:
             return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
 
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
-            return Res::Err("Cannot update vault when any of the asset's price is invalid");
+            return Res::Err("Cannot update vault while any of the asset's price is invalid");
 
         vault->schemeId = obj.schemeId;
         vault->ownerAddress = obj.ownerAddress;
@@ -2288,9 +2288,6 @@ public:
             if (col.first == DCT_ID{0}) {
                 if (!MoneyRange(col.second))
                     return Res::Err("Exceed max money range");
-            }
-
-            if (loanSetCollToken->idToken == DCT_ID{0}){
                 totalDFI += amount;
             }
 
@@ -2330,7 +2327,7 @@ public:
             return res;
 
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
-            return Res::Err("Cannot update vault when any of the asset's price is invalid");
+            return Res::Err("Cannot withdraw from vault while any of the asset's price is invalid");
 
         if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
         {
@@ -2344,20 +2341,23 @@ public:
                 auto priceFeed = mnview.GetFixedIntervalPrice(loanSetCollToken->fixedIntervalPriceId);
                 if (!priceFeed)
                     return Res::Err(priceFeed.msg);
+                auto activePrice = priceFeed.val->priceRecord[0];
 
-                auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], col.second);
-                if (priceFeed.val->priceRecord[0] > COIN && amount < col.second)
-                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(priceFeed.val->priceRecord[0]));
+                auto amount = MultiplyAmounts(activePrice, col.second);
+                if (activePrice > COIN && amount < col.second)
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(activePrice));
 
                 if (col.first == DCT_ID{0}) {
                     if (!MoneyRange(col.second))
                         return Res::Err("Exceed max money range");
                     totalDFI += amount;
                 }
+
+                totalCollaterals += amount;
             }
 
             if (totalDFI < totalCollaterals / 2)
-                return Res::Err("At least 50%% of the vault must be in DFI thus first deposit must be DFI");
+                return Res::Err("At least 50%% of the vault must be in DFI");
 
             auto scheme = mnview.GetLoanScheme(vault->schemeId);
             auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height, time);
@@ -2392,9 +2392,6 @@ public:
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         if (!collaterals)
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
-
-        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
-            return Res::Err("Cannot update vault when any of the asset's price is invalid");
 
         uint64_t totalLoans = 0;
         for (const auto& kv : obj.amounts.balances)
@@ -2439,6 +2436,9 @@ public:
                 return res;
         }
 
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot take loan while any of the asset's price in the vault is invalid");
+
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height, time);
         if (!rate || rate.val->ratio() < scheme->ratio)
@@ -2464,6 +2464,9 @@ public:
 
         if (!HasAuth(obj.from))
             return Res::Err("tx must have at least one input from token owner");
+
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot payback loan while any of the asset's price is invalid");
 
         for (const auto& kv : obj.amounts.balances)
         {
