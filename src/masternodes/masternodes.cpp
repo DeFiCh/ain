@@ -813,7 +813,7 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     return UpdateBalancesHeight(owner, targetHeight);
 }
 
-ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime)
+ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool nextPrice)
 {
     auto vault = GetVault(vaultId);
     if (!vault || vault->isUnderLiquidation) {
@@ -835,10 +835,13 @@ ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vault
             auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
             if (!priceFeed)
                 return std::move(priceFeed);
+            if (!priceFeed.val->isValid())
+                return Res::Err("Price feed %s/%s is invalid", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
             auto value = loan.second + TotalInterest(*rate, height);
-            auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], value);
-            if (priceFeed.val->priceRecord[0] > COIN && amount < value)
-                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(value), GetDecimaleString(priceFeed.val->priceRecord[0]));
+            auto price = priceFeed.val->priceRecord[int(nextPrice)];
+            auto amount = MultiplyAmounts(price, value);
+            if (price > COIN && amount < value)
+                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(value), GetDecimaleString(price));
             auto prevLoans = ret.totalLoans;
             ret.totalLoans += amount;
             if (prevLoans > ret.totalLoans)
@@ -854,9 +857,12 @@ ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vault
         auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
         if (!priceFeed)
             return std::move(priceFeed);
-        auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], col.second);
-        if (priceFeed.val->priceRecord[0] > COIN && amount < col.second)
-            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(priceFeed.val->priceRecord[0]));
+        if (!priceFeed.val->isValid())
+            return Res::Err("Price feed %s/%s is invalid", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
+        auto price = priceFeed.val->priceRecord[int(nextPrice)];
+        auto amount = MultiplyAmounts(price, col.second);
+        if (price > COIN && amount < col.second)
+            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(price));
         amount = MultiplyAmounts(token->factor, amount);
         auto prevCollaterals = ret.totalCollaterals;
         ret.totalCollaterals += amount;
