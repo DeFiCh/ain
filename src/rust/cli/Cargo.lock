@@ -62,10 +62,17 @@ dependencies = [
 name = "defi-cli"
 version = "0.1.0"
 dependencies = [
+ "defi-rpc",
+ "structopt",
+]
+
+[[package]]
+name = "defi-rpc"
+version = "0.1.0"
+dependencies = [
  "jsonrpc",
  "serde",
  "serde_json",
- "structopt",
 ]
 
 [[package]]
@@ -169,6 +176,9 @@ name = "serde"
 version = "1.0.130"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f12d06de37cf59146fbdecab66aa99f9fe4f78722e3607577a5375d66bd0c913"
+dependencies = [
+ "serde_derive",
+]
 
 [[package]]
 name = "serde_derive"
