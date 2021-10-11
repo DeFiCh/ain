@@ -107,6 +107,19 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # deposit DFI and BTC to vault1
+        try:
+            self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Price feed DFI/USD is invalid" in errorString)
+
+        try:
+            self.nodes[0].deposittovault(vaultId1, account, '1000@BTC')
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Price feed BTC/USD is invalid" in errorString)
+        self.nodes[0].generate(5)
+
         self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
         self.nodes[0].generate(1)
         self.nodes[0].deposittovault(vaultId1, account, '1000@BTC')
@@ -151,7 +164,7 @@ class PriceUpdateTest (DefiTestFramework):
                 'amounts': "10@TSLA"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot take loan while any of the asset's price in the vault is invalid" in errorString)
+        assert("Price feed TSLA/USD is invalid" in errorString)
 
         self.nodes[0].generate(6) # let price update
 
@@ -159,7 +172,7 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].takeloan({
             'vaultId': vaultId1,
             'amounts': str(loanAmount)+"@TSLA"})
-        self.nodes[0].generate(2)
+        self.nodes[0].generate(1)
         takenLoanAmount = loanAmount
 
         # Change price over deviation threshold to invalidate price
@@ -176,7 +189,8 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].takeloan({
             'vaultId': vaultId1,
             'amounts': str(loanAmount)+"@TSLA"})
-        self.nodes[0].generate(5) # let price update to invalid state
+        self.nodes[0].generate(1) # let price update to invalid state
+
         takenLoanAmount += loanAmount
         try:
             self.nodes[0].takeloan({
