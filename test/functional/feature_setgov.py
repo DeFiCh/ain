@@ -250,5 +250,14 @@ class GovsetTest (DefiTestFramework):
         # Check subsidy restored
         assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')['LOAN_DAILY_REWARD'], Decimal('14156.13182400'))
 
+        result = self.nodes[0].listgovs()
+        assert_equal(result[0]['ICX_TAKERFEE_PER_BTC'], Decimal('0E-8'))
+        assert_equal(result[1]['LOAN_DAILY_REWARD'], Decimal('14156.13182400'))
+        assert_equal(result[2]['LOAN_SPLITS'], {})
+        assert_equal(result[3]['LP_DAILY_DFI_REWARD'], Decimal('14597.79395904'))
+        assert_equal(result[4]['LP_SPLITS'], {'1': Decimal('0.50000000'), '2': Decimal('0.40000000'), '3': Decimal('0.10000000')} )
+        assert_equal(result[5]['ORACLE_BLOCK_INTERVAL'], Decimal('0E-8'))
+        assert_equal(result[6]['ORACLE_DEVIATION'], Decimal('0E-8'))
+
 if __name__ == '__main__':
     GovsetTest ().main ()

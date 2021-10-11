@@ -503,7 +503,8 @@ UniValue setgov(const JSONRPCRequest& request) {
 UniValue getgov(const JSONRPCRequest& request) {
     RPCHelpMan{"getgov",
                "\nReturns information about governance variable:\n"
-               "ICX_TAKERFEE_PER_BTC, LP_DAILY_DFI_REWARD, LOAN_DAILY_REWARD, LOAN_SPLITS, LP_SPLITS\n",
+               "ICX_TAKERFEE_PER_BTC, LOAN_DAILY_REWARD, LOAN_SPLITS, LP_DAILY_DFI_REWARD,\n"
+               "LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Variable name"},
@@ -527,6 +528,38 @@ UniValue getgov(const JSONRPCRequest& request) {
         return ret;
     }
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
+}
+
+UniValue listgovs(const JSONRPCRequest& request) {
+    RPCHelpMan{"listgovs",
+               "\nReturns information about all governance variables\n",
+               {},
+               RPCResult{
+                       "[{id:{...}}, ...]     (array) Json array with JSON objects with variable information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listgovs", "")
+                       + HelpExampleRpc("listgovs", "")
+               },
+    }.Check(request);
+
+    std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LOAN_DAILY_REWARD", "LOAN_SPLITS", "LP_DAILY_DFI_REWARD",
+                                  "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION"};
+
+    LOCK(cs_main);
+
+    UniValue result(UniValue::VARR);
+    for (const auto& name : vars) {
+        LogPrintf("NAME %s\n", name);
+        auto var = pcustomcsview->GetVariable(name);
+        if (var) {
+            UniValue ret(UniValue::VOBJ);
+            ret.pushKV(var->GetName(),var->Export());
+            result.push_back(ret);
+        }
+    }
+
+    return result;
 }
 
 UniValue isappliedcustomtx(const JSONRPCRequest& request) {
@@ -593,6 +626,7 @@ static const CRPCCommand commands[] =
 //  --------------  ----------------------   --------------------    ----------,
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},
+    {"blockchain",  "listgovs",              &listgovs,              {""}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
 };
 

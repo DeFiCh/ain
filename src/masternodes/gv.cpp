@@ -5,9 +5,11 @@
 #include <masternodes/gv.h>
 #include <masternodes/govvariables/icx_takerfee_per_btc.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
-#include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/govvariables/loan_splits.h>
+#include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/govvariables/lp_splits.h>
+#include <masternodes/govvariables/oracle_block_interval.h>
+#include <masternodes/govvariables/oracle_deviation.h>
 
 Res CGovView::SetVariable(GovVariable const & var)
 {
