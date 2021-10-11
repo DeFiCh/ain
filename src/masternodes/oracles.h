@@ -101,13 +101,10 @@ struct COracle : public CAppointOracleMessage {
 
 struct CFixedIntervalPrice
 {
-private:
-    bool isValidInternal(const int64_t deviationThreshold) const; // 0-1 value for deviation threshold
-public:
     CFixedIntervalPriceId priceFeedId;
     int64_t timestamp;
     std::vector<CAmount> priceRecord{0, 0}; // priceHistory[0] = active price, priceHistory[1] = next price
-    bool isValid() const;
+    bool isValid(const CAmount deviationThreshold) const;
 
     ADD_SERIALIZE_METHODS;
 

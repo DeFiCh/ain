@@ -3132,7 +3132,7 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
         return;
     }
 
-    auto priceHeight = Params().GetConsensus().blocksFixedIntervalPrice();
+    auto priceHeight = cache.GetIntervalBlock();
     if(pindex->nHeight % priceHeight == 0){
         cache.ForEachFixedIntervalPrice([&](const CFixedIntervalPriceId& id, CFixedIntervalPrice fixedIntervalPrice){
             auto aggregatePrice = GetAggregatePrice(cache, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, pindex->nTime);

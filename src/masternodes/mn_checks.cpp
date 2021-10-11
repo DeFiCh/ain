@@ -3339,14 +3339,14 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
         for (const auto collateral : collaterals->balances)
             if (auto collateralToken = mnview.HasLoanSetCollateralToken({collateral.first, height}))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
-                    if (!fixedIntervalPrice.val->isValid())
+                    if (!fixedIntervalPrice.val->isValid(mnview.GetPriceDeviation()))
                         return false;
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
         for (const auto loan : loans->balances)
             if (auto loanToken = mnview.GetLoanSetLoanTokenByID(loan.first))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
-                    if (!fixedIntervalPrice.val->isValid())
+                    if (!fixedIntervalPrice.val->isValid(mnview.GetPriceDeviation()))
                         return false;
     return true;
 }
