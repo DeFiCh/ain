@@ -107,13 +107,6 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         # deposit DFI and BTC to vault1
-        try:
-            self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Cannot deposit to vault while any of the asset's price is invalid" in errorString)
-        self.nodes[0].generate(3) # let price update to eneter valid state
-
         self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
         self.nodes[0].generate(1)
         self.nodes[0].deposittovault(vaultId1, account, '1000@BTC')

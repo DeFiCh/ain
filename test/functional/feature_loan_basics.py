@@ -149,17 +149,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         idGOOGL = list(loantokens[setLoanTokenGOOGL]["token"])[0]
 
         vaultId = self.nodes[0].createvault( account0, 'LOAN150')
-
         self.nodes[0].generate(1)
-        self.sync_blocks()
-
-        try:
-            self.nodes[0].deposittovault(vaultId, account0, "200@DFI")
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Cannot deposit to vault while any of the asset's price is invalid" in errorString)
-
-        self.nodes[0].generate(4) # let active price update
         self.sync_blocks()
 
         self.nodes[0].deposittovault(vaultId, account0, "200@DFI")

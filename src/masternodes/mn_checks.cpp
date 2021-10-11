@@ -2260,25 +2260,21 @@ public:
         if (!res)
             return res;
 
-        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
-            return Res::Err("Cannot deposit to vault while any of the asset's price is invalid");
-
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-        CAmount totalDFI = 0, totalCollaterals = 0;
+        uint64_t totalDFI = 0, totalCollaterals = 0;
         for (const auto& col : collaterals->balances) {
 
             auto loanSetCollToken = mnview.HasLoanSetCollateralToken({col.first, height}); // for priceFeedId
             if (!loanSetCollToken)
                 return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
 
-            auto priceFeed = mnview.GetFixedIntervalPrice(loanSetCollToken->fixedIntervalPriceId);
-            if (!priceFeed)
-                return Res::Err(priceFeed.msg);
-            auto activePrice = priceFeed.val->priceRecord[0];
+            auto price = GetAggregatePrice(mnview, loanSetCollToken->fixedIntervalPriceId.first, loanSetCollToken->fixedIntervalPriceId.second, time);
+            if (!price)
+                return Res::Err("%s/%s: %s", loanSetCollToken->fixedIntervalPriceId.first, loanSetCollToken->fixedIntervalPriceId.second, price.msg);
 
-            auto amount = MultiplyAmounts(activePrice, col.second);
-            if (activePrice > COIN && amount < col.second)
-                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(activePrice));
+            auto amount = MultiplyAmounts(*price.val, col.second);
+            if (*price.val > COIN && amount < col.second)
+                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(*price.val));
 
             if (col.first == DCT_ID{0}) {
                 if (!MoneyRange(col.second))
@@ -2326,7 +2322,7 @@ public:
 
         if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
         {
-            CAmount totalDFI = 0, totalCollaterals = 0;
+            uint64_t totalDFI = 0, totalCollaterals = 0;
             for (const auto& col : collaterals->balances) {
 
                 auto loanSetCollToken = mnview.HasLoanSetCollateralToken({col.first, height}); // for priceFeedId
