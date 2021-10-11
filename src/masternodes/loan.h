@@ -302,6 +302,9 @@ public:
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
 
+    CAmount GetLoanDailyReward();
+    Res SetLoanDailyReward(const CAmount reward);
+
     struct LoanSetCollateralTokenCreationTx { static constexpr uint8_t prefix() { return 0x10; } };
     struct LoanSetCollateralTokenKey        { static constexpr uint8_t prefix() { return 0x11; } };
     struct LoanSetLoanTokenCreationTx       { static constexpr uint8_t prefix() { return 0x12; } };
@@ -313,6 +316,7 @@ public:
     struct LoanInterestByScheme             { static constexpr uint8_t prefix() { return 0x18; } };
     struct LoanTokenAmount                  { static constexpr uint8_t prefix() { return 0x19; } };
     struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
+    struct LoanDailyReward                  { static constexpr uint8_t prefix() { return 0x1B; } };
 };
 
 #endif // DEFI_MASTERNODES_LOAN_H

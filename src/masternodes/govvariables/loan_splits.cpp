@@ -2,14 +2,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <masternodes/govvariables/lp_loan_splits.h>
+#include <masternodes/govvariables/loan_splits.h>
 
 #include <core_io.h> /// ValueFromAmount
 #include <masternodes/masternodes.h> /// CCustomCSView
 #include <rpc/util.h> /// AmountFromValue
 
 
-Res LP_LOAN_SPLITS::Import(const UniValue & val) {
+Res LOAN_SPLITS::Import(const UniValue & val) {
     if (!val.isObject())
         return Res::Err("object of {poolId: rate,... } expected"); /// throw here? cause "AmountFromValue" can throw!
     for (const std::string& key : val.getKeys()) {
@@ -22,7 +22,7 @@ Res LP_LOAN_SPLITS::Import(const UniValue & val) {
     return Res::Ok();
 }
 
-UniValue LP_LOAN_SPLITS::Export() const {
+UniValue LOAN_SPLITS::Export() const {
     UniValue res(UniValue::VOBJ);
     for (auto const & kv : splits) {
         res.pushKV(kv.first.ToString(), ValueFromAmount(kv.second));
@@ -30,7 +30,7 @@ UniValue LP_LOAN_SPLITS::Export() const {
     return res;
 }
 
-Res LP_LOAN_SPLITS::Validate(const CCustomCSView & mnview) const {
+Res LOAN_SPLITS::Validate(const CCustomCSView & mnview) const {
     CAmount total{0};
     for (auto const & kv : splits) {
         if (!mnview.HasPoolPair(kv.first))
@@ -47,7 +47,7 @@ Res LP_LOAN_SPLITS::Validate(const CCustomCSView & mnview) const {
     return Res::Ok();
 }
 
-Res LP_LOAN_SPLITS::Apply(CCustomCSView & mnview, uint32_t height) {
+Res LOAN_SPLITS::Apply(CCustomCSView & mnview, uint32_t height) {
     mnview.ForEachPoolId([&] (DCT_ID poolId) {
         // we ought to reset previous value:
         CAmount rewardPct = 0;

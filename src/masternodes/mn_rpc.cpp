@@ -419,7 +419,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"setgov",
-               "\nSet special 'governance' variables:: ICX_TAKERFEE_PER_BTC, LP_LOAN_SPLITS, LP_SPLITS\n",
+               "\nSet special 'governance' variables:: ICX_TAKERFEE_PER_BTC, LOAN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                     {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variables",
                         {
@@ -503,7 +503,7 @@ UniValue setgov(const JSONRPCRequest& request) {
 UniValue getgov(const JSONRPCRequest& request) {
     RPCHelpMan{"getgov",
                "\nReturns information about governance variable:\n"
-               "ICX_TAKERFEE_PER_BTC, LP_DAILY_DFI_REWARD, LP_DAILY_LOAN_REWARD, LP_LOAN_SPLITS, LP_SPLITS\n",
+               "ICX_TAKERFEE_PER_BTC, LP_DAILY_DFI_REWARD, LOAN_DAILY_REWARD, LOAN_SPLITS, LP_SPLITS\n",
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Variable name"},

@@ -142,14 +142,21 @@ public:
 
     void ForEachOracle(std::function<bool(const COracleId&, CLazySerialize<COracle>)> callback, const COracleId& start = {});
 
-    struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
-
     Res SetFixedIntervalPrice(const CFixedIntervalPrice& PriceFeed);
 
     ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CFixedIntervalPriceId& priceFeedId);
 
     void ForEachFixedIntervalPrice(std::function<bool(const CFixedIntervalPriceId&, CLazySerialize<CFixedIntervalPrice>)> callback, const CFixedIntervalPriceId& start = {});
 
+    Res SetPriceDeviation(const uint32_t deviation);
+    uint32_t GetPriceDeviation() const;
+
+    Res SetIntervalBlock(const uint32_t blockInterval);
+    uint32_t GetIntervalBlock() const;
+
+    struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
+    struct PriceDeviation { static constexpr uint8_t prefix() { return 'Y'; } };
+    struct FixedIntervalBlockKey { static constexpr uint8_t prefix() { return 'z'; } };
     struct FixedIntervalPriceKey { static constexpr uint8_t prefix() { return 'y'; } };
 };
 

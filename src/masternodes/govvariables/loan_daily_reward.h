@@ -2,16 +2,16 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_GOVVARIABLES_LP_LOAN_SPLITS_H
-#define DEFI_MASTERNODES_GOVVARIABLES_LP_LOAN_SPLITS_H
+#ifndef DEFI_MASTERNODES_GOVVARIABLES_LOAN_DAILY_REWARD_H
+#define DEFI_MASTERNODES_GOVVARIABLES_LOAN_DAILY_REWARD_H
 
 #include <masternodes/gv.h>
 #include <amount.h>
 
-class LP_LOAN_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LP_LOAN_SPLITS>
+class LOAN_DAILY_REWARD : public GovVariable, public AutoRegistrator<GovVariable, LOAN_DAILY_REWARD>
 {
 public:
-    virtual ~LP_LOAN_SPLITS() override {}
+    virtual ~LOAN_DAILY_REWARD() override {}
 
     std::string GetName() const override {
         return TypeName();
@@ -22,18 +22,17 @@ public:
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
-    static constexpr char const * TypeName() { return "LP_LOAN_SPLITS"; }
-    static GovVariable * Create() { return new LP_LOAN_SPLITS(); }
+    static constexpr char const * TypeName() { return "LOAN_DAILY_REWARD"; }
+    static GovVariable * Create() { return new LOAN_DAILY_REWARD(); }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(splits);
+        READWRITE(dailyReward);
     }
-
-    std::map<DCT_ID, CAmount> splits;
+    CAmount dailyReward;
 };
 
-#endif // DEFI_MASTERNODES_GOVVARIABLES_LP_LOAN_SPLITS_H
+#endif // DEFI_MASTERNODES_GOVVARIABLES_LOAN_DAILY_REWARD_H

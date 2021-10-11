@@ -157,10 +157,12 @@ DEFI_CORE_H = \
   masternodes/communityaccounttypes.h \
   masternodes/factory.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
+  masternodes/govvariables/loan_daily_reward.h \
+  masternodes/govvariables/loan_splits.h \
   masternodes/govvariables/lp_daily_dfi_reward.h \
-  masternodes/govvariables/lp_daily_loan_reward.h \
-  masternodes/govvariables/lp_loan_splits.h \
   masternodes/govvariables/lp_splits.h \
+  masternodes/govvariables/oracle_block_interval.h \
+  masternodes/govvariables/oracle_deviation.h \
   masternodes/gv.h \
   masternodes/icxorder.h \
   masternodes/incentivefunding.h \
@@ -371,10 +373,12 @@ libdefi_server_a_SOURCES = \
   masternodes/anchors.cpp \
   masternodes/oracles.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
+  masternodes/govvariables/loan_daily_reward.cpp \
+  masternodes/govvariables/loan_splits.cpp \
   masternodes/govvariables/lp_daily_dfi_reward.cpp \
-  masternodes/govvariables/lp_daily_loan_reward.cpp \
-  masternodes/govvariables/lp_loan_splits.cpp \
   masternodes/govvariables/lp_splits.cpp \
+  masternodes/govvariables/oracle_block_interval.cpp \
+  masternodes/govvariables/oracle_deviation.cpp \
   masternodes/gv.cpp \
   masternodes/icxorder.cpp \
   masternodes/incentivefunding.cpp \

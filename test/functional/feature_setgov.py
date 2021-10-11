@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -216,7 +216,7 @@ class GovsetTest (DefiTestFramework):
         assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('35.50000000'))
 
         # Move to second reduction and check reward
-        self.nodes[0].generate(151)
+        self.nodes[0].generate(350 - self.nodes[0].getblockcount())
         assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('14597.79395904')) # 144 blocks a day times 101.37356916
 
         # Rollback from second reduction
@@ -224,6 +224,31 @@ class GovsetTest (DefiTestFramework):
 
         # Check subsidy restored
         assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('14843.90592000'))
+
+        # Check LOAN_DAILY_REWARD before FortCanning
+        assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')['LOAN_DAILY_REWARD'], Decimal('0.00000000'))
+
+        # Generate to FortCanning
+        self.nodes[0].generate(400 - self.nodes[0].getblockcount())
+
+        # Check new subsidy
+        assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')['LOAN_DAILY_REWARD'], Decimal('14156.13182400')) # 144 blocks a day times 98.30647100
+
+        # Roll back
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        # Check subsidy restored
+        assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')['LOAN_DAILY_REWARD'], Decimal('0.00000000'))
+
+        # Move to next reduction and check reward
+        self.nodes[0].generate(500 - self.nodes[0].getblockcount())
+        assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')['LOAN_DAILY_REWARD'], Decimal('13921.42315824')) # 144 blocks a day times 96.67654971
+
+        # Rollback from second reduction
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        # Check subsidy restored
+        assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')['LOAN_DAILY_REWARD'], Decimal('14156.13182400'))
 
 if __name__ == '__main__':
     GovsetTest ().main ()

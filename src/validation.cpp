@@ -20,8 +20,8 @@
 #include <index/txindex.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
-#include <masternodes/govvariables/lp_daily_loan_reward.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <policy/fees.h>
@@ -2645,11 +2645,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
         }
 
-        // Hard coded LP_DAILY_LOAN_REWARD change
+        // Hard coded LOAN_DAILY_REWARD change
         if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
         {
             const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::Loan);
-            UpdateDailyGovVariables<LP_DAILY_LOAN_REWARD>(incentivePair, cache, pindex->nHeight);
+            UpdateDailyGovVariables<LOAN_DAILY_REWARD>(incentivePair, cache, pindex->nHeight);
         }
 
         // hardfork commissions update

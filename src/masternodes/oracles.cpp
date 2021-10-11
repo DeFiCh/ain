@@ -2,10 +2,11 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <algorithm>
-
 #include <masternodes/oracles.h>
-#include <rpc/protocol.h>
+
+#include <masternodes/masternodes.h>
+
+#include <algorithm>
 
 bool COracle::SupportsPair(const std::string& token, const std::string& currency) const
 {
@@ -169,4 +170,38 @@ ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CFixedInter
 void COracleView::ForEachFixedIntervalPrice(std::function<bool(const CFixedIntervalPriceId&, CLazySerialize<CFixedIntervalPrice>)> callback, const CFixedIntervalPriceId& start)
 {
     ForEach<FixedIntervalPriceKey, CFixedIntervalPriceId, CFixedIntervalPrice>(callback, start);
+}
+
+Res COracleView::SetPriceDeviation(const uint32_t deviation)
+{
+    Write(PriceDeviation::prefix(), deviation);
+    return Res::Ok();
+}
+
+uint32_t COracleView::GetPriceDeviation() const
+{
+    int64_t deviation;
+    if (Read(PriceDeviation::prefix(), deviation)) {
+        return deviation;
+    }
+
+    // Default
+    return 3 * COIN / 10;
+}
+
+Res COracleView::SetIntervalBlock(const uint32_t blockInterval)
+{
+    Write(FixedIntervalBlockKey::prefix(), blockInterval);
+    return Res::Ok();
+}
+
+uint32_t COracleView::GetIntervalBlock() const
+{
+    uint32_t blockInterval;
+    if (Read(FixedIntervalBlockKey::prefix(), blockInterval)) {
+        return blockInterval;
+    }
+
+    // Default
+    return 120;
 }
