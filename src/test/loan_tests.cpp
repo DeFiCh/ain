@@ -198,7 +198,7 @@ BOOST_AUTO_TEST_CASE(collateralization_ratio)
     BOOST_CHECK_EQUAL(collaterals->balances[dfi_id], 2 * COIN);
     BOOST_CHECK_EQUAL(collaterals->balances[btc_id], 3 * COIN);
 
-    auto colls = mnview.CalculateCollateralizationRatio(vault_id, *collaterals, 10, 0);
+    auto colls = mnview.GetCollatalsLoans(vault_id, *collaterals, 10, 0);
     BOOST_REQUIRE(colls.ok);
     BOOST_CHECK_EQUAL(colls.val->ratio(), 78);
 }
@@ -207,6 +207,7 @@ BOOST_AUTO_TEST_CASE(auction_batch_creator)
 {
     {
         CCollateralLoans collLoan = {
+            7000 * COIN, 1000 * COIN,
             {{DCT_ID{0}, 2000 * COIN}, {DCT_ID{1}, 5000 * COIN}},
             {{DCT_ID{1}, 1000 * COIN}},
         };
@@ -237,6 +238,7 @@ BOOST_AUTO_TEST_CASE(auction_batch_creator)
         CAmount value6 = 271.46557479 * COIN;
 
         CCollateralLoans collLoan = {
+            uint64_t(value1) + value2 + value4, uint64_t(value3),
             {{DCT_ID{0}, value1}, {DCT_ID{1}, value2}, {DCT_ID{2}, value4}},
             {{DCT_ID{1}, value3}},
         };

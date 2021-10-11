@@ -813,35 +813,56 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     return UpdateBalancesHeight(owner, targetHeight);
 }
 
-ResVal<CCollateralLoans> CCustomCSView::CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime)
+ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime)
 {
     auto vault = GetVault(vaultId);
     if (!vault || vault->isUnderLiquidation) {
         return Res::Err("Vault is under liquidation");
     }
 
-    CCollateralLoans ret;
+    CCollateralLoans ret{};
 
-    auto loanTokens = GetLoanTokens(vaultId);
-    if (loanTokens) {
+    if (auto loanTokens = GetLoanTokens(vaultId)) {
         for (const auto& loan : loanTokens->balances) {
             auto token = GetLoanSetLoanTokenByID(loan.first);
-            assert(token);
+            if (!token)
+                return Res::Err("Loan token with id (%s) does not exist!", loan.first.ToString());
             auto rate = GetInterestRate(vault->schemeId, loan.first);
-            assert(rate && rate->height <= height);
-            auto value = loan.second + TotalInterest(*rate, height);
+            if (!rate)
+                return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
+            if (rate->height > height)
+                return Res::Err("Trying to read loans in the past");
             auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
-            assert(priceFeed);
-            ret.loans.push_back({loan.first, MultiplyAmounts(priceFeed.val->priceRecord[0], value)});
+            if (!priceFeed)
+                return std::move(priceFeed);
+            auto value = loan.second + TotalInterest(*rate, height);
+            auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], value);
+            if (priceFeed.val->priceRecord[0] > COIN && amount < value)
+                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(value), GetDecimaleString(priceFeed.val->priceRecord[0]));
+            auto prevLoans = ret.totalLoans;
+            ret.totalLoans += amount;
+            if (prevLoans > ret.totalLoans)
+                return Res::Err("Exceed maximum loans");
+            ret.loans.push_back({loan.first, amount});
         }
     }
 
     for (const auto& col : collaterals.balances) {
         auto token = HasLoanSetCollateralToken({col.first, height});
-        assert(token);
+        if (!token)
+            return Res::Err("Collateral token with id (%s) does not exist!", col.first.ToString());
         auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
-        assert(priceFeed);
-        ret.collaterals.push_back({col.first, MultiplyAmounts(token->factor, MultiplyAmounts(priceFeed.val->priceRecord[0], col.second))});
+        if (!priceFeed)
+            return std::move(priceFeed);
+        auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], col.second);
+        if (priceFeed.val->priceRecord[0] > COIN && amount < col.second)
+            return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(priceFeed.val->priceRecord[0]));
+        amount = MultiplyAmounts(token->factor, amount);
+        auto prevCollaterals = ret.totalCollaterals;
+        ret.totalCollaterals += amount;
+        if (prevCollaterals > ret.totalCollaterals)
+            return Res::Err("Exceed maximum collateral");
+        ret.collaterals.push_back({col.first, amount});
     }
 
     return ResVal<CCollateralLoans>(ret, Res::Ok());
