@@ -230,7 +230,7 @@ static AccountSelectionMode ParseAccountSelectionParam(const std::string selecti
 }
 
 UniValue listaccounts(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"listaccounts",
                "\nReturns information about all accounts on chain.\n",
@@ -334,7 +334,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
 }
 
 UniValue getaccount(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"getaccount",
                "\nReturns information about account.\n",
@@ -424,7 +424,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
 }
 
 UniValue gettokenbalances(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"gettokenbalances",
                "\nReturns the balances of all accounts that belong to the wallet.\n",
@@ -523,7 +523,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
 }
 
 UniValue utxostoaccount(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"utxostoaccount",
                "\nCreates (and submits to local node and network) a transfer transaction from the wallet UTXOs to specfied account.\n"
@@ -562,7 +562,6 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet); // no need here, but for symmetry
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, false);
 
@@ -609,7 +608,7 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
 
 
 UniValue sendutxosfrom(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"sendutxosfrom",
                "\nSend a transaction using UTXOs from the specfied address.\n" +
@@ -671,7 +670,7 @@ UniValue sendutxosfrom(const JSONRPCRequest& request) {
 }
 
 UniValue accounttoaccount(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"accounttoaccount",
                "\nCreates (and submits to local node and network) a transfer transaction from the specified account to the specfied accounts.\n"
@@ -711,7 +710,6 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, false);
 
@@ -764,7 +762,7 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
 }
 
 UniValue accounttoutxos(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"accounttoutxos",
                "\nCreates (and submits to local node and network) a transfer transaction from the specified account to UTXOs.\n"
@@ -805,7 +803,6 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, true);
 
@@ -890,7 +887,8 @@ public:
 };
 
 UniValue listaccounthistory(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
+
     RPCHelpMan{"listaccounthistory",
                "\nReturns information about account history.\n",
                {
@@ -1134,7 +1132,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 }
 
 UniValue listburnhistory(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
+
     RPCHelpMan{"listburnhistory",
                "\nReturns information about burn history.\n",
                {
@@ -1289,7 +1288,8 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
 }
 
 UniValue accounthistorycount(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
+
     RPCHelpMan{"accounthistorycount",
                "\nReturns count of account history.\n",
                {
@@ -1481,7 +1481,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
 }
 
 UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"sendtokenstoaddress",
                "\nCreates (and submits to local node and network) a transfer transaction from your accounts balances (may be picked manualy or autoselected) to the specfied accounts.\n" +

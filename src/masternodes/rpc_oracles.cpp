@@ -66,7 +66,7 @@ namespace {
 }
 
 UniValue appointoracle(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"appointoracle",
                "\nCreates (and submits to local node and network) a `appoint oracle transaction`, \n"
@@ -118,7 +118,6 @@ UniValue appointoracle(const JSONRPCRequest &request) {
                            "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode
     CScript script = DecodeScript(request.params[0].get_str());
@@ -171,7 +170,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
 }
 
 UniValue updateoracle(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updateoracle",
                "\nCreates (and submits to local node and network) a `update oracle transaction`, \n"
@@ -225,7 +224,6 @@ UniValue updateoracle(const JSONRPCRequest& request) {
                            "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode oracleid
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
@@ -287,7 +285,7 @@ UniValue updateoracle(const JSONRPCRequest& request) {
 }
 
 UniValue removeoracle(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"removeoracle",
                "\nRemoves oracle, \n"
@@ -323,7 +321,6 @@ UniValue removeoracle(const JSONRPCRequest& request) {
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode
     CRemoveOracleAppointMessage msg{};
@@ -369,7 +366,7 @@ UniValue removeoracle(const JSONRPCRequest& request) {
 }
 
 UniValue setoracledata(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setoracledata",
                "\nCreates (and submits to local node and network) a `set oracle data transaction`.\n"
@@ -429,7 +426,6 @@ UniValue setoracledata(const JSONRPCRequest &request) {
                            "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
@@ -574,11 +570,9 @@ namespace {
 }
 
 UniValue getoracledata(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"getoracledata",
-               "\nReturns oracle data in json form.\n" +
-               HelpRequiringPassphrase(pwallet) + "\n",
+               "\nReturns oracle data in json form.\n",
                {
                        {"oracleid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "oracle hex id",},
                },
@@ -596,14 +590,6 @@ UniValue getoracledata(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
 
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot create transactions while still in Initial Block Download");
-    }
-
-    pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
-
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
@@ -619,11 +605,9 @@ UniValue getoracledata(const JSONRPCRequest &request) {
 }
 
 UniValue listoracles(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"listoracles",
-               "\nReturns list of oracle ids." +
-               HelpRequiringPassphrase(pwallet) + "\n",
+               "\nReturns list of oracle ids.\n",
                {
                     {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
@@ -657,11 +641,6 @@ UniValue listoracles(const JSONRPCRequest &request) {
                },
     }.Check(request);
 
-    if (pwallet->chain().isInitialBlockDownload()) {
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
-                           "Cannot create transactions while still in Initial Block Download");
-    }
-
     // parse pagination
     COracleId start = {};
     bool including_start = true;
@@ -687,8 +666,6 @@ UniValue listoracles(const JSONRPCRequest &request) {
         }
     }
 
-    pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
     LOCK(cs_main);
 
     UniValue value(UniValue::VARR);
@@ -703,11 +680,9 @@ UniValue listoracles(const JSONRPCRequest &request) {
 }
 
 UniValue listlatestrawprices(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"listlatestrawprices",
-               "\nReturns latest raw price updates through all the oracles for specified token and currency , \n" +
-               HelpRequiringPassphrase(pwallet) + "\n",
+               "\nReturns latest raw price updates through all the oracles for specified token and currency , \n",
                 {
                    {"request", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED,
                         "request in json-form, containing currency and token names",
@@ -779,14 +754,9 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         tokenPair = DecodeTokenCurrencyPair(request.params[0]);
     }
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
-
-    auto optHeight = locked_chain->getHeight();
-    int lastHeight = optHeight ? *optHeight : 0;
-    auto lastBlockTime = locked_chain->getBlockTime(lastHeight);
-
+    LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
+    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
 
     UniValue result(UniValue::VARR);
     mnview.ForEachOracle([&](const COracleId& oracleId, COracle oracle) {
@@ -927,12 +897,10 @@ namespace {
 } // namespace
 
 UniValue getprice(const JSONRPCRequest &request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"getprice",
                "\nCalculates aggregated price, \n"
-               "The only argument is a json-form request containing token and currency names." +
-               HelpRequiringPassphrase(pwallet) + "\n",
+               "The only argument is a json-form request containing token and currency names.\n",
                {
                        {"request", RPCArg::Type::OBJ, RPCArg::Optional::NO,
                         "request in json-form, containing currency and token names, both are mandatory",
@@ -956,14 +924,9 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
-
-    auto optHeight = locked_chain->getHeight();
-    int lastHeight = optHeight ? *optHeight : 0;
-    auto lastBlockTime = locked_chain->getBlockTime(lastHeight);
-
+    LOCK(cs_main);
     CCustomCSView view(*pcustomcsview);
+    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
     if (!result)
         throw JSONRPCError(RPC_MISC_ERROR, result.msg);
@@ -971,11 +934,9 @@ UniValue getprice(const JSONRPCRequest &request) {
 }
 
 UniValue listprices(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"listprices",
-               "\nCalculates aggregated prices for all supported pairs (token, currency), \n"
-                + HelpRequiringPassphrase(pwallet) + "\n",
+               "\nCalculates aggregated prices for all supported pairs (token, currency), \n",
                {
                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
                         {
@@ -1023,14 +984,9 @@ UniValue listprices(const JSONRPCRequest& request) {
         paginationObj = request.params[0].get_obj();
     }
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
-
-    auto optHeight = locked_chain->getHeight();
-    int lastHeight = optHeight ? *optHeight : 0;
-    auto lastBlockTime = locked_chain->getBlockTime(lastHeight);
-
+    LOCK(cs_main);
     CCustomCSView view(*pcustomcsview);
+    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
 }
 
