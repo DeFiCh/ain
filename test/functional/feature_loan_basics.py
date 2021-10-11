@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_greater_than_or_equal
 
 import calendar
 import time
@@ -149,14 +149,11 @@ class LoanTakeLoanTest (DefiTestFramework):
         idGOOGL = list(loantokens[setLoanTokenGOOGL]["token"])[0]
 
         vaultId = self.nodes[0].createvault( account0, 'LOAN150')
-
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         self.nodes[0].deposittovault(vaultId, account0, "200@DFI")
-
-        self.nodes[0].generate(4) # let active price update
-        self.sync_blocks()
+        self.nodes[0].generate(1)
 
         try:
             self.nodes[0].takeloan({
@@ -367,9 +364,10 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
 
         self.nodes[0].withdrawfromvault(vaultId, account0, "100@" + symbolDFI)
+        self.nodes[0].generate(1)
 
         #to be able to repay whole loan
-        self.nodes[0].minttokens(["0.00001254@" + symbolTSLA, "0.00002925@" + symbolGOOGL])
+        self.nodes[0].minttokens(["0.00001311@" + symbolTSLA, "0.00003058@" + symbolGOOGL])
 
         self.nodes[0].generate(10)
         self.sync_blocks()
@@ -384,7 +382,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         loans = self.nodes[0].getloaninfo()
         assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('15.00026600'))
+        assert_equal(loans['loanValueUSD'], Decimal('15.00028500'))
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -392,7 +390,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(vaultInfo['loanAmount'].sort(), ['0.00000000@' + symbolTSLA, '0.00000000@' + symbolGOOGL].sort())
         assert_equal(self.nodes[0].listaccounthistory(account0)[0]['amounts'].sort(), ['-1.00000000@GOOGL', '-0.50000000@TSLA'].sort())
-        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00513611'))
+        assert_greater_than_or_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00536995'))
 
         for interest in self.nodes[0].getinterest('LOAN150'):
             if interest['token'] == symbolTSLA:

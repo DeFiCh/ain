@@ -146,7 +146,7 @@ public:
 
     Res SetFixedIntervalPrice(const CFixedIntervalPrice& PriceFeed);
 
-    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CFixedIntervalPriceId& priceFeedId, const bool& create=false);
+    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CFixedIntervalPriceId& priceFeedId);
 
     void ForEachFixedIntervalPrice(std::function<bool(const CFixedIntervalPriceId&, CLazySerialize<CFixedIntervalPrice>)> callback, const CFixedIntervalPriceId& start = {});
 
