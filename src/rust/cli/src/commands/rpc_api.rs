@@ -1,21 +1,19 @@
-use crate::client::client::Client;
-use crate::error::*;
+use anyhow::Result;
+use defi_rpc::Client;
 use structopt::StructOpt;
 
-use super::block::{GetBlockCountCmd, GetBlockHashCmd};
+use super::block::BlockCmd;
 
 #[derive(Debug, StructOpt)]
 #[structopt(rename_all = "lower_case")]
 pub enum RpcMethod {
-    GetBlockCount(GetBlockCountCmd),
-    GetBlockHash(GetBlockHashCmd),
+    Block(BlockCmd),
 }
 
 impl RpcMethod {
-    pub fn run(&self, client: &Client) -> Result<(), Error> {
+    pub fn run(&self, client: &Client) -> Result<()> {
         match self {
-            RpcMethod::GetBlockCount(cmd) => cmd.run(client),
-            RpcMethod::GetBlockHash(cmd) => cmd.run(client),
+            RpcMethod::Block(cmd) => cmd.run(client),
         }
     }
 }
