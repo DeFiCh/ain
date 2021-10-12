@@ -38,16 +38,13 @@ namespace {
             auto blockTime = ::ChainActive()[height]->GetBlockTime();
             auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
             if(!collaterals) collaterals = CBalances{};
-            auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, *collaterals, height + 1, blockTime);
-            CAmount totalCollateral = 0, totalLoan = 0;
+            auto rate = pcustomcsview->GetCollatalsLoans(vaultId, *collaterals, height + 1, blockTime);
             uint32_t ratio = 0;
             if (rate) {
-                totalCollateral += rate.val->totalCollaterals();
-                totalLoan += rate.val->totalLoans();
+                collValue = ValueFromUint(rate.val->totalCollaterals);
+                loanValue = ValueFromUint(rate.val->totalLoans);
                 ratio = rate.val->ratio();
             }
-            collValue = ValueFromAmount(totalCollateral);
-            loanValue = ValueFromAmount(totalLoan);
 
             UniValue collateralBalances{UniValue::VARR};
             UniValue loanBalances{UniValue::VARR};

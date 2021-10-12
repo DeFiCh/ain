@@ -2261,49 +2261,30 @@ public:
 
         //check balance
         CalculateOwnerRewards(obj.from);
-        auto resSub = mnview.SubBalance(obj.from, obj.amount);
-        if (!resSub)
-            return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), resSub.msg);
+        res = mnview.SubBalance(obj.from, obj.amount);
+        if (!res)
+            return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), res.msg);
 
         res = mnview.AddVaultCollateral(obj.vaultId, obj.amount);
         if (!res)
             return res;
 
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-        uint64_t totalDFI = 0, totalCollaterals = 0;
-        for (const auto& col : collaterals->balances) {
+        auto collateralsLoans = mnview.GetCollatalsLoans(obj.vaultId, *collaterals, height, time);
+        if (!collateralsLoans)
+            return std::move(collateralsLoans);
 
-            auto loanSetCollToken = mnview.HasLoanSetCollateralToken({col.first, height}); // for priceFeedId
-            if (!loanSetCollToken)
-                return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
+        uint64_t totalDFI = 0;
+        for (auto& col : collateralsLoans.val->collaterals)
+            if (col.nTokenId == DCT_ID{0})
+                totalDFI += col.nValue;
 
-            auto price = GetAggregatePrice(mnview, loanSetCollToken->fixedIntervalPriceId.first, loanSetCollToken->fixedIntervalPriceId.second, time);
-            if (!price)
-                return Res::Err("%s/%s: %s", loanSetCollToken->fixedIntervalPriceId.first, loanSetCollToken->fixedIntervalPriceId.second, price.msg);
-
-            auto amount = MultiplyAmounts(*price.val, col.second);
-            if (*price.val > COIN && amount < col.second)
-                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(*price.val));
-
-            if (col.first == DCT_ID{0}) {
-                if (!MoneyRange(col.second))
-                    return Res::Err("Exceed max money range");
-                totalDFI += amount;
-            }
-
-            auto prevCollaterals = totalCollaterals;
-            totalCollaterals += amount;
-            if (prevCollaterals > totalCollaterals)
-                return Res::Err("Exceed maximum collateral");
-        }
-
-        if (totalDFI < totalCollaterals / 2)
+        if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
             return Res::Err("At least 50%% of the vault must be in DFI thus first deposit must be DFI");
 
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
-        auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height, time);
-        if (!rate || rate.val->ratio() < scheme->ratio)
-            return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate.val->ratio(), scheme->ratio);
+        if (collateralsLoans.val->ratio() < scheme->ratio)
+            return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
 
         return Res::Ok();
     }
@@ -2322,47 +2303,33 @@ public:
         if (vault->isUnderLiquidation)
             return Res::Err("Cannot withdraw from vault under liquidation");
 
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot withdraw from vault while any of the asset's price is invalid");
+
         res = mnview.SubVaultCollateral(obj.vaultId, obj.amount);
         if (!res)
             return res;
 
-        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
-            return Res::Err("Cannot withdraw from vault while any of the asset's price is invalid");
-
         if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
         {
-            uint64_t totalDFI = 0, totalCollaterals = 0;
-            for (const auto& col : collaterals->balances) {
+            for (int i = 0; i < 2; i++) {
+                // check collaterals for active and next price
+                auto collateralsLoans = mnview.GetCollatalsLoans(obj.vaultId, *collaterals, height, time, i > 0);
+                if (!collateralsLoans)
+                    return std::move(collateralsLoans);
 
-                auto loanSetCollToken = mnview.HasLoanSetCollateralToken({col.first, height}); // for priceFeedId
-                if (!loanSetCollToken)
-                    return Res::Err("Token with id %s does not exist as collateral token", col.first.ToString());
+                uint64_t totalDFI = 0;
+                for (auto& col : collateralsLoans.val->collaterals)
+                    if (col.nTokenId == DCT_ID{0})
+                        totalDFI += col.nValue;
 
-                auto priceFeed = mnview.GetFixedIntervalPrice(loanSetCollToken->fixedIntervalPriceId);
-                if (!priceFeed)
-                    return Res::Err(priceFeed.msg);
-                auto activePrice = priceFeed.val->priceRecord[0];
+                if (totalDFI < collateralsLoans.val->totalCollaterals / 2)
+                    return Res::Err("At least 50%% of the vault must be in DFI");
 
-                auto amount = MultiplyAmounts(activePrice, col.second);
-                if (activePrice > COIN && amount < col.second)
-                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(activePrice));
-
-                if (col.first == DCT_ID{0}) {
-                    if (!MoneyRange(col.second))
-                        return Res::Err("Exceed max money range");
-                    totalDFI += amount;
-                }
-
-                totalCollaterals += amount;
+                auto scheme = mnview.GetLoanScheme(vault->schemeId);
+                if (collateralsLoans.val->ratio() < scheme->ratio)
+                    return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
             }
-
-            if (totalDFI < totalCollaterals / 2)
-                return Res::Err("At least 50%% of the vault must be in DFI");
-
-            auto scheme = mnview.GetLoanScheme(vault->schemeId);
-            auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height, time);
-            if (!rate || rate.val->ratio() < scheme->ratio)
-                return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate.val->ratio(), scheme->ratio);
         }
         else
         {
@@ -2389,11 +2356,14 @@ public:
         if (!HasAuth(vault->ownerAddress))
             return Res::Err("tx must have at least one input from vault owner");
 
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
+            return Res::Err("Cannot take loan while any of the asset's price in the vault is invalid");
+
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         if (!collaterals)
             return Res::Err("Vault with id %s has no collaterals", obj.vaultId.GetHex());
 
-        uint64_t totalLoans = 0;
+        uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
         for (const auto& kv : obj.amounts.balances)
         {
             DCT_ID tokenId = kv.first;
@@ -2407,6 +2377,7 @@ public:
             res = mnview.AddLoanToken(obj.vaultId, CTokenAmount{kv.first, kv.second});
             if (!res)
                 return res;
+
             res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, kv.second);
             if (!res)
                 return res;
@@ -2415,14 +2386,22 @@ public:
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
 
-            auto amount = MultiplyAmounts(priceFeed.val->priceRecord[0], kv.second);
-            if (priceFeed.val->priceRecord[0] > COIN && amount < kv.second)
-                return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(priceFeed.val->priceRecord[0]));
+            if (!priceFeed.val->isValid())
+                return Res::Err("Price feed %s/%s is invalid", loanToken->fixedIntervalPriceId.first, loanToken->fixedIntervalPriceId.second);
 
-            auto prevLoans = totalLoans;
-            totalLoans += amount;
-            if (prevLoans > totalLoans)
-                return Res::Err("Exceed maximum loans");
+            for (int i = 0; i < 2; i++) {
+                // check active and next price
+                auto price = priceFeed.val->priceRecord[int(i > 0)];
+                auto amount = MultiplyAmounts(price, kv.second);
+                if (price > COIN && amount < kv.second)
+                    return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(kv.second), GetDecimaleString(price));
+
+                auto& totalLoans = i > 0 ? totalLoansNextPrice : totalLoansActivePrice;
+                auto prevLoans = totalLoans;
+                totalLoans += amount;
+                if (prevLoans > totalLoans)
+                    return Res::Err("Exceed maximum loans");
+            }
 
             res = mnview.AddMintedTokens(loanToken->creationTx, kv.second);
             if (!res)
@@ -2436,13 +2415,15 @@ public:
                 return res;
         }
 
-        if (!IsVaultPriceValid(mnview, obj.vaultId, height))
-            return Res::Err("Cannot take loan while any of the asset's price in the vault is invalid");
-
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
-        auto rate = mnview.CalculateCollateralizationRatio(obj.vaultId, *collaterals, height, time);
-        if (!rate || rate.val->ratio() < scheme->ratio)
-            return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", rate.val->ratio(), scheme->ratio);
+        for (int i = 0; i < 2; i++) {
+            // check ratio against current and active price
+            auto collateralsLoans = mnview.GetCollatalsLoans(obj.vaultId, *collaterals, height, time, i > 0);
+            if (!collateralsLoans)
+                return std::move(collateralsLoans);
+            if (collateralsLoans.val->ratio() < scheme->ratio)
+                return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
+        }
 
         return Res::Ok();
     }
