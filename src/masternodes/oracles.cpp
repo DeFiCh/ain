@@ -172,9 +172,9 @@ Res COracleView::SetPriceDeviation(const uint32_t deviation)
     return Res::Ok();
 }
 
-uint32_t COracleView::GetPriceDeviation() const
+CAmount COracleView::GetPriceDeviation() const
 {
-    int64_t deviation;
+    uint32_t deviation;
     if (Read(PriceDeviation::prefix(), deviation)) {
         return deviation;
     }

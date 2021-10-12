@@ -146,7 +146,7 @@ public:
     void ForEachFixedIntervalPrice(std::function<bool(const CFixedIntervalPriceId&, CLazySerialize<CFixedIntervalPrice>)> callback, const CFixedIntervalPriceId& start = {});
 
     Res SetPriceDeviation(const uint32_t deviation);
-    uint32_t GetPriceDeviation() const;
+    CAmount GetPriceDeviation() const;
 
     Res SetIntervalBlock(const uint32_t blockInterval);
     uint32_t GetIntervalBlock() const;

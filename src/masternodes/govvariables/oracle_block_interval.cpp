@@ -28,7 +28,7 @@ Res ORACLE_BLOCK_INTERVAL::Validate(const CCustomCSView & view) const
     return Res::Ok();
 }
 
-Res ORACLE_BLOCK_INTERVAL::Apply(CCustomCSView & mnview, const uint32_t blockInterval)
+Res ORACLE_BLOCK_INTERVAL::Apply(CCustomCSView & mnview, const uint32_t height)
 {
     return mnview.SetIntervalBlock(blockInterval);
 }

@@ -20,7 +20,7 @@ public:
     Res Import(UniValue const &val) override;
     UniValue Export() const override;
     Res Validate(CCustomCSView const &mnview) const override;
-    Res Apply(CCustomCSView &mnview, uint32_t deviation) override;
+    Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
     static constexpr char const * TypeName() { return "ORACLE_DEVIATION"; }
     static GovVariable * Create() { return new ORACLE_DEVIATION(); }

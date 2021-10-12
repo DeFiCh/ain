@@ -25,7 +25,7 @@ Res ORACLE_DEVIATION::Validate(const CCustomCSView & view) const
     return Res::Ok();
 }
 
-Res ORACLE_DEVIATION::Apply(CCustomCSView & mnview, uint32_t deviation)
+Res ORACLE_DEVIATION::Apply(CCustomCSView & mnview, uint32_t height)
 {
     return mnview.SetPriceDeviation(deviation);
 }
