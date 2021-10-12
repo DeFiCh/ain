@@ -10,17 +10,22 @@
 
 
 Res ORACLE_BLOCK_INTERVAL::Import(const UniValue & val) {
-    blockInterval = AmountFromValue(val);
+    if (!val.isNum()) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Block interval amount is not a number");
+    }
+    blockInterval = val.get_int();
     return Res::Ok();
 }
 
 UniValue ORACLE_BLOCK_INTERVAL::Export() const {
-    return ValueFromAmount(blockInterval);
+    return static_cast<uint64_t>(blockInterval);
 }
 
 Res ORACLE_BLOCK_INTERVAL::Validate(const CCustomCSView & view) const
 {
-    return Res::Err("Cannot be set manually.");
+    if (blockInterval <= 0)
+        return Res::Err("Block interval cannot be less than 1");
+    return Res::Ok();
 }
 
 Res ORACLE_BLOCK_INTERVAL::Apply(CCustomCSView & mnview, const uint32_t blockInterval)

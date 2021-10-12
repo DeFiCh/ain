@@ -194,9 +194,37 @@ class GovsetTest (DefiTestFramework):
         assert (pool1['rewardPct'] == Decimal('0.50000000')
             and pool2['rewardPct'] == Decimal('0.40000000')
             and pool3['rewardPct'] == Decimal('0.10000000'))
+        self.nodes[0].clearmempool()
+
+        # Test ORACLE_BLOCK_INTERVAL
+        try:
+            self.nodes[0].setgov({ "ORACLE_BLOCK_INTERVAL": 0})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Block interval cannot be less than 1" in errorString)
+
+        try:
+            self.nodes[0].setgov({ "ORACLE_BLOCK_INTERVAL": "120"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Block interval amount is not a number" in errorString)
+
+        self.nodes[0].setgov({ "ORACLE_BLOCK_INTERVAL": 120})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getgov("ORACLE_BLOCK_INTERVAL")["ORACLE_BLOCK_INTERVAL"], 120)
+
+        # Test ORACLE_DEVIATION
+        try:
+            self.nodes[0].setgov({ "ORACLE_DEVIATION": Decimal('0.00100000')})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Deviation cannot be less than 1 percent" in errorString)
+
+        self.nodes[0].setgov({ "ORACLE_DEVIATION": Decimal('0.40000000')})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getgov("ORACLE_DEVIATION")["ORACLE_DEVIATION"], Decimal('0.40000000'))
 
         # Generate to Eunos hard fork
-        self.nodes[0].clearmempool()
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
 
         # Try and set LP_DAILY_DFI_REWARD manually
@@ -256,8 +284,8 @@ class GovsetTest (DefiTestFramework):
         assert_equal(result[2]['LOAN_SPLITS'], {})
         assert_equal(result[3]['LP_DAILY_DFI_REWARD'], Decimal('14597.79395904'))
         assert_equal(result[4]['LP_SPLITS'], {'1': Decimal('0.50000000'), '2': Decimal('0.40000000'), '3': Decimal('0.10000000')} )
-        assert_equal(result[5]['ORACLE_BLOCK_INTERVAL'], Decimal('0E-8'))
-        assert_equal(result[6]['ORACLE_DEVIATION'], Decimal('0E-8'))
+        assert_equal(result[5]['ORACLE_BLOCK_INTERVAL'], 120)
+        assert_equal(result[6]['ORACLE_DEVIATION'], Decimal('0.40000000'))
 
 if __name__ == '__main__':
     GovsetTest ().main ()
