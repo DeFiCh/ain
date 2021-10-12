@@ -835,7 +835,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vault
             auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
             if (!priceFeed)
                 return std::move(priceFeed);
-            if (!priceFeed.val->isValid())
+            if (!priceFeed.val->isValid(GetPriceDeviation()))
                 return Res::Err("Price feed %s/%s is invalid", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
             auto value = loan.second + TotalInterest(*rate, height);
             auto price = priceFeed.val->priceRecord[int(nextPrice)];
@@ -857,7 +857,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vault
         auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
         if (!priceFeed)
             return std::move(priceFeed);
-        if (!priceFeed.val->isValid())
+        if (!priceFeed.val->isValid(GetPriceDeviation()))
             return Res::Err("Price feed %s/%s is invalid", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
         auto price = priceFeed.val->priceRecord[int(nextPrice)];
         auto amount = MultiplyAmounts(price, col.second);

@@ -2386,7 +2386,7 @@ public:
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
 
-            if (!priceFeed.val->isValid())
+            if (!priceFeed.val->isValid(mnview.GetPriceDeviation()))
                 return Res::Err("Price feed %s/%s is invalid", loanToken->fixedIntervalPriceId.first, loanToken->fixedIntervalPriceId.second);
 
             for (int i = 0; i < 2; i++) {
