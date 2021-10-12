@@ -1212,23 +1212,23 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     uint32_t height = ::ChainActive().Height() + 1;
-    CAmount totalCollateral = 0, totalLoan = 0;
+    uint64_t totalCollateral = 0, totalLoan = 0;
     auto lastBlockTime = ::ChainActive()[::ChainActive().Height()]->GetBlockTime();
 
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-        auto rate = pcustomcsview->CalculateCollateralizationRatio(vaultId, collaterals, height, lastBlockTime);
+        auto rate = pcustomcsview->GetCollatalsLoans(vaultId, collaterals, height, lastBlockTime);
 
         if (rate)
         {
-            totalCollateral += rate.val->totalCollaterals();
-            totalLoan += rate.val->totalLoans();
+            totalCollateral += rate.val->totalCollaterals;
+            totalLoan += rate.val->totalLoans;
         }
 
         return true;
     });
 
-    ret.pushKV("collateralValueUSD",ValueFromAmount(totalCollateral));
-    ret.pushKV("loanValueUSD",ValueFromAmount(totalLoan));
+    ret.pushKV("collateralValueUSD", ValueFromUint(totalCollateral));
+    ret.pushKV("loanValueUSD", ValueFromUint(totalLoan));
 
     return (ret);
 }

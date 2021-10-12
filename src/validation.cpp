@@ -2134,8 +2134,8 @@ Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts)
 std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances)
 {
     constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
-    auto totalCollaterals = collLoan.totalCollaterals();
-    auto totalLoans = collLoan.totalLoans();
+    auto totalCollaterals = collLoan.totalCollaterals;
+    auto totalLoans = collLoan.totalLoans;
     auto maxCollaterals = totalCollaterals;
     auto maxCollBalances = collBalances;
     auto maxLoans = totalLoans;
@@ -3014,7 +3014,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-            auto collateral = cache.CalculateCollateralizationRatio(vaultId, collaterals, pindex->nHeight, pindex->nTime);
+            auto collateral = cache.GetCollatalsLoans(vaultId, collaterals, pindex->nHeight, pindex->nTime);
             if (!collateral) {
                 return true;
             }

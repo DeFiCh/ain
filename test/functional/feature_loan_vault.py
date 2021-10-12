@@ -244,7 +244,7 @@ class VaultTest (DefiTestFramework):
                                     'factor': 1,
                                     'fixedIntervalPriceId': "BTC/USD"})
 
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(7)
         self.sync_blocks()
         # Try make first deposit other than DFI breaking 50% DFI ondition
         try:

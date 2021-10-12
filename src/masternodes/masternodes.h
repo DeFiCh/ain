@@ -282,29 +282,15 @@ public:
     struct BtcTx { static constexpr uint8_t prefix() { return 'x'; } };
 };
 
-struct CCollateralLoans {
-    std::vector<CTokenAmount> collaterals; // in USD
-    std::vector<CTokenAmount> loans; // in USD
+struct CCollateralLoans { // in USD
+    uint64_t totalCollaterals;
+    uint64_t totalLoans;
+    std::vector<CTokenAmount> collaterals;
+    std::vector<CTokenAmount> loans;
 
     uint32_t ratio() const {
-        if (loans.empty()) return std::numeric_limits<uint32_t>::max();
-        return lround(double(totalCollaterals()) / totalLoans() * 100);
-    }
-
-    uint64_t totalCollaterals() const {
-        uint64_t totalCollaterals = 0;
-        for (const auto& col : collaterals) {
-            totalCollaterals += col.nValue;
-        }
-        return totalCollaterals;
-    }
-
-    uint64_t totalLoans() const {
-        uint64_t totalLoans = 0;
-        for (const auto& loan : loans) {
-            totalLoans += loan.nValue;
-        }
-        return totalLoans;
+        if (!totalLoans) return std::numeric_limits<uint32_t>::max();
+        return lround(double(totalCollaterals) / totalLoans * 100);
     }
 };
 
@@ -406,7 +392,7 @@ public:
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
-    ResVal<CCollateralLoans> CalculateCollateralizationRatio(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime);
+    ResVal<CCollateralLoans> GetCollatalsLoans(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool nextPrice = false);
 
     void SetDbVersion(int version);
 
