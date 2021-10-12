@@ -15,10 +15,10 @@ pub struct TransactionResult {
 }
 
 use std::collections::HashMap;
-pub type TokenList = HashMap<String, TokenResult>;
+pub type TokenList = HashMap<String, TokenInfo>;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TokenResult {
+pub struct TokenInfo {
     pub symbol: String,
     #[serde(rename = "symbolKey")]
     pub symbol_key: String,
@@ -45,4 +45,26 @@ pub struct TokenResult {
     pub destruction_height: i64,
     #[serde(rename = "collateralAddress")]
     pub collateral_address: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VaultInfo {
+    #[serde(rename = "vaultId")]
+    pub vault_id: String,
+    #[serde(rename = "loanSchemeId")]
+    pub loan_scheme_id: String,
+    #[serde(rename = "ownerAddress")]
+    pub owner_address: String,
+    #[serde(rename = "isUnderLiquidation")]
+    pub is_under_liquidation: bool,
+    #[serde(rename = "collateralAmounts")]
+    pub collateral_amounts: Vec<String>,
+    #[serde(rename = "loanAmount")]
+    pub loan_amount: Vec<String>,
+    #[serde(rename = "collateralValue")]
+    pub collateral_value: f64,
+    #[serde(rename = "loanValue")]
+    pub loan_value: f64,
+    #[serde(rename = "currentRatio")]
+    pub current_ratio: i64,
 }
