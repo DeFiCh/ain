@@ -3,8 +3,8 @@ pub mod json;
 use jsonrpc;
 use std::fmt;
 
-use crate::json::{LoanScheme, TokenList, TokenResult, TransactionResult};
 use anyhow::{anyhow, Context, Result};
+use json::{LoanScheme, TokenInfo, TokenList, TransactionResult};
 use serde_json::json;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
@@ -111,13 +111,13 @@ impl Client {
         Ok(count)
     }
 
-    pub fn create_loan_token(&self, symbol: &str) -> Result<TokenResult> {
+    pub fn create_token(&self, symbol: &str) -> Result<TokenInfo> {
         let new_address = self.call::<String>("getnewaddress", &[])?;
         let create_token_tx = self.call::<String>(
             "createtoken",
             &[json!({
                 "symbol": symbol,
-                "name": "TEST token",
+                "name": format!("{} token", symbol),
                 "isDAT": true,
                 "collateralAddress": new_address
             })
@@ -171,6 +171,80 @@ impl Client {
 
         Ok(oracle_id)
     }
+
+    pub fn set_collateral_tokens(&self, tokens: &[&str]) -> Result<()> {
+        for &token in tokens {
+            self.create_token(token)?; // Creates token if does not exists
+            let data = json!({
+                "token": token,
+                "factor": 1,
+                "fixedIntervalPriceId": format!("{}/USD", token)
+            });
+            self.call::<String>("setcollateraltoken", &[data])?;
+        }
+        Ok(())
+    }
+
+    pub fn set_loan_tokens(&self, tokens: &[&str]) -> Result<()> {
+        for &token in tokens {
+            let data = json!({
+                "symbol": token,
+                "name": format!("{} token", token),
+                "fixedIntervalPriceId": format!("{}/USD", token),
+                "mintable": true,
+                "interest": 1
+            });
+            let _ = self.call::<String>("setloantoken", &[data]); // discard error raised when token already exists.
+        }
+        Ok(())
+    }
+
+    pub fn get_token(&self, symbol: &str) -> Result<TokenInfo> {
+        self.call::<TokenList>("listtokens", &[])?
+            .into_iter()
+            .map(|(_, val)| val)
+            .find(|token| token.symbol == symbol)
+            .context(format!("Could not find token {}", symbol))
+    }
+
+    pub fn create_pool_pair(&self, symbol: (&str, &str)) -> Result<String> {
+        let token_a = self.get_token(symbol.0)?;
+        let token_b = self.get_token(symbol.1)?;
+
+        let owner_address = self.call::<String>("getnewaddress", &[])?;
+        self.call::<String>(
+            "createpoolpair",
+            &[json!({
+                "tokenA": token_a.symbol,
+                "tokenB": token_b.symbol,
+                "commission": 0.002,
+                "status": true,
+                "ownerAddress": owner_address,
+                "pairSymbol": format!("{}-{}", token_a.symbol, token_b.symbol)
+            })],
+        )
+    }
+
+    pub fn add_pool_liquidity(
+        &self,
+        address: &str,
+        symbol: (&str, &str),
+        amounts: (u32, u32),
+    ) -> Result<String> {
+        self.call::<String>(
+            "addpoolliquidity",
+            &[
+                json!({
+                    address.clone(): [format!("{}@{}", amounts.0, symbol.0), format!("{}@{}", amounts.1, symbol.1)]
+                }),
+                address.into(),
+            ],
+        )
+    }
+
+    pub fn get_new_address(&self) -> Result<String> {
+        self.call::<String>("getnewaddress", &[])
+    }
 }
 
 #[cfg(test)]
@@ -187,9 +261,9 @@ mod tests {
     }
 
     #[test]
-    fn create_loan_tokens() -> Result<()> {
+    fn create_token() -> Result<()> {
         let client = Client::from_env()?;
-        let token = client.create_loan_token("TEST")?;
+        let token = client.create_token("TEST")?;
         assert_eq!(token.symbol, "TEST");
         Ok(())
     }
