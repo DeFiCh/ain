@@ -2,9 +2,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <test/setup_common.h>
-#include <string>
 #include <boost/test/unit_test.hpp>
+#include <string>
+#include <test/setup_common.h>
 
 #include <rust/evm/sputnikvm.h>
 
@@ -19,5 +19,5 @@ BOOST_AUTO_TEST_CASE(EVM_default)
     BOOST_CHECK_EQUAL(params.timestamp, 0ULL);
     BOOST_CHECK_EQUAL(strcmp((const char*)params.number.data, (const char*)u256_from_str("0x0000000000000000000000000000000000000000").data), 0);
     BOOST_CHECK_EQUAL(strcmp((const char*)params.difficulty.data, (const char*)u256_from_str("0x0000000000000000000000000000000000000000").data), 0);
-    BOOST_CHECK_EQUAL(strcmp((const char*)params.gas_limit.data, (const char*)gas_from_str("0x0000000000000000000000000000000000000000").data), 0);
+    BOOST_CHECK_EQUAL(strcmp((const char*)params.gas_limit.data, (const char*)gas_from_u64(0x0).data), 0);
 }
