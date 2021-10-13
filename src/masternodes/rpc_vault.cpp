@@ -33,6 +33,7 @@ namespace {
         } else {
             UniValue collValue{UniValue::VSTR};
             UniValue loanValue{UniValue::VSTR};
+            UniValue interestValue{UniValue::VSTR};
 
             auto height = ::ChainActive().Height();
             auto blockTime = ::ChainActive()[height]->GetBlockTime();
@@ -48,26 +49,42 @@ namespace {
 
             UniValue collateralBalances{UniValue::VARR};
             UniValue loanBalances{UniValue::VARR};
+            UniValue interestAmounts{UniValue::VARR};
 
             if (collaterals)
                 collateralBalances = AmountsToJSON(collaterals->balances);
 
             if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)){
-                TAmounts balancesInterest{};
+                TAmounts totalBalances{};
+                TAmounts interestBalances{};
+                CAmount totalInterests{0};
+
                 for (const auto& loan : loanTokens->balances) {
+                    auto token = pcustomcsview->GetLoanSetLoanTokenByID(loan.first);
+                    if(!token)
+                        continue;
                     auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
                     if (!rate)
                         continue;
-                    auto value = loan.second + TotalInterest(*rate, height + 1);;
-                    balancesInterest.insert({loan.first, value});
+                    auto value = loan.second + TotalInterest(*rate, height + 1);
+                    if(auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)){
+                        auto price = priceFeed.val->priceRecord[1];
+                        totalInterests += MultiplyAmounts(price, value);
+                    }
+                    totalBalances.insert({loan.first, (value+loan.second)});
+                    interestBalances.insert({loan.first, value});
                 }
-                loanBalances = AmountsToJSON(balancesInterest);
+                interestValue = ValueFromAmount(totalInterests);
+                loanBalances = AmountsToJSON(totalBalances);
+                interestAmounts = AmountsToJSON(interestBalances);
             }
 
             result.pushKV("collateralAmounts", collateralBalances);
-            result.pushKV("loanAmount", loanBalances);
+            result.pushKV("loanAmounts", loanBalances);
+            result.pushKV("interestAmounts", interestAmounts);
             result.pushKV("collateralValue", collValue);
             result.pushKV("loanValue", loanValue);
+            result.pushKV("interestValue", interestValue);
             result.pushKV("currentRatio", (int)ratio);
         }
         return result;
