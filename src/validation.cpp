@@ -3114,11 +3114,14 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 }
 
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
-    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) return;
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) { 
+        return;
+    }
     auto blockInterval = Params().GetConsensus().blocksFixedIntervalPrice();
-    if (pindex->nHeight % blockInterval != 0) return;
-
-        cache.ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
+    if (pindex->nHeight % blockInterval != 0) { 
+        return;
+    }
+    cache.ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
         // Ensure that we update active and next regardless of state of things
         // And SetFixedIntervalPrice on each evaluation of this block.
 
