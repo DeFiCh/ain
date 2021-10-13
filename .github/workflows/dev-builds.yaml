@@ -7,17 +7,17 @@ on:
       - "!v*"
     branches:
       - master
-      - staging
-      - develop
-      - ci/*
+      - testnet
+      - t/*
+      - e/*
       - v*
       - "[0-9]+.[0-9]+.x"
   pull_request:
     branches:
       - master
-      - develop
-      - staging
-      - ci/*
+      - testnet
+      - t/*
+      - e/*
       - v*
       - "[0-9]+.[0-9]+.x"
 jobs:
