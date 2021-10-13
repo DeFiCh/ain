@@ -4,7 +4,7 @@ use jsonrpc;
 use std::fmt;
 
 use anyhow::{anyhow, Context, Result};
-use json::{LoanScheme, TokenInfo, TokenList, TransactionResult};
+use json::{LoanScheme, PoolPairInfo, TokenInfo, TokenList, TransactionResult};
 use serde_json::json;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
@@ -96,6 +96,25 @@ impl Client {
         ))
     }
 
+    pub fn wait_for_balance_gte(&self, balance: f32) -> Result<()> {
+        loop {
+            let get_balance = self.call::<f32>("getbalance", &[])?;
+            if get_balance < balance {
+                println!(
+                    "current balance : {}, waiting to reach {}",
+                    get_balance, balance,
+                );
+                println!(
+                    "current blockheight : {}",
+                    self.call::<u32>("getblockcount", &[])?
+                );
+                thread::sleep(time::Duration::from_secs(2));
+            } else {
+                return Ok(());
+            }
+        }
+    }
+
     pub fn generate(&self, n: u16, address: &str, max_tries: u16) -> Result<u16> {
         let mut count: u16 = 0;
         for _ in 0..max_tries {
@@ -112,8 +131,15 @@ impl Client {
     }
 
     pub fn create_token(&self, symbol: &str) -> Result<TokenInfo> {
+        println!("Creating token {}...", symbol);
+
+        if let Ok(token) = self.get_token(symbol) {
+            println!("Token {} already exists", symbol);
+            return Ok(token);
+        }
+
         let new_address = self.call::<String>("getnewaddress", &[])?;
-        let create_token_tx = self.call::<String>(
+        let tx = self.call::<String>(
             "createtoken",
             &[json!({
                 "symbol": symbol,
@@ -122,16 +148,10 @@ impl Client {
                 "collateralAddress": new_address
             })
             .into()],
-        );
-        if let Ok(token_tx) = create_token_tx {
-            self.await_n_confirmations(&token_tx, 1)?;
-        }
-
-        self.call::<TokenList>("listtokens", &[])?
-            .into_iter()
-            .map(|(_, val)| val)
-            .find(|token| token.symbol == symbol)
-            .context(format!("Could not find token {}", symbol))
+        )?;
+        self.await_n_confirmations(&tx, 1)?;
+        println!("Created token {}", symbol);
+        self.get_token(symbol)
     }
 
     pub fn get_default_loan_scheme(&self) -> Result<LoanScheme> {
@@ -174,7 +194,7 @@ impl Client {
 
     pub fn set_collateral_tokens(&self, tokens: &[&str]) -> Result<()> {
         for &token in tokens {
-            self.create_token(token)?; // Creates token if does not exists
+            self.create_token(token)?;
             let data = json!({
                 "token": token,
                 "factor": 1,
@@ -207,12 +227,25 @@ impl Client {
             .context(format!("Could not find token {}", symbol))
     }
 
-    pub fn create_pool_pair(&self, symbol: (&str, &str)) -> Result<String> {
+    pub fn get_pool_pair(&self, symbol: (&str, &str)) -> Result<PoolPairInfo> {
+        self.call::<PoolPairInfo>(
+            "getpoolpair",
+            &[format!("{}-{}", symbol.0, symbol.1).into()],
+        )
+    }
+
+    pub fn create_pool_pair(&self, symbol: (&str, &str)) -> Result<PoolPairInfo> {
+        println!("Creating pool pair {}-{}...", symbol.0, symbol.1);
+        if let Ok(poolpair) = self.get_pool_pair(symbol) {
+            println!("Pool pair already exists.");
+            return Ok(poolpair);
+        }
+
         let token_a = self.get_token(symbol.0)?;
         let token_b = self.get_token(symbol.1)?;
 
         let owner_address = self.call::<String>("getnewaddress", &[])?;
-        self.call::<String>(
+        let tx = self.call::<String>(
             "createpoolpair",
             &[json!({
                 "tokenA": token_a.symbol,
@@ -222,20 +255,22 @@ impl Client {
                 "ownerAddress": owner_address,
                 "pairSymbol": format!("{}-{}", token_a.symbol, token_b.symbol)
             })],
-        )
+        )?;
+        self.await_n_confirmations(&tx, 1)?;
+        self.get_pool_pair(symbol)
     }
 
     pub fn add_pool_liquidity(
         &self,
         address: &str,
         symbol: (&str, &str),
-        amounts: (u32, u32),
+        amount: (u32, u32),
     ) -> Result<String> {
         self.call::<String>(
             "addpoolliquidity",
             &[
                 json!({
-                    address.clone(): [format!("{}@{}", amounts.0, symbol.0), format!("{}@{}", amounts.1, symbol.1)]
+                    "*": [format!("{}@{}", amount.0, symbol.0), format!("{}@{}", amount.1, symbol.1)]
                 }),
                 address.into(),
             ],
@@ -244,6 +279,10 @@ impl Client {
 
     pub fn get_new_address(&self) -> Result<String> {
         self.call::<String>("getnewaddress", &[])
+    }
+
+    pub fn utxo_to_account(&self, account: &str, amount: &str) -> Result<String> {
+        self.call::<String>("utxostoaccount", &[json!({ account: amount })])
     }
 }
 
