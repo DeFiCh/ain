@@ -102,11 +102,9 @@ UniValue createvault(const JSONRPCRequest& request) {
                    "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                   HelpExampleCli("createvault", "") +
-                   HelpExampleCli("createvault", "\"\" LOAN0001") +
+                   HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv") +
                    HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv LOAN0001") +
-                   HelpExampleCli("createvault", "") +
-                   HelpExampleRpc("createvault", "\"\", LOAN0001") +
+                   HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv") +
                    HelpExampleRpc("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv, LOAN0001")
                 },
     }.Check(request);
