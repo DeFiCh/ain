@@ -825,7 +825,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
     return result;
 }
 
-ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
+ResVal<CAmount> GetAggregatePrice(COracleView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
     arith_uint256 weightedSum = 0;
     uint64_t numLiveOracles = 0, sumWeights = 0;
     view.ForEachOracle([&](const COracleId&, COracle oracle) {
@@ -869,7 +869,7 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
 
 namespace {
 
-    UniValue GetAllAggregatePrices(CCustomCSView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
+    UniValue GetAllAggregatePrices(COracleView& view, uint64_t lastBlockTime, const UniValue& paginationObj) {
 
         size_t limit = 100;
         int start = 0;
