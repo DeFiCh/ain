@@ -24,6 +24,7 @@ class VaultTest (DefiTestFramework):
     def run_test(self):
         self.nodes[0].generate(120)
         self.nodes[0].createloanscheme(175, 3, 'LOAN0001')
+        self.nodes[0].createloanscheme(150, 2.5, 'LOAN000A')
         self.nodes[0].createloanscheme(200, 2, 'LOAN0002')
         self.nodes[0].createloanscheme(350, 1.5, 'LOAN0003')
         self.nodes[0].createloanscheme(550, 1.5, 'LOAN0004')
@@ -361,6 +362,20 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault1['loanAmount'], ['0.50000094@TSLA'])
         assert_equal(vault1['collateralValue'], Decimal('2.00000000'))
         assert_equal(vault1['loanValue'],Decimal('0.50000094'))
+
+        params = {'loanSchemeId':'LOAN000A'}
+        self.nodes[0].updatevault(vaultId1, params)
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # interest is moved out from old scheme
+        interest = self.nodes[0].getinterest('LOAN0001')[0]
+        assert_equal(interest['totalInterest'], Decimal('0'))
+        assert_equal(interest['interestPerBlock'], Decimal('0'))
+
+        # interest is transferred to scheme
+        interest = self.nodes[0].getinterest('LOAN000A')[0]
+        assert_equal(interest['interestPerBlock'], Decimal('4.2E-7'))
 
         # make vault enter under liquidation state
         oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
