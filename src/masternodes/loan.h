@@ -220,8 +220,9 @@ struct CInterestRate
     }
 };
 
-CAmount TotalInterest(const CInterestRate& rate, uint32_t height);
 CAmount InterestPerBlock(const CInterestRate& rate);
+CAmount TotalInterest(const CInterestRate& rate, uint32_t height);
+CAmount InterestPerAmount(CAmount amount, const CInterestRate& rate, uint32_t height);
 
 class CLoanTakeLoanMessage
 {
