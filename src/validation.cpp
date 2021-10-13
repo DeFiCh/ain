@@ -3114,27 +3114,32 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 }
 
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
-    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
-        return;
-    }
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) return;
+    auto blockInterval = Params().GetConsensus().blocksFixedIntervalPrice();
+    if (pindex->nHeight % blockInterval != 0) return;
 
-    auto priceHeight = Params().GetConsensus().blocksFixedIntervalPrice();
-    if(pindex->nHeight % priceHeight == 0){
         cache.ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
-            auto aggregatePrice = GetAggregatePrice(cache, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, pindex->nTime);
-            if(!aggregatePrice){
-                LogPrintf("Error getting aggregate price: %s\n", aggregatePrice.msg);
-                return true;
-            }
-            fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
+        // Ensure that we keep the price moving regardless of the state of things.
+        fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
+        // Use -1 to indicate an invalid price. In an ideal scenario this should be
+        // overriden by get aggregate price. Otherwise, should be rejected by 
+        // isValid check.
+        fixedIntervalPrice.priceRecord[1] = -1;
+        fixedIntervalPrice.timestamp = pindex->nTime;
+        auto aggregatePrice = GetAggregatePrice(cache, 
+            fixedIntervalPrice.priceFeedId.first, 
+            fixedIntervalPrice.priceFeedId.second, 
+            pindex->nTime);
+        if (aggregatePrice) {
             fixedIntervalPrice.priceRecord[1] = aggregatePrice;
-            fixedIntervalPrice.timestamp = pindex->nTime;
-            auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
-            if (!res)
-                LogPrintf("Setting fixed interval price failed: %s\n", res.msg);
-            return true;
-        });
-    }
+        } else {
+            LogPrintf("error: can't getting aggregate price: %s\n", aggregatePrice.msg);
+        }
+        auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
+        if (!res)
+            LogPrintf("error: can't set interval price: %s\n", res.msg);
+        return true;
+    });
 }
 
 bool CChainState::FlushStateToDisk(
