@@ -3128,20 +3128,23 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
         // As long as nextPrice exists, move the buffers. 
         // If nextPrice doesn't exist, active price is retained.
         // nextPrice starts off as empty. Will be replaced by the next 
-        // aggregate, as long as there's a new price available. 
+        // aggregate, as long as there's a new price available.
         // If there is no price, nextPrice will remain empty. 
         // This guarantees that the last price will continue to exists, 
         // while the overall validity check still fails.
 
         // Furthermore, the time stamp is always indicative of the 
         // last price time.
+
+        // CAUTION: nextPrice reset is disabled for testnet phase-1
         auto nextPrice = fixedIntervalPrice.priceRecord[1];
         if (nextPrice > 0) {
             fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
             fixedIntervalPrice.timestamp = pindex->nTime;
         }
         // Use -1 to indicate empty price
-        fixedIntervalPrice.priceRecord[1] = -1;
+        // CAUTION: Disabled for testnet phase-1
+        // fixedIntervalPrice.priceRecord[1] = -1;
         auto aggregatePrice = GetAggregatePrice(cache, 
             fixedIntervalPrice.priceFeedId.first, 
             fixedIntervalPrice.priceFeedId.second, 
