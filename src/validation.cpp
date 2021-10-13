@@ -3119,13 +3119,26 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
     if (pindex->nHeight % blockInterval != 0) return;
 
         cache.ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
-        // Ensure that we keep the price moving regardless of the state of things.
-        fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
-        // Use -1 to indicate an invalid price. In an ideal scenario this should be
-        // overriden by get aggregate price. Otherwise, should be rejected by 
-        // isValid check.
+        // Ensure that we update active and next regardless of state of things
+        // And SetFixedIntervalPrice on each evaluation of this block.
+
+        // As long as nextPrice exists, move the buffers. 
+        // If nextPrice doesn't exist, active price is retained.
+        // nextPrice starts off as empty. Will be replaced by the next 
+        // aggregate, as long as there's a new price available. 
+        // If there is no price, nextPrice will remain empty. 
+        // This guarantees that the last price will continue to exists, 
+        // while the overall validity check still fails.
+
+        // Furthermore, the time stamp is always indicative of the 
+        // last price time.
+        auto nextPrice = fixedIntervalPrice.priceRecord[1];
+        if (nextPrice > 0) {
+            fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
+            fixedIntervalPrice.timestamp = pindex->nTime;
+        }
+        // Use -1 to indicate empty price
         fixedIntervalPrice.priceRecord[1] = -1;
-        fixedIntervalPrice.timestamp = pindex->nTime;
         auto aggregatePrice = GetAggregatePrice(cache, 
             fixedIntervalPrice.priceFeedId.first, 
             fixedIntervalPrice.priceFeedId.second, 
@@ -3133,11 +3146,11 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
         if (aggregatePrice) {
             fixedIntervalPrice.priceRecord[1] = aggregatePrice;
         } else {
-            LogPrintf("error: can't getting aggregate price: %s\n", aggregatePrice.msg);
+            LogPrintf("error: no aggregate price available: %s\n", aggregatePrice.msg);
         }
         auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
         if (!res)
-            LogPrintf("error: can't set interval price: %s\n", res.msg);
+            LogPrintf("error: SetFixedIntervalPrice failed: %s\n", res.msg);
         return true;
     });
 }
