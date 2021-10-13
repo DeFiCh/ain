@@ -3132,6 +3132,8 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
             fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
             fixedIntervalPrice.priceRecord[1] = aggregatePrice;
             fixedIntervalPrice.timestamp = pindex->nTime;
+            fixedIntervalPrice.activePriceBlock = pindex->nHeight;
+            fixedIntervalPrice.nextPriceBlock = (pindex->nHeight + Params().GetConsensus().blocksFixedIntervalPrice());
             auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
             if (!res)
                 LogPrintf("Setting fixed interval price failed: %s\n", res.msg);

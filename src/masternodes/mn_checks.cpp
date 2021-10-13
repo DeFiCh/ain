@@ -1890,6 +1890,8 @@ public:
 
         fixedIntervalPrice.priceRecord[1] = price;
         fixedIntervalPrice.timestamp = time;
+        fixedIntervalPrice.activePriceBlock = height;
+        fixedIntervalPrice.nextPriceBlock = height + Params().GetConsensus().blocksFixedIntervalPrice();
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if(!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
@@ -1915,6 +1917,7 @@ public:
             return Res::Err(nextPrice.msg);
         fixedIntervalPrice.priceRecord[1] = nextPrice;
         fixedIntervalPrice.timestamp = time;
+        fixedIntervalPrice.nextPriceBlock = height + Params().GetConsensus().blocksFixedIntervalPrice();
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if(!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);

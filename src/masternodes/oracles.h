@@ -107,6 +107,8 @@ public:
     CFixedIntervalPriceId priceFeedId;
     int64_t timestamp;
     std::vector<CAmount> priceRecord{0, 0}; // priceHistory[0] = active price, priceHistory[1] = next price
+    int32_t activePriceBlock;
+    int32_t nextPriceBlock;
     bool isValid() const;
 
     ADD_SERIALIZE_METHODS;
@@ -116,6 +118,8 @@ public:
         READWRITE(priceFeedId);
         READWRITE(timestamp);
         READWRITE(priceRecord);
+        READWRITE(activePriceBlock);
+        READWRITE(nextPriceBlock);
     }
 };
 
