@@ -142,8 +142,7 @@ bool CFixedIntervalPrice::isValidInternal(const CAmount deviationThreshold) cons
 }
 
 bool CFixedIntervalPrice::isValid() const{
-    CAmount threshold = 30;
-    CAmount deviation = MultiplyAmounts(threshold, COIN);
+    CAmount deviation = 3 * COIN / 10;
     return isValidInternal(deviation);
 }
 
