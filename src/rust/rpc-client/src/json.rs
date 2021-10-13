@@ -68,3 +68,36 @@ pub struct VaultInfo {
     #[serde(rename = "currentRatio")]
     pub current_ratio: i64,
 }
+
+pub type PoolPairInfo = HashMap<String, PoolPair>;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PoolPair {
+    pub symbol: String,
+    pub name: String,
+    pub status: bool,
+    #[serde(rename = "idTokenA")]
+    pub id_token_a: String,
+    #[serde(rename = "idTokenB")]
+    pub id_token_b: String,
+    #[serde(rename = "reserveA")]
+    pub reserve_a: f64,
+    #[serde(rename = "reserveB")]
+    pub reserve_b: f64,
+    pub commission: f64,
+    #[serde(rename = "totalLiquidity")]
+    pub total_liquidity: f64,
+    #[serde(rename = "tradeEnabled")]
+    pub trade_enabled: bool,
+    #[serde(rename = "ownerAddress")]
+    pub owner_address: String,
+    #[serde(rename = "blockCommissionA")]
+    pub block_commission_a: f64,
+    #[serde(rename = "blockCommissionB")]
+    pub block_commission_b: f64,
+    #[serde(rename = "rewardPct")]
+    pub reward_pct: f64,
+    #[serde(rename = "creationTx")]
+    pub creation_tx: String,
+    #[serde(rename = "creationHeight")]
+    pub creation_height: i64,
+}
