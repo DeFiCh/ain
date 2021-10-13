@@ -27,4 +27,34 @@ std::shared_ptr<GovVariable> CGovView::GetVariable(std::string const & name) con
     return {};
 }
 
+Res CGovView::SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint64_t height)
+{
+    std::vector<std::string> govVarNames;
+    for (auto& item : govVars) {
+        govVarNames.push_back(item->GetName());
+        if (!WriteBy<ByHeightVars>(std::pair<uint64_t, std::string>(height, item->GetName()), *item)) {
+            return Res::Err("Cannot write to DB");
+        }
+    }
+    if (!WriteBy<ByHeightNames>(height, govVarNames)) {
+        return Res::Err("Cannot write to DB");
+    }
+    return Res::Ok();
+}
 
+std::set<std::shared_ptr<GovVariable>> CGovView::GetStoredVariables(const uint64_t height) const
+{
+    std::vector<std::string> govVarNames;
+    if (!ReadBy<ByHeightNames>(height, govVarNames) || govVarNames.empty()) {
+        return {};
+    }
+    std::set<std::shared_ptr<GovVariable>> govVars;
+    for (const auto& name: govVarNames) {
+        auto var = GovVariable::Create(name);
+        if (var) {
+            ReadBy<ByHeightVars>(std::pair<uint64_t, std::string>(height, name), *var);
+            govVars.insert(var);
+        }
+    }
+    return govVars;
+}

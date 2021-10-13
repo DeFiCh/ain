@@ -41,6 +41,11 @@ public:
     Res SetVariable(GovVariable const & var);
     std::shared_ptr<GovVariable> GetVariable(std::string const &govKey) const;
 
+    Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint64_t height);
+    std::set<std::shared_ptr<GovVariable>> GetStoredVariables(const uint64_t height) const;
+
+    struct ByHeightNames { static constexpr uint8_t prefix() { return 'f'; } };
+    struct ByHeightVars { static constexpr uint8_t prefix() { return 'G'; } };
     struct ByName { static constexpr uint8_t prefix() { return 'g'; } };
 };
 

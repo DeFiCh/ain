@@ -2755,6 +2755,24 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         ProcessOracleEvents(pindex, cache, chainparams);
         ProcessLoanEvents(pindex, cache, chainparams);
 
+        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
+            // Apply any pending GovVariable changes. Will come into effect on the next block.
+            auto storedGovVars = cache.GetStoredVariables(pindex->nHeight);
+            for (const auto& var : storedGovVars) {
+                // Skip any that fail to validate
+                auto result = var->Validate(cache);
+                if (!result) {
+                    continue;
+                }
+                // Skip any that fail to apply
+                auto res = var->Apply(cache, pindex->nHeight);
+                if (!res) {
+                    continue;
+                }
+                cache.SetVariable(*var);
+            }
+        }
+
         // construct undo
         auto& flushable = cache.GetStorage();
         auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
