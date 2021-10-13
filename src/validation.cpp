@@ -3114,7 +3114,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 }
 
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
-    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) { 
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
         return;
     }
     auto blockInterval = Params().GetConsensus().blocksFixedIntervalPrice();
@@ -3152,8 +3152,9 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
             LogPrintf("error: no aggregate price available: %s\n", aggregatePrice.msg);
         }
         auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
-        if (!res)
+        if (!res) {
             LogPrintf("error: SetFixedIntervalPrice failed: %s\n", res.msg);
+        }
         return true;
     });
 }
