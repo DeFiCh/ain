@@ -525,17 +525,17 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+bool diffInHour(int64_t time1, int64_t time2) {
+    constexpr const uint64_t SECONDS_PER_HOUR = 3600u;
+    return std::abs(time1 - time2) < SECONDS_PER_HOUR;
+}
+
 namespace {
     UniValue PriceFeedToJSON(const CTokenCurrencyPair& priceFeed) {
         UniValue pair(UniValue::VOBJ);
         pair.pushKV(oraclefields::Token, priceFeed.first);
         pair.pushKV(oraclefields::Currency, priceFeed.second);
         return pair;
-    }
-
-    bool diffInHour(int64_t time1, int64_t time2) {
-        constexpr const uint64_t SECONDS_PER_HOUR = 3600u;
-        return std::abs(time1 - time2) < SECONDS_PER_HOUR;
     }
 
     UniValue OracleToJSON(const COracleId& oracleId, const COracle& oracle) {

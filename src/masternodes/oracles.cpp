@@ -155,17 +155,17 @@ Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalP
     return Res::Ok();
 }
 
-ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CFixedIntervalPriceId& fixedIntervalPriceId)
+ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurrencyPair& fixedIntervalPriceId)
 {
     CFixedIntervalPrice fixedIntervalPrice;
     if (!ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceId, fixedIntervalPrice)) {
-            return Res::Err("fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceId.first, fixedIntervalPriceId.second);
+        return Res::Err("fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceId.first, fixedIntervalPriceId.second);
     }
 
     return ResVal<CFixedIntervalPrice>(fixedIntervalPrice, Res::Ok());
 }
 
-void COracleView::ForEachFixedIntervalPrice(std::function<bool(const CFixedIntervalPriceId&, CLazySerialize<CFixedIntervalPrice>)> callback, const CFixedIntervalPriceId& start)
+void COracleView::ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start)
 {
-    ForEach<FixedIntervalPriceKey, CFixedIntervalPriceId, CFixedIntervalPrice>(callback, start);
+    ForEach<FixedIntervalPriceKey, CTokenCurrencyPair, CFixedIntervalPrice>(callback, start);
 }
