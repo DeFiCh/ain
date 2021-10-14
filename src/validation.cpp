@@ -2757,7 +2757,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
             // Apply any pending GovVariable changes. Will come into effect on the next block.
-            auto storedGovVars = cache.GetStoredVariables(pindex->nHeight);
+            auto storedGovVars = cache.GetStoredVariables(static_cast<uint32_t>(pindex->nHeight));
             for (const auto& var : storedGovVars) {
                 CCustomCSView govCache(cache);
                 // Ignore any Gov variables that fail to validate, apply or be set.
@@ -2765,7 +2765,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                     govCache.Flush();
                 }
             }
-            cache.EraseStoredVariables(pindex->nHeight);
+            cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
         }
 
         // construct undo

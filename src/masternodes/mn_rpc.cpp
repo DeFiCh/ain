@@ -554,7 +554,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");
     }
 
-    const uint64_t startHeight = request.params[1].get_int();
+    const uint32_t startHeight = request.params[1].get_int();
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::SetGovVariableHeight)

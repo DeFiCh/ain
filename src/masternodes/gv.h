@@ -41,16 +41,27 @@ public:
     Res SetVariable(GovVariable const & var);
     std::shared_ptr<GovVariable> GetVariable(std::string const &govKey) const;
 
-    Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint64_t height);
-    std::set<std::shared_ptr<GovVariable>> GetStoredVariables(const uint64_t height) const;
-    std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables() const;
-    void EraseStoredVariables(const uint64_t height);
+    Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint32_t height);
+    std::set<std::shared_ptr<GovVariable>> GetStoredVariables(const uint32_t height);
+    std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables();
+    void EraseStoredVariables(const uint32_t height);
 
-    struct ByHeightNames { static constexpr uint8_t prefix() { return 'f'; } };
     struct ByHeightVars { static constexpr uint8_t prefix() { return 'G'; } };
     struct ByName { static constexpr uint8_t prefix() { return 'g'; } };
 };
 
+struct GovVarKey {
+    uint32_t height;
+    std::string name;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(WrapBigEndian(height));
+        READWRITE(name);
+    }
+};
 
 //
 // please, use this as template for new variables:

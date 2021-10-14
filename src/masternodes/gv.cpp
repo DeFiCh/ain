@@ -27,86 +27,55 @@ std::shared_ptr<GovVariable> CGovView::GetVariable(std::string const & name) con
     return {};
 }
 
-Res CGovView::SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint64_t height)
+Res CGovView::SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint32_t height)
 {
-    // Retrieve map of heights to Gov var changes
-    std::map<uint64_t, std::set<std::string>> govVarNames;
-    Read(ByHeightNames::prefix(), govVarNames);
-
     for (auto& item : govVars) {
-        govVarNames[height].insert(item->GetName());
-        if (!WriteBy<ByHeightVars>(std::pair<uint64_t, std::string>(height, item->GetName()), *item)) {
+        if (!WriteBy<ByHeightVars>(GovVarKey{height, item->GetName()}, *item)) {
             return Res::Err("Cannot write to DB");
         }
     }
 
-    if (!Write(ByHeightNames::prefix(), govVarNames)) {
-        return Res::Err("Cannot write to DB");
-    }
     return Res::Ok();
 }
 
-std::set<std::shared_ptr<GovVariable>> CGovView::GetStoredVariables(const uint64_t height) const
+std::set<std::shared_ptr<GovVariable>> CGovView::GetStoredVariables(const uint32_t height)
 {
-    // Retrieve map of heights to Gov var changes
-    std::map<uint64_t, std::set<std::string>> govVarNames;
-    if (!Read(ByHeightNames::prefix(), govVarNames)) {
-        return {};
-    }
-
     // Popualte a set of Gov vars for specified height
     std::set<std::shared_ptr<GovVariable>> govVars;
-    for (const auto& name: govVarNames[height]) {
-        auto var = GovVariable::Create(name);
+    auto it = LowerBound<ByHeightVars>(GovVarKey{height, {}});
+    for (; it.Valid() && it.Key().height == height; it.Next()) {
+        auto var = GovVariable::Create(it.Key().name);
         if (var) {
-            ReadBy<ByHeightVars>(std::make_pair(height, name), *var);
+            it.Value(*var);
             govVars.insert(var);
         }
     }
     return govVars;
 }
 
-std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> CGovView::GetAllStoredVariables() const
+std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> CGovView::GetAllStoredVariables()
 {
-    // Retrieve map of heights to Gov var changes
-    std::map<uint64_t, std::set<std::string>> govVarNames;
-    if (!Read(ByHeightNames::prefix(), govVarNames)) {
-        return {};
-    }
-
     // Populate map by var name as key and map of height and Gov vars as elements.
     std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> govVars;
-    for (const auto& items : govVarNames) {
-        for (const auto& name : items.second) {
-            auto var = GovVariable::Create(name);
-            if (var) {
-                ReadBy<ByHeightVars>(std::make_pair(items.first, name), *var);
-                govVars[name][items.first] = var;
-            }
+    auto it = LowerBound<ByHeightVars>(GovVarKey{std::numeric_limits<uint32_t>::min(), {}});
+    for (; it.Valid(); it.Next()) {
+        auto var = GovVariable::Create(it.Key().name);
+        if (var) {
+            it.Value(*var);
+            govVars[it.Key().name][it.Key().height] = var;
         }
     }
 
     return govVars;
 }
 
-void CGovView::EraseStoredVariables(const uint64_t height)
+void CGovView::EraseStoredVariables(const uint32_t height)
 {
-    // Retrieve map of heights to Gov var changes
-    std::map<uint64_t, std::set<std::string>> govVarNames;
-    Read(ByHeightNames::prefix(), govVarNames);
-
-    if (govVarNames[height].empty()) {
-        return;
-    }
+    // Retrieve map of vars at specified height
+    const auto vars = GetStoredVariables(height);
 
     // Iterate over names at this height and erase
-    for (const auto& items : govVarNames[height]) {
-        for (const auto& name : items) {
-            EraseBy<ByHeightVars>(std::make_pair(height, name));
-        }
+    for (const auto& var : vars) {
+        EraseBy<ByHeightVars>(GovVarKey{height, var->GetName()});
     }
-
-    // Erase from map and store
-    govVarNames.erase(height);
-    Write(ByHeightNames::prefix(), govVarNames);
 }

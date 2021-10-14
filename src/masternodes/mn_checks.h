@@ -262,7 +262,7 @@ struct CGovernanceMessage {
 
 struct CGovernanceHeightMessage {
     std::shared_ptr<GovVariable> govVar;
-    uint64_t startHeight;
+    uint32_t startHeight;
 };
 
 struct CCustomTxMessageNone {};
