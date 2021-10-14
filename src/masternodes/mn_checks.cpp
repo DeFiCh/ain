@@ -775,7 +775,7 @@ public:
         return Res::Ok();
     }
 
-    bool oraclePriceFeed(const CFixedIntervalPriceId& priceFeed) const {
+    bool oraclePriceFeed(const CTokenCurrencyPair& priceFeed) const {
         bool found = false;
         mnview.ForEachOracle([&](const COracleId&, COracle oracle) {
             return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
@@ -1299,9 +1299,18 @@ public:
         }
         if (height >= uint32_t(Params().GetConsensus().FortCanningHeight)) {
             for (const auto& tokenPrice : obj.tokenPrices) {
+                const auto& token = tokenPrice.first;
                 for (const auto& price : tokenPrice.second) {
+                    const auto& currency = price.first;
                     if (price.second <= 0) {
                         return Res::Err("Amount out of range");
+                    }
+                    extern bool diffInHour(int64_t time1, int64_t time2);
+                    auto tokenCurrency = CTokenCurrencyPair(token, currency);
+                    if (auto fixedPriceData = mnview.GetFixedIntervalPrice(tokenCurrency)) {
+                        if (!diffInHour(obj.timestamp, fixedPriceData.val->timestamp)) {
+                            return Res::Err("Timestamp is out of fixed price update window");
+                        }
                     }
                 }
             }
@@ -1877,7 +1886,6 @@ public:
             collToken.activateAfterBlock = height;
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
-
 
         if (!oraclePriceFeed(collToken.fixedIntervalPriceId))
             return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second);
