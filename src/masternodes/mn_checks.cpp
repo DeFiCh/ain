@@ -2313,6 +2313,10 @@ public:
         if (vault->isUnderLiquidation)
             return Res::Err("Cannot withdraw from vault under liquidation");
 
+        // owner auth
+        if (!HasAuth(vault->ownerAddress))
+            return Res::Err("tx must have at least one input from token owner");
+
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot withdraw from vault while any of the asset's price is invalid");
 
