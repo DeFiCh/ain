@@ -43,6 +43,8 @@ public:
 
     Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>>& govVars, const uint64_t height);
     std::set<std::shared_ptr<GovVariable>> GetStoredVariables(const uint64_t height) const;
+    std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables() const;
+    void EraseStoredVariables(const uint64_t height);
 
     struct ByHeightNames { static constexpr uint8_t prefix() { return 'f'; } };
     struct ByHeightVars { static constexpr uint8_t prefix() { return 'G'; } };

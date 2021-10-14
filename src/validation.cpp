@@ -2759,18 +2759,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Apply any pending GovVariable changes. Will come into effect on the next block.
             auto storedGovVars = cache.GetStoredVariables(pindex->nHeight);
             for (const auto& var : storedGovVars) {
-                // Skip any that fail to validate
-                auto result = var->Validate(cache);
-                if (!result) {
-                    continue;
+                CCustomCSView govCache(cache);
+                // Ignore any Gov variables that fail to validate, apply or be set.
+                if (var->Validate(cache) && var->Apply(cache, pindex->nHeight) && cache.SetVariable(*var)) {
+                    govCache.Flush();
                 }
-                // Skip any that fail to apply
-                auto res = var->Apply(cache, pindex->nHeight);
-                if (!res) {
-                    continue;
-                }
-                cache.SetVariable(*var);
             }
+            cache.EraseStoredVariables(pindex->nHeight);
         }
 
         // construct undo
