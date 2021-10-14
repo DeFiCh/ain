@@ -1305,12 +1305,14 @@ public:
                     if (price.second <= 0) {
                         return Res::Err("Amount out of range");
                     }
+                    auto timestamp = time;
                     extern bool diffInHour(int64_t time1, int64_t time2);
                     auto tokenCurrency = CTokenCurrencyPair(token, currency);
                     if (auto fixedPriceData = mnview.GetFixedIntervalPrice(tokenCurrency)) {
-                        if (!diffInHour(obj.timestamp, fixedPriceData.val->timestamp)) {
-                            return Res::Err("Timestamp is out of fixed price update window");
-                        }
+                        timestamp = fixedPriceData.val->timestamp;
+                    }
+                    if (!diffInHour(obj.timestamp, timestamp)) {
+                        return Res::Err("Timestamp is out of price update window");
                     }
                 }
             }

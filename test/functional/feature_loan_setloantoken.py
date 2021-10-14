@@ -121,7 +121,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             self.nodes[0].setoracledata(oracle_id1, timestamp - 3600, oracle1_prices)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Timestamp is out of fixed price update window" in errorString)
+        assert("Timestamp is out of price update window" in errorString)
 
 if __name__ == '__main__':
     LoanSetLoanTokenTest().main()

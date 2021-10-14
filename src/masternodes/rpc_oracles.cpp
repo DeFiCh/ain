@@ -437,10 +437,6 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     // decode timestamp
     int64_t timestamp = request.params[1].get_int64();
 
-    if (timestamp <= 0 || timestamp > GetSystemTimeInSeconds() + 300) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative, zero or over 5 minutes in the future");
-    }
-
     // decode prices
     auto const & prices = request.params[2];
 
@@ -476,6 +472,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
     CSetOracleDataMessage msg{oracleId, timestamp, std::move(tokenPrices)};
 
+    int targetHeight;
     CScript oracleAddress;
     {
         LOCK(cs_main);
@@ -485,6 +482,15 @@ UniValue setoracledata(const JSONRPCRequest &request) {
             throw JSONRPCError(RPC_INVALID_REQUEST, oracleRes.msg);
         }
         oracleAddress = oracleRes.val->oracleAddress;
+
+        targetHeight = ::ChainActive().Height() + 1;
+    }
+
+    // timestamp is checked at consensus level
+    if (targetHeight < Params().GetConsensus().FortCanningHeight) {
+        if (timestamp <= 0 || timestamp > GetSystemTimeInSeconds() + 300) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative, zero or over 5 minutes in the future");
+        }
     }
 
     // encode
@@ -495,7 +501,6 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
     const auto txVersion = GetTransactionVersion(targetHeight);
     rawTx = CMutableTransaction(txVersion);
     rawTx.vout.emplace_back(0, scriptMeta);
