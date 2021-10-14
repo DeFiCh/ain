@@ -7,16 +7,16 @@
 #include <flushablestorage.h>
 #include <masternodes/balances.h>
 #include <masternodes/res.h>
+#include <masternodes/oracles.h>
 #include <masternodes/vault.h>
 #include <script/script.h>
 
-using CFixedIntervalPriceId = std::pair<std::string, std::string>;
 class CLoanSetCollateralToken
 {
 public:
     DCT_ID idToken{UINT_MAX};
     CAmount factor;
-    CFixedIntervalPriceId fixedIntervalPriceId;
+    CTokenCurrencyPair fixedIntervalPriceId;
     uint32_t activateAfterBlock = 0;
 
     ADD_SERIALIZE_METHODS;
@@ -61,7 +61,7 @@ class CLoanSetLoanToken
 public:
     std::string symbol;
     std::string name;
-    CFixedIntervalPriceId fixedIntervalPriceId;
+    CTokenCurrencyPair fixedIntervalPriceId;
     bool mintable = true;
     CAmount interest = 0;
 

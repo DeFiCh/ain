@@ -37,7 +37,7 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
     return (ret);
 }
 
-CFixedIntervalPriceId DecodePriceFeed(const UniValue& value)
+CTokenCurrencyPair DecodePriceFeed(const UniValue& value)
 {
     auto tokenCurrency = value["fixedIntervalPriceId"].getValStr();
 
