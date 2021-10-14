@@ -192,6 +192,8 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1) # let price update to invalid state
 
         takenLoanAmount += loanAmount
+        vault = self.nodes[0].getvault(vaultId1)
+        assert_equal(vault["invalidPrice"], True)
         try:
             self.nodes[0].takeloan({
                 'vaultId': vaultId1,

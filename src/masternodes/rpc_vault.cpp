@@ -26,6 +26,12 @@ namespace {
         result.pushKV("loanSchemeId", vault.schemeId);
         result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
         result.pushKV("isUnderLiquidation", vault.isUnderLiquidation);
+        auto height = ::ChainActive().Height();
+        if (!IsVaultPriceValid(*pcustomcsview, vaultId, height+1)){
+            result.pushKV("invalidPrice", true);
+            return result;
+        }
+        result.pushKV("invalidPrice", false);
 
         if (vault.isUnderLiquidation) {
             if (auto data = pcustomcsview->GetAuction(vaultId, ::ChainActive().Height()))
@@ -68,7 +74,7 @@ namespace {
                         continue;
                     auto value = loan.second + TotalInterest(*rate, height + 1);
                     if(auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)){
-                        auto price = priceFeed.val->priceRecord[1];
+                        auto price = priceFeed.val->priceRecord[0];
                         totalInterests += MultiplyAmounts(price, value);
                     }
                     totalBalances.insert({loan.first, (value+loan.second)});
