@@ -1,37 +1,24 @@
+mod category;
 pub mod json;
 
 use jsonrpc;
 use std::fmt;
 
 use anyhow::{anyhow, Context, Result};
-use json::{LoanScheme, PoolPairInfo, TokenInfo, TokenList, TransactionResult};
+use json::{PoolPairInfo, TokenInfo, TokenList, TransactionResult};
 use serde_json::json;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{thread, time};
 
 /// Client implements a JSON-RPC client for the DeFiChain daemon.
 pub struct Client {
-    client: jsonrpc::client::Client,
+    pub client: jsonrpc::client::Client,
+    pub network: String,
 }
 
 impl fmt::Debug for Client {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "defichain_cli::Client({:?})", self.client)
-    }
-}
-
-pub enum Auth {
-    // None,
-    UserPass(String, String),
-}
-
-impl Auth {
-    /// Convert into the arguments that jsonrpc::Client needs.
-    fn get_user_pass(self) -> (Option<String>, Option<String>) {
-        match self {
-            // Auth::None => (None, None),
-            Auth::UserPass(u, p) => (Some(u), Some(p)),
-        }
     }
 }
 
@@ -44,18 +31,20 @@ impl Client {
             .unwrap();
         let user = std::env::var("RPCUSER").unwrap_or("test".to_string());
         let password = std::env::var("RPCPASSWORD").unwrap_or("test".to_string());
+        let network = std::env::var("NETWORK").unwrap_or("regtest".to_string());
 
         Self::new(
             &format!("http://{}:{}", host, port),
-            Auth::UserPass(user.to_string(), password.to_string()),
+            user,
+            password,
+            network,
         )
     }
 
     /// Creates a client to a DeFiChain JSON-RPC server.
-    pub fn new(url: &str, auth: Auth) -> Result<Self> {
-        let (user, pass) = auth.get_user_pass();
-        jsonrpc::client::Client::simple_http(url, user, pass)
-            .map(|client| Client { client })
+    pub fn new(url: &str, user: String, password: String, network: String) -> Result<Self> {
+        jsonrpc::client::Client::simple_http(url, Some(user), Some(password))
+            .map(|client| Client { client, network })
             .map_err(|e| e.into())
     }
 }
@@ -81,10 +70,11 @@ impl Client {
 
 impl Client {
     pub fn await_n_confirmations(&self, tx_hash: &str, n_confirmations: u32) -> Result<u32> {
-        for _ in 0..30 {
+        for _ in 0..132 {
+            // 132 * 5 == 11min. Max duration for a tx to be confirmed
             let tx_info = self.call::<TransactionResult>("gettransaction", &[tx_hash.into()])?;
             if tx_info.confirmations < n_confirmations {
-                thread::sleep(time::Duration::from_secs(2));
+                thread::sleep(time::Duration::from_secs(5));
             } else {
                 return Ok(tx_info.confirmations);
             }
@@ -138,30 +128,27 @@ impl Client {
             return Ok(token);
         }
 
-        let new_address = self.call::<String>("getnewaddress", &[])?;
+        let collateral_address = self.call::<String>("getnewaddress", &[])?;
+        println!(
+            "Token {} collateral address : {}",
+            symbol, collateral_address
+        );
         let tx = self.call::<String>(
             "createtoken",
             &[json!({
                 "symbol": symbol,
                 "name": format!("{} token", symbol),
                 "isDAT": true,
-                "collateralAddress": new_address
+                "collateralAddress": collateral_address
             })
             .into()],
         )?;
         self.await_n_confirmations(&tx, 1)?;
-        println!("Created token {}", symbol);
         self.get_token(symbol)
     }
 
-    pub fn get_default_loan_scheme(&self) -> Result<LoanScheme> {
-        self.call::<Vec<LoanScheme>>("listloanschemes", &[])?
-            .into_iter()
-            .find(|scheme| scheme.default == true)
-            .context("Could not get default loan scheme")
-    }
-
     pub fn create_oracle(&self, tokens: &[&str], amount: u32) -> Result<String> {
+        println!("Appointing oracle for tokens {}", tokens.join(", "));
         let oracle_address = self.call::<String>("getnewaddress", &[])?;
         let price_feed = json!(tokens
             .iter()
@@ -192,31 +179,19 @@ impl Client {
         Ok(oracle_id)
     }
 
-    pub fn set_collateral_tokens(&self, tokens: &[&str]) -> Result<()> {
-        for &token in tokens {
-            self.create_token(token)?;
-            let data = json!({
-                "token": token,
-                "factor": 1,
-                "fixedIntervalPriceId": format!("{}/USD", token)
-            });
-            self.call::<String>("setcollateraltoken", &[data])?;
-        }
-        Ok(())
-    }
-
-    pub fn set_loan_tokens(&self, tokens: &[&str]) -> Result<()> {
-        for &token in tokens {
-            let data = json!({
-                "symbol": token,
-                "name": format!("{} token", token),
-                "fixedIntervalPriceId": format!("{}/USD", token),
-                "mintable": true,
-                "interest": 1
-            });
-            let _ = self.call::<String>("setloantoken", &[data]); // discard error raised when token already exists.
-        }
-        Ok(())
+    pub fn set_oracle_data(&self, oracle_id: &str, token: &str, amount: u32) -> Result<String> {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        self.call::<String>(
+            "setoracledata",
+            &[
+                oracle_id.clone().into(),
+                timestamp.into(),
+                json!([{ "currency": "USD", "tokenAmount": format!("{}@{}", amount, token) }]),
+            ],
+        )
     }
 
     pub fn get_token(&self, symbol: &str) -> Result<TokenInfo> {
@@ -238,6 +213,10 @@ impl Client {
         println!("Creating pool pair {}-{}...", symbol.0, symbol.1);
         if let Ok(poolpair) = self.get_pool_pair(symbol) {
             println!("Pool pair already exists.");
+            return Ok(poolpair);
+        }
+        if let Ok(poolpair) = self.get_pool_pair((symbol.1, symbol.0)) {
+            println!("Pool pair {}-{} already exists.", symbol.1, symbol.0);
             return Ok(poolpair);
         }
 
@@ -284,6 +263,10 @@ impl Client {
     pub fn utxo_to_account(&self, account: &str, amount: &str) -> Result<String> {
         self.call::<String>("utxostoaccount", &[json!({ account: amount })])
     }
+
+    pub fn mint_tokens(&self, amount: u32, symbol: &str) -> Result<String> {
+        self.call::<String>("minttokens", &[format!("{}@{}", amount, symbol).into()])
+    }
 }
 
 #[cfg(test)]
@@ -304,14 +287,6 @@ mod tests {
         let client = Client::from_env()?;
         let token = client.create_token("TEST")?;
         assert_eq!(token.symbol, "TEST");
-        Ok(())
-    }
-
-    #[test]
-    fn get_default_loan_scheme() -> Result<()> {
-        let client = Client::from_env()?;
-        let loan_scheme = client.get_default_loan_scheme()?;
-        assert_eq!(loan_scheme.default, true);
         Ok(())
     }
 

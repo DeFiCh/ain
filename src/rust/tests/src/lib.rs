@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test {
     use anyhow::Result;
-    use defi_rpc::json::VaultInfo;
     use defi_rpc::Client;
     use serde_json::json;
 
@@ -21,8 +20,7 @@ mod test {
 
         if symbol.1 != "DFI" {
             client.create_token(symbol.1)?;
-            let mint_token_tx = client
-                .call::<String>("minttokens", &[format!("{}@{}", amount.1, symbol.1).into()])?;
+            let mint_token_tx = client.mint_tokens(amount.1, symbol.1)?;
             client.await_n_confirmations(&mint_token_tx, 1)?;
         } else {
             let utxo = client.utxo_to_account(&new_address, &format!("{}@DFI", amount.1))?;
@@ -68,65 +66,46 @@ mod test {
     #[test]
     fn loan_payback_scenario() -> Result<()> {
         let client = Client::from_env()?;
-        match setup(&client) {
-            Ok(()) => println!(" ------- Succesful setup ------- "),
-            Err(e) => panic!("Could not finish setup. Failed on : {:#?}", e),
-        };
+        if client.network == "regtest" {
+            // Setup only for regtest
+            match setup(&client) {
+                Ok(()) => println!(" ------- Succesful setup ------- "),
+                Err(e) => panic!("Could not finish setup. Failed on : {:#?}", e),
+            };
+        }
 
         let default_loan_scheme = client.get_default_loan_scheme()?;
         println!("Using default loan scheme : {:#?}", default_loan_scheme);
         let new_address = client.get_new_address()?;
         println!("Generating new_address : {}", new_address);
-        let vault_id =
-            client.call::<String>("createvault", &[new_address.clone().into(), "".into()])?;
+        let vault_id = client.create_vault(&new_address, "")?;
         client.await_n_confirmations(&vault_id, 1)?;
         println!("Creating vault with id : {}", vault_id);
 
-        let utxo = client.call::<String>(
-            "utxostoaccount",
-            &[json!({ new_address.clone(): "100@DFI" })],
-        )?;
-        println!("utxo : {}", utxo);
-        client.await_n_confirmations(&utxo, 1)?;
+        let utxo_tx = client.utxo_to_account(&new_address, "100@DFI")?;
+        println!("utxo_tx : {}", utxo_tx);
+        client.await_n_confirmations(&utxo_tx, 1)?;
 
-        let deposit_tx = client.call::<String>(
-            "deposittovault",
-            &[
-                vault_id.clone().into(),
-                new_address.clone().into(),
-                "100@DFI".into(),
-            ],
-        )?;
+        let deposit_tx = client.deposit_to_vault(&vault_id, &new_address, "100@DFI")?;
         println!("deposit_tx : {}", deposit_tx);
         client.await_n_confirmations(&deposit_tx, 1)?;
 
-        let take_loan_tx = client.call::<String>(
-            "takeloan",
-            &[json!({ "vaultId": vault_id, "amounts":"1@TSLA" })],
-        )?;
+        let take_loan_tx = client.take_loan(&vault_id, "1@TSLA")?;
         client.await_n_confirmations(&take_loan_tx, 8)?; // Wait for active price to update
 
         println!("take_loan_tx : {}", take_loan_tx);
-
-        let vault = client.call::<VaultInfo>("getvault", &[vault_id.clone().into()])?;
-        println!("vault : {:?}", vault);
 
         let send_token_tx = client.call::<String>(
             "sendtokenstoaddress",
             &[json!({}), json!({new_address.clone(): "10@TSLA"})],
         )?;
-        client.await_n_confirmations(&send_token_tx, 1)?; // Wait for active price to update
+        client.await_n_confirmations(&send_token_tx, 1)?;
 
+        let vault = client.get_vault(&vault_id)?;
+        println!("vault : {:?}", vault);
         // Cleanup section
-        let loanpayback = client.call::<String>(
-            "loanpayback",
-            &[json!({
-                "vaultId": vault_id.clone(),
-                "from": new_address.clone(),
-                "amounts": vault.loan_amount[0]
-            })],
-        )?;
-        println!("loanpayback txid : {}", loanpayback);
+        // let loanpayback = client.loan_payback(&vault_id, &new_address, &vault.loan_amount[0])?;
+        // println!("loanpayback txid : {}", loanpayback);
 
         let close_vault_tx =
             client.call::<String>("closevault", &[vault_id.into(), new_address.clone().into()])?;
