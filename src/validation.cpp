@@ -3061,13 +3061,10 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             for (const auto& loan : loanTokens->balances) {
                 auto rate = cache.GetInterestRate(vault->schemeId, loan.first);
                 assert(rate);
-                if (rate->interestLoan > 0) {
-                    auto loanPart = DivideAmounts(loan.second, rate->interestLoan);
-                    auto subInterest = MultiplyAmounts(loanPart, TotalInterest(*rate, pindex->nHeight));
-                    cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, loan.first, loan.second, subInterest);
-                    totalInterest.Add({loan.first, subInterest});
-                }
+                auto subInterest = InterestPerAmount(loan.second, *rate, pindex->nHeight);
+                totalInterest.Add({loan.first, subInterest});
                 cache.SubLoanToken(vaultId, {loan.first, loan.second});
+                cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, loan.first, loan.second, subInterest);
             }
             for (const auto& col : collaterals.balances) {
                 cache.SubVaultCollateral(vaultId, {col.first, col.second});
@@ -3147,7 +3144,7 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
 
     auto priceHeight = cache.GetIntervalBlock();
     if(pindex->nHeight % priceHeight == 0){
-        cache.ForEachFixedIntervalPrice([&](const CFixedIntervalPriceId& id, CFixedIntervalPrice fixedIntervalPrice){
+        cache.ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
             auto aggregatePrice = GetAggregatePrice(cache, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, pindex->nTime);
             if(!aggregatePrice){
                 LogPrintf("Error getting aggregate price: %s\n", aggregatePrice.msg);

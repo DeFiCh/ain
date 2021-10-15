@@ -200,14 +200,23 @@ boost::optional<CInterestRate> CLoanView::GetInterestRate(const std::string& loa
     return ReadBy<LoanInterestByScheme, CInterestRate>(std::make_pair(loanSchemeID, id));
 }
 
+CAmount InterestPerBlock(const CInterestRate& rate)
+{
+    return MultiplyAmounts(rate.interestNet, rate.interestLoan) / (365 * Params().GetConsensus().blocksPerDay());
+}
+
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height)
 {
     return rate.interestToHeight + ((height - rate.height + 1) * InterestPerBlock(rate));
 }
 
-CAmount InterestPerBlock(const CInterestRate& rate)
+CAmount InterestPerAmount(CAmount amount, const CInterestRate& rate, uint32_t height)
 {
-    return MultiplyAmounts(rate.interestNet, rate.interestLoan) / (365 * Params().GetConsensus().blocksPerDay());
+    if (rate.interestLoan > 0) {
+        auto amountPart = DivideAmounts(amount, rate.interestLoan);
+        return MultiplyAmounts(amountPart, TotalInterest(rate, height));
+    }
+    return 0;
 }
 
 Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased)

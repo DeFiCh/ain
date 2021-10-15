@@ -21,7 +21,6 @@ using CPriceTimePair = std::pair<CAmount, int64_t>;
 using CTokenCurrencyPair = std::pair<std::string, std::string>;
 using CTokenPrices = std::map<std::string, std::map<std::string, CAmount>>;
 using CTokenPricePoints = std::map<std::string, std::map<std::string, CPriceTimePair>>;
-using CFixedIntervalPriceId = std::pair<std::string, std::string>;
 
 struct CAppointOracleMessage {
     CScript oracleAddress;
@@ -101,7 +100,7 @@ struct COracle : public CAppointOracleMessage {
 
 struct CFixedIntervalPrice
 {
-    CFixedIntervalPriceId priceFeedId;
+    CTokenCurrencyPair priceFeedId;
     int64_t timestamp;
     std::vector<CAmount> priceRecord{0, 0}; // priceHistory[0] = active price, priceHistory[1] = next price
     bool isValid(const CAmount deviationThreshold) const;
@@ -141,9 +140,9 @@ public:
 
     Res SetFixedIntervalPrice(const CFixedIntervalPrice& PriceFeed);
 
-    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CFixedIntervalPriceId& priceFeedId);
+    ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CTokenCurrencyPair& priceFeedId);
 
-    void ForEachFixedIntervalPrice(std::function<bool(const CFixedIntervalPriceId&, CLazySerialize<CFixedIntervalPrice>)> callback, const CFixedIntervalPriceId& start = {});
+    void ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start = {});
 
     Res SetPriceDeviation(const uint32_t deviation);
     CAmount GetPriceDeviation() const;

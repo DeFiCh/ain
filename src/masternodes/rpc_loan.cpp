@@ -37,7 +37,7 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
     return (ret);
 }
 
-CFixedIntervalPriceId DecodePriceFeed(const UniValue& value)
+CTokenCurrencyPair DecodePriceFeed(const UniValue& value)
 {
     auto tokenCurrency = value["fixedIntervalPriceId"].getValStr();
 
@@ -1106,8 +1106,7 @@ UniValue loanpayback(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("loanpayback", R"('{"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"from":"<address>",
-                                                            "amount":"10@TSLA"}')")
+                        HelpExampleCli("loanpayback", R"('{"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"from":"<address>", "amounts":"10@TSLA"}')")
                         },
     }.Check(request);
 

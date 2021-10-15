@@ -794,7 +794,7 @@ public:
         return Res::Ok();
     }
 
-    bool oraclePriceFeed(const CFixedIntervalPriceId& priceFeed) const {
+    bool oraclePriceFeed(const CTokenCurrencyPair& priceFeed) const {
         bool found = false;
         mnview.ForEachOracle([&](const COracleId&, COracle oracle) {
             return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
@@ -1354,9 +1354,18 @@ public:
         }
         if (height >= uint32_t(Params().GetConsensus().FortCanningHeight)) {
             for (const auto& tokenPrice : obj.tokenPrices) {
+                const auto& token = tokenPrice.first;
                 for (const auto& price : tokenPrice.second) {
+                    const auto& currency = price.first;
                     if (price.second <= 0) {
                         return Res::Err("Amount out of range");
+                    }
+                    extern bool diffInHour(int64_t time1, int64_t time2);
+                    auto tokenCurrency = CTokenCurrencyPair(token, currency);
+                    if (auto fixedPriceData = mnview.GetFixedIntervalPrice(tokenCurrency)) {
+                        if (!diffInHour(obj.timestamp, fixedPriceData.val->timestamp)) {
+                            return Res::Err("Timestamp is out of fixed price update window");
+                        }
                     }
                 }
             }
@@ -1933,7 +1942,6 @@ public:
         if (collToken.activateAfterBlock < height)
             return Res::Err("activateAfterBlock cannot be less than current height!");
 
-
         if (!oraclePriceFeed(collToken.fixedIntervalPriceId))
             return Res::Err("Price feed %s/%s does not belong to any oracle", collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second);
 
@@ -2291,6 +2299,16 @@ public:
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot update vault while any of the asset's price is invalid");
 
+        if (vault->schemeId != obj.schemeId)
+            if (auto loanTokens = mnview.GetLoanTokens(obj.vaultId))
+                for (const auto& loan : loanTokens->balances) {
+                    auto rate = mnview.GetInterestRate(vault->schemeId, loan.first);
+                    auto subInterest = rate ? InterestPerAmount(loan.second, *rate, height) : CAmount{0};
+                    if (!(res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, loan.first, loan.second, subInterest))
+                    ||  !(res = mnview.StoreInterest(height, obj.vaultId, obj.schemeId, loan.first, loan.second)))
+                        return res;
+                }
+
         vault->schemeId = obj.schemeId;
         vault->ownerAddress = obj.ownerAddress;
         return mnview.UpdateVault(obj.vaultId, *vault);
@@ -2357,6 +2375,10 @@ public:
         // vault under liquidation
         if (vault->isUnderLiquidation)
             return Res::Err("Cannot withdraw from vault under liquidation");
+
+        // owner auth
+        if (!HasAuth(vault->ownerAddress))
+            return Res::Err("tx must have at least one input from token owner");
 
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot withdraw from vault while any of the asset's price is invalid");
@@ -2523,14 +2545,7 @@ public:
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-            CAmount subInterest = 0;
-
-            if (rate->interestLoan > 0)
-            {
-                auto loanPart = DivideAmounts(it->second, rate->interestLoan);
-                subInterest = MultiplyAmounts(loanPart, TotalInterest(*rate, height));
-            }
-
+            auto subInterest = InterestPerAmount(it->second, *rate, height);
             auto subLoan = kv.second - subInterest;
 
             if (kv.second < subInterest)
@@ -3380,7 +3395,7 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
     if (!pooldUSDDFI)
-        return Res::Err("Cannot find pool pair USDT-DFI!");
+        return Res::Err("Cannot find pool pair dUSD-DFI!");
 
     // swap tokenID -> USD -> DFI
     auto res = poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});

@@ -58,11 +58,7 @@ namespace {
                     auto rate = pcustomcsview->GetInterestRate(vault.schemeId, loan.first);
                     if (!rate)
                         continue;
-                    auto value = loan.second;
-                    if (rate->interestLoan > 0) {
-                        auto loanPart = DivideAmounts(loan.second, rate->interestLoan);
-                        value += MultiplyAmounts(loanPart, TotalInterest(*rate, height + 1));
-                    }
+                    auto value = loan.second + InterestPerAmount(loan.second, *rate, height + 1);
                     balancesInterest.insert({loan.first, value});
                 }
                 loanBalances = AmountsToJSON(balancesInterest);
@@ -106,11 +102,9 @@ UniValue createvault(const JSONRPCRequest& request) {
                    "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                   HelpExampleCli("createvault", "") +
-                   HelpExampleCli("createvault", "\"\" LOAN0001") +
+                   HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv") +
                    HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv LOAN0001") +
-                   HelpExampleCli("createvault", "") +
-                   HelpExampleRpc("createvault", "\"\", LOAN0001") +
+                   HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv") +
                    HelpExampleRpc("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv, LOAN0001")
                 },
     }.Check(request);
@@ -611,10 +605,10 @@ UniValue deposittovault(const JSONRPCRequest& request) {
 
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
-    std::string from = request.params[1].get_str();
-    CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), from);
+    auto from = DecodeScript(request.params[1].get_str());
+    CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), "amount");
 
-    CDepositToVaultMessage msg{vaultId, DecodeScript(from), amount};
+    CDepositToVaultMessage msg{vaultId, from, amount};
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::DepositToVault)
                    << msg;
@@ -631,14 +625,14 @@ UniValue deposittovault(const JSONRPCRequest& request) {
     UniValue const & txInputs = request.params[3];
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths{DecodeScript(from)};
+    std::set<CScript> auths{from};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
 
     CCoinControl coinControl;
 
      // Set change to from address
     CTxDestination dest;
-    ExtractDestination(DecodeScript(from), dest);
+    ExtractDestination(from, dest);
     if (IsValidDestination(dest)) {
         coinControl.destChange = dest;
     }
@@ -698,17 +692,29 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
 
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
-    std::string to = request.params[1].get_str();
-    CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), to);
+    auto to = DecodeScript(request.params[1].get_str());
+    CTokenAmount amount = DecodeAmount(pwallet->chain(),request.params[2].get_str(), "amount");
 
-    CWithdrawFromVaultMessage msg{vaultId, DecodeScript(to), amount};
+    CWithdrawFromVaultMessage msg{vaultId, to, amount};
     CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     markedMetadata << static_cast<unsigned char>(CustomTxType::WithdrawFromVault)
                    << msg;
+
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    int targetHeight;
+    CScript ownerAddress;
+    {
+        LOCK(cs_main);
+        targetHeight = ::ChainActive().Height() + 1;
+        // decode vaultId
+        auto vault = pcustomcsview->GetVault(vaultId);
+        if (!vault)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> does not found", vaultId.GetHex()));
+
+        ownerAddress = vault->ownerAddress;
+    }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -718,14 +724,14 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
     UniValue const & txInputs = request.params[3];
 
     CTransactionRef optAuthTx;
-    std::set<CScript> auths{DecodeScript(to)};
+    std::set<CScript> auths{ownerAddress};
     rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false /*needFoundersAuth*/, optAuthTx, txInputs);
 
     CCoinControl coinControl;
 
      // Set change to from address
     CTxDestination dest;
-    ExtractDestination(DecodeScript(to), dest);
+    ExtractDestination(ownerAddress, dest);
     if (IsValidDestination(dest)) {
         coinControl.destChange = dest;
     }

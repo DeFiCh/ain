@@ -837,7 +837,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vault
                 return std::move(priceFeed);
             if (!priceFeed.val->isValid(GetPriceDeviation()))
                 return Res::Err("Price feed %s/%s is invalid", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
-            auto value = loan.second + TotalInterest(*rate, height);
+            auto value = loan.second + InterestPerAmount(loan.second, *rate, height);
             auto price = priceFeed.val->priceRecord[int(nextPrice)];
             auto amount = MultiplyAmounts(price, value);
             if (price > COIN && amount < value)
