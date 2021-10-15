@@ -30,6 +30,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "consensus/tx_verify -> masternodes/mn_checks -> txmempool -> consensus/tx_verify"
     "masternodes/govvariables/icx_takerfee_per_btc -> masternodes/gv -> masternodes/govvariables/icx_takerfee_per_btc"
     "masternodes/govvariables/loan_daily_reward -> masternodes/gv -> masternodes/govvariables/loan_daily_reward"
+    "masternodes/govvariables/loan_liquidation_penalty -> masternodes/gv -> masternodes/govvariables/loan_liquidation_penalty"
     "masternodes/govvariables/loan_splits -> masternodes/gv -> masternodes/govvariables/loan_splits"
     "masternodes/govvariables/lp_daily_dfi_reward -> masternodes/gv -> masternodes/govvariables/lp_daily_dfi_reward"
     "masternodes/govvariables/lp_daily_dfi_reward -> masternodes/masternodes -> validation -> masternodes/govvariables/lp_daily_dfi_reward"
