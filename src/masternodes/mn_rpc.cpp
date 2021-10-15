@@ -596,7 +596,7 @@ UniValue getgov(const JSONRPCRequest& request) {
     RPCHelpMan{"getgov",
                "\nReturns information about governance variable:\n"
                "ICX_TAKERFEE_PER_BTC, LOAN_DAILY_REWARD, LOAN_SPLITS, LP_DAILY_DFI_REWARD,\n"
-               "LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
+               "LOAN_LIQUIDATION_PENALTY, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Variable name"},
@@ -649,14 +649,12 @@ UniValue listgovs(const JSONRPCRequest& request) {
     }.Check(request);
 
     std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LOAN_DAILY_REWARD", "LOAN_SPLITS", "LP_DAILY_DFI_REWARD",
-                                  "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION"};
+                                  "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION"};
 
     LOCK(cs_main);
 
     // Get all stored Gov var changes
     auto pending = pcustomcsview->GetAllStoredVariables();
-
-    const auto height = ::ChainActive().Height();
 
     UniValue result(UniValue::VARR);
     for (const auto& name : vars) {

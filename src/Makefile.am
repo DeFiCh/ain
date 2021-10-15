@@ -158,6 +158,7 @@ DEFI_CORE_H = \
   masternodes/factory.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
   masternodes/govvariables/loan_daily_reward.h \
+  masternodes/govvariables/loan_liquidation_penalty.h \
   masternodes/govvariables/loan_splits.h \
   masternodes/govvariables/lp_daily_dfi_reward.h \
   masternodes/govvariables/lp_splits.h \
@@ -374,6 +375,7 @@ libdefi_server_a_SOURCES = \
   masternodes/oracles.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \
+  masternodes/govvariables/loan_liquidation_penalty.cpp \
   masternodes/govvariables/loan_splits.cpp \
   masternodes/govvariables/lp_daily_dfi_reward.cpp \
   masternodes/govvariables/lp_splits.cpp \

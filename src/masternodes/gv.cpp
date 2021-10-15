@@ -5,6 +5,7 @@
 #include <masternodes/gv.h>
 #include <masternodes/govvariables/icx_takerfee_per_btc.h>
 #include <masternodes/govvariables/loan_daily_reward.h>
+#include <masternodes/govvariables/loan_liquidation_penalty.h>
 #include <masternodes/govvariables/loan_splits.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/govvariables/lp_splits.h>

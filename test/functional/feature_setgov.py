@@ -220,9 +220,20 @@ class GovsetTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Deviation cannot be less than 1 percent" in errorString)
 
-        self.nodes[0].setgov({ "ORACLE_DEVIATION": Decimal('0.40000000')})
+        self.nodes[0].setgov({ "ORACLE_DEVIATION": Decimal('0.01000000')})
         self.nodes[0].generate(1)
-        assert_equal(self.nodes[0].getgov("ORACLE_DEVIATION")[0]["ORACLE_DEVIATION"], Decimal('0.40000000'))
+        assert_equal(self.nodes[0].getgov("ORACLE_DEVIATION")[0]["ORACLE_DEVIATION"], Decimal('0.01000000'))
+
+        # Test LOAN_LIQUIDATION_PENALTY
+        try:
+            self.nodes[0].setgov({ "LOAN_LIQUIDATION_PENALTY": Decimal('0.00100000')})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Penalty cannot be less than 0.01 DFI" in errorString)
+
+        self.nodes[0].setgov({ "LOAN_LIQUIDATION_PENALTY": Decimal('0.01000000')})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getgov("LOAN_LIQUIDATION_PENALTY")[0]["LOAN_LIQUIDATION_PENALTY"], Decimal('0.01000000'))
 
         # Generate to Eunos hard fork
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
@@ -355,9 +366,10 @@ class GovsetTest (DefiTestFramework):
         assert_equal(result[1][0]['LOAN_DAILY_REWARD'], Decimal('13921.42315824'))
         assert_equal(result[2][0]['LOAN_SPLITS'], {})
         assert_equal(result[3][0]['LP_DAILY_DFI_REWARD'], Decimal('14355.76253472'))
-        assert_equal(result[4][0]['LP_SPLITS'], {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')} )
-        assert_equal(result[5][0]['ORACLE_BLOCK_INTERVAL'], 230)
-        assert_equal(result[6][0]['ORACLE_DEVIATION'], Decimal('0.40000000'))
+        assert_equal(result[4][0]['LOAN_LIQUIDATION_PENALTY'], Decimal('0.01000000'))
+        assert_equal(result[5][0]['LP_SPLITS'], {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')} )
+        assert_equal(result[6][0]['ORACLE_BLOCK_INTERVAL'], 230)
+        assert_equal(result[7][0]['ORACLE_DEVIATION'], Decimal('0.01000000'))
 
         # Test visibility of pending changes in setgov
         activate = self.nodes[0].getblockcount() + 100
@@ -383,9 +395,9 @@ class GovsetTest (DefiTestFramework):
         assert_equal(result[0][0]['ICX_TAKERFEE_PER_BTC'], Decimal('0E-8'))
         assert_equal(result[0][1][str(activate)], Decimal('0.00100000'))
         assert_equal(result[0][2][str(activate + 1)], Decimal('0.00200000'))
-        assert_equal(result[5][0]['ORACLE_BLOCK_INTERVAL'], 230)
-        assert_equal(result[5][1][str(activate)], 300)
-        assert_equal(result[5][2][str(activate + 1)], 310)
+        assert_equal(result[6][0]['ORACLE_BLOCK_INTERVAL'], 230)
+        assert_equal(result[6][1][str(activate)], 300)
+        assert_equal(result[6][2][str(activate + 1)], 310)
 
 if __name__ == '__main__':
     GovsetTest ().main ()

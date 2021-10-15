@@ -20,7 +20,7 @@ UniValue ORACLE_DEVIATION::Export() const {
 
 Res ORACLE_DEVIATION::Validate(const CCustomCSView & view) const
 {
-    if (deviation <= COIN / 100)
+    if (deviation < COIN / 100)
         return Res::Err("Deviation cannot be less than 1 percent");
     return Res::Ok();
 }
