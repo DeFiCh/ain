@@ -6,37 +6,48 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct VaultInfo {
-    #[serde(rename = "vaultId")]
-    pub vault_id: String,
-    #[serde(rename = "loanSchemeId")]
-    pub loan_scheme_id: String,
-    #[serde(rename = "ownerAddress")]
-    pub owner_address: String,
-    #[serde(rename = "isUnderLiquidation")]
-    pub is_under_liquidation: bool,
-    #[serde(rename = "collateralAmounts")]
-    pub collateral_amounts: Vec<String>,
-    #[serde(rename = "loanAmount")]
-    pub loan_amount: Vec<String>,
-    #[serde(rename = "collateralValue")]
-    pub collateral_value: f64,
-    #[serde(rename = "loanValue")]
-    pub loan_value: f64,
-    #[serde(rename = "currentRatio")]
-    pub current_ratio: i64,
+pub struct BatchInfo {
+    index: u32,
+    collaterals: Vec<String>,
+    loan: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ListVaultInfo {
-    #[serde(rename = "vaultId")]
+#[serde(rename_all = "camelCase")]
+pub struct VaultInfo {
     pub vault_id: String,
-    #[serde(rename = "loanSchemeId")]
     pub loan_scheme_id: String,
-    #[serde(rename = "ownerAddress")]
     pub owner_address: String,
-    #[serde(rename = "isUnderLiquidation")]
     pub is_under_liquidation: bool,
+
+    // keys when is_under_liquidation == false
+    pub collateral_amounts: Option<Vec<String>>,
+    pub loan_amount: Option<Vec<String>>,
+    pub collateral_value: Option<f64>,
+    pub loan_value: Option<f64>,
+    pub current_ratio: Option<i64>,
+
+    // key when is_under_liquidation == true
+    pub batches: Option<Vec<BatchInfo>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListVaultInfo {
+    pub vault_id: String,
+    pub loan_scheme_id: String,
+    pub owner_address: String,
+    pub is_under_liquidation: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuctionInfo {
+    pub vault_id: String,
+    pub liquidation_height: i64,
+    pub batch_count: i64,
+    pub liquidation_penalty: f64,
+    pub batches: Vec<BatchInfo>,
 }
 
 impl Client {
@@ -45,7 +56,45 @@ impl Client {
     }
 
     pub fn get_vault(&self, vault_id: &str) -> Result<VaultInfo> {
-        self.call::<VaultInfo>("getvault", &[vault_id.clone().into()])
+        self.call::<VaultInfo>("getvault", &[vault_id.into()])
+    }
+
+    pub fn update_vault(
+        &self,
+        vault_id: &str,
+        new_address: &str,
+        loan_scheme_id: &str,
+    ) -> Result<VaultInfo> {
+        self.call::<VaultInfo>(
+            "updatevault",
+            &[
+                vault_id.into(),
+                json!({"ownerAddress":new_address, "loanSchemeId": loan_scheme_id}),
+            ],
+        )
+    }
+
+    pub fn deposit_to_vault(&self, vault_id: &str, address: &str, amount: &str) -> Result<String> {
+        self.call::<String>(
+            "deposittovault",
+            &[vault_id.into(), address.into(), amount.into()],
+        )
+    }
+
+    pub fn withdraw_from_vault(
+        &self,
+        vault_id: &str,
+        to_address: &str,
+        amount: &str,
+    ) -> Result<String> {
+        self.call::<String>(
+            "withdrawfromvault",
+            &[vault_id.into(), to_address.into(), amount.into()],
+        )
+    }
+
+    pub fn close_vault(&self, vault_id: &str, to_address: &str) -> Result<VaultInfo> {
+        self.call::<VaultInfo>("closevault", &[vault_id.into(), to_address.into()])
     }
 
     pub fn list_vaults(&self, owner_address: Option<&str>) -> Result<Vec<ListVaultInfo>> {
@@ -56,10 +105,31 @@ impl Client {
         self.call::<Vec<ListVaultInfo>>("listvaults", &args)
     }
 
-    pub fn deposit_to_vault(&self, vault_id: &str, address: &str, amount: &str) -> Result<String> {
+    pub fn list_auctions(&self) -> Result<Vec<AuctionInfo>> {
+        self.call::<Vec<AuctionInfo>>("listauctions", &[])
+    }
+
+    pub fn auction_bid(
+        &self,
+        vault_id: &str,
+        index: u32,
+        from: &str,
+        amount: &str,
+    ) -> Result<String> {
         self.call::<String>(
-            "deposittovault",
-            &[vault_id.into(), address.into(), amount.into()],
+            "auctionbid",
+            &[vault_id.into(), index.into(), from.into(), amount.into()],
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn list_vaults() -> Result<()> {
+        let client = Client::from_env()?;
+        client.list_vaults(None)?;
+        Ok(())
     }
 }
