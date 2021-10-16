@@ -186,7 +186,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "updatetoken", 2, "inputs"},
     { "listtokens", 0, "pagination" },
     { "listtokens", 1, "verbose" },
-    { "gettoken", 0, "key" },
     { "minttokens", 0, "amounts" },
     { "minttokens", 1, "inputs"},
     { "utxostoaccount", 0, "amounts" },
@@ -231,6 +230,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "setcollateraltoken", 0, "metadata" },
     { "setcollateraltoken", 1, "inputs" },
+    { "listcollateraltokens", 0, "by" },
     { "setloantoken", 0, "metadata" },
     { "setloantoken", 1, "inputs" },
     { "updateloantoken", 0, "metadata" },
