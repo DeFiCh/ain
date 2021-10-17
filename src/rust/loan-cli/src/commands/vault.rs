@@ -6,7 +6,7 @@ use structopt::StructOpt;
 #[structopt(about = "Create n vault for each available loan schemes.")]
 pub struct CreateVaultCmd {
     /// Number of vault to create
-    #[structopt(short, long, default_value = "1")]
+    #[structopt(default_value = "1")]
     number: u32,
 }
 
@@ -18,11 +18,10 @@ impl CreateVaultCmd {
         }
 
         let owner_address = client.get_new_address()?;
-        println!("Creating vaut for address : {}", owner_address);
+        println!("Creating vauts for address : {}...", owner_address);
         for loan_scheme in list_loan_schemes {
             for _ in 0..self.number {
                 let tx = client.create_vault(&owner_address, &loan_scheme.id)?;
-                println!("tx : {}", tx);
                 client.await_n_confirmations(&tx, 1)?;
             }
         }
@@ -30,7 +29,11 @@ impl CreateVaultCmd {
 
         println!(
             "Vaults created for address {} : {:#?}",
-            owner_address, list_vaults
+            owner_address,
+            list_vaults
+                .into_iter()
+                .map(|v| v.vault_id)
+                .collect::<Vec<String>>()
         );
 
         Ok(())
