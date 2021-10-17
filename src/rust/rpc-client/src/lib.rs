@@ -29,8 +29,8 @@ impl Client {
             .unwrap_or("19554".to_string())
             .parse::<u16>()
             .unwrap();
-        let user = std::env::var("RPCUSER").unwrap_or("test".to_string());
-        let password = std::env::var("RPCPASSWORD").unwrap_or("test".to_string());
+        let user = std::env::var("RPCUSER").unwrap_or("cake".to_string());
+        let password = std::env::var("RPCPASSWORD").unwrap_or("cake".to_string());
         let network = std::env::var("NETWORK").unwrap_or("regtest".to_string());
 
         Self::new(
@@ -69,14 +69,14 @@ impl Client {
 }
 
 impl Client {
-    pub fn await_n_confirmations(&self, tx_hash: &str, n_confirmations: u32) -> Result<u32> {
+    pub fn await_n_confirmations(&self, tx_hash: &str, n_confirmations: u32) -> Result<()> {
         for _ in 0..132 {
             // 132 * 5 == 11min. Max duration for a tx to be confirmed
             let tx_info = self.call::<TransactionResult>("gettransaction", &[tx_hash.into()])?;
             if tx_info.confirmations < n_confirmations {
                 thread::sleep(time::Duration::from_secs(5));
             } else {
-                return Ok(tx_info.confirmations);
+                return Ok(());
             }
         }
         Err(anyhow!(
@@ -276,9 +276,11 @@ mod tests {
     #[test]
     fn generate() -> Result<()> {
         let client = Client::from_env()?;
-        let address = client.call::<String>("getnewaddress", &[])?;
-        let generated = client.generate(10, &address, 100)?;
-        assert_eq!(generated, 10);
+        if client.network == "regtest" {
+            let address = client.call::<String>("getnewaddress", &[])?;
+            let generated = client.generate(10, &address, 100)?;
+            assert_eq!(generated, 10);
+        }
         Ok(())
     }
 
@@ -296,6 +298,13 @@ mod tests {
         let oracle_id = client.create_oracle(&["DFI", "BTC", "TSLA", "GOOGL"], 10);
         assert!(oracle_id.is_ok());
         client.call::<String>("removeoracle", &[oracle_id.unwrap().into()])?;
+        Ok(())
+    }
+
+    #[test]
+    fn get_token() -> Result<()> {
+        let client = Client::from_env()?;
+        client.get_token("DFI")?;
         Ok(())
     }
 }

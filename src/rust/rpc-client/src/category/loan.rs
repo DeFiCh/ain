@@ -13,12 +13,32 @@ pub struct LoanScheme {
     pub default: bool,
 }
 
+use std::collections::HashMap;
+pub type ListCollateralToken = HashMap<String, CollateralToken>;
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollateralToken {
+    pub token: String,
+    pub factor: f64,
+    pub fixed_interval_price_id: String,
+    pub activate_after_block: i64,
+}
+
 impl Client {
     pub fn get_default_loan_scheme(&self) -> Result<LoanScheme> {
         self.call::<Vec<LoanScheme>>("listloanschemes", &[])?
             .into_iter()
             .find(|scheme| scheme.default == true)
             .context("Could not get default loan scheme")
+    }
+
+    pub fn set_default_loan_schemes(&self, scheme_id: &str) -> Result<LoanScheme> {
+        self.call::<LoanScheme>("setdefaultloanscheme", &[scheme_id.into()])
+    }
+
+    pub fn get_loan_schemes(&self, scheme_id: &str) -> Result<LoanScheme> {
+        self.call::<LoanScheme>("getloanscheme", &[scheme_id.into()])
     }
 
     pub fn list_loan_schemes(&self) -> Result<Vec<LoanScheme>> {
@@ -66,6 +86,17 @@ impl Client {
         }
         Ok(())
     }
+
+    pub fn list_collateral_tokens(&self) -> Result<ListCollateralToken> {
+        self.call::<ListCollateralToken>("listcollateraltokens", &[])
+    }
+
+    // pub fn get_collateral_token(&self, token: &str) -> Result<CollateralToken> {
+    //     self.call::<ListCollateralToken>("getcollateraltoken", &[token.into()])?
+    //     .into_iter()
+    //     .find(|token|, )
+
+    // }
 
     pub fn set_loan_tokens(&self, tokens: &[&str]) -> Result<()> {
         for &token in tokens {
