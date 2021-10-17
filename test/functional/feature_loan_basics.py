@@ -130,7 +130,7 @@ class LoanTakeLoanTest (DefiTestFramework):
                                     'mintable': False,
                                     'interest': 1})
 
-        setLoanTokenGOOGL = self.nodes[0].setloantoken({
+        self.nodes[0].setloantoken({
                                     'symbol': symbolGOOGL,
                                     'name': "Tesla stock token",
                                     'fixedIntervalPriceId': "TSLA/USD",
