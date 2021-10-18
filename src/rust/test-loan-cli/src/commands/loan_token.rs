@@ -19,7 +19,6 @@ static DEFAULT_LOAN_TOKENS: [(&str, f32); 14] = [
     ("ADBE", 610.09),
 ];
 
-
 #[derive(Debug, StructOpt)]
 #[structopt(
     about = "Create a new loan token, the required oracle to track token/USD price and the associated dUSD poolpair. Requires foundation auth."
@@ -38,8 +37,6 @@ pub struct CreateLoanTokenCmd {
     value: Option<f32>,
 }
 
-
-
 impl CreateLoanTokenCmd {
     fn create_loan_token(&self, client: &Client, token: &str, value: f32) -> Result<()> {
         if let Ok(_) = client.get_token(&token) {
@@ -47,7 +44,7 @@ impl CreateLoanTokenCmd {
             return Ok(());
         }
 
-        client.create_oracle(&[&token], value)?;
+        client.create_oracle(token, value)?;
         println!("Appointed oracle {}/USD.", token);
 
         client.set_loan_tokens(&[&token])?;

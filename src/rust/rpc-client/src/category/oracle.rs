@@ -31,22 +31,15 @@ pub struct OracleData {
 }
 
 impl Client {
-    pub fn create_oracle(&self, tokens: &[&str], amount: f32) -> Result<String> {
-        println!("Appointing oracle for tokens {}", tokens.join(", "));
+    pub fn create_oracle(&self, symbol: &str, amount: f32) -> Result<String> {
+        println!("Appointing oracle for token {}", symbol);
         let oracle_address = self.get_new_address()?;
-        let price_feed = json!(tokens
-            .iter()
-            .map(|token| json!({ "currency": "USD", "token": token }))
-            .collect::<serde_json::Value>());
+        let price_feed = json!([json!({ "currency": "USD", "token": symbol })]);
         let oracle_id = self.appoint_oracle(&oracle_address, price_feed, 1)?;
         self.await_n_confirmations(&oracle_id, 1)?;
 
-        let oracle_prices = json!(tokens
-            .iter()
-            .map(
-                |token| json!({ "currency": "USD", "tokenAmount": format!("{}@{}", amount, token) })
-            )
-            .collect::<serde_json::Value>());
+        let oracle_prices =
+            json!([json!({ "currency": "USD", "tokenAmount": format!("{}@{}", amount, symbol) })]);
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -111,7 +104,7 @@ mod test {
     #[test]
     fn create_and_remove_oracle() -> Result<()> {
         let client = Client::from_env()?;
-        let oracle_id = client.create_oracle(&["DFI", "BTC", "TSLA", "GOOGL"], 10.);
+        let oracle_id = client.create_oracle("DFI", 1.);
         assert!(oracle_id.is_ok());
         client.remove_oracle(&oracle_id.unwrap())?;
         Ok(())
