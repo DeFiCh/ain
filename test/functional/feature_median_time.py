@@ -23,7 +23,7 @@ class MedianTimeTest(DefiTestFramework):
             times.append(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount() - i))['time'])
         times.sort()
         if self.nodes[0].getblockcount() >= 100:
-            return times[9]
+            return times[8]
         return times[int(medianTime / 2)]
 
     def GenerateBlocks(self, blocks):

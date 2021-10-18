@@ -332,7 +332,7 @@ public:
         // Only after FC and when we have a full set of times.
         if (height >= Params().GetConsensus().FortCanningHeight && pend - pbegin == nMedianTimeSpan) {
             // Take the median of the top five.
-            return pbegin[9];
+            return pbegin[8];
         }
 
         return pbegin[(pend - pbegin)/2];
