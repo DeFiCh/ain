@@ -316,20 +316,25 @@ public:
     }
 
     static constexpr int nMedianTimeSpan = 11;
-    static constexpr int nMedianTimeSpanV2 = 5;
 
     int64_t GetMedianTimePast() const
     {
-        int medianTime = height >= Params().GetConsensus().FortCanningHeight ? nMedianTimeSpanV2 : nMedianTimeSpan;
-        int64_t pmedian[medianTime];
-        int64_t* pbegin = &pmedian[medianTime];
-        int64_t* pend = &pmedian[medianTime];
+        int64_t pmedian[nMedianTimeSpan];
+        int64_t* pbegin = &pmedian[nMedianTimeSpan];
+        int64_t* pend = &pmedian[nMedianTimeSpan];
 
         const CBlockIndex* pindex = this;
-        for (int i = 0; i < medianTime && pindex; i++, pindex = pindex->pprev)
+        for (int i = 0; i < nMedianTimeSpan && pindex; i++, pindex = pindex->pprev)
             *(--pbegin) = pindex->GetBlockTime();
 
         std::sort(pbegin, pend);
+
+        // Only after FC and when we have a full set of times.
+        if (height >= Params().GetConsensus().FortCanningHeight && pend - pbegin == nMedianTimeSpan) {
+            // Take the median of the top five.
+            return pbegin[9];
+        }
+
         return pbegin[(pend - pbegin)/2];
     }
 

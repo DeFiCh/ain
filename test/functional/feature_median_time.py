@@ -18,12 +18,12 @@ class MedianTimeTest(DefiTestFramework):
 
     def CalcMedianTime(self):
         medianTime = 11
-        if self.nodes[0].getblockcount() >= 20:
-            medianTime = 5
         times = []
         for i in range(medianTime):
             times.append(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount() - i))['time'])
         times.sort()
+        if self.nodes[0].getblockcount() >= 100:
+            return times[9]
         return times[int(medianTime / 2)]
 
     def GenerateBlocks(self, blocks):
@@ -37,6 +37,7 @@ class MedianTimeTest(DefiTestFramework):
 
         # Test some random block times pre-fork
         self.GenerateBlocks(11)
+        assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'], self.CalcMedianTime())
 
         # Move to hard fork
         self.nodes[0].generate(100 - self.nodes[0].getblockcount())
@@ -44,6 +45,7 @@ class MedianTimeTest(DefiTestFramework):
 
         # Test some random block times post-fork
         self.GenerateBlocks(5)
+        assert_equal(self.nodes[0].getblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))['mediantime'], self.CalcMedianTime())
 
 if __name__ == '__main__':
     MedianTimeTest().main()
