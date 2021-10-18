@@ -147,17 +147,14 @@ impl Client {
         self.get_token(symbol)
     }
 
-    pub fn create_oracle(&self, tokens: &[&str], amount: u32) -> Result<String> {
+    pub fn create_oracle(&self, tokens: &[&str], amount: f32) -> Result<String> {
         println!("Appointing oracle for tokens {}", tokens.join(", "));
-        let oracle_address = self.call::<String>("getnewaddress", &[])?;
+        let oracle_address = self.get_new_address()?;
         let price_feed = json!(tokens
             .iter()
             .map(|token| json!({ "currency": "USD", "token": token }))
             .collect::<serde_json::Value>());
-        let oracle_id = self.call::<String>(
-            "appointoracle",
-            &[oracle_address.into(), price_feed, 10.into()],
-        )?;
+        let oracle_id = self.appoint_oracle(&oracle_address, price_feed, 1)?;
         self.await_n_confirmations(&oracle_id, 1)?;
 
         let oracle_prices = json!(tokens
@@ -177,6 +174,13 @@ impl Client {
         self.await_n_confirmations(&set_oracle_tx, 1)?;
 
         Ok(oracle_id)
+    }
+
+    pub fn appoint_oracle(&self, oracle_address: &str, price_feed: serde_json::Value, weightage: u32) -> Result<String> {
+        self.call::<String>(
+            "appointoracle",
+            &[oracle_address.into(), price_feed, weightage.into()],
+        )
     }
 
     pub fn set_oracle_data(&self, oracle_id: &str, token: &str, amount: u32) -> Result<String> {
