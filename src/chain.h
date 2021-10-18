@@ -7,6 +7,7 @@
 #define DEFI_CHAIN_H
 
 #include <arith_uint256.h>
+#include <chainparams.h>
 #include <consensus/params.h>
 #include <flatfile.h>
 #include <primitives/block.h>
@@ -315,15 +316,17 @@ public:
     }
 
     static constexpr int nMedianTimeSpan = 11;
+    static constexpr int nMedianTimeSpanV2 = 5;
 
     int64_t GetMedianTimePast() const
     {
-        int64_t pmedian[nMedianTimeSpan];
-        int64_t* pbegin = &pmedian[nMedianTimeSpan];
-        int64_t* pend = &pmedian[nMedianTimeSpan];
+        int medianTime = height >= Params().GetConsensus().FortCanningHeight ? nMedianTimeSpanV2 : nMedianTimeSpan;
+        int64_t pmedian[medianTime];
+        int64_t* pbegin = &pmedian[medianTime];
+        int64_t* pend = &pmedian[medianTime];
 
         const CBlockIndex* pindex = this;
-        for (int i = 0; i < nMedianTimeSpan && pindex; i++, pindex = pindex->pprev)
+        for (int i = 0; i < medianTime && pindex; i++, pindex = pindex->pprev)
             *(--pbegin) = pindex->GetBlockTime();
 
         std::sort(pbegin, pend);
