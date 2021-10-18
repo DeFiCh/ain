@@ -3014,7 +3014,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-            auto collateral = cache.GetCollatalsLoans(vaultId, collaterals, pindex->nHeight, pindex->nTime);
+            auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime);
             if (!collateral) {
                 return true;
             }
@@ -3035,9 +3035,9 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             assert(loanTokens);
             CBalances totalInterest;
             for (const auto& loan : loanTokens->balances) {
-                auto rate = cache.GetInterestRate(vault->schemeId, loan.first);
+                auto rate = cache.GetInterestRate(vaultId, loan.first);
                 assert(rate);
-                auto subInterest = InterestPerAmount(loan.second, *rate, pindex->nHeight);
+                auto subInterest = TotalInterest(*rate, pindex->nHeight);
                 totalInterest.Add({loan.first, subInterest});
                 cache.SubLoanToken(vaultId, {loan.first, loan.second});
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, loan.first, loan.second, subInterest);

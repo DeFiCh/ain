@@ -2247,8 +2247,8 @@ public:
         if (vault->schemeId != obj.schemeId)
             if (auto loanTokens = mnview.GetLoanTokens(obj.vaultId))
                 for (const auto& loan : loanTokens->balances) {
-                    auto rate = mnview.GetInterestRate(vault->schemeId, loan.first);
-                    auto subInterest = rate ? InterestPerAmount(loan.second, *rate, height) : CAmount{0};
+                    auto rate = mnview.GetInterestRate(obj.vaultId, loan.first);
+                    auto subInterest = rate ? rate->interestToHeight : CAmount{0};
                     if (!(res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, loan.first, loan.second, subInterest))
                     ||  !(res = mnview.StoreInterest(height, obj.vaultId, obj.schemeId, loan.first, loan.second)))
                         return res;
@@ -2288,7 +2288,7 @@ public:
             return res;
 
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-        auto collateralsLoans = mnview.GetCollatalsLoans(obj.vaultId, *collaterals, height, time);
+        auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time);
         if (!collateralsLoans)
             return std::move(collateralsLoans);
 
@@ -2336,7 +2336,7 @@ public:
         {
             for (int i = 0; i < 2; i++) {
                 // check collaterals for active and next price
-                auto collateralsLoans = mnview.GetCollatalsLoans(obj.vaultId, *collaterals, height, time, i > 0);
+                auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, i > 0);
                 if (!collateralsLoans)
                     return std::move(collateralsLoans);
 
@@ -2440,7 +2440,7 @@ public:
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         for (int i = 0; i < 2; i++) {
             // check ratio against current and active price
-            auto collateralsLoans = mnview.GetCollatalsLoans(obj.vaultId, *collaterals, height, time, i > 0);
+            auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, i > 0);
             if (!collateralsLoans)
                 return std::move(collateralsLoans);
             if (collateralsLoans.val->ratio() < scheme->ratio)
@@ -2486,11 +2486,11 @@ public:
             if (it == loanAmounts->balances.end())
                 return Res::Err("There is no loan on token (%s) in this vault!", loanToken->symbol);
 
-            auto rate = mnview.GetInterestRate(vault->schemeId, tokenId);
+            auto rate = mnview.GetInterestRate(obj.vaultId, tokenId);
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
-            auto subInterest = InterestPerAmount(it->second, *rate, height);
+            auto subInterest = TotalInterest(*rate, height);
             auto subLoan = kv.second - subInterest;
 
             if (kv.second < subInterest)
