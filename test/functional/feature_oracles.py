@@ -227,6 +227,9 @@ class OraclesTest(DefiTestFramework):
         assert (math.isclose(
             self.nodes[1].getprice({"currency":"USD", "token":"GOLD"}), decimal.Decimal(5)))
 
+        # Make sure that DUSD-USD always returns 1
+        assert_equal(self.nodes[1].getprice({"currency":"USD", "token":"DUSD"}), decimal.Decimal("1.00000000"))
+
         price_feeds1 = [
             {"currency": "USD", "token": "PT"},
             {"currency": "EUR", "token": "PT"},

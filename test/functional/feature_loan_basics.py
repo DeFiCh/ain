@@ -36,7 +36,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         symbolDFI = "DFI"
         symbolBTC = "BTC"
-        symboldUSD = "dUSD"
+        symboldUSD = "DUSD"
         symbolTSLA = "TSLA"
         symbolGOOGL = "GOOGL"
 
@@ -78,7 +78,7 @@ class LoanTakeLoanTest (DefiTestFramework):
             "commission": Decimal('0.002'),
             "status": True,
             "ownerAddress": poolOwner,
-            "pairSymbol": "dUSD-DFI",
+            "pairSymbol": "DUSD-DFI",
         }, [])
 
         self.nodes[0].utxostoaccount({account0: "1000@" + symbolDFI})
@@ -213,7 +213,7 @@ class LoanTakeLoanTest (DefiTestFramework):
             "commission": Decimal('0.002'),
             "status": True,
             "ownerAddress": poolOwner,
-            "pairSymbol": "TSLA-dUSD",
+            "pairSymbol": "TSLA-DUSD",
         }, [])
 
         # create pool GOOGL
@@ -223,7 +223,7 @@ class LoanTakeLoanTest (DefiTestFramework):
             "commission": Decimal('0.002'),
             "status": True,
             "ownerAddress": poolOwner,
-            "pairSymbol": "GOOGL-dUSD",
+            "pairSymbol": "GOOGL-DUSD",
         }, [])
 
         self.nodes[0].generate(1)
