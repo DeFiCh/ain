@@ -5,5 +5,5 @@ members = [
     "evm",
     "rpc-client",
     "tests",
-    "loan-cli"
+    "test-loan-cli"
 ]
