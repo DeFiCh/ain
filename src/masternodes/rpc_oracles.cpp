@@ -4,6 +4,7 @@
 
 #include <masternodes/mn_rpc.h>
 
+extern CTokenCurrencyPair DecodePriceFeed(const UniValue& value);
 /// names of oracle json fields
 namespace oraclefields {
     constexpr auto Alive = "live";
@@ -535,6 +536,14 @@ bool diffInHour(int64_t time1, int64_t time2) {
     return std::abs(time1 - time2) < SECONDS_PER_HOUR;
 }
 
+std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight){
+    auto FCHeight = Params().GetConsensus().FortCanningHeight;
+    auto fixedBlocks = Params().GetConsensus().blocksFixedIntervalPrice();
+    auto nextPriceBlock = currentHeight + (fixedBlocks - ((currentHeight - FCHeight) % fixedBlocks));
+    auto activePriceBlock = nextPriceBlock - fixedBlocks;
+    return {activePriceBlock, nextPriceBlock};
+}
+
 namespace {
     UniValue PriceFeedToJSON(const CTokenCurrencyPair& priceFeed) {
         UniValue pair(UniValue::VOBJ);
@@ -1043,6 +1052,65 @@ UniValue listprices(const JSONRPCRequest& request) {
     return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
 }
 
+UniValue getfixedintervalprice(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"getfixedintervalprice",
+                "Get fixed interval price for a given pair.\n",
+                {
+                    {"fixedIntervalPriceId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
+                },
+                RPCResult{
+                       "\"json\"          (string) array containing json-objects having following fields:\n"
+                       "                  `activePrice` - current price used for loan calculations\n"
+                       "                  `nextPrice` - next price to be assigned to pair.\n"
+                       "                  `isValid` - true if price is valid"
+                       "                   Possible reasons for a price result to be invalid:"
+                       "                   1. If there are no live oracles which meet specified request.\n"
+                       "                   2. Deviation is over 30%% so price is considered unstable and invalid.\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("getfixedintervalprice", R"('{"fixedIntervalPriceId":"TSLA/USD"}')")
+                        },
+     }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot getfixedintervalprice while still in Initial Block Download");
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+    if (request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameter, argument fixedIntervalPriceId must be non-null");
+
+    auto fixedIntervalStr = request.params[0].getValStr();
+    UniValue objPrice{UniValue::VOBJ};
+    objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
+    auto pairId = DecodePriceFeed(objPrice);
+
+    auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
+    if(!fixedPrice)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(locked_chain->mutex());
+
+    auto optHeight = locked_chain->getHeight();
+    int lastHeight = optHeight ? *optHeight : 0;
+    auto priceBlocks = GetFixedIntervalPriceBlocks(lastHeight);
+
+    objPrice.pushKV("activePrice", ValueFromAmount(fixedPrice.val->priceRecord[0]));
+    objPrice.pushKV("nextPrice", ValueFromAmount(fixedPrice.val->priceRecord[1]));
+    objPrice.pushKV("activePriceBlock", (int)priceBlocks.first);
+    objPrice.pushKV("nextPriceBlock", (int)priceBlocks.second);
+    objPrice.pushKV("timestamp", fixedPrice.val->timestamp);
+    objPrice.pushKV("isValid", fixedPrice.val->isValid());
+    return objPrice;
+}
+
+
+
 static const CRPCCommand commands[] =
 {
 //  category        name                     actor (function)        params
@@ -1056,6 +1124,7 @@ static const CRPCCommand commands[] =
     {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request", "pagination"}},
     {"oracles",     "getprice",              &getprice,               {"request"}},
     {"oracles",     "listprices",            &listprices,             {"pagination"}},
+    {"oracles",     "getfixedintervalprice", &getfixedintervalprice,  {"fixedIntervalPriceId"}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

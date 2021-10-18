@@ -7,6 +7,7 @@
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import DefiTestFramework
+from decimal import Decimal
 
 from test_framework.util import assert_equal
 
@@ -164,9 +165,9 @@ class PriceUpdateTest (DefiTestFramework):
                 'amounts': "10@TSLA"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Price feed TSLA/USD is invalid" in errorString)
+        assert("Cannot take loan while any of the asset's price in the vault is invalid" in errorString)
 
-        self.nodes[0].generate(6) # let price update
+        self.nodes[0].generate(5) # let price update
 
         loanAmount = 40
         self.nodes[0].takeloan({
@@ -174,6 +175,24 @@ class PriceUpdateTest (DefiTestFramework):
             'amounts': str(loanAmount)+"@TSLA"})
         self.nodes[0].generate(1)
         takenLoanAmount = loanAmount
+        try:
+            fixedPrice = self.nodes[0].getfixedintervalprice("AAA/USD")
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("fixedIntervalPrice with id <AAA/USD> not found" in errorString)
+        fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
+        assert_equal(fixedPrice['activePrice'], Decimal(15.00000000))
+        assert_equal(fixedPrice['nextPrice'], Decimal(15.00000000))
+        assert_equal(fixedPrice['activePriceBlock'], 325)
+        assert_equal(fixedPrice['nextPriceBlock'], 331)
+
+        oracle2_prices = [
+            {"currency": "USD", "tokenAmount": "15@TSLA"},
+            {"currency": "USD", "tokenAmount": "15@DFI"},
+            {"currency": "USD", "tokenAmount": "15@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id2, timestamp, oracle2_prices)
+        self.nodes[0].generate(1)
 
         # Change price over deviation threshold to invalidate price
         oracle1_prices = [
@@ -189,7 +208,7 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].takeloan({
             'vaultId': vaultId1,
             'amounts': str(loanAmount)+"@TSLA"})
-        self.nodes[0].generate(1) # let price update to invalid state
+        self.nodes[0].generate(2) # let price update to invalid state
 
         takenLoanAmount += loanAmount
         vault = self.nodes[0].getvault(vaultId1)
@@ -228,6 +247,12 @@ class PriceUpdateTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Cannot update vault while any of the asset's price is invalid" in errorString)
 
+        fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
+        assert_equal(fixedPrice['isValid'], False)
+        assert_equal(fixedPrice['activePrice'], Decimal('15.00000000'))
+        assert_equal(fixedPrice['nextPrice'], Decimal('22.50000000'))
+
+
         self.nodes[0].generate(5) # let price update to valid state
         self.nodes[0].updatevault(vaultId1, params)
 
@@ -252,11 +277,39 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].withdrawfromvault(vaultId1, account, "100@BTC")
         self.nodes[0].generate(1)
 
+        fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
+        assert_equal(fixedPrice['isValid'], True)
+        assert_equal(fixedPrice['activePrice'], Decimal('22.50000000'))
+        assert_equal(fixedPrice['nextPrice'], Decimal('22.50000000'))
+
         vault = self.nodes[0].getvault(vaultId1)
         assert_equal(vault["collateralAmounts"][1], '900.00000000@BTC')
         interest_TSLA = self.nodes[0].getinterest('LOAN1')[0]["totalInterest"]
         totalLoanAmount = takenLoanAmount + interest_TSLA
         assert_equal(vault["loanAmounts"][0], str(totalLoanAmount)+"@TSLA")
+
+        height = self.nodes[0].getblockcount()
+        assert_equal(height, 340)
+        oracle1_prices = [
+            {"currency": "USD", "tokenAmount": "100@TSLA"},
+            {"currency": "USD", "tokenAmount": "100@DFI"},
+            {"currency": "USD", "tokenAmount": "100@BTC"}]
+        timestamp = calendar.timegm(time.gmtime())
+        self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
+        self.nodes[0].generate(3)
+        fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
+        assert_equal(fixedPrice['isValid'], False)
+        assert_equal(fixedPrice['activePrice'], Decimal('22.50000000'))
+        assert_equal(fixedPrice['nextPrice'], Decimal('57.50000000'))
+        assert_equal(fixedPrice['nextPriceBlock'], 349)
+        assert_equal(fixedPrice['activePriceBlock'], 343)
+        self.nodes[0].generate(6)
+        fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
+        assert_equal(fixedPrice['isValid'], True)
+        assert_equal(fixedPrice['activePrice'], Decimal('57.50000000'))
+        assert_equal(fixedPrice['nextPrice'], Decimal('57.50000000'))
+        assert_equal(fixedPrice['nextPriceBlock'], 355)
+        assert_equal(fixedPrice['activePriceBlock'], 349)
 
 if __name__ == '__main__':
     PriceUpdateTest().main()
