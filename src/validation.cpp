@@ -3140,15 +3140,16 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
         auto nextPrice = fixedIntervalPrice.priceRecord[1];
         if (nextPrice > 0) {
             fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
-            fixedIntervalPrice.timestamp = pindex->nTime;
         }
+        // keep timestamp updated
+        fixedIntervalPrice.timestamp = pindex->nTime;
         // Use -1 to indicate empty price
         // CAUTION: Disabled for testnet phase-1
         // fixedIntervalPrice.priceRecord[1] = -1;
-        auto aggregatePrice = GetAggregatePrice(cache, 
-            fixedIntervalPrice.priceFeedId.first, 
-            fixedIntervalPrice.priceFeedId.second, 
-            pindex->nTime);
+        auto aggregatePrice = GetAggregatePrice(cache,
+                                                fixedIntervalPrice.priceFeedId.first,
+                                                fixedIntervalPrice.priceFeedId.second,
+                                                pindex->nTime);
         if (aggregatePrice) {
             fixedIntervalPrice.priceRecord[1] = aggregatePrice;
         } else {
