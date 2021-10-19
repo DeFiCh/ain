@@ -30,7 +30,7 @@ class PoolPairCompositeTest(DefiTestFramework):
         tokens = [
             {
                 "wallet": self.nodes[0],
-                "symbol": "dUSD",
+                "symbol": "DUSD",
                 "name": "DFI USD",
                 "collateralAddress": collateral,
                 "amount": 1000000
@@ -69,7 +69,7 @@ class PoolPairCompositeTest(DefiTestFramework):
 
         symbolDOGE = "DOGE#" + self.get_id_token("DOGE")
         symbolTSLA = "TSLA#" + self.get_id_token("TSLA")
-        symbolDUSD = "dUSD#" + self.get_id_token("dUSD")
+        symbolDUSD = "DUSD#" + self.get_id_token("DUSD")
         symbolLTC = "LTC#" + self.get_id_token("LTC")
         symbolUSDC = "USDC#" + self.get_id_token("USDC")
 
@@ -305,7 +305,7 @@ class PoolPairCompositeTest(DefiTestFramework):
             }, [])
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert('"dUSD-DFI":"Lack of liquidity."' in errorString)
+        assert('"DUSD-DFI":"Lack of liquidity."' in errorString)
 
         # Add some liquidity
         self.nodes[0].addpoolliquidity({
