@@ -273,6 +273,21 @@ void CLoanView::ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID,
     }, std::make_pair(vaultId, id));
 }
 
+Res CLoanView::DeleteInterest(const CVaultId& vaultId)
+{
+    std::vector<std::pair<CVaultId, DCT_ID>> keysToDelete;
+
+    auto it = LowerBound<LoanInterestByVault>(std::make_pair(vaultId, DCT_ID{0}));
+    for (; it.Valid() && it.Key().first == vaultId; it.Next()) {
+        keysToDelete.push_back(it.Key());
+    }
+
+    for (const auto& key : keysToDelete) {
+        EraseBy<LoanInterestByVault>(key);
+    }
+    return Res::Ok();
+}
+
 Res CLoanView::AddLoanToken(const CVaultId& vaultId, CTokenAmount amount)
 {
     if (!GetLoanSetLoanTokenByID(amount.nTokenId)) {

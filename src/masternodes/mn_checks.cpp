@@ -2211,6 +2211,11 @@ public:
             }
         }
 
+        // delete all interest to vault
+        res = mnview.DeleteInterest(obj.vaultId);
+        if (!res)
+            return res;
+
         // return half fee, the rest is burned at creation
         auto feeBack = consensus.vaultCreationFee / 2;
         res = mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack});
@@ -2245,6 +2250,19 @@ public:
 
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot update vault while any of the asset's price is invalid");
+
+        // don't allow scheme change when vault is going to be in liquidation
+        if (vault->schemeId != obj.schemeId)
+            if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
+                for (int i = 0; i < 2; i++) {
+                    auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, i > 0);
+                    if (!collateralsLoans)
+                        return std::move(collateralsLoans);
+
+                    auto scheme = mnview.GetLoanScheme(vault->schemeId);
+                    if (collateralsLoans.val->ratio() < scheme->ratio)
+                        return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
+                }
 
         vault->schemeId = obj.schemeId;
         vault->ownerAddress = obj.ownerAddress;
