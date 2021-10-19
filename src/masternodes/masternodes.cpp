@@ -25,7 +25,9 @@ std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 
 int GetMnActivationDelay(int height)
 {
-    if (height < Params().GetConsensus().EunosHeight) {
+    // Restore previous activation delay on testnet after FC
+    if (height < Params().GetConsensus().EunosHeight ||
+    (Params().NetworkIDString() == CBaseChainParams::TESTNET && height >= Params().GetConsensus().FortCanningHeight)) {
         return Params().GetConsensus().mn.activationDelay;
     }
 
@@ -34,7 +36,9 @@ int GetMnActivationDelay(int height)
 
 int GetMnResignDelay(int height)
 {
-    if (height < Params().GetConsensus().EunosHeight) {
+    // Restore previous activation delay on testnet after FC
+    if (height < Params().GetConsensus().EunosHeight ||
+    (Params().NetworkIDString() == CBaseChainParams::TESTNET && height >= Params().GetConsensus().FortCanningHeight)) {
         return Params().GetConsensus().mn.resignDelay;
     }
 

@@ -142,6 +142,12 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
 
     int nHeight{pindexLast->nHeight + 1};
     bool eunos{nHeight > params.EunosHeight};
+
+    // Restore previous difficulty adjust on testnet after FC
+    if (Params().NetworkIDString() == CBaseChainParams::TESTNET && nHeight >= params.FortCanningHeight) {
+        eunos = false;
+    }
+
     const auto interval = eunos ? params.pos.DifficultyAdjustmentIntervalV2() : params.pos.DifficultyAdjustmentInterval();
     bool skipChange = eunos ? (nHeight - params.EunosHeight) % interval != 0 : nHeight % interval != 0;
 
