@@ -314,6 +314,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listprices", 0, "pagination" },
     { "getprice", 0, "request" },
     { "getfixedintervalprice", 0, "fixedIntervalPriceId" },
+    { "listfixedintervalprice", 0, "pagination" },
 
     { "spv_claimhtlc", 3, "feerate" },
     { "spv_refundhtlc", 2, "feerate" },
