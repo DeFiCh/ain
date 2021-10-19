@@ -30,6 +30,42 @@ pub struct OracleData {
     pub token_prices: Vec<TokenPrice>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FixedIntervalPriceData {
+    pub price_feed_id: String,
+    pub active_price: f64,
+    pub next_price: f64,
+    pub timestamp: u64,
+    pub is_valid: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetFixedIntervalPriceData {
+    pub fixed_interval_price_id: String,
+    pub active_price: f64,
+    pub next_price: f64,
+    pub timestamp: u64,
+    pub is_valid: bool,
+    pub active_price_block: u64,
+    pub next_price_block: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FixedIntervalPriceBlockInfo {
+    pub active_price_block: u64,
+    pub next_price_block: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ListFixedIntervalPriceData {
+    BlockInfo(FixedIntervalPriceBlockInfo),
+    PriceData(FixedIntervalPriceData),
+}
+
 impl Client {
     pub fn create_oracle(&self, symbol: &str, amount: f32) -> Result<String> {
         println!("Appointing oracle for token {}", symbol);
@@ -94,6 +130,19 @@ impl Client {
 
     pub fn remove_oracle(&self, oracle_id: &str) -> Result<String> {
         self.call::<String>("removeoracle", &[oracle_id.into()])
+    }
+
+    // Returns fixed interval price for token/USD.
+    pub fn get_fixed_interval_price(&self, token: &str) -> Result<GetFixedIntervalPriceData> {
+        self.call::<GetFixedIntervalPriceData>(
+            "getfixedintervalprice",
+            &[format!("{}/USD", token).into()],
+        )
+    }
+
+    // List all fixed interval prices.
+    pub fn list_fixed_interval_prices(&self) -> Result<Vec<ListFixedIntervalPriceData>> {
+        self.call::<Vec<ListFixedIntervalPriceData>>("listfixedintervalprices", &[])
     }
 }
 
