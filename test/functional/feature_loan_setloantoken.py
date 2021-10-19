@@ -79,7 +79,7 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(1)
 
-        setLoanTokenTx = self.nodes[0].setloantoken({
+        self.nodes[0].setloantoken({
                             'symbol': "TSLAAAA",
                             'name': "Tesla",
                             'fixedIntervalPriceId': "TSLA/USD",
@@ -91,12 +91,14 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         loantokens = self.nodes[0].listloantokens()
 
         assert_equal(len(loantokens), 1)
-        tokenId = list(loantokens[setLoanTokenTx]["token"])[0]
-        assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["symbol"], "TSLAAAA")
-        assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["name"], "Tesla")
-        assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["mintable"], False)
-        assert_equal(loantokens[setLoanTokenTx]["fixedIntervalPriceId"], "TSLA/USD")
-        assert_equal(loantokens[setLoanTokenTx]["interest"], Decimal('1'))
+
+        loanToken = self.nodes[0].getloantoken("TSLAAAA")
+        tokenId = list(loanToken["token"])[0]
+        assert_equal(loanToken["token"][tokenId]["symbol"], "TSLAAAA")
+        assert_equal(loanToken["token"][tokenId]["name"], "Tesla")
+        assert_equal(loanToken["token"][tokenId]["mintable"], False)
+        assert_equal(loanToken["fixedIntervalPriceId"], "TSLA/USD")
+        assert_equal(loanToken["interest"], Decimal('1'))
 
         self.nodes[0].updateloantoken("TSLAAAA",{
                             'symbol': "TSLA",
@@ -107,14 +109,15 @@ class LoanSetLoanTokenTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         loantokens = self.nodes[0].listloantokens()
-
         assert_equal(len(loantokens), 1)
-        tokenId = list(loantokens[setLoanTokenTx]["token"])[0]
-        assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["symbol"], "TSLA")
-        assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["name"], "Tesla stock token")
-        assert_equal(loantokens[setLoanTokenTx]["token"][tokenId]["mintable"], True)
-        assert_equal(loantokens[setLoanTokenTx]["fixedIntervalPriceId"], "TSLA/USD")
-        assert_equal(loantokens[setLoanTokenTx]["interest"], Decimal('3'))
+
+        loanToken = self.nodes[0].getloantoken("TSLA")
+        tokenId = list(loanToken["token"])[0]
+        assert_equal(loanToken["token"][tokenId]["symbol"], "TSLA")
+        assert_equal(loanToken["token"][tokenId]["name"], "Tesla stock token")
+        assert_equal(loanToken["token"][tokenId]["mintable"], True)
+        assert_equal(loanToken["fixedIntervalPriceId"], "TSLA/USD")
+        assert_equal(loanToken["interest"], Decimal('3'))
 
         # cannot set too old timestamp
         try:

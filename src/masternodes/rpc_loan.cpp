@@ -10,14 +10,13 @@ UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& c
     if (!token)
         return (UniValue::VNULL);
     collTokenObj.pushKV("token", token->CreateSymbolKey(collToken.idToken));
+    collTokenObj.pushKV("tokenId", collToken.creationTx.GetHex());
     collTokenObj.pushKV("factor", ValueFromAmount(collToken.factor));
     collTokenObj.pushKV("fixedIntervalPriceId", collToken.fixedIntervalPriceId.first + "/" + collToken.fixedIntervalPriceId.second);
     if (collToken.activateAfterBlock)
         collTokenObj.pushKV("activateAfterBlock", static_cast<int>(collToken.activateAfterBlock));
 
-    UniValue ret(UniValue::VOBJ);
-    ret.pushKV(collToken.creationTx.GetHex(), collTokenObj);
-    return (ret);
+    return (collTokenObj);
 }
 
 UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DCT_ID tokenId)
@@ -28,13 +27,11 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
     if (!token)
         return (UniValue::VNULL);
 
-    loanTokenObj.pushKV("token",tokenToJSON(tokenId, *static_cast<CTokenImplementation*>(token.get()), true));
+    loanTokenObj.pushKV("token", tokenToJSON(tokenId, *static_cast<CTokenImplementation*>(token.get()), true));
     loanTokenObj.pushKV("fixedIntervalPriceId", loanToken.fixedIntervalPriceId.first + "/" + loanToken.fixedIntervalPriceId.second);
     loanTokenObj.pushKV("interest", ValueFromAmount(loanToken.interest));
 
-    UniValue ret(UniValue::VOBJ);
-    ret.pushKV(loanToken.creationTx.GetHex(), loanTokenObj);
-    return (ret);
+    return (loanTokenObj);
 }
 
 CTokenCurrencyPair DecodePriceFeed(const UniValue& value)
@@ -237,7 +234,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
                 },
      }.Check(request);
 
-    UniValue ret(UniValue::VOBJ);
+    UniValue ret(UniValue::VARR);
     DCT_ID currentToken = {std::numeric_limits<uint32_t>::max()};
     uint32_t height = ::ChainActive().Height();
     bool all = false;
@@ -262,7 +259,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
         {
             auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
             if (collToken)
-                ret.pushKVs(setCollateralTokenToJSON(*collToken));
+                ret.push_back(setCollateralTokenToJSON(*collToken));
 
             return true;
         });
@@ -278,7 +275,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
         auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
         if (collToken)
         {
-            ret.pushKVs(setCollateralTokenToJSON(*collToken));
+            ret.push_back(setCollateralTokenToJSON(*collToken));
         }
         return true;
     }, start);
@@ -534,17 +531,55 @@ UniValue listloantokens(const JSONRPCRequest& request) {
                 },
      }.Check(request);
 
-    UniValue ret(UniValue::VOBJ);
+    UniValue ret(UniValue::VARR);
 
     LOCK(cs_main);
 
     pcustomcsview->ForEachLoanSetLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
-        ret.pushKVs(setLoanTokenToJSON(loanToken,key));
+        ret.push_back(setLoanTokenToJSON(loanToken,key));
 
         return true;
     });
 
     return (ret);
+}
+
+UniValue getloantoken(const JSONRPCRequest& request)
+{
+    RPCHelpMan{
+        "getloantoken",
+        "Return loan token information.\n",
+        {
+            {"token", RPCArg::Type::STR, RPCArg::Optional::NO, "Symbol or id of loan token"},
+        },
+        RPCResult{
+            "{...}     (object) Json object with loan token information\n"},
+        RPCExamples{
+            HelpExampleCli("getloantoken", "DFI")},
+    }
+        .Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+    if (request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            "Invalid parameters, arguments 1 must be non-null and expected as string for token symbol or id");
+
+    UniValue ret(UniValue::VOBJ);
+    std::string tokenSymbol = request.params[0].get_str();
+    DCT_ID idToken;
+
+    LOCK(cs_main);
+
+    auto token = pcustomcsview->GetTokenGuessId(trim_ws(tokenSymbol), idToken);
+    if (!token)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
+
+    auto loanToken = pcustomcsview->GetLoanSetLoanTokenByID(idToken);
+    if (!loanToken) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("<%s> is not a valid loan token!", tokenSymbol.c_str()));
+    }
+
+    return setLoanTokenToJSON(*loanToken, idToken);
 }
 
 UniValue createloanscheme(const JSONRPCRequest& request) {
@@ -1303,10 +1338,11 @@ static const CRPCCommand commands[] =
 //  --------------- ----------------------       ---------------------   ----------
     {"loan",        "setcollateraltoken",        &setcollateraltoken,    {"metadata", "inputs"}},
     {"loan",        "getcollateraltoken",        &getcollateraltoken,    {"by"}},
-    {"loan",        "listcollateraltokens",      &listcollateraltokens,  {}},
+    {"loan",        "listcollateraltokens",      &listcollateraltokens,  {"by"}},
     {"loan",        "setloantoken",              &setloantoken,          {"metadata", "inputs"}},
     {"loan",        "updateloantoken",           &updateloantoken,       {"metadata", "inputs"}},
     {"loan",        "listloantokens",            &listloantokens,        {}},
+    {"loan",        "getloantoken",              &getloantoken,          {"by"}},
     {"loan",        "createloanscheme",          &createloanscheme,      {"mincolratio", "interestrate", "id", "inputs"}},
     {"loan",        "updateloanscheme",          &updateloanscheme,      {"mincolratio", "interestrate", "id", "ACTIVATE_AFTER_BLOCK", "inputs"}},
     {"loan",        "setdefaultloanscheme",      &setdefaultloanscheme,  {"id", "inputs"}},
