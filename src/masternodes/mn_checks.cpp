@@ -2246,16 +2246,6 @@ public:
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
             return Res::Err("Cannot update vault while any of the asset's price is invalid");
 
-        if (vault->schemeId != obj.schemeId)
-            if (auto loanTokens = mnview.GetLoanTokens(obj.vaultId))
-                for (const auto& loan : loanTokens->balances) {
-                    auto rate = mnview.GetInterestRate(obj.vaultId, loan.first);
-                    auto subInterest = rate ? rate->interestToHeight : CAmount{0};
-                    if (!(res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, loan.first, loan.second, subInterest))
-                    ||  !(res = mnview.StoreInterest(height, obj.vaultId, obj.schemeId, loan.first, loan.second)))
-                        return res;
-                }
-
         vault->schemeId = obj.schemeId;
         vault->ownerAddress = obj.ownerAddress;
         return mnview.UpdateVault(obj.vaultId, *vault);

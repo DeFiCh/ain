@@ -372,10 +372,6 @@ class VaultTest (DefiTestFramework):
         interest = self.nodes[0].getinterest('LOAN0001')
         assert_equal(len(interest), 0)
 
-        # interest is transferred to scheme
-        interest = self.nodes[0].getinterest('LOAN000A')[0]
-        assert_equal(interest['interestPerBlock'], Decimal('4.2E-7'))
-
         # make vault enter under liquidation state
         oracle1_prices = [{"currency": "USD", "tokenAmount": "4@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
