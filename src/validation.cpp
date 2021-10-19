@@ -2761,7 +2761,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             for (const auto& var : storedGovVars) {
                 CCustomCSView govCache(cache);
                 // Ignore any Gov variables that fail to validate, apply or be set.
-                if (var->Validate(cache) && var->Apply(cache, pindex->nHeight) && cache.SetVariable(*var)) {
+                if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
                     govCache.Flush();
                 }
             }
