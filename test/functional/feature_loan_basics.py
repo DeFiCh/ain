@@ -130,7 +130,7 @@ class LoanTakeLoanTest (DefiTestFramework):
                                     'mintable': False,
                                     'interest': 1})
 
-        setLoanTokenGOOGL = self.nodes[0].setloantoken({
+        self.nodes[0].setloantoken({
                                     'symbol': symbolGOOGL,
                                     'name': "Tesla stock token",
                                     'fixedIntervalPriceId': "TSLA/USD",
@@ -145,8 +145,8 @@ class LoanTakeLoanTest (DefiTestFramework):
         loantokens = self.nodes[0].listloantokens()
 
         assert_equal(len(loantokens), 2)
-        idTSLA = list(loantokens[setLoanTokenTSLA]["token"])[0]
-        idGOOGL = list(loantokens[setLoanTokenGOOGL]["token"])[0]
+        idTSLA = list(self.nodes[0].getloantoken(symbolTSLA)["token"])[0]
+        idGOOGL = list(self.nodes[0].getloantoken(symbolGOOGL)["token"])[0]
 
         vaultId = self.nodes[0].createvault( account0, 'LOAN150')
         self.nodes[0].generate(1)

@@ -124,11 +124,12 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         collTokens = self.nodes[0].listcollateraltokens({'all': True})
-
         assert_equal(len(collTokens), 2)
-        assert_equal(collTokens[collTokenTx1]["token"], symbolDFI)
-        assert_equal(collTokens[collTokenTx1]["factor"], Decimal('0.5'))
-        assert_equal(collTokens[collTokenTx1]["fixedIntervalPriceId"], "DFI/USD")
+
+        collToken1 = [token for token in collTokens if token["tokenId"] == collTokenTx1][0]
+        assert_equal(collToken1["token"], symbolDFI)
+        assert_equal(collToken1["factor"], Decimal('0.5'))
+        assert_equal(collToken1["fixedIntervalPriceId"], "DFI/USD")
 
         collTokenTx2 = self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
@@ -138,45 +139,47 @@ class LoanSetCollateralTokenTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         collTokens = self.nodes[0].listcollateraltokens({'all': True})
-
         assert_equal(len(collTokens), 3)
-        assert_equal(collTokens[collTokenTx2]["token"], symbolBTC)
-        assert_equal(collTokens[collTokenTx2]["factor"], Decimal('0.9'))
-        assert_equal(collTokens[collTokenTx2]["fixedIntervalPriceId"], "BTC/USD")
+
+        collToken2 = [token for token in collTokens if token["tokenId"] == collTokenTx2][0]
+        assert_equal(collToken2["token"], symbolBTC)
+        assert_equal(collToken2["factor"], Decimal('0.9'))
+        assert_equal(collToken2["fixedIntervalPriceId"], "BTC/USD")
 
         self.nodes[0].generate(1)
 
         collTokens = self.nodes[0].listcollateraltokens({'all': True})
-
         assert_equal(len(collTokens), 3)
-        assert_equal(collTokens[collTokenTx3]["token"], symbolDFI)
-        assert_equal(collTokens[collTokenTx3]["factor"], Decimal('1'))
+
+        collToken3 = [token for token in collTokens if token["tokenId"] == collTokenTx3][0]
+        assert_equal(collToken3["token"], symbolDFI)
+        assert_equal(collToken3["factor"], Decimal('1'))
 
         collTokens = self.nodes[0].getcollateraltoken(idDFI)
 
-        assert_equal(collTokens[collTokenTx1]["token"], symbolDFI)
-        assert_equal(collTokens[collTokenTx1]["factor"], Decimal('0.5'))
-        assert_equal(collTokens[collTokenTx1]["activateAfterBlock"], 105)
+        assert_equal(collTokens["token"], symbolDFI)
+        assert_equal(collTokens["factor"], Decimal('0.5'))
+        assert_equal(collTokens["activateAfterBlock"], 105)
 
         collTokens = self.nodes[0].getcollateraltoken(idBTC)
 
-        assert_equal(collTokens[collTokenTx2]["token"], symbolBTC)
-        assert_equal(collTokens[collTokenTx2]["factor"], Decimal('0.9'))
-        assert_equal(collTokens[collTokenTx2]["activateAfterBlock"], 106)
+        assert_equal(collTokens["token"], symbolBTC)
+        assert_equal(collTokens["factor"], Decimal('0.9'))
+        assert_equal(collTokens["activateAfterBlock"], 106)
 
         self.nodes[0].generate(30)
 
         collTokens = self.nodes[0].getcollateraltoken(idDFI)
 
-        assert_equal(collTokens[collTokenTx3]["token"], symbolDFI)
-        assert_equal(collTokens[collTokenTx3]["factor"], Decimal('1'))
-        assert_equal(collTokens[collTokenTx3]["activateAfterBlock"], 135)
+        assert_equal(collTokens["token"], symbolDFI)
+        assert_equal(collTokens["factor"], Decimal('1'))
+        assert_equal(collTokens["activateAfterBlock"], 135)
 
         collTokens = self.nodes[0].getcollateraltoken(idBTC)
 
-        assert_equal(collTokens[collTokenTx2]["token"], symbolBTC)
-        assert_equal(collTokens[collTokenTx2]["factor"], Decimal('0.9'))
-        assert_equal(collTokens[collTokenTx2]["activateAfterBlock"], 106)
+        assert_equal(collTokens["token"], symbolBTC)
+        assert_equal(collTokens["factor"], Decimal('0.9'))
+        assert_equal(collTokens["activateAfterBlock"], 106)
 
         self.nodes[0].setcollateraltoken({
                                     'token': idBTC,
