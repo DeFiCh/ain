@@ -1102,8 +1102,8 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     return objPrice;
 }
 
-UniValue listfixedintervalprice(const JSONRPCRequest& request) {
-    RPCHelpMan{"listfixedintervalprice",
+UniValue listfixedintervalprices(const JSONRPCRequest& request) {
+    RPCHelpMan{"listfixedintervalprices",
                 "Get all fixed interval prices.\n",
                 {
                     {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -1129,7 +1129,7 @@ UniValue listfixedintervalprice(const JSONRPCRequest& request) {
                        "                   2. Deviation is over 30%% so price is considered unstable and invalid.\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("listfixedintervalprice", R"('{""}')")
+                        HelpExampleCli("listfixedintervalprices", R"('{""}')")
                 },
     }.Check(request);
 
@@ -1181,19 +1181,19 @@ UniValue listfixedintervalprice(const JSONRPCRequest& request) {
 
 static const CRPCCommand commands[] =
 {
-//  category        name                     actor (function)        params
-//  -------------   ---------------------    --------------------    ----------
-    {"oracles",     "appointoracle",         &appointoracle,          {"address", "pricefeeds", "weightage", "inputs"}},
-    {"oracles",     "removeoracle",          &removeoracle,           {"oracleid", "inputs"}},
-    {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
-    {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices", "inputs"}},
-    {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
-    {"oracles",     "listoracles",           &listoracles,            {"pagination"}},
-    {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request", "pagination"}},
-    {"oracles",     "getprice",              &getprice,               {"request"}},
-    {"oracles",     "listprices",            &listprices,             {"pagination"}},
-    {"oracles",     "getfixedintervalprice", &getfixedintervalprice,  {"fixedIntervalPriceId"}},
-    {"oracles",     "listfixedintervalprice",&listfixedintervalprice, {"pagination"}},
+//  category        name                       actor (function)           params
+//  -------------   ---------------------      --------------------       ----------
+    {"oracles",     "appointoracle",           &appointoracle,            {"address", "pricefeeds", "weightage", "inputs"}},
+    {"oracles",     "removeoracle",            &removeoracle,             {"oracleid", "inputs"}},
+    {"oracles",     "updateoracle",            &updateoracle,             {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
+    {"oracles",     "setoracledata",           &setoracledata,            {"oracleid", "timestamp", "prices", "inputs"}},
+    {"oracles",     "getoracledata",           &getoracledata,            {"oracleid"}},
+    {"oracles",     "listoracles",             &listoracles,              {"pagination"}},
+    {"oracles",     "listlatestrawprices",     &listlatestrawprices,      {"request", "pagination"}},
+    {"oracles",     "getprice",                &getprice,                 {"request"}},
+    {"oracles",     "listprices",              &listprices,               {"pagination"}},
+    {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
+    {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {
