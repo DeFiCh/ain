@@ -165,7 +165,7 @@ class PriceUpdateTest (DefiTestFramework):
                 'amounts': "10@TSLA"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot take loan while any of the asset's price in the vault is invalid" in errorString)
+        assert("Price feed TSLA/USD is invalid" in errorString)
 
         self.nodes[0].generate(5) # let price update
 

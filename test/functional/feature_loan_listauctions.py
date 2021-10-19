@@ -112,7 +112,7 @@ class LoanTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "1000@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(7)
+        self.nodes[0].generate(12) # if price is invalid, auctions are blocked so listauction is empty. We need 2 cicles of price update.
 
         # Auction tests
         auctionlist = self.nodes[0].listauctions()
