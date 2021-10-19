@@ -3135,8 +3135,6 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
 
         // Furthermore, the time stamp is always indicative of the 
         // last price time.
-
-        // CAUTION: nextPrice reset is disabled for testnet phase-1
         auto nextPrice = fixedIntervalPrice.priceRecord[1];
         if (nextPrice > 0) {
             fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
@@ -3144,8 +3142,7 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
         // keep timestamp updated
         fixedIntervalPrice.timestamp = pindex->nTime;
         // Use -1 to indicate empty price
-        // CAUTION: Disabled for testnet phase-1
-        // fixedIntervalPrice.priceRecord[1] = -1;
+        fixedIntervalPrice.priceRecord[1] = -1;
         auto aggregatePrice = GetAggregatePrice(cache,
                                                 fixedIntervalPrice.priceFeedId.first,
                                                 fixedIntervalPrice.priceFeedId.second,
