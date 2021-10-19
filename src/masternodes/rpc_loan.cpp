@@ -1250,7 +1250,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto lastBlockTime = ::ChainActive()[::ChainActive().Height()]->GetBlockTime();
 
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-        auto rate = pcustomcsview->GetCollatalsLoans(vaultId, collaterals, height, lastBlockTime);
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime);
 
         if (rate)
         {
@@ -1301,32 +1301,39 @@ UniValue getinterest(const JSONRPCRequest& request) {
     if (!tokenStr.empty() && !pcustomcsview->GetTokenGuessId(tokenStr, id))
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
 
-    const auto mask = id.v;
-    if (id.v == ~0u)
-        id.v = 0;
-
     UniValue ret(UniValue::VARR);
     uint32_t height = ::ChainActive().Height() + 1;
 
-    pcustomcsview->ForEachSchemeInterest([&](const std::string& schemeId, DCT_ID tokenId, CInterestRate rate) {
-        if (schemeId != loanSchemeId)
-            return false;
+    std::map<DCT_ID, std::pair<CAmount, CAmount> > interest;
 
-        if ((tokenId.v & mask) != tokenId.v)
-            return false;
+    pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate)
+    {
+        auto vault = pcustomcsview->GetVault(vaultId);
+        if (!vault || vault->schemeId != loanSchemeId)
+            return true;
+        if ((id != DCT_ID{~0U}) && tokenId != id)
+            return true;
 
         auto token = pcustomcsview->GetToken(tokenId);
         if (!token)
             return true;
 
-        UniValue obj(UniValue::VOBJ);
-        obj.pushKV("token", token->CreateSymbolKey(tokenId));
-        obj.pushKV("totalInterest", ValueFromAmount(TotalInterest(rate, height)));
-        obj.pushKV("interestPerBlock", ValueFromAmount(InterestPerBlock(rate)));
-        ret.push_back(obj);
+        interest[tokenId].first += TotalInterest(rate, height);
+        interest[tokenId].second += rate.interestPerBlock;
 
         return true;
-    }, loanSchemeId, id);
+    });
+
+    UniValue obj(UniValue::VOBJ);
+    for (std::map<DCT_ID, std::pair<CAmount, CAmount> >::iterator it=interest.begin(); it!=interest.end(); ++it)
+    {
+        auto token = pcustomcsview->GetToken(it->first);
+        obj.pushKV("token", token->CreateSymbolKey(it->first));
+        obj.pushKV("totalInterest", ValueFromAmount(it->second.first));
+        obj.pushKV("interestPerBlock", ValueFromAmount(it->second.second));
+
+        ret.push_back(obj);
+    }
 
     return ret;
 }

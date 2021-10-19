@@ -359,9 +359,9 @@ class VaultTest (DefiTestFramework):
         assert_equal(interest['interestPerBlock'], Decimal('4.7E-7'))
 
         vault1 = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault1['loanAmount'], ['0.50000094@TSLA'])
+        assert_equal(vault1['loanAmount'], ['0.50000047@TSLA'])
         assert_equal(vault1['collateralValue'], Decimal('2.00000000'))
-        assert_equal(vault1['loanValue'],Decimal('0.50000094'))
+        assert_equal(vault1['loanValue'],Decimal('0.50000047'))
 
         params = {'loanSchemeId':'LOAN000A'}
         self.nodes[0].updatevault(vaultId1, params)
@@ -369,9 +369,8 @@ class VaultTest (DefiTestFramework):
         self.sync_blocks()
 
         # interest is moved out from old scheme
-        interest = self.nodes[0].getinterest('LOAN0001')[0]
-        assert_equal(interest['totalInterest'], Decimal('0'))
-        assert_equal(interest['interestPerBlock'], Decimal('0'))
+        interest = self.nodes[0].getinterest('LOAN0001')
+        assert_equal(len(interest), 0)
 
         # interest is transferred to scheme
         interest = self.nodes[0].getinterest('LOAN000A')[0]

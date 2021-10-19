@@ -38,7 +38,7 @@ namespace {
             auto blockTime = ::ChainActive()[height]->GetBlockTime();
             auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
             if(!collaterals) collaterals = CBalances{};
-            auto rate = pcustomcsview->GetCollatalsLoans(vaultId, *collaterals, height + 1, blockTime);
+            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime);
             uint32_t ratio = 0;
             if (rate) {
                 collValue = ValueFromUint(rate.val->totalCollaterals);
@@ -55,10 +55,10 @@ namespace {
             if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)){
                 TAmounts balancesInterest{};
                 for (const auto& loan : loanTokens->balances) {
-                    auto rate = pcustomcsview->GetInterestRate(vault.schemeId, loan.first);
+                    auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
                     if (!rate)
                         continue;
-                    auto value = loan.second + InterestPerAmount(loan.second, *rate, height + 1);
+                    auto value = loan.second + TotalInterest(*rate, height + 1);;
                     balancesInterest.insert({loan.first, value});
                 }
                 loanBalances = AmountsToJSON(balancesInterest);
