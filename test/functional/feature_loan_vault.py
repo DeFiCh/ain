@@ -61,6 +61,7 @@ class VaultTest (DefiTestFramework):
 
         # 4 * 0.5, fee is 1DFI in regtest
         assert_equal(self.nodes[0].getburninfo()['feeburn'], Decimal('2'))
+        vaultId3 = self.nodes[0].createvault(ownerAddress2, 'LOAN0001')
 
         # check listvaults
         listVaults = self.nodes[0].listvaults()
@@ -202,7 +203,6 @@ class VaultTest (DefiTestFramework):
             "isDAT": True,
             "collateralAddress": self.nodes[1].get_genesis_keys().ownerAuthAddress
         })
-
         self.nodes[1].generate(1)
         self.sync_blocks()
 
@@ -210,7 +210,6 @@ class VaultTest (DefiTestFramework):
         symbolBTC = "BTC"
 
         self.nodes[1].minttokens("10@" + symbolBTC)
-
         self.nodes[1].generate(1)
         self.sync_blocks()
 
@@ -394,7 +393,38 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault2['collateralAmounts'], ['2.50000000@DFI'])
         assert_equal(self.nodes[0].getaccount(ownerAddress2), [])
 
-        self.nodes[0].closevault(vaultId2, ownerAddress2)
+        self.nodes[0].takeloan({
+                    'vaultId': vaultId2,
+                    'amounts': "0.355@TSLA"})
+        self.nodes[0].generate(1)
+        vault2 = self.nodes[0].getvault(vaultId2)
+        self.nodes[0].createloanscheme(200, 2.5, 'LOAN0005')
+        self.nodes[0].generate(1)
+        vault2 = self.nodes[0].getvault(vaultId2)
+
+        params = {'loanSchemeId': 'LOAN0005'}
+
+        try:
+            self.nodes[0].updatevault(vaultId2, params)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Vault does not have enough collateralization ratio defined by loan scheme - 176 < 200" in errorString)
+        self.nodes[0].generate(1)
+
+
+        try:
+            self.nodes[0].closevault(vaultId2, ownerAddress2)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Vault <"+vaultId2+"> has loans" in errorString)
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[0].deposittovault(vaultId3, accountDFI, '2.5@DFI')
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[0].closevault(vaultId3, ownerAddress2)
         self.nodes[0].generate(1)
         self.sync_blocks()
 
