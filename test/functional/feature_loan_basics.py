@@ -320,7 +320,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(vaultInfo['loanAmounts'].sort(), ['0.50000456@' + symbolTSLA, '1.00001064@' + symbolGOOGL].sort())
-        assert_equal(vaultInfo['interestValue'], Decimal('0.00019000'))
+        assert_equal(vaultInfo['interestValue'], Decimal('0.00015200'))
         assert_equal(vaultInfo['interestAmounts'].sort(), ['0.00001330@GOOGL','0.00000570@TSLA'].sort())
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1.00000000'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2.00000000'))

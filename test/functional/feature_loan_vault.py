@@ -362,8 +362,8 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault1['loanAmounts'], ['0.50000047@TSLA'])
         assert_equal(vault1['collateralValue'], Decimal('2.00000000'))
         assert_equal(vault1['loanValue'],Decimal('0.50000047'))
-        assert_equal(vault1['interestValue'],Decimal('0.00000094'))
-        assert_equal(vault1['interestAmounts'],['0.00000094@TSLA'])
+        assert_equal(vault1['interestValue'],Decimal('0.00000047'))
+        assert_equal(vault1['interestAmounts'],['0.00000047@TSLA'])
 
         params = {'loanSchemeId':'LOAN000A'}
         self.nodes[0].updatevault(vaultId1, params)

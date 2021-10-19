@@ -72,13 +72,14 @@ namespace {
                     auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
                     if (!rate)
                         continue;
-                    auto value = loan.second + TotalInterest(*rate, height + 1);
+                    auto totalInterest = TotalInterest(*rate, height + 1);
+                    auto value = loan.second + totalInterest;
                     if(auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)){
                         auto price = priceFeed.val->priceRecord[0];
-                        totalInterests += MultiplyAmounts(price, value);
+                        totalInterests += MultiplyAmounts(price, totalInterest);
                     }
-                    totalBalances.insert({loan.first, (value+loan.second)});
-                    interestBalances.insert({loan.first, value});
+                    totalBalances.insert({loan.first, value});
+                    interestBalances.insert({loan.first, totalInterest});
                 }
                 interestValue = ValueFromAmount(totalInterests);
                 loanBalances = AmountsToJSON(totalBalances);
