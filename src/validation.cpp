@@ -3141,7 +3141,7 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
     if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
         return;
     }
-    auto blockInterval = Params().GetConsensus().blocksFixedIntervalPrice();
+    auto blockInterval = cache.GetIntervalBlock();
     if (pindex->nHeight % blockInterval != 0) { 
         return;
     }
