@@ -286,6 +286,7 @@ public:
     void ForEachDelayedLoanScheme(std::function<bool (const std::pair<std::string, uint64_t>&, const CLoanSchemeMessage&)> callback);
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
+    Res DeleteInterest(const CVaultId& vaultId);
     boost::optional<CInterestRate> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id);
     Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased);
     Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
