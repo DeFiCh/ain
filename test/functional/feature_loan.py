@@ -119,7 +119,7 @@ class LoanTest (DefiTestFramework):
             'TSLA'
         )
         totalLoanAmount = (1000+interests[0]['totalInterest']) # Initial loan taken
-        assert_equal(Decimal(vault1['loanAmount'][0].split("@")[0]), totalLoanAmount)
+        assert_equal(Decimal(vault1['loanAmounts'][0].split("@")[0]), totalLoanAmount)
 
         # Trigger liquidation updating price in oracle
         oracle1_prices = [{"currency": "USD", "tokenAmount": "20@TSLA"}]
