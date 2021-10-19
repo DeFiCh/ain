@@ -229,7 +229,7 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
         return Res::Err("Cannot store height in the past");
     }
     if (rate.height) {
-        rate.interestToHeight += TotalInterest(rate, height);
+        rate.interestToHeight = TotalInterest(rate, height);
     }
     rate.height = height;
     rate.interestPerBlock += InterestPerBlock(loanIncreased, token->interest, scheme->rate);
@@ -258,7 +258,7 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     if (rate.height == 0) {
         return Res::Err("Data mismatch height == 0");
     }
-    rate.interestToHeight = std::max(CAmount{0}, rate.interestToHeight - TotalInterest(rate, height));
+    rate.interestToHeight = std::max(CAmount{0}, TotalInterest(rate, height) - interestDecreased);
     rate.height = height;
     rate.interestPerBlock = std::max(CAmount{0}, rate.interestPerBlock - InterestPerBlock(loanDecreased, token->interest, scheme->rate));
 
