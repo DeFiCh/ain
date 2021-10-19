@@ -206,7 +206,6 @@ struct CInterestRate
 {
     uint32_t height;
     CAmount interestPerBlock;
-    CAmount interestLoan;
     CAmount interestToHeight;
 
     ADD_SERIALIZE_METHODS;
@@ -215,7 +214,6 @@ struct CInterestRate
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(height);
         READWRITE(interestPerBlock);
-        READWRITE(interestLoan);
         READWRITE(interestToHeight);
     }
 };
