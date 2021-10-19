@@ -89,7 +89,7 @@ class LoanTest (DefiTestFramework):
 
         # Create vault
         vaultId1 = self.nodes[0].createvault(account, '') # default loan scheme
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(5)
 
         # deposit DFI and BTC to vault1
         self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
@@ -119,7 +119,7 @@ class LoanTest (DefiTestFramework):
             'TSLA'
         )
         totalLoanAmount = (1000+interests[0]['totalInterest']) # Initial loan taken
-        assert_equal(Decimal(vault1['loanAmount'][0].split("@")[0]), totalLoanAmount)
+        assert_equal(Decimal(vault1['loanAmounts'][0].split("@")[0]), totalLoanAmount)
 
         # Trigger liquidation updating price in oracle
         oracle1_prices = [{"currency": "USD", "tokenAmount": "20@TSLA"}]
@@ -175,7 +175,7 @@ class LoanTest (DefiTestFramework):
         assert_equal(account2Bal, ['444.50000000@TSLA'])
 
         # let auction end and check account balances
-        self.nodes[0].generate(6)
+        self.nodes[0].generate(8)
         account2Bal = self.nodes[0].getaccount(account2)
         accountBal = self.nodes[0].getaccount(account)
         vault1 = self.nodes[0].getvault(vaultId1)

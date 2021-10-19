@@ -247,18 +247,18 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2'))
 
         interest = self.nodes[0].getinterest('LOAN150', symbolTSLA)[0]
-        assert_equal(interest['totalInterest'], Decimal('0.00000228'))
+        assert_equal(interest['totalInterest'], Decimal('0.00000114'))
         assert_equal(interest['interestPerBlock'], Decimal('0.00000114'))
 
         interest = self.nodes[0].getinterest('LOAN150', symbolGOOGL)[0]
 
-        assert_equal(interest['totalInterest'], Decimal('0.00000532'))
+        assert_equal(interest['totalInterest'], Decimal('0.00000266'))
         assert_equal(interest['interestPerBlock'], Decimal('0.00000266'))
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('30.00007600'))
+        assert_equal(loans['loanValueUSD'], Decimal('30.00003800'))
 
         vaultId1 = self.nodes[1].createvault( account1, 'LOAN150')
 
@@ -267,18 +267,18 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         interest = self.nodes[0].getinterest('LOAN150', symbolTSLA)[0]
 
-        assert_equal(interest['totalInterest'], Decimal('0.00000456'))
+        assert_equal(interest['totalInterest'], Decimal('0.00000342'))
         assert_equal(interest['interestPerBlock'], Decimal('0.00000114'))
 
         interest = self.nodes[0].getinterest('LOAN150', symbolGOOGL)[0]
 
-        assert_equal(interest['totalInterest'], Decimal('0.00001064'))
+        assert_equal(interest['totalInterest'], Decimal('0.00000798'))
         assert_equal(interest['interestPerBlock'], Decimal('0.00000266'))
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('30.00015200'))
+        assert_equal(loans['loanValueUSD'], Decimal('30.00011400'))
 
         try:
             self.nodes[0].loanpayback({
@@ -314,12 +314,14 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         for interest in self.nodes[0].getinterest('LOAN150'):
             if interest['token'] == symbolTSLA:
-                assert_equal(interest['totalInterest'], Decimal('0.00000570'))
+                assert_equal(interest['totalInterest'], Decimal('0.00000456'))
             elif interest['token'] == symbolGOOGL:
-                assert_equal(interest['totalInterest'], Decimal('0.00001330'))
+                assert_equal(interest['totalInterest'], Decimal('0.00001064'))
 
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(vaultInfo['loanAmount'].sort(), ['0.50000456@' + symbolTSLA, '1.00001064@' + symbolGOOGL].sort())
+        assert_equal(vaultInfo['loanAmounts'].sort(), ['0.50000456@' + symbolTSLA, '1.00001064@' + symbolGOOGL].sort())
+        assert_equal(vaultInfo['interestValue'], Decimal('0.00015200'))
+        assert_equal(vaultInfo['interestAmounts'].sort(), ['0.00001330@GOOGL','0.00000570@TSLA'].sort())
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1.00000000'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2.00000000'))
 
@@ -337,19 +339,19 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         for interest in self.nodes[0].getinterest('LOAN150'):
             if interest['token'] == symbolTSLA:
-                assert_equal(interest['totalInterest'], Decimal('0.00000114'))
+                assert_equal(interest['totalInterest'], Decimal('0.00000057'))
             elif interest['token'] == symbolGOOGL:
-                assert_equal(interest['totalInterest'], Decimal('0.00000266'))
+                assert_equal(interest['totalInterest'], Decimal('0.00000133'))
 
         # loan payback burn
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00233496'))
-        assert_equal(vaultInfo['loanAmount'].sort(), ['0.5@' + symbolTSLA, '1@' + symbolGOOGL].sort())
+        assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00186824'))
+        assert_equal(vaultInfo['loanAmounts'].sort(), ['0.5@' + symbolTSLA, '1@' + symbolGOOGL].sort())
 
         loans = self.nodes[0].getloaninfo()
 
         assert_equal(loans['collateralValueUSD'], Decimal('3000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('15.00007600'))
+        assert_equal(loans['loanValueUSD'], Decimal('15.00001900'))
 
         try:
             self.nodes[0].withdrawfromvault(vaultId, account0, "200@" + symbolDFI)
@@ -364,33 +366,33 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
 
         self.nodes[0].withdrawfromvault(vaultId, account0, "100@" + symbolDFI)
-        self.nodes[0].generate(1)
+        # self.nodes[0].generate(1)
 
         #to be able to repay whole loan
-        self.nodes[0].minttokens(["0.00001311@" + symbolTSLA, "0.00003058@" + symbolGOOGL])
+        self.nodes[0].minttokens(["0.00001083@" + symbolTSLA, "0.00002659@" + symbolGOOGL])
 
         self.nodes[0].generate(10)
         self.sync_blocks()
 
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(vaultInfo['loanAmount'].sort(), ['0.50000570@' + symbolTSLA, '1.00001330@' + symbolGOOGL].sort())
+        assert_equal(vaultInfo['loanAmounts'].sort(), ['0.50000570@' + symbolTSLA, '1.00001330@' + symbolGOOGL].sort())
 
         self.nodes[0].loanpayback({
                     'vaultId': vaultId,
                     'from': account0,
-                    'amounts': vaultInfo['loanAmount']})
+                    'amounts': vaultInfo['loanAmounts']})
 
         loans = self.nodes[0].getloaninfo()
         assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('15.00028500'))
+        assert_equal(loans['loanValueUSD'], Decimal('15.00020900'))
 
         self.nodes[0].generate(1)
         self.sync_blocks()
 
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(vaultInfo['loanAmount'].sort(), ['0.00000000@' + symbolTSLA, '0.00000000@' + symbolGOOGL].sort())
+        assert_equal(vaultInfo['loanAmounts'].sort(), ['0.00000000@' + symbolTSLA, '0.00000000@' + symbolGOOGL].sort())
         assert_equal(self.nodes[0].listaccounthistory(account0)[0]['amounts'].sort(), ['-1.00000000@GOOGL', '-0.50000000@TSLA'].sort())
-        assert_greater_than_or_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00536995'))
+        assert_greater_than_or_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00443691'))
 
         for interest in self.nodes[0].getinterest('LOAN150'):
             if interest['token'] == symbolTSLA:

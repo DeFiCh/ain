@@ -4,6 +4,8 @@
 
 #include <masternodes/mn_rpc.h>
 
+extern CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value);
+extern CTokenCurrencyPair DecodePriceFeedString(const std::string& value);
 /// names of oracle json fields
 namespace oraclefields {
     constexpr auto Alive = "live";
@@ -535,6 +537,14 @@ bool diffInHour(int64_t time1, int64_t time2) {
     return std::abs(time1 - time2) < SECONDS_PER_HOUR;
 }
 
+std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight){
+    auto FCHeight = Params().GetConsensus().FortCanningHeight;
+    auto fixedBlocks = Params().GetConsensus().blocksFixedIntervalPrice();
+    auto nextPriceBlock = currentHeight + (fixedBlocks - ((currentHeight - FCHeight) % fixedBlocks));
+    auto activePriceBlock = nextPriceBlock - fixedBlocks;
+    return {activePriceBlock, nextPriceBlock};
+}
+
 namespace {
     UniValue PriceFeedToJSON(const CTokenCurrencyPair& priceFeed) {
         UniValue pair(UniValue::VOBJ);
@@ -1043,19 +1053,147 @@ UniValue listprices(const JSONRPCRequest& request) {
     return GetAllAggregatePrices(view, lastBlockTime, paginationObj);
 }
 
+UniValue getfixedintervalprice(const JSONRPCRequest& request) {
+    RPCHelpMan{"getfixedintervalprice",
+                "Get fixed interval price for a given pair.\n",
+                {
+                    {"fixedIntervalPriceId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "token/currency pair to use for price of token"},
+                },
+                RPCResult{
+                       "\"json\"          (string) json-object having following fields:\n"
+                       "                  `activePrice` - current price used for loan calculations\n"
+                       "                  `nextPrice` - next price to be assigned to pair.\n"
+                       "                  `nextPriceBlock` - height of nextPrice.\n"
+                       "                  `activePriceBlock` - height of activePrice.\n"
+                       "                  `timestamp` - timestamp of active price.\n"
+                       "                  `isValid` - true if price is valid"
+                       "                   Possible reasons for a price result to be invalid:"
+                       "                   1. If there are no live oracles which meet specified request.\n"
+                       "                   2. Deviation is over 30%% so price is considered unstable and invalid.\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("getfixedintervalprice", R"('{"fixedIntervalPriceId":"TSLA/USD"}')")
+                },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VSTR}, false);
+    if (request.params[0].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Invalid parameter, argument fixedIntervalPriceId must be non-null");
+
+    auto fixedIntervalStr = request.params[0].getValStr();
+    UniValue objPrice{UniValue::VOBJ};
+    objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
+    auto pairId = DecodePriceFeedUni(objPrice);
+
+    LOCK(cs_main);
+    auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
+    if(!fixedPrice)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
+
+    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height());
+
+    objPrice.pushKV("activePrice", ValueFromAmount(fixedPrice.val->priceRecord[0]));
+    objPrice.pushKV("nextPrice", ValueFromAmount(fixedPrice.val->priceRecord[1]));
+    objPrice.pushKV("activePriceBlock", (int)priceBlocks.first);
+    objPrice.pushKV("nextPriceBlock", (int)priceBlocks.second);
+    objPrice.pushKV("timestamp", fixedPrice.val->timestamp);
+    objPrice.pushKV("isValid", fixedPrice.val->isValid());
+    return objPrice;
+}
+
+UniValue listfixedintervalprices(const JSONRPCRequest& request) {
+    RPCHelpMan{"listfixedintervalprices",
+                "Get all fixed interval prices.\n",
+                {
+                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {"start", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                              "Optional first key to iterate from, in lexicographical order."
+                              "Typically it's set to last ID from previous request."},
+                            {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                              "Maximum number of fixed interval prices to return, 100 by default"},
+                        },
+                    },
+                },
+                RPCResult{
+                       "                  `nextPriceBlock` - height of nextPrice.\n"
+                       "                  `activePriceBlock` - height of activePrice.\n\n"
+                       "\"json\"          (string) array containing json-objects having following fields:\n"
+                       "                  `activePrice` - current price used for loan calculations\n"
+                       "                  `nextPrice` - next price to be assigned to pair.\n"
+                       "                  `timestamp` - timestamp of active price.\n"
+                       "                  `isValid` - true if price is valid"
+                       "                   Possible reasons for a price result to be invalid:"
+                       "                   1. If there are no live oracles which meet specified request.\n"
+                       "                   2. Deviation is over 30%% so price is considered unstable and invalid.\n"
+                },
+                RPCExamples{
+                        HelpExampleCli("listfixedintervalprices", R"('{""}')")
+                },
+    }.Check(request);
+
+    size_t limit = 100;
+    CTokenCurrencyPair start{};
+    {
+        if (request.params.size() > 0) {
+            UniValue paginationObj = request.params[0].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                auto priceFeedId = paginationObj["start"].getValStr();
+                start = DecodePriceFeedString(priceFeedId);
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
+
+    LOCK(cs_main);
+
+    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height());
+
+    UniValue listPrice{UniValue::VARR};
+    UniValue blocksObj{UniValue::VOBJ};
+    blocksObj.pushKV("activePriceBlock", (int)priceBlocks.first);
+    blocksObj.pushKV("nextPriceBlock", (int)priceBlocks.second);
+    listPrice.push_back(blocksObj);
+
+    pcustomcsview->ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
+        UniValue obj{UniValue::VOBJ};
+        obj.pushKV("priceFeedId", (fixedIntervalPrice.priceFeedId.first + "/" + fixedIntervalPrice.priceFeedId.second));
+        obj.pushKV("activePrice", ValueFromAmount(fixedIntervalPrice.priceRecord[0]));
+        obj.pushKV("nextPrice", ValueFromAmount(fixedIntervalPrice.priceRecord[1]));
+        obj.pushKV("timestamp", fixedIntervalPrice.timestamp);
+        obj.pushKV("isValid", fixedIntervalPrice.isValid());
+        listPrice.push_back(obj);
+        limit--;
+        return limit != 0;
+    }, start);
+    return listPrice;
+}
+
+
+
+
+
 static const CRPCCommand commands[] =
 {
-//  category        name                     actor (function)        params
-//  -------------   ---------------------    --------------------    ----------
-    {"oracles",     "appointoracle",         &appointoracle,          {"address", "pricefeeds", "weightage", "inputs"}},
-    {"oracles",     "removeoracle",          &removeoracle,           {"oracleid", "inputs"}},
-    {"oracles",     "updateoracle",          &updateoracle,           {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
-    {"oracles",     "setoracledata",         &setoracledata,          {"oracleid", "timestamp", "prices", "inputs"}},
-    {"oracles",     "getoracledata",         &getoracledata,          {"oracleid"}},
-    {"oracles",     "listoracles",           &listoracles,            {"pagination"}},
-    {"oracles",     "listlatestrawprices",   &listlatestrawprices,    {"request", "pagination"}},
-    {"oracles",     "getprice",              &getprice,               {"request"}},
-    {"oracles",     "listprices",            &listprices,             {"pagination"}},
+//  category        name                       actor (function)           params
+//  -------------   ---------------------      --------------------       ----------
+    {"oracles",     "appointoracle",           &appointoracle,            {"address", "pricefeeds", "weightage", "inputs"}},
+    {"oracles",     "removeoracle",            &removeoracle,             {"oracleid", "inputs"}},
+    {"oracles",     "updateoracle",            &updateoracle,             {"oracleid", "address", "pricefeeds", "weightage", "inputs"}},
+    {"oracles",     "setoracledata",           &setoracledata,            {"oracleid", "timestamp", "prices", "inputs"}},
+    {"oracles",     "getoracledata",           &getoracledata,            {"oracleid"}},
+    {"oracles",     "listoracles",             &listoracles,              {"pagination"}},
+    {"oracles",     "listlatestrawprices",     &listlatestrawprices,      {"request", "pagination"}},
+    {"oracles",     "getprice",                &getprice,                 {"request"}},
+    {"oracles",     "listprices",              &listprices,               {"pagination"}},
+    {"oracles",     "getfixedintervalprice",   &getfixedintervalprice,    {"fixedIntervalPriceId"}},
+    {"oracles",     "listfixedintervalprices", &listfixedintervalprices,  {"pagination"}},
 };
 
 void RegisterOraclesRPCCommands(CRPCTable& tableRPC) {

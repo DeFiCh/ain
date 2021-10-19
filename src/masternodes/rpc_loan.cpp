@@ -33,25 +33,28 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
 
     return (loanTokenObj);
 }
+CTokenCurrencyPair DecodePriceFeedString(const std::string& value){
+    auto delim = value.find('/');
+    if (delim == value.npos || value.find('/', delim + 1) != value.npos)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "price feed not in valid format - token/currency!");
 
-CTokenCurrencyPair DecodePriceFeed(const UniValue& value)
+    auto token = trim_ws(value.substr(0, std::min(delim, size_t(CToken::MAX_TOKEN_SYMBOL_LENGTH))));
+    auto currency = trim_ws(value.substr(delim + 1, CToken::MAX_TOKEN_SYMBOL_LENGTH));
+
+    if (token.empty() || currency.empty())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "token/currency contains empty string");
+
+    return std::make_pair(token, currency);
+}
+
+CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value)
 {
     auto tokenCurrency = value["fixedIntervalPriceId"].getValStr();
 
     if (tokenCurrency.empty())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"fixedIntervalPriceId\" must be non-null");
 
-    auto delim = tokenCurrency.find('/');
-    if (delim == tokenCurrency.npos || tokenCurrency.find('/', delim + 1) != tokenCurrency.npos)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "price feed not in valid format - token/currency!");
-
-    auto token = trim_ws(tokenCurrency.substr(0, std::min(delim, size_t(CToken::MAX_TOKEN_SYMBOL_LENGTH))));
-    auto currency = trim_ws(tokenCurrency.substr(delim + 1, CToken::MAX_TOKEN_SYMBOL_LENGTH));
-
-    if (token.empty() || currency.empty())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "token/currency contains empty string");
-
-    return std::make_pair(token, currency);
+    return DecodePriceFeedString(tokenCurrency);
 }
 
 UniValue setcollateraltoken(const JSONRPCRequest& request) {
@@ -117,7 +120,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"factor\" must not be null");
 
-    collToken.fixedIntervalPriceId = DecodePriceFeed(metaObj);
+    collToken.fixedIntervalPriceId = DecodePriceFeedUni(metaObj);
 
     if (!metaObj["activateAfterBlock"].isNull())
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
@@ -344,7 +347,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     if (!metaObj["name"].isNull())
         loanToken.name = trim_ws(metaObj["name"].getValStr());
 
-    loanToken.fixedIntervalPriceId = DecodePriceFeed(metaObj);
+    loanToken.fixedIntervalPriceId = DecodePriceFeedUni(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken.mintable = metaObj["mintable"].getBool();
@@ -478,7 +481,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
         loanToken->name = trim_ws(metaObj["name"].getValStr());
 
     if (!metaObj["fixedIntervalPriceId"].isNull())
-        loanToken->fixedIntervalPriceId = DecodePriceFeed(metaObj);
+        loanToken->fixedIntervalPriceId = DecodePriceFeedUni(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken->mintable = metaObj["mintable"].getBool();
@@ -1250,7 +1253,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto lastBlockTime = ::ChainActive()[::ChainActive().Height()]->GetBlockTime();
 
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-        auto rate = pcustomcsview->GetCollatalsLoans(vaultId, collaterals, height, lastBlockTime);
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime);
 
         if (rate)
         {
@@ -1301,32 +1304,39 @@ UniValue getinterest(const JSONRPCRequest& request) {
     if (!tokenStr.empty() && !pcustomcsview->GetTokenGuessId(tokenStr, id))
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
 
-    const auto mask = id.v;
-    if (id.v == ~0u)
-        id.v = 0;
-
     UniValue ret(UniValue::VARR);
     uint32_t height = ::ChainActive().Height() + 1;
 
-    pcustomcsview->ForEachSchemeInterest([&](const std::string& schemeId, DCT_ID tokenId, CInterestRate rate) {
-        if (schemeId != loanSchemeId)
-            return false;
+    std::map<DCT_ID, std::pair<CAmount, CAmount> > interest;
 
-        if ((tokenId.v & mask) != tokenId.v)
-            return false;
+    pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate)
+    {
+        auto vault = pcustomcsview->GetVault(vaultId);
+        if (!vault || vault->schemeId != loanSchemeId)
+            return true;
+        if ((id != DCT_ID{~0U}) && tokenId != id)
+            return true;
 
         auto token = pcustomcsview->GetToken(tokenId);
         if (!token)
             return true;
 
-        UniValue obj(UniValue::VOBJ);
-        obj.pushKV("token", token->CreateSymbolKey(tokenId));
-        obj.pushKV("totalInterest", ValueFromAmount(TotalInterest(rate, height)));
-        obj.pushKV("interestPerBlock", ValueFromAmount(InterestPerBlock(rate)));
-        ret.push_back(obj);
+        interest[tokenId].first += TotalInterest(rate, height);
+        interest[tokenId].second += rate.interestPerBlock;
 
         return true;
-    }, loanSchemeId, id);
+    });
+
+    UniValue obj(UniValue::VOBJ);
+    for (std::map<DCT_ID, std::pair<CAmount, CAmount> >::iterator it=interest.begin(); it!=interest.end(); ++it)
+    {
+        auto token = pcustomcsview->GetToken(it->first);
+        obj.pushKV("token", token->CreateSymbolKey(it->first));
+        obj.pushKV("totalInterest", ValueFromAmount(it->second.first));
+        obj.pushKV("interestPerBlock", ValueFromAmount(it->second.second));
+
+        ret.push_back(obj);
+    }
 
     return ret;
 }

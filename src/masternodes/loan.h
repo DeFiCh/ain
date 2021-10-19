@@ -205,8 +205,7 @@ struct CDestroyLoanSchemeMessage : public CDefaultLoanSchemeMessage
 struct CInterestRate
 {
     uint32_t height;
-    CAmount interestNet;
-    CAmount interestLoan;
+    CAmount interestPerBlock;
     CAmount interestToHeight;
 
     ADD_SERIALIZE_METHODS;
@@ -214,15 +213,13 @@ struct CInterestRate
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(height);
-        READWRITE(interestNet);
-        READWRITE(interestLoan);
+        READWRITE(interestPerBlock);
         READWRITE(interestToHeight);
     }
 };
 
 CAmount InterestPerBlock(const CInterestRate& rate);
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height);
-CAmount InterestPerAmount(CAmount amount, const CInterestRate& rate, uint32_t height);
 
 class CLoanTakeLoanMessage
 {
@@ -289,11 +286,10 @@ public:
     void ForEachDelayedLoanScheme(std::function<bool (const std::pair<std::string, uint64_t>&, const CLoanSchemeMessage&)> callback);
     void ForEachDelayedDestroyScheme(std::function<bool (const std::string&, const uint64_t&)> callback);
 
-    boost::optional<CInterestRate> GetInterestRate(const std::string& loanSchemeID, DCT_ID id);
+    boost::optional<CInterestRate> GetInterestRate(const CVaultId& loanSchemeID, DCT_ID id);
     Res StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased);
     Res EraseInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanDecreased, CAmount interestDecreased);
-    void ForEachInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID = {}, DCT_ID id = {0});
-    void ForEachSchemeInterest(std::function<bool(const std::string&, DCT_ID, CInterestRate)> callback, const std::string& loanSchemeID = {}, DCT_ID id = {0});
+    void ForEachVaultInterest(std::function<bool(const CVaultId&, DCT_ID, CInterestRate)> callback, const CVaultId& vaultId = uint256(), DCT_ID id = {0});
 
     Res AddLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
@@ -314,7 +310,7 @@ public:
     struct DefaultLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x15; } };
     struct DelayedLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x16; } };
     struct DestroyLoanSchemeKey             { static constexpr uint8_t prefix() { return 0x17; } };
-    struct LoanInterestByScheme             { static constexpr uint8_t prefix() { return 0x18; } };
+    struct LoanInterestByVault              { static constexpr uint8_t prefix() { return 0x18; } };
     struct LoanTokenAmount                  { static constexpr uint8_t prefix() { return 0x19; } };
     struct LoanLiquidationPenalty           { static constexpr uint8_t prefix() { return 0x1A; } };
     struct LoanDailyReward                  { static constexpr uint8_t prefix() { return 0x1B; } };
