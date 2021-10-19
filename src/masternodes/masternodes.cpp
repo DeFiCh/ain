@@ -813,7 +813,7 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     return UpdateBalancesHeight(owner, targetHeight);
 }
 
-ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool nextPrice)
+ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool nextPrice)
 {
     auto vault = GetVault(vaultId);
     if (!vault || vault->isUnderLiquidation) {
@@ -827,7 +827,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vault
             auto token = GetLoanSetLoanTokenByID(loan.first);
             if (!token)
                 return Res::Err("Loan token with id (%s) does not exist!", loan.first.ToString());
-            auto rate = GetInterestRate(vault->schemeId, loan.first);
+            auto rate = GetInterestRate(vaultId, loan.first);
             if (!rate)
                 return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
             if (rate->height > height)
@@ -837,7 +837,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetCollatalsLoans(CVaultId const & vault
                 return std::move(priceFeed);
             if (!priceFeed.val->isValid())
                 return Res::Err("Price feed %s/%s is invalid", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
-            auto value = loan.second + InterestPerAmount(loan.second, *rate, height);
+            auto value = loan.second + TotalInterest(*rate, height);
             auto price = priceFeed.val->priceRecord[int(nextPrice)];
             auto amount = MultiplyAmounts(price, value);
             if (price > COIN && amount < value)
