@@ -1053,8 +1053,6 @@ UniValue listprices(const JSONRPCRequest& request) {
 }
 
 UniValue getfixedintervalprice(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"getfixedintervalprice",
                 "Get fixed interval price for a given pair.\n",
                 {
@@ -1071,14 +1069,9 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                         HelpExampleCli("getfixedintervalprice", R"('{"fixedIntervalPriceId":"TSLA/USD"}')")
-                        },
-     }.Check(request);
+                },
+    }.Check(request);
 
-    if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot getfixedintervalprice while still in Initial Block Download");
-
-    pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
     if (request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -1089,16 +1082,12 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
     auto pairId = DecodePriceFeed(objPrice);
 
+    LOCK(cs_main);
     auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
     if(!fixedPrice)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
-
-    auto optHeight = locked_chain->getHeight();
-    int lastHeight = optHeight ? *optHeight : 0;
-    auto priceBlocks = GetFixedIntervalPriceBlocks(lastHeight);
+    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height());
 
     objPrice.pushKV("activePrice", ValueFromAmount(fixedPrice.val->priceRecord[0]));
     objPrice.pushKV("nextPrice", ValueFromAmount(fixedPrice.val->priceRecord[1]));
