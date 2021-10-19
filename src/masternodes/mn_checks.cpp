@@ -2259,7 +2259,7 @@ public:
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
 
-                    auto scheme = mnview.GetLoanScheme(vault->schemeId);
+                    auto scheme = mnview.GetLoanScheme(obj.schemeId);
                     if (collateralsLoans.val->ratio() < scheme->ratio)
                         return Res::Err("Vault does not have enough collateralization ratio defined by loan scheme - %d < %d", collateralsLoans.val->ratio(), scheme->ratio);
                 }
