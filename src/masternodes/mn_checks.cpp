@@ -2886,7 +2886,9 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
         res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
 
         // Track burn fee
-        if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
+        if (txType == CustomTxType::CreateToken
+        || txType == CustomTxType::CreateMasternode
+        || txType == CustomTxType::Vault) {
             view.SubFeeBurn(tx.vout[0].scriptPubKey);
         }
     }
