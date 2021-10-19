@@ -33,25 +33,28 @@ UniValue setLoanTokenToJSON(CLoanSetLoanTokenImplementation const& loanToken, DC
 
     return (loanTokenObj);
 }
+CTokenCurrencyPair DecodePriceFeedString(const std::string& value){
+    auto delim = value.find('/');
+    if (delim == value.npos || value.find('/', delim + 1) != value.npos)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "price feed not in valid format - token/currency!");
 
-CTokenCurrencyPair DecodePriceFeed(const UniValue& value)
+    auto token = trim_ws(value.substr(0, std::min(delim, size_t(CToken::MAX_TOKEN_SYMBOL_LENGTH))));
+    auto currency = trim_ws(value.substr(delim + 1, CToken::MAX_TOKEN_SYMBOL_LENGTH));
+
+    if (token.empty() || currency.empty())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "token/currency contains empty string");
+
+    return std::make_pair(token, currency);
+}
+
+CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value)
 {
     auto tokenCurrency = value["fixedIntervalPriceId"].getValStr();
 
     if (tokenCurrency.empty())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"fixedIntervalPriceId\" must be non-null");
 
-    auto delim = tokenCurrency.find('/');
-    if (delim == tokenCurrency.npos || tokenCurrency.find('/', delim + 1) != tokenCurrency.npos)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "price feed not in valid format - token/currency!");
-
-    auto token = trim_ws(tokenCurrency.substr(0, std::min(delim, size_t(CToken::MAX_TOKEN_SYMBOL_LENGTH))));
-    auto currency = trim_ws(tokenCurrency.substr(delim + 1, CToken::MAX_TOKEN_SYMBOL_LENGTH));
-
-    if (token.empty() || currency.empty())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "token/currency contains empty string");
-
-    return std::make_pair(token, currency);
+    return DecodePriceFeedString(tokenCurrency);
 }
 
 UniValue setcollateraltoken(const JSONRPCRequest& request) {
@@ -117,7 +120,7 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
     else
         throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, argument \"factor\" must not be null");
 
-    collToken.fixedIntervalPriceId = DecodePriceFeed(metaObj);
+    collToken.fixedIntervalPriceId = DecodePriceFeedUni(metaObj);
 
     if (!metaObj["activateAfterBlock"].isNull())
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
@@ -344,7 +347,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
     if (!metaObj["name"].isNull())
         loanToken.name = trim_ws(metaObj["name"].getValStr());
 
-    loanToken.fixedIntervalPriceId = DecodePriceFeed(metaObj);
+    loanToken.fixedIntervalPriceId = DecodePriceFeedUni(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken.mintable = metaObj["mintable"].getBool();
@@ -478,7 +481,7 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
         loanToken->name = trim_ws(metaObj["name"].getValStr());
 
     if (!metaObj["fixedIntervalPriceId"].isNull())
-        loanToken->fixedIntervalPriceId = DecodePriceFeed(metaObj);
+        loanToken->fixedIntervalPriceId = DecodePriceFeedUni(metaObj);
 
     if (!metaObj["mintable"].isNull())
         loanToken->mintable = metaObj["mintable"].getBool();

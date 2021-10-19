@@ -57,7 +57,7 @@ class LoanTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"}, {"currency": "USD", "tokenAmount": "10@DFI"}, {"currency": "USD", "tokenAmount": "10@BTC"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(7)
+        self.nodes[0].generate(6)
 
         # set DFI an BTC as collateral tokens
         self.nodes[0].setcollateraltoken({
@@ -81,7 +81,8 @@ class LoanTest (DefiTestFramework):
             vaultsId.append(self.nodes[0].createvault(account, ''))
         self.nodes[0].generate(1)
 
-        # deposit DFI to vaults
+        # deposit DFI to vaults and let price enter valid state
+        self.nodes[0].generate(2)
         for id in vaultsId:
             self.nodes[0].deposittovault(id, account, '100@DFI')
         self.nodes[0].generate(1)
@@ -111,7 +112,7 @@ class LoanTest (DefiTestFramework):
         oracle1_prices = [{"currency": "USD", "tokenAmount": "1000@TSLA"}]
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
-        self.nodes[0].generate(7)
+        self.nodes[0].generate(12) # if price is invalid, auctions are blocked so listauction is empty. We need 2 cicles of price update.
 
         # Auction tests
         auctionlist = self.nodes[0].listauctions()
