@@ -26,6 +26,12 @@ namespace {
         result.pushKV("loanSchemeId", vault.schemeId);
         result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
         result.pushKV("isUnderLiquidation", vault.isUnderLiquidation);
+        auto height = ::ChainActive().Height();
+        if (!IsVaultPriceValid(*pcustomcsview, vaultId, height+1)){
+            result.pushKV("invalidPrice", true);
+            return result;
+        }
+        result.pushKV("invalidPrice", false);
 
         if (vault.isUnderLiquidation) {
             if (auto data = pcustomcsview->GetAuction(vaultId, ::ChainActive().Height()))
@@ -33,6 +39,7 @@ namespace {
         } else {
             UniValue collValue{UniValue::VSTR};
             UniValue loanValue{UniValue::VSTR};
+            UniValue interestValue{UniValue::VSTR};
 
             auto height = ::ChainActive().Height();
             auto blockTime = ::ChainActive()[height]->GetBlockTime();
@@ -48,26 +55,43 @@ namespace {
 
             UniValue collateralBalances{UniValue::VARR};
             UniValue loanBalances{UniValue::VARR};
+            UniValue interestAmounts{UniValue::VARR};
 
             if (collaterals)
                 collateralBalances = AmountsToJSON(collaterals->balances);
 
             if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)){
-                TAmounts balancesInterest{};
+                TAmounts totalBalances{};
+                TAmounts interestBalances{};
+                CAmount totalInterests{0};
+
                 for (const auto& loan : loanTokens->balances) {
+                    auto token = pcustomcsview->GetLoanSetLoanTokenByID(loan.first);
+                    if(!token)
+                        continue;
                     auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
                     if (!rate)
                         continue;
-                    auto value = loan.second + TotalInterest(*rate, height + 1);;
-                    balancesInterest.insert({loan.first, value});
+                    auto totalInterest = TotalInterest(*rate, height + 1);
+                    auto value = loan.second + totalInterest;
+                    if(auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)){
+                        auto price = priceFeed.val->priceRecord[0];
+                        totalInterests += MultiplyAmounts(price, totalInterest);
+                    }
+                    totalBalances.insert({loan.first, value});
+                    interestBalances.insert({loan.first, totalInterest});
                 }
-                loanBalances = AmountsToJSON(balancesInterest);
+                interestValue = ValueFromAmount(totalInterests);
+                loanBalances = AmountsToJSON(totalBalances);
+                interestAmounts = AmountsToJSON(interestBalances);
             }
 
             result.pushKV("collateralAmounts", collateralBalances);
-            result.pushKV("loanAmount", loanBalances);
+            result.pushKV("loanAmounts", loanBalances);
+            result.pushKV("interestAmounts", interestAmounts);
             result.pushKV("collateralValue", collValue);
             result.pushKV("loanValue", loanValue);
+            result.pushKV("interestValue", interestValue);
             result.pushKV("currentRatio", (int)ratio);
         }
         return result;

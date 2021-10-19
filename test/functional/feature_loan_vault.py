@@ -97,7 +97,7 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault1["ownerAddress"], ownerAddress1)
         assert_equal(vault1["isUnderLiquidation"], False)
         assert_equal(vault1["collateralAmounts"], [])
-        assert_equal(vault1["loanAmount"], [])
+        assert_equal(vault1["loanAmounts"], [])
         assert_equal(vault1["collateralValue"], Decimal(0))
         assert_equal(vault1["loanValue"], Decimal(0))
         assert_equal(vault1["currentRatio"], -1)
@@ -359,9 +359,11 @@ class VaultTest (DefiTestFramework):
         assert_equal(interest['interestPerBlock'], Decimal('4.7E-7'))
 
         vault1 = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault1['loanAmount'], ['0.50000047@TSLA'])
+        assert_equal(vault1['loanAmounts'], ['0.50000047@TSLA'])
         assert_equal(vault1['collateralValue'], Decimal('2.00000000'))
         assert_equal(vault1['loanValue'],Decimal('0.50000047'))
+        assert_equal(vault1['interestValue'],Decimal('0.00000047'))
+        assert_equal(vault1['interestAmounts'],['0.00000047@TSLA'])
 
         params = {'loanSchemeId':'LOAN000A'}
         self.nodes[0].updatevault(vaultId1, params)
