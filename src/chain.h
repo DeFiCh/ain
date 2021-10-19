@@ -7,6 +7,7 @@
 #define DEFI_CHAIN_H
 
 #include <arith_uint256.h>
+#include <chainparams.h>
 #include <consensus/params.h>
 #include <flatfile.h>
 #include <primitives/block.h>
@@ -327,6 +328,13 @@ public:
             *(--pbegin) = pindex->GetBlockTime();
 
         std::sort(pbegin, pend);
+
+        // Only after FC and when we have a full set of times.
+        if (height >= Params().GetConsensus().FortCanningHeight && pend - pbegin == nMedianTimeSpan) {
+            // Take the median of the top five.
+            return pbegin[8];
+        }
+
         return pbegin[(pend - pbegin)/2];
     }
 

@@ -25,10 +25,10 @@ class OraclesTest(DefiTestFramework):
         # node2: non foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=200'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=200'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=200'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=200']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=214'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=214'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=214'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=1', '-fortcanningheight=214']]
 
     @staticmethod
     def find_address_tx(node, address):
@@ -227,6 +227,9 @@ class OraclesTest(DefiTestFramework):
         assert (math.isclose(
             self.nodes[1].getprice({"currency":"USD", "token":"GOLD"}), decimal.Decimal(5)))
 
+        # Make sure that DUSD-USD always returns 1
+        assert_equal(self.nodes[1].getprice({"currency":"USD", "token":"DUSD"}), decimal.Decimal("1.00000000"))
+
         price_feeds1 = [
             {"currency": "USD", "token": "PT"},
             {"currency": "EUR", "token": "PT"},
@@ -324,6 +327,13 @@ class OraclesTest(DefiTestFramework):
                                         price_feeds=price_feeds1,
                                         token_prices=token_prices1)
 
+        # === check date in range 0 -> now+300s (5 minutes) ===
+        token_prices1 = [{"currency":"USD", "tokenAmount":"7@PT"}]
+
+        future_timestamp = (calendar.timegm(time.gmtime()))+310 # add 5 minutes +10s for slow tests case
+        assert_raises_rpc_error(-8, 'timestamp cannot be negative, zero or over 5 minutes in the future',
+                                self.nodes[2].setoracledata, oracle_id1, future_timestamp, token_prices1)
+
         # === check expired price feed ===
         token_prices1 = [
             {"currency":"USD", "tokenAmount":"11@GOLD"},
@@ -342,13 +352,6 @@ class OraclesTest(DefiTestFramework):
         assert_equal(len(pt_in_usd_raw_prices), 2)
         assert_equal(pt_in_usd_raw_prices[0]['state'], 'expired')
         assert_equal(pt_in_usd_raw_prices[1]['state'], 'expired')
-
-        # === check date in range 0 -> now+300s (5 minutes) ===
-        token_prices1 = [{"currency":"USD", "tokenAmount":"7@PT"}]
-
-        future_timestamp = (calendar.timegm(time.gmtime()))+310 # add 5 minutes +10s for slow tests case
-        assert_raises_rpc_error(-8, 'timestamp cannot be negative, zero or over 5 minutes in the future',
-                                self.nodes[2].setoracledata, oracle_id1, future_timestamp, token_prices1)
 
         # === check price not be zero
         token_prices1 = [{"currency":"USD", "tokenAmount":"1@PT"}]
@@ -378,7 +381,6 @@ class OraclesTest(DefiTestFramework):
         self.nodes[0].removeoracle(oracle_id2)
 
         self.synchronize(node=0, full=True)
-
 
 if __name__ == '__main__':
     OraclesTest().main()

@@ -1360,12 +1360,14 @@ public:
                     if (price.second <= 0) {
                         return Res::Err("Amount out of range");
                     }
+                    auto timestamp = time;
                     extern bool diffInHour(int64_t time1, int64_t time2);
                     auto tokenCurrency = CTokenCurrencyPair(token, currency);
                     if (auto fixedPriceData = mnview.GetFixedIntervalPrice(tokenCurrency)) {
-                        if (!diffInHour(obj.timestamp, fixedPriceData.val->timestamp)) {
-                            return Res::Err("Timestamp is out of fixed price update window");
-                        }
+                        timestamp = fixedPriceData.val->timestamp;
+                    }
+                    if (!diffInHour(obj.timestamp, timestamp)) {
+                        return Res::Err("Timestamp is out of price update window");
                     }
                 }
             }
@@ -2941,7 +2943,9 @@ Res RevertCustomTx(CCustomCSView& mnview, const CCoinsViewCache& coins, const CT
         res = CustomTxRevert(view, coins, tx, height, consensus, txMessage);
 
         // Track burn fee
-        if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
+        if (txType == CustomTxType::CreateToken
+        || txType == CustomTxType::CreateMasternode
+        || txType == CustomTxType::Vault) {
             view.SubFeeBurn(tx.vout[0].scriptPubKey);
         }
     }
@@ -3385,17 +3389,17 @@ Res  SwapToDFIOverUSD(CCustomCSView & mnview, DCT_ID tokenId, CAmount amount, CS
     if (!token)
         return Res::Err("Cannot find token with id %s!", tokenId.ToString());
 
-    auto dUsdToken = mnview.GetToken("dUSD");
+    auto dUsdToken = mnview.GetToken("DUSD");
     if (!dUsdToken)
-        return Res::Err("Cannot find token dUSD");
+        return Res::Err("Cannot find token DUSD");
 
     auto poolTokendUSD = mnview.GetPoolPair(tokenId,dUsdToken->first);
     if (!poolTokendUSD)
-        return Res::Err("Cannot find pool pair %s-dUSD!", token->symbol);
+        return Res::Err("Cannot find pool pair %s-DUSD!", token->symbol);
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
     if (!pooldUSDDFI)
-        return Res::Err("Cannot find pool pair dUSD-DFI!");
+        return Res::Err("Cannot find pool pair DUSD-DFI!");
 
     // swap tokenID -> USD -> DFI
     auto res = poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first});
