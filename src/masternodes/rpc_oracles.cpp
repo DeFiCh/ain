@@ -826,6 +826,10 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
 }
 
 ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token, const std::string& currency, uint64_t lastBlockTime) {
+    // DUSD-USD always returns 1.00000000
+    if (token == "DUSD" && currency == "USD") {
+        return ResVal<CAmount>(COIN, Res::Ok());
+    }
     arith_uint256 weightedSum = 0;
     uint64_t numLiveOracles = 0, sumWeights = 0;
     view.ForEachOracle([&](const COracleId&, COracle oracle) {
