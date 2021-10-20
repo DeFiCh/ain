@@ -15,14 +15,22 @@
 #include <util/system.h>
 #include <util/strencodings.h>
 
-UniValue ValueFromAmount(const CAmount& amount)
+UniValue ValueFromUint(uint64_t amount)
+{
+    auto quotient = amount / COIN;
+    auto remainder = amount % COIN;
+    return UniValue(UniValue::VNUM,
+            strprintf("%ld.%08ld", quotient, remainder));
+}
+
+UniValue ValueFromAmount(CAmount amount)
 {
     bool sign = amount < 0;
-    int64_t n_abs = (sign ? -amount : amount);
-    int64_t quotient = n_abs / COIN;
-    int64_t remainder = n_abs % COIN;
+    auto n_abs = (sign ? -amount : amount);
+    auto quotient = n_abs / COIN;
+    auto remainder = n_abs % COIN;
     return UniValue(UniValue::VNUM,
-            strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder));
+            strprintf("%s%ld.%08ld", sign ? "-" : "", quotient, remainder));
 }
 
 std::string FormatScript(const CScript& script)

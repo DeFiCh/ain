@@ -190,13 +190,23 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
-    auto myIDs = pcustomcsview->AmIOperator();
-    if (!myIDs) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
+    CKeyID passedID = getCKeyIDFromDestination(destination);
+
+    auto myAllMNs = pcustomcsview->GetOperatorsMulti();
+    if (myAllMNs.empty()) {
+      throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
+    }
+
+    CKeyID operatorID;
+    auto mnForPassedID = pcustomcsview->GetMasternodeIdByOperator(passedID);
+    // check mnForPassedID is in myAllMNs
+    if (mnForPassedID && myAllMNs.count(std::make_pair(passedID, *mnForPassedID))) {
+      operatorID = passedID;
+    } else {
+      operatorID = myAllMNs.begin()->first;
     }
 
     CScript coinbase_script = GetScriptForDestination(destination);
-
     CKey minterKey;
     {
         std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
@@ -205,7 +215,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
 
         bool found =false;
         for (auto&& wallet : wallets) {
-            if (wallet->GetKey(myIDs->first, minterKey)) {
+            if (wallet->GetKey(operatorID, minterKey)) {
                 found = true;
                 break;
             }
@@ -214,7 +224,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode operator private key not found");
 
     }
-    return generateBlocks(coinbase_script, minterKey, myIDs->first, nGenerate, nMaxTries);
+    return generateBlocks(coinbase_script, minterKey, operatorID, nGenerate, nMaxTries);
 }
 
 // Returns the mining information of all local masternodes

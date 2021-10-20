@@ -39,7 +39,13 @@ struct PoolPrice {
         READWRITE(integer);
         READWRITE(fraction);
     }
+
+    bool operator!=(const PoolPrice& rhs) const {
+        return integer != rhs.integer || fraction != rhs.fraction;
+    }
 };
+
+static constexpr auto POOLPRICE_MAX = PoolPrice{std::numeric_limits<CAmount>::max(), std::numeric_limits<CAmount>::max()};
 
 struct CPoolSwapMessage {
     CScript from, to;
@@ -61,6 +67,19 @@ struct CPoolSwapMessage {
         READWRITE(to);
         READWRITE(idTokenTo);
         READWRITE(maxPrice);
+    }
+};
+
+struct CPoolSwapMessageV2 {
+    CPoolSwapMessage swapInfo;
+    std::vector<DCT_ID> poolIDs;
+
+    ADD_SERIALIZE_METHODS
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(swapInfo);
+        READWRITE(poolIDs);
     }
 };
 
@@ -214,17 +233,17 @@ public:
     CAmount UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
 
     // tags
-    struct ByID { static const unsigned char prefix; }; // lsTokenID -> СPoolPair
-    struct ByPair { static const unsigned char prefix; }; // tokenA+tokenB -> lsTokenID
-    struct ByShare { static const unsigned char prefix; }; // lsTokenID+accountID -> {}
-    struct ByIDPair { static const unsigned char prefix; }; // lsTokenID -> tokenA+tokenB
-    struct ByPoolSwap { static const unsigned char prefix; };
-    struct ByReserves { static const unsigned char prefix; };
-    struct ByRewardPct { static const unsigned char prefix; };
-    struct ByPoolReward { static const unsigned char prefix; };
-    struct ByDailyReward { static const unsigned char prefix; };
-    struct ByCustomReward { static const unsigned char prefix; };
-    struct ByTotalLiquidity { static const unsigned char prefix; };
+    struct ByID             { static constexpr uint8_t prefix() { return 'i'; } };
+    struct ByPair           { static constexpr uint8_t prefix() { return 'j'; } };
+    struct ByShare          { static constexpr uint8_t prefix() { return 'k'; } };
+    struct ByIDPair         { static constexpr uint8_t prefix() { return 'C'; } };
+    struct ByPoolSwap       { static constexpr uint8_t prefix() { return 'P'; } };
+    struct ByReserves       { static constexpr uint8_t prefix() { return 'R'; } };
+    struct ByRewardPct      { static constexpr uint8_t prefix() { return 'Q'; } };
+    struct ByPoolReward     { static constexpr uint8_t prefix() { return 'I'; } };
+    struct ByDailyReward    { static constexpr uint8_t prefix() { return 'B'; } };
+    struct ByCustomReward   { static constexpr uint8_t prefix() { return 'A'; } };
+    struct ByTotalLiquidity { static constexpr uint8_t prefix() { return 'f'; } };
 };
 
 struct CLiquidityMessage {

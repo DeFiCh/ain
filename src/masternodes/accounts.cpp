@@ -4,10 +4,6 @@
 
 #include <masternodes/accounts.h>
 
-/// @attention make sure that it does not overlap with those in masternodes.cpp/tokens.cpp/undos.cpp/accounts.cpp !!!
-const unsigned char CAccountsView::ByBalanceKey::prefix = 'a';
-const unsigned char CAccountsView::ByHeightKey::prefix = 'b';
-
 void CAccountsView::ForEachBalance(std::function<bool(CScript const &, CTokenAmount const &)> callback, BalanceKey const & start)
 {
     ForEach<ByBalanceKey, BalanceKey, CAmount>([&callback] (BalanceKey const & key, CAmount val) {

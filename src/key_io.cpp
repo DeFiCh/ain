@@ -226,3 +226,11 @@ bool IsValidDestinationString(const std::string& str)
 {
     return IsValidDestinationString(str, Params());
 }
+
+CKeyID getCKeyIDFromDestination(const CTxDestination& dest) {
+  switch (dest.which()) {
+    case PKHashType       : return CKeyID(*boost::get<PKHash>(&dest));
+    case WitV0KeyHashType : return CKeyID(*boost::get<WitnessV0KeyHash>(&dest));
+    default               : return CKeyID();
+  }
+}

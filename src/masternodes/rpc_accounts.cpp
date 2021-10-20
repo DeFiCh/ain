@@ -230,7 +230,7 @@ static AccountSelectionMode ParseAccountSelectionParam(const std::string selecti
 }
 
 UniValue listaccounts(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"listaccounts",
                "\nReturns information about all accounts on chain.\n",
@@ -334,7 +334,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
 }
 
 UniValue getaccount(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"getaccount",
                "\nReturns information about account.\n",
@@ -424,7 +424,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
 }
 
 UniValue gettokenbalances(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"gettokenbalances",
                "\nReturns the balances of all accounts that belong to the wallet.\n",
@@ -523,7 +523,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
 }
 
 UniValue utxostoaccount(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"utxostoaccount",
                "\nCreates (and submits to local node and network) a transfer transaction from the wallet UTXOs to specfied account.\n"
@@ -562,7 +562,6 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet); // no need here, but for symmetry
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, false);
 
@@ -602,18 +601,14 @@ UniValue utxostoaccount(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, {});
 
     // check execution
-    {
-        LOCK(cs_main);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CUtxosToAccountMessage{});
-    }
+    execTestTx(CTransaction(rawTx), targetHeight);
 
     return signsend(rawTx, pwallet, {})->GetHash().GetHex();
 }
 
 
 UniValue sendutxosfrom(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"sendutxosfrom",
                "\nSend a transaction using UTXOs from the specfied address.\n" +
@@ -675,7 +670,7 @@ UniValue sendutxosfrom(const JSONRPCRequest& request) {
 }
 
 UniValue accounttoaccount(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"accounttoaccount",
                "\nCreates (and submits to local node and network) a transfer transaction from the specified account to the specfied accounts.\n"
@@ -715,7 +710,6 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, false);
 
@@ -762,19 +756,13 @@ UniValue accounttoaccount(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CAccountToAccountMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue accounttoutxos(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"accounttoutxos",
                "\nCreates (and submits to local node and network) a transfer transaction from the specified account to UTXOs.\n"
@@ -815,7 +803,6 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VOBJ, UniValue::VARR}, true);
 
@@ -831,8 +818,22 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     // dummy encode, mintingOutputsStart isn't filled
     CScript scriptMeta;
     {
-        std::vector<unsigned char> dummyMetadata(std::min((msg.balances.balances.size() * to.size()) * 40, (size_t)1024)); // heuristic to increse tx size before funding
-        scriptMeta << OP_RETURN << dummyMetadata;
+        CDataStream dummyMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+        dummyMetadata << static_cast<unsigned char>(CustomTxType::AccountToUtxos) << msg;
+
+        std::vector<unsigned char> padding(10);
+        for (const auto& recip : to) {
+            for (const auto& amount : recip.second.balances) {
+                if (amount.second != 0) {
+                    CTxOut out{amount.second, recip.first, amount.first};
+                    dummyMetadata << out << padding;
+                    LogPrint(BCLog::ESTIMATEFEE, "%s: out size %d padding %d\n", __func__, sizeof(out), sizeof(unsigned char) * padding.size());
+                }
+            }
+        }
+
+        scriptMeta << OP_RETURN << ToByteVector(dummyMetadata);
+        LogPrint(BCLog::ESTIMATEFEE, "%s: dummyMetadata size %d\n", __func__, dummyMetadata.size());
     }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
@@ -880,14 +881,8 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     }
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CAccountToUtxosMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
@@ -906,7 +901,8 @@ public:
 };
 
 UniValue listaccounthistory(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
+
     RPCHelpMan{"listaccounthistory",
                "\nReturns information about account history.\n",
                {
@@ -1040,10 +1036,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     };
 
     LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
+    CCustomCSView mnview(*pcustomcsview), view(mnview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
+    CScript lastOwner;
     auto count = limit;
     auto lastHeight = maxBlockHeight;
 
@@ -1073,7 +1070,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
         if (isMine) {
             // starts new account owned by the wallet
-            if (key.blockHeight > lastHeight) {
+            if (lastOwner != key.owner) {
                 count = limit;
             } else if (count == 0) {
                 return true;
@@ -1081,7 +1078,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         // starting new account
-        if (key.blockHeight > lastHeight) {
+        if (lastOwner != key.owner) {
+            view.Discard();
+            lastOwner = key.owner;
             lastHeight = maxBlockHeight;
         }
 
@@ -1117,7 +1116,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         // revert previous tx to restore account balances to maxBlockHeight
         auto it = paccountHistoryDB->LowerBound<CAccountsHistoryView::ByAccountHistoryKey>(startKey);
         if (it.Valid() && (it.Prev(), it.Valid())) {
-            view.OnUndoTx(it.Value().as<AccountHistoryValue>().txid, it.Key().blockHeight);
+            mnview.OnUndoTx(it.Value().as<AccountHistoryValue>().txid, it.Key().blockHeight);
         }
     }
 
@@ -1150,7 +1149,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 }
 
 UniValue listburnhistory(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
+
     RPCHelpMan{"listburnhistory",
                "\nReturns information about burn history.\n",
                {
@@ -1305,7 +1305,8 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
 }
 
 UniValue accounthistorycount(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
+
     RPCHelpMan{"accounthistorycount",
                "\nReturns count of account history.\n",
                {
@@ -1395,6 +1396,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     CCustomCSView view(*pcustomcsview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
 
+    CScript lastOwner;
     uint64_t count = 0;
     auto lastHeight = uint32_t(::ChainActive().Height());
     const auto currentHeight = lastHeight;
@@ -1427,6 +1429,12 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         }
 
         if (!noRewards) {
+            // starting new account
+            if (lastOwner != key.owner) {
+                view.Discard();
+                lastOwner = key.owner;
+                lastHeight = currentHeight;
+            }
             onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
                 [&](int32_t, DCT_ID, RewardType, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
@@ -1479,8 +1487,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
     {
         // Skip these as any unused balance will be burnt.
-        if (kv.first == CommunityAccountType::Swap ||
-            kv.first == CommunityAccountType::Futures ||
+        if (kv.first == CommunityAccountType::Loan ||
             kv.first == CommunityAccountType::Options) {
             continue;
         }
@@ -1497,7 +1504,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
 }
 
 UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"sendtokenstoaddress",
                "\nCreates (and submits to local node and network) a transfer transaction from your accounts balances (may be picked manualy or autoselected) to the specfied accounts.\n" +
@@ -1615,14 +1622,8 @@ UniValue sendtokenstoaddress(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CAnyAccountsToAccountsMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 
 }
@@ -1655,6 +1656,8 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     CAmount burntDFI{0};
     CAmount burntFee{0};
+    CAmount auctionFee{0};
+    CAmount paybackFee{0};
     CBalances burntTokens;
     auto calcBurn = [&](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
     {
@@ -1669,9 +1672,27 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         }
 
         // Fee burn
-        if (value.category == uint8_t(CustomTxType::CreateMasternode) || value.category == uint8_t(CustomTxType::CreateToken)) {
+        if (value.category == uint8_t(CustomTxType::CreateMasternode)
+        || value.category == uint8_t(CustomTxType::CreateToken)
+        || value.category == uint8_t(CustomTxType::Vault)) {
             for (auto const & diff : value.diff) {
                 burntFee += diff.second;
+            }
+            return true;
+        }
+
+        // withdraw burn
+        if (value.category == uint8_t(CustomTxType::LoanPaybackLoan)) {
+            for (auto const & diff : value.diff) {
+                paybackFee += diff.second;
+            }
+            return true;
+        }
+
+        // auction burn
+        if (value.category == uint8_t(CustomTxType::AuctionBid)) {
+            for (auto const & diff : value.diff) {
+                auctionFee += diff.second;
             }
             return true;
         }
@@ -1697,6 +1718,14 @@ UniValue getburninfo(const JSONRPCRequest& request) {
     }
     result.pushKV("tokens", tokens);
     result.pushKV("feeburn", ValueFromAmount(burntFee));
+
+    if (auctionFee) {
+        result.pushKV("auctionburn", ValueFromAmount(auctionFee));
+    }
+
+    if (paybackFee) {
+        result.pushKV("paybackburn", ValueFromAmount(paybackFee));
+    }
 
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
