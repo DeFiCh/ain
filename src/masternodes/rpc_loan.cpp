@@ -58,7 +58,7 @@ CTokenCurrencyPair DecodePriceFeedUni(const UniValue& value)
 }
 
 UniValue setcollateraltoken(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setcollateraltoken",
                 "Creates (and submits to local node and network) a set colleteral token transaction.\n" +
@@ -96,7 +96,6 @@ UniValue setcollateraltoken(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot setcollateraltoken while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
     if (request.params[0].isNull())
@@ -287,7 +286,7 @@ UniValue listcollateraltokens(const JSONRPCRequest& request) {
 }
 
 UniValue setloantoken(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setloantoken",
                 "Creates (and submits to local node and network) a token for a price feed set in collateral token.\n" +
@@ -326,7 +325,6 @@ UniValue setloantoken(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot setloantoken while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
     if (request.params[0].isNull())
@@ -398,7 +396,7 @@ UniValue setloantoken(const JSONRPCRequest& request) {
 }
 
 UniValue updateloantoken(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updateloantoken",
                 "Creates (and submits to local node and network) a token for a price feed set in collateral token.\n" +
@@ -438,7 +436,6 @@ UniValue updateloantoken(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot updateloantoken while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, false);
     if (request.params[0].isNull())
@@ -586,7 +583,7 @@ UniValue getloantoken(const JSONRPCRequest& request)
 }
 
 UniValue createloanscheme(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"createloanscheme",
                 "Creates a loan scheme transaction.\n" +
@@ -620,7 +617,6 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot createloanscheme while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     CLoanSchemeMessage loanScheme;
     loanScheme.ratio = request.params[0].get_int();
@@ -667,7 +663,7 @@ UniValue createloanscheme(const JSONRPCRequest& request) {
 }
 
 UniValue updateloanscheme(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updateloanscheme",
                "Updates an existing loan scheme.\n" +
@@ -702,7 +698,6 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot updateloanscheme while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     CLoanSchemeMessage loanScheme;
     loanScheme.ratio = request.params[0].get_int();
@@ -755,7 +750,7 @@ UniValue updateloanscheme(const JSONRPCRequest& request) {
 }
 
 UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setdefaultloanscheme",
                "Sets the default loan scheme.\n" +
@@ -787,7 +782,6 @@ UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot setdefaultloanschem while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     CDefaultLoanSchemeMessage defaultScheme;
     defaultScheme.identifier = request.params[0].get_str();
@@ -831,7 +825,7 @@ UniValue setdefaultloanscheme(const JSONRPCRequest& request) {
 }
 
 UniValue destroyloanscheme(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"destroyloanscheme",
                "Destroys a loan scheme.\n" +
@@ -864,7 +858,6 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot destroyloanscheme while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     CDestroyLoanSchemeMessage destroyScheme;
     destroyScheme.identifier = request.params[0].get_str();
@@ -1008,7 +1001,7 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
 }
 
 UniValue takeloan(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"takeloan",
                 "Creates (and submits to local node and network) a tx to mint loan token in desired amount based on defined loan.\n" +
@@ -1045,7 +1038,6 @@ UniValue takeloan(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot takeloan while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
     if (request.params[0].isNull())
@@ -1115,7 +1107,7 @@ UniValue takeloan(const JSONRPCRequest& request) {
 }
 
 UniValue loanpayback(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"loanpayback",
                 "Creates (and submits to local node and network) a tx to return the loan in desired amount.\n" +
@@ -1152,7 +1144,6 @@ UniValue loanpayback(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot loanpayback while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
     if (request.params[0].isNull())
