@@ -70,6 +70,7 @@ public:
         rpcInfo.pushKV("masternodeoperator", EncodeDestination(obj.operatorType == 1 ?
                                                 CTxDestination(PKHash(obj.operatorAuthAddress)) :
                                                 CTxDestination(WitnessV0KeyHash(obj.operatorAuthAddress))));
+        rpcInfo.pushKV("timelock", CMasternode::GetTimelockToString(static_cast<CMasternode::TimeLock>(obj.timelock)));
     }
 
     void operator()(const CResignMasterNodeMessage& obj) const {
