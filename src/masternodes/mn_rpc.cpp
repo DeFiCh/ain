@@ -14,8 +14,9 @@ CAccounts GetAllMineAccounts(CWallet * const pwallet) {
 
     CAccounts walletAccounts;
 
+    LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
-    auto targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    auto targetHeight = ::ChainActive().Height() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
         if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
@@ -106,7 +107,7 @@ CAccounts SelectAccountsByTargetBalances(const CAccounts& accounts, const CBalan
     return selectedAccountsBalances;
 }
 
-CMutableTransaction fund(CMutableTransaction & mtx, CWallet* const pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control) {
+CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx, CCoinControl* coin_control) {
     CAmount fee_out;
     int change_position = mtx.vout.size();
 
@@ -131,10 +132,13 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWallet* const pwallet, CTra
     if (!pwallet->FundTransaction(mtx, fee_out, change_position, strFailReason, lockUnspents, {} /*setSubtractFeeFromOutputs*/, coinControl)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
+    for (auto& txin : mtx.vin) {
+        pwallet.AddLockedCoin(txin.prevout);
+    }
     return mtx;
 }
 
-CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
+static CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
 
     // assemble prevouts from optional linked tx
     UniValue prevtxs(UniValue::VARR);
@@ -174,7 +178,7 @@ CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransact
     return MakeTransactionRef(std::move(mtx));
 }
 
-CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
+static CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
 
     if (optAuthTx) {
         send(optAuthTx, {});
@@ -193,7 +197,35 @@ CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     return tx;
 }
 
-CTransactionRef signsend(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx) {
+CWalletCoinsUnlocker::CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet) : pwallet(std::move(pwallet)) {
+}
+
+CWalletCoinsUnlocker::~CWalletCoinsUnlocker() {
+    if (!coins.empty()) {
+        LOCK(pwallet->cs_wallet);
+        for (auto& coin : coins) {
+            pwallet->UnlockCoin(coin);
+        }
+    }
+}
+
+CWallet* CWalletCoinsUnlocker::operator->() {
+    return pwallet.get();
+}
+
+CWallet& CWalletCoinsUnlocker::operator*() {
+    return *pwallet;
+}
+
+CWalletCoinsUnlocker::operator CWallet*() {
+    return pwallet.get();
+}
+
+void CWalletCoinsUnlocker::AddLockedCoin(const COutPoint& coin) {
+    coins.push_back(coin);
+}
+
+CTransactionRef signsend(CMutableTransaction& mtx, CWalletCoinsUnlocker& pwallet, CTransactionRef optAuthTx) {
     return send(sign(mtx, pwallet, optAuthTx), optAuthTx);
 }
 
@@ -214,7 +246,7 @@ int chainHeight(interfaces::Chain::Lock& locked_chain)
     return 0;
 }
 
-std::vector<CTxIn> GetInputs(UniValue const& inputs) {
+static std::vector<CTxIn> GetInputs(UniValue const& inputs) {
     std::vector<CTxIn> vin{};
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& input = inputs[idx];
@@ -242,7 +274,7 @@ boost::optional<CScript> AmIFounder(CWallet* const pwallet) {
     return {};
 }
 
-static boost::optional<CTxIn> GetAuthInputOnly(CWallet* const pwallet, CTxDestination const& auth) {
+static boost::optional<CTxIn> GetAuthInputOnly(CWalletCoinsUnlocker& pwallet, CTxDestination const& auth) {
 
     std::vector<COutput> vecOutputs;
     CCoinControl cctl;
@@ -263,10 +295,11 @@ static boost::optional<CTxIn> GetAuthInputOnly(CWallet* const pwallet, CTxDestin
     // any selected inputs should be mark as locked
     CTxIn txin(vecOutputs[0].tx->GetHash(), vecOutputs[0].i);
     pwallet->LockCoin(txin.prevout);
+    pwallet.AddLockedCoin(txin.prevout);
     return txin;
 }
 
-CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & auths, int32_t txVersion) {
+static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker& pwallet, std::set<CScript> const & auths, int32_t txVersion) {
     CMutableTransaction mtx(txVersion);
     CCoinControl coinControl;
 
@@ -309,7 +342,7 @@ CTransactionRef CreateAuthTx(CWallet* const pwallet, std::set<CScript> const & a
     return fund(mtx, pwallet, {}, &coinControl), sign(mtx, pwallet, {});
 }
 
-static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWallet* const pwallet) {
+static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker& pwallet) {
     for (auto const & founderScript : Params().GetConsensus().foundationMembers) {
         if (IsMineCached(*pwallet, founderScript) == ISMINE_SPENDABLE) {
             CTxDestination destination;
@@ -323,7 +356,7 @@ static boost::optional<CTxIn> GetAnyFoundationAuthInput(CWallet* const pwallet) 
     return {};
 }
 
-std::vector<CTxIn> GetAuthInputsSmart(CWallet* const pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs) {
+std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker& pwallet, int32_t txVersion, std::set<CScript>& auths, bool needFounderAuth, CTransactionRef & optAuthTx, UniValue const& explicitInputs) {
 
     if (!explicitInputs.isNull() && !explicitInputs.empty()) {
         return GetInputs(explicitInputs);
@@ -407,16 +440,15 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
     }
 }
 
-CWallet* GetWallet(const JSONRPCRequest& request) {
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
+CWalletCoinsUnlocker GetWallet(const JSONRPCRequest& request) {
+    auto wallet = GetWalletForJSONRPCRequest(request);
 
-    EnsureWalletIsAvailable(pwallet, request.fHelp);
-    return pwallet;
+    EnsureWalletIsAvailable(wallet.get(), request.fHelp);
+    return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
 UniValue setgov(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setgov",
                "\nSet special 'governance' variables:: ICX_TAKERFEE_PER_BTC, LOAN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
@@ -450,7 +482,6 @@ UniValue setgov(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 

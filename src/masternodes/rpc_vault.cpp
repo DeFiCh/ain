@@ -102,8 +102,7 @@ namespace {
 }
 
 UniValue createvault(const JSONRPCRequest& request) {
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"createvault",
                 "Creates a vault transaction.\n" +
@@ -140,7 +139,6 @@ UniValue createvault(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot createvault while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, true);
 
@@ -195,8 +193,7 @@ UniValue createvault(const JSONRPCRequest& request) {
 }
 
 UniValue closevault(const JSONRPCRequest& request) {
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"closevault",
                 "Close vault transaction.\n" +
@@ -229,7 +226,6 @@ UniValue closevault(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot closevault while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, false);
 
@@ -416,7 +412,6 @@ UniValue listvaults(const JSONRPCRequest& request) {
 }
 
 UniValue getvault(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
 
     RPCHelpMan{"getvault",
                "Returns information about vault\n",
@@ -434,8 +429,6 @@ UniValue getvault(const JSONRPCRequest& request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
 
-    LockedCoinsScopedGuard lcGuard(pwallet);
-
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
 
     LOCK(cs_main);
@@ -450,7 +443,7 @@ UniValue getvault(const JSONRPCRequest& request) {
 }
 
 UniValue updatevault(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updatevault",
                "\nCreates (and submits to local node and network) a `update vault transaction`, \n"
@@ -498,7 +491,6 @@ UniValue updatevault(const JSONRPCRequest& request) {
                            "Cannot update vault while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     if (request.params[0].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 must be non-null");
@@ -586,7 +578,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
 }
 
 UniValue deposittovault(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"deposittovault",
                "Deposit collateral token amount to vault\n" +
@@ -625,7 +617,6 @@ UniValue deposittovault(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot upddeposittovaultate vault while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     if (request.params[0].isNull() || request.params[1].isNull() || request.params[2].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments must be non-null");
@@ -673,7 +664,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
 }
 
 UniValue withdrawfromvault(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"withdrawfromvault",
                "Withdraw collateral token amount from vault\n" +
@@ -712,7 +703,6 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot withdrawfromvault while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     if (request.params[0].isNull() || request.params[1].isNull() || request.params[2].isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments must be non-null");
@@ -772,7 +762,7 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
 }
 
 UniValue auctionbid(const JSONRPCRequest& request) {
-    CWallet *const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"auctionbid",
                "Bid to vault in auction\n" +
@@ -812,7 +802,6 @@ UniValue auctionbid(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot make auction bid while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     // decode vaultId
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");

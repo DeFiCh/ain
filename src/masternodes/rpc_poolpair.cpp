@@ -237,7 +237,7 @@ UniValue getpoolpair(const JSONRPCRequest& request) {
 }
 
 UniValue addpoolliquidity(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"addpoolliquidity",
                "\nCreates (and submits to local node and network) a add pool liquidity transaction.\n"
@@ -285,7 +285,6 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, { UniValue::VOBJ, UniValue::VSTR, UniValue::VARR }, true);
 
@@ -353,7 +352,7 @@ UniValue addpoolliquidity(const JSONRPCRequest& request) {
 }
 
 UniValue removepoolliquidity(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"removepoolliquidity",
                "\nCreates (and submits to local node and network) a remove pool liquidity transaction.\n"
@@ -387,7 +386,6 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
 
@@ -436,7 +434,7 @@ UniValue removepoolliquidity(const JSONRPCRequest& request) {
 }
 
 UniValue createpoolpair(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"createpoolpair",
                "\nCreates (and submits to local node and network) a poolpair transaction with given metadata.\n"
@@ -498,7 +496,6 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
@@ -592,7 +589,7 @@ UniValue createpoolpair(const JSONRPCRequest& request) {
 }
 
 UniValue updatepoolpair(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updatepoolpair",
                "\nCreates (and submits to local node and network) a pool status update transaction.\n"
@@ -640,7 +637,6 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
                            "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
@@ -726,7 +722,7 @@ UniValue updatepoolpair(const JSONRPCRequest& request) {
 }
 
 UniValue poolswap(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"poolswap",
                "\nCreates (and submits to local node and network) a poolswap transaction with given metadata.\n"
@@ -785,7 +781,6 @@ UniValue poolswap(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
@@ -828,7 +823,7 @@ UniValue poolswap(const JSONRPCRequest& request) {
 }
 
 UniValue compositeswap(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"compositeswap",
                "\nCreates (and submits to local node and network) a composite swap (swap between multiple poolpairs) transaction with given metadata.\n"
@@ -892,8 +887,6 @@ UniValue compositeswap(const JSONRPCRequest& request) {
     if (targetHeight < Params().GetConsensus().FortCanningHeight) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "compositeswap is available post Fort Canning");
     }
-
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
@@ -1007,14 +1000,13 @@ UniValue testpoolswap(const JSONRPCRequest& request) {
     CPoolSwapMessage poolSwapMsg{};
     CheckAndFillPoolSwapMessage(request, poolSwapMsg);
 
-    int targetHeight = ::ChainActive().Height() + 1;
-
     // test execution and get amount
     Res res = Res::Ok();
     {
         LOCK(cs_main);
         CCustomCSView mnview_dummy(*pcustomcsview); // create dummy cache for test state writing
 
+        int targetHeight = ::ChainActive().Height() + 1;
         auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
 
         const std::string base{"PoolSwap creation: " + poolSwapMsg.ToString()};
@@ -1073,7 +1065,7 @@ UniValue listpoolshares(const JSONRPCRequest& request) {
         isMineOnly = request.params[2].get_bool();
     }
 
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     // parse pagination
     size_t limit = 100;
