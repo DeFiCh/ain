@@ -354,19 +354,15 @@ Res CMasternodesView::UpdateMasternode(uint256 const & nodeId, char operatorType
         return Res::Err("The new operator is same as existing operator");
     }
 
-    // Get the existing block time
-    std::vector<int64_t> subNodesBlockTime = GetSubNodesBlockTime(node->operatorAuthAddress, height);
+    // Remove old record
+    EraseBy<Operator>(node->operatorAuthAddress);
 
     node->operatorType = operatorType;
     node->operatorAuthAddress = operatorAuthAddress;
 
+    // Overwrite and create new record
     WriteBy<ID>(nodeId, *node);
     WriteBy<Operator>(node->operatorAuthAddress, nodeId);
-
-    // The new operator inherit the old operator block time
-    for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
-        SetSubNodesBlockTime(node->operatorAuthAddress, static_cast<uint32_t>(height), i, subNodesBlockTime[i]);
-    }
 
     return Res::Ok();
 }
