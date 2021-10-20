@@ -202,7 +202,7 @@ UniValue closevault(const JSONRPCRequest& request) {
                 "Close vault transaction.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
-                    {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vaul to be close"},
+                    {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vault to be closed"},
                     {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "Any valid address to receive collaterals (if any) and half fee back"},
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects",
