@@ -76,6 +76,8 @@ CMasternode::CMasternode()
     , ownerType(0)
     , operatorAuthAddress()
     , operatorType(0)
+    , rewardAddress()
+    , rewardAddressType(0)
     , creationHeight(0)
     , resignHeight(-1)
     , unusedVariable(-1)
@@ -158,6 +160,8 @@ bool operator==(CMasternode const & a, CMasternode const & b)
             a.ownerAuthAddress == b.ownerAuthAddress &&
             a.operatorType == b.operatorType &&
             a.operatorAuthAddress == b.operatorAuthAddress &&
+            a.rewardAddress == b.rewardAddress &&
+            a.rewardAddressType == b.rewardAddressType &&
             a.creationHeight == b.creationHeight &&
             a.resignHeight == b.resignHeight &&
             a.unusedVariable == b.unusedVariable &&
@@ -318,6 +322,42 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
 
     node->resignTx =  txid;
     node->resignHeight = height;
+    WriteBy<ID>(nodeId, *node);
+
+    return Res::Ok();
+}
+
+Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height)
+{
+    auto node = GetMasternode(nodeId);
+    if (!node) {
+        return Res::Err("masternode %s does not exists", nodeId.ToString());
+    }
+    auto state = node->GetState(height);
+    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
+        return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
+    }
+
+    node->rewardAddressType = rewardAddressType;
+    node->rewardAddress = rewardAddress;
+    WriteBy<ID>(nodeId, *node);
+
+    return Res::Ok();
+}
+
+Res CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, int height)
+{
+    auto node = GetMasternode(nodeId);
+    if (!node) {
+        return Res::Err("masternode %s does not exists", nodeId.ToString());
+    }
+    auto state = node->GetState(height);
+    if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
+        return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
+    }
+
+    node->rewardAddressType = 0;
+    node->rewardAddress.SetNull();
     WriteBy<ID>(nodeId, *node);
 
     return Res::Ok();
