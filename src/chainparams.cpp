@@ -181,6 +181,8 @@ public:
         consensus.spv.anchors_address = "1FtZwEZKknoquUb6DyQHFZ6g6oomXJYEcb";
         consensus.spv.minConfirmations = 6;
 
+        consensus.vaultCreationFee = 2 * COIN;
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI of 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN /10 / 200);       // 0.1 DFI of 200 per block
 
@@ -189,15 +191,13 @@ public:
         consensus.dist.community = 491; // 4.91%
         consensus.dist.anchor = 2; // 0.02%
         consensus.dist.liquidity = 2545; // 25.45%
-        consensus.dist.swap = 1234; // 12.34%
-        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.loan = 2468; // 24.68%
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
@@ -401,6 +401,8 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
+        consensus.vaultCreationFee = 1 * COIN;
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
@@ -409,15 +411,13 @@ public:
         consensus.dist.community = 491; // 4.91%
         consensus.dist.anchor = 2; // 0.02%
         consensus.dist.liquidity = 2545; // 25.45%
-        consensus.dist.swap = 1234; // 12.34%
-        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.loan = 2468; // 24.68%
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
@@ -581,6 +581,8 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 1;
 
+        consensus.vaultCreationFee = 1 * COIN;
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 45 * COIN / 200); // 45 DFI @ 200 per block (rate normalized to (COIN == 100%))
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 200);       // 0.1 DFI @ 200 per block
 
@@ -589,15 +591,13 @@ public:
         consensus.dist.community = 491; // 4.91%
         consensus.dist.anchor = 2; // 0.02%
         consensus.dist.liquidity = 2545; // 25.45%
-        consensus.dist.swap = 1234; // 12.34%
-        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.loan = 2468; // 24.68%
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 
@@ -755,6 +755,8 @@ public:
         consensus.spv.subsidyIncreaseValue = 5 * COIN;
         consensus.spv.minConfirmations = 6;
 
+        consensus.vaultCreationFee = 1 * COIN;
+
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::IncentiveFunding, 10 * COIN / 50); // normalized to (COIN == 100%) // 10 per block
         consensus.nonUtxoBlockSubsidies.emplace(CommunityAccountType::AnchorReward, COIN/10 / 50);       // 0.1 per block
 
@@ -763,15 +765,13 @@ public:
         consensus.dist.community = 491; // 4.91%
         consensus.dist.anchor = 2; // 0.02%
         consensus.dist.liquidity = 2545; // 25.45%
-        consensus.dist.swap = 1234; // 12.34%
-        consensus.dist.futures = 1234; // 12.34%
+        consensus.dist.loan = 2468; // 24.68%
         consensus.dist.options = 988; // 9.88%
         consensus.dist.unallocated = 173; // 1.73%
 
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::AnchorReward, consensus.dist.anchor);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::IncentiveFunding, consensus.dist.liquidity);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Swap, consensus.dist.swap);
-        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Futures, consensus.dist.futures);
+        consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Loan, consensus.dist.loan);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Options, consensus.dist.options);
         consensus.newNonUTXOSubsidies.emplace(CommunityAccountType::Unallocated, consensus.dist.unallocated);
 

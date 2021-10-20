@@ -166,7 +166,7 @@ UniValue icxClaimDFCHTLCToJSON(CICXClaimDFCHTLCImplemetation const& claimdfchtlc
 }
 
 UniValue icxcreateorder(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_createorder",
                 "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCreates (and submits to local node and network) a order creation transaction.\n" +
@@ -214,7 +214,6 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create order while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
     if (request.params[0].isNull())
@@ -340,14 +339,8 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        const auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, order});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXCreateOrderMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
     ret.pushKV("txid", signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
@@ -355,7 +348,7 @@ UniValue icxcreateorder(const JSONRPCRequest& request) {
 }
 
 UniValue icxmakeoffer(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_makeoffer",
                 "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCreates (and submits to local node and network) a makeoffer transaction.\n" +
@@ -399,7 +392,6 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot make offer while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
     if (request.params[0].isNull()) {
@@ -489,15 +481,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, makeoffer});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXMakeOfferMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -506,7 +490,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
 }
 
 UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_submitdfchtlc",
                 "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCreates (and submits to local node and network) a dfc htlc transaction.\n" +
@@ -546,7 +530,6 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot submit dfc htlc while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
     if (request.params[0].isNull())
@@ -640,15 +623,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, submitdfchtlc});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXSubmitDFCHTLCMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -657,7 +632,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
 }
 
 UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_submitexthtlc",
                 "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCreates (and submits to local node and network) ext htlc transaction.\n" +
@@ -700,7 +675,6 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot submit ext htlc while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
     if (request.params[0].isNull())
@@ -797,15 +771,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, submitexthtlc});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXSubmitEXTHTLCMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -814,7 +780,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest& request) {
 }
 
 UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_claimdfchtlc",
                 "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCreates (and submits to local node and network) a dfc htlc transaction.\n" +
@@ -851,7 +817,6 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot claim dfc htlc while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ}, false);
     if (request.params[0].isNull())
@@ -908,15 +873,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, claimdfchtlc});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXClaimDFCHTLCMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -925,7 +882,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest& request) {
 }
 
 UniValue icxcloseorder(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_closeorder",
                 "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCloses (and submits to local node and network) order transaction.\n" +
@@ -958,7 +915,6 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot close order while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
     if (request.params[0].isNull())
@@ -1013,15 +969,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, closeorder});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXCloseOrderMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -1030,7 +978,7 @@ UniValue icxcloseorder(const JSONRPCRequest& request) {
 }
 
 UniValue icxcloseoffer(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"icx_closeoffer",
                 "\nEXPERIMENTAL warning: ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.\n\nCloses (and submits to local node and network) offer transaction.\n" +
@@ -1063,7 +1011,6 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot close offer while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VSTR}, false);
     if (request.params[0].isNull())
@@ -1119,15 +1066,7 @@ UniValue icxcloseoffer(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx,&coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCustomCSView mnview_dummy(*pcustomcsview); // don't write into actual DB
-        CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coinview, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, closeoffer});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CICXCloseOfferMessage{}, coinview);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
@@ -1158,6 +1097,8 @@ UniValue icxgetorder(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("EXPERIMENTAL warning:", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+
+    LOCK(cs_main);
 
     uint256 orderTxid= uint256S(request.params[0].getValStr());
     auto order = pcustomcsview->GetICXOrderByCreationTx(orderTxid);
@@ -1236,6 +1177,8 @@ UniValue icxlistorders(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+
+    LOCK(cs_main);
 
     if (idToken.v != std::numeric_limits<uint32_t>::max())
     {
@@ -1349,6 +1292,8 @@ UniValue icxlisthtlcs(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("WARNING", "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
+
+    LOCK(cs_main);
 
     auto dfchtlclambda = [&](CICXOrderView::TxidPairKey const & key, uint8_t status) {
         if (key.first != offerTxid || !limit)

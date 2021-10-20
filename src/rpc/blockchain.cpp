@@ -592,6 +592,7 @@ static UniValue clearmempool(const JSONRPCRequest& request)
 
     std::vector<uint256> vtxid;
     mempool.queryHashes(vtxid);
+    mempool.accountsView().Discard();
 
     UniValue removed(UniValue::VARR);
     for (const uint256& hash : vtxid)
@@ -1358,6 +1359,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "dakota", consensusParams.DakotaHeight);
     BuriedForkDescPushBack(softforks, "dakotacrescent", consensusParams.DakotaCrescentHeight);
     BuriedForkDescPushBack(softforks, "eunos", consensusParams.EunosHeight);
+    BuriedForkDescPushBack(softforks, "eunospaya", consensusParams.EunosPayaHeight);
     BuriedForkDescPushBack(softforks, "fortcanning", consensusParams.FortCanningHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);

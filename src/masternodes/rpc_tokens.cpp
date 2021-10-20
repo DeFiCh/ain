@@ -2,7 +2,7 @@
 #include <index/txindex.h>
 
 UniValue createtoken(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"createtoken",
                "\nCreates (and submits to local node and network) a token creation transaction with given metadata.\n"
@@ -62,7 +62,6 @@ UniValue createtoken(const JSONRPCRequest& request) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create token while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
     if (request.params[0].isNull()) {
@@ -129,19 +128,13 @@ UniValue createtoken(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, token});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateTokenMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue updatetoken(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updatetoken",
                "\nCreates (and submits to local node and network) a transaction of token promotion to isDAT or demotion from isDAT. Collateral will be unlocked.\n"
@@ -203,7 +196,6 @@ UniValue updatetoken(const JSONRPCRequest& request) {
                            "Cannot update token while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, true); // first means "any"
 
@@ -322,19 +314,8 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        CCustomTxMessage txMessage = CUpdateTokenMessage{};
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, static_cast<CToken>(tokenImpl)});
-        if (targetHeight < Params().GetConsensus().BayfrontHeight) {
-            txMessage = CUpdateTokenPreAMKMessage{};
-            metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, tokenImpl.creationTx, metaObj["isDAT"].getBool()});
-        }
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, txMessage, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
@@ -352,6 +333,7 @@ UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool v
         tokenObj.pushKV("isDAT", token.IsDAT());
         tokenObj.pushKV("isLPS", token.IsPoolShare());
         tokenObj.pushKV("finalized", token.IsFinalized());
+        tokenObj.pushKV("isLoanToken", token.IsLoanToken());
 
         tokenObj.pushKV("minted", ValueFromAmount(token.minted));
         tokenObj.pushKV("creationTx", token.creationTx.ToString());
@@ -630,7 +612,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
 }
 
 UniValue minttokens(const JSONRPCRequest& request) {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"minttokens",
                "\nCreates (and submits to local node and network) a transaction minting your token (for accounts and/or UTXOs). \n"
@@ -668,7 +650,6 @@ UniValue minttokens(const JSONRPCRequest& request) {
                            "Cannot mint tokens while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     const CBalances minted = DecodeAmounts(pwallet->chain(), request.params[0], "");
     UniValue const & txInputs = request.params[1];
@@ -678,36 +659,26 @@ UniValue minttokens(const JSONRPCRequest& request) {
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     CTransactionRef optAuthTx;
-    std::set<CScript> auths;
 
     // auth
-    {
-        if (!txInputs.isNull() && !txInputs.empty()) {
-            rawTx.vin = GetInputs(txInputs.get_array());            // separate call here to do not process the rest in "else"
-        }
-        else {
-            bool needFoundersAuth = false;
-            for (auto const & kv : minted.balances) {
-
-                CTokenImplementation tokenImpl;
-                {
-                    LOCK(cs_main);
-                    auto token = pcustomcsview->GetToken(kv.first);
-                    if (!token) {
-                        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
-                    }
-
-                    tokenImpl = static_cast<CTokenImplementation const& >(*token);
-                    const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
-                    if (tokenImpl.IsDAT()) {
-                        needFoundersAuth = true;
-                    }
-                    auths.insert(authCoin.out.scriptPubKey);
-                }
+    std::set<CScript> auths;
+    bool needFoundersAuth = false;
+    if (txInputs.isNull() || txInputs.empty()) {
+        LOCK(cs_main);
+        for (auto const & kv : minted.balances) {
+            auto token = pcustomcsview->GetToken(kv.first);
+            if (!token) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", kv.first.ToString()));
             }
-            rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
-        } // else
+            auto& tokenImpl = static_cast<CTokenImplementation const& >(*token);
+            const Coin& authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1)); // always n=1 output
+            if (tokenImpl.IsDAT()) {
+                needFoundersAuth = true;
+            }
+            auths.insert(authCoin.out.scriptPubKey);
+        }
     }
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::MintToken)
@@ -733,14 +704,8 @@ UniValue minttokens(const JSONRPCRequest& request) {
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, minted });
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CMintTokensMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
@@ -815,7 +780,7 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
         } else {
             result.pushKV("results", txResults);
         }
-        
+
         return result;
     } else {
         // Should not get here without prior failure.
@@ -824,7 +789,7 @@ UniValue decodecustomtx(const JSONRPCRequest& request)
 }
 
 static const CRPCCommand commands[] =
-{ 
+{
 //  category        name                     actor (function)        params
 //  -------------   ---------------------    --------------------    ----------
     {"tokens",      "createtoken",           &createtoken,           {"metadata", "inputs"}},

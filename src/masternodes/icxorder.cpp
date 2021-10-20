@@ -2,32 +2,6 @@
 #include <rpc/util.h> /// AmountFromValue
 #include <core_io.h> /// ValueFromAmount
 
-/// @attention make sure that it does not overlap with other views !!!
-const unsigned char CICXOrderView::ICXOrderCreationTx           ::prefix = '1';
-const unsigned char CICXOrderView::ICXMakeOfferCreationTx       ::prefix = '2';
-const unsigned char CICXOrderView::ICXSubmitDFCHTLCCreationTx   ::prefix = '3';
-const unsigned char CICXOrderView::ICXSubmitEXTHTLCCreationTx   ::prefix = '4';
-const unsigned char CICXOrderView::ICXClaimDFCHTLCCreationTx    ::prefix = '5';
-const unsigned char CICXOrderView::ICXCloseOrderCreationTx      ::prefix = '6';
-const unsigned char CICXOrderView::ICXCloseOfferCreationTx      ::prefix = '7';
-
-const unsigned char CICXOrderView::ICXOrderOpenKey              ::prefix = 0x01;
-const unsigned char CICXOrderView::ICXOrderCloseKey             ::prefix = 0x02;
-const unsigned char CICXOrderView::ICXMakeOfferOpenKey          ::prefix = 0x03;
-const unsigned char CICXOrderView::ICXMakeOfferCloseKey         ::prefix = 0x04;
-const unsigned char CICXOrderView::ICXSubmitDFCHTLCOpenKey      ::prefix = 0x05;
-const unsigned char CICXOrderView::ICXSubmitDFCHTLCCloseKey     ::prefix = 0x06;
-const unsigned char CICXOrderView::ICXSubmitEXTHTLCOpenKey      ::prefix = 0x07;
-const unsigned char CICXOrderView::ICXSubmitEXTHTLCCloseKey     ::prefix = 0x08;
-const unsigned char CICXOrderView::ICXClaimDFCHTLCKey           ::prefix = 0x09;
-
-const unsigned char CICXOrderView::ICXOrderStatus               ::prefix = 0x0A;
-const unsigned char CICXOrderView::ICXOfferStatus               ::prefix = 0x0B;
-const unsigned char CICXOrderView::ICXSubmitDFCHTLCStatus       ::prefix = 0x0C;
-const unsigned char CICXOrderView::ICXSubmitEXTHTLCStatus       ::prefix = 0x0D;
-
-const unsigned char CICXOrderView::ICXVariables                 ::prefix = 0x0F;
-
 const uint32_t CICXOrder::DEFAULT_EXPIRY = 2880;
 const uint8_t CICXOrder::TYPE_INTERNAL = 1;
 const uint8_t CICXOrder::TYPE_EXTERNAL = 2;

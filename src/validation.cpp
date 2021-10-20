@@ -20,6 +20,7 @@
 #include <index/txindex.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/anchors.h>
+#include <masternodes/govvariables/loan_daily_reward.h>
 #include <masternodes/govvariables/lp_daily_dfi_reward.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
@@ -628,7 +629,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height);
+        auto res = ApplyCustomTx(mnview, view, tx, chainparams.GetConsensus(), height, nAcceptTime);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -643,12 +644,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // CoinsViewCache instead of create its own
         if (!CheckSequenceLocks(pool, tx, STANDARD_LOCKTIME_VERIFY_FLAGS, &lp))
             return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, REJECT_NONSTANDARD, "non-BIP68-final");
-
-        /// @todo tokens: optimize place for CheckTxInputs call related to token's auth (cache auth outputs or smth)
-//        CAmount nFees = 0;
-//        if (!Consensus::CheckTxInputs(tx, state, view, pcustomcsview.get(), GetSpendHeight(view), nFees)) {
-//            return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
-//        }
 
         // Check for non-standard pay-to-script-hash in inputs
         if (fRequireStandard && !AreInputsStandard(tx, view))
@@ -1669,6 +1664,9 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
     mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
 
+    // erase auction fee history
+    pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, uint32_t(pindex->nHeight), ~0u});
+
     // Undo community balance increments
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
 
@@ -1783,7 +1781,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // Remove burn balance transfers
     if (pindex->nHeight == Params().GetConsensus().EunosHeight)
     {
-        // Make sure to initialize lastTxOut, otherwise it never finds the block and 
+        // Make sure to initialize lastTxOut, otherwise it never finds the block and
         // ends up looping through uninitialized garbage value.
         uint32_t lastTxOut = 0;
         auto shouldContinueToNextAccountHistory = [&lastTxOut, block](AccountHistoryKey const & key, CLazySerialize<AccountHistoryValue> valueLazy) -> bool
@@ -2027,8 +2025,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 Res res = Res::Ok();
 
                 // Swap, Futures and Options currently unused and all go to Unallocated (burnt) pot.
-                if (kv.first == CommunityAccountType::Swap ||
-                    kv.first == CommunityAccountType::Futures ||
+                if (kv.first == CommunityAccountType::Loan ||
                     kv.first == CommunityAccountType::Options)
                 {
                     res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
@@ -2082,8 +2079,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 // Remove Swap, Futures and Options balances from Unallocated
-                if (kv.first == CommunityAccountType::Swap ||
-                    kv.first == CommunityAccountType::Futures ||
+                if (kv.first == CommunityAccountType::Loan ||
                     kv.first == CommunityAccountType::Options)
                 {
                     mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
@@ -2132,6 +2128,69 @@ static uint32_t GetNextBurnPosition() {
 Res AddNonTxToBurnIndex(const CScript& from, const CBalances& amounts)
 {
     return mapBurnAmounts[from].AddBalances(amounts.balances);
+}
+
+template<typename GovVar>
+static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator& incentivePair, CCustomCSView& cache, int nHeight) {
+    if (incentivePair != Params().GetConsensus().newNonUTXOSubsidies.end())
+    {
+        CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(nHeight, Params().GetConsensus()), incentivePair->second);
+        subsidy *= Params().GetConsensus().blocksPerDay();
+        // Change daily LP reward if it has changed
+        auto var = cache.GetVariable(GovVar::TypeName());
+        if (var) {
+            // Cast to avoid UniValue in GovVariable Export/ImportserliazedSplits.emplace(it.first.v, it.second);
+            auto lpVar = dynamic_cast<GovVar*>(var.get());
+            if (lpVar && lpVar->dailyReward != subsidy) {
+                lpVar->dailyReward = subsidy;
+                lpVar->Apply(cache, nHeight);
+                cache.SetVariable(*lpVar);
+            }
+        }
+    }
+}
+
+std::vector<CAuctionBatch> CollectAuctionBatches(const CCollateralLoans& collLoan, const TAmounts& collBalances, const TAmounts& loanBalances)
+{
+    constexpr const uint64_t batchThreshold = 10000 * COIN; // 10k USD
+    auto totalCollaterals = collLoan.totalCollaterals;
+    auto totalLoans = collLoan.totalLoans;
+    auto maxCollaterals = totalCollaterals;
+    auto maxCollBalances = collBalances;
+    auto maxLoans = totalLoans;
+    auto CreateAuctionBatch = [&maxCollBalances, &collBalances](CTokenAmount loanAmount, CAmount chunk) {
+        CAuctionBatch batch{};
+        batch.loanAmount = loanAmount;
+        for (const auto& tAmount : collBalances) {
+            auto& maxCollBalance = maxCollBalances[tAmount.first];
+            auto collValue = std::min(MultiplyAmounts(tAmount.second, chunk), maxCollBalance);
+            batch.collaterals.Add({tAmount.first, collValue});
+            maxCollBalance -= collValue;
+        }
+        return batch;
+    };
+    std::vector<CAuctionBatch> batches;
+    for (const auto& loan : collLoan.loans) {
+        auto maxLoanValue = loanBalances.at(loan.nTokenId);
+        auto loanChunk = std::min(uint64_t(DivideAmounts(loan.nValue, totalLoans)), maxLoans);
+        auto collateralChunk = std::min(uint64_t(MultiplyAmounts(loanChunk, totalCollaterals)), maxCollaterals);
+        if (collateralChunk > batchThreshold) {
+            auto chunk = DivideAmounts(batchThreshold, collateralChunk);
+            auto loanValue = MultiplyAmounts(maxLoanValue, chunk);
+            for (auto chunks = COIN; chunks > 0; chunks -= chunk) {
+                loanValue = std::min(loanValue, maxLoanValue);
+                auto loanAmount = CTokenAmount{loan.nTokenId, loanValue};
+                batches.push_back(CreateAuctionBatch(loanAmount, chunk));
+                maxLoanValue -= loanValue;
+            }
+        } else {
+            auto loanAmount = CTokenAmount{loan.nTokenId, maxLoanValue};
+            batches.push_back(CreateAuctionBatch(loanAmount, collateralChunk));
+        }
+        maxLoans -= loanChunk;
+        maxCollaterals -= collateralChunk;
+    }
+    return batches;
 }
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
@@ -2583,22 +2642,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
         {
             const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::IncentiveFunding);
-            if (incentivePair != chainparams.GetConsensus().newNonUTXOSubsidies.end())
-            {
-                CAmount subsidy = CalculateCoinbaseReward(GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus()), incentivePair->second);
-                subsidy *= chainparams.GetConsensus().blocksPerDay();
-                // Change daily LP reward if it has changed
-                auto var = cache.GetVariable(LP_DAILY_DFI_REWARD::TypeName());
-                if (var) {
-                    // Cast to avoid UniValue in GovVariable Export/Import
-                    auto lpVar = dynamic_cast<LP_DAILY_DFI_REWARD*>(var.get());
-                    if (lpVar && lpVar->dailyReward != subsidy) {
-                        lpVar->dailyReward = subsidy;
-                        lpVar->Apply(cache, pindex->nHeight);
-                        cache.SetVariable(*lpVar);
-                    }
-                }
-            }
+            UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
+        }
+
+        // Hard coded LOAN_DAILY_REWARD change
+        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
+        {
+            const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::Loan);
+            UpdateDailyGovVariables<LOAN_DAILY_REWARD>(incentivePair, cache, pindex->nHeight);
         }
 
         // hardfork commissions update
@@ -2634,160 +2685,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         // close expired orders, refund all expired DFC HTLCs at this block height
-        if (pindex->nHeight >= chainparams.GetConsensus().EunosHeight)
-        {
-            bool isPreEunosPaya = pindex->nHeight < chainparams.GetConsensus().EunosPayaHeight;
-
-            cache.ForEachICXOrderExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
-
-                if (static_cast<int>(key.first) != pindex->nHeight)
-                    return false;
-
-                auto order = cache.GetICXOrderByCreationTx(key.second);
-                if (!order)
-                    return true;
-
-                if (order->orderType == CICXOrder::TYPE_INTERNAL)
-                {
-                    CTokenAmount amount{order->idToken, order->amountToFill};
-                    CScript txidaddr(order->creationTx.begin(), order->creationTx.end());
-                    auto res = cache.SubBalance(txidaddr, amount);
-                    if (!res)
-                        LogPrintf("Can't subtract balance from order (%s) txidaddr: %s\n", order->creationTx.GetHex(), res.msg);
-                    else
-                    {
-                        cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);
-                        cache.AddBalance(order->ownerAddress, amount);
-                    }
-                }
-
-                cache.ICXCloseOrderTx(*order, status);
-
-                return true;
-            },pindex->nHeight);
-
-            cache.ForEachICXMakeOfferExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
-
-                if (static_cast<int>(key.first) != pindex->nHeight)
-                    return false;
-
-                auto offer = cache.GetICXMakeOfferByCreationTx(key.second);
-                if (!offer)
-                    return true;
-
-                auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
-                if (!order)
-                    return true;
-
-                CScript txidAddr(offer->creationTx.begin(),offer->creationTx.end());
-                CTokenAmount takerFee{DCT_ID{0}, offer->takerFee};
-
-                if ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.ExistedICXSubmitDFCHTLC(offer->creationTx, isPreEunosPaya)) ||
-                    (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya)))
-                {
-                    auto res = cache.SubBalance(txidAddr,takerFee);
-                    if (!res)
-                        LogPrintf("Can't subtract takerFee from offer (%s) txidAddr: %s\n", offer->creationTx.GetHex(), res.msg);
-                    else
-                    {
-                        cache.CalculateOwnerRewards(offer->ownerAddress,pindex->nHeight);
-                        cache.AddBalance(offer->ownerAddress, takerFee);
-                    }
-                }
-
-                cache.ICXCloseMakeOfferTx(*offer, status);
-
-                return true;
-            }, pindex->nHeight);
-
-            cache.ForEachICXSubmitDFCHTLCExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
-
-                if (static_cast<int>(key.first) != pindex->nHeight)
-                    return false;
-
-                auto dfchtlc = cache.GetICXSubmitDFCHTLCByCreationTx(key.second);
-                if (!dfchtlc)
-                    return true;
-
-                auto offer = cache.GetICXMakeOfferByCreationTx(dfchtlc->offerTx);
-                if (!offer)
-                    return true;
-
-                auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
-                if (!order)
-                    return true;
-
-                bool refund = false;
-
-                if (status == CICXSubmitDFCHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_INTERNAL)
-                {
-                    if (!cache.ExistedICXSubmitEXTHTLC(dfchtlc->offerTx, isPreEunosPaya))
-                    {
-                        CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
-                        cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);
-                        cache.AddBalance(order->ownerAddress, makerDeposit);
-                        refund = true;
-                    }
-                }
-                else if (status == CICXSubmitDFCHTLC::STATUS_REFUNDED)
-                    refund = true;
-
-                if (refund)
-                {
-                    CScript ownerAddress;
-                    if (order->orderType == CICXOrder::TYPE_INTERNAL)
-                        ownerAddress = CScript(order->creationTx.begin(), order->creationTx.end());
-                    else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
-                        ownerAddress = offer->ownerAddress;
-
-                    CTokenAmount amount{order->idToken, dfchtlc->amount};
-                    CScript txidaddr = CScript(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
-                    auto res = cache.SubBalance(txidaddr, amount);
-                    if (!res)
-                        LogPrintf("Can't subtract balance from dfc htlc (%s) txidaddr: %s\n", dfchtlc->creationTx.GetHex(), res.msg);
-                    else
-                    {
-                        cache.CalculateOwnerRewards(ownerAddress,pindex->nHeight);
-                        cache.AddBalance(ownerAddress, amount);
-                    }
-
-                    cache.ICXCloseDFCHTLC(*dfchtlc, status);
-                }
-
-                return true;
-            }, pindex->nHeight);
-
-            cache.ForEachICXSubmitEXTHTLCExpire([&](CICXOrderView::StatusKey const & key, uint8_t status) {
-
-                if (static_cast<int>(key.first) != pindex->nHeight)
-                    return false;
-
-                auto exthtlc = cache.GetICXSubmitEXTHTLCByCreationTx(key.second);
-                if (!exthtlc)
-                    return true;
-
-                auto offer = cache.GetICXMakeOfferByCreationTx(exthtlc->offerTx);
-                if (!offer)
-                    return true;
-
-                auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
-                if (!order)
-                    return true;
-
-                if (status == CICXSubmitEXTHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_EXTERNAL)
-                {
-                    if (!cache.ExistedICXSubmitDFCHTLC(exthtlc->offerTx, isPreEunosPaya))
-                    {
-                        CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
-                        cache.CalculateOwnerRewards(order->ownerAddress,pindex->nHeight);
-                        cache.AddBalance(order->ownerAddress, makerDeposit);
-                        cache.ICXCloseEXTHTLC(*exthtlc, status);
-                    }
-                }
-
-                return true;
-            }, pindex->nHeight);
-        }
+        ProcessICXEvents(pindex, cache, chainparams);
 
         // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
         if (pindex->nHeight == chainparams.GetConsensus().BayfrontHeight - 1) { // call at block _before_ fork
@@ -2854,6 +2752,22 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         mapBurnAmounts.clear();
 
+        ProcessOracleEvents(pindex, cache, chainparams);
+        ProcessLoanEvents(pindex, cache, chainparams);
+
+        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
+            // Apply any pending GovVariable changes. Will come into effect on the next block.
+            auto storedGovVars = cache.GetStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+            for (const auto& var : storedGovVars) {
+                CCustomCSView govCache(cache);
+                // Ignore any Gov variables that fail to validate, apply or be set.
+                if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
+                    govCache.Flush();
+                }
+            }
+            cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+        }
+
         // construct undo
         auto& flushable = cache.GetStorage();
         auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
@@ -2905,6 +2819,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
             return pruned.DelUndo(key).ok;
         }, UndoKey{lastUndoHeight});
+        // we need at least one full loop to ensure previous undos are pruned
+        if (!lastUndoHeight) {
+            lastUndoHeight = it->first;
+        }
         if (pruneStarted) {
             lastUndoHeight = it->first;
             auto& map = pruned.GetStorage().GetRaw();
@@ -2923,6 +2841,351 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     LogPrint(BCLog::BENCH, "    - Callbacks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime6 - nTime5), nTimeCallbacks * MICRO, nTimeCallbacks * MILLI / nBlocksTotal);
 
     return true;
+}
+
+void CChainState::ProcessICXEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().EunosHeight) {
+        return;
+    }
+
+    bool isPreEunosPaya = pindex->nHeight < chainparams.GetConsensus().EunosPayaHeight;
+
+    cache.ForEachICXOrderExpire([&](CICXOrderView::StatusKey const& key, uint8_t status) {
+        if (static_cast<int>(key.first) != pindex->nHeight)
+            return false;
+
+        auto order = cache.GetICXOrderByCreationTx(key.second);
+        if (!order)
+            return true;
+
+        if (order->orderType == CICXOrder::TYPE_INTERNAL) {
+            CTokenAmount amount{order->idToken, order->amountToFill};
+            CScript txidaddr(order->creationTx.begin(), order->creationTx.end());
+            auto res = cache.SubBalance(txidaddr, amount);
+            if (!res)
+                LogPrintf("Can't subtract balance from order (%s) txidaddr: %s\n", order->creationTx.GetHex(), res.msg);
+            else {
+                cache.CalculateOwnerRewards(order->ownerAddress, pindex->nHeight);
+                cache.AddBalance(order->ownerAddress, amount);
+            }
+        }
+
+        cache.ICXCloseOrderTx(*order, status);
+
+        return true;
+    }, pindex->nHeight);
+
+    cache.ForEachICXMakeOfferExpire([&](CICXOrderView::StatusKey const& key, uint8_t status) {
+        if (static_cast<int>(key.first) != pindex->nHeight)
+            return false;
+
+        auto offer = cache.GetICXMakeOfferByCreationTx(key.second);
+        if (!offer)
+            return true;
+
+        auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
+        if (!order)
+            return true;
+
+        CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
+        CTokenAmount takerFee{DCT_ID{0}, offer->takerFee};
+
+        if ((order->orderType == CICXOrder::TYPE_INTERNAL && !cache.ExistedICXSubmitDFCHTLC(offer->creationTx, isPreEunosPaya)) ||
+            (order->orderType == CICXOrder::TYPE_EXTERNAL && !cache.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya))) {
+            auto res = cache.SubBalance(txidAddr, takerFee);
+            if (!res)
+                LogPrintf("Can't subtract takerFee from offer (%s) txidAddr: %s\n", offer->creationTx.GetHex(), res.msg);
+            else {
+                cache.CalculateOwnerRewards(offer->ownerAddress, pindex->nHeight);
+                cache.AddBalance(offer->ownerAddress, takerFee);
+            }
+        }
+
+        cache.ICXCloseMakeOfferTx(*offer, status);
+
+        return true;
+    }, pindex->nHeight);
+
+    cache.ForEachICXSubmitDFCHTLCExpire([&](CICXOrderView::StatusKey const& key, uint8_t status) {
+        if (static_cast<int>(key.first) != pindex->nHeight)
+            return false;
+
+        auto dfchtlc = cache.GetICXSubmitDFCHTLCByCreationTx(key.second);
+        if (!dfchtlc)
+            return true;
+
+        auto offer = cache.GetICXMakeOfferByCreationTx(dfchtlc->offerTx);
+        if (!offer)
+            return true;
+
+        auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
+        if (!order)
+            return true;
+
+        bool refund = false;
+
+        if (status == CICXSubmitDFCHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_INTERNAL) {
+            if (!cache.ExistedICXSubmitEXTHTLC(dfchtlc->offerTx, isPreEunosPaya)) {
+                CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
+                cache.CalculateOwnerRewards(order->ownerAddress, pindex->nHeight);
+                cache.AddBalance(order->ownerAddress, makerDeposit);
+                refund = true;
+            }
+        } else if (status == CICXSubmitDFCHTLC::STATUS_REFUNDED)
+            refund = true;
+
+        if (refund) {
+            CScript ownerAddress;
+            if (order->orderType == CICXOrder::TYPE_INTERNAL)
+                ownerAddress = CScript(order->creationTx.begin(), order->creationTx.end());
+            else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
+                ownerAddress = offer->ownerAddress;
+
+            CTokenAmount amount{order->idToken, dfchtlc->amount};
+            CScript txidaddr = CScript(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
+            auto res = cache.SubBalance(txidaddr, amount);
+            if (!res)
+                LogPrintf("Can't subtract balance from dfc htlc (%s) txidaddr: %s\n", dfchtlc->creationTx.GetHex(), res.msg);
+            else {
+                cache.CalculateOwnerRewards(ownerAddress, pindex->nHeight);
+                cache.AddBalance(ownerAddress, amount);
+            }
+
+            cache.ICXCloseDFCHTLC(*dfchtlc, status);
+        }
+
+        return true;
+    }, pindex->nHeight);
+
+    cache.ForEachICXSubmitEXTHTLCExpire([&](CICXOrderView::StatusKey const& key, uint8_t status) {
+        if (static_cast<int>(key.first) != pindex->nHeight)
+            return false;
+
+        auto exthtlc = cache.GetICXSubmitEXTHTLCByCreationTx(key.second);
+        if (!exthtlc)
+            return true;
+
+        auto offer = cache.GetICXMakeOfferByCreationTx(exthtlc->offerTx);
+        if (!offer)
+            return true;
+
+        auto order = cache.GetICXOrderByCreationTx(offer->orderTx);
+        if (!order)
+            return true;
+
+        if (status == CICXSubmitEXTHTLC::STATUS_EXPIRED && order->orderType == CICXOrder::TYPE_EXTERNAL) {
+            if (!cache.ExistedICXSubmitDFCHTLC(exthtlc->offerTx, isPreEunosPaya)) {
+                CTokenAmount makerDeposit{DCT_ID{0}, offer->takerFee};
+                cache.CalculateOwnerRewards(order->ownerAddress, pindex->nHeight);
+                cache.AddBalance(order->ownerAddress, makerDeposit);
+                cache.ICXCloseEXTHTLC(*exthtlc, status);
+            }
+        }
+
+        return true;
+    },  pindex->nHeight);
+}
+
+void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams)
+{
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
+        return;
+    }
+
+    std::vector<CLoanSchemeMessage> loanUpdates;
+    cache.ForEachDelayedLoanScheme([&pindex, &loanUpdates](const std::pair<std::string, uint64_t>& key, const CLoanSchemeMessage& loanScheme) {
+        if (key.second == pindex->nHeight) {
+            loanUpdates.push_back(loanScheme);
+        }
+        return true;
+    });
+
+    for (const auto& loanScheme : loanUpdates) {
+        // Make sure loan still exist, that it has not been destroyed in the mean time.
+        if (cache.GetLoanScheme(loanScheme.identifier)) {
+            cache.StoreLoanScheme(loanScheme);
+        }
+        cache.EraseDelayedLoanScheme(loanScheme.identifier, pindex->nHeight);
+    }
+
+    std::vector<std::string> loanDestruction;
+    cache.ForEachDelayedDestroyScheme([&pindex, &loanDestruction](const std::string& key, const uint64_t& height) {
+        if (height == pindex->nHeight) {
+            loanDestruction.push_back(key);
+        }
+        return true;
+    });
+
+    std::vector<CVaultId> vaultsToUpdate;
+    cache.ForEachVault([&](const CVaultId& key, const CVaultMessage& vault) {
+        if (!cache.GetLoanScheme(vault.schemeId)) {
+            vaultsToUpdate.push_back(key);
+        }
+        if (std::find(loanDestruction.begin(), loanDestruction.end(), vault.schemeId) != loanDestruction.end()) {
+            vaultsToUpdate.push_back(key);
+        }
+        return true;
+    });
+
+    auto defaultLoanScheme = cache.GetDefaultLoanScheme();
+    for (const auto& vaultToDefault : vaultsToUpdate) {
+        auto vault = cache.GetVault(vaultToDefault);
+        assert(vault);
+        vault->schemeId = *defaultLoanScheme;
+        cache.UpdateVault(vaultToDefault, *vault);
+    }
+
+    for (const auto& loanDestroy : loanDestruction) {
+        cache.EraseLoanScheme(loanDestroy);
+        cache.EraseDelayedDestroyScheme(loanDestroy);
+    }
+
+    if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
+        cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+            auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime);
+            if (!collateral) {
+                return true;
+            }
+
+            if(!IsVaultPriceValid(cache, vaultId, pindex->nHeight))
+                return true;
+
+            auto vault = cache.GetVault(vaultId);
+            assert(vault);
+            auto scheme = cache.GetLoanScheme(vault->schemeId);
+            assert(scheme);
+            if (scheme->ratio <= collateral.val->ratio())
+                return true;
+
+            vault->isUnderLiquidation = true;
+            cache.StoreVault(vaultId, *vault);
+            auto loanTokens = cache.GetLoanTokens(vaultId);
+            assert(loanTokens);
+            CBalances totalInterest;
+            for (const auto& loan : loanTokens->balances) {
+                auto rate = cache.GetInterestRate(vaultId, loan.first);
+                assert(rate);
+                auto subInterest = TotalInterest(*rate, pindex->nHeight);
+                totalInterest.Add({loan.first, subInterest});
+                cache.SubLoanToken(vaultId, {loan.first, loan.second});
+                cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, loan.first, loan.second, subInterest);
+            }
+            for (const auto& col : collaterals.balances) {
+                cache.SubVaultCollateral(vaultId, {col.first, col.second});
+            }
+            auto batches = CollectAuctionBatches(*collateral.val, collaterals.balances, loanTokens->balances);
+            for (auto i = 0u; i < batches.size(); i++) {
+                auto& batch = batches[i];
+                auto tokenId = batch.loanAmount.nTokenId;
+                auto interest = totalInterest.balances[tokenId];
+                if (interest > 0) {
+                    auto balance = loanTokens->balances[tokenId];
+                    auto interestPart = DivideAmounts(batch.loanAmount.nValue, balance);
+                    batch.loanInterest = MultiplyAmounts(interestPart, interest);
+                    batch.loanAmount.Add(batch.loanInterest);
+                }
+                cache.StoreAuctionBatch(vaultId, i, batch);
+            }
+            cache.StoreAuction(vaultId, pindex->nHeight, CAuctionData{uint32_t(batches.size()), cache.GetLoanLiquidationPenalty()});
+            return true;
+        });
+    }
+
+    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), nullptr, pburnHistoryDB.get());
+
+    view.ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
+        if (auction.height != uint32_t(pindex->nHeight)) {
+            return false;
+        }
+        for (uint32_t i = 0; i < data.batchCount; i++) {
+            auto batch = view.GetAuctionBatch(auction.vaultId, i);
+            assert(batch);
+            if (auto bid = view.GetAuctionBid(auction.vaultId, i)) {
+                auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
+                assert(bid->second.nValue >= penaltyAmount);
+                auto amountToBurn = bid->second.nValue - penaltyAmount + batch->loanInterest;
+                if (amountToBurn > 0) {
+                    CScript tmpAddress(auction.vaultId.begin(), auction.vaultId.end());
+                    view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToBurn});
+                    auto res = SwapToDFIOverUSD(view, bid->second.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
+                }
+                view.CalculateOwnerRewards(bid->first, pindex->nHeight);
+                for (const auto& col : batch->collaterals.balances) {
+                    view.AddBalance(bid->first, {col.first, col.second});
+                }
+                // return rest loan to vault if any
+                auto amountToFill = bid->second.nValue - penaltyAmount;
+                if (amountToFill > 0) {
+                    view.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amountToFill});
+                }
+                if (auto loanToken = view.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
+                    view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
+                }
+            } else {
+                view.AddLoanToken(auction.vaultId, batch->loanAmount);
+                for (const auto& col : batch->collaterals.balances) {
+                    view.AddVaultCollateral(auction.vaultId, {col.first, col.second});
+                }
+            }
+        }
+
+        auto vault = view.GetVault(auction.vaultId);
+        assert(vault);
+        vault->isUnderLiquidation = false;
+        view.StoreVault(auction.vaultId, *vault);
+        view.EraseAuction(auction.vaultId, pindex->nHeight);
+        return true;
+    }, {CVaultId{}, static_cast<uint32_t>(pindex->nHeight)});
+
+    view.Flush();
+    pburnHistoryDB->Flush();
+}
+
+void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
+    if (pindex->nHeight < chainparams.GetConsensus().FortCanningHeight) {
+        return;
+    }
+    auto blockInterval = cache.GetIntervalBlock();
+    if (pindex->nHeight % blockInterval != 0) { 
+        return;
+    }
+    cache.ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
+        // Ensure that we update active and next regardless of state of things
+        // And SetFixedIntervalPrice on each evaluation of this block.
+
+        // As long as nextPrice exists, move the buffers. 
+        // If nextPrice doesn't exist, active price is retained.
+        // nextPrice starts off as empty. Will be replaced by the next 
+        // aggregate, as long as there's a new price available.
+        // If there is no price, nextPrice will remain empty. 
+        // This guarantees that the last price will continue to exists, 
+        // while the overall validity check still fails.
+
+        // Furthermore, the time stamp is always indicative of the 
+        // last price time.
+        auto nextPrice = fixedIntervalPrice.priceRecord[1];
+        if (nextPrice > 0) {
+            fixedIntervalPrice.priceRecord[0] = fixedIntervalPrice.priceRecord[1];
+        }
+        // keep timestamp updated
+        fixedIntervalPrice.timestamp = pindex->nTime;
+        // Use -1 to indicate empty price
+        fixedIntervalPrice.priceRecord[1] = -1;
+        auto aggregatePrice = GetAggregatePrice(cache,
+                                                fixedIntervalPrice.priceFeedId.first,
+                                                fixedIntervalPrice.priceFeedId.second,
+                                                pindex->nTime);
+        if (aggregatePrice) {
+            fixedIntervalPrice.priceRecord[1] = aggregatePrice;
+        } else {
+            LogPrintf("error: no aggregate price available: %s\n", aggregatePrice.msg);
+        }
+        auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
+        if (!res) {
+            LogPrintf("error: SetFixedIntervalPrice failed: %s\n", res.msg);
+        }
+        return true;
+    });
 }
 
 bool CChainState::FlushStateToDisk(
@@ -4184,8 +4447,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         TBytes dummy;
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
             if (block.vtx[i]->IsCoinBase() &&
-                !IsAnchorRewardTx(*block.vtx[i], dummy) &&
-                !IsAnchorRewardTxPlus(*block.vtx[i], dummy))
+                !IsAnchorRewardTx(*block.vtx[i], dummy, block.height >= consensusParams.FortCanningHeight) &&
+                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, block.height >= consensusParams.FortCanningHeight))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
         }
     }

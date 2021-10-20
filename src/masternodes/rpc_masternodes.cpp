@@ -78,7 +78,7 @@ CAmount EstimateMnCreationFee(int targetHeight) {
 */
 UniValue createmasternode(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"createmasternode",
                "\nCreates (and submits to local node and network) a masternode creation transaction with given owner and operator addresses, spending the given inputs..\n"
@@ -117,7 +117,6 @@ UniValue createmasternode(const JSONRPCRequest& request)
                            "Cannot create Masternode while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet); // no need here, but for symmetry
 
     RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
     if (request.params[0].isNull()) {
@@ -193,24 +192,14 @@ UniValue createmasternode(const JSONRPCRequest& request)
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto stream = CDataStream{SER_NETWORK, PROTOCOL_VERSION, static_cast<char>(operatorDest.which()), operatorAuthKey};
-        if (eunosPaya) {
-            stream << timelock;
-        }
-        auto metadata = ToByteVector(stream);
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CCreateMasterNodeMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
 UniValue resignmasternode(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"resignmasternode",
                "\nCreates (and submits to local node and network) a transaction resigning your masternode. Collateral will be unlocked after " +
@@ -245,7 +234,6 @@ UniValue resignmasternode(const JSONRPCRequest& request)
                            "Cannot resign Masternode while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VARR }, true);
 
@@ -289,14 +277,8 @@ UniValue resignmasternode(const JSONRPCRequest& request)
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CResignMasterNodeMessage{}, coins);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
@@ -419,7 +401,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
 
 UniValue listmasternodes(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"listmasternodes",
                "\nReturns information about specified masternodes (or all, if list of ids is empty).\n",
@@ -479,9 +461,8 @@ UniValue listmasternodes(const JSONRPCRequest& request)
 
     UniValue ret(UniValue::VOBJ);
 
-    const auto mnIds = pcustomcsview->GetOperatorsMulti();
-
     LOCK(cs_main);
+    const auto mnIds = pcustomcsview->GetOperatorsMulti();
     pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternode node) {
         ret.pushKVs(mnToJSON(nodeId, node, verbose, mnIds, pwallet));
         limit--;
@@ -493,7 +474,7 @@ UniValue listmasternodes(const JSONRPCRequest& request)
 
 UniValue getmasternode(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"getmasternode",
                "\nReturns information about specified masternode.\n",
@@ -511,9 +492,8 @@ UniValue getmasternode(const JSONRPCRequest& request)
 
     uint256 id = ParseHashV(request.params[0], "masternode id");
 
-    const auto mnIds = pcustomcsview->GetOperatorsMulti();
-
     LOCK(cs_main);
+    const auto mnIds = pcustomcsview->GetOperatorsMulti();
     auto node = pcustomcsview->GetMasternode(id);
     if (node) {
         return mnToJSON(id, *node, true, mnIds, pwallet); // or maybe just node, w/o id?
@@ -615,17 +595,29 @@ UniValue getmasternodeblocks(const JSONRPCRequest& request) {
 
     UniValue ret(UniValue::VOBJ);
 
-    pcustomcsview->ForEachMinterNode([&](MNBlockTimeKey const & key, CLazySerialize<int64_t>) {
-        if (key.masternodeID != mn_id) {
+    auto masternodeBlocks = [&](const uint256& masternodeID, uint32_t blockHeight) {
+        if (masternodeID != mn_id) {
             return false;
         }
 
-        if (auto tip = ::ChainActive()[key.blockHeight]) {
+        if (blockHeight <= creationHeight) {
+            return true;
+        }
+
+        if (auto tip = ::ChainActive()[blockHeight]) {
             lastHeight = tip->height;
             ret.pushKV(std::to_string(tip->height), tip->GetBlockHash().ToString());
         }
 
         return true;
+    };
+
+    pcustomcsview->ForEachSubNode([&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>){
+        return masternodeBlocks(key.masternodeID, key.blockHeight);
+    }, SubNodeBlockTimeKey{mn_id, 0, std::numeric_limits<uint32_t>::max()});
+
+    pcustomcsview->ForEachMinterNode([&](MNBlockTimeKey const & key, CLazySerialize<int64_t>) {
+        return masternodeBlocks(key.masternodeID, key.blockHeight);
     }, MNBlockTimeKey{mn_id, std::numeric_limits<uint32_t>::max()});
 
     auto tip = ::ChainActive()[std::min(lastHeight, uint64_t(Params().GetConsensus().DakotaCrescentHeight)) - 1];
@@ -721,12 +713,6 @@ UniValue getactivemasternodecount(const JSONRPCRequest& request)
                },
     }.Check(request);
 
-    const CBlockIndex* pindex{nullptr};
-    {
-        LOCK(cs_main);
-        pindex = ::ChainActive().Tip();
-    }
-
     int blockSample{7 * 2880}; // One week
     if (!request.params[0].isNull()) {
         blockSample = request.params[0].get_int();
@@ -735,6 +721,7 @@ UniValue getactivemasternodecount(const JSONRPCRequest& request)
     std::set<uint256> masternodes;
 
     LOCK(cs_main);
+    auto pindex = ::ChainActive().Tip();
     // Get active MNs from last week's worth of blocks
     for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
         if (auto id = pcustomcsview->GetMasternodeIdByOperator(pindex->minterKey())) {
@@ -747,8 +734,6 @@ UniValue getactivemasternodecount(const JSONRPCRequest& request)
 
 UniValue listanchors(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
-
     RPCHelpMan{"listanchors",
                "\nList anchors (if any)\n",
                {
@@ -762,9 +747,7 @@ UniValue listanchors(const JSONRPCRequest& request)
                },
     }.Check(request);
 
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(locked_chain->mutex());
-
+    LOCK(cs_main);
     auto confirms = pcustomcsview->CAnchorConfirmsView::GetAnchorConfirmData();
 
     std::sort(confirms.begin(), confirms.end(), [](CAnchorConfirmDataPlus a, CAnchorConfirmDataPlus b) {
@@ -792,7 +775,7 @@ UniValue listanchors(const JSONRPCRequest& request)
 }
 
 static const CRPCCommand commands[] =
-{ 
+{
 //  category        name                     actor (function)        params
 //  --------------- ----------------------   ---------------------   ----------
     {"masternodes", "createmasternode",      &createmasternode,      {"ownerAddress", "operatorAddress", "inputs"}},

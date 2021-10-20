@@ -106,14 +106,14 @@ bool CheckProofOfStake(const CBlockHeader& blockHeader, const CBlockIndex* pinde
     return CheckStakeModifier(pindexPrev, blockHeader) && ContextualCheckProofOfStake(blockHeader, params, mnView, ctxState);
 }
 
-unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool eunos)
+unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params::PoS& params, bool newDifficultyAdjust)
 {
     if (params.fNoRetargeting)
         return pindexLast->nBits;
 
     // Limit adjustment step
     int64_t nActualTimespan = pindexLast->GetBlockTime() - nFirstBlockTime;
-    const auto& nTargetTimespan = eunos ? params.nTargetTimespanV2 : params.nTargetTimespan;
+    const auto& nTargetTimespan = newDifficultyAdjust ? params.nTargetTimespanV2 : params.nTargetTimespan;
     if (nActualTimespan < nTargetTimespan/4)
         nActualTimespan = nTargetTimespan/4;
     if (nActualTimespan > nTargetTimespan*4)
@@ -141,9 +141,15 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     unsigned int nProofOfWorkLimit = UintToArith256(params.pos.diffLimit).GetCompact();
 
     int nHeight{pindexLast->nHeight + 1};
-    bool eunos{nHeight > params.EunosHeight};
-    const auto interval = eunos ? params.pos.DifficultyAdjustmentIntervalV2() : params.pos.DifficultyAdjustmentInterval();
-    bool skipChange = eunos ? (nHeight - params.EunosHeight) % interval != 0 : nHeight % interval != 0;
+    bool newDifficultyAdjust{nHeight > params.EunosHeight};
+
+    // Restore previous difficulty adjust on testnet after FC
+    if (Params().NetworkIDString() == CBaseChainParams::TESTNET && nHeight >= params.FortCanningHeight) {
+        newDifficultyAdjust = false;
+    }
+
+    const auto interval = newDifficultyAdjust ? params.pos.DifficultyAdjustmentIntervalV2() : params.pos.DifficultyAdjustmentInterval();
+    bool skipChange = newDifficultyAdjust ? (nHeight - params.EunosHeight) % interval != 0 : nHeight % interval != 0;
 
     // Only change once per difficulty adjustment interval
     if (skipChange)
@@ -174,7 +180,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     const CBlockIndex* pindexFirst = pindexLast->GetAncestor(nHeightFirst);
     assert(pindexFirst);
 
-    return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params.pos, eunos);
+    return pos::CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params.pos, newDifficultyAdjust);
 }
 
 boost::optional<std::string> SignPosBlock(std::shared_ptr<CBlock> pblock, const CKey &key) {

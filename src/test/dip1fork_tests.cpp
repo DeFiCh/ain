@@ -161,8 +161,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 1988746400);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.anchor), 8100800);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.liquidity), 10308268000);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.swap), 4998193600);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.futures), 4998193600);
+        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.loan), 9996387200);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.options), 4001795200);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.unallocated), 700719200);
     }
@@ -175,8 +174,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 1955772984);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.anchor), 7966488);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.liquidity), 10137356916);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.swap), 4915323550);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.futures), 4915323550);
+        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.loan), 9830647100);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.options), 3935445435);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.unallocated), 689101275);
     }
@@ -189,8 +187,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 373665537);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.anchor), 1522059);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.liquidity), 1936820350);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.swap), 939110535);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.futures), 939110535);
+        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.loan), 1878221070);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.options), 751897252);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.unallocated), 131658122);
     }
@@ -203,8 +200,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 110);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.anchor), 0);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.liquidity), 572);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.swap), 277);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.futures), 277);
+        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.loan), 555);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.options), 222);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.unallocated), 38);
     }
@@ -217,8 +213,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 2);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.anchor), 0);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.liquidity), 15);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.swap), 7);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.futures), 7);
+        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.loan), 14);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.options), 5);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.unallocated), 1);
     }
@@ -231,8 +226,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 0);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.anchor), 0);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.liquidity), 0);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.swap), 0);
-        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.futures), 0);
+        BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.loan), 0);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.options), 0);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.unallocated), 0);
     }

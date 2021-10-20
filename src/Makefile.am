@@ -157,20 +157,27 @@ DEFI_CORE_H = \
   masternodes/communityaccounttypes.h \
   masternodes/factory.h \
   masternodes/govvariables/icx_takerfee_per_btc.h \
+  masternodes/govvariables/loan_daily_reward.h \
+  masternodes/govvariables/loan_liquidation_penalty.h \
+  masternodes/govvariables/loan_splits.h \
   masternodes/govvariables/lp_daily_dfi_reward.h \
   masternodes/govvariables/lp_splits.h \
+  masternodes/govvariables/oracle_block_interval.h \
+  masternodes/govvariables/oracle_deviation.h \
   masternodes/gv.h \
   masternodes/icxorder.h \
   masternodes/incentivefunding.h \
+  masternodes/loan.h \
   masternodes/masternodes.h \
   masternodes/mn_checks.h \
   masternodes/mn_rpc.h \
   masternodes/res.h \
-  masternodes/tokens.h \
+  masternodes/oracles.h \
   masternodes/poolpairs.h \
+  masternodes/tokens.h \
   masternodes/undo.h \
   masternodes/undos.h \
-  masternodes/oracles.h \
+  masternodes/vault.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -367,11 +374,17 @@ libdefi_server_a_SOURCES = \
   masternodes/anchors.cpp \
   masternodes/oracles.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
+  masternodes/govvariables/loan_daily_reward.cpp \
+  masternodes/govvariables/loan_liquidation_penalty.cpp \
+  masternodes/govvariables/loan_splits.cpp \
   masternodes/govvariables/lp_daily_dfi_reward.cpp \
   masternodes/govvariables/lp_splits.cpp \
+  masternodes/govvariables/oracle_block_interval.cpp \
+  masternodes/govvariables/oracle_deviation.cpp \
   masternodes/gv.cpp \
   masternodes/icxorder.cpp \
   masternodes/incentivefunding.cpp \
+  masternodes/loan.cpp \
   masternodes/masternodes.cpp \
   masternodes/mn_checks.cpp \
   masternodes/mn_rpc.cpp \
@@ -379,13 +392,16 @@ libdefi_server_a_SOURCES = \
   masternodes/rpc_customtx.cpp \
   masternodes/rpc_masternodes.cpp \
   masternodes/rpc_icxorderbook.cpp \
+  masternodes/rpc_loan.cpp \
   masternodes/rpc_oracles.cpp \
   masternodes/rpc_poolpair.cpp \
   masternodes/rpc_tokens.cpp \
+  masternodes/rpc_vault.cpp \
   masternodes/tokens.cpp \
   masternodes/poolpairs.cpp \
   masternodes/skipped_txs.cpp \
   masternodes/undos.cpp \
+  masternodes/vault.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \
