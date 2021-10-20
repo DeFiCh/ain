@@ -43,6 +43,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::AccountToAccount:    return "AccountToAccount";
         case CustomTxType::AnyAccountsToAccounts:   return "AnyAccountsToAccounts";
         case CustomTxType::SetGovVariable:      return "SetGovVariable";
+        case CustomTxType::SetGovVariableHeight:return "SetGovVariableHeight";
         case CustomTxType::AppointOracle:       return "AppointOracle";
         case CustomTxType::RemoveOracleAppoint: return "RemoveOracleAppoint";
         case CustomTxType::UpdateOracleAppoint: return "UpdateOracleAppoint";
@@ -134,6 +135,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::AccountToAccount:        return CAccountToAccountMessage{};
         case CustomTxType::AnyAccountsToAccounts:   return CAnyAccountsToAccountsMessage{};
         case CustomTxType::SetGovVariable:          return CGovernanceMessage{};
+        case CustomTxType::SetGovVariableHeight:    return CGovernanceHeightMessage{};
         case CustomTxType::AppointOracle:           return CAppointOracleMessage{};
         case CustomTxType::RemoveOracleAppoint:     return CRemoveOracleAppointMessage{};
         case CustomTxType::UpdateOracleAppoint:     return CUpdateOracleAppointMessage{};
@@ -364,6 +366,23 @@ public:
             ss >> *var;
             obj.govs.insert(std::move(var));
         }
+        return Res::Ok();
+    }
+
+    Res operator()(CGovernanceHeightMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        if (!res) {
+            return res;
+        }
+        CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+        std::string name;
+        ss >> name;
+        obj.govVar = GovVariable::Create(name);
+        if (!obj.govVar) {
+            return Res::Err("'%s': variable does not registered", name);
+        }
+        ss >> *obj.govVar;
+        ss >> obj.startHeight;
         return Res::Ok();
     }
 
@@ -1258,6 +1277,42 @@ public:
                 return Res::Err("%s: %s", var->GetName(), add.msg);
             }
         }
+        return Res::Ok();
+    }
+
+    Res operator()(const CGovernanceHeightMessage& obj) const {
+        //check foundation auth
+        if (!HasFoundationAuth()) {
+            return Res::Err("tx not from foundation member");
+        }
+        if (obj.startHeight <= height) {
+            return Res::Err("startHeight must be above the current block height");
+        }
+
+        // Retrieve any stored GovVariables at startHeight
+        auto storedGovVars = mnview.GetStoredVariables(obj.startHeight);
+
+        // Validate GovVariables before storing
+        auto result = obj.govVar->Validate(mnview);
+        if (!result) {
+            return Res::Err("%s: %s", obj.govVar->GetName(), result.msg);
+        }
+
+        // Remove any pre-existing entry
+        for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
+            if ((*it)->GetName() == obj.govVar->GetName()) {
+                it = storedGovVars.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
+        // Add GovVariable to set for storage
+        storedGovVars.insert(obj.govVar);
+
+        // Store GovVariable set by height
+        mnview.SetStoredVariables(storedGovVars, obj.startHeight);
+
         return Res::Ok();
     }
 
@@ -2418,7 +2473,7 @@ public:
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
 
-            if (!priceFeed.val->isValid())
+            if (!priceFeed.val->isValid(mnview.GetPriceDeviation()))
                 return Res::Err("Price feed %s/%s is invalid", loanToken->fixedIntervalPriceId.first, loanToken->fixedIntervalPriceId.second);
 
             for (int i = 0; i < 2; i++) {
@@ -3366,14 +3421,14 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
         for (const auto collateral : collaterals->balances)
             if (auto collateralToken = mnview.HasLoanSetCollateralToken({collateral.first, height}))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
-                    if (!fixedIntervalPrice.val->isValid())
+                    if (!fixedIntervalPrice.val->isValid(mnview.GetPriceDeviation()))
                         return false;
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
         for (const auto loan : loans->balances)
             if (auto loanToken = mnview.GetLoanSetLoanTokenByID(loan.first))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
-                    if (!fixedIntervalPrice.val->isValid())
+                    if (!fixedIntervalPrice.val->isValid(mnview.GetPriceDeviation()))
                         return false;
     return true;
 }

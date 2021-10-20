@@ -21,8 +21,8 @@ class GovsetTest (DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-subsidytest=1']]
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-eunosheight=200', '-fortcanningheight=400', '-subsidytest=1']]
 
 
     def run_test(self):
@@ -112,11 +112,11 @@ class GovsetTest (DefiTestFramework):
         self.nodes[0].setgov({ "LP_DAILY_DFI_REWARD": 35.5})
         self.nodes[0].generate(1)
 
-        g1 = self.nodes[0].getgov("LP_SPLITS")
+        g1 = self.nodes[0].getgov("LP_SPLITS")[0]
         # print(g1)
         assert (g1 == {'LP_SPLITS': {'1': Decimal('0.50000000'), '2': Decimal('0.40000000'), '3': Decimal('0.10000000')}} )
 
-        g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")
+        g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")[0]
         # print(g2)
         assert(g2 == {'LP_DAILY_DFI_REWARD': Decimal('35.50000000')} )
 
@@ -133,11 +133,11 @@ class GovsetTest (DefiTestFramework):
         self.sync_blocks()
 
         # check sync between nodes 0 and 1
-        g1 = self.nodes[1].getgov("LP_SPLITS")
+        g1 = self.nodes[1].getgov("LP_SPLITS")[0]
         # print(g1)
         assert (g1 == {'LP_SPLITS': {'1': Decimal('0.50000000'), '2': Decimal('0.40000000'), '3': Decimal('0.10000000')}} )
 
-        g2 = self.nodes[1].getgov("LP_DAILY_DFI_REWARD")
+        g2 = self.nodes[1].getgov("LP_DAILY_DFI_REWARD")[0]
         # print(g2)
         assert(g2 == {'LP_DAILY_DFI_REWARD': Decimal('35.50000000')} )
 
@@ -158,7 +158,7 @@ class GovsetTest (DefiTestFramework):
         })
         self.nodes[0].generate(1)
 
-        g1 = self.nodes[0].getgov("LP_SPLITS")
+        g1 = self.nodes[0].getgov("LP_SPLITS")[0]
         assert (g1 == {'LP_SPLITS': {'1': 1}} )
 
         # test that all previous pool's values was reset
@@ -169,7 +169,7 @@ class GovsetTest (DefiTestFramework):
         assert (pool2['rewardPct'] == 0)
         assert (pool3['rewardPct'] == 0)
 
-        g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")
+        g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")[0]
         assert(g2 == {'LP_DAILY_DFI_REWARD': 45} )
 
         # REVERTING
@@ -180,11 +180,11 @@ class GovsetTest (DefiTestFramework):
         self.sync_blocks()
 
         # check that node 0 was synced to neccesary chain point
-        g1 = self.nodes[0].getgov("LP_SPLITS")
+        g1 = self.nodes[0].getgov("LP_SPLITS")[0]
         # print(g1)
         assert (g1 == {'LP_SPLITS': {'1': Decimal('0.50000000'), '2': Decimal('0.40000000'), '3': Decimal('0.10000000')}} )
 
-        g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")
+        g2 = self.nodes[0].getgov("LP_DAILY_DFI_REWARD")[0]
         # print(g2)
         assert(g2 == {'LP_DAILY_DFI_REWARD': Decimal('35.50000000')} )
 
@@ -194,9 +194,48 @@ class GovsetTest (DefiTestFramework):
         assert (pool1['rewardPct'] == Decimal('0.50000000')
             and pool2['rewardPct'] == Decimal('0.40000000')
             and pool3['rewardPct'] == Decimal('0.10000000'))
+        self.nodes[0].clearmempool()
+
+        # Test ORACLE_BLOCK_INTERVAL
+        try:
+            self.nodes[0].setgov({ "ORACLE_BLOCK_INTERVAL": 0})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Block interval cannot be less than 1" in errorString)
+
+        try:
+            self.nodes[0].setgov({ "ORACLE_BLOCK_INTERVAL": "120"})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Block interval amount is not a number" in errorString)
+
+        self.nodes[0].setgov({ "ORACLE_BLOCK_INTERVAL": 120})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getgov("ORACLE_BLOCK_INTERVAL")[0]["ORACLE_BLOCK_INTERVAL"], 120)
+
+        # Test ORACLE_DEVIATION
+        try:
+            self.nodes[0].setgov({ "ORACLE_DEVIATION": Decimal('0.00100000')})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Deviation cannot be less than 1 percent" in errorString)
+
+        self.nodes[0].setgov({ "ORACLE_DEVIATION": Decimal('0.01000000')})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getgov("ORACLE_DEVIATION")[0]["ORACLE_DEVIATION"], Decimal('0.01000000'))
+
+        # Test LOAN_LIQUIDATION_PENALTY
+        try:
+            self.nodes[0].setgov({ "LOAN_LIQUIDATION_PENALTY": Decimal('0.00100000')})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Penalty cannot be less than 0.01 DFI" in errorString)
+
+        self.nodes[0].setgov({ "LOAN_LIQUIDATION_PENALTY": Decimal('0.01000000')})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getgov("LOAN_LIQUIDATION_PENALTY")[0]["LOAN_LIQUIDATION_PENALTY"], Decimal('0.01000000'))
 
         # Generate to Eunos hard fork
-        self.nodes[0].clearmempool()
         self.nodes[0].generate(200 - self.nodes[0].getblockcount())
 
         # Try and set LP_DAILY_DFI_REWARD manually
@@ -207,23 +246,158 @@ class GovsetTest (DefiTestFramework):
         assert("Cannot be set manually after Eunos hard fork" in errorString)
 
         # Check new subsidy
-        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('14843.90592000')) # 144 blocks a day times 103.08268000
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')[0]['LP_DAILY_DFI_REWARD'], Decimal('14843.90592000')) # 144 blocks a day times 103.08268000
 
         # Roll back
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
 
         # Check subsidy restored
-        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('35.50000000'))
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')[0]['LP_DAILY_DFI_REWARD'], Decimal('35.50000000'))
 
         # Move to second reduction and check reward
-        self.nodes[0].generate(151)
-        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('14597.79395904')) # 144 blocks a day times 101.37356916
+        self.nodes[0].generate(350 - self.nodes[0].getblockcount())
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')[0]['LP_DAILY_DFI_REWARD'], Decimal('14597.79395904')) # 144 blocks a day times 101.37356916
 
         # Rollback from second reduction
         self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
 
         # Check subsidy restored
-        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')['LP_DAILY_DFI_REWARD'], Decimal('14843.90592000'))
+        assert_equal(self.nodes[0].getgov('LP_DAILY_DFI_REWARD')[0]['LP_DAILY_DFI_REWARD'], Decimal('14843.90592000'))
+
+        # Check LOAN_DAILY_REWARD before FortCanning
+        assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')[0]['LOAN_DAILY_REWARD'], Decimal('0.00000000'))
+
+        # Try and use setgovheight start height before FortCanning
+        try:
+            self.nodes[0].setgovheight({ "ORACLE_BLOCK_INTERVAL": 200}, 600)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("called before FortCanning height" in errorString)
+
+        # Generate to FortCanning
+        self.nodes[0].generate(400 - self.nodes[0].getblockcount())
+
+        # Empty variable
+        try:
+            self.nodes[0].setgovheight({}, 600)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("No Governance variable provided" in errorString)
+
+        # Test changing Gov var by height. Check equal to next block failure.
+        try:
+            self.nodes[0].setgovheight({ "ORACLE_BLOCK_INTERVAL": 200}, self.nodes[0].getblockcount() + 1)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("startHeight must be above the current block height" in errorString)
+
+        # Make sure erronous values still get picked up
+        try:
+            self.nodes[0].setgovheight({ "ORACLE_BLOCK_INTERVAL": 0}, self.nodes[0].getblockcount() + 10)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Block interval cannot be less than 1" in errorString)
+
+        # Check new subsidy
+        assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')[0]['LOAN_DAILY_REWARD'], Decimal('14156.13182400')) # 144 blocks a day times 98.30647100
+
+        # Roll back
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        # Check subsidy restored
+        assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')[0]['LOAN_DAILY_REWARD'], Decimal('0.00000000'))
+
+        # Move to next reduction and check reward
+        self.nodes[0].generate(500 - self.nodes[0].getblockcount())
+        assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')[0]['LOAN_DAILY_REWARD'], Decimal('13921.42315824')) # 144 blocks a day times 96.67654971
+
+        # Rollback from second reduction
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+
+        # Check subsidy restored
+        assert_equal(self.nodes[0].getgov('LOAN_DAILY_REWARD')[0]['LOAN_DAILY_REWARD'], Decimal('14156.13182400'))
+
+        # Set Gov var change 10 blocks ahead.
+        self.nodes[0].setgovheight({ "ORACLE_BLOCK_INTERVAL": 200}, self.nodes[0].getblockcount() + 10)
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getgov('ORACLE_BLOCK_INTERVAL')[0]['ORACLE_BLOCK_INTERVAL'], 120)
+        self.nodes[0].generate(9)
+        assert_equal(self.nodes[0].getgov('ORACLE_BLOCK_INTERVAL')[0]['ORACLE_BLOCK_INTERVAL'], 200)
+
+        # Rollback change and make sure it is restored.
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        assert_equal(self.nodes[0].getgov('ORACLE_BLOCK_INTERVAL')[0]['ORACLE_BLOCK_INTERVAL'], 120)
+
+        # Move forward again
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getgov('ORACLE_BLOCK_INTERVAL')[0]['ORACLE_BLOCK_INTERVAL'], 200)
+
+        # Test multiple queued changes and make sure the last one is that one that take effect
+        activate = self.nodes[0].getblockcount() + 10
+        self.nodes[0].setgovheight({"LP_SPLITS": { "1": 0.1, "2": 0.2, "3": 0.7 }}, activate)
+        self.nodes[0].generate(1)
+        self.nodes[0].setgovheight({"LP_SPLITS": { "1": 0.2, "2": 0.2, "3": 0.6 }}, activate)
+        self.nodes[0].generate(1)
+        self.nodes[0].setgovheight({"LP_SPLITS": { "1": 0.3, "2": 0.2, "3": 0.5 }}, activate)
+        self.nodes[0].generate(1)
+        self.nodes[0].setgovheight({"LP_SPLITS": { "1": 0.4, "2": 0.2, "3": 0.4 }}, activate)
+        self.nodes[0].generate(7)
+        assert_equal(self.nodes[0].getgov('LP_SPLITS')[0]['LP_SPLITS'], {'1': Decimal('0.40000000'), '2': Decimal('0.20000000'), '3': Decimal('0.40000000')})
+
+        # Test multiple updates on future height with multiple changes.
+        activate = self.nodes[0].getblockcount() + 10
+        self.nodes[0].setgovheight({"LP_SPLITS": { "1": 0.5, "2": 0.2, "3": 0.3 }}, activate)
+        self.nodes[0].setgovheight({ "ORACLE_BLOCK_INTERVAL": 210}, activate)
+        self.nodes[0].generate(1)
+        self.nodes[0].setgovheight({ "ORACLE_BLOCK_INTERVAL": 220}, activate)
+        self.nodes[0].generate(1)
+        self.nodes[0].setgovheight({"LP_SPLITS": { "1": 0.6, "2": 0.2, "3": 0.2 }}, activate)
+        self.nodes[0].generate(1)
+        self.nodes[0].setgovheight({ "ORACLE_BLOCK_INTERVAL": 230}, activate)
+        self.nodes[0].generate(1)
+        self.nodes[0].setgovheight({"LP_SPLITS": { "1": 0.7, "2": 0.2, "3": 0.1 }}, activate)
+        self.nodes[0].generate(6)
+        assert_equal(self.nodes[0].getgov('LP_SPLITS')[0]['LP_SPLITS'], {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')})
+        assert_equal(self.nodes[0].getgov('ORACLE_BLOCK_INTERVAL')[0]['ORACLE_BLOCK_INTERVAL'], 230)
+
+        # Test listgovs
+        result = self.nodes[0].listgovs()
+        assert_equal(result[0][0]['ICX_TAKERFEE_PER_BTC'], Decimal('0E-8'))
+        assert_equal(result[1][0]['LOAN_DAILY_REWARD'], Decimal('13921.42315824'))
+        assert_equal(result[2][0]['LOAN_SPLITS'], {})
+        assert_equal(result[3][0]['LP_DAILY_DFI_REWARD'], Decimal('14355.76253472'))
+        assert_equal(result[4][0]['LOAN_LIQUIDATION_PENALTY'], Decimal('0.01000000'))
+        assert_equal(result[5][0]['LP_SPLITS'], {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')} )
+        assert_equal(result[6][0]['ORACLE_BLOCK_INTERVAL'], 230)
+        assert_equal(result[7][0]['ORACLE_DEVIATION'], Decimal('0.01000000'))
+
+        # Test visibility of pending changes in setgov
+        activate = self.nodes[0].getblockcount() + 100
+        self.nodes[0].setgovheight({ "ORACLE_BLOCK_INTERVAL": 300}, activate)
+        self.nodes[0].setgovheight({ "ORACLE_BLOCK_INTERVAL": 310}, activate + 1)
+        self.nodes[0].setgovheight({ "ICX_TAKERFEE_PER_BTC": Decimal('0.00100000')}, activate)
+        self.nodes[0].setgovheight({ "ICX_TAKERFEE_PER_BTC": Decimal('0.00200000')}, activate + 1)
+        self.nodes[0].generate(1)
+
+        result = self.nodes[0].getgov('ORACLE_BLOCK_INTERVAL')
+        print(result)
+        assert_equal(result[0]['ORACLE_BLOCK_INTERVAL'], 230)
+        assert_equal(result[1][str(activate)], 300)
+        assert_equal(result[2][str(activate + 1)], 310)
+
+        result = self.nodes[0].getgov('ICX_TAKERFEE_PER_BTC')
+        assert_equal(result[0]['ICX_TAKERFEE_PER_BTC'], Decimal('0E-8'))
+        assert_equal(result[1][str(activate)], Decimal('0.00100000'))
+        assert_equal(result[2][str(activate + 1)], Decimal('0.00200000'))
+
+        # Test visibility of pending changes in listgovs
+        result = self.nodes[0].listgovs()
+        assert_equal(result[0][0]['ICX_TAKERFEE_PER_BTC'], Decimal('0E-8'))
+        assert_equal(result[0][1][str(activate)], Decimal('0.00100000'))
+        assert_equal(result[0][2][str(activate + 1)], Decimal('0.00200000'))
+        assert_equal(result[6][0]['ORACLE_BLOCK_INTERVAL'], 230)
+        assert_equal(result[6][1][str(activate)], 300)
+        assert_equal(result[6][2][str(activate + 1)], 310)
 
 if __name__ == '__main__':
     GovsetTest ().main ()

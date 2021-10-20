@@ -419,7 +419,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"setgov",
-               "\nSet special 'governance' variables. Two types of them implemented for now: LP_SPLITS and LP_DAILY_DFI_REWARD\n",
+               "\nSet special 'governance' variables:: ICX_TAKERFEE_PER_BTC, LOAN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                     {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variables",
                         {
@@ -442,7 +442,7 @@ UniValue setgov(const JSONRPCRequest& request) {
                },
                RPCExamples{
                        HelpExampleCli("setgov", "'{\"LP_SPLITS\": {\"2\":0.2,\"3\":0.8}'")
-                       + HelpExampleRpc("setgov", "'{\"LP_DAILY_DFI_REWARD\":109440}'")
+                       + HelpExampleRpc("setgov", "'{\"ICX_TAKERFEE_PER_BTC\":109440}'")
                },
     }.Check(request);
 
@@ -500,15 +500,109 @@ UniValue setgov(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
+UniValue setgovheight(const JSONRPCRequest& request) {
+    CWallet* const pwallet = GetWallet(request);
+
+    RPCHelpMan{"setgovheight",
+               "\nChange governance variable at height: ICX_TAKERFEE_PER_BTC, LOAN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
+               {
+                       {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variable",
+                        {
+                                {"name", RPCArg::Type::STR, RPCArg::Optional::NO, "Variable name is the key, value is the data. Exact data type depends on variable name."},
+                        },
+                       },
+                       {"height", RPCArg::Type::NUM, RPCArg::Optional::NO, "Start height for the changes to take effect."},
+                       {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of json objects",
+                        {
+                                {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                 {
+                                         {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                         {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                 },
+                                },
+                        },
+                       },
+               },
+               RPCResult{
+                       "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("setgovheight", "'{\"LP_SPLITS\": {\"2\":0.2,\"3\":0.8}' 100000")
+                       + HelpExampleRpc("setgovheight", "'{\"ICX_TAKERFEE_PER_BTC\":109440}', 100000")
+               },
+    }.Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+    LockedCoinsScopedGuard lcGuard(pwallet);
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VNUM, UniValue::VARR}, true);
+
+    CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
+    const auto keys = request.params[0].getKeys();
+    if (!keys.empty()) {
+        const std::string& name = request.params[0].getKeys()[0];
+        auto gv = GovVariable::Create(name);
+        if (!gv) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "Variable " + name + " not registered");
+        }
+        gv->Import(request.params[0][name]);
+        varStream << name << *gv;
+    } else {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");
+    }
+
+    const uint32_t startHeight = request.params[1].get_int();
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::SetGovVariableHeight)
+             << varStream
+             << startHeight;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.emplace_back(0, scriptMeta);
+
+    UniValue const & txInputs = request.params[2];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true /*needFoundersAuth*/, optAuthTx, txInputs);
+
+    CCoinControl coinControl;
+
+    // Set change to selected foundation address
+    CTxDestination dest;
+    ExtractDestination(*auths.cbegin(), dest);
+    if (IsValidDestination(dest)) {
+        coinControl.destChange = dest;
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 UniValue getgov(const JSONRPCRequest& request) {
     RPCHelpMan{"getgov",
-               "\nReturns information about governance variable. Two types of them implemented for now: LP_SPLITS and LP_DAILY_DFI_REWARD\n",
+               "\nReturns information about governance variable:\n"
+               "ICX_TAKERFEE_PER_BTC, LOAN_DAILY_REWARD, LOAN_SPLITS, LP_DAILY_DFI_REWARD,\n"
+               "LOAN_LIQUIDATION_PENALTY, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
                         "Variable name"},
                },
                RPCResult{
-                       "{id:{...}}     (array) Json object with variable information\n"
+                       "[{id:{...}},{height:{...},...}]     (array) Json object with variable information\n"
                },
                RPCExamples{
                        HelpExampleCli("getgov", "LP_SPLITS")
@@ -519,13 +613,69 @@ UniValue getgov(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     auto name = request.params[0].getValStr();
+
+    UniValue result(UniValue::VARR);
     auto var = pcustomcsview->GetVariable(name);
     if (var) {
         UniValue ret(UniValue::VOBJ);
         ret.pushKV(var->GetName(),var->Export());
-        return ret;
+        result.push_back(ret);
+    } else {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
     }
-    throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
+
+    // Get and add any pending changes
+    auto pending = pcustomcsview->GetAllStoredVariables();
+    for (const auto& items : pending[name]) {
+        UniValue ret(UniValue::VOBJ);
+        ret.pushKV(std::to_string(items.first),items.second->Export());
+        result.push_back(ret);
+    }
+
+    return result;
+}
+
+UniValue listgovs(const JSONRPCRequest& request) {
+    RPCHelpMan{"listgovs",
+               "\nReturns information about all governance variables including pending changes\n",
+               {},
+               RPCResult{
+                       "[[{id:{...}},{height:{...}},...], ...]     (array) Json array with JSON objects with variable information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listgovs", "")
+                       + HelpExampleRpc("listgovs", "")
+               },
+    }.Check(request);
+
+    std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LOAN_DAILY_REWARD", "LOAN_SPLITS", "LP_DAILY_DFI_REWARD",
+                                  "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION"};
+
+    LOCK(cs_main);
+
+    // Get all stored Gov var changes
+    auto pending = pcustomcsview->GetAllStoredVariables();
+
+    UniValue result(UniValue::VARR);
+    for (const auto& name : vars) {
+        UniValue innerResult(UniValue::VARR);
+        auto var = pcustomcsview->GetVariable(name);
+        if (var) {
+            UniValue ret(UniValue::VOBJ);
+            ret.pushKV(var->GetName(),var->Export());
+            innerResult.push_back(ret);
+        }
+
+        // Get and add any pending changes
+        for (const auto& items : pending[name]) {
+            UniValue ret(UniValue::VOBJ);
+            ret.pushKV(std::to_string(items.first),items.second->Export());
+            innerResult.push_back(ret);
+        }
+        result.push_back(innerResult);
+    }
+
+    return result;
 }
 
 UniValue isappliedcustomtx(const JSONRPCRequest& request) {
@@ -591,7 +741,9 @@ static const CRPCCommand commands[] =
 //  category        name                     actor (function)        params
 //  --------------  ----------------------   --------------------    ----------,
     {"blockchain",  "setgov",                &setgov,                {"variables", "inputs"}},
+    {"blockchain",  "setgovheight",          &setgovheight,          {"variables", "height", "inputs"}},
     {"blockchain",  "getgov",                &getgov,                {"name"}},
+    {"blockchain",  "listgovs",              &listgovs,              {""}},
     {"blockchain",  "isappliedcustomtx",     &isappliedcustomtx,     {"txid", "blockHeight"}},
 };
 

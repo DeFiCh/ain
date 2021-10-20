@@ -100,7 +100,7 @@ class ICXOrderbookTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        result = self.nodes[0].getgov("ICX_TAKERFEE_PER_BTC")
+        result = self.nodes[0].getgov("ICX_TAKERFEE_PER_BTC")[0]
 
         assert_equal(result["ICX_TAKERFEE_PER_BTC"], Decimal('0.001'))
 

@@ -2,10 +2,11 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <algorithm>
-
 #include <masternodes/oracles.h>
-#include <rpc/protocol.h>
+
+#include <masternodes/masternodes.h>
+
+#include <algorithm>
 
 bool COracle::SupportsPair(const std::string& token, const std::string& currency) const
 {
@@ -132,18 +133,13 @@ void COracleView::ForEachOracle(std::function<bool(const COracleId&, CLazySerial
     ForEach<ByName, COracleId, COracle>(callback, start);
 }
 
-bool CFixedIntervalPrice::isValidInternal(const CAmount deviationThreshold) const
+bool CFixedIntervalPrice::isValid(const CAmount deviationThreshold) const
 {
     return (
         priceRecord[0] > 0 &&
         priceRecord[1] > 0 &&
         (std::abs(priceRecord[1] - priceRecord[0]) < MultiplyAmounts(priceRecord[0], deviationThreshold))
     );
-}
-
-bool CFixedIntervalPrice::isValid() const{
-    CAmount deviation = 3 * COIN / 10;
-    return isValidInternal(deviation);
 }
 
 Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalPrice){
@@ -168,4 +164,38 @@ ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurre
 void COracleView::ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start)
 {
     ForEach<FixedIntervalPriceKey, CTokenCurrencyPair, CFixedIntervalPrice>(callback, start);
+}
+
+Res COracleView::SetPriceDeviation(const uint32_t deviation)
+{
+    Write(PriceDeviation::prefix(), deviation);
+    return Res::Ok();
+}
+
+CAmount COracleView::GetPriceDeviation() const
+{
+    uint32_t deviation;
+    if (Read(PriceDeviation::prefix(), deviation)) {
+        return deviation;
+    }
+
+    // Default
+    return 3 * COIN / 10;
+}
+
+Res COracleView::SetIntervalBlock(const uint32_t blockInterval)
+{
+    Write(FixedIntervalBlockKey::prefix(), blockInterval);
+    return Res::Ok();
+}
+
+uint32_t COracleView::GetIntervalBlock() const
+{
+    uint32_t blockInterval;
+    if (Read(FixedIntervalBlockKey::prefix(), blockInterval)) {
+        return blockInterval;
+    }
+
+    // Default
+    return 60 * 60 / Params().GetConsensus().pos.nTargetSpacing;
 }

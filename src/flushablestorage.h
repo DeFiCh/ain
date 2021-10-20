@@ -417,6 +417,11 @@ public:
         it->Seek(DbTypeToBytes(key));
         UpdateValidity();
     }
+    template<typename T>
+    bool Value(T& value) {
+        assert(Valid());
+        return BytesToDbType(it->Value(), value);
+    }
 };
 
 // Creates an iterator to single level key value storage
