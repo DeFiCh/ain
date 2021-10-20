@@ -37,8 +37,9 @@ enum class CustomTxType : uint8_t
     Reject = 1, // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
 
     // masternodes:
-    CreateMasternode       = 'C',
-    ResignMasternode       = 'R',
+    CreateMasternode      = 'C',
+    ResignMasternode      = 'R',
+    UpdateMasternode      = 'm',
     SetForcedRewardAddress = 'F',
     RemForcedRewardAddress = 'f',
     // custom tokens:
@@ -83,7 +84,7 @@ enum class CustomTxType : uint8_t
     // Loans
     LoanSetCollateralToken = 'c',
     LoanSetLoanToken = 'g',
-    LoanUpdateLoanToken = 'f',
+    LoanUpdateLoanToken = 'x',
     LoanScheme         = 'L',
     DefaultLoanScheme  = 'd',
     DestroyLoanScheme  = 'D',
@@ -92,7 +93,7 @@ enum class CustomTxType : uint8_t
     UpdateVault        = 'v',
     DepositToVault     = 'S',
     WithdrawFromVault  = 'J',
-    LoanTakeLoan       = 'F',
+    LoanTakeLoan       = 'X',
     LoanPaybackLoan    = 'H',
     AuctionBid         = 'I'
 };
@@ -104,6 +105,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::ResignMasternode:
         case CustomTxType::SetForcedRewardAddress:
         case CustomTxType::RemForcedRewardAddress:
+        case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
         case CustomTxType::UpdateToken:
@@ -230,6 +232,20 @@ struct CRemForcedRewardAddressMessage {
     }
 };
 
+struct CUpdateMasterNodeMessage {
+    uint256 mnId;
+    char operatorType;
+    CKeyID operatorAuthAddress;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(mnId);
+        READWRITE(operatorType);
+        READWRITE(operatorAuthAddress);
+    }
+};
+
 struct CCreateTokenMessage : public CToken {
     using CToken::CToken;
 
@@ -305,6 +321,7 @@ typedef boost::variant<
     CResignMasterNodeMessage,
     CSetForcedRewardAddressMessage,
     CRemForcedRewardAddressMessage,
+    CUpdateMasterNodeMessage,
     CCreateTokenMessage,
     CUpdateTokenPreAMKMessage,
     CUpdateTokenMessage,
