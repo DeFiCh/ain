@@ -64,12 +64,12 @@ impl Client {
         vault_id: &str,
         new_address: &str,
         loan_scheme_id: &str,
-    ) -> Result<VaultInfo> {
-        self.call::<VaultInfo>(
+    ) -> Result<String> {
+        self.call::<String>(
             "updatevault",
             &[
                 vault_id.into(),
-                json!({"ownerAddress":new_address, "loanSchemeId": loan_scheme_id}),
+                json!({ "ownerAddress":new_address, "loanSchemeId": loan_scheme_id }),
             ],
         )
     }
