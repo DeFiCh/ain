@@ -4462,6 +4462,23 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
                                      strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
     }
 
+    if (!fIsFakeNet && fCheckPOS && block.height >= consensusParams.FortCanningHeight) {
+        CKeyID minter;
+        // this is safe cause pos::ContextualCheckProofOfStake checked
+        block.ExtractMinterKey(minter);
+        auto nodeId = pcustomcsview->GetMasternodeIdByOperator(minter);
+        auto node = pcustomcsview->GetMasternode(*nodeId);
+        if (node->rewardAddressType != 0) {
+            CScript rewardScriptPubKey = GetScriptForDestination(node->rewardAddressType == PKHashType ?
+                CTxDestination(PKHash(node->rewardAddress)) :
+                CTxDestination(WitnessV0KeyHash(node->rewardAddress))
+            );
+            if (block.vtx[0]->vout[0].scriptPubKey != rewardScriptPubKey) {
+                return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "bad-rewardaddress", "proof of stake failed");
+            }
+        }
+    }
+
     unsigned int nSigOps = 0;
     for (const auto& tx : block.vtx)
     {

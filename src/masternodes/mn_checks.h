@@ -37,8 +37,10 @@ enum class CustomTxType : uint8_t
     Reject = 1, // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
 
     // masternodes:
-    CreateMasternode      = 'C',
-    ResignMasternode      = 'R',
+    CreateMasternode       = 'C',
+    ResignMasternode       = 'R',
+    SetForcedRewardAddress = 'F',
+    RemForcedRewardAddress = 'f',
     // custom tokens:
     CreateToken           = 'T',
     MintToken             = 'M',
@@ -100,6 +102,8 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
     switch(type) {
         case CustomTxType::CreateMasternode:
         case CustomTxType::ResignMasternode:
+        case CustomTxType::SetForcedRewardAddress:
+        case CustomTxType::RemForcedRewardAddress:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
         case CustomTxType::UpdateToken:
@@ -198,6 +202,34 @@ struct CResignMasterNodeMessage : public uint256 {
     }
 };
 
+struct CSetForcedRewardAddressMessage {
+    uint256 nodeId;
+    char rewardAddressType;
+    CKeyID rewardAddress;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(nodeId);
+        READWRITE(rewardAddressType);
+        READWRITE(rewardAddress);
+    }
+};
+
+struct CRemForcedRewardAddressMessage {
+    uint256 nodeId;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(nodeId);
+    }
+};
+
 struct CCreateTokenMessage : public CToken {
     using CToken::CToken;
 
@@ -271,6 +303,8 @@ typedef boost::variant<
     CCustomTxMessageNone,
     CCreateMasterNodeMessage,
     CResignMasterNodeMessage,
+    CSetForcedRewardAddressMessage,
+    CRemForcedRewardAddressMessage,
     CCreateTokenMessage,
     CUpdateTokenPreAMKMessage,
     CUpdateTokenMessage,
