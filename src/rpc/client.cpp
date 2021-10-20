@@ -178,6 +178,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "resignmasternode", 1, "inputs" },
     { "setforcedrewardaddress", 2, "inputs" },
     { "remforcedrewardaddress", 1, "inputs" },
+    { "updatemasternode", 2, "inputs" },
     { "listmasternodes", 0, "pagination" },
     { "listmasternodes", 1, "verbose" },
     { "getmasternodeblocks", 0, "identifier"},

@@ -28,8 +28,9 @@ std::string ToString(CustomTxType type) {
     {
         case CustomTxType::CreateMasternode:    return "CreateMasternode";
         case CustomTxType::ResignMasternode:    return "ResignMasternode";
-        case CustomTxType::SetForcedRewardAddress:    return "SetForcedRewardAddress";
+        case CustomTxType::SetForcedRewardAddress: return "SetForcedRewardAddress";
         case CustomTxType::RemForcedRewardAddress: return "RemForcedRewardAddress";
+        case CustomTxType::UpdateMasternode:    return "UpdateMasternode";
         case CustomTxType::CreateToken:         return "CreateToken";
         case CustomTxType::UpdateToken:         return "UpdateToken";
         case CustomTxType::UpdateTokenAny:      return "UpdateTokenAny";
@@ -124,6 +125,7 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
         case CustomTxType::ResignMasternode:        return CResignMasterNodeMessage{};
         case CustomTxType::SetForcedRewardAddress:  return CSetForcedRewardAddressMessage{};
         case CustomTxType::RemForcedRewardAddress:  return CRemForcedRewardAddressMessage{};
+        case CustomTxType::UpdateMasternode:        return CUpdateMasterNodeMessage{};
         case CustomTxType::CreateToken:             return CCreateTokenMessage{};
         case CustomTxType::UpdateToken:             return CUpdateTokenPreAMKMessage{};
         case CustomTxType::UpdateTokenAny:          return CUpdateTokenMessage{};
@@ -255,6 +257,11 @@ public:
     }
 
     Res operator()(CRemForcedRewardAddressMessage& obj) const {
+        auto res = isPostFortCanningFork();
+        return !res ? res : serialize(obj);
+    }
+
+    Res operator()(CUpdateMasterNodeMessage& obj) const {
         auto res = isPostFortCanningFork();
         return !res ? res : serialize(obj);
     }
@@ -908,6 +915,11 @@ public:
         }
 
         return mnview.RemForcedRewardAddress(obj.nodeId, height);
+    }
+
+    Res operator()(const CUpdateMasterNodeMessage& obj) const {
+        auto res = HasCollateralAuth(obj.mnId);
+        return !res ? res : mnview.UpdateMasternode(obj.mnId, obj.operatorType, obj.operatorAuthAddress, height);
     }
 
     Res operator()(const CCreateTokenMessage& obj) const {

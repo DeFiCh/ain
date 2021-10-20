@@ -67,7 +67,7 @@ public:
 
     void operator()(const CCreateMasterNodeMessage& obj) const {
         rpcInfo.pushKV("collateralamount", ValueFromAmount(GetMnCollateralAmount(height)));
-        rpcInfo.pushKV("masternodeoperator", EncodeDestination(obj.operatorType == 1 ?
+        rpcInfo.pushKV("masternodeoperator", EncodeDestination(obj.operatorType == PKHashType ?
                                                 CTxDestination(PKHash(obj.operatorAuthAddress)) :
                                                 CTxDestination(WitnessV0KeyHash(obj.operatorAuthAddress))));
         rpcInfo.pushKV("timelock", CMasternode::GetTimelockToString(static_cast<CMasternode::TimeLock>(obj.timelock)));
@@ -88,6 +88,13 @@ public:
 
     void operator()(const CRemForcedRewardAddressMessage& obj) const {
         rpcInfo.pushKV("mc_id", obj.nodeId.GetHex());
+    }
+
+    void operator()(const CUpdateMasterNodeMessage& obj) const {
+        rpcInfo.pushKV("id", obj.mnId.GetHex());
+        rpcInfo.pushKV("masternodeoperator", EncodeDestination(obj.operatorType == PKHashType ?
+                                                CTxDestination(PKHash(obj.operatorAuthAddress)) :
+                                                CTxDestination(WitnessV0KeyHash(obj.operatorAuthAddress))));
     }
 
     void operator()(const CCreateTokenMessage& obj) const {
