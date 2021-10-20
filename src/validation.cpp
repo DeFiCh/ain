@@ -4468,7 +4468,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         block.ExtractMinterKey(minter);
         auto nodeId = pcustomcsview->GetMasternodeIdByOperator(minter);
         auto node = pcustomcsview->GetMasternode(*nodeId);
-        if (block.vtx[0]->IsCoinBase() && node->rewardAddressType != 0) {
+        if (node->rewardAddressType != 0) {
             CScript rewardScriptPubKey = GetScriptForDestination(node->rewardAddressType == PKHashType ?
                 CTxDestination(PKHash(node->rewardAddress)) :
                 CTxDestination(WitnessV0KeyHash(node->rewardAddress))
