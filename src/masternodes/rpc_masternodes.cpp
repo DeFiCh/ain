@@ -207,7 +207,7 @@ UniValue createmasternode(const JSONRPCRequest& request)
 
 UniValue setforcedrewardaddress(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setforcedrewardaddress",
                "\nCreates (and submits to local node and network) a set forced reward address transaction with given masternode id and reward address\n"
@@ -241,7 +241,6 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VSTR, UniValue::VARR }, true);
 
@@ -311,7 +310,7 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, targetHeight);
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CSetForcedRewardAddressMessage{}, coins);
+        execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
     }
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
@@ -319,7 +318,7 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
 
 UniValue remforcedrewardaddress(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"remforcedrewardaddress",
                "\nCreates (and submits to local node and network) a remove forced reward address transaction with given masternode id\n"
@@ -352,7 +351,6 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet);
 
     RPCTypeCheck(request.params, { UniValue::VSTR, UniValue::VARR }, true);
 
@@ -411,7 +409,7 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
         if (optAuthTx)
             AddCoins(coins, *optAuthTx, targetHeight);
         auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CRemForcedRewardAddressMessage{}, coins);
+        execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
     }
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
@@ -506,7 +504,7 @@ UniValue resignmasternode(const JSONRPCRequest& request)
 
 UniValue updatemasternode(const JSONRPCRequest& request)
 {
-    CWallet* const pwallet = GetWallet(request);
+    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updatemasternode",
                "\nCreates (and submits to local node and network) a masternode update transaction which update the masternode operator addresses, spending the given inputs..\n"
@@ -540,7 +538,6 @@ UniValue updatemasternode(const JSONRPCRequest& request)
                            "Cannot update Masternode while still in Initial Block Download");
     }
     pwallet->BlockUntilSyncedToCurrentChain();
-    LockedCoinsScopedGuard lcGuard(pwallet); // no need here, but for symmetry
 
     bool forkCanning;
     {
@@ -616,7 +613,7 @@ UniValue updatemasternode(const JSONRPCRequest& request)
         auto stream = CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId, static_cast<char>(operatorDest.which()), operatorAuthKey};
 
         auto metadata = ToByteVector(stream);
-        execTestTx(CTransaction(rawTx), targetHeight, metadata, CUpdateMasterNodeMessage{}, coins);
+        execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
     }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
