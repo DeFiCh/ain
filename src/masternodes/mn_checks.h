@@ -62,6 +62,7 @@ enum class CustomTxType : uint8_t
     AnyAccountsToAccounts = 'a',
     //set governance variable
     SetGovVariable        = 'G',
+    SetGovVariableHeight  = 'j',
     // Auto auth TX
     AutoAuthPrep          = 'A',
     // oracles
@@ -114,6 +115,7 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::AccountToAccount:
         case CustomTxType::AnyAccountsToAccounts:
         case CustomTxType::SetGovVariable:
+        case CustomTxType::SetGovVariableHeight:
         case CustomTxType::AutoAuthPrep:
         case CustomTxType::AppointOracle:
         case CustomTxType::RemoveOracleAppoint:
@@ -258,6 +260,11 @@ struct CGovernanceMessage {
     std::set<std::shared_ptr<GovVariable>> govs;
 };
 
+struct CGovernanceHeightMessage {
+    std::shared_ptr<GovVariable> govVar;
+    uint32_t startHeight;
+};
+
 struct CCustomTxMessageNone {};
 
 typedef boost::variant<
@@ -279,6 +286,7 @@ typedef boost::variant<
     CAccountToAccountMessage,
     CAnyAccountsToAccountsMessage,
     CGovernanceMessage,
+    CGovernanceHeightMessage,
     CAppointOracleMessage,
     CRemoveOracleAppointMessage,
     CUpdateOracleAppointMessage,

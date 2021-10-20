@@ -100,13 +100,10 @@ struct COracle : public CAppointOracleMessage {
 
 struct CFixedIntervalPrice
 {
-private:
-    bool isValidInternal(const int64_t deviationThreshold) const; // 0-1 value for deviation threshold
-public:
     CTokenCurrencyPair priceFeedId;
     int64_t timestamp;
     std::vector<CAmount> priceRecord{0, 0}; // priceHistory[0] = active price, priceHistory[1] = next price
-    bool isValid() const;
+    bool isValid(const CAmount deviationThreshold) const;
 
     ADD_SERIALIZE_METHODS;
 
@@ -141,14 +138,21 @@ public:
 
     void ForEachOracle(std::function<bool(const COracleId&, CLazySerialize<COracle>)> callback, const COracleId& start = {});
 
-    struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
-
     Res SetFixedIntervalPrice(const CFixedIntervalPrice& PriceFeed);
 
     ResVal<CFixedIntervalPrice> GetFixedIntervalPrice(const CTokenCurrencyPair& priceFeedId);
 
     void ForEachFixedIntervalPrice(std::function<bool(const CTokenCurrencyPair&, CLazySerialize<CFixedIntervalPrice>)> callback, const CTokenCurrencyPair& start = {});
 
+    Res SetPriceDeviation(const uint32_t deviation);
+    CAmount GetPriceDeviation() const;
+
+    Res SetIntervalBlock(const uint32_t blockInterval);
+    uint32_t GetIntervalBlock() const;
+
+    struct ByName { static constexpr uint8_t prefix() { return 'O'; } };
+    struct PriceDeviation { static constexpr uint8_t prefix() { return 'Y'; } };
+    struct FixedIntervalBlockKey { static constexpr uint8_t prefix() { return 'z'; } };
     struct FixedIntervalPriceKey { static constexpr uint8_t prefix() { return 'y'; } };
 };
 

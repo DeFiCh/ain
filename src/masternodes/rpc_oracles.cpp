@@ -537,9 +537,9 @@ bool diffInHour(int64_t time1, int64_t time2) {
     return std::abs(time1 - time2) < SECONDS_PER_HOUR;
 }
 
-std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight){
+std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview){
     auto FCHeight = Params().GetConsensus().FortCanningHeight;
-    auto fixedBlocks = Params().GetConsensus().blocksFixedIntervalPrice();
+    auto fixedBlocks = mnview.GetIntervalBlock();
     auto nextPriceBlock = currentHeight + (fixedBlocks - ((currentHeight - FCHeight) % fixedBlocks));
     auto activePriceBlock = nextPriceBlock - fixedBlocks;
     return {activePriceBlock, nextPriceBlock};
@@ -1091,14 +1091,14 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     if(!fixedPrice)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
 
-    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height());
+    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
 
     objPrice.pushKV("activePrice", ValueFromAmount(fixedPrice.val->priceRecord[0]));
     objPrice.pushKV("nextPrice", ValueFromAmount(fixedPrice.val->priceRecord[1]));
     objPrice.pushKV("activePriceBlock", (int)priceBlocks.first);
     objPrice.pushKV("nextPriceBlock", (int)priceBlocks.second);
     objPrice.pushKV("timestamp", fixedPrice.val->timestamp);
-    objPrice.pushKV("isValid", fixedPrice.val->isValid());
+    objPrice.pushKV("isValid", fixedPrice.val->isValid(pcustomcsview->GetPriceDeviation()));
     return objPrice;
 }
 
@@ -1153,7 +1153,7 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height());
+    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
 
     UniValue listPrice{UniValue::VARR};
     UniValue blocksObj{UniValue::VOBJ};
@@ -1167,7 +1167,7 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
         obj.pushKV("activePrice", ValueFromAmount(fixedIntervalPrice.priceRecord[0]));
         obj.pushKV("nextPrice", ValueFromAmount(fixedIntervalPrice.priceRecord[1]));
         obj.pushKV("timestamp", fixedIntervalPrice.timestamp);
-        obj.pushKV("isValid", fixedIntervalPrice.isValid());
+        obj.pushKV("isValid", fixedIntervalPrice.isValid(pcustomcsview->GetPriceDeviation()));
         listPrice.push_back(obj);
         limit--;
         return limit != 0;

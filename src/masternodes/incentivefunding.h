@@ -11,7 +11,7 @@
 #include <amount.h>
 
 inline CommunityAccountType CommunityAccountCodeToType (unsigned char ch) {
-    char const types[] = "IASFOU";
+    char const types[] = "IALOU";
     if (memchr(types, ch, strlen(types)))
         return static_cast<CommunityAccountType>(ch);
     else
@@ -24,8 +24,7 @@ inline char const * GetCommunityAccountName(CommunityAccountType t)
     {
         case CommunityAccountType::IncentiveFunding: return "IncentiveFunding";
         case CommunityAccountType::AnchorReward:     return "AnchorReward";
-        case CommunityAccountType::Swap:             return "Swap";
-        case CommunityAccountType::Futures:          return "Futures";
+        case CommunityAccountType::Loan:             return "Loan";
         case CommunityAccountType::Options:          return "Options";
         case CommunityAccountType::Unallocated:      return "Burnt";
         default:

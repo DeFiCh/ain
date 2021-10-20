@@ -204,6 +204,11 @@ public:
         }
     }
 
+    void operator()(const CGovernanceHeightMessage& obj) const {
+        rpcInfo.pushKV(obj.govVar->GetName(), obj.govVar->Export());
+        rpcInfo.pushKV("startHeight", static_cast<uint64_t>(obj.startHeight));
+    }
+
     void operator()(const CAppointOracleMessage& obj) const {
         rpcInfo.pushKV("oracleAddress", ScriptToString(obj.oracleAddress));
         rpcInfo.pushKV("weightage", obj.weightage);

@@ -105,8 +105,7 @@ struct Params {
         uint32_t community; // Community fund
         uint32_t anchor; // Anchor reward
         uint32_t liquidity; // Liquidity mining
-        uint32_t swap; // Atomic swap
-        uint32_t futures; // Futures
+        uint32_t loan; // Loans
         uint32_t options; // Options
         uint32_t unallocated; // Reserved
     };
@@ -146,10 +145,6 @@ struct Params {
         return blocks;
     }
 
-    uint32_t blocksFixedIntervalPrice() const {
-        static const uint32_t blocks = 60 * 60 / pos.nTargetSpacing;
-        return blocks;
-    }
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
      * (nTargetTimespan / nTargetSpacing) which is also used for BIP9 deployments.
