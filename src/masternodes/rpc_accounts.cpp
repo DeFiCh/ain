@@ -818,8 +818,22 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     // dummy encode, mintingOutputsStart isn't filled
     CScript scriptMeta;
     {
-        std::vector<unsigned char> dummyMetadata(std::min((msg.balances.balances.size() * to.size()) * 40, (size_t)1024)); // heuristic to increse tx size before funding
-        scriptMeta << OP_RETURN << dummyMetadata;
+        CDataStream dummyMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+        dummyMetadata << static_cast<unsigned char>(CustomTxType::AccountToUtxos) << msg;
+
+        std::vector<unsigned char> padding(10);
+        for (const auto& recip : to) {
+            for (const auto& amount : recip.second.balances) {
+                if (amount.second != 0) {
+                    CTxOut out{amount.second, recip.first, amount.first};
+                    dummyMetadata << out << padding;
+                    LogPrint(BCLog::ESTIMATEFEE, "%s: out size %d padding %d\n", __func__, sizeof(out), sizeof(unsigned char) * padding.size());
+                }
+            }
+        }
+
+        scriptMeta << OP_RETURN << ToByteVector(dummyMetadata);
+        LogPrint(BCLog::ESTIMATEFEE, "%s: dummyMetadata size %d\n", __func__, dummyMetadata.size());
     }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
@@ -1022,10 +1036,11 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     };
 
     LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
+    CCustomCSView mnview(*pcustomcsview), view(mnview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
 
+    CScript lastOwner;
     auto count = limit;
     auto lastHeight = maxBlockHeight;
 
@@ -1055,7 +1070,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
         if (isMine) {
             // starts new account owned by the wallet
-            if (key.blockHeight > lastHeight) {
+            if (lastOwner != key.owner) {
                 count = limit;
             } else if (count == 0) {
                 return true;
@@ -1063,7 +1078,9 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         }
 
         // starting new account
-        if (key.blockHeight > lastHeight) {
+        if (lastOwner != key.owner) {
+            view.Discard();
+            lastOwner = key.owner;
             lastHeight = maxBlockHeight;
         }
 
@@ -1099,7 +1116,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
         // revert previous tx to restore account balances to maxBlockHeight
         auto it = paccountHistoryDB->LowerBound<CAccountsHistoryView::ByAccountHistoryKey>(startKey);
         if (it.Valid() && (it.Prev(), it.Valid())) {
-            view.OnUndoTx(it.Value().as<AccountHistoryValue>().txid, it.Key().blockHeight);
+            mnview.OnUndoTx(it.Value().as<AccountHistoryValue>().txid, it.Key().blockHeight);
         }
     }
 
@@ -1379,6 +1396,7 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
     CCustomCSView view(*pcustomcsview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
 
+    CScript lastOwner;
     uint64_t count = 0;
     auto lastHeight = uint32_t(::ChainActive().Height());
     const auto currentHeight = lastHeight;
@@ -1411,6 +1429,12 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
         }
 
         if (!noRewards) {
+            // starting new account
+            if (lastOwner != key.owner) {
+                view.Discard();
+                lastOwner = key.owner;
+                lastHeight = currentHeight;
+            }
             onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
                 [&](int32_t, DCT_ID, RewardType, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
