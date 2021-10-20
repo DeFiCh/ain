@@ -84,7 +84,7 @@ enum class CustomTxType : uint8_t
     // Loans
     LoanSetCollateralToken = 'c',
     LoanSetLoanToken = 'g',
-    LoanUpdateLoanToken = 'f',
+    LoanUpdateLoanToken = 'x',
     LoanScheme         = 'L',
     DefaultLoanScheme  = 'd',
     DestroyLoanScheme  = 'D',
@@ -93,7 +93,7 @@ enum class CustomTxType : uint8_t
     UpdateVault        = 'v',
     DepositToVault     = 'S',
     WithdrawFromVault  = 'J',
-    LoanTakeLoan       = 'F',
+    LoanTakeLoan       = 'X',
     LoanPaybackLoan    = 'H',
     AuctionBid         = 'I'
 };
