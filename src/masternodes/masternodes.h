@@ -72,6 +72,10 @@ public:
     CKeyID operatorAuthAddress;
     char operatorType;
 
+    //! Consensus-enforced address for operator rewards.
+    CKeyID rewardAddress;
+    char rewardAddressType;
+
     //! MN creation block height
     int32_t creationHeight;
     //! Resign height
@@ -104,6 +108,8 @@ public:
         READWRITE(ownerType);
         READWRITE(operatorAuthAddress);
         READWRITE(operatorType);
+        READWRITE(rewardAddress);
+        READWRITE(rewardAddressType);
 
         READWRITE(creationHeight);
         READWRITE(resignHeight);
@@ -188,6 +194,8 @@ public:
     Res ResignMasternode(uint256 const & nodeId, uint256 const & txid, int height);
     Res UnCreateMasternode(uint256 const & nodeId);
     Res UnResignMasternode(uint256 const & nodeId, uint256 const & resignTx);
+    Res SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height);
+    Res RemForcedRewardAddress(uint256 const & nodeId, int height);
     Res UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height);
 
     // Get blocktimes for non-subnode and subnode with fork logic

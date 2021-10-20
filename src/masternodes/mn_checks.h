@@ -40,6 +40,8 @@ enum class CustomTxType : uint8_t
     CreateMasternode      = 'C',
     ResignMasternode      = 'R',
     UpdateMasternode      = 'm',
+    SetForcedRewardAddress = 'F',
+    RemForcedRewardAddress = 'f',
     // custom tokens:
     CreateToken           = 'T',
     MintToken             = 'M',
@@ -101,6 +103,8 @@ inline CustomTxType CustomTxCodeToType(uint8_t ch) {
     switch(type) {
         case CustomTxType::CreateMasternode:
         case CustomTxType::ResignMasternode:
+        case CustomTxType::SetForcedRewardAddress:
+        case CustomTxType::RemForcedRewardAddress:
         case CustomTxType::UpdateMasternode:
         case CustomTxType::CreateToken:
         case CustomTxType::MintToken:
@@ -200,6 +204,34 @@ struct CResignMasterNodeMessage : public uint256 {
     }
 };
 
+struct CSetForcedRewardAddressMessage {
+    uint256 nodeId;
+    char rewardAddressType;
+    CKeyID rewardAddress;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(nodeId);
+        READWRITE(rewardAddressType);
+        READWRITE(rewardAddress);
+    }
+};
+
+struct CRemForcedRewardAddressMessage {
+    uint256 nodeId;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(nodeId);
+    }
+};
+
 struct CUpdateMasterNodeMessage {
     uint256 mnId;
     char operatorType;
@@ -287,6 +319,8 @@ typedef boost::variant<
     CCustomTxMessageNone,
     CCreateMasterNodeMessage,
     CResignMasterNodeMessage,
+    CSetForcedRewardAddressMessage,
+    CRemForcedRewardAddressMessage,
     CUpdateMasterNodeMessage,
     CCreateTokenMessage,
     CUpdateTokenPreAMKMessage,

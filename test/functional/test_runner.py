@@ -249,6 +249,7 @@ BASE_SCRIPTS = [
     'rpc_getcustomtx.py',
     'feature_logging.py',
     'feature_loan_scheme.py',
+    'feature_forced_reward_address.py',
     'feature_loan_vault.py',
     'feature_loan_deposittovault.py',
     'feature_loan_priceupdate.py',
