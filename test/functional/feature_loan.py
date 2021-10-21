@@ -148,7 +148,9 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         batches = self.nodes[0].listauctions()[0]['batches']
-        assert_equal(batches[0]['highestBid'], '550.00000000@TSLA')
+        highestBid = batches[0]['highestBid']
+        assert_equal(highestBid['owner'], account)
+        assert_equal(highestBid['amount'], '550.00000000@TSLA')
         accountBal = self.nodes[0].getaccount(account)
         assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1450.00000000@TSLA'])
 
