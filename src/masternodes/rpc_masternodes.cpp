@@ -304,14 +304,7 @@ UniValue setforcedrewardaddress(const JSONRPCRequest& request)
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -403,14 +396,7 @@ UniValue remforcedrewardaddress(const JSONRPCRequest& request)
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto metadata = ToByteVector(CDataStream{SER_NETWORK, PROTOCOL_VERSION, msg});
-        execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
-    }
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
@@ -605,16 +591,8 @@ UniValue updatemasternode(const JSONRPCRequest& request)
     fund(rawTx, pwallet, optAuthTx, &coinControl);
 
     // check execution
-    {
-        LOCK(cs_main);
-        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
-        if (optAuthTx)
-            AddCoins(coins, *optAuthTx, targetHeight);
-        auto stream = CDataStream{SER_NETWORK, PROTOCOL_VERSION, nodeId, static_cast<char>(operatorDest.which()), operatorAuthKey};
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
-        auto metadata = ToByteVector(stream);
-        execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
-    }
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
