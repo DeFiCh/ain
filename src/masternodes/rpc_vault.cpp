@@ -13,7 +13,10 @@ namespace {
             batchObj.pushKV("collaterals", AmountsToJSON(batch->collaterals.balances));
             batchObj.pushKV("loan", tokenAmountString(batch->loanAmount));
             if (auto bid = pcustomcsview->GetAuctionBid(vaultId, i)) {
-                batchObj.pushKV("highestBid", tokenAmountString(bid->second));
+                UniValue bidObj{UniValue::VOBJ};
+                bidObj.pushKV("owner", ScriptToString(bid->first));
+                bidObj.pushKV("amount", tokenAmountString(bid->second));
+                batchObj.pushKV("highestBid", bidObj);
             }
             batchArray.push_back(batchObj);
         }
