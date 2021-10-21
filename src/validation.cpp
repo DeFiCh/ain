@@ -1664,8 +1664,13 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     // special case: possible undo (first) of custom 'complex changes' for the whole block (expired orders and/or prices)
     mnview.OnUndoTx(uint256(), (uint32_t) pindex->nHeight); // undo for "zero hash"
 
-    // erase auction fee history
-    pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, uint32_t(pindex->nHeight), ~0u});
+    if (pindex->nHeight >= Params().GetConsensus().FortCanningHeight) {
+        // erase auction fee history
+        pburnHistoryDB->EraseAccountHistory({Params().GetConsensus().burnAddress, uint32_t(pindex->nHeight), ~0u});
+        if (paccountHistoryDB) {
+            paccountHistoryDB->EraseAuctionHistoryHeight(pindex->nHeight);
+        }
+    }
 
     // Undo community balance increments
     ReverseGeneralCoinbaseTx(mnview, pindex->nHeight);
@@ -3121,6 +3126,11 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 if (auto loanToken = view.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
                     view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
                 }
+                if (paccountHistoryDB) {
+                    AuctionHistoryKey key{auction.height, bid->first, auction.vaultId, i};
+                    AuctionHistoryValue value{bid->second, batch->collaterals.balances};
+                    paccountHistoryDB->WriteAuctionHistory(key, value);
+                }
             } else {
                 view.AddLoanToken(auction.vaultId, batch->loanAmount);
                 for (const auto& col : batch->collaterals.balances) {
@@ -3139,6 +3149,9 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     view.Flush();
     pburnHistoryDB->Flush();
+    if (paccountHistoryDB) {
+        paccountHistoryDB->Flush();
+    }
 }
 
 void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams){
