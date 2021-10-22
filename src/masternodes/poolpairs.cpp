@@ -169,6 +169,9 @@ boost::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) cons
     if (auto rewardPct = ReadBy<ByRewardPct, CAmount>(poolId)) {
         pool->rewardPct = *rewardPct;
     }
+    if (auto rewardLoanPct = ReadBy<ByRewardLoanPct, CAmount>(poolId)) {
+        pool->rewardLoanPct = *rewardLoanPct;
+    }
     PoolHeightKey poolKey = {poolId, UINT_MAX};
     // it's safe needed by iterator creation
     auto view = const_cast<CPoolPairView *>(this);
@@ -227,8 +230,11 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
     PoolHeightKey poolKey = {poolId, begin};
 
     CAmount poolReward = 0;
+    CAmount poolLoanReward = 0;
     auto nextPoolReward = begin;
+    auto nextPoolLoanReward = begin;
     auto itPoolReward = LowerBound<ByPoolReward>(poolKey);
+    auto itPoolLoanReward = LowerBound<ByPoolLoanReward>(poolKey);
 
     CAmount totalLiquidity = 0;
     auto nextTotalLiquidity = begin;
@@ -257,6 +263,9 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
         while (height >= nextPoolReward) {
             ReadValueMoveToNext(itPoolReward, poolId, poolReward, nextPoolReward);
         }
+        while (height >= nextPoolLoanReward) {
+            ReadValueMoveToNext(itPoolLoanReward, poolId, poolLoanReward, nextPoolLoanReward);
+        }
         while (height >= nextPoolSwap) {
             poolSwapHeight = nextPoolSwap;
             ReadValueMoveToNext(itPoolSwap, poolId, poolSwap, nextPoolSwap);
@@ -274,6 +283,10 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
             } else { // new calculation
                 providerReward = liquidityReward(poolReward, liquidity, totalLiquidity);
             }
+            onReward(RewardType::Coinbase, {DCT_ID{0}, providerReward}, height);
+        }
+        if (poolLoanReward != 0) {
+            CAmount providerReward = liquidityReward(poolLoanReward, liquidity, totalLiquidity);
             onReward(RewardType::Coinbase, {DCT_ID{0}, providerReward}, height);
         }
         // commissions
@@ -512,8 +525,11 @@ CAmount CPoolPairView::UpdatePoolRewards(std::function<CTokenAmount(CScript cons
                 distributedFeeB = swapValue->blockCommissionB;
             }
 
+            // Get LP loan rewards
+            auto poolLoanReward = ReadValueAt<ByPoolLoanReward, CAmount>(this, poolKey);
+
             // increase by pool block reward
-            totalDistributed += poolReward;
+            totalDistributed += poolReward + poolLoanReward;
 
             for (const auto& reward : rewards.balances) {
                 // subtract pool's owner account by custom block reward
@@ -617,6 +633,17 @@ Res CPoolPairView::SetRewardPct(DCT_ID const & poolId, uint32_t height, CAmount 
     return Res::Ok();
 }
 
+Res CPoolPairView::SetRewardLoanPct(DCT_ID const & poolId, uint32_t height, CAmount rewardLoanPct) {
+    if (!HasPoolPair(poolId)) {
+        return Res::Err("No such pool pair");
+    }
+    WriteBy<ByRewardLoanPct>(poolId, rewardLoanPct);
+    if (auto dailyReward = ReadBy<ByDailyLoanReward, CAmount>(DCT_ID{})) {
+        WriteBy<ByPoolLoanReward>(PoolHeightKey{poolId, height}, PoolRewardPerBlock(*dailyReward, rewardLoanPct));
+    }
+    return Res::Ok();
+}
+
 Res CPoolPairView::SetDailyReward(uint32_t height, CAmount reward) {
     ForEachPoolId([&](DCT_ID const & poolId) {
         if (auto rewardPct = ReadBy<ByRewardPct, CAmount>(poolId)) {
@@ -625,6 +652,18 @@ Res CPoolPairView::SetDailyReward(uint32_t height, CAmount reward) {
         return true;
     });
     WriteBy<ByDailyReward>(DCT_ID{}, reward);
+    return Res::Ok();
+}
+
+Res CPoolPairView::SetLoanDailyReward(const uint32_t height, const CAmount reward)
+{
+    ForEachPoolId([&](DCT_ID const & poolId) {
+        if (auto rewardLoanPct = ReadBy<ByRewardLoanPct, CAmount>(poolId)) {
+            WriteBy<ByPoolLoanReward>(PoolHeightKey{poolId, height}, PoolRewardPerBlock(reward, *rewardLoanPct));
+        }
+        return true;
+    });
+    WriteBy<ByDailyLoanReward>(DCT_ID{}, reward);
     return Res::Ok();
 }
 

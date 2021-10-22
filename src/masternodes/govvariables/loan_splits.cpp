@@ -11,7 +11,7 @@
 
 Res LP_LOAN_TOKEN_SPLITS::Import(const UniValue & val) {
     if (!val.isObject())
-        return Res::Err("object expected"); // TODO Add more explicit info on object format
+        return Res::Err("object of {poolId: rate,... } expected");
     for (const std::string& key : val.getKeys()) {
         const auto id = DCT_ID::FromString(key);
         if (!id.ok) {
@@ -31,9 +31,14 @@ UniValue LP_LOAN_TOKEN_SPLITS::Export() const {
 }
 
 Res LP_LOAN_TOKEN_SPLITS::Validate(const CCustomCSView & mnview) const {
+    if (mnview.GetLastHeight() < static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight)) {
+        return Res::Err("Cannot be set before FortCanning");
+    }
+
     CAmount total{0};
     for (auto const & kv : splits) {
-        // TODO Add validation against loans here.
+        if (!mnview.HasPoolPair(kv.first))
+            return Res::Err("pool with id=%s not found", kv.first.ToString());
 
         if (kv.second < 0 || kv.second > COIN)
             return Res::Err("wrong percentage for pool with id=%s, value = %s", kv.first.ToString(), std::to_string(kv.second));
@@ -47,7 +52,17 @@ Res LP_LOAN_TOKEN_SPLITS::Validate(const CCustomCSView & mnview) const {
 }
 
 Res LP_LOAN_TOKEN_SPLITS::Apply(CCustomCSView & mnview, uint32_t height) {
-    // TODO Apply rewardPct to loans here.
+    mnview.ForEachPoolId([&] (DCT_ID poolId) {
+        // we ought to reset previous value:
+        CAmount rewardLoanPct = 0;
+        auto it = splits.find(poolId);
+        if (it != splits.end()) {
+            rewardLoanPct = it->second;
+        }
+
+        mnview.SetRewardLoanPct(poolId, height, rewardLoanPct);
+        return true;
+    });
 
     return Res::Ok();
 }

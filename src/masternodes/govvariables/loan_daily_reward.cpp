@@ -25,5 +25,5 @@ Res LP_DAILY_LOAN_TOKEN_REWARD::Validate(const CCustomCSView & view) const
 
 Res LP_DAILY_LOAN_TOKEN_REWARD::Apply(CCustomCSView & mnview, uint32_t height)
 {
-    return mnview.SetLoanDailyReward(dailyReward);
+    return mnview.SetLoanDailyReward(height, dailyReward);
 }

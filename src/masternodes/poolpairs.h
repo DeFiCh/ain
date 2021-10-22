@@ -118,6 +118,7 @@ public:
     CAmount blockCommissionB = 0;
 
     CAmount rewardPct = 0;       // pool yield farming reward %%
+    CAmount rewardLoanPct = 0;
     bool swapEvent = false;
 
     // serialized
@@ -135,11 +136,12 @@ public:
 private:
     CAmount slopeSwap(CAmount unswapped, CAmount & poolFrom, CAmount & poolTo, bool postBayfrontGardens = false);
 
-    inline void ioProofer() const { // may be it's more reasonable to use unsigned everywhere, but for basic CAmount compatibility
+    inline void ioProofer() const { // Maybe it's more reasonable to use unsigned everywhere, but for basic CAmount compatibility
         if (reserveA < 0 || reserveB < 0 ||
             totalLiquidity < 0 ||
             blockCommissionA < 0 || blockCommissionB < 0 ||
-            rewardPct < 0 || commission < 0
+            rewardPct < 0 || commission < 0 ||
+            rewardLoanPct < 0
             ) {
             throw std::ios_base::failure("negative pool's 'CAmounts'");
         }
@@ -226,8 +228,10 @@ public:
 
     void CalculatePoolRewards(DCT_ID const & poolId, std::function<CAmount()> onLiquidity, uint32_t begin, uint32_t end, std::function<void(RewardType, CTokenAmount, uint32_t)> onReward);
 
+    Res SetLoanDailyReward(const uint32_t height, const CAmount reward);
     Res SetDailyReward(uint32_t height, CAmount reward);
     Res SetRewardPct(DCT_ID const & poolId, uint32_t height, CAmount rewardPct);
+    Res SetRewardLoanPct(DCT_ID const & poolId, uint32_t height, CAmount rewardLoanPct);
     bool HasPoolPair(DCT_ID const & poolId) const;
 
     CAmount UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight = 0);
@@ -244,6 +248,9 @@ public:
     struct ByDailyReward    { static constexpr uint8_t prefix() { return 'B'; } };
     struct ByCustomReward   { static constexpr uint8_t prefix() { return 'A'; } };
     struct ByTotalLiquidity { static constexpr uint8_t prefix() { return 'f'; } };
+    struct ByDailyLoanReward{ static constexpr uint8_t prefix() { return 'q'; } };
+    struct ByRewardLoanPct  { static constexpr uint8_t prefix() { return 'U'; } };
+    struct ByPoolLoanReward { static constexpr uint8_t prefix() { return 'W'; } };
 };
 
 struct CLiquidityMessage {
