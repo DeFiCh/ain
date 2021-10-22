@@ -230,12 +230,12 @@ static int _BRWalletContainsUserTx(BRWallet *wallet, const BRTransaction *tx, co
     return r;
 }
 
-static bool _BRWalletContainsHTLCOutput(BRWallet *wallet, const BRTransaction *tx, size_t &output, const UInt160& addressFilter)
+static bool _BRWalletContainsHTLCOutput(BRWallet *wallet, const BRTransaction *tx, std::vector<size_t> &output, const UInt160& addressFilter)
 {
     bool r = false;
     const uint8_t *pkh;
 
-    for (size_t i = 0; ! r && i < tx->outCount; i++)
+    for (size_t i = 0; i < tx->outCount; i++)
     {
         pkh = BRScriptPKH(tx->outputs[i].script, tx->outputs[i].scriptLen);
         if (pkh)
@@ -250,7 +250,7 @@ static bool _BRWalletContainsHTLCOutput(BRWallet *wallet, const BRTransaction *t
                     continue;
                 }
 
-                output = i;
+                output.push_back(i);
                 r = true;
             }
         }
@@ -345,15 +345,17 @@ std::vector<std::pair<BRTransaction*, size_t>> BRListHTLCReceived(BRWallet *wall
 {
     std::vector<std::pair<BRTransaction*, size_t>> htlcTransactions;
     BRTransaction *tx;
-    size_t output{0};
 
     for (size_t i = 0; i < array_count(wallet->transactions); ++i)
     {
+        std::vector<size_t> outputs;
         tx = wallet->transactions[i];
 
-        if (_BRWalletContainsHTLCOutput(wallet, tx, output, addr))
+        if (_BRWalletContainsHTLCOutput(wallet, tx, outputs, addr))
         {
-            htlcTransactions.emplace_back(tx, output);
+            for (const auto& out : outputs) {
+                htlcTransactions.emplace_back(tx, out);
+            }
         }
     }
 
