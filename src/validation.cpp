@@ -2024,8 +2024,8 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 
                 Res res = Res::Ok();
 
-                // Swap, Futures and Options currently unused and all go to Unallocated (burnt) pot.
-                if (kv.first == CommunityAccountType::Loan ||
+                // Loan below FC and Options are unused and all go to Unallocated (burnt) pot.
+                if ((height < consensus.FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
                     kv.first == CommunityAccountType::Options)
                 {
                     res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
@@ -2078,8 +2078,8 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height)
             {
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
-                // Remove Swap, Futures and Options balances from Unallocated
-                if (kv.first == CommunityAccountType::Loan ||
+                // Remove Loan and Options balances from Unallocated
+                if ((height < Params().GetConsensus().FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
                     kv.first == CommunityAccountType::Options)
                 {
                     mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
@@ -2653,7 +2653,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
 
         // hardfork commissions update
-        CAmount distributed = cache.UpdatePoolRewards(
+        const auto distributed = cache.UpdatePoolRewards(
             [&](CScript const & owner, DCT_ID tokenID) {
                 cache.CalculateOwnerRewards(owner, pindex->nHeight);
                 return cache.GetBalance(owner, tokenID);
@@ -2679,9 +2679,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             pindex->nHeight
         );
 
-        auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed);
+        auto res = cache.SubCommunityBalance(CommunityAccountType::IncentiveFunding, distributed.first);
         if (!res.ok) {
             LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, block.height, block.GetHash().ToString());
+        }
+
+        if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight) {
+            res = cache.SubCommunityBalance(CommunityAccountType::Loan, distributed.second);
+            if (!res.ok) {
+                LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n", res.msg, block.height, block.GetHash().ToString());
+            }
         }
 
         // close expired orders, refund all expired DFC HTLCs at this block height

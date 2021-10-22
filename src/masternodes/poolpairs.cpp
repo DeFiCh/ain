@@ -467,7 +467,7 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     return swapped.GetLow64();
 }
 
-CAmount CPoolPairView::UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight) {
+std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(std::function<CTokenAmount(CScript const &, DCT_ID)> onGetBalance, std::function<Res(CScript const &, CScript const &, CTokenAmount)> onTransfer, int nHeight) {
 
     bool newRewardCalc = nHeight >= Params().GetConsensus().BayfrontGardensHeight;
     bool newRewardLogic = nHeight >= Params().GetConsensus().EunosHeight;
@@ -475,6 +475,7 @@ CAmount CPoolPairView::UpdatePoolRewards(std::function<CTokenAmount(CScript cons
 
     constexpr uint32_t const PRECISION = 10000; // (== 100%) just searching the way to avoid arith256 inflating
     CAmount totalDistributed = 0;
+    CAmount totalLoanDistributed = 0;
 
     ForEachPoolId([&] (DCT_ID const & poolId) {
 
@@ -529,7 +530,8 @@ CAmount CPoolPairView::UpdatePoolRewards(std::function<CTokenAmount(CScript cons
             auto poolLoanReward = ReadValueAt<ByPoolLoanReward, CAmount>(this, poolKey);
 
             // increase by pool block reward
-            totalDistributed += poolReward + poolLoanReward;
+            totalDistributed += poolReward;
+            totalLoanDistributed += poolLoanReward;
 
             for (const auto& reward : rewards.balances) {
                 // subtract pool's owner account by custom block reward
@@ -601,7 +603,7 @@ CAmount CPoolPairView::UpdatePoolRewards(std::function<CTokenAmount(CScript cons
         }
         return true;
     });
-    return totalDistributed;
+    return {totalDistributed, totalLoanDistributed};
 }
 
 Res CPoolPairView::SetShare(DCT_ID const & poolId, CScript const & provider, uint32_t height) {

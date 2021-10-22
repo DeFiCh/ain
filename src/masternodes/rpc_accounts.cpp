@@ -1487,8 +1487,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies)
     {
         // Skip these as any unused balance will be burnt.
-        if (kv.first == CommunityAccountType::Loan ||
-            kv.first == CommunityAccountType::Options) {
+        if (kv.first == CommunityAccountType::Options) {
             continue;
         }
         if (kv.first == CommunityAccountType::Unallocated ||
@@ -1496,6 +1495,14 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
             burnt += pcustomcsview->GetCommunityBalance(kv.first);
             continue;
         }
+
+        if (kv.first == CommunityAccountType::Loan) {
+            if (::ChainActive().Height() >= Params().GetConsensus().FortCanningHeight) {
+                burnt += pcustomcsview->GetCommunityBalance(kv.first);
+            }
+            continue;
+        }
+
         ret.pushKV(GetCommunityAccountName(kv.first), ValueFromAmount(pcustomcsview->GetCommunityBalance(kv.first)));
     }
     ret.pushKV("Burnt", ValueFromAmount(burnt));
@@ -1727,11 +1734,13 @@ UniValue getburninfo(const JSONRPCRequest& request) {
         result.pushKV("paybackburn", ValueFromAmount(paybackFee));
     }
 
+    LOCK(cs_main);
+
     CAmount burnt{0};
     for (const auto& kv : Params().GetConsensus().newNonUTXOSubsidies) {
-        if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::IncentiveFunding) {
+        if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::IncentiveFunding ||
+        (::ChainActive().Height() >= Params().GetConsensus().FortCanningHeight && kv.first == CommunityAccountType::Loan)) {
             burnt += pcustomcsview->GetCommunityBalance(kv.first);
-            continue;
         }
     }
     result.pushKV("emissionburn", ValueFromAmount(burnt));
