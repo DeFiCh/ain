@@ -840,8 +840,22 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     // dummy encode, mintingOutputsStart isn't filled
     CScript scriptMeta;
     {
-        std::vector<unsigned char> dummyMetadata(std::min((msg.balances.balances.size() * to.size()) * 40, (size_t)1024)); // heuristic to increse tx size before funding
-        scriptMeta << OP_RETURN << dummyMetadata;
+        CDataStream dummyMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+        dummyMetadata << static_cast<unsigned char>(CustomTxType::AccountToUtxos) << msg;
+
+        std::vector<unsigned char> padding(10);
+        for (const auto& recip : to) {
+            for (const auto& amount : recip.second.balances) {
+                if (amount.second != 0) {
+                    CTxOut out{amount.second, recip.first, amount.first};
+                    dummyMetadata << out << padding;
+                    LogPrint(BCLog::ESTIMATEFEE, "%s: out size %d padding %d\n", __func__, sizeof(out), sizeof(unsigned char) * padding.size());
+                }
+            }
+        }
+
+        scriptMeta << OP_RETURN << ToByteVector(dummyMetadata);
+        LogPrint(BCLog::ESTIMATEFEE, "%s: dummyMetadata size %d\n", __func__, dummyMetadata.size());
     }
 
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
