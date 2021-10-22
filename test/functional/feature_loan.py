@@ -200,11 +200,6 @@ class LoanTest (DefiTestFramework):
 
         assert_equal(vault1['isUnderLiquidation'], False)
         assert_equal(accountBal, ['1600.00000000@DFI', '1600.00000000@BTC', '226.00000000@TSLA'])
-        try:
-            self.nodes[0].deposittovault(vaultId1, account, '1@DFI')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("Vault does not have enough collateralization ratio defined by loan scheme" in errorString)
 
         self.nodes[0].deposittovault(vaultId1, account, '600@DFI')
         self.nodes[0].generate(1)
