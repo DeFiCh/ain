@@ -1073,8 +1073,6 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
                     },
                 },
                 RPCResult{
-                       "                  `nextPriceBlock` - height of nextPrice.\n"
-                       "                  `activePriceBlock` - height of activePrice.\n\n"
                        "\"json\"          (string) array containing json-objects having following fields:\n"
                        "                  `activePrice` - current price used for loan calculations\n"
                        "                  `nextPrice` - next price to be assigned to pair.\n"
@@ -1109,14 +1107,8 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
 
     UniValue listPrice{UniValue::VARR};
-    UniValue blocksObj{UniValue::VOBJ};
-    blocksObj.pushKV("activePriceBlock", (int)priceBlocks.first);
-    blocksObj.pushKV("nextPriceBlock", (int)priceBlocks.second);
-    listPrice.push_back(blocksObj);
-
     pcustomcsview->ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
         UniValue obj{UniValue::VOBJ};
         obj.pushKV("priceFeedId", (fixedIntervalPrice.priceFeedId.first + "/" + fixedIntervalPrice.priceFeedId.second));
