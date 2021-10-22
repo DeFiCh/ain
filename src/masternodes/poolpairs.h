@@ -203,6 +203,7 @@ enum RewardType
     Rewards = 128,
     Coinbase = Rewards | 1,
     Pool = Rewards | 2,
+    LoanTokenDEXReward = Rewards | 4,
 };
 
 std::string RewardToString(RewardType type);

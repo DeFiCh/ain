@@ -50,6 +50,7 @@ std::string RewardTypeToString(RewardType type)
     switch(type) {
         case RewardType::Coinbase: return "Coinbase";
         case RewardType::Pool: return "Pool";
+        case RewardType::LoanTokenDEXReward: return "LoanTokenDEXReward";
         default: return "Unknown";
     }
 }
@@ -287,7 +288,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const & poolId, std::function<CA
         }
         if (poolLoanReward != 0) {
             CAmount providerReward = liquidityReward(poolLoanReward, liquidity, totalLiquidity);
-            onReward(RewardType::Coinbase, {DCT_ID{0}, providerReward}, height);
+            onReward(RewardType::LoanTokenDEXReward, {DCT_ID{0}, providerReward}, height);
         }
         // commissions
         if (poolSwapHeight == height && poolSwap.swapEvent) {
