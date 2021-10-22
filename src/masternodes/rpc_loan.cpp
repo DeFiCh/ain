@@ -1235,8 +1235,14 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
     UniValue collateralList{UniValue::VARR};
+    uint32_t height = ::ChainActive().Height();
+    DCT_ID currentToken = {std::numeric_limits<uint32_t>::max()};
+    CollateralTokenKey start{DCT_ID{0}, height};
     pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
     {
+        if ((key.height > height || currentToken == key.id)) return true;
+
+        currentToken = key.id;
         auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
         if (collToken){
             auto token = pcustomcsview->GetToken(collToken->idToken);
@@ -1247,7 +1253,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
         }
 
         return true;
-    });
+    }, start);
 
     UniValue loanList{UniValue::VARR};
     pcustomcsview->ForEachLoanSetLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
