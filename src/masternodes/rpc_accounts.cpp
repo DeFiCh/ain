@@ -265,6 +265,8 @@ UniValue listaccounts(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
+    pwallet->BlockUntilSyncedToCurrentChain();
+
     // parse pagination
     size_t limit = 100;
     BalanceKey start = {};
@@ -307,7 +309,7 @@ UniValue listaccounts(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
-    auto targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    auto targetHeight = ::ChainActive().Height() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
 
@@ -334,7 +336,6 @@ UniValue listaccounts(const JSONRPCRequest& request) {
 }
 
 UniValue getaccount(const JSONRPCRequest& request) {
-    auto pwallet = GetWallet(request);
 
     RPCHelpMan{"getaccount",
                "\nReturns information about account.\n",
@@ -403,7 +404,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
     CCustomCSView mnview(*pcustomcsview);
-    auto targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    auto targetHeight = ::ChainActive().Height() + 1;
 
     mnview.CalculateOwnerRewards(reqOwner, targetHeight);
 
@@ -453,6 +454,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
                 },
     }.Check(request);
 
+    pwallet->BlockUntilSyncedToCurrentChain();
+
     // parse pagination
     size_t limit = 100;
     DCT_ID start = {};
@@ -495,7 +498,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     LOCK(cs_main);
     CBalances totalBalances;
     CCustomCSView mnview(*pcustomcsview);
-    auto targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+    auto targetHeight = ::ChainActive().Height() + 1;
 
     mnview.ForEachAccount([&](CScript const & account) {
         if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
@@ -634,7 +637,7 @@ UniValue sendutxosfrom(const JSONRPCRequest& request) {
     pwallet->BlockUntilSyncedToCurrentChain();
 
     auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
+    LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
     CTxDestination fromDest = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(fromDest)) {
@@ -992,8 +995,6 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    maxBlockHeight = std::min(maxBlockHeight, uint32_t(chainHeight(*pwallet->chain().lock())));
-    depth = std::min(depth, maxBlockHeight);
 
     std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
         return true;
@@ -1006,20 +1007,13 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     if (accounts == "mine") {
         isMine = true;
         filter = ISMINE_SPENDABLE;
-    } else if (accounts == "all") {
-        depth = std::min(depth, limit);
-    } else {
+    } else if (accounts != "all") {
         account = DecodeScript(accounts);
         isMine = IsMineCached(*pwallet, account) & ISMINE_ALL;
         isMatchOwner = [&account](CScript const & owner) {
             return owner == account;
         };
     }
-
-    const auto startBlock = maxBlockHeight - depth;
-    auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
-        return startBlock > blockHeight || blockHeight > maxBlockHeight;
-    };
 
     std::set<uint256> txs;
     const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && CustomTxType::None == txType;
@@ -1039,6 +1033,14 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
     CCustomCSView mnview(*pcustomcsview), view(mnview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
+
+    maxBlockHeight = std::min(maxBlockHeight, uint32_t(::ChainActive().Height()));
+    depth = std::min(depth, maxBlockHeight);
+
+    const auto startBlock = maxBlockHeight - depth;
+    auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
+        return startBlock > blockHeight || blockHeight > maxBlockHeight;
+    };
 
     CScript lastOwner;
     auto count = limit;
@@ -1227,15 +1229,6 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
     }
 
     pwallet->BlockUntilSyncedToCurrentChain();
-    maxBlockHeight = std::min(maxBlockHeight, uint32_t(chainHeight(*pwallet->chain().lock())));
-    depth = std::min(depth, maxBlockHeight);
-
-    // start block for asc order
-    const auto startBlock = maxBlockHeight - depth;
-
-    auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
-        return startBlock > blockHeight || blockHeight > maxBlockHeight;
-    };
 
     std::function<bool(CScript const &)> isMatchOwner = [](CScript const &) {
         return true;
@@ -1258,6 +1251,14 @@ UniValue listburnhistory(const JSONRPCRequest& request) {
     CCustomCSView view(*pcustomcsview);
     CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
+
+    maxBlockHeight = std::min(maxBlockHeight, uint32_t(::ChainActive().Height()));
+    depth = std::min(depth, maxBlockHeight);
+
+    const auto startBlock = maxBlockHeight - depth;
+    auto shouldSkipBlock = [startBlock, maxBlockHeight](uint32_t blockHeight) {
+        return startBlock > blockHeight || blockHeight > maxBlockHeight;
+    };
 
     auto count = limit;
 
@@ -1365,6 +1366,8 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
             }
         }
     }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
 
     CScript owner;
     bool isMine = false;

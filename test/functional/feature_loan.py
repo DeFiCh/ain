@@ -186,14 +186,43 @@ class LoanTest (DefiTestFramework):
         # auction winner account has now first batch collaterals
         assert_equal(account2Bal, ['400.00000000@DFI', '400.00000000@BTC', '444.50000000@TSLA'])
 
+        auction = self.nodes[0].listauctionhistory()[0]
+        assert_equal(auction['winner'], account2)
+        assert_equal(auction['blockHeight'], 432)
+        assert_equal(auction['vaultId'], vaultId1)
+        assert_equal(auction['batchIndex'], 0)
+        assert_equal(auction['auctionBid'], "555.50000000@TSLA")
+        assert_equal(auction['auctionWon'].sort(), ['400.00000000@DFI', '400.00000000@BTC'].sort())
+
         # check that still auction due to 1 batch without bid
         auctionlist = self.nodes[0].listauctions()
         assert_equal(len(auctionlist[0]['batches']), 2)
 
         self.nodes[0].auctionbid(vaultId1, 0, account, "515@TSLA") # above 5% and leave vault with some loan to exit liquidation state
         self.nodes[0].generate(40) # let auction end
+
+        auction = self.nodes[0].listauctionhistory(account)[0]
+        assert_equal(auction['winner'], account)
+        assert_equal(auction['blockHeight'], 469)
+        assert_equal(auction['vaultId'], vaultId1)
+        assert_equal(auction['batchIndex'], 0)
+        assert_equal(auction['auctionBid'], "515.00000000@TSLA")
+        assert_equal(auction['auctionWon'].sort(), ['399.99999600@DFI', '399.99999600@DFI'].sort())
+
         self.nodes[0].auctionbid(vaultId1, 0, account, "259@TSLA")
         self.nodes[0].generate(40) # let auction end
+
+        auctions = self.nodes[0].listauctionhistory()
+        assert_equal(len(auctions), 3)
+        assert_equal(auctions[0]['winner'], account)
+        assert_equal(auctions[1]['winner'], account)
+        assert_equal(auctions[2]['winner'], account2)
+        assert_equal(auctions[0]['blockHeight'], 506)
+        assert_equal(auctions[1]['blockHeight'], 469)
+        assert_equal(auctions[2]['blockHeight'], 432)
+        assert_equal(auctions[0]['auctionBid'], "259.00000000@TSLA")
+        assert_equal(auctions[1]['auctionBid'], "515.00000000@TSLA")
+        assert_equal(auctions[2]['auctionBid'], "555.50000000@TSLA")
 
         vault1 = self.nodes[0].getvault(vaultId1)
         accountBal = self.nodes[0].getaccount(account)
