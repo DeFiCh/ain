@@ -1677,12 +1677,16 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
     CKeyID minterKey;
     boost::optional<uint256> nodeId;
+    boost::optional<CMasternode> node;
+
     if (!fIsFakeNet) {
         minterKey = pindex->minterKey();
 
-        // Get node id now from mnview before undo
+        // Get node id and node now from mnview before undo
         nodeId = mnview.GetMasternodeIdByOperator(minterKey);
         assert(nodeId);
+        node = mnview.GetMasternode(*nodeId);
+        assert(node);
     }
 
     std::vector<AccountHistoryKey> eraseBurnEntries;
@@ -1822,7 +1826,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
     if (!fIsFakeNet) {
-        mnview.DecrementMintedBy(minterKey);
+        mnview.DecrementMintedBy(*nodeId, *node);
         if (pindex->nHeight >= Params().GetConsensus().EunosPayaHeight) {
             mnview.EraseSubNodesLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
         } else {
@@ -2274,14 +2278,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     CKeyID minterKey;
+    boost::optional<uint256> nodeId;
+    boost::optional<CMasternode> nodePtr;
 
     // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
     if (!fJustCheck && !fIsFakeNet) {
         // Check only that mintedBlocks counter is correct (MN existence and activation was partially checked before in checkblock()->contextualcheckproofofstake(), but not in the case of fJustCheck)
         minterKey = pindex->minterKey();
-        auto nodeId = mnview.GetMasternodeIdByOperator(minterKey);
+        nodeId = mnview.GetMasternodeIdByOperator(minterKey);
         assert(nodeId);
-        auto nodePtr = mnview.GetMasternode(*nodeId);
+        nodePtr = mnview.GetMasternode(*nodeId);
         assert(nodePtr);
 
         if (nodePtr->mintedBlocks + 1 != block.mintedBlocks)
@@ -2791,7 +2797,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     if (!fIsFakeNet) {
-        mnview.IncrementMintedBy(minterKey);
+        mnview.IncrementMintedBy(*nodeId, *nodePtr);
 
         // Store block staker height for use in coinage
         if (pindex->nHeight >= static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight)) {
