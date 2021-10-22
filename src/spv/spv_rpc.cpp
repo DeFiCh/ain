@@ -1122,7 +1122,7 @@ UniValue spv_refundhtlcall(const JSONRPCRequest& request)
     CWallet* const pwallet = GetWallet(request);
 
     RPCHelpMan{"spv_refundhtlcall",
-               "\nGets all HTLC contracts stored in wallet and creates refunds transactions for a that have expired\n",
+               "\nGets all HTLC contracts stored in wallet and creates refunds transactions for all that have expired\n",
                {
                    {"destinationaddress", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination for funds in the HTLC"},
                    {"feerate", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Feerate (satoshis) per KB (Default: " + std::to_string(spv::DEFAULT_BTC_FEE_PER_KB) + ")"},
