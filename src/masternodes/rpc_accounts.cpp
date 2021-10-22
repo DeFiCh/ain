@@ -134,7 +134,8 @@ static void searchInWallet(CWallet const * pwallet,
     std::list<COutputEntry> listSent;
     std::list<COutputEntry> listReceived;
 
-    LOCK(pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK2(pwallet->cs_wallet, locked_chain->mutex());
 
     const auto& txOrdered = pwallet->mapWallet.get<ByOrder>();
 
@@ -147,6 +148,10 @@ static void searchInWallet(CWallet const * pwallet,
         }
 
         if (shouldSkipTx(index, pwtx)) {
+            continue;
+        }
+
+        if (!pwtx->IsTrusted(*locked_chain)) {
             continue;
         }
 
