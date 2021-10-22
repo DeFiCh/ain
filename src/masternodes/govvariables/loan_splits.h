@@ -8,10 +8,10 @@
 #include <masternodes/gv.h>
 #include <amount.h>
 
-class LOAN_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LOAN_SPLITS>
+class LP_LOAN_TOKEN_SPLITS : public GovVariable, public AutoRegistrator<GovVariable, LP_LOAN_TOKEN_SPLITS>
 {
 public:
-    virtual ~LOAN_SPLITS() override {}
+    virtual ~LP_LOAN_TOKEN_SPLITS() override {}
 
     std::string GetName() const override {
         return TypeName();
@@ -22,8 +22,8 @@ public:
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
-    static constexpr char const * TypeName() { return "LOAN_SPLITS"; }
-    static GovVariable * Create() { return new LOAN_SPLITS(); }
+    static constexpr char const * TypeName() { return "LP_LOAN_TOKEN_SPLITS"; }
+    static GovVariable * Create() { return new LP_LOAN_TOKEN_SPLITS(); }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)

@@ -9,7 +9,7 @@
 #include <rpc/util.h> /// AmountFromValue
 
 
-Res LOAN_SPLITS::Import(const UniValue & val) {
+Res LP_LOAN_TOKEN_SPLITS::Import(const UniValue & val) {
     if (!val.isObject())
         return Res::Err("object expected"); // TODO Add more explicit info on object format
     for (const std::string& key : val.getKeys()) {
@@ -22,7 +22,7 @@ Res LOAN_SPLITS::Import(const UniValue & val) {
     return Res::Ok();
 }
 
-UniValue LOAN_SPLITS::Export() const {
+UniValue LP_LOAN_TOKEN_SPLITS::Export() const {
     UniValue res(UniValue::VOBJ);
     for (auto const & kv : splits) {
         res.pushKV(kv.first.ToString(), ValueFromAmount(kv.second));
@@ -30,7 +30,7 @@ UniValue LOAN_SPLITS::Export() const {
     return res;
 }
 
-Res LOAN_SPLITS::Validate(const CCustomCSView & mnview) const {
+Res LP_LOAN_TOKEN_SPLITS::Validate(const CCustomCSView & mnview) const {
     CAmount total{0};
     for (auto const & kv : splits) {
         // TODO Add validation against loans here.
@@ -46,7 +46,7 @@ Res LOAN_SPLITS::Validate(const CCustomCSView & mnview) const {
     return Res::Ok();
 }
 
-Res LOAN_SPLITS::Apply(CCustomCSView & mnview, uint32_t height) {
+Res LP_LOAN_TOKEN_SPLITS::Apply(CCustomCSView & mnview, uint32_t height) {
     // TODO Apply rewardPct to loans here.
 
     return Res::Ok();

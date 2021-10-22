@@ -2645,11 +2645,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
         }
 
-        // Hard coded LOAN_DAILY_REWARD change
+        // Hard coded LP_DAILY_LOAN_TOKEN_REWARD change
         if (pindex->nHeight >= chainparams.GetConsensus().FortCanningHeight)
         {
             const auto& incentivePair = chainparams.GetConsensus().newNonUTXOSubsidies.find(CommunityAccountType::Loan);
-            UpdateDailyGovVariables<LOAN_DAILY_REWARD>(incentivePair, cache, pindex->nHeight);
+            UpdateDailyGovVariables<LP_DAILY_LOAN_TOKEN_REWARD>(incentivePair, cache, pindex->nHeight);
         }
 
         // hardfork commissions update

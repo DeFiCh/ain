@@ -9,21 +9,21 @@
 #include <rpc/util.h> /// AmountFromValue
 
 
-Res LOAN_DAILY_REWARD::Import(const UniValue & val) {
+Res LP_DAILY_LOAN_TOKEN_REWARD::Import(const UniValue & val) {
     dailyReward = AmountFromValue(val);
     return Res::Ok();
 }
 
-UniValue LOAN_DAILY_REWARD::Export() const {
+UniValue LP_DAILY_LOAN_TOKEN_REWARD::Export() const {
     return ValueFromAmount(dailyReward);
 }
 
-Res LOAN_DAILY_REWARD::Validate(const CCustomCSView & view) const
+Res LP_DAILY_LOAN_TOKEN_REWARD::Validate(const CCustomCSView & view) const
 {
     return Res::Err("Cannot be set manually.");
 }
 
-Res LOAN_DAILY_REWARD::Apply(CCustomCSView & mnview, uint32_t height)
+Res LP_DAILY_LOAN_TOKEN_REWARD::Apply(CCustomCSView & mnview, uint32_t height)
 {
     return mnview.SetLoanDailyReward(dailyReward);
 }
