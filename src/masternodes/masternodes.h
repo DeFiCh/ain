@@ -74,7 +74,7 @@ public:
 
     //! Consensus-enforced address for operator rewards.
     CKeyID rewardAddress;
-    char rewardAddressType;
+    char rewardAddressType{0};
 
     //! MN creation block height
     int32_t creationHeight;
@@ -108,8 +108,6 @@ public:
         READWRITE(ownerType);
         READWRITE(operatorAuthAddress);
         READWRITE(operatorType);
-        READWRITE(rewardAddress);
-        READWRITE(rewardAddressType);
 
         READWRITE(creationHeight);
         READWRITE(resignHeight);
@@ -117,6 +115,12 @@ public:
 
         READWRITE(resignTx);
         READWRITE(banTx);
+
+        // Only available after FortCanning. banTx repurposed as masternode versioning.
+        if (banTx == uint256S("0100000000000000000000000000000000000000000000000000000000000000")) {
+            READWRITE(rewardAddress);
+            READWRITE(rewardAddressType);
+        }
     }
 
     //! equality test
