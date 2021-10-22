@@ -102,6 +102,7 @@ UniValue outputEntryToJSON(COutputEntry const & entry, CBlockIndex const * index
 
 static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t begin, uint32_t end, std::function<void(uint32_t, DCT_ID, RewardType, CTokenAmount)> onReward) {
     CCustomCSView mnview(view);
+    static const uint32_t eunosHeight = Params().GetConsensus().EunosHeight;
     view.ForEachPoolId([&] (DCT_ID const & poolId) {
         auto height = view.GetShare(poolId, owner);
         if (!height || *height >= end) {
@@ -110,11 +111,19 @@ static void onPoolRewards(CCustomCSView & view, CScript const & owner, uint32_t 
         auto onLiquidity = [&]() -> CAmount {
             return mnview.GetBalance(owner, poolId).nValue;
         };
+        uint32_t firstHeight = 0;
         auto beginHeight = std::max(*height, begin);
         view.CalculatePoolRewards(poolId, onLiquidity, beginHeight, end,
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
                 onReward(height, poolId, type, amount);
-                mnview.AddBalance(owner, amount); // update owner liquidity
+                // prior Eunos account balance includes rewards
+                // thus we don't need to increment it by first one
+                if (!firstHeight) {
+                    firstHeight = height;
+                }
+                if (height >= eunosHeight || firstHeight != height) {
+                    mnview.AddBalance(owner, amount); // update owner liquidity
+                }
             }
         );
         return true;
@@ -894,17 +903,36 @@ UniValue accounttoutxos(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-class CScopeTxReverter {
+class CScopeAccountReverter {
     CCustomCSView & view;
-    uint256 const & txid;
-    uint32_t height;
+    CScript const & owner;
+    TAmounts const & balances;
 
 public:
-    CScopeTxReverter(CCustomCSView & view, uint256 const & txid, uint32_t height)
-        : view(view), txid(txid), height(height) {}
+    CScopeAccountReverter(CCustomCSView & view, CScript const & owner, TAmounts const & balances)
+        : view(view), owner(owner), balances(balances) {}
 
-    ~CScopeTxReverter() {
-        view.OnUndoTx(txid, height);
+    ~CScopeAccountReverter() {
+        for (const auto& balance : balances) {
+            auto amount = -balance.second;
+            auto token = view.GetToken(balance.first);
+            auto IsPoolShare = token && token->IsPoolShare();
+            if (amount > 0) {
+                view.AddBalance(owner, {balance.first, amount});
+                if (IsPoolShare) {
+                    if (view.GetBalance(owner, balance.first).nValue == amount) {
+                        view.SetShare(balance.first, owner, 0);
+                    }
+                }
+            } else {
+                view.SubBalance(owner, {balance.first, -amount});
+                if (IsPoolShare) {
+                    if (view.GetBalance(owner, balance.first).nValue == 0) {
+                        view.DelShare(balance.first, owner);
+                    }
+                }
+            }
+        }
     }
 };
 
@@ -1056,13 +1084,22 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             return false;
         }
 
-        std::unique_ptr<CScopeTxReverter> reverter;
+        std::unique_ptr<CScopeAccountReverter> reverter;
         if (!noRewards) {
-            reverter = MakeUnique<CScopeTxReverter>(view, valueLazy.get().txid, key.blockHeight);
+            reverter = MakeUnique<CScopeAccountReverter>(view, key.owner, valueLazy.get().diff);
         }
 
+        bool accountRecord = true;
+        auto workingHeight = key.blockHeight;
+
         if (shouldSkipBlock(key.blockHeight)) {
-            return true;
+            // show rewards in interval [startBlock, lastHeight)
+            if (!noRewards && startBlock > workingHeight) {
+                accountRecord = false;
+                workingHeight = startBlock;
+            } else {
+                return true;
+            }
         }
 
         if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
@@ -1091,8 +1128,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             lastHeight = maxBlockHeight;
         }
 
-        if (tokenFilter.empty() || hasToken(value.diff)) {
-            auto& array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
+        if (accountRecord && (tokenFilter.empty() || hasToken(value.diff))) {
+            auto& array = ret.emplace(workingHeight, UniValue::VARR).first->second;
             array.push_back(accounthistoryToJSON(key, value));
             if (shouldSearchInWallet) {
                 txs.insert(value.txid);
@@ -1100,8 +1137,8 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             --count;
         }
 
-        if (!noRewards && count) {
-            onPoolRewards(view, key.owner, key.blockHeight, lastHeight,
+        if (!noRewards && count && lastHeight > workingHeight) {
+            onPoolRewards(view, key.owner, workingHeight, lastHeight,
                 [&](int32_t height, DCT_ID poolId, RewardType type, CTokenAmount amount) {
                     if (tokenFilter.empty() || hasToken({{amount.nTokenId, amount.nValue}})) {
                         auto& array = ret.emplace(height, UniValue::VARR).first->second;
@@ -1112,7 +1149,7 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
             );
         }
 
-        lastHeight = key.blockHeight;
+        lastHeight = workingHeight;
 
         return count != 0 || isMine;
     };
@@ -1121,10 +1158,19 @@ UniValue listaccounthistory(const JSONRPCRequest& request) {
 
     if (!noRewards) {
         // revert previous tx to restore account balances to maxBlockHeight
-        auto it = paccountHistoryDB->LowerBound<CAccountsHistoryView::ByAccountHistoryKey>(startKey);
-        if (it.Valid() && (it.Prev(), it.Valid())) {
-            mnview.OnUndoTx(it.Value().as<AccountHistoryValue>().txid, it.Key().blockHeight);
-        }
+        paccountHistoryDB->ForEachAccountHistory([&](AccountHistoryKey const & key, AccountHistoryValue const & value) {
+            if (startKey.blockHeight > key.blockHeight) {
+                return false;
+            }
+            if (!isMatchOwner(key.owner)) {
+                return false;
+            }
+            if (isMine && !(IsMineCached(*pwallet, key.owner) & filter)) {
+                return true;
+            }
+            CScopeAccountReverter(mnview, key.owner, value.diff);
+            return true;
+        }, {account, std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()});
     }
 
     paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, startKey);
@@ -1420,9 +1466,9 @@ UniValue accounthistorycount(const JSONRPCRequest& request) {
 
         const auto& value = valueLazy.get();
 
-        std::unique_ptr<CScopeTxReverter> reverter;
+        std::unique_ptr<CScopeAccountReverter> reverter;
         if (!noRewards) {
-            reverter = MakeUnique<CScopeTxReverter>(view, value.txid, key.blockHeight);
+            reverter = MakeUnique<CScopeAccountReverter>(view, key.owner, value.diff);
         }
 
         if (CustomTxType::None != txType && value.category != uint8_t(txType)) {
