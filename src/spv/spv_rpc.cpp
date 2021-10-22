@@ -255,7 +255,7 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
     }
     CMutableBtcTransaction mtx;
     // output[0] - anchor address with creation fee
-    mtx.vout.push_back(CBtcTxOut(consensus.spv.creationFee, CScript(scriptBytes.begin(), scriptBytes.end())));
+    mtx.vout.push_back(CBtcTxOut(spv::P2PKH_DUST, CScript(scriptBytes.begin(), scriptBytes.end())));
 
     // output[1] - metadata (first part with OP_RETURN)
     mtx.vout.push_back(CBtcTxOut(0, metaScripts[0]));
