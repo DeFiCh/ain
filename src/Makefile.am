@@ -153,6 +153,7 @@ DEFI_CORE_H = \
   masternodes/accounts.h \
   masternodes/accountshistory.h \
   masternodes/anchors.h \
+  masternodes/auctionhistory.h \
   masternodes/balances.h \
   masternodes/communityaccounttypes.h \
   masternodes/factory.h \
@@ -372,6 +373,7 @@ libdefi_server_a_SOURCES = \
   masternodes/accounts.cpp \
   masternodes/accountshistory.cpp \
   masternodes/anchors.cpp \
+  masternodes/auctionhistory.cpp \
   masternodes/oracles.cpp \
   masternodes/govvariables/icx_takerfee_per_btc.cpp \
   masternodes/govvariables/loan_daily_reward.cpp \

@@ -7,6 +7,7 @@
 
 #include <amount.h>
 #include <flushablestorage.h>
+#include <masternodes/auctionhistory.h>
 #include <masternodes/masternodes.h>
 #include <script/script.h>
 #include <uint256.h>
@@ -64,6 +65,7 @@ public:
 };
 
 class CAccountHistoryStorage : public CAccountsHistoryView
+                             , public CAuctionHistoryView
 {
 public:
     CAccountHistoryStorage(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);

@@ -1,3 +1,5 @@
+#include <masternodes/accountshistory.h>
+#include <masternodes/auctionhistory.h>
 #include <masternodes/mn_rpc.h>
 
 extern UniValue AmountsToJSON(TAmounts const & diffs);
@@ -943,6 +945,122 @@ UniValue listauctions(const JSONRPCRequest& request) {
     return valueArr;
 }
 
+UniValue auctoinhistoryToJSON(AuctionHistoryKey const & key, AuctionHistoryValue const & value) {
+    UniValue obj(UniValue::VOBJ);
+
+    obj.pushKV("winner", ScriptToString(key.owner));
+    obj.pushKV("blockHeight", (uint64_t) key.blockHeight);
+    if (auto block = ::ChainActive()[key.blockHeight]) {
+        obj.pushKV("blockHash", block->GetBlockHash().GetHex());
+        obj.pushKV("blockTime", block->GetBlockTime());
+    }
+    obj.pushKV("vaultId", key.vaultId.GetHex());
+    obj.pushKV("batchIndex", (uint64_t) key.index);
+    obj.pushKV("auctionBid", tokenAmountString(value.bidAmount));
+    obj.pushKV("auctionWon", AmountsToJSON(value.collaterals));
+    return obj;
+}
+
+UniValue listauctionhistory(const JSONRPCRequest& request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{"listauctionhistory",
+               "\nReturns information about auction history.\n",
+               {
+                    {"owner", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                "Single account ID (CScript or address) or reserved words: \"mine\" - to list history for all owned accounts or \"all\" to list whole DB (default = \"mine\")."},
+                    {"pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                        {
+                            {
+                                "maxBlockHeight", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Optional height to iterate from (downto genesis block)"
+                            },
+                            {
+                                "vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED,
+                                "Vault id"
+                            },
+                            {
+                                "index", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Batch index"
+                            },
+                            {
+                                "limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
+                                "Maximum number of orders to return, 100 by default"
+                            },
+                        },
+                    },
+               },
+               RPCResult{
+                       "[{},{}...]     (array) Objects with auction history information\n"
+               },
+               RPCExamples{
+                       HelpExampleCli("listauctionhistory", "all '{\"height\":160}'")
+                       + HelpExampleRpc("listauctionhistory", "")
+               },
+    }.Check(request);
+
+    if (!paccountHistoryDB) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "-acindex is needed for auction history");
+    }
+
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    // parse pagination
+    size_t limit = 100;
+    AuctionHistoryKey start = {~0u};
+    {
+        if (request.params.size() > 1) {
+            UniValue paginationObj = request.params[1].get_obj();
+            if (!paginationObj["index"].isNull()) {
+                start.index = paginationObj["index"].get_int();
+            }
+            if (!paginationObj["vaultId"].isNull()) {
+                start.vaultId = ParseHashV(paginationObj["vaultId"], "vaultId");
+            }
+            if (!paginationObj["maxBlockHeight"].isNull()) {
+                start.blockHeight = paginationObj["maxBlockHeight"].get_int64();
+            }
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t) paginationObj["limit"].get_int64();
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
+
+    std::string account = "mine";
+    if (request.params.size() > 0) {
+        account = request.params[0].getValStr();
+    }
+
+    bool isMine = false;
+    if (account == "mine") {
+        isMine = true;
+    } else if (account != "all") {
+        start.owner = DecodeScript(account);
+    }
+
+    LOCK(cs_main);
+    UniValue ret(UniValue::VARR);
+
+    paccountHistoryDB->ForEachAuctionHistory([&](AuctionHistoryKey const & key, CLazySerialize<AuctionHistoryValue> valueLazy) -> bool {
+        if (!start.owner.empty() && start.owner != key.owner) {
+            return true;
+        }
+
+        if (isMine && !(IsMineCached(*pwallet, key.owner) & ISMINE_SPENDABLE)) {
+            return true;
+        }
+
+        ret.push_back(auctoinhistoryToJSON(key, valueLazy.get()));
+
+        return --limit != 0;
+    }, start);
+
+    return ret;
+}
+
 static const CRPCCommand commands[] =
 {
 //  category        name                         actor (function)        params
@@ -956,6 +1074,7 @@ static const CRPCCommand commands[] =
     {"vault",        "withdrawfromvault",         &withdrawfromvault,     {"id", "to", "amount", "inputs"}},
     {"vault",        "auctionbid",                &auctionbid,            {"id", "index", "from", "amount", "inputs"}},
     {"vault",        "listauctions",              &listauctions,          {"pagination"}},
+    {"vault",        "listauctionhistory",        &listauctionhistory,    {"owner", "pagination"}},
 };
 
 void RegisterVaultRPCCommands(CRPCTable& tableRPC) {
