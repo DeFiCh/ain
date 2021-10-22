@@ -1241,8 +1241,8 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
         if (collToken){
             auto token = pcustomcsview->GetToken(collToken->idToken);
             UniValue obj{UniValue::VOBJ};
-            obj.pushKV("tokenId", collToken->idToken.ToString());
-            obj.pushKV("tokenName", token->name);
+            obj.pushKV("id", collToken->idToken.ToString());
+            obj.pushKV("symbol", token->symbol);
             collateralList.push_back(obj);
         }
 
@@ -1252,8 +1252,8 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     UniValue loanList{UniValue::VARR};
     pcustomcsview->ForEachLoanSetLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
         UniValue obj{UniValue::VOBJ};
-        obj.pushKV("tokenId", key.ToString());
-        obj.pushKV("tokenName", loanToken.name);
+        obj.pushKV("id", key.ToString());
+        obj.pushKV("symbol", loanToken.symbol);
         loanList.push_back(obj);
         return true;
     });
@@ -1261,7 +1261,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     UniValue schemeList{UniValue::VARR};
     pcustomcsview->ForEachLoanScheme([&](const std::string& identifier, const CLoanSchemeData& data){
         UniValue obj{UniValue::VOBJ};
-        obj.pushKV("loanSchemeId", identifier);
+        obj.pushKV("id", identifier);
         schemeList.push_back(obj);
         return true;
     });
