@@ -434,11 +434,16 @@ BOOST_AUTO_TEST_CASE(Test_AnchorMsgCount)
         anchor.sigs.push_back(authMsg.GetSignature());
     }
 
-    // Double sig should included
-    BOOST_CHECK_EQUAL(anchor.CheckAuthSigs(team, 0), true);
-
     // Double sig should excluded
-    BOOST_CHECK_EQUAL(anchor.CheckAuthSigs(team, std::numeric_limits<int>::max()), false);
+    BOOST_CHECK_EQUAL(anchor.CheckAuthSigs(team), false);
+
+    // Add one more signature
+    CAnchorAuthMessage authMsg{data};
+    authMsg.SignWithKey(signers.back());
+    anchor.sigs.push_back(authMsg.GetSignature());
+
+    // Should now meet quorum of unique keys
+    BOOST_CHECK_EQUAL(anchor.CheckAuthSigs(team), true);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

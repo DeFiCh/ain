@@ -85,20 +85,21 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> & auths, CTxDestin
     return {};
 }
 
-bool CAnchor::CheckAuthSigs(CTeam const & team, const uint32_t height) const
+bool CAnchor::CheckAuthSigs(CTeam const & team) const
 {
     // Sigs must meet quorum size.
-    auto quorum = GetMinAnchorQuorum(team);
+    const auto quorum = GetMinAnchorQuorum(team);
     if (sigs.size() < quorum) {
         return error("%s: Anchor auth team quorum not met. Min quorum: %d sigs size %d", __func__, GetMinAnchorQuorum(team), sigs.size());
     }
 
-    auto uniqueKeys = CheckSigs(GetSignHash(), sigs, team);
-    if (height >= Params().GetConsensus().EunosPayaHeight && uniqueKeys < quorum) {
-        return error("%s: Anchor auth team unique key quorum not met. Min quorum: %d keys size %d", __func__, GetMinAnchorQuorum(team), uniqueKeys);
+    // Number of unique sigs must meet the required quorum.
+    const auto uniqueKeys = CheckSigs(GetSignHash(), sigs, team);
+    if (uniqueKeys < quorum) {
+        return error("%s: Anchor auth team unique key quorum not met. Min quorum: %d keys size %d", __func__, quorum, uniqueKeys);
     }
 
-    return uniqueKeys;
+    return true;
 }
 
 const CAnchorAuthIndex::Auth * CAnchorAuthIndex::GetAuth(uint256 const & msgHash) const
@@ -545,7 +546,7 @@ void CAnchorIndex::CheckPendingAnchors()
         }
 
         // Validate the anchor sigs
-        if (!rec.anchor.CheckAuthSigs(*anchorTeam, anchorCreationHeight)) {
+        if (!rec.anchor.CheckAuthSigs(*anchorTeam)) {
             LogPrint(BCLog::ANCHORING, "Signature validation fails. Deleting anchor txHash %s\n", rec.txHash.ToString());
             deletePending.insert(rec.txHash);
             continue;
