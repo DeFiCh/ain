@@ -3114,20 +3114,25 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             if (auto bid = view.GetAuctionBid(vaultId, i)) {
                 auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
                 assert(bid->second.nValue >= penaltyAmount);
-                auto amountToBurn = bid->second.nValue - penaltyAmount + batch->loanInterest;
-                if (amountToBurn > 0) {
-                    CScript tmpAddress(vaultId.begin(), vaultId.end());
-                    view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToBurn});
-                    auto res = SwapToDFIOverUSD(view, bid->second.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
-                }
+                // penaltyAmount includes interest, batch as well, so we should put interest back
+                // in result we have 5% penalty + interest via DEX to DFI and burn
+                auto amountToBurn = penaltyAmount - batch->loanAmount.nValue + batch->loanInterest;
+                assert(amountToBurn > 0);
+                CScript tmpAddress(vaultId.begin(), vaultId.end());
+                view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToBurn});
+                SwapToDFIOverUSD(view, bid->second.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
                 view.CalculateOwnerRewards(bid->first, pindex->nHeight);
                 for (const auto& col : batch->collaterals.balances) {
                     view.AddBalance(bid->first, {col.first, col.second});
                 }
-                // return rest loan to vault if any
                 auto amountToFill = bid->second.nValue - penaltyAmount;
                 if (amountToFill > 0) {
-                    view.AddLoanToken(vaultId, {batch->loanAmount.nTokenId, amountToFill});
+                    // return the rest as collateral to vault via DEX to DFI
+                    view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToFill});
+                    SwapToDFIOverUSD(view, bid->second.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
+                    auto tokenAmount = view.GetBalance(tmpAddress, DCT_ID{0});
+                    view.SubBalance(tmpAddress, tokenAmount);
+                    view.AddVaultCollateral(auction.vaultId, tokenAmount);
                 }
                 if (auto loanToken = view.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
                     view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
@@ -3138,7 +3143,9 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     paccountHistoryDB->WriteAuctionHistory(key, value);
                 }
             } else {
-                view.AddLoanToken(vaultId, batch->loanAmount);
+                // we should return loan excluding interest
+                auto amount = batch->loanAmount.nValue - batch->loanInterest;
+                view.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amount});
                 for (const auto& col : batch->collaterals.balances) {
                     view.AddVaultCollateral(vaultId, {col.first, col.second});
                 }
