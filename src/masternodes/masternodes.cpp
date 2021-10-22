@@ -210,24 +210,16 @@ void CMasternodesView::ForEachMasternode(std::function<bool (const uint256 &, CL
     ForEach<ID, uint256, CMasternode>(callback, start);
 }
 
-void CMasternodesView::IncrementMintedBy(const CKeyID & minter)
+void CMasternodesView::IncrementMintedBy(const uint256& nodeId, CMasternode& node)
 {
-    auto nodeId = GetMasternodeIdByOperator(minter);
-    assert(nodeId);
-    auto node = GetMasternode(*nodeId);
-    assert(node);
-    ++node->mintedBlocks;
-    WriteBy<ID>(*nodeId, *node);
+    ++node.mintedBlocks;
+    WriteBy<ID>(nodeId, node);
 }
 
-void CMasternodesView::DecrementMintedBy(const CKeyID & minter)
+void CMasternodesView::DecrementMintedBy(const uint256& nodeId, CMasternode& node)
 {
-    auto nodeId = GetMasternodeIdByOperator(minter);
-    assert(nodeId);
-    auto node = GetMasternode(*nodeId);
-    assert(node);
-    --node->mintedBlocks;
-    WriteBy<ID>(*nodeId, *node);
+    --node.mintedBlocks;
+    WriteBy<ID>(nodeId, node);
 }
 
 boost::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOperator() const

@@ -181,8 +181,8 @@ public:
     boost::optional<uint256> GetMasternodeIdByOwner(CKeyID const & id) const;
     void ForEachMasternode(std::function<bool(uint256 const &, CLazySerialize<CMasternode>)> callback, uint256 const & start = uint256());
 
-    void IncrementMintedBy(CKeyID const & minter);
-    void DecrementMintedBy(CKeyID const & minter);
+    void IncrementMintedBy(const uint256& nodeId, CMasternode& node);
+    void DecrementMintedBy(const uint256& nodeId, CMasternode& node);
 
     boost::optional<std::pair<CKeyID, uint256>> AmIOperator() const;
     boost::optional<std::pair<CKeyID, uint256>> AmIOwner() const;
