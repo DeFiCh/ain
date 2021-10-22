@@ -312,11 +312,11 @@ class PriceUpdateTest (DefiTestFramework):
         assert_equal(fixedPrice['activePriceBlock'], 349)
 
         fixedPriceList = self.nodes[0].listfixedintervalprices()
-        assert_equal(len(fixedPriceList), 4)
+        assert_equal(len(fixedPriceList), 3)
 
         pagination = {"start": "DFI/USD"}
         fixedPriceList = self.nodes[0].listfixedintervalprices(pagination)
-        assert_equal(len(fixedPriceList), 3)
+        assert_equal(len(fixedPriceList), 2)
 
 
 

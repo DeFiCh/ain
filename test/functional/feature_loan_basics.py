@@ -40,6 +40,11 @@ class LoanTakeLoanTest (DefiTestFramework):
         symbolTSLA = "TSLA"
         symbolGOOGL = "GOOGL"
 
+        loans = self.nodes[0].getloaninfo()
+        assert_equal(len(loans['loanSchemes']), 0)
+        assert_equal(len(loans['loanTokens']), 0)
+        assert_equal(len(loans['collateralTokens']), 0)
+
         self.nodes[0].createtoken({
             "symbol": symbolBTC,
             "name": "BTC token",
@@ -56,7 +61,6 @@ class LoanTakeLoanTest (DefiTestFramework):
             "isDAT": True,
             "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
         })
-
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -141,6 +145,11 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         self.nodes[0].generate(7)
         self.sync_blocks()
+
+        loans = self.nodes[0].getloaninfo()
+        assert_equal(len(loans['loanSchemes']), 1)
+        assert_equal(len(loans['loanTokens']), 2)
+        assert_equal(len(loans['collateralTokens']), 2)
 
         loantokens = self.nodes[0].listloantokens()
 
@@ -260,9 +269,9 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(interest['interestPerBlock'], Decimal('0.00000266'))
 
         loans = self.nodes[0].getloaninfo()
-
-        assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('30.00003800'))
+        assert_equal(len(loans['loanSchemes']), 1)
+        assert_equal(len(loans['loanTokens']), 2)
+        assert_equal(len(loans['collateralTokens']), 2)
 
         vaultId1 = self.nodes[1].createvault( account1, 'LOAN150')
 
@@ -279,10 +288,6 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(interest['totalInterest'], Decimal('0.00000798'))
         assert_equal(interest['interestPerBlock'], Decimal('0.00000266'))
 
-        loans = self.nodes[0].getloaninfo()
-
-        assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('30.00011400'))
 
         try:
             self.nodes[0].loanpayback({
@@ -352,11 +357,6 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00186824'))
         assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['0.50000057@' + symbolTSLA, '1.00000133@' + symbolGOOGL]))
 
-        loans = self.nodes[0].getloaninfo()
-
-        assert_equal(loans['collateralValueUSD'], Decimal('3000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('15.00001900'))
-
         try:
             self.nodes[0].withdrawfromvault(vaultId, account0, "200@" + symbolDFI)
         except JSONRPCException as e:
@@ -386,9 +386,6 @@ class LoanTakeLoanTest (DefiTestFramework):
                     'from': account0,
                     'amounts': vaultInfo['loanAmounts']})
 
-        loans = self.nodes[0].getloaninfo()
-        assert_equal(loans['collateralValueUSD'], Decimal('2000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('15.00020900'))
 
         self.nodes[0].generate(1)
         self.sync_blocks()
@@ -415,10 +412,6 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(vaultInfo['collateralAmounts'], [])
         assert_equal(vaultInfo['collateralValue'], Decimal('0.00000000'))
         assert_equal(vaultInfo['loanValue'], Decimal('0.00000000'))
-
-        loans = self.nodes[0].getloaninfo()
-        assert_equal(loans['collateralValueUSD'], Decimal('1000.00000000'))
-        assert_equal(loans['loanValueUSD'], Decimal('0.00000000'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()
