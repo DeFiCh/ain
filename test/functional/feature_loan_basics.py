@@ -243,6 +243,10 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        vaultInfo = self.nodes[0].getvault(vaultId)
+        assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['1.00000114@' + symbolTSLA, '2.00000266@' + symbolGOOGL]))
+        assert_equal(sorted(vaultInfo['interestAmounts']), sorted(['0.00000266@GOOGL','0.00000114@TSLA']))
+        assert_equal(vaultInfo['interestValue'], Decimal('0.00003800'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2'))
 
@@ -319,9 +323,9 @@ class LoanTakeLoanTest (DefiTestFramework):
                 assert_equal(interest['totalInterest'], Decimal('0.00001064'))
 
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(vaultInfo['loanAmounts'].sort(), ['0.50000456@' + symbolTSLA, '1.00001064@' + symbolGOOGL].sort())
+        assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['1.00000456@' + symbolTSLA, '2.00001064@' + symbolGOOGL]))
         assert_equal(vaultInfo['interestValue'], Decimal('0.00015200'))
-        assert_equal(vaultInfo['interestAmounts'].sort(), ['0.00001330@GOOGL','0.00000570@TSLA'].sort())
+        assert_equal(sorted(vaultInfo['interestAmounts']), sorted(['0.00001064@GOOGL','0.00000456@TSLA']))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1.00000000'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2.00000000'))
 
@@ -333,7 +337,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].listaccounthistory(account0)[0]['amounts'].sort(), ['-1.00000000@GOOGL', '-0.50000000@TSLA'].sort())
+        assert_equal(sorted(self.nodes[0].listaccounthistory(account0)[0]['amounts']), sorted(['-1.00001064@GOOGL', '-0.50000456@TSLA']))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('0.49999544'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('0.99998937'))
 
@@ -346,7 +350,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         # loan payback burn
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00186824'))
-        assert_equal(vaultInfo['loanAmounts'].sort(), ['0.5@' + symbolTSLA, '1@' + symbolGOOGL].sort())
+        assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['0.50000057@' + symbolTSLA, '1.00000133@' + symbolGOOGL]))
 
         loans = self.nodes[0].getloaninfo()
 
@@ -375,7 +379,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.sync_blocks()
 
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(vaultInfo['loanAmounts'].sort(), ['0.50000570@' + symbolTSLA, '1.00001330@' + symbolGOOGL].sort())
+        assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['0.50000627@' + symbolTSLA, '1.00001463@' + symbolGOOGL]))
 
         self.nodes[0].loanpayback({
                     'vaultId': vaultId,
@@ -390,8 +394,8 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.sync_blocks()
 
         vaultInfo = self.nodes[0].getvault(vaultId)
-        assert_equal(vaultInfo['loanAmounts'].sort(), ['0.00000000@' + symbolTSLA, '0.00000000@' + symbolGOOGL].sort())
-        assert_equal(self.nodes[0].listaccounthistory(account0)[0]['amounts'].sort(), ['-1.00000000@GOOGL', '-0.50000000@TSLA'].sort())
+        assert_equal(vaultInfo['loanAmounts'], [])
+        assert_equal(sorted(self.nodes[0].listaccounthistory(account0)[0]['amounts']), sorted(['-1.00001463@GOOGL', '-0.50000627@TSLA']))
         assert_greater_than_or_equal(self.nodes[0].getburninfo()['paybackburn'], Decimal('0.00443691'))
 
         for interest in self.nodes[0].getinterest('LOAN150'):
