@@ -274,6 +274,13 @@ class GovsetTest (DefiTestFramework):
             errorString = e.error['message']
         assert("called before FortCanning height" in errorString)
 
+        # Try and set LP_LOAN_TOKEN_SPLITS before FortCanning
+        try:
+            self.nodes[0].setgov({"LP_LOAN_TOKEN_SPLITS": { "1": 0.1, "2": 0.2, "3": 0.7 }})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("Cannot be set before FortCanning" in errorString)
+
         # Generate to FortCanning
         self.nodes[0].generate(400 - self.nodes[0].getblockcount())
 
@@ -360,11 +367,28 @@ class GovsetTest (DefiTestFramework):
         assert_equal(self.nodes[0].getgov('LP_SPLITS')[0]['LP_SPLITS'], {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')})
         assert_equal(self.nodes[0].getgov('ORACLE_BLOCK_INTERVAL')[0]['ORACLE_BLOCK_INTERVAL'], 230)
 
+        # Try and set less than 100%
+        try:
+            self.nodes[0].setgov({"LP_LOAN_TOKEN_SPLITS": { "1": 0.1, "2": 0.2, "3": 0.3 }})
+        except JSONRPCException as e:
+            errorString = e.error['message']
+        assert("60000000 vs expected 100000000" in errorString)
+
+        # Now set LP_LOAN_TOKEN_SPLITS
+        self.nodes[0].setgov({"LP_LOAN_TOKEN_SPLITS": { "1": 0.1, "2": 0.2, "3": 0.7 }})
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getgov('LP_LOAN_TOKEN_SPLITS')[0]['LP_LOAN_TOKEN_SPLITS'], {'1': Decimal('0.10000000'), '2': Decimal('0.20000000'), '3': Decimal('0.70000000')})
+
+        # Check reward set on pool pairs
+        assert_equal(self.nodes[0].getpoolpair("1", True)['1']['rewardLoanPct'], Decimal('0.10000000'))
+        assert_equal(self.nodes[0].getpoolpair("2", True)['2']['rewardLoanPct'], Decimal('0.20000000'))
+        assert_equal(self.nodes[0].getpoolpair("3", True)['3']['rewardLoanPct'], Decimal('0.70000000'))
+
         # Test listgovs
         result = self.nodes[0].listgovs()
         assert_equal(result[0][0]['ICX_TAKERFEE_PER_BTC'], Decimal('0E-8'))
         assert_equal(result[1][0]['LP_DAILY_LOAN_TOKEN_REWARD'], Decimal('13921.42315824'))
-        assert_equal(result[2][0]['LP_LOAN_TOKEN_SPLITS'], {})
+        assert_equal(result[2][0]['LP_LOAN_TOKEN_SPLITS'], {'1': Decimal('0.10000000'), '2': Decimal('0.20000000'), '3': Decimal('0.70000000')})
         assert_equal(result[3][0]['LP_DAILY_DFI_REWARD'], Decimal('14355.76253472'))
         assert_equal(result[4][0]['LOAN_LIQUIDATION_PENALTY'], Decimal('0.01000000'))
         assert_equal(result[5][0]['LP_SPLITS'], {'1': Decimal('0.70000000'), '2': Decimal('0.20000000'), '3': Decimal('0.10000000')} )

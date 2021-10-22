@@ -25,9 +25,9 @@ class PoolSwapTest (DefiTestFramework):
         # node2: revert create (all)
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120', '-subsidytest=1'],
-            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120', '-subsidytest=1']
+            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120', '-fortcanningheight=200', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120', '-fortcanningheight=200', '-subsidytest=1'],
+            ['-txnotokens=0', '-amkheight=0', '-bayfrontheight=0', '-bayfrontgardensheight=0', '-eunosheight=120', '-fortcanningheight=200', '-subsidytest=1']
         ]
 
         # SET parameters for create tokens and pools
@@ -35,9 +35,10 @@ class PoolSwapTest (DefiTestFramework):
         self.COUNT_POOLS = 1     # 10
         self.COUNT_ACCOUNT = 10  # 1000
         self.COMMISSION = 0.001
-        self.AMOUNT_TOKEN = 1000
+        self.AMOUNT_TOKEN = 2000
         self.DECIMAL = 100000000
         self.LP_DAILY_DFI_REWARD = 35.5
+        self.LP_DAILY_LOAN_TOKEN_REWARD = 0
 
         self.tokens = []
         self.accounts = []
@@ -214,9 +215,18 @@ class PoolSwapTest (DefiTestFramework):
                     rewardPct = self.nodes[0].getpoolpair(pool, True)[idPool]['rewardPct']
                     assert(rewardPct > 0)
                     poolReward = yieldFarming * int(rewardPct * self.DECIMAL) // self.DECIMAL
+                    poolLoanReward = 0
+
+                    # Post FortCanning
+                    if self.LP_DAILY_LOAN_TOKEN_REWARD > 0:
+                        loanYieldFarming = int(self.LP_DAILY_LOAN_TOKEN_REWARD * self.DECIMAL) / (60 * 60 * 24 / 600)
+                        rewardLoanPct = self.nodes[0].getpoolpair(pool, True)[idPool]['rewardLoanPct']
+                        assert(rewardLoanPct > 0)
+                        poolLoanReward = loanYieldFarming * int(rewardLoanPct * self.DECIMAL) // self.DECIMAL
 
                     if poolReward:
                         providerReward = poolReward * liquidity // totalLiquidity
+                        providerReward += poolLoanReward * liquidity // totalLiquidity
                         if providerReward:
                             assert_equal(int(realPoolReward * self.DECIMAL), int(providerReward))
 
@@ -329,6 +339,19 @@ class PoolSwapTest (DefiTestFramework):
         print("Swapping tokens after eunos height...")
         self.poolswap(self.nodes)
 
+        # Move to FortCanning
+        self.nodes[0].generate(200 - self.nodes[0].getblockcount())
+
+        # Set new splits
+        self.nodes[0].setgov({ "LP_LOAN_TOKEN_SPLITS": obj })
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.LP_DAILY_LOAN_TOKEN_REWARD = self.nodes[0].getgov("LP_DAILY_LOAN_TOKEN_REWARD")[0]['LP_DAILY_LOAN_TOKEN_REWARD']
+        assert_equal(self.LP_DAILY_LOAN_TOKEN_REWARD, Decimal('14394.79756800'))
+
+        print("Swapping tokens after FortCanning height...")
+        self.poolswap(self.nodes)
 
 if __name__ == '__main__':
     PoolSwapTest ().main ()
