@@ -1355,7 +1355,7 @@ uint64_t EstimateAnchorCost(TBytes const & meta, uint64_t feerate)
     TBytes dummyScript(CreateScriptForAddress(consensus.spv.anchors_address.c_str()));
 
     // output[0] - anchor address with creation fee
-    outputs.push_back({ (uint64_t) consensus.spv.creationFee, dummyScript });
+    outputs.push_back({ P2PKH_DUST, dummyScript });
 
     auto metaScripts = EncapsulateMeta(meta);
     // output[1] - metadata (first part with OP_RETURN)
@@ -1379,7 +1379,7 @@ uint64_t EstimateAnchorCost(TBytes const & meta, uint64_t feerate)
 
     BRTransactionFree(tx);
 
-    return consensus.spv.creationFee + (P2WSH_DUST * (metaScripts.size()-1)) + minFee;
+    return P2PKH_DUST + (P2WSH_DUST * (metaScripts.size()-1)) + minFee;
 }
 
 std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> const & inputsData, TBytes const & meta, uint64_t feerate)
@@ -1421,7 +1421,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
 
     std::vector<TxOutput> outputs;
     // output[0] - anchor address with creation fee
-    outputs.push_back({ (uint64_t) consensus.spv.creationFee, anchorScript });
+    outputs.push_back({ P2PKH_DUST, anchorScript });
 
     auto metaScripts = EncapsulateMeta(meta);
     // output[1] - metadata (first part with OP_RETURN)
@@ -1450,7 +1450,7 @@ std::tuple<uint256, TBytes, uint64_t> CreateAnchorTx(std::vector<TxInputData> co
 
     // output[n] (optional) - change
     uint64_t const minFee = BRTransactionStandardFee(tx) * feerate / TX_FEE_PER_KB;
-    uint64_t totalCost = consensus.spv.creationFee + (P2WSH_DUST * (metaScripts.size()-1)) + minFee;
+    uint64_t totalCost = P2PKH_DUST + (P2WSH_DUST * (metaScripts.size()-1)) + minFee;
 
     if (inputTotal < totalCost) {
         LogPrint(BCLog::SPV, "***FAILED*** %s: Not enough money to create anchor: %lu (need %lu)\n", __func__, inputTotal, totalCost);
