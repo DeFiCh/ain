@@ -330,6 +330,10 @@ Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char 
         return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
 
+    // Use banTx to set masternode to version 2
+    node->banTx = uint256S("0100000000000000000000000000000000000000000000000000000000000000");
+
+    // Set new reward address
     node->rewardAddressType = rewardAddressType;
     node->rewardAddress = rewardAddress;
     WriteBy<ID>(nodeId, *node);
