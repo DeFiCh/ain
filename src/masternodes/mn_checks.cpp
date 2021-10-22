@@ -2635,9 +2635,12 @@ public:
                 return res;
 
             // burn interest Token->USD->DFI->burnAddress
-            res = SwapToDFIOverUSD(mnview, kv.first, subInterest, obj.from, consensus.burnAddress, height);
-            if (!res)
-                return res;
+            if (subInterest)
+            {
+                res = SwapToDFIOverUSD(mnview, kv.first, subInterest, obj.from, consensus.burnAddress, height);
+                if (!res)
+                    return res;
+            }
         }
 
         return Res::Ok();
