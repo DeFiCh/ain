@@ -57,7 +57,7 @@ class MasternodesRpcBasicTest (DefiTestFramework):
 
         self.sync_all()
 
-        # UPDATEING
+        # UPDATING
         #========================
         assert_raises_rpc_error(-8, "updatemasternode cannot be called before Fortcanning hard fork", self.nodes[0].updatemasternode, idnode0, collateral0)
 
@@ -73,6 +73,11 @@ class MasternodesRpcBasicTest (DefiTestFramework):
         self.sync_all()
 
         assert_equal(self.nodes[1].listmasternodes()[idnode0]["operatorAuthAddress"], collateral1)
+
+        # Test rollback
+        blockhash = self.nodes[1].getblockhash(self.nodes[1].getblockcount())
+        self.nodes[1].invalidateblock(blockhash)
+        self.nodes[1].reconsiderblock(blockhash)
 
         # RESIGNING:
         #========================
