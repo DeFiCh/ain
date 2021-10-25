@@ -3054,15 +3054,13 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 return true;
             }
 
-            if(!IsVaultPriceValid(cache, vaultId, pindex->nHeight))
-                return true;
-
             auto vault = cache.GetVault(vaultId);
             assert(vault);
             auto scheme = cache.GetLoanScheme(vault->schemeId);
             assert(scheme);
-            if (scheme->ratio <= collateral.val->ratio())
+            if (scheme->ratio <= collateral.val->ratio()) {
                 return true;
+            }
 
             vault->isUnderLiquidation = true;
             cache.StoreVault(vaultId, *vault);
@@ -3108,6 +3106,8 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
         if (data.liquidationHeight != uint32_t(pindex->nHeight)) {
             return false;
         }
+        auto vault = view.GetVault(vaultId);
+        assert(vault);
         for (uint32_t i = 0; i < data.batchCount; i++) {
             auto batch = view.GetAuctionBatch(vaultId, i);
             assert(batch);
@@ -3128,11 +3128,12 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 auto amountToFill = bid->second.nValue - penaltyAmount;
                 if (amountToFill > 0) {
                     // return the rest as collateral to vault via DEX to DFI
-                    view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToFill});
-                    SwapToDFIOverUSD(view, bid->second.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
-                    auto tokenAmount = view.GetBalance(tmpAddress, DCT_ID{0});
+                    auto res = view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToFill});
+                    auto tokenAmount = view.GetBalance(tmpAddress, bid->second.nTokenId);
+                    res = SwapToDFIOverUSD(view, bid->second.nTokenId, amountToFill, tmpAddress, tmpAddress, pindex->nHeight);
+                    tokenAmount = view.GetBalance(tmpAddress, DCT_ID{0});
                     view.SubBalance(tmpAddress, tokenAmount);
-                    view.AddVaultCollateral(auction.vaultId, tokenAmount);
+                    view.AddVaultCollateral(vaultId, tokenAmount);
                 }
                 if (auto loanToken = view.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
                     view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
@@ -3143,17 +3144,15 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                     paccountHistoryDB->WriteAuctionHistory(key, value);
                 }
             } else {
-                // we should return loan excluding interest
-                auto amount = batch->loanAmount.nValue - batch->loanInterest;
-                view.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amount});
+                // we should return loan including interest
+                view.AddLoanToken(vaultId, batch->loanAmount);
+                view.StoreInterest(pindex->nHeight, vaultId, vault->schemeId, batch->loanAmount.nTokenId, batch->loanAmount.nValue);
                 for (const auto& col : batch->collaterals.balances) {
                     view.AddVaultCollateral(vaultId, {col.first, col.second});
                 }
             }
         }
 
-        auto vault = view.GetVault(vaultId);
-        assert(vault);
         vault->isUnderLiquidation = false;
         view.StoreVault(vaultId, *vault);
         view.EraseAuction(vaultId, pindex->nHeight);
@@ -3172,22 +3171,22 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
         return;
     }
     auto blockInterval = cache.GetIntervalBlock();
-    if (pindex->nHeight % blockInterval != 0) { 
+    if (pindex->nHeight % blockInterval != 0) {
         return;
     }
     cache.ForEachFixedIntervalPrice([&](const CTokenCurrencyPair&, CFixedIntervalPrice fixedIntervalPrice){
         // Ensure that we update active and next regardless of state of things
         // And SetFixedIntervalPrice on each evaluation of this block.
 
-        // As long as nextPrice exists, move the buffers. 
+        // As long as nextPrice exists, move the buffers.
         // If nextPrice doesn't exist, active price is retained.
-        // nextPrice starts off as empty. Will be replaced by the next 
+        // nextPrice starts off as empty. Will be replaced by the next
         // aggregate, as long as there's a new price available.
-        // If there is no price, nextPrice will remain empty. 
-        // This guarantees that the last price will continue to exists, 
+        // If there is no price, nextPrice will remain empty.
+        // This guarantees that the last price will continue to exists,
         // while the overall validity check still fails.
 
-        // Furthermore, the time stamp is always indicative of the 
+        // Furthermore, the time stamp is always indicative of the
         // last price time.
         auto nextPrice = fixedIntervalPrice.priceRecord[1];
         if (nextPrice > 0) {
