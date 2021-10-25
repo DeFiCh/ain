@@ -151,8 +151,8 @@ public:
     //! populates the values.
     virtual void findCoins(std::map<COutPoint, Coin>& coins) = 0;
 
+    virtual bool mnExists(const uint256 & nodeId) const = 0;
     virtual bool mnCanSpend(const uint256 & nodeId, int height) const = 0;
-    virtual std::optional<CMasternode> mnExists(const uint256 & nodeId) const = 0;
     virtual std::unique_ptr<CToken> existTokenGuessId(const std::string & str, DCT_ID & id) const = 0;
 
     //! Estimate fraction of total transactions verified if blocks up to

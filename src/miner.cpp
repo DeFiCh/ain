@@ -718,8 +718,8 @@ namespace pos {
             }
             tip = ::ChainActive().Tip();
             masternodeID = *optMasternodeID;
-            auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(tip->height)) /// @todo miner: height+1 or nHeight+1 ???
+            auto nodePtr = pcustomcsview->GetMasternodeV2(masternodeID, tip->height);
+            if (!nodePtr && !nodePtr->IsActive(tip->height)) /// @todo miner: height+1 or nHeight+1 ???
             {
                 /// @todo may be new status for not activated (or already resigned) MN??
                 return Status::initWaiting;
@@ -727,7 +727,7 @@ namespace pos {
             mintedBlocks = nodePtr->mintedBlocks;
             if (args.coinbaseScript.empty()) {
                 // this is safe cause MN was found
-                if (tip->height >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
+                if (nodePtr->rewardAddressType != 0) {
                     scriptPubKey = GetScriptForDestination(nodePtr->rewardAddressType == PKHashType ?
                         CTxDestination(PKHash(nodePtr->rewardAddress)) :
                         CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress))
@@ -767,7 +767,7 @@ namespace pos {
                 // Plus one to avoid time-too-old error on exact median time.
                 nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
             }
-            
+
             lastBlockSeen = tip->GetBlockHash();
         }
 

@@ -32,7 +32,7 @@ static bool BytesToDbType(const TBytes& bytes, T& value) {
         stream >> value;
 //        assert(stream.size() == 0); // will fail with partial key matching
     }
-    catch (std::ios_base::failure&) {
+    catch (const std::ios_base::failure&) {
         return false;
     }
     return true;
@@ -475,7 +475,11 @@ public:
     bool Read(const KeyType& key, ValueType& value) const {
         auto vKey = DbTypeToBytes(key);
         TBytes vValue;
-        return DB().Read(vKey, vValue) && BytesToDbType(vValue, value);
+        if (DB().Read(vKey, vValue)) {
+            BytesToDbType(vValue, value);
+            return true;
+        }
+        return false;
     }
     template<typename By, typename KeyType, typename ValueType>
     bool ReadBy(const KeyType& key, ValueType& value) const {
@@ -484,7 +488,7 @@ public:
     // second type of 'ReadBy' (may be 'GetBy'?)
     template<typename By, typename ResultType, typename KeyType>
     std::optional<ResultType> ReadBy(KeyType const & id) const {
-        ResultType result;
+        ResultType result{};
         if (ReadBy<By>(id, result))
             return {result};
         return {};

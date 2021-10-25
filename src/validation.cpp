@@ -1820,7 +1820,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
     if (!fIsFakeNet) {
-        mnview.DecrementMintedBy(*nodeId);
+        mnview.DecrementMintedBy(*nodeId, pindex->nHeight);
         if (pindex->nHeight >= Params().GetConsensus().EunosPayaHeight) {
             mnview.EraseSubNodesLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
         } else {
@@ -1828,6 +1828,14 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
     }
     mnview.SetLastHeight(pindex->pprev->nHeight);
+
+    // one time upgrade to revert previous structure
+    if (pindex->nHeight == Params().GetConsensus().GreatWorldHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Masternode reverting ...\n");
+        mnview.RevertMasternodesToV1(Params().GetConsensus().GreatWorldHeight - 1);
+        LogPrint(BCLog::BENCH, "    - Masternode reverting took: %dms\n", GetTimeMillis() - time);
+    }
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
@@ -2306,13 +2314,22 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     std::optional<uint256> nodeId;
     std::optional<CMasternode> nodePtr;
 
+    // one time upgrade to purge the old masternode data structure
+    // we don't neeed it in undos
+    if (pindex->nHeight == chainparams.GetConsensus().GreatWorldHeight) {
+        auto time = GetTimeMillis();
+        LogPrintf("Masternode migration ...\n");
+        mnview.MigrateMasternodesToV2(chainparams.GetConsensus().GreatWorldHeight);
+        LogPrint(BCLog::BENCH, "    - Masternode migration took: %dms\n", GetTimeMillis() - time);
+    }
+
     // We are forced not to check this due to the block wasn't signed yet if called by TestBlockValidity()
     if (!fJustCheck && !fIsFakeNet) {
         // Check only that mintedBlocks counter is correct (MN existence and activation was partially checked before in checkblock()->contextualcheckproofofstake(), but not in the case of fJustCheck)
         minterKey = pindex->minterKey();
         nodeId = mnview.GetMasternodeIdByOperator(minterKey);
         assert(nodeId);
-        nodePtr = mnview.GetMasternode(*nodeId);
+        nodePtr = mnview.GetMasternodeV2(*nodeId, pindex->nHeight);
         assert(nodePtr);
 
         if (nodePtr->mintedBlocks + 1 != block.mintedBlocks)
@@ -2829,7 +2846,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     if (!fIsFakeNet) {
-        mnview.IncrementMintedBy(*nodeId);
+        mnview.IncrementMintedBy(*nodeId, pindex->nHeight);
 
         // Store block staker height for use in coinage
         if (pindex->nHeight >= static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight)) {
@@ -4558,7 +4575,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         // this is safe cause pos::ContextualCheckProofOfStake checked
         block.ExtractMinterKey(minter);
         auto nodeId = pcustomcsview->GetMasternodeIdByOperator(minter);
-        auto node = pcustomcsview->GetMasternode(*nodeId);
+        auto node = pcustomcsview->GetMasternodeV2(*nodeId, block.height);
         if (node->rewardAddressType != 0) {
             CScript rewardScriptPubKey = GetScriptForDestination(node->rewardAddressType == PKHashType ?
                 CTxDestination(PKHash(node->rewardAddress)) :

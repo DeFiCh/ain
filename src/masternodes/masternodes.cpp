@@ -76,13 +76,8 @@ CMasternode::CMasternode()
     , ownerType(0)
     , operatorAuthAddress()
     , operatorType(0)
-    , rewardAddress()
-    , rewardAddressType(0)
     , creationHeight(0)
     , resignHeight(-1)
-    , version(-1)
-    , resignTx()
-    , banTx()
 {
 }
 
@@ -160,14 +155,8 @@ bool operator==(CMasternode const & a, CMasternode const & b)
             a.ownerAuthAddress == b.ownerAuthAddress &&
             a.operatorType == b.operatorType &&
             a.operatorAuthAddress == b.operatorAuthAddress &&
-            a.rewardAddress == b.rewardAddress &&
-            a.rewardAddressType == b.rewardAddressType &&
             a.creationHeight == b.creationHeight &&
-            a.resignHeight == b.resignHeight &&
-            a.version == b.version &&
-            a.resignTx == b.resignTx &&
-            a.banTx == b.banTx
-            );
+            a.resignHeight == b.resignHeight);
 }
 
 bool operator!=(CMasternode const & a, CMasternode const & b)
@@ -175,24 +164,36 @@ bool operator!=(CMasternode const & a, CMasternode const & b)
     return !(a == b);
 }
 
-/*
- * Check that given node is involved in anchor's subsystem for a given height (or smth like that)
- */
-//bool IsAnchorInvolved(const uint256 & nodeId, int height) const
-//{
-//    /// @todo to be implemented
-//    return false;
-//}
+bool operator==(CMasternodeV2 const & a, CMasternodeV2 const & b)
+{
+    return static_cast<CMasternode const &>(a) == static_cast<CMasternode const &>(b) &&
+            a.resignTx == b.resignTx &&
+            a.rewardAddress == b.rewardAddress &&
+            a.rewardAddressType == b.rewardAddressType;
+}
 
-
-
+bool operator!=(CMasternodeV2 const & a, CMasternodeV2 const & b)
+{
+    return !(a == b);
+}
 
 /*
  *  CMasternodesView
  */
-std::optional<CMasternode> CMasternodesView::GetMasternode(const uint256 & id) const
+std::optional<CMasternodeV1> CMasternodesView::GetMasternode(const uint256 & id) const
 {
-    return ReadBy<ID, CMasternode>(id);
+    return ReadBy<ID, CMasternodeV1>(id);
+}
+
+std::optional<CMasternodeV2> CMasternodesView::GetMasternodeV2(const uint256 & id, int height) const
+{
+    if (height >= Params().GetConsensus().GreatWorldHeight) {
+        return ReadBy<ID, CMasternodeV2>(id);
+    }
+    if (auto node = GetMasternode(id)) {
+        return ConvertMasternode(*node);
+    }
+    return {};
 }
 
 std::optional<uint256> CMasternodesView::GetMasternodeIdByOperator(const CKeyID & id) const
@@ -205,25 +206,69 @@ std::optional<uint256> CMasternodesView::GetMasternodeIdByOwner(const CKeyID & i
     return ReadBy<Owner, uint256>(id);
 }
 
-void CMasternodesView::ForEachMasternode(std::function<bool (const uint256 &, CLazySerialize<CMasternode>)> callback, uint256 const & start)
+void CMasternodesView::ForEachMasternode(std::function<bool (const uint256 &, CLazySerialize<CMasternodeV1>)> callback, uint256 const & start)
 {
-    ForEach<ID, uint256, CMasternode>(callback, start);
+    ForEach<ID, uint256, CMasternodeV1>(callback, start);
 }
 
-void CMasternodesView::IncrementMintedBy(const uint256& nodeId)
+void CMasternodesView::ForEachMasternodeV2(std::function<bool (const uint256 &, CLazySerialize<CMasternodeV2>)> callback, uint256 const & start)
 {
-    auto node = GetMasternode(nodeId);
+    ForEach<ID, uint256, CMasternodeV2>(callback, start);
+}
+
+void CMasternodesView::RevertMasternodesToV1(int height)
+{
+    std::vector<std::pair<uint256, CMasternodeV2>> nodes;
+    ForEachMasternodeV2([&](const uint256& nodeId, CMasternodeV2 node) {
+        nodes.emplace_back(nodeId, std::move(node));
+        return true;
+    });
+    for (auto it = nodes.begin(); it != nodes.end(); it = nodes.erase(it)) {
+        StoreMasternode(it->first, it->second, height);
+    }
+}
+
+void CMasternodesView::MigrateMasternodesToV2(int height)
+{
+    std::vector<std::pair<uint256, CMasternodeV1>> nodes;
+    ForEachMasternode([&](const uint256& nodeId, CMasternodeV1 node) {
+        nodes.emplace_back(nodeId, std::move(node));
+        return true;
+    });
+    for (auto it = nodes.begin(); it != nodes.end(); it = nodes.erase(it)) {
+        StoreMasternode(it->first, ConvertMasternode(it->second), height);
+    }
+}
+
+void CMasternodesView::StoreMasternode(const uint256& nodeId, const CMasternodeV2& node, int height)
+{
+    if (node.rewardAddressType == 0 && node.resignTx.IsNull()) {
+        // we can safety store cheaper structure
+        WriteBy<ID>(nodeId, static_cast<const CMasternode&>(node));
+        return;
+    }
+
+    if (height >= Params().GetConsensus().GreatWorldHeight) {
+        WriteBy<ID>(nodeId, node);
+    } else {
+        WriteBy<ID>(nodeId, ConvertMasternode(node));
+    }
+}
+
+void CMasternodesView::IncrementMintedBy(const uint256& nodeId, int height)
+{
+    auto node = GetMasternodeV2(nodeId, height);
     assert(node);
     ++node->mintedBlocks;
-    WriteBy<ID>(nodeId, *node);
+    StoreMasternode(nodeId, *node, height);
 }
 
-void CMasternodesView::DecrementMintedBy(const uint256& nodeId)
+void CMasternodesView::DecrementMintedBy(const uint256& nodeId, int height)
 {
-    auto node = GetMasternode(nodeId);
+    auto node = GetMasternodeV2(nodeId, height);
     assert(node);
     --node->mintedBlocks;
-    WriteBy<ID>(nodeId, *node);
+    StoreMasternode(nodeId, *node, height);
 }
 
 std::optional<std::pair<CKeyID, uint256> > CMasternodesView::AmIOperator() const
@@ -284,6 +329,7 @@ Res CMasternodesView::CreateMasternode(const uint256 & nodeId, const CMasternode
         return Res::Err("bad owner and|or operator address (should be P2PKH or P2WPKH only) or node with those addresses exists");
     }
 
+    // we can safety store cheaper structure
     WriteBy<ID>(nodeId, node);
     WriteBy<Owner>(node.ownerAuthAddress, nodeId);
     WriteBy<Operator>(node.operatorAuthAddress, nodeId);
@@ -298,10 +344,11 @@ Res CMasternodesView::CreateMasternode(const uint256 & nodeId, const CMasternode
 Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & txid, int height)
 {
     // auth already checked!
-    auto node = GetMasternode(nodeId);
+    auto node = GetMasternodeV2(nodeId, height);
     if (!node) {
         return Res::Err("node %s does not exists", nodeId.ToString());
     }
+
     auto state = node->GetState(height);
     if (height >= Params().GetConsensus().EunosPayaHeight) {
         if (state != CMasternode::ENABLED) {
@@ -318,14 +365,14 @@ Res CMasternodesView::ResignMasternode(const uint256 & nodeId, const uint256 & t
 
     node->resignTx =  txid;
     node->resignHeight = height;
-    WriteBy<ID>(nodeId, *node);
+    StoreMasternode(nodeId, *node, height);
 
     return Res::Ok();
 }
 
 Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char rewardAddressType, CKeyID const & rewardAddress, int height)
 {
-    auto node = GetMasternode(nodeId);
+    auto node = GetMasternodeV2(nodeId, height);
     if (!node) {
         return Res::Err("masternode %s does not exists", nodeId.ToString());
     }
@@ -334,22 +381,17 @@ Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char 
         return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
 
-    // If old masternode update foor new serialisatioono
-    if (node->version < CMasternode::VERSION0) {
-        node->version = CMasternode::VERSION0;
-    }
-
     // Set new reward address
     node->rewardAddressType = rewardAddressType;
     node->rewardAddress = rewardAddress;
-    WriteBy<ID>(nodeId, *node);
+    StoreMasternode(nodeId, *node, height);
 
     return Res::Ok();
 }
 
 Res CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, int height)
 {
-    auto node = GetMasternode(nodeId);
+    auto node = GetMasternodeV2(nodeId, height);
     if (!node) {
         return Res::Err("masternode %s does not exists", nodeId.ToString());
     }
@@ -360,14 +402,15 @@ Res CMasternodesView::RemForcedRewardAddress(uint256 const & nodeId, int height)
 
     node->rewardAddressType = 0;
     node->rewardAddress.SetNull();
-    WriteBy<ID>(nodeId, *node);
+    StoreMasternode(nodeId, *node, height);
 
     return Res::Ok();
 }
 
-Res CMasternodesView::UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height) {
+Res CMasternodesView::UpdateMasternode(uint256 const & nodeId, char operatorType, const CKeyID& operatorAuthAddress, int height)
+{
     // auth already checked!
-    auto node = GetMasternode(nodeId);
+    auto node = GetMasternodeV2(nodeId, height);
     if (!node) {
         return Res::Err("node %s does not exists", nodeId.ToString());
     }
@@ -387,8 +430,7 @@ Res CMasternodesView::UpdateMasternode(uint256 const & nodeId, char operatorType
     node->operatorType = operatorType;
     node->operatorAuthAddress = operatorAuthAddress;
 
-    // Overwrite and create new record
-    WriteBy<ID>(nodeId, *node);
+    StoreMasternode(nodeId, *node, height);
     WriteBy<Operator>(node->operatorAuthAddress, nodeId);
 
     return Res::Ok();

@@ -888,11 +888,6 @@ public:
         node.operatorType = obj.operatorType;
         node.operatorAuthAddress = obj.operatorAuthAddress;
 
-        // Set masternode version2 after FC for new serialisation
-        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight)) {
-            node.version = CMasternode::VERSION0;
-        }
-
         res = mnview.CreateMasternode(tx.GetHash(), node, obj.timelock);
         // Build coinage from the point of masternode creation
         if (res) {
@@ -913,27 +908,13 @@ public:
     }
 
     Res operator()(const CSetForcedRewardAddressMessage& obj) const {
-        auto const node = mnview.GetMasternode(obj.nodeId);
-        if (!node) {
-            return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
-        }
-        if (!HasCollateralAuth(obj.nodeId)) {
-            return Res::Err("%s: %s", obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
-        }
-
-        return mnview.SetForcedRewardAddress(obj.nodeId, obj.rewardAddressType, obj.rewardAddress, height);
+        auto res = HasCollateralAuth(obj.nodeId);
+        return !res ? res : mnview.SetForcedRewardAddress(obj.nodeId, obj.rewardAddressType, obj.rewardAddress, height);
     }
 
     Res operator()(const CRemForcedRewardAddressMessage& obj) const {
-        auto const node = mnview.GetMasternode(obj.nodeId);
-        if (!node) {
-            return Res::Err("masternode %s does not exist", obj.nodeId.ToString());
-        }
-        if (!HasCollateralAuth(obj.nodeId)) {
-            return Res::Err("%s: %s", obj.nodeId.ToString(), "tx must have at least one input from masternode owner");
-        }
-
-        return mnview.RemForcedRewardAddress(obj.nodeId, height);
+        auto res = HasCollateralAuth(obj.nodeId);
+        return !res ? res : mnview.RemForcedRewardAddress(obj.nodeId, height);
     }
 
     Res operator()(const CUpdateMasterNodeMessage& obj) const {

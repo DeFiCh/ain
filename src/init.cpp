@@ -2018,15 +2018,15 @@ bool AppInitMain(InitInterfaces& interfaces)
             CTxDestination rewardDest;
             auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
             if (optMasternodeID) {
-                auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
-                assert(nodePtr); // this should not happen if MN was found by operator's id
+                auto nodePtr = pcustomcsview->GetMasternodeV2(*optMasternodeID, chain_active_height);
+                assert(nodePtr);
                 ownerDest = nodePtr->ownerType == PKHashType ?
-                    CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
-                    CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
+                                CTxDestination(PKHash(nodePtr->ownerAuthAddress)) :
+                                CTxDestination(WitnessV0KeyHash(nodePtr->ownerAuthAddress));
                 if (nodePtr->rewardAddressType != 0) {
                     rewardDest = nodePtr->rewardAddressType == PKHashType ?
-                        CTxDestination(PKHash(nodePtr->rewardAddress)) :
-                        CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress));
+                                    CTxDestination(PKHash(nodePtr->rewardAddress)) :
+                                    CTxDestination(WitnessV0KeyHash(nodePtr->rewardAddress));
                 }
             }
 

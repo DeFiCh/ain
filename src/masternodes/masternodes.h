@@ -59,11 +59,6 @@ public:
         TENYEAR = 520
     };
 
-    enum Version : int32_t {
-        PRE_FORT_CANNING = -1,
-        VERSION0 = 0,
-    };
-
     //! Minted blocks counter
     uint32_t mintedBlocks;
 
@@ -75,20 +70,10 @@ public:
     CKeyID operatorAuthAddress;
     char operatorType;
 
-    //! Consensus-enforced address for operator rewards.
-    CKeyID rewardAddress;
-    char rewardAddressType{0};
-
     //! MN creation block height
     int32_t creationHeight;
     //! Resign height
     int32_t resignHeight;
-    //! Was used to set a ban height but is now unused
-    int32_t version;
-
-    //! This fields are for transaction rollback (by disconnecting block)
-    uint256 resignTx;
-    uint256 banTx;
 
     //! empty constructor
     CMasternode();
@@ -114,16 +99,6 @@ public:
 
         READWRITE(creationHeight);
         READWRITE(resignHeight);
-        READWRITE(version);
-
-        READWRITE(resignTx);
-        READWRITE(banTx);
-
-        // Only available after FortCanning
-        if (version > PRE_FORT_CANNING) {
-            READWRITE(rewardAddress);
-            READWRITE(rewardAddressType);
-        }
     }
 
     //! equality test
@@ -131,6 +106,69 @@ public:
     friend bool operator!=(CMasternode const & a, CMasternode const & b);
 };
 
+// intermidate data structure for compatibility
+class CMasternodeV1 : public CMasternode {
+public:
+    //! Was used to set a ban height but is now unused
+    int32_t version;
+
+    //! This fields are for transaction rollback (by disconnecting block)
+    uint256 resignTx;
+    uint256 banTx;
+
+    CKeyID rewardAddress;
+    char rewardAddressType;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITEAS(CMasternode, *this);
+        READWRITE(version);
+        READWRITE(resignTx);
+        READWRITE(banTx);
+        READWRITE(rewardAddress);
+        READWRITE(rewardAddressType);
+    }
+};
+
+class CMasternodeV2 : public CMasternode {
+public:
+    uint256 resignTx;
+
+    CKeyID rewardAddress;
+    char rewardAddressType;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITEAS(CMasternode, *this);
+        READWRITE(resignTx);
+        READWRITE(rewardAddress);
+        READWRITE(rewardAddressType);
+    }
+
+    //! equality test
+    friend bool operator==(CMasternodeV2 const & a, CMasternodeV2 const & b);
+    friend bool operator!=(CMasternodeV2 const & a, CMasternodeV2 const & b);
+};
+
+template<typename T>
+using masternode_t = std::conditional_t<std::is_same_v<T, CMasternodeV1>, CMasternodeV2, CMasternodeV1>;
+
+template<typename Node1, typename Node2 = masternode_t<Node1>>
+inline Node2 ConvertMasternode(const Node1& node1)
+{
+    Node2 node2{};
+    node2.resignTx = node1.resignTx;
+    node2.rewardAddress = node1.rewardAddress;
+    node2.rewardAddressType = node1.rewardAddressType;
+    static_cast<CMasternode&>(node2) = node1;
+    return node2;
+}
 
 struct MNBlockTimeKey
 {
@@ -178,18 +216,20 @@ struct SubNodeBlockTimeKey
 
 class CMasternodesView : public virtual CStorageView
 {
-    std::map<CKeyID, std::pair<uint32_t, int64_t>> minterTimeCache;
+    void StoreMasternode(const uint256& nodeId, const CMasternodeV2& node, int height);
 
 public:
-//    CMasternodesView() = default;
-
-    std::optional<CMasternode> GetMasternode(uint256 const & id) const;
-    std::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
+    void RevertMasternodesToV1(int height);
+    void MigrateMasternodesToV2(int height);
+    std::optional<CMasternodeV1> GetMasternode(uint256 const & id) const;
     std::optional<uint256> GetMasternodeIdByOwner(CKeyID const & id) const;
-    void ForEachMasternode(std::function<bool(uint256 const &, CLazySerialize<CMasternode>)> callback, uint256 const & start = uint256());
+    std::optional<uint256> GetMasternodeIdByOperator(CKeyID const & id) const;
+    std::optional<CMasternodeV2> GetMasternodeV2(uint256 const & id, int height) const;
+    void ForEachMasternode(std::function<bool(uint256 const &, CLazySerialize<CMasternodeV1>)> callback, uint256 const & start = uint256());
+    void ForEachMasternodeV2(std::function<bool(uint256 const &, CLazySerialize<CMasternodeV2>)> callback, uint256 const & start = uint256());
 
-    void IncrementMintedBy(const uint256& nodeId);
-    void DecrementMintedBy(const uint256& nodeId);
+    void IncrementMintedBy(const uint256& nodeId, int height);
+    void DecrementMintedBy(const uint256& nodeId, int height);
 
     std::optional<std::pair<CKeyID, uint256>> AmIOperator() const;
     std::optional<std::pair<CKeyID, uint256>> AmIOwner() const;

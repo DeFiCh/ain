@@ -280,10 +280,10 @@ public:
         return pcustomcsview->CanSpend(nodeId, height);
     }
 
-    std::optional<CMasternode> mnExists(const uint256 & nodeId) const override
+    bool mnExists(const uint256 & nodeId) const override
     {
         LOCK(cs_main);
-        return pcustomcsview->GetMasternode(nodeId);
+        return pcustomcsview->GetMasternode(nodeId).has_value();
     }
     std::unique_ptr<CToken> existTokenGuessId(const std::string & str, DCT_ID & id) const override
     {

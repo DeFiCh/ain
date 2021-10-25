@@ -3,7 +3,7 @@
 #include <pos_kernel.h>
 
 // Here (but not a class method) just by similarity with other '..ToJSON'
-UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>>& mnIds, const CWallet* pwallet)
+UniValue mnToJSON(uint256 const & nodeId, CMasternodeV2 const& node, bool verbose, const std::set<std::pair<CKeyID, uint256>>& mnIds, const CWallet* pwallet)
 {
     UniValue ret(UniValue::VOBJ);
     if (!verbose) {
@@ -29,7 +29,7 @@ UniValue mnToJSON(uint256 const & nodeId, CMasternode const& node, bool verbose,
         obj.pushKV("creationHeight", node.creationHeight);
         obj.pushKV("resignHeight", node.resignHeight);
         obj.pushKV("resignTx", node.resignTx.GetHex());
-        obj.pushKV("banTx", node.banTx.GetHex());
+        obj.pushKV("banTx", uint256{}.GetHex());
         obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState()));
         obj.pushKV("mintedBlocks", (uint64_t) node.mintedBlocks);
         isminetype ownerMine = IsMineCached(*pwallet, ownerDest);
@@ -653,20 +653,31 @@ UniValue listmasternodes(const JSONRPCRequest& request)
         }
     }
 
+    pwallet->BlockUntilSyncedToCurrentChain();
+
     UniValue ret(UniValue::VOBJ);
 
     LOCK(cs_main);
+    auto height = ::ChainActive().Height();
     const auto mnIds = pcustomcsview->GetOperatorsMulti();
-    pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternode node) {
+
+    auto processNode = [&](uint256 const& nodeId, CMasternodeV2 node) {
         if (!including_start)
         {
             including_start = true;
             return (true);
         }
         ret.pushKVs(mnToJSON(nodeId, node, verbose, mnIds, pwallet));
-        limit--;
-        return limit != 0;
-    }, start);
+        return --limit != 0;
+    };
+
+    if (height >= Params().GetConsensus().GreatWorldHeight) {
+        pcustomcsview->ForEachMasternodeV2(processNode, start);
+    } else {
+        pcustomcsview->ForEachMasternode([&](uint256 const& nodeId, CMasternodeV1 node) {
+            return processNode(nodeId, ConvertMasternode(node));
+        }, start);
+    }
 
     return ret;
 }
@@ -691,11 +702,13 @@ UniValue getmasternode(const JSONRPCRequest& request)
 
     uint256 id = ParseHashV(request.params[0], "masternode id");
 
+    pwallet->BlockUntilSyncedToCurrentChain();
+
     LOCK(cs_main);
+    auto height = ::ChainActive().Height();
     const auto mnIds = pcustomcsview->GetOperatorsMulti();
-    auto node = pcustomcsview->GetMasternode(id);
-    if (node) {
-        return mnToJSON(id, *node, true, mnIds, pwallet); // or maybe just node, w/o id?
+    if (auto node = pcustomcsview->GetMasternodeV2(id, height)) {
+        return mnToJSON(id, *node, true, mnIds, pwallet);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
 }
