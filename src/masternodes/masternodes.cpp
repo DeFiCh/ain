@@ -80,7 +80,7 @@ CMasternode::CMasternode()
     , rewardAddressType(0)
     , creationHeight(0)
     , resignHeight(-1)
-    , unusedVariable(-1)
+    , version(-1)
     , resignTx()
     , banTx()
 {
@@ -164,7 +164,7 @@ bool operator==(CMasternode const & a, CMasternode const & b)
             a.rewardAddressType == b.rewardAddressType &&
             a.creationHeight == b.creationHeight &&
             a.resignHeight == b.resignHeight &&
-            a.unusedVariable == b.unusedVariable &&
+            a.version == b.version &&
             a.resignTx == b.resignTx &&
             a.banTx == b.banTx
             );
@@ -330,8 +330,10 @@ Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char 
         return Res::Err("masternode %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
 
-    // Use banTx to set masternode to version 2
-    node->banTx = uint256S("0100000000000000000000000000000000000000000000000000000000000000");
+    // If old masternode update foor new serialisatioono
+    if (node->version == CMasternode::VERSION1) {
+        node->version = CMasternode::CURRENT;
+    }
 
     // Set new reward address
     node->rewardAddressType = rewardAddressType;

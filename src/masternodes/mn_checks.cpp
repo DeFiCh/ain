@@ -874,6 +874,12 @@ public:
         node.creationHeight = height;
         node.operatorType = obj.operatorType;
         node.operatorAuthAddress = obj.operatorAuthAddress;
+
+        // Set masternode version2 after FC for new serialisation
+        if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight)) {
+            node.version = CMasternode::CURRENT;
+        }
+
         res = mnview.CreateMasternode(tx.GetHash(), node, obj.timelock);
         // Build coinage from the point of masternode creation
         if (res) {
