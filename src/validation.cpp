@@ -1684,8 +1684,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         // Get node id and node now from mnview before undo
         nodeId = mnview.GetMasternodeIdByOperator(minterKey);
         assert(nodeId);
-        node = mnview.GetMasternode(*nodeId);
-        assert(node);
     }
 
     std::vector<AccountHistoryKey> eraseBurnEntries;
@@ -1825,7 +1823,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
     if (!fIsFakeNet) {
-        mnview.DecrementMintedBy(*nodeId, *node);
+        mnview.DecrementMintedBy(*nodeId);
         if (pindex->nHeight >= Params().GetConsensus().EunosPayaHeight) {
             mnview.EraseSubNodesLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
         } else {
@@ -2796,7 +2794,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     if (!fIsFakeNet) {
-        mnview.IncrementMintedBy(*nodeId, *nodePtr);
+        mnview.IncrementMintedBy(*nodeId);
 
         // Store block staker height for use in coinage
         if (pindex->nHeight >= static_cast<uint32_t>(Params().GetConsensus().EunosPayaHeight)) {
