@@ -62,9 +62,8 @@ public:
     };
 
     enum Version : int32_t {
-        VERSION1 = -1,
-        VERSION2 = 0,
-        CURRENT = VERSION2,
+        PRE_FORT_CANNING = -1,
+        VERSION0 = 0,
     };
 
     //! Minted blocks counter
@@ -123,7 +122,7 @@ public:
         READWRITE(banTx);
 
         // Only available after FortCanning
-        if (version > VERSION1) {
+        if (version > PRE_FORT_CANNING) {
             READWRITE(rewardAddress);
             READWRITE(rewardAddressType);
         }

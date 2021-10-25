@@ -331,8 +331,8 @@ Res CMasternodesView::SetForcedRewardAddress(uint256 const & nodeId, const char 
     }
 
     // If old masternode update foor new serialisatioono
-    if (node->version == CMasternode::VERSION1) {
-        node->version = CMasternode::CURRENT;
+    if (node->version < CMasternode::VERSION0) {
+        node->version = CMasternode::VERSION0;
     }
 
     // Set new reward address
