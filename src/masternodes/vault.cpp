@@ -2,6 +2,20 @@
 #include <chainparams.h>
 #include <masternodes/vault.h>
 
+struct CAuctionKey {
+    CVaultId vaultId;
+    uint32_t height;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(WrapBigEndian(height));
+        READWRITE(vaultId);
+    }
+};
+
 Res CVaultView::StoreVault(const CVaultId& vaultId, const CVaultData& vault)
 {
     WriteBy<VaultKey>(vaultId, vault);
@@ -90,16 +104,15 @@ void CVaultView::ForEachVaultCollateral(std::function<bool(const CVaultId&, cons
     ForEach<CollateralKey, CVaultId, CBalances>(callback);
 }
 
-Res CVaultView::StoreAuction(const CVaultId& vaultId, uint32_t height, const CAuctionData& data)
+Res CVaultView::StoreAuction(const CVaultId& vaultId, const CAuctionData& data)
 {
-    auto auctionHeight = height + Params().GetConsensus().blocksCollateralAuction();
-    WriteBy<AuctionHeightKey>(AuctionKey{vaultId, auctionHeight}, data);
+    WriteBy<AuctionHeightKey>(CAuctionKey{vaultId, data.liquidationHeight}, data);
     return Res::Ok();
 }
 
 Res CVaultView::EraseAuction(const CVaultId& vaultId, uint32_t height)
 {
-    auto it = LowerBound<AuctionHeightKey>(AuctionKey{vaultId, height});
+    auto it = LowerBound<AuctionHeightKey>(CAuctionKey{vaultId, height});
     for (; it.Valid(); it.Next()) {
         if (it.Key().vaultId == vaultId) {
             CAuctionData data = it.Value();
@@ -116,10 +129,12 @@ Res CVaultView::EraseAuction(const CVaultId& vaultId, uint32_t height)
 
 boost::optional<CAuctionData> CVaultView::GetAuction(const CVaultId& vaultId, uint32_t height)
 {
-    auto it = LowerBound<AuctionHeightKey>(AuctionKey{vaultId, height});
+    auto it = LowerBound<AuctionHeightKey>(CAuctionKey{vaultId, height});
     for (; it.Valid(); it.Next()) {
         if (it.Key().vaultId == vaultId) {
-            return it.Value().as<CAuctionData>();
+            CAuctionData data = it.Value();
+            data.liquidationHeight = it.Key().height;
+            return data;
         }
     }
     return {};
@@ -142,11 +157,12 @@ boost::optional<CAuctionBatch> CVaultView::GetAuctionBatch(const CVaultId& vault
     return ReadBy<AuctionBatchKey, CAuctionBatch>(std::make_pair(vaultId, id));
 }
 
-void CVaultView::ForEachVaultAuction(std::function<bool(const AuctionKey&, const CAuctionData&)> callback, AuctionKey const & start)
+void CVaultView::ForEachVaultAuction(std::function<bool(const CVaultId&, const CAuctionData&)> callback, uint32_t height, const CVaultId& vaultId)
 {
-    ForEach<AuctionHeightKey, AuctionKey, CAuctionData>([&](const AuctionKey& auction, const CAuctionData& data) {
-        return callback(auction, data);
-    }, start);
+    ForEach<AuctionHeightKey, CAuctionKey, CAuctionData>([&](const CAuctionKey& auction, CAuctionData data) {
+        data.liquidationHeight = auction.height;
+        return callback(auction.vaultId, data);
+    }, CAuctionKey{vaultId, height});
 }
 
 Res CVaultView::StoreAuctionBid(const CVaultId& vaultId, uint32_t id, COwnerTokenAmount amount)

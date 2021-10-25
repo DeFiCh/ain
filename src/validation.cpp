@@ -3086,26 +3086,30 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 }
                 cache.StoreAuctionBatch(vaultId, i, batch);
             }
-            cache.StoreAuction(vaultId, pindex->nHeight, CAuctionData{uint32_t(batches.size()), cache.GetLoanLiquidationPenalty()});
+            cache.StoreAuction(vaultId, CAuctionData{
+                                            uint32_t(batches.size()),
+                                            pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
+                                            cache.GetLoanLiquidationPenalty()
+            });
             return true;
         });
     }
 
     CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, {}, uint8_t(CustomTxType::AuctionBid), nullptr, pburnHistoryDB.get());
 
-    view.ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
-        if (auction.height != uint32_t(pindex->nHeight)) {
+    view.ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+        if (data.liquidationHeight != uint32_t(pindex->nHeight)) {
             return false;
         }
         for (uint32_t i = 0; i < data.batchCount; i++) {
-            auto batch = view.GetAuctionBatch(auction.vaultId, i);
+            auto batch = view.GetAuctionBatch(vaultId, i);
             assert(batch);
-            if (auto bid = view.GetAuctionBid(auction.vaultId, i)) {
+            if (auto bid = view.GetAuctionBid(vaultId, i)) {
                 auto penaltyAmount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data.liquidationPenalty);
                 assert(bid->second.nValue >= penaltyAmount);
                 auto amountToBurn = bid->second.nValue - penaltyAmount + batch->loanInterest;
                 if (amountToBurn > 0) {
-                    CScript tmpAddress(auction.vaultId.begin(), auction.vaultId.end());
+                    CScript tmpAddress(vaultId.begin(), vaultId.end());
                     view.AddBalance(tmpAddress, {bid->second.nTokenId, amountToBurn});
                     auto res = SwapToDFIOverUSD(view, bid->second.nTokenId, amountToBurn, tmpAddress, chainparams.GetConsensus().burnAddress, pindex->nHeight);
                 }
@@ -3116,31 +3120,31 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
                 // return rest loan to vault if any
                 auto amountToFill = bid->second.nValue - penaltyAmount;
                 if (amountToFill > 0) {
-                    view.AddLoanToken(auction.vaultId, {batch->loanAmount.nTokenId, amountToFill});
+                    view.AddLoanToken(vaultId, {batch->loanAmount.nTokenId, amountToFill});
                 }
                 if (auto loanToken = view.GetLoanSetLoanTokenByID(batch->loanAmount.nTokenId)) {
                     view.SubMintedTokens(loanToken->creationTx, batch->loanAmount.nValue - batch->loanInterest);
                 }
                 if (paccountHistoryDB) {
-                    AuctionHistoryKey key{auction.height, bid->first, auction.vaultId, i};
+                    AuctionHistoryKey key{data.liquidationHeight, bid->first, vaultId, i};
                     AuctionHistoryValue value{bid->second, batch->collaterals.balances};
                     paccountHistoryDB->WriteAuctionHistory(key, value);
                 }
             } else {
-                view.AddLoanToken(auction.vaultId, batch->loanAmount);
+                view.AddLoanToken(vaultId, batch->loanAmount);
                 for (const auto& col : batch->collaterals.balances) {
-                    view.AddVaultCollateral(auction.vaultId, {col.first, col.second});
+                    view.AddVaultCollateral(vaultId, {col.first, col.second});
                 }
             }
         }
 
-        auto vault = view.GetVault(auction.vaultId);
+        auto vault = view.GetVault(vaultId);
         assert(vault);
         vault->isUnderLiquidation = false;
-        view.StoreVault(auction.vaultId, *vault);
-        view.EraseAuction(auction.vaultId, pindex->nHeight);
+        view.StoreVault(vaultId, *vault);
+        view.EraseAuction(vaultId, pindex->nHeight);
         return true;
-    }, {CVaultId{}, static_cast<uint32_t>(pindex->nHeight)});
+    }, pindex->nHeight);
 
     view.Flush();
     pburnHistoryDB->Flush();

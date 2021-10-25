@@ -25,6 +25,16 @@ namespace {
         return batchArray;
     }
 
+    UniValue AuctionToJSON(const CVaultId& vaultId, const CAuctionData& data) {
+        UniValue auctionObj{UniValue::VOBJ};
+        auctionObj.pushKV("vaultId", vaultId.GetHex());
+        auctionObj.pushKV("liquidationHeight", int64_t(data.liquidationHeight));
+        auctionObj.pushKV("batchCount", int64_t(data.batchCount));
+        auctionObj.pushKV("liquidationPenalty", ValueFromAmount(data.liquidationPenalty * 100));
+        auctionObj.pushKV("batches", BatchToJSON(vaultId, data.batchCount));
+        return auctionObj;
+    }
+
     UniValue VaultToJSON(const CVaultId& vaultId, const CVaultData& vault) {
         UniValue result{UniValue::VOBJ};
         result.pushKV("vaultId", vaultId.GetHex());
@@ -39,14 +49,14 @@ namespace {
         result.pushKV("invalidPrice", false);
 
         if (vault.isUnderLiquidation) {
-            if (auto data = pcustomcsview->GetAuction(vaultId, ::ChainActive().Height()))
-                result.pushKV("batches", BatchToJSON(vaultId, data->batchCount));
+            if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
+                result.pushKVs(AuctionToJSON(vaultId, *data));
+            }
         } else {
             UniValue collValue{UniValue::VSTR};
             UniValue loanValue{UniValue::VSTR};
             UniValue interestValue{UniValue::VSTR};
 
-            auto height = ::ChainActive().Height();
             auto blockTime = ::ChainActive()[height]->GetBlockTime();
             auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
             if(!collaterals) collaterals = CBalances{};
@@ -895,8 +905,9 @@ UniValue listauctions(const JSONRPCRequest& request) {
     }.Check(request);
 
     // parse pagination
+    CVaultId vaultId;
     size_t limit = 100;
-    AuctionKey start = {};
+    uint32_t height = 0;
     bool including_start = true;
     {
         if (request.params.size() > 0) {
@@ -908,17 +919,17 @@ UniValue listauctions(const JSONRPCRequest& request) {
                 UniValue startObj = paginationObj["start"].get_obj();
                 including_start = false;
                 if (!startObj["vaultId"].isNull()) {
-                    start.vaultId = ParseHashV(startObj["vaultId"], "vaultId");
+                    vaultId = ParseHashV(startObj["vaultId"], "vaultId");
                 }
                 if (!startObj["height"].isNull()) {
-                    start.height = startObj["height"].get_int64();
+                    height = startObj["height"].get_int64();
                 }
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
             }
             if (!including_start) {
-                start.vaultId = ArithToUint256(UintToArith256(start.vaultId) + arith_uint256{1});
+                vaultId = ArithToUint256(UintToArith256(vaultId) + arith_uint256{1});
             }
         }
         if (limit == 0) {
@@ -929,18 +940,10 @@ UniValue listauctions(const JSONRPCRequest& request) {
     UniValue valueArr{UniValue::VARR};
 
     LOCK(cs_main);
-    pcustomcsview->ForEachVaultAuction([&](const AuctionKey& auction, const CAuctionData& data) {
-        UniValue vaultObj{UniValue::VOBJ};
-        vaultObj.pushKV("vaultId", auction.vaultId.GetHex());
-        vaultObj.pushKV("liquidationHeight", int64_t(auction.height));
-        vaultObj.pushKV("batchCount", int64_t(data.batchCount));
-        vaultObj.pushKV("liquidationPenalty", ValueFromAmount(data.liquidationPenalty * 100));
-        vaultObj.pushKV("batches", BatchToJSON(auction.vaultId, data.batchCount));
-        valueArr.push_back(vaultObj);
-
-        limit--;
-        return limit != 0;
-    }, start);
+    pcustomcsview->ForEachVaultAuction([&](const CVaultId& vaultId, const CAuctionData& data) {
+        valueArr.push_back(AuctionToJSON(vaultId, data));
+        return --limit != 0;
+    }, height, vaultId);
 
     return valueArr;
 }
