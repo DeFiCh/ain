@@ -103,7 +103,7 @@ struct CFixedIntervalPrice
     CTokenCurrencyPair priceFeedId;
     int64_t timestamp;
     std::vector<CAmount> priceRecord{0, 0}; // priceHistory[0] = active price, priceHistory[1] = next price
-    bool isValid(const CAmount deviationThreshold) const;
+    bool isLive(const CAmount deviationThreshold) const;
 
     ADD_SERIALIZE_METHODS;
 
