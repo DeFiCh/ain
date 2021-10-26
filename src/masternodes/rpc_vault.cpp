@@ -6,6 +6,56 @@ extern UniValue AmountsToJSON(TAmounts const & diffs);
 extern std::string tokenAmountString(CTokenAmount const& amount);
 
 namespace {
+    enum class VaultState {
+        active,
+        locked,
+        inliquidation,
+        lockedinliquidation,
+        mayliquidate,
+        unknown
+    };
+    std::string VaultStateToString(const VaultState& state){
+        switch(state)
+        {
+            case VaultState::active:              return "active"; break;
+            case VaultState::locked:              return "locked"; break;
+            case VaultState::inliquidation:       return "inliquidation"; break;
+            case VaultState::lockedinliquidation: return "lockedinliquidation"; break;
+            case VaultState::mayliquidate:        return "mayliquidate"; break;
+            case VaultState::unknown:             return "unknown"; break;
+        }
+    }
+
+    bool WillLiquidateNext(const CVaultId& vaultId){
+        auto height = ::ChainActive().Height();
+        auto blockTime = ::ChainActive()[height]->GetBlockTime();
+        auto vault = pcustomcsview->GetVault(vaultId);
+        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+        if(!collaterals)
+            return false;
+        auto vaultRate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, blockTime, true, false);
+
+        auto loanScheme = pcustomcsview->GetLoanScheme(vault->schemeId);
+
+        return (vaultRate.val->ratio() < loanScheme->ratio);
+    }
+
+    VaultState GetVaultState(const CVaultId& vaultId){
+        auto height = ::ChainActive().Height();
+        auto vault = pcustomcsview->GetVault(vaultId);
+
+        auto inLiquidation = vault->isUnderLiquidation;
+        auto priceIsValid = IsVaultPriceValid(*pcustomcsview, vaultId, height);
+        auto willLiquidateNext = WillLiquidateNext(vaultId);
+
+        if ( !inLiquidation &&  priceIsValid && !willLiquidateNext)   return VaultState::active;
+        if ( !inLiquidation &&  priceIsValid &&  willLiquidateNext)   return VaultState::mayliquidate;
+        if ( !inLiquidation && !priceIsValid )                        return VaultState::locked;
+        if (  inLiquidation &&  priceIsValid )                        return VaultState::inliquidation;
+        if (  inLiquidation && !priceIsValid )                        return VaultState::lockedinliquidation;
+        return VaultState::unknown;
+    }
+
     UniValue BatchToJSON(const CVaultId& vaultId, uint32_t batchCount) {
         UniValue batchArray{UniValue::VARR};
         for (uint32_t i = 0; i < batchCount; i++) {
@@ -37,15 +87,14 @@ namespace {
 
     UniValue VaultToJSON(const CVaultId& vaultId, const CVaultData& vault) {
         UniValue result{UniValue::VOBJ};
+        auto vaultState = GetVaultState(vaultId);
         result.pushKV("vaultId", vaultId.GetHex());
         result.pushKV("loanSchemeId", vault.schemeId);
         result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
-        result.pushKV("isUnderLiquidation", vault.isUnderLiquidation);
-        auto height = ::ChainActive().Height();
-        auto isVaultPriceValid = IsVaultPriceValid(*pcustomcsview, vaultId, height+1);
-        result.pushKV("invalidPrice", !isVaultPriceValid);
+        result.pushKV("state", VaultStateToString(vaultState));
 
-        if (vault.isUnderLiquidation) {
+        auto height = ::ChainActive().Height();
+        if (vaultState == VaultState::inliquidation) {
             if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
                 result.pushKVs(AuctionToJSON(vaultId, *data));
             }
@@ -57,9 +106,11 @@ namespace {
             auto blockTime = ::ChainActive()[height]->GetBlockTime();
             auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
             if(!collaterals) collaterals = CBalances{};
-            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, isVaultPriceValid);
+            bool checkPrice = !(vaultState == VaultState::locked || vaultState == VaultState::lockedinliquidation);
+            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, checkPrice);
             uint32_t ratio = 0;
             if (rate) {
+
                 collValue = ValueFromUint(rate.val->totalCollaterals);
                 loanValue = ValueFromUint(rate.val->totalLoans);
                 ratio = rate.val->ratio();

@@ -181,7 +181,7 @@ class LoanTest (DefiTestFramework):
         account2Bal = self.nodes[0].getaccount(account2)
         accountBal = self.nodes[0].getaccount(account)
         vault1 = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault1['isUnderLiquidation'], True)
+        assert_equal(vault1['state'], "inliquidation")
         assert_equal(vault1['liquidationHeight'], 469)
         assert_equal(vault1['liquidationPenalty'], Decimal('5.00000000'))
         assert_equal(vault1['batchCount'], 2)
@@ -230,7 +230,7 @@ class LoanTest (DefiTestFramework):
         vault1 = self.nodes[0].getvault(vaultId1)
         accountBal = self.nodes[0].getaccount(account)
 
-        assert_equal(vault1['isUnderLiquidation'], False)
+        assert_equal(vault1['state'], "active")
         assert_equal(accountBal, ['1600.00000000@DFI', '1600.00000000@BTC', '226.00000000@TSLA'])
 
         self.nodes[0].deposittovault(vaultId1, account, '600@DFI')
