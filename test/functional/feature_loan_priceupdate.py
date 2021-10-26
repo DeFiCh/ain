@@ -219,7 +219,7 @@ class PriceUpdateTest (DefiTestFramework):
                 'amounts': "10@TSLA"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot take loan while any of the asset's price in the vault is invalid" in errorString)
+        assert("Cannot take loan while any of the asset's price in the vault is not live" in errorString)
 
         try:
             self.nodes[0].withdrawfromvault(vaultId1, account, "100@DFI")
