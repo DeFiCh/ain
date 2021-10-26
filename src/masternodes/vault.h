@@ -121,6 +121,7 @@ struct CAuctionBidMessage {
 
 struct CAuctionData {
     uint32_t batchCount;
+    uint32_t liquidationHeight; // temporary
     CAmount liquidationPenalty;
 
     ADD_SERIALIZE_METHODS;
@@ -149,20 +150,6 @@ struct CAuctionBatch {
     }
 };
 
-struct AuctionKey {
-    CVaultId vaultId;
-    uint32_t height;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(WrapBigEndian(height));
-        READWRITE(vaultId);
-    }
-};
-
 class CVaultView : public virtual CStorageView
 {
 public:
@@ -177,13 +164,13 @@ public:
     boost::optional<CBalances> GetVaultCollaterals(const CVaultId& vaultId);
     void ForEachVaultCollateral(std::function<bool(const CVaultId&, const CBalances&)> callback);
 
-    Res StoreAuction(const CVaultId& vaultId, uint32_t height, const CAuctionData& data);
+    Res StoreAuction(const CVaultId& vaultId, const CAuctionData& data);
     Res EraseAuction(const CVaultId& vaultId, uint32_t height);
     boost::optional<CAuctionData> GetAuction(const CVaultId& vaultId, uint32_t height);
     Res StoreAuctionBatch(const CVaultId& vaultId, uint32_t id, const CAuctionBatch& batch);
     Res EraseAuctionBatch(const CVaultId& vaultId, uint32_t id);
     boost::optional<CAuctionBatch> GetAuctionBatch(const CVaultId& vaultId, uint32_t id);
-    void ForEachVaultAuction(std::function<bool(const AuctionKey&, const CAuctionData&)> callback, const AuctionKey& start = {});
+    void ForEachVaultAuction(std::function<bool(const CVaultId&, const CAuctionData&)> callback, uint32_t height, const CVaultId& vaultId = {});
 
     using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
     Res StoreAuctionBid(const CVaultId& vaultId, uint32_t id, COwnerTokenAmount amount);
