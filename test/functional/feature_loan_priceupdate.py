@@ -165,7 +165,7 @@ class PriceUpdateTest (DefiTestFramework):
                 'amounts': "10@TSLA"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Price feed TSLA/USD is invalid" in errorString)
+        assert("No live fixed prices for TSLA/USD" in errorString)
 
         self.nodes[0].generate(5) # let price update
 

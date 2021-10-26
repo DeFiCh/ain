@@ -2530,7 +2530,7 @@ public:
                 return Res::Err(priceFeed.msg);
 
             if (!priceFeed.val->isLive(mnview.GetPriceDeviation()))
-                return Res::Err("Price feed %s/%s is invalid", loanToken->fixedIntervalPriceId.first, loanToken->fixedIntervalPriceId.second);
+                return Res::Err("No live fixed prices for %s/%s", loanToken->fixedIntervalPriceId.first, loanToken->fixedIntervalPriceId.second);
 
             for (int i = 0; i < 2; i++) {
                 // check active and next price
