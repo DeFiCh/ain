@@ -42,11 +42,8 @@ namespace {
         result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
         result.pushKV("isUnderLiquidation", vault.isUnderLiquidation);
         auto height = ::ChainActive().Height();
-        if (!IsVaultPriceValid(*pcustomcsview, vaultId, height+1)){
-            result.pushKV("invalidPrice", true);
-            return result;
-        }
-        result.pushKV("invalidPrice", false);
+        auto isVaultPriceValid = IsVaultPriceValid(*pcustomcsview, vaultId, height+1);
+        result.pushKV("invalidPrice", !isVaultPriceValid);
 
         if (vault.isUnderLiquidation) {
             if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
@@ -60,7 +57,7 @@ namespace {
             auto blockTime = ::ChainActive()[height]->GetBlockTime();
             auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
             if(!collaterals) collaterals = CBalances{};
-            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime);
+            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, isVaultPriceValid);
             uint32_t ratio = 0;
             if (rate) {
                 collValue = ValueFromUint(rate.val->totalCollaterals);
