@@ -160,14 +160,12 @@ namespace {
 
             for (const auto& loan : loanTokens->balances) {
                 auto token = pcustomcsview->GetLoanSetLoanTokenByID(loan.first);
-                if(!token)
-                    continue;
+                if (!token) continue;
                 auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
-                if (!rate)
-                    continue;
+                if (!rate) continue;
                 auto totalInterest = TotalInterest(*rate, height + 1);
                 auto value = loan.second + totalInterest;
-                if(auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)){
+                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)){
                     auto price = priceFeed.val->priceRecord[0];
                     totalInterests += MultiplyAmounts(price, totalInterest);
                 }
