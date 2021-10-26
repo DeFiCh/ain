@@ -13,6 +13,11 @@ pub struct LoanScheme {
     pub default: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoanSchemeId {
+    pub id: String,
+}
+
 use std::collections::HashMap;
 pub type ListCollateralToken = HashMap<String, CollateralToken>;
 
@@ -23,6 +28,21 @@ pub struct CollateralToken {
     pub factor: f64,
     pub fixed_interval_price_id: String,
     pub activate_after_block: i64,
+    pub token_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TokenIdSymbol {
+    id: String,
+    symbol: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetLoanInfoResult {
+    pub loan_schemes: Vec<LoanSchemeId>,
+    pub collateral_tokens: Vec<TokenIdSymbol>,
+    pub loan_tokens: Vec<TokenIdSymbol>,
 }
 
 impl Client {
@@ -91,12 +111,9 @@ impl Client {
         self.call::<ListCollateralToken>("listcollateraltokens", &[])
     }
 
-    // pub fn get_collateral_token(&self, token: &str) -> Result<CollateralToken> {
-    //     self.call::<ListCollateralToken>("getcollateraltoken", &[token.into()])?
-    //     .into_iter()
-    //     .find(|token|, )
-
-    // }
+    pub fn get_collateral_token(&self, token: &str) -> Result<CollateralToken> {
+        self.call::<CollateralToken>("getcollateraltoken", &[token.into()])
+    }
 
     pub fn set_loan_tokens(&self, tokens: &[&str]) -> Result<()> {
         for &token in tokens {
@@ -121,6 +138,10 @@ impl Client {
         }
         Ok(())
     }
+
+    pub fn get_loan_info(&self) -> Result<GetLoanInfoResult> {
+        self.call::<GetLoanInfoResult>("getloaninfo", &[])
+    }
 }
 
 #[cfg(test)]
@@ -131,6 +152,20 @@ mod test {
         let client = Client::from_env()?;
         let loan_scheme = client.get_default_loan_scheme()?;
         assert_eq!(loan_scheme.default, true);
+        Ok(())
+    }
+
+    #[test]
+    fn get_loan_info() -> Result<()> {
+        let client = Client::from_env()?;
+        client.get_loan_info()?;
+        Ok(())
+    }
+
+    #[test]
+    fn get_collateral_token() -> Result<()> {
+        let client = Client::from_env()?;
+        client.get_collateral_token("DFI")?;
         Ok(())
     }
 }
