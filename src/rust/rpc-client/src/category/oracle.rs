@@ -16,8 +16,8 @@ pub struct PriceFeed {
 pub struct TokenPrice {
     pub token: String,
     pub currency: String,
-    pub amount: i64,
-    pub timestamp: i64,
+    pub amount: f64,
+    pub timestamp: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ pub struct OracleData {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FixedIntervalPriceData {
+pub struct ListFixedIntervalPriceData {
     pub price_feed_id: String,
     pub active_price: f64,
     pub next_price: f64,
@@ -50,20 +50,6 @@ pub struct GetFixedIntervalPriceData {
     pub is_valid: bool,
     pub active_price_block: u64,
     pub next_price_block: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FixedIntervalPriceBlockInfo {
-    pub active_price_block: u64,
-    pub next_price_block: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ListFixedIntervalPriceData {
-    BlockInfo(FixedIntervalPriceBlockInfo),
-    PriceData(FixedIntervalPriceData),
 }
 
 impl Client {
@@ -103,7 +89,7 @@ impl Client {
     }
 
     // Set oracle data transaction.
-    pub fn set_oracle_data(&self, oracle_id: &str, token: &str, amount: u32) -> Result<String> {
+    pub fn set_oracle_data(&self, oracle_id: &str, token: &str, amount: f32) -> Result<String> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -113,7 +99,7 @@ impl Client {
             &[
                 oracle_id.clone().into(),
                 timestamp.into(),
-                json!([{ "currency": "USD", "tokenAmount": format!("{}@{}", amount, token) }]),
+                json!([{ "currency": "USD", "tokenAmount": format!("{:.8}@{}", amount, token) }]),
             ],
         )
     }

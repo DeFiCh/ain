@@ -3,7 +3,10 @@ mod commands;
 
 use anyhow::Result;
 use chain_params_base::Chain;
-use commands::{CreateAuctionCmd, CreateLoanSchemeCmd, CreateLoanTokenCmd, CreateVaultCmd};
+use commands::{
+    AuctionBidCmd, CreateAuctionCmd, CreateCollateralTokenCmd, CreateLoanSchemeCmd,
+    CreateLoanTokenCmd, CreateVaultCmd, RefreshOraclesCmd,
+};
 use defi_rpc::Client;
 use structopt::StructOpt;
 
@@ -33,9 +36,12 @@ pub struct Opt {
 #[structopt(rename_all = "lower_case")]
 pub enum Command {
     CreateLoanToken(CreateLoanTokenCmd),
+    CreateCollateralToken(CreateCollateralTokenCmd),
     CreateLoanScheme(CreateLoanSchemeCmd),
     CreateAuction(CreateAuctionCmd),
     CreateVault(CreateVaultCmd),
+    AuctionBid(AuctionBidCmd),
+    RefreshOracles(RefreshOraclesCmd),
 }
 
 fn main() -> Result<()> {
@@ -54,8 +60,11 @@ fn main() -> Result<()> {
 
     match opt.command {
         Command::CreateLoanToken(cmd) => cmd.run(&client),
+        Command::CreateCollateralToken(cmd) => cmd.run(&client),
         Command::CreateLoanScheme(cmd) => cmd.run(&client),
         Command::CreateAuction(cmd) => cmd.run(&client),
         Command::CreateVault(cmd) => cmd.run(&client),
+        Command::AuctionBid(cmd) => cmd.run(&client),
+        Command::RefreshOracles(cmd) => cmd.run(&client),
     }
 }
