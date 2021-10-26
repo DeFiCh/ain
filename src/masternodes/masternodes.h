@@ -412,7 +412,7 @@ public:
 
     bool CalculateOwnerRewards(CScript const & owner, uint32_t height);
 
-    ResVal<CCollateralLoans> GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool nextPrice = false, bool needValidPrice = true);
+    ResVal<CCollateralLoans> GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool useNextPrice = false, bool requireLivePrice = true);
 
     void SetDbVersion(int version);
 

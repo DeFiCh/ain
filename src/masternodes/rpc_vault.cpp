@@ -115,7 +115,8 @@ namespace {
 
         auto height = ::ChainActive().Height();
 
-        if (vaultState == VaultState::InLiquidation) {
+        if (vaultState == VaultState::InLiquidation ||
+            vaultState == VaultState::FrozenInLiquidation) {
             if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
                 result.pushKVs(AuctionToJSON(vaultId, *data));
             } else {
@@ -135,7 +136,7 @@ namespace {
 
         bool requireLivePrice = !(vaultState == VaultState::Frozen ||
                                   vaultState == VaultState::FrozenInLiquidation);
-
+        
         auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, requireLivePrice);
         uint32_t ratio = 0;
 
