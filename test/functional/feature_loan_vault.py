@@ -382,6 +382,9 @@ class VaultTest (DefiTestFramework):
         self.sync_blocks()
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1['isUnderLiquidation'], True)
+        assert_equal(vault1['liquidationHeight'], 324)
+        assert_equal(vault1['liquidationPenalty'], Decimal('5.00000000'))
+        assert_equal(vault1['batchCount'], 1)
 
         assert_raises_rpc_error(-26, 'Vault is under liquidation', self.nodes[0].closevault, vaultId1, ownerAddress1)
 

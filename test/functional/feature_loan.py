@@ -182,6 +182,9 @@ class LoanTest (DefiTestFramework):
         accountBal = self.nodes[0].getaccount(account)
         vault1 = self.nodes[0].getvault(vaultId1)
         assert_equal(vault1['isUnderLiquidation'], True)
+        assert_equal(vault1['liquidationHeight'], 469)
+        assert_equal(vault1['liquidationPenalty'], Decimal('5.00000000'))
+        assert_equal(vault1['batchCount'], 2)
         assert_equal(accountBal, ['1000.00000000@DFI', '1000.00000000@BTC', '1000.00000000@TSLA'])
         # auction winner account has now first batch collaterals
         assert_equal(account2Bal, ['400.00000000@DFI', '400.00000000@BTC', '444.50000000@TSLA'])
