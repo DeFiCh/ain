@@ -1,3 +1,4 @@
+pub mod governance;
 pub mod loan;
 pub mod misc;
 pub mod oracle;
