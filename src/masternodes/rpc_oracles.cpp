@@ -1022,10 +1022,10 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
                        "                  `nextPriceBlock` - height of nextPrice.\n"
                        "                  `activePriceBlock` - height of activePrice.\n"
                        "                  `timestamp` - timestamp of active price.\n"
-                       "                  `isValid` - true if price is valid"
-                       "                   Possible reasons for a price result to be invalid:"
-                       "                   1. If there are no live oracles which meet specified request.\n"
-                       "                   2. Deviation is over 30%% so price is considered unstable and invalid.\n"
+                       "                  `isLive` - price liveness, within parameters"
+                       "                   Possible reasons for a price result to not be live:"
+                       "                   1. Not sufficient live oracles.\n"
+                       "                   2. Deviation is over the limit to be considered stable.\n"
                 },
                 RPCExamples{
                         HelpExampleCli("getfixedintervalprice", R"('{"fixedIntervalPriceId":"TSLA/USD"}')")
@@ -1054,7 +1054,7 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     objPrice.pushKV("activePriceBlock", (int)priceBlocks.first);
     objPrice.pushKV("nextPriceBlock", (int)priceBlocks.second);
     objPrice.pushKV("timestamp", fixedPrice.val->timestamp);
-    objPrice.pushKV("isValid", fixedPrice.val->isValid(pcustomcsview->GetPriceDeviation()));
+    objPrice.pushKV("isLive", fixedPrice.val->isLive(pcustomcsview->GetPriceDeviation()));
     return objPrice;
 }
 
@@ -1077,10 +1077,10 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
                        "                  `activePrice` - current price used for loan calculations\n"
                        "                  `nextPrice` - next price to be assigned to pair.\n"
                        "                  `timestamp` - timestamp of active price.\n"
-                       "                  `isValid` - true if price is valid"
-                       "                   Possible reasons for a price result to be invalid:"
-                       "                   1. If there are no live oracles which meet specified request.\n"
-                       "                   2. Deviation is over 30%% so price is considered unstable and invalid.\n"
+                       "                  `isLive` - price liveness, within parameters"
+                       "                   Possible reasons for a price result to not be live:"
+                       "                   1. Not sufficient live oracles.\n"
+                       "                   2. Deviation is over the limit to be considered stable.\n"
                 },
                 RPCExamples{
                         HelpExampleCli("listfixedintervalprices", R"('{""}')")
@@ -1115,7 +1115,7 @@ UniValue listfixedintervalprices(const JSONRPCRequest& request) {
         obj.pushKV("activePrice", ValueFromAmount(fixedIntervalPrice.priceRecord[0]));
         obj.pushKV("nextPrice", ValueFromAmount(fixedIntervalPrice.priceRecord[1]));
         obj.pushKV("timestamp", fixedIntervalPrice.timestamp);
-        obj.pushKV("isValid", fixedIntervalPrice.isValid(pcustomcsview->GetPriceDeviation()));
+        obj.pushKV("isLive", fixedIntervalPrice.isLive(pcustomcsview->GetPriceDeviation()));
         listPrice.push_back(obj);
         limit--;
         return limit != 0;
