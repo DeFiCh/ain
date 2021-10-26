@@ -897,7 +897,7 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     return UpdateBalancesHeight(owner, targetHeight);
 }
 
-ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const & vaultId, CBalances const & collaterals, uint32_t height, int64_t blockTime, bool nextPrice, bool needValidPrice)
+ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice)
 {
     auto vault = GetVault(vaultId);
     if (!vault || vault->isUnderLiquidation) {
@@ -919,10 +919,10 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const & vaul
             auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
             if (!priceFeed)
                 return std::move(priceFeed);
-            if (needValidPrice && !priceFeed.val->isValid(GetPriceDeviation()))
-                return Res::Err("Price feed %s/%s is invalid", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
+            if (requireLivePrice && !priceFeed.val->isValid(GetPriceDeviation()))
+                return Res::Err("No live fixed prices for  %s/%s", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
             auto value = loan.second + TotalInterest(*rate, height);
-            auto price = priceFeed.val->priceRecord[int(nextPrice)];
+            auto price = priceFeed.val->priceRecord[int(useNextPrice)];
             auto amount = MultiplyAmounts(price, value);
             if (price > COIN && amount < value)
                 return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(value), GetDecimaleString(price));
@@ -941,9 +941,9 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const & vaul
         auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
         if (!priceFeed)
             return std::move(priceFeed);
-        if (needValidPrice && !priceFeed.val->isValid(GetPriceDeviation()))
-            return Res::Err("Price feed %s/%s is invalid", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
-        auto price = priceFeed.val->priceRecord[int(nextPrice)];
+        if (requireLivePrice && !priceFeed.val->isValid(GetPriceDeviation()))
+            return Res::Err("No live fixed prices for %s/%s", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
+        auto price = priceFeed.val->priceRecord[int(useNextPrice)];
         auto amount = MultiplyAmounts(price, col.second);
         if (price > COIN && amount < col.second)
             return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(price));

@@ -1,3 +1,6 @@
+#include "logging.h"
+#include <bits/stdint-intn.h>
+#include <bits/stdint-uintn.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/auctionhistory.h>
 #include <masternodes/mn_rpc.h>
@@ -6,41 +9,50 @@ extern UniValue AmountsToJSON(TAmounts const & diffs);
 extern std::string tokenAmountString(CTokenAmount const& amount);
 
 namespace {
-    enum class VaultState {
-        active,
-        locked,
-        inliquidation,
-        lockedinliquidation,
-        mayliquidate,
-        unknown
+
+    enum class VaultState : uint32_t {
+        Unknown = 0,
+        Active = (1 << 0),
+        InLiquidation = (1 << 1),
+        Frozen = (1 << 2),
+        MayLiquidate = (1 << 3),
+        FrozenInLiquidation = InLiquidation | Frozen,
     };
-    std::string VaultStateToString(const VaultState& state){
-        switch(state)
-        {
-            case VaultState::active:              return "active"; break;
-            case VaultState::locked:              return "locked"; break;
-            case VaultState::inliquidation:       return "inliquidation"; break;
-            case VaultState::lockedinliquidation: return "lockedinliquidation"; break;
-            case VaultState::mayliquidate:        return "mayliquidate"; break;
-            case VaultState::unknown:             return "unknown"; break;
+
+    std::string VaultStateToString(const VaultState& state)
+    {
+        switch (state) {
+            case VaultState::Active:
+                return "active";
+            case VaultState::Frozen:
+                return "frozen";
+            case VaultState::InLiquidation:
+                return "inliquidation";
+            case VaultState::FrozenInLiquidation:
+                return "lockedinliquidation";
+            case VaultState::MayLiquidate:
+                return "mayliquidate";
+            case VaultState::Unknown:
+                return "unknown";
         }
     }
 
-    bool WillLiquidateNext(const CVaultId& vaultId){
+    bool WillLiquidateNext(const CVaultId& vaultId) {
         auto height = ::ChainActive().Height();
         auto blockTime = ::ChainActive()[height]->GetBlockTime();
         auto vault = pcustomcsview->GetVault(vaultId);
         auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
-        if(!collaterals)
-            return false;
-        auto vaultRate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, blockTime, true, false);
 
+        if (!collaterals)
+            return false;
+        
+        auto vaultRate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, blockTime, true, false);
         auto loanScheme = pcustomcsview->GetLoanScheme(vault->schemeId);
 
         return (vaultRate.val->ratio() < loanScheme->ratio);
     }
 
-    VaultState GetVaultState(const CVaultId& vaultId){
+    VaultState GetVaultState(const CVaultId& vaultId) {
         auto height = ::ChainActive().Height();
         auto vault = pcustomcsview->GetVault(vaultId);
 
@@ -48,12 +60,20 @@ namespace {
         auto priceIsValid = IsVaultPriceValid(*pcustomcsview, vaultId, height);
         auto willLiquidateNext = WillLiquidateNext(vaultId);
 
-        if ( !inLiquidation &&  priceIsValid && !willLiquidateNext)   return VaultState::active;
-        if ( !inLiquidation &&  priceIsValid &&  willLiquidateNext)   return VaultState::mayliquidate;
-        if ( !inLiquidation && !priceIsValid )                        return VaultState::locked;
-        if (  inLiquidation &&  priceIsValid )                        return VaultState::inliquidation;
-        if (  inLiquidation && !priceIsValid )                        return VaultState::lockedinliquidation;
-        return VaultState::unknown;
+        // Can possibly optimize with flags, but provides clarity for now.
+        
+        if (!inLiquidation && priceIsValid && !willLiquidateNext)
+            return VaultState::Active;
+        if (!inLiquidation && priceIsValid && willLiquidateNext)
+            return VaultState::MayLiquidate;
+        if (!inLiquidation && !priceIsValid)
+            return VaultState::Frozen;
+        if (inLiquidation && priceIsValid)
+            return VaultState::InLiquidation;
+        if (inLiquidation && !priceIsValid)
+            return VaultState::FrozenInLiquidation;
+
+        return VaultState::Unknown;
     }
 
     UniValue BatchToJSON(const CVaultId& vaultId, uint32_t batchCount) {
@@ -94,69 +114,77 @@ namespace {
         result.pushKV("state", VaultStateToString(vaultState));
 
         auto height = ::ChainActive().Height();
-        if (vaultState == VaultState::inliquidation) {
+
+        if (vaultState == VaultState::InLiquidation) {
             if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
                 result.pushKVs(AuctionToJSON(vaultId, *data));
+            } else {
+                LogPrintf("Warning: Vault in liquidation, but no auctions found\n");
             }
-        } else {
-            UniValue collValue{UniValue::VSTR};
-            UniValue loanValue{UniValue::VSTR};
-            UniValue interestValue{UniValue::VSTR};
-
-            auto blockTime = ::ChainActive()[height]->GetBlockTime();
-            auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
-            if(!collaterals) collaterals = CBalances{};
-            bool checkPrice = !(vaultState == VaultState::locked || vaultState == VaultState::lockedinliquidation);
-            auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, checkPrice);
-            uint32_t ratio = 0;
-            if (rate) {
-
-                collValue = ValueFromUint(rate.val->totalCollaterals);
-                loanValue = ValueFromUint(rate.val->totalLoans);
-                ratio = rate.val->ratio();
-            }
-
-            UniValue collateralBalances{UniValue::VARR};
-            UniValue loanBalances{UniValue::VARR};
-            UniValue interestAmounts{UniValue::VARR};
-
-            if (collaterals)
-                collateralBalances = AmountsToJSON(collaterals->balances);
-
-            if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)){
-                TAmounts totalBalances{};
-                TAmounts interestBalances{};
-                CAmount totalInterests{0};
-
-                for (const auto& loan : loanTokens->balances) {
-                    auto token = pcustomcsview->GetLoanSetLoanTokenByID(loan.first);
-                    if(!token)
-                        continue;
-                    auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
-                    if (!rate)
-                        continue;
-                    auto totalInterest = TotalInterest(*rate, height + 1);
-                    auto value = loan.second + totalInterest;
-                    if(auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)){
-                        auto price = priceFeed.val->priceRecord[0];
-                        totalInterests += MultiplyAmounts(price, totalInterest);
-                    }
-                    totalBalances.insert({loan.first, value});
-                    interestBalances.insert({loan.first, totalInterest});
-                }
-                interestValue = ValueFromAmount(totalInterests);
-                loanBalances = AmountsToJSON(totalBalances);
-                interestAmounts = AmountsToJSON(interestBalances);
-            }
-
-            result.pushKV("collateralAmounts", collateralBalances);
-            result.pushKV("loanAmounts", loanBalances);
-            result.pushKV("interestAmounts", interestAmounts);
-            result.pushKV("collateralValue", collValue);
-            result.pushKV("loanValue", loanValue);
-            result.pushKV("interestValue", interestValue);
-            result.pushKV("currentRatio", (int)ratio);
+            return result;
         }
+
+        UniValue collValue{UniValue::VSTR};
+        UniValue loanValue{UniValue::VSTR};
+        UniValue interestValue{UniValue::VSTR};
+
+        auto blockTime = ::ChainActive()[height]->GetBlockTime();
+        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+        if (!collaterals)
+            collaterals = CBalances{};
+
+        bool requireLivePrice = !(vaultState == VaultState::Frozen ||
+                                  vaultState == VaultState::FrozenInLiquidation);
+
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, requireLivePrice);
+        uint32_t ratio = 0;
+
+        if (rate) {
+            collValue = ValueFromUint(rate.val->totalCollaterals);
+            loanValue = ValueFromUint(rate.val->totalLoans);
+            ratio = rate.val->ratio();
+        }
+
+        UniValue collateralBalances{UniValue::VARR};
+        UniValue loanBalances{UniValue::VARR};
+        UniValue interestAmounts{UniValue::VARR};
+
+        if (collaterals)
+            collateralBalances = AmountsToJSON(collaterals->balances);
+
+        if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)){
+            TAmounts totalBalances{};
+            TAmounts interestBalances{};
+            CAmount totalInterests{0};
+
+            for (const auto& loan : loanTokens->balances) {
+                auto token = pcustomcsview->GetLoanSetLoanTokenByID(loan.first);
+                if(!token)
+                    continue;
+                auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
+                if (!rate)
+                    continue;
+                auto totalInterest = TotalInterest(*rate, height + 1);
+                auto value = loan.second + totalInterest;
+                if(auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)){
+                    auto price = priceFeed.val->priceRecord[0];
+                    totalInterests += MultiplyAmounts(price, totalInterest);
+                }
+                totalBalances.insert({loan.first, value});
+                interestBalances.insert({loan.first, totalInterest});
+            }
+            interestValue = ValueFromAmount(totalInterests);
+            loanBalances = AmountsToJSON(totalBalances);
+            interestAmounts = AmountsToJSON(interestBalances);
+        }
+
+        result.pushKV("collateralAmounts", collateralBalances);
+        result.pushKV("loanAmounts", loanBalances);
+        result.pushKV("interestAmounts", interestAmounts);
+        result.pushKV("collateralValue", collValue);
+        result.pushKV("loanValue", loanValue);
+        result.pushKV("interestValue", interestValue);
+        result.pushKV("currentRatio", (int)ratio);
         return result;
     }
 }

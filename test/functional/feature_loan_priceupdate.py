@@ -212,7 +212,7 @@ class PriceUpdateTest (DefiTestFramework):
 
         takenLoanAmount += loanAmount
         vault = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault["state"], "locked")
+        assert_equal(vault["state"], "frozen")
         try:
             self.nodes[0].takeloan({
                 'vaultId': vaultId1,
