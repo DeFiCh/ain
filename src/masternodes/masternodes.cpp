@@ -920,7 +920,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
             if (!priceFeed)
                 return std::move(priceFeed);
             if (requireLivePrice && !priceFeed.val->isValid(GetPriceDeviation()))
-                return Res::Err("No live fixed prices for  %s/%s", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
+                return Res::Err("No live fixed prices for %s/%s", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
             auto value = loan.second + TotalInterest(*rate, height);
             auto price = priceFeed.val->priceRecord[int(useNextPrice)];
             auto amount = MultiplyAmounts(price, value);
