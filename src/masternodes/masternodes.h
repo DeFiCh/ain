@@ -61,6 +61,11 @@ public:
         TENYEAR = 520
     };
 
+    enum Version : int32_t {
+        PRE_FORT_CANNING = -1,
+        VERSION0 = 0,
+    };
+
     //! Minted blocks counter
     uint32_t mintedBlocks;
 
@@ -81,7 +86,7 @@ public:
     //! Resign height
     int32_t resignHeight;
     //! Was used to set a ban height but is now unused
-    int32_t unusedVariable;
+    int32_t version;
 
     //! This fields are for transaction rollback (by disconnecting block)
     uint256 resignTx;
@@ -111,13 +116,13 @@ public:
 
         READWRITE(creationHeight);
         READWRITE(resignHeight);
-        READWRITE(unusedVariable);
+        READWRITE(version);
 
         READWRITE(resignTx);
         READWRITE(banTx);
 
-        // Only available after FortCanning. banTx repurposed as masternode versioning.
-        if (banTx == uint256S("0100000000000000000000000000000000000000000000000000000000000000")) {
+        // Only available after FortCanning
+        if (version > PRE_FORT_CANNING) {
             READWRITE(rewardAddress);
             READWRITE(rewardAddressType);
         }
