@@ -1,6 +1,4 @@
 #include "logging.h"
-#include <bits/stdint-intn.h>
-#include <bits/stdint-uintn.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/auctionhistory.h>
 #include <masternodes/mn_rpc.h>
