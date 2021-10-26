@@ -8,10 +8,10 @@
 #include <masternodes/gv.h>
 #include <amount.h>
 
-class LOAN_DAILY_REWARD : public GovVariable, public AutoRegistrator<GovVariable, LOAN_DAILY_REWARD>
+class LP_DAILY_LOAN_TOKEN_REWARD : public GovVariable, public AutoRegistrator<GovVariable, LP_DAILY_LOAN_TOKEN_REWARD>
 {
 public:
-    virtual ~LOAN_DAILY_REWARD() override {}
+    virtual ~LP_DAILY_LOAN_TOKEN_REWARD() override {}
 
     std::string GetName() const override {
         return TypeName();
@@ -22,8 +22,8 @@ public:
     Res Validate(CCustomCSView const &mnview) const override;
     Res Apply(CCustomCSView &mnview, uint32_t height) override;
 
-    static constexpr char const * TypeName() { return "LOAN_DAILY_REWARD"; }
-    static GovVariable * Create() { return new LOAN_DAILY_REWARD(); }
+    static constexpr char const * TypeName() { return "LP_DAILY_LOAN_TOKEN_REWARD"; }
+    static GovVariable * Create() { return new LP_DAILY_LOAN_TOKEN_REWARD(); }
 
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)

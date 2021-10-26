@@ -451,7 +451,7 @@ UniValue setgov(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setgov",
-               "\nSet special 'governance' variables:: ICX_TAKERFEE_PER_BTC, LOAN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
+               "\nSet special 'governance' variables:: ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                     {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variables",
                         {
@@ -535,7 +535,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setgovheight",
-               "\nChange governance variable at height: ICX_TAKERFEE_PER_BTC, LOAN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
+               "\nChange governance variable at height: ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                        {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variable",
                         {
@@ -625,7 +625,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
 UniValue getgov(const JSONRPCRequest& request) {
     RPCHelpMan{"getgov",
                "\nReturns information about governance variable:\n"
-               "ICX_TAKERFEE_PER_BTC, LOAN_DAILY_REWARD, LOAN_SPLITS, LP_DAILY_DFI_REWARD,\n"
+               "ICX_TAKERFEE_PER_BTC, LP_DAILY_LOAN_TOKEN_REWARD, LP_LOAN_TOKEN_SPLITS, LP_DAILY_DFI_REWARD,\n"
                "LOAN_LIQUIDATION_PENALTY, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
                {
                        {"name", RPCArg::Type::STR, RPCArg::Optional::NO,
@@ -678,7 +678,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
                },
     }.Check(request);
 
-    std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LOAN_DAILY_REWARD", "LOAN_SPLITS", "LP_DAILY_DFI_REWARD",
+    std::vector<std::string> vars{"ICX_TAKERFEE_PER_BTC", "LP_DAILY_LOAN_TOKEN_REWARD", "LP_LOAN_TOKEN_SPLITS", "LP_DAILY_DFI_REWARD",
                                   "LOAN_LIQUIDATION_PENALTY", "LP_SPLITS", "ORACLE_BLOCK_INTERVAL", "ORACLE_DEVIATION"};
 
     LOCK(cs_main);

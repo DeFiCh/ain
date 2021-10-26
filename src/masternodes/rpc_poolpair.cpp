@@ -33,6 +33,7 @@ UniValue poolToJSON(DCT_ID const& id, CPoolPair const& pool, CToken const& token
         poolObj.pushKV("blockCommissionB", ValueFromAmount(pool.blockCommissionB));
 
         poolObj.pushKV("rewardPct", ValueFromAmount(pool.rewardPct));
+        poolObj.pushKV("rewardLoanPct", ValueFromAmount(pool.rewardLoanPct));
 
         auto rewards = pool.rewards;
         if (!rewards.balances.empty()) {

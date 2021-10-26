@@ -346,20 +346,3 @@ CAmount CLoanView::GetLoanLiquidationPenalty()
     }
     return 5 * COIN / 100;
 }
-
-Res CLoanView::SetLoanDailyReward(const CAmount reward)
-{
-    Write(LoanDailyReward::prefix(), reward);
-    return Res::Ok();
-}
-
-CAmount CLoanView::GetLoanDailyReward()
-{
-    CAmount reward;
-    if (Read(LoanDailyReward::prefix(), reward)) {
-        return reward;
-    }
-
-    // Default
-    return 0;
-}
