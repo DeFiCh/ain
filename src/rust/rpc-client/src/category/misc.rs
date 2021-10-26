@@ -45,6 +45,13 @@ impl Client {
     pub fn utxo_to_account(&self, account: &str, amount: &str) -> Result<String> {
         self.call::<String>("utxostoaccount", &[json!({ account: amount })])
     }
+
+    pub fn send_tokens_to_address(&self, to_address: &str, amount: &str) -> Result<String> {
+        self.call::<String>(
+            "sendtokenstoaddress",
+            &[json!({}), json!({ to_address: amount })],
+        )
+    }
 }
 
 #[cfg(test)]
