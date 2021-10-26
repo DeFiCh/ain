@@ -107,10 +107,7 @@ namespace {
             result.pushKV("collateralValue", collValue);
             result.pushKV("loanValue", loanValue);
             result.pushKV("interestValue", interestValue);
-            if((int)ratio != -1)
-                result.pushKV("currentRatio", std::to_string((int)ratio)+"%");
-            else
-                result.pushKV("currentRatio", (int)ratio);
+            result.pushKV("currentRatio", (int)ratio);
         }
         return result;
     }
