@@ -173,7 +173,7 @@ class PoolSwapTest (DefiTestFramework):
                 self.nodes[0].generate(1)
                 self.sync_blocks(nodes)
 
-                amount = random.randint(1, self.AMOUNT_TOKEN // 2)
+                amount = random.randint(1, (self.AMOUNT_TOKEN / 2) // 2)
                 amountsB = {}
                 reserveA = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveA']
                 reserveB = self.nodes[0].getpoolpair(pool, True)[idPool]['reserveB']
