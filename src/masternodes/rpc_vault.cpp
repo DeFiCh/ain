@@ -1,4 +1,3 @@
-#include "logging.h"
 #include <masternodes/accountshistory.h>
 #include <masternodes/auctionhistory.h>
 #include <masternodes/mn_rpc.h>
@@ -151,7 +150,7 @@ namespace {
         if (collaterals)
             collateralBalances = AmountsToJSON(collaterals->balances);
 
-        if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)){
+        if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
             TAmounts totalBalances{};
             TAmounts interestBalances{};
             CAmount totalInterests{0};
@@ -163,7 +162,7 @@ namespace {
                 if (!rate) continue;
                 auto totalInterest = TotalInterest(*rate, height + 1);
                 auto value = loan.second + totalInterest;
-                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)){
+                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
                     auto price = priceFeed.val->priceRecord[0];
                     totalInterests += MultiplyAmounts(price, totalInterest);
                 }
