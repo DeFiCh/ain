@@ -778,7 +778,7 @@ bool ValidateAnchor(const CAnchor & anchor)
             if (anchorCreationHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaHeight)) {
                 return true;
             } else {
-                LogPrint(BCLog::ANCHORING, "%s: Post fork anchor created before fork height. Anchor %ld fork %d",
+                LogPrint(BCLog::ANCHORING, "%s: Post fork anchor created before fork height. Anchor %ld fork %d\n",
                          __func__, anchorCreationHeight, Params().GetConsensus().DakotaHeight);
                 return false;
             }
