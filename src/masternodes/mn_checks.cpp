@@ -1418,12 +1418,9 @@ public:
                     }
                     auto timestamp = time;
                     extern bool diffInHour(int64_t time1, int64_t time2);
-                    auto tokenCurrency = CTokenCurrencyPair(token, currency);
-                    if (auto fixedPriceData = mnview.GetFixedIntervalPrice(tokenCurrency)) {
-                        timestamp = fixedPriceData.val->timestamp;
-                    }
                     if (!diffInHour(obj.timestamp, timestamp)) {
-                        return Res::Err("Timestamp is out of price update window");
+                        return Res::Err("Timestamp (%d) is out of price update window (median: %d)", 
+                            obj.timestamp, timestamp);
                     }
                 }
             }
