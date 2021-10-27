@@ -41,9 +41,9 @@ class LoanTakeLoanTest (DefiTestFramework):
         symbolGOOGL = "GOOGL"
 
         loans = self.nodes[0].getloaninfo()
-        assert_equal(len(loans['loanSchemes']), 0)
-        assert_equal(len(loans['loanTokens']), 0)
-        assert_equal(len(loans['collateralTokens']), 0)
+        assert_equal(loans['totals']['schemes'], 0)
+        assert_equal(loans['totals']['collateraltokens'], 0)
+        assert_equal(loans['totals']['loantokens'], 0)
 
         self.nodes[0].createtoken({
             "symbol": symbolBTC,
@@ -147,9 +147,9 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.sync_blocks()
 
         loans = self.nodes[0].getloaninfo()
-        assert_equal(len(loans['loanSchemes']), 1)
-        assert_equal(len(loans['loanTokens']), 2)
-        assert_equal(len(loans['collateralTokens']), 2)
+        assert_equal(loans['totals']['schemes'], 1)
+        assert_equal(loans['totals']['collateraltokens'], 2)
+        assert_equal(loans['totals']['loantokens'], 2)
 
         loantokens = self.nodes[0].listloantokens()
 
@@ -269,9 +269,9 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(interest['interestPerBlock'], Decimal('0.00000266'))
 
         loans = self.nodes[0].getloaninfo()
-        assert_equal(len(loans['loanSchemes']), 1)
-        assert_equal(len(loans['loanTokens']), 2)
-        assert_equal(len(loans['collateralTokens']), 2)
+        assert_equal(loans['totals']['schemes'], 1)
+        assert_equal(loans['totals']['collateraltokens'], 2)
+        assert_equal(loans['totals']['loantokens'], 2)
 
         vaultId1 = self.nodes[1].createvault( account1, 'LOAN150')
 
