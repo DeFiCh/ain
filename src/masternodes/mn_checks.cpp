@@ -2500,7 +2500,7 @@ public:
             return Res::Err("tx must have at least one input from vault owner");
 
         if (!IsVaultPriceValid(mnview, obj.vaultId, height))
-            return Res::Err("Cannot take loan while any of the asset's price in the vault is invalid");
+            return Res::Err("Cannot take loan while any of the asset's price in the vault is not live");
 
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         if (!collaterals)

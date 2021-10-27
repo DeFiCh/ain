@@ -112,13 +112,13 @@ class PriceUpdateTest (DefiTestFramework):
             self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Price feed DFI/USD is invalid" in errorString)
+        assert("No live fixed prices for DFI/USD" in errorString)
 
         try:
             self.nodes[0].deposittovault(vaultId1, account, '1000@BTC')
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Price feed BTC/USD is invalid" in errorString)
+        assert("No live fixed prices for BTC/USD" in errorString)
         self.nodes[0].generate(5)
 
         self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
@@ -212,14 +212,14 @@ class PriceUpdateTest (DefiTestFramework):
 
         takenLoanAmount += loanAmount
         vault = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault["invalidPrice"], True)
+        assert_equal(vault["state"], "frozen")
         try:
             self.nodes[0].takeloan({
                 'vaultId': vaultId1,
                 'amounts': "10@TSLA"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Cannot take loan while any of the asset's price in the vault is invalid" in errorString)
+        assert("Cannot take loan while any of the asset's price in the vault is not live" in errorString)
 
         try:
             self.nodes[0].withdrawfromvault(vaultId1, account, "100@DFI")
