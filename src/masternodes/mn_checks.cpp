@@ -1420,7 +1420,7 @@ public:
                     extern bool diffInHour(int64_t time1, int64_t time2);
                     if (!diffInHour(obj.timestamp, timestamp)) {
                         return Res::Err("Timestamp (%d) is out of price update window (median: %d)", 
-                            timestamp, obj.timestamp );
+                            obj.timestamp, timestamp);
                     }
                 }
             }
