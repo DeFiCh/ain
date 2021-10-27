@@ -576,6 +576,9 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     if (::ChainstateActive().IsInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, PACKAGE_NAME " is in initial sync and waiting for blocks...");
 
+    if (!pcustomcsview->AmIOperator())
+        throw JSONRPCError(RPC_INVALID_REQUEST, "getblocktemplate can only be called by masternodes");
+
     static unsigned int nTransactionsUpdatedLast;
 
     if (!lpval.isNull())
