@@ -1410,9 +1410,7 @@ public:
         }
         if (height >= uint32_t(Params().GetConsensus().FortCanningHeight)) {
             for (const auto& tokenPrice : obj.tokenPrices) {
-                const auto& token = tokenPrice.first;
                 for (const auto& price : tokenPrice.second) {
-                    const auto& currency = price.first;
                     if (price.second <= 0) {
                         return Res::Err("Amount out of range");
                     }
