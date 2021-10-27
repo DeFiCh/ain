@@ -211,7 +211,7 @@ class DepositToVaultTest (DefiTestFramework):
         self.sync_blocks()
 
         vault1 = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault1['isUnderLiquidation'], False)
+        assert_equal(vault1['state'], "active")
         assert_equal(vault1['collateralAmounts'], ['1.00000000@DFI', '1.00000000@BTC'])
         assert_equal(vault1['loanAmounts'], ['0.50000009@TSLA'])
         assert_equal(vault1['collateralValue'], Decimal(2.00000000))
@@ -227,13 +227,11 @@ class DepositToVaultTest (DefiTestFramework):
         self.sync_blocks()
 
         vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['isUnderLiquidation'], False)
-        assert_equal(vault1['invalidPrice'], True)
+        assert_equal(vault1['state'], "frozen")
 
         self.nodes[0].generate(6) # let fixed price be stable and check vault is now underLiquidation state
         vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['isUnderLiquidation'], True)
-        assert_equal(vault1['invalidPrice'], False)
+        assert_equal(vault1['state'], "inliquidation")
 
         # try to deposit mor BTC breaking 50% DFI condition
         try:
