@@ -1239,7 +1239,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     auto height = ::ChainActive().Height() + 1;
     auto lastBlockTime = ::ChainActive()[::ChainActive().Height()]->GetBlockTime();
-    auto totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
+    auto totalCollateralValue = 0ul, totalLoanValue = 0ul, totalVaults = 0ul;
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
         auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime, false);
         if (rate)
@@ -1271,7 +1271,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
         defaultsObj.pushKV("scheme", "");
     else
         defaultsObj.pushKV("scheme", *defaultScheme);
-    defaultsObj.pushKV("maxpricedeviationpct", pcustomcsview->GetPriceDeviation() * 100 / COIN);
+    defaultsObj.pushKV("maxpricedeviationpct", ValueFromUint(pcustomcsview->GetPriceDeviation() * 100));
     auto minLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
     defaultsObj.pushKV("minoraclesperprice", minLiveOracles);
     defaultsObj.pushKV("fixedintervalblocks", int(pcustomcsview->GetIntervalBlock()));
