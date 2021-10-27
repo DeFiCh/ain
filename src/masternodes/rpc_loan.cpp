@@ -1,6 +1,8 @@
 #include <masternodes/mn_rpc.h>
 
 extern UniValue tokenToJSON(DCT_ID const& id, CTokenImplementation const& token, bool verbose);
+extern UniValue listauctions(const JSONRPCRequest& request);
+extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
 
 UniValue setCollateralTokenToJSON(CLoanSetCollateralTokenImplementation const& collToken)
 {
@@ -1234,47 +1236,53 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    UniValue collateralList{UniValue::VARR};
-    uint32_t height = ::ChainActive().Height();
-    DCT_ID currentToken = {std::numeric_limits<uint32_t>::max()};
-    CollateralTokenKey start{DCT_ID{0}, height};
-    pcustomcsview->ForEachLoanSetCollateralToken([&](CollateralTokenKey const & key, uint256 const & collTokenTx)
-    {
-        if ((key.height > height || currentToken == key.id)) return true;
 
-        currentToken = key.id;
-        auto collToken = pcustomcsview->GetLoanSetCollateralToken(collTokenTx);
-        if (collToken){
-            auto token = pcustomcsview->GetToken(collToken->idToken);
-            UniValue obj{UniValue::VOBJ};
-            obj.pushKV("id", collToken->idToken.ToString());
-            obj.pushKV("symbol", token->symbol);
-            collateralList.push_back(obj);
+    uint32_t height = ::ChainActive().Height() + 1;
+    auto lastBlockTime = ::ChainActive()[::ChainActive().Height()]->GetBlockTime();
+    uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
+    pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime);
+
+        if (rate)
+        {
+            totalCollateralValue += rate.val->totalCollaterals;
+            totalLoanValue += rate.val->totalLoans;
         }
 
-        return true;
-    }, start);
-
-    UniValue loanList{UniValue::VARR};
-    pcustomcsview->ForEachLoanSetLoanToken([&](DCT_ID const & key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
-        UniValue obj{UniValue::VOBJ};
-        obj.pushKV("id", key.ToString());
-        obj.pushKV("symbol", loanToken.symbol);
-        loanList.push_back(obj);
+        totalVaults++;
         return true;
     });
 
-    UniValue schemeList{UniValue::VARR};
-    pcustomcsview->ForEachLoanScheme([&](const std::string& identifier, const CLoanSchemeData& data){
-        UniValue obj{UniValue::VOBJ};
-        obj.pushKV("id", identifier);
-        schemeList.push_back(obj);
-        return true;
-    });
+    UniValue totalsObj{UniValue::VOBJ};
+    auto totalLoanSchemes = (listloanschemes(request)).size();
+    totalsObj.pushKV("schemes", totalLoanSchemes);
+    auto totalCollateralTokens = (listcollateraltokens(request)).size();
+    totalsObj.pushKV("collateraltokens", totalCollateralTokens);
+    totalsObj.pushKV("collateralvalueinusd", totalCollateralValue);
+    auto totalLoanTokens = (listloantokens(request)).size();
+    totalsObj.pushKV("loantokens", totalLoanTokens);
+    totalsObj.pushKV("loanvalueinusd", totalLoanValue);
+    totalsObj.pushKV("openvaults", totalVaults);
+    auto totalAuctions = listauctions(request).size();
+    totalsObj.pushKV("openauctions", totalAuctions);
 
-    ret.pushKV("loanSchemes", schemeList);
-    ret.pushKV("loanTokens", loanList);
-    ret.pushKV("collateralTokens", collateralList);
+    UniValue defaultsObj{UniValue::VOBJ};
+    auto defaultScheme = pcustomcsview->GetDefaultLoanScheme();
+    if(!defaultScheme)
+        defaultsObj.pushKV("scheme", "");
+    else
+        defaultsObj.pushKV("scheme", *defaultScheme);
+    defaultsObj.pushKV("maxpricedeviation", pcustomcsview->GetPriceDeviation());
+    auto minimumliveoracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
+    defaultsObj.pushKV("minoraclesperprice", minimumliveoracles);
+    defaultsObj.pushKV("fixedintervalblocks", int(pcustomcsview->GetIntervalBlock()));
+
+    ret.pushKV("totals", totalsObj);
+    ret.pushKV("defaults", defaultsObj);
+
+    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
+    ret.pushKV("activePriceBlock", (int)priceBlocks.first);
+    ret.pushKV("nextPriceBlock", (int)priceBlocks.second);
 
     return (ret);
 }
