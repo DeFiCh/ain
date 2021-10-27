@@ -620,7 +620,7 @@ UniValue minttokens(const JSONRPCRequest& request) {
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                     {"amounts", RPCArg::Type::STR, RPCArg::Optional::NO,
-                        "Amount in amount@token format."
+                        "Amount as json string, or array. Example: '[ \"amount@token\" ]'"
                     },
                     {"inputs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG,
                         "A json array of json objects. Provide it if you want to spent specific UTXOs",
