@@ -126,5 +126,21 @@ class LoanSetLoanTokenTest (DefiTestFramework):
             errorString = e.error['message']
         assert("Timestamp is out of price update window" in errorString)
 
+        # Create loan token for DUSD/USD without Oracle
+        self.nodes[0].setloantoken({
+            'symbol': "DUSD",
+            'name': "DUSD",
+            'fixedIntervalPriceId': "DUSD/USD",
+            'mintable': False,
+            'interest': 0})
+        self.nodes[0].generate(1)
+
+        # Update loan token for DUSD/USD without Oracle
+        self.nodes[0].updateloantoken("DUSD",{
+            'symbol': "DUSD",
+            'name': "DUSD",
+            'mintable': True,
+            'interest': 0})
+
 if __name__ == '__main__':
     LoanSetLoanTokenTest().main()
