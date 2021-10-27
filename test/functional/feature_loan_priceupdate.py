@@ -165,7 +165,7 @@ class PriceUpdateTest (DefiTestFramework):
                 'amounts': "10@TSLA"})
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert("Price feed TSLA/USD is invalid" in errorString)
+        assert("No live fixed prices for TSLA/USD" in errorString)
 
         self.nodes[0].generate(5) # let price update
 
@@ -248,7 +248,7 @@ class PriceUpdateTest (DefiTestFramework):
         assert("Cannot update vault while any of the asset's price is invalid" in errorString)
 
         fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
-        assert_equal(fixedPrice['isValid'], False)
+        assert_equal(fixedPrice['isLive'], False)
         assert_equal(fixedPrice['activePrice'], Decimal('15.00000000'))
         assert_equal(fixedPrice['nextPrice'], Decimal('22.50000000'))
 
@@ -278,7 +278,7 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].generate(1)
 
         fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
-        assert_equal(fixedPrice['isValid'], True)
+        assert_equal(fixedPrice['isLive'], True)
         assert_equal(fixedPrice['activePrice'], Decimal('22.50000000'))
         assert_equal(fixedPrice['nextPrice'], Decimal('22.50000000'))
 
@@ -298,14 +298,14 @@ class PriceUpdateTest (DefiTestFramework):
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(3)
         fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
-        assert_equal(fixedPrice['isValid'], False)
+        assert_equal(fixedPrice['isLive'], False)
         assert_equal(fixedPrice['activePrice'], Decimal('22.50000000'))
         assert_equal(fixedPrice['nextPrice'], Decimal('57.50000000'))
         assert_equal(fixedPrice['nextPriceBlock'], 349)
         assert_equal(fixedPrice['activePriceBlock'], 343)
         self.nodes[0].generate(6)
         fixedPrice = self.nodes[0].getfixedintervalprice("TSLA/USD")
-        assert_equal(fixedPrice['isValid'], True)
+        assert_equal(fixedPrice['isLive'], True)
         assert_equal(fixedPrice['activePrice'], Decimal('57.50000000'))
         assert_equal(fixedPrice['nextPrice'], Decimal('57.50000000'))
         assert_equal(fixedPrice['nextPriceBlock'], 355)

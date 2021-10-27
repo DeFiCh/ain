@@ -133,7 +133,7 @@ void COracleView::ForEachOracle(std::function<bool(const COracleId&, CLazySerial
     ForEach<ByName, COracleId, COracle>(callback, start);
 }
 
-bool CFixedIntervalPrice::isValid(const CAmount deviationThreshold) const
+bool CFixedIntervalPrice::isLive(const CAmount deviationThreshold) const
 {
     return (
         priceRecord[0] > 0 &&
