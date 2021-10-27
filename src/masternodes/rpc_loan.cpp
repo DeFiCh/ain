@@ -1241,7 +1241,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto lastBlockTime = ::ChainActive()[::ChainActive().Height()]->GetBlockTime();
     auto totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime);
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime, false);
         if (rate)
         {
             totalCollateralValue += rate.val->totalCollaterals;
