@@ -1257,10 +1257,10 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     totalsObj.pushKV("schemes", totalLoanSchemes);
     totalsObj.pushKV("collateraltokens", totalCollateralTokens);
-    totalsObj.pushKV("collateralvalueinusd", totalCollateralValue);
+    totalsObj.pushKV("collateralvalueinusd", ValueFromUint(totalCollateralValue));
     auto totalLoanTokens = (listloantokens(request)).size();
     totalsObj.pushKV("loantokens", totalLoanTokens);
-    totalsObj.pushKV("loanvalueinusd", totalLoanValue);
+    totalsObj.pushKV("loanvalueinusd", ValueFromUint(totalLoanValue));
     totalsObj.pushKV("openvaults", totalVaults);
     auto totalAuctions = listauctions(request).size();
     totalsObj.pushKV("openauctions", totalAuctions);
