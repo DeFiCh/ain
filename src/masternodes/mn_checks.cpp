@@ -816,6 +816,10 @@ public:
     }
 
     bool oraclePriceFeed(const CTokenCurrencyPair& priceFeed) const {
+        // Allow hard coded DUSD/USD
+        if (priceFeed.first == "DUSD" && priceFeed.second == "USD") {
+            return true;
+        }
         bool found = false;
         mnview.ForEachOracle([&](const COracleId&, COracle oracle) {
             return !(found = oracle.SupportsPair(priceFeed.first, priceFeed.second));
