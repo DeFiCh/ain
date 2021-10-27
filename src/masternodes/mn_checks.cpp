@@ -2526,8 +2526,8 @@ public:
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
 
-            if (!priceFeed.val->isValid(mnview.GetPriceDeviation()))
-                return Res::Err("Price feed %s/%s is invalid", loanToken->fixedIntervalPriceId.first, loanToken->fixedIntervalPriceId.second);
+            if (!priceFeed.val->isLive(mnview.GetPriceDeviation()))
+                return Res::Err("No live fixed prices for %s/%s", loanToken->fixedIntervalPriceId.first, loanToken->fixedIntervalPriceId.second);
 
             for (int i = 0; i < 2; i++) {
                 // check active and next price
@@ -3477,14 +3477,14 @@ bool IsVaultPriceValid(CCustomCSView& mnview, const CVaultId& vaultId, uint32_t 
         for (const auto collateral : collaterals->balances)
             if (auto collateralToken = mnview.HasLoanSetCollateralToken({collateral.first, height}))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId))
-                    if (!fixedIntervalPrice.val->isValid(mnview.GetPriceDeviation()))
+                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
 
     if (auto loans = mnview.GetLoanTokens(vaultId))
         for (const auto loan : loans->balances)
             if (auto loanToken = mnview.GetLoanSetLoanTokenByID(loan.first))
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId))
-                    if (!fixedIntervalPrice.val->isValid(mnview.GetPriceDeviation()))
+                    if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation()))
                         return false;
     return true;
 }
