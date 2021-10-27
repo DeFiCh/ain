@@ -1221,7 +1221,7 @@ UniValue loanpayback(const JSONRPCRequest& request) {
 
 UniValue getloaninfo(const JSONRPCRequest& request) {
     RPCHelpMan{"getloaninfo",
-                "Returns the attributes of loan offered.\n",
+                "Returns the loan stats.\n",
                 {},
                 RPCResult
                 {
@@ -1237,26 +1237,25 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     LOCK(cs_main);
 
 
-    uint32_t height = ::ChainActive().Height() + 1;
+    auto height = ::ChainActive().Height() + 1;
     auto lastBlockTime = ::ChainActive()[::ChainActive().Height()]->GetBlockTime();
-    uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
+    auto totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
         auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime);
-
         if (rate)
         {
             totalCollateralValue += rate.val->totalCollaterals;
             totalLoanValue += rate.val->totalLoans;
         }
-
         totalVaults++;
         return true;
     });
 
     UniValue totalsObj{UniValue::VOBJ};
     auto totalLoanSchemes = (listloanschemes(request)).size();
-    totalsObj.pushKV("schemes", totalLoanSchemes);
     auto totalCollateralTokens = (listcollateraltokens(request)).size();
+
+    totalsObj.pushKV("schemes", totalLoanSchemes);
     totalsObj.pushKV("collateraltokens", totalCollateralTokens);
     totalsObj.pushKV("collateralvalueinusd", totalCollateralValue);
     auto totalLoanTokens = (listloantokens(request)).size();
@@ -1272,17 +1271,17 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
         defaultsObj.pushKV("scheme", "");
     else
         defaultsObj.pushKV("scheme", *defaultScheme);
-    defaultsObj.pushKV("maxpricedeviation", pcustomcsview->GetPriceDeviation());
-    auto minimumliveoracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
-    defaultsObj.pushKV("minoraclesperprice", minimumliveoracles);
+    defaultsObj.pushKV("maxpricedeviationpct", pcustomcsview->GetPriceDeviation() * 100 / COIN);
+    auto minLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
+    defaultsObj.pushKV("minoraclesperprice", minLiveOracles);
     defaultsObj.pushKV("fixedintervalblocks", int(pcustomcsview->GetIntervalBlock()));
 
-    ret.pushKV("totals", totalsObj);
-    ret.pushKV("defaults", defaultsObj);
 
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
-    ret.pushKV("activePriceBlock", (int)priceBlocks.first);
-    ret.pushKV("nextPriceBlock", (int)priceBlocks.second);
+    ret.pushKV("currentpriceblock", (int)priceBlocks.first);
+    ret.pushKV("nextpriceblock", (int)priceBlocks.second);
+    ret.pushKV("defaults", defaultsObj);
+    ret.pushKV("totals", totalsObj);
 
     return (ret);
 }
