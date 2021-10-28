@@ -8,7 +8,7 @@
 from decimal import Decimal
 from test_framework.test_framework import DefiTestFramework
 
-from test_framework.util import assert_equal, assert_greater_than
+from test_framework.util import assert_equal
 
 import calendar
 import time
