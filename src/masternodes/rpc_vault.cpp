@@ -12,8 +12,7 @@ namespace {
         Active = (1 << 0),
         InLiquidation = (1 << 1),
         Frozen = (1 << 2),
-        MayLiquidate = (1 << 3),
-        FrozenInLiquidation = InLiquidation | Frozen,
+        MayLiquidate = (1 << 3)
     };
 
     std::string VaultStateToString(const VaultState& state)
@@ -25,8 +24,6 @@ namespace {
                 return "frozen";
             case VaultState::InLiquidation:
                 return "inliquidation";
-            case VaultState::FrozenInLiquidation:
-                return "frozeninliquidation";
             case VaultState::MayLiquidate:
                 return "mayliquidate";
             case VaultState::Unknown:
@@ -36,11 +33,10 @@ namespace {
 
     VaultState StringToVaultState(const std::string& stateStr)
     {
-        if(stateStr == "active") return VaultState::Active;
-        if(stateStr == "frozen") return VaultState::Frozen;
-        if(stateStr == "inliquidation") return VaultState::InLiquidation;
-        if(stateStr == "frozeninliquidation") return VaultState::FrozenInLiquidation;
-        if(stateStr == "mayliquidate") return VaultState::MayLiquidate;
+        if (stateStr == "active") return VaultState::Active;
+        if (stateStr == "frozen") return VaultState::Frozen;
+        if (stateStr == "inliquidation") return VaultState::InLiquidation;
+        if (stateStr == "mayliquidate") return VaultState::MayLiquidate;
         return VaultState::Unknown;
     }
 
@@ -77,9 +73,6 @@ namespace {
             return VaultState::Frozen;
         if (inLiquidation && priceIsValid)
             return VaultState::InLiquidation;
-        if (inLiquidation && !priceIsValid)
-            return VaultState::FrozenInLiquidation;
-
         return VaultState::Unknown;
     }
 
@@ -122,8 +115,7 @@ namespace {
 
         auto height = ::ChainActive().Height();
 
-        if (vaultState == VaultState::InLiquidation ||
-            vaultState == VaultState::FrozenInLiquidation) {
+        if (vaultState == VaultState::InLiquidation) {
             if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
                 result.pushKVs(AuctionToJSON(vaultId, *data));
             } else {
@@ -141,8 +133,7 @@ namespace {
         if (!collaterals)
             collaterals = CBalances{};
 
-        bool requireLivePrice = !(vaultState == VaultState::Frozen ||
-                                  vaultState == VaultState::FrozenInLiquidation);
+        bool requireLivePrice = !(vaultState == VaultState::Frozen);
 
         auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, requireLivePrice);
         uint32_t ratio = 0;
