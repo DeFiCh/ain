@@ -1107,10 +1107,10 @@ UniValue takeloan(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue loanpayback(const JSONRPCRequest& request) {
+UniValue paybackloan(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"loanpayback",
+    RPCHelpMan{"paybackloan",
                 "Creates (and submits to local node and network) a tx to return the loan in desired amount.\n" +
                 HelpRequiringPassphrase(pwallet) + "\n",
                 {
@@ -1137,12 +1137,12 @@ UniValue loanpayback(const JSONRPCRequest& request) {
                         "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                 },
                 RPCExamples{
-                        HelpExampleCli("loanpayback", R"('{"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"from":"<address>", "amounts":"10@TSLA"}')")
+                        HelpExampleCli("paybackloan", R"('{"vaultId":84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2,"from":"<address>", "amounts":"10@TSLA"}')")
                         },
     }.Check(request);
 
     if (pwallet->chain().isInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot loanpayback while still in Initial Block Download");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot paybackloan while still in Initial Block Download");
 
     pwallet->BlockUntilSyncedToCurrentChain();
 
@@ -1377,7 +1377,7 @@ static const CRPCCommand commands[] =
     {"loan",        "listloanschemes",           &listloanschemes,       {}},
     {"loan",        "getloanscheme",             &getloanscheme,         {"id"}},
     {"loan",        "takeloan",                  &takeloan,              {"metadata", "inputs"}},
-    {"loan",        "loanpayback",               &loanpayback,           {"metadata", "inputs"}},
+    {"loan",        "paybackloan",               &paybackloan,           {"metadata", "inputs"}},
     {"loan",        "getloaninfo",               &getloaninfo,           {}},
     {"loan",        "getinterest",               &getinterest,           {"id", "token"}},
 };

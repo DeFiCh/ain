@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test Loan."""
+"""Test Auctions."""
 
 from decimal import Decimal
 from test_framework.test_framework import DefiTestFramework
@@ -13,7 +13,7 @@ from test_framework.util import assert_equal, assert_greater_than
 import calendar
 import time
 
-class LoanTest (DefiTestFramework):
+class AuctionsTest (DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -183,7 +183,7 @@ class LoanTest (DefiTestFramework):
         assert_equal(vault2["batches"][0]["collaterals"], ['49.99999980@DFI', '49.99999980@BTC'])
         assert_equal(vault2["batches"][1]["collaterals"], ['10.00000020@DFI', '10.00000020@BTC'])
 
-        self.nodes[0].auctionbid(vaultId2, 0, account, "59.41@TSLA")
+        self.nodes[0].placeauctionbid(vaultId2, 0, account, "59.41@TSLA")
 
         self.nodes[0].generate(34) # let auction end
 
@@ -193,7 +193,7 @@ class LoanTest (DefiTestFramework):
         assert_equal(interest[0]["interestPerBlock"], Decimal(vault2["interestAmounts"][0].split('@')[0]))
         assert_greater_than(Decimal(vault2["collateralAmounts"][0].split('@')[0]), Decimal(10.00000020))
         assert_equal(vault2["currentRatio"], 265)
-        self.nodes[0].loanpayback({
+        self.nodes[0].paybackloan({
                     'vaultId': vaultId2,
                     'from': account,
                     'amounts': vault2["loanAmounts"]})
@@ -226,7 +226,7 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(12) # let price update and trigger liquidation of vault
 
-        self.nodes[0].auctionbid(vaultId3, 0, account, "54.46@TSLA")
+        self.nodes[0].placeauctionbid(vaultId3, 0, account, "54.46@TSLA")
         self.nodes[0].generate(31) # let auction end
         vault3 = self.nodes[0].getvault(vaultId3)
         assert_equal(vault3["state"], "active")
@@ -234,7 +234,7 @@ class LoanTest (DefiTestFramework):
         assert_equal(len(auctionlist), 1)
         assert_greater_than(Decimal(vault3["collateralAmounts"][0].split('@')[0]), Decimal(10.00000020))
 
-        self.nodes[0].loanpayback({
+        self.nodes[0].paybackloan({
                     'vaultId': vaultId3,
                     'from': account,
                     'amounts': vault3["loanAmounts"]})
@@ -264,7 +264,7 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(12) # let price update and trigger liquidation of vault
 
-        self.nodes[0].auctionbid(vaultId4, 0, account, "7.92@TSLA")
+        self.nodes[0].placeauctionbid(vaultId4, 0, account, "7.92@TSLA")
         self.nodes[0].generate(31) # let auction end
 
         vault4 = self.nodes[0].getvault(vaultId4)
@@ -312,9 +312,9 @@ class LoanTest (DefiTestFramework):
         vault5 = self.nodes[0].getvault(vaultId5)
         assert_equal(len(vault5["batches"]), 5)
 
-        self.nodes[0].auctionbid(vaultId5, 0, account, "29.70@TSLA")
+        self.nodes[0].placeauctionbid(vaultId5, 0, account, "29.70@TSLA")
         self.nodes[0].generate(1)
-        self.nodes[0].auctionbid(vaultId5, 4, account, "10@TSLA")
+        self.nodes[0].placeauctionbid(vaultId5, 4, account, "10@TSLA")
         self.nodes[0].generate(1)
 
         self.nodes[0].generate(32) # let auction end
@@ -323,4 +323,4 @@ class LoanTest (DefiTestFramework):
         assert_equal(len(vault5["batches"]), 4)
 
 if __name__ == '__main__':
-    LoanTest().main()
+    AuctionsTest().main()

@@ -12,8 +12,7 @@ namespace {
         Active = (1 << 0),
         InLiquidation = (1 << 1),
         Frozen = (1 << 2),
-        MayLiquidate = (1 << 3),
-        FrozenInLiquidation = InLiquidation | Frozen,
+        MayLiquidate = (1 << 3)
     };
 
     std::string VaultStateToString(const VaultState& state)
@@ -25,13 +24,20 @@ namespace {
                 return "frozen";
             case VaultState::InLiquidation:
                 return "inliquidation";
-            case VaultState::FrozenInLiquidation:
-                return "lockedinliquidation";
             case VaultState::MayLiquidate:
                 return "mayliquidate";
             case VaultState::Unknown:
                 return "unknown";
         }
+    }
+
+    VaultState StringToVaultState(const std::string& stateStr)
+    {
+        if (stateStr == "active") return VaultState::Active;
+        if (stateStr == "frozen") return VaultState::Frozen;
+        if (stateStr == "inliquidation") return VaultState::InLiquidation;
+        if (stateStr == "mayliquidate") return VaultState::MayLiquidate;
+        return VaultState::Unknown;
     }
 
     bool WillLiquidateNext(const CVaultId& vaultId, const CVaultData& vault) {
@@ -66,9 +72,6 @@ namespace {
             return VaultState::Frozen;
         if (inLiquidation && priceIsValid)
             return VaultState::InLiquidation;
-        if (inLiquidation && !priceIsValid)
-            return VaultState::FrozenInLiquidation;
-
         return VaultState::Unknown;
     }
 
@@ -111,8 +114,7 @@ namespace {
         auto vaultState = GetVaultState(vaultId, vault);
         auto height = ::ChainActive().Height();
 
-        if (vaultState == VaultState::InLiquidation ||
-            vaultState == VaultState::FrozenInLiquidation) {
+        if (vaultState == VaultState::InLiquidation) {
             if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
                 result.pushKVs(AuctionToJSON(vaultId, *data));
             } else {
@@ -130,11 +132,11 @@ namespace {
         if (!collaterals)
             collaterals = CBalances{};
 
-        bool requireLivePrice = !(vaultState == VaultState::Frozen ||
-                                  vaultState == VaultState::FrozenInLiquidation);
+        bool requireLivePrice = vaultState != VaultState::Frozen;
 
         bool useNextPrice = false;
         auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
+
         uint32_t ratio = 0;
 
         if (rate) {
@@ -387,8 +389,8 @@ UniValue listvaults(const JSONRPCRequest& request) {
                                 "Vault's loan scheme id"
                             },
                             {
-                                "isUnderLiquidation", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED,
-                                "Wether the vault is under liquidation. (default = false)"
+                                "state", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
+                                "Wether the vault is under a given state. (default = 'Collateralized')"
                             },
                         },
                     },
@@ -430,7 +432,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
 
     CScript ownerAddress = {};
     std::string loanSchemeId;
-    bool isUnderLiquidation = false;
+    VaultState state{VaultState::Unknown};
     if (request.params.size() > 0) {
         UniValue optionsObj = request.params[0].get_obj();
         if (!optionsObj["ownerAddress"].isNull()) {
@@ -439,8 +441,8 @@ UniValue listvaults(const JSONRPCRequest& request) {
         if (!optionsObj["loanSchemeId"].isNull()) {
             loanSchemeId = optionsObj["loanSchemeId"].getValStr();
         }
-        if (!optionsObj["isUnderLiquidation"].isNull()) {
-            isUnderLiquidation = optionsObj["isUnderLiquidation"].getBool();
+        if (!optionsObj["state"].isNull()) {
+            state = StringToVaultState(optionsObj["state"].getValStr());
         }
     }
 
@@ -478,16 +480,17 @@ UniValue listvaults(const JSONRPCRequest& request) {
         if (!ownerAddress.empty() && ownerAddress != data.ownerAddress) {
             return false;
         }
+        auto currentVaultState = GetVaultState(id, data);
 
         if (
             (loanSchemeId.empty() || loanSchemeId == data.schemeId)
-            && (isUnderLiquidation == data.isUnderLiquidation)
+            && (state == currentVaultState || state == VaultState::Unknown)
             ) {
             UniValue vaultObj{UniValue::VOBJ};
             vaultObj.pushKV("vaultId", id.GetHex());
             vaultObj.pushKV("ownerAddress", ScriptToString(data.ownerAddress));
             vaultObj.pushKV("loanSchemeId", data.schemeId);
-            vaultObj.pushKV("isUnderLiquidation", data.isUnderLiquidation);
+            vaultObj.pushKV("state", VaultStateToString(currentVaultState));
             valueArr.push_back(vaultObj);
 
             limit--;
@@ -849,10 +852,10 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue auctionbid(const JSONRPCRequest& request) {
+UniValue placeauctionbid(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"auctionbid",
+    RPCHelpMan{"placeauctionbid",
                "Bid to vault in auction\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -875,9 +878,9 @@ UniValue auctionbid(const JSONRPCRequest& request) {
                     "\"txid\"                  (string) The transaction id.\n"
                },
                RPCExamples{
-                       HelpExampleCli("auctionbid",
+                       HelpExampleCli("placeauctionbid",
                         "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 100@TSLA") +
-                       HelpExampleRpc("auctionbid",
+                       HelpExampleRpc("placeauctionbid",
                         "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 1@DTSLA")
                },
     }.Check(request);
@@ -1148,7 +1151,7 @@ static const CRPCCommand commands[] =
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
     {"vault",        "withdrawfromvault",         &withdrawfromvault,     {"id", "to", "amount", "inputs"}},
-    {"vault",        "auctionbid",                &auctionbid,            {"id", "index", "from", "amount", "inputs"}},
+    {"vault",        "placeauctionbid",           &placeauctionbid,       {"id", "index", "from", "amount", "inputs"}},
     {"vault",        "listauctions",              &listauctions,          {"pagination"}},
     {"vault",        "listauctionhistory",        &listauctionhistory,    {"owner", "pagination"}},
 };

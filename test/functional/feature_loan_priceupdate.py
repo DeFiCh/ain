@@ -228,7 +228,7 @@ class PriceUpdateTest (DefiTestFramework):
         assert("Cannot withdraw from vault while any of the asset's price is invalid" in errorString)
 
         try:
-            self.nodes[0].loanpayback({
+            self.nodes[0].paybackloan({
                     'vaultId': vaultId1,
                     'from': account,
                     'amounts': ["0.5@TSLA"]})
