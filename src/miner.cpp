@@ -971,6 +971,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                 LogPrintf("ThreadStaker: (%s) runtime error: %s\n", e.what(), operatorName);
 
                 // Could be failed TX in mempool, wipe mempool and allow loop to continue.
+                LOCK(cs_main);
                 mempool.clear();
             }
 
