@@ -34,12 +34,11 @@ namespace {
         }
     }
 
-    bool WillLiquidateNext(const CVaultId& vaultId) {
+    bool WillLiquidateNext(const CVaultId& vaultId, const CVaultData& vault) {
         auto height = ::ChainActive().Height();
         auto blockTime = ::ChainActive()[height]->GetBlockTime();
-        auto vault = pcustomcsview->GetVault(vaultId);
-        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
 
+        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
         if (!collaterals)
             return false;
 
@@ -47,17 +46,16 @@ namespace {
         auto vaultRate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, blockTime, useNextPrice, requireLivePrice);
         if (!vaultRate)
             return false;
-        auto loanScheme = pcustomcsview->GetLoanScheme(vault->schemeId);
+
+        auto loanScheme = pcustomcsview->GetLoanScheme(vault.schemeId);
         return (vaultRate.val->ratio() < loanScheme->ratio);
     }
 
-    VaultState GetVaultState(const CVaultId& vaultId) {
+    VaultState GetVaultState(const CVaultId& vaultId, const CVaultData& vault) {
         auto height = ::ChainActive().Height();
-        auto vault = pcustomcsview->GetVault(vaultId);
-
-        auto inLiquidation = vault->isUnderLiquidation;
+        auto inLiquidation = vault.isUnderLiquidation;
         auto priceIsValid = IsVaultPriceValid(*pcustomcsview, vaultId, height);
-        auto willLiquidateNext = WillLiquidateNext(vaultId);
+        auto willLiquidateNext = WillLiquidateNext(vaultId, vault);
 
         // Can possibly optimize with flags, but provides clarity for now.
         if (!inLiquidation && priceIsValid && !willLiquidateNext)
@@ -95,7 +93,12 @@ namespace {
 
     UniValue AuctionToJSON(const CVaultId& vaultId, const CAuctionData& data) {
         UniValue auctionObj{UniValue::VOBJ};
+        auto vault = pcustomcsview->GetVault(vaultId);
+        auto vaultState = GetVaultState(vaultId, *vault);
         auctionObj.pushKV("vaultId", vaultId.GetHex());
+        auctionObj.pushKV("loanSchemeId", vault->schemeId);
+        auctionObj.pushKV("ownerAddress", ScriptToString(vault->ownerAddress));
+        auctionObj.pushKV("state", VaultStateToString(vaultState));
         auctionObj.pushKV("liquidationHeight", int64_t(data.liquidationHeight));
         auctionObj.pushKV("batchCount", int64_t(data.batchCount));
         auctionObj.pushKV("liquidationPenalty", ValueFromAmount(data.liquidationPenalty * 100));
@@ -105,12 +108,7 @@ namespace {
 
     UniValue VaultToJSON(const CVaultId& vaultId, const CVaultData& vault) {
         UniValue result{UniValue::VOBJ};
-        auto vaultState = GetVaultState(vaultId);
-        result.pushKV("vaultId", vaultId.GetHex());
-        result.pushKV("loanSchemeId", vault.schemeId);
-        result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
-        result.pushKV("state", VaultStateToString(vaultState));
-
+        auto vaultState = GetVaultState(vaultId, vault);
         auto height = ::ChainActive().Height();
 
         if (vaultState == VaultState::InLiquidation ||
@@ -176,6 +174,10 @@ namespace {
             interestAmounts = AmountsToJSON(interestBalances);
         }
 
+        result.pushKV("vaultId", vaultId.GetHex());
+        result.pushKV("loanSchemeId", vault.schemeId);
+        result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
+        result.pushKV("state", VaultStateToString(vaultState));
         result.pushKV("collateralAmounts", collateralBalances);
         result.pushKV("loanAmounts", loanBalances);
         result.pushKV("interestAmounts", interestAmounts);
