@@ -1421,7 +1421,7 @@ public:
                     auto timestamp = time;
                     extern bool diffInHour(int64_t time1, int64_t time2);
                     if (!diffInHour(obj.timestamp, timestamp)) {
-                        return Res::Err("Timestamp (%d) is out of price update window (median: %d)", 
+                        return Res::Err("Timestamp (%d) is out of price update window (median: %d)",
                             obj.timestamp, timestamp);
                     }
                 }
@@ -2408,7 +2408,7 @@ public:
         if (!res)
             return res;
 
-        bool useNextPrice = false, requireLivePrice = true;
+        bool useNextPrice = false, requireLivePrice = false;
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
         auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
         if (!collateralsLoans)
@@ -2458,7 +2458,7 @@ public:
         {
             for (int i = 0; i < 2; i++) {
                 // check collaterals for active and next price
-                bool useNextPrice = i > 0, requireLivePrice = true;
+                bool useNextPrice = i > 0, requireLivePrice = mnview.VaultHasLoan(obj.vaultId) ? true : false;
                 auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                 if (!collateralsLoans)
                     return std::move(collateralsLoans);

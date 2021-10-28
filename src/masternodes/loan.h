@@ -296,6 +296,8 @@ public:
     Res SubLoanToken(const CVaultId& vaultId, CTokenAmount amount);
     boost::optional<CBalances> GetLoanTokens(const CVaultId& vaultId);
     void ForEachLoanToken(std::function<bool(const CVaultId&, const CBalances&)> callback);
+    bool VaultHasLoan(const CVaultId& vaultId);
+
 
     Res SetLoanLiquidationPenalty(CAmount penalty);
     CAmount GetLoanLiquidationPenalty();
