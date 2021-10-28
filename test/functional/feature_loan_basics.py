@@ -290,7 +290,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
 
         try:
-            self.nodes[0].loanpayback({
+            self.nodes[0].paybackloan({
                         'vaultId': setLoanTokenTSLA,
                         'from': account0,
                         'amounts': "0.5@" + symbolTSLA})
@@ -299,7 +299,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert("Cannot find existing vault with id" in errorString)
 
         try:
-            self.nodes[0].loanpayback({
+            self.nodes[0].paybackloan({
                         'vaultId': vaultId1,
                         'from': account0,
                         'amounts': "0.5@" + symbolTSLA})
@@ -313,7 +313,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         self.sync_blocks()
 
         try:
-            self.nodes[0].loanpayback({
+            self.nodes[0].paybackloan({
                         'vaultId': vaultId1,
                         'from': account0,
                         'amounts': "0.5@" + symbolTSLA})
@@ -334,7 +334,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1.00000000'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2.00000000'))
 
-        self.nodes[0].loanpayback({
+        self.nodes[0].paybackloan({
                     'vaultId': vaultId,
                     'from': account0,
                     'amounts': ["0.50000456@" + symbolTSLA, "1.00001064@" + symbolGOOGL]})
@@ -381,7 +381,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['0.50000627@' + symbolTSLA, '1.00001463@' + symbolGOOGL]))
 
-        self.nodes[0].loanpayback({
+        self.nodes[0].paybackloan({
                     'vaultId': vaultId,
                     'from': account0,
                     'amounts': vaultInfo['loanAmounts']})
