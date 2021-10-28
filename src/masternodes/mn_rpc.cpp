@@ -133,7 +133,9 @@ CMutableTransaction fund(CMutableTransaction & mtx, CWalletCoinsUnlocker& pwalle
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
     for (auto& txin : mtx.vin) {
-        pwallet.AddLockedCoin(txin.prevout);
+        if (!coinControl.IsSelected(txin.prevout)) {
+            pwallet.AddLockedCoin(txin.prevout);
+        }
     }
     return mtx;
 }
