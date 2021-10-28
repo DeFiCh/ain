@@ -42,10 +42,12 @@ namespace {
 
         if (!collaterals)
             return false;
-        
-        auto vaultRate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, blockTime, true, false);
-        auto loanScheme = pcustomcsview->GetLoanScheme(vault->schemeId);
 
+        bool useNextPrice = true, requireLivePrice = false;
+        auto vaultRate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height, blockTime, useNextPrice, requireLivePrice);
+        if (!vaultRate)
+            return false;
+        auto loanScheme = pcustomcsview->GetLoanScheme(vault->schemeId);
         return (vaultRate.val->ratio() < loanScheme->ratio);
     }
 
@@ -58,7 +60,6 @@ namespace {
         auto willLiquidateNext = WillLiquidateNext(vaultId);
 
         // Can possibly optimize with flags, but provides clarity for now.
-        
         if (!inLiquidation && priceIsValid && !willLiquidateNext)
             return VaultState::Active;
         if (!inLiquidation && priceIsValid && willLiquidateNext)
@@ -133,8 +134,9 @@ namespace {
 
         bool requireLivePrice = !(vaultState == VaultState::Frozen ||
                                   vaultState == VaultState::FrozenInLiquidation);
-        
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, false, requireLivePrice);
+
+        bool useNextPrice = false;
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
         uint32_t ratio = 0;
 
         if (rate) {
