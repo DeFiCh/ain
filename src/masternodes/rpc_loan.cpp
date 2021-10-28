@@ -1238,10 +1238,11 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
 
     auto height = ::ChainActive().Height() + 1;
-    auto lastBlockTime = ::ChainActive()[::ChainActive().Height()]->GetBlockTime();
+    bool useNextPrice = false, requireLivePrice = true;
+    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime, false);
+        auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
         if (rate)
         {
             totalCollateralValue += rate.val->totalCollaterals;
