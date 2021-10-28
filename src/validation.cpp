@@ -3046,8 +3046,9 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
     }
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
+        bool useNextPrice = false, requireLivePrice = true;
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
-            auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime);
+            auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
             if (!collateral) {
                 return true;
             }

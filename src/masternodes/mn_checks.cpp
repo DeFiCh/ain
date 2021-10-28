@@ -2365,7 +2365,8 @@ public:
         if (vault->schemeId != obj.schemeId)
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
                 for (int i = 0; i < 2; i++) {
-                    auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, i > 0);
+                    bool useNextPrice = i > 0, requireLivePrice = true;
+                    auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
 
@@ -2407,8 +2408,9 @@ public:
         if (!res)
             return res;
 
+        bool useNextPrice = false, requireLivePrice = true;
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
-        auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time);
+        auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
         if (!collateralsLoans)
             return std::move(collateralsLoans);
 
@@ -2456,7 +2458,8 @@ public:
         {
             for (int i = 0; i < 2; i++) {
                 // check collaterals for active and next price
-                auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, i > 0);
+                bool useNextPrice = i > 0, requireLivePrice = true;
+                auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                 if (!collateralsLoans)
                     return std::move(collateralsLoans);
 
@@ -2560,7 +2563,8 @@ public:
         auto scheme = mnview.GetLoanScheme(vault->schemeId);
         for (int i = 0; i < 2; i++) {
             // check ratio against current and active price
-            auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, i > 0);
+            bool useNextPrice = i > 0, requireLivePrice = true;
+            auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
             if (!collateralsLoans)
                 return std::move(collateralsLoans);
             if (collateralsLoans.val->ratio() < scheme->ratio)
