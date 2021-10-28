@@ -136,7 +136,7 @@ class LoanTest (DefiTestFramework):
 
         # Fail auction bid
         try:
-            self.nodes[0].bidauction(vaultId1, 0, account, "410@TSLA")
+            self.nodes[0].placeauctionbid(vaultId1, 0, account, "410@TSLA")
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("First bid should include liquidation penalty of 5%" in errorString)
@@ -144,7 +144,7 @@ class LoanTest (DefiTestFramework):
         self.nodes[0].minttokens("1000@TSLA")
         self.nodes[0].generate(1)
 
-        self.nodes[0].bidauction(vaultId1, 0, account, "550@TSLA")
+        self.nodes[0].placeauctionbid(vaultId1, 0, account, "550@TSLA")
         self.nodes[0].generate(1)
 
         batches = self.nodes[0].listauctions()[0]['batches']
@@ -162,12 +162,12 @@ class LoanTest (DefiTestFramework):
 
         # Fail auction bid less that 1% higher
         try:
-            self.nodes[0].bidauction(vaultId1, 0, account2, "555@TSLA") # just under 1%
+            self.nodes[0].placeauctionbid(vaultId1, 0, account2, "555@TSLA") # just under 1%
         except JSONRPCException as e:
             errorString = e.error['message']
         assert("Bid override should be at least 1% higher than current one" in errorString)
 
-        self.nodes[0].bidauction(vaultId1, 0, account2, "555.5@TSLA") # above 1%
+        self.nodes[0].placeauctionbid(vaultId1, 0, account2, "555.5@TSLA") # above 1%
         self.nodes[0].generate(1)
 
         # check balances are right after greater bid
@@ -201,7 +201,7 @@ class LoanTest (DefiTestFramework):
         auctionlist = self.nodes[0].listauctions()
         assert_equal(len(auctionlist[0]['batches']), 2)
 
-        self.nodes[0].bidauction(vaultId1, 0, account, "515@TSLA") # above 5% and leave vault with some loan to exit liquidation state
+        self.nodes[0].placeauctionbid(vaultId1, 0, account, "515@TSLA") # above 5% and leave vault with some loan to exit liquidation state
         self.nodes[0].generate(40) # let auction end
 
         auction = self.nodes[0].listauctionhistory(account)[0]
@@ -212,7 +212,7 @@ class LoanTest (DefiTestFramework):
         assert_equal(auction['auctionBid'], "515.00000000@TSLA")
         assert_equal(auction['auctionWon'].sort(), ['399.99999600@DFI', '399.99999600@DFI'].sort())
 
-        self.nodes[0].bidauction(vaultId1, 0, account, "259@TSLA")
+        self.nodes[0].placeauctionbid(vaultId1, 0, account, "259@TSLA")
         self.nodes[0].generate(40) # let auction end
 
         auctions = self.nodes[0].listauctionhistory()

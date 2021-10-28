@@ -183,7 +183,7 @@ class AuctionsTest (DefiTestFramework):
         assert_equal(vault2["batches"][0]["collaterals"], ['49.99999980@DFI', '49.99999980@BTC'])
         assert_equal(vault2["batches"][1]["collaterals"], ['10.00000020@DFI', '10.00000020@BTC'])
 
-        self.nodes[0].bidauction(vaultId2, 0, account, "59.41@TSLA")
+        self.nodes[0].placeauctionbid(vaultId2, 0, account, "59.41@TSLA")
 
         self.nodes[0].generate(34) # let auction end
 
@@ -226,7 +226,7 @@ class AuctionsTest (DefiTestFramework):
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(12) # let price update and trigger liquidation of vault
 
-        self.nodes[0].bidauction(vaultId3, 0, account, "54.46@TSLA")
+        self.nodes[0].placeauctionbid(vaultId3, 0, account, "54.46@TSLA")
         self.nodes[0].generate(31) # let auction end
         vault3 = self.nodes[0].getvault(vaultId3)
         assert_equal(vault3["state"], "active")
@@ -264,7 +264,7 @@ class AuctionsTest (DefiTestFramework):
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(12) # let price update and trigger liquidation of vault
 
-        self.nodes[0].bidauction(vaultId4, 0, account, "7.92@TSLA")
+        self.nodes[0].placeauctionbid(vaultId4, 0, account, "7.92@TSLA")
         self.nodes[0].generate(31) # let auction end
 
         vault4 = self.nodes[0].getvault(vaultId4)
@@ -312,9 +312,9 @@ class AuctionsTest (DefiTestFramework):
         vault5 = self.nodes[0].getvault(vaultId5)
         assert_equal(len(vault5["batches"]), 5)
 
-        self.nodes[0].bidauction(vaultId5, 0, account, "29.70@TSLA")
+        self.nodes[0].placeauctionbid(vaultId5, 0, account, "29.70@TSLA")
         self.nodes[0].generate(1)
-        self.nodes[0].bidauction(vaultId5, 4, account, "10@TSLA")
+        self.nodes[0].placeauctionbid(vaultId5, 4, account, "10@TSLA")
         self.nodes[0].generate(1)
 
         self.nodes[0].generate(32) # let auction end

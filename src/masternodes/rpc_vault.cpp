@@ -847,10 +847,10 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-UniValue bidauction(const JSONRPCRequest& request) {
+UniValue placeauctionbid(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
-    RPCHelpMan{"bidauction",
+    RPCHelpMan{"placeauctionbid",
                "Bid to vault in auction\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
@@ -873,9 +873,9 @@ UniValue bidauction(const JSONRPCRequest& request) {
                     "\"txid\"                  (string) The transaction id.\n"
                },
                RPCExamples{
-                       HelpExampleCli("bidauction",
+                       HelpExampleCli("placeauctionbid",
                         "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 100@TSLA") +
-                       HelpExampleRpc("bidauction",
+                       HelpExampleRpc("placeauctionbid",
                         "84b22eee1964768304e624c416f29a91d78a01dc5e8e12db26bdac0670c67bb2i 0 mwSDMvn1Hoc8DsoB7AkLv7nxdrf5Ja4jsF 1@DTSLA")
                },
     }.Check(request);
@@ -1146,7 +1146,7 @@ static const CRPCCommand commands[] =
     {"vault",        "updatevault",               &updatevault,           {"id", "parameters", "inputs"}},
     {"vault",        "deposittovault",            &deposittovault,        {"id", "from", "amount", "inputs"}},
     {"vault",        "withdrawfromvault",         &withdrawfromvault,     {"id", "to", "amount", "inputs"}},
-    {"vault",        "bidauction",                &bidauction,            {"id", "index", "from", "amount", "inputs"}},
+    {"vault",        "placeauctionbid",                &placeauctionbid,            {"id", "index", "from", "amount", "inputs"}},
     {"vault",        "listauctions",              &listauctions,          {"pagination"}},
     {"vault",        "listauctionhistory",        &listauctionhistory,    {"owner", "pagination"}},
 };
