@@ -40,6 +40,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "masternodes/govvariables/lp_daily_dfi_reward -> masternodes/gv -> masternodes/govvariables/lp_daily_dfi_reward"
     "masternodes/govvariables/lp_daily_dfi_reward -> masternodes/masternodes -> validation -> masternodes/govvariables/lp_daily_dfi_reward"
     "masternodes/govvariables/oracle_block_interval -> masternodes/gv -> masternodes/govvariables/oracle_block_interval"
+    "masternodes/govvariables/oracle_block_interval -> masternodes/masternodes -> masternodes/mn_checks -> masternodes/govvariables/oracle_block_interval"
     "masternodes/govvariables/oracle_deviation -> masternodes/gv -> masternodes/govvariables/oracle_deviation"
     "masternodes/govvariables/lp_splits -> masternodes/gv -> masternodes/govvariables/lp_splits"
     "masternodes/masternodes -> masternodes/oracles -> masternodes/masternodes"
