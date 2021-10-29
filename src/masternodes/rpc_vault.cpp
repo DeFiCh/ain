@@ -175,7 +175,7 @@ namespace {
         result.pushKV("collateralValue", collValue);
         result.pushKV("loanValue", loanValue);
         result.pushKV("interestValue", interestValue);
-        result.pushKV("currentRatio", ratioValue);
+        result.pushKV("informativeRatio", ratioValue);
         return result;
     }
 }
