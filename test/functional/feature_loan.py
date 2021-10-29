@@ -181,7 +181,7 @@ class LoanTest (DefiTestFramework):
         account2Bal = self.nodes[0].getaccount(account2)
         accountBal = self.nodes[0].getaccount(account)
         vault1 = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault1['state'], "inliquidation")
+        assert_equal(vault1['state'], "inLiquidation")
         assert_equal(vault1['liquidationHeight'], 469)
         assert_equal(vault1['liquidationPenalty'], Decimal('5.00000000'))
         assert_equal(vault1['batchCount'], 2)
