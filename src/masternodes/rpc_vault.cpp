@@ -122,7 +122,7 @@ namespace {
             return result;
         }
 
-        UniValue ratioValue{0}, collValue{0}, loanValue{0}, interestValue{0};
+        UniValue ratioValue{0}, collValue{0}, loanValue{0}, interestValue{0}, collateralRatio{0};
 
         auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
         if (!collaterals)
@@ -136,6 +136,7 @@ namespace {
             collValue = ValueFromUint(rate.val->totalCollaterals);
             loanValue = ValueFromUint(rate.val->totalLoans);
             ratioValue = ValueFromAmount(rate.val->precisionRatio());
+            collateralRatio = int(rate.val->ratio());            
         }
 
         UniValue loanBalances{UniValue::VARR};
@@ -176,6 +177,7 @@ namespace {
         result.pushKV("loanValue", loanValue);
         result.pushKV("interestValue", interestValue);
         result.pushKV("informativeRatio", ratioValue);
+        result.pushKV("collateralRatio", collateralRatio);
         return result;
     }
 }
