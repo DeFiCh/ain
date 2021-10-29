@@ -335,9 +335,7 @@ void CLoanView::ForEachLoanToken(std::function<bool(const CVaultId&, const CBala
 bool CLoanView::VaultHasLoan(const CVaultId& vaultId)
 {
     auto it = LowerBound<LoanTokenAmount>(vaultId);
-    if (it.Valid() && it.Key() == vaultId)
-        return true;
-    return false;
+    return (it.Valid() && it.Key() == vaultId);
 }
 
 Res CLoanView::SetLoanLiquidationPenalty(CAmount penalty)
