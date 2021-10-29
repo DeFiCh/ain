@@ -1,11 +1,10 @@
-mod chain_params_base;
 mod commands;
 
 use anyhow::Result;
-use chain_params_base::Chain;
+use chain_params::Chain;
 use commands::{
-    AuctionBidCmd, CreateAuctionCmd, CreateCollateralTokenCmd, CreateLoanSchemeCmd,
-    CreateLoanTokenCmd, CreateVaultCmd, RefreshOraclesCmd,
+    AddPoolLiquidityCmd, AuctionBidCmd, CreateAuctionCmd, CreateCollateralTokenCmd,
+    CreateLoanSchemeCmd, CreateLoanTokenCmd, CreateVaultCmd, RefreshOraclesCmd,
 };
 use defi_rpc::Client;
 use structopt::StructOpt;
@@ -25,7 +24,7 @@ pub struct Opt {
         short,
         long,
         default_value = "regtest",
-        possible_values = &["main", "testnet", "regtest", "devnet"]
+        possible_values = &["mainnet", "testnet", "regtest", "devnet"]
       )]
     pub chain: Chain,
     #[structopt(subcommand)]
@@ -42,6 +41,7 @@ pub enum Command {
     CreateVault(CreateVaultCmd),
     AuctionBid(AuctionBidCmd),
     RefreshOracles(RefreshOraclesCmd),
+    AddPoolLiquidity(AddPoolLiquidityCmd),
 }
 
 fn main() -> Result<()> {
@@ -66,5 +66,6 @@ fn main() -> Result<()> {
         Command::CreateVault(cmd) => cmd.run(&client),
         Command::AuctionBid(cmd) => cmd.run(&client),
         Command::RefreshOracles(cmd) => cmd.run(&client),
+        Command::AddPoolLiquidity(cmd) => cmd.run(&client),
     }
 }
