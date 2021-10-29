@@ -942,9 +942,11 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
                 return std::move(priceFeed);
             if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation()))
                 return Res::Err("No live fixed prices for %s/%s", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
+            auto price = priceFeed.val->priceRecord[int(useNextPrice)];
+            if (price <= 0)
+                return Res::Err("Negative price (%s/%s)", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
             LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
             auto value = loan.second + TotalInterest(*rate, height);
-            auto price = priceFeed.val->priceRecord[int(useNextPrice)];
             auto amount = MultiplyAmounts(price, value);
             if (price > COIN && amount < value)
                 return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(value), GetDecimaleString(price));
@@ -967,6 +969,8 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
         if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation()))
             return Res::Err("No live fixed prices for %s/%s", collToken->fixedIntervalPriceId.first, collToken->fixedIntervalPriceId.second);
         auto price = priceFeed.val->priceRecord[int(useNextPrice)];
+        if (price <= 0)
+            return Res::Err("Negative price (%s/%s)", collToken->fixedIntervalPriceId.first, collToken->fixedIntervalPriceId.second);
         auto amount = MultiplyAmounts(price, col.second);
         if (price > COIN && amount < col.second)
             return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(price));
