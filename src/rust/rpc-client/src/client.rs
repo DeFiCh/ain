@@ -4,7 +4,7 @@ use std::fmt;
 
 /// Client implements a JSON-RPC client for the DeFiChain daemon.
 pub struct Client {
-    pub client: jsonrpc::client::Client,
+    client: jsonrpc::client::Client,
     pub network: String,
 }
 

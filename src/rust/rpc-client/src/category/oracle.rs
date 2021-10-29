@@ -37,7 +37,7 @@ pub struct ListFixedIntervalPriceData {
     pub active_price: f64,
     pub next_price: f64,
     pub timestamp: u64,
-    pub is_valid: bool,
+    pub is_live: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -47,7 +47,7 @@ pub struct GetFixedIntervalPriceData {
     pub active_price: f64,
     pub next_price: f64,
     pub timestamp: u64,
-    pub is_valid: bool,
+    pub is_live: bool,
     pub active_price_block: u64,
     pub next_price_block: u64,
 }
@@ -139,9 +139,11 @@ mod test {
     #[test]
     fn create_and_remove_oracle() -> Result<()> {
         let client = Client::from_env()?;
-        let oracle_id = client.create_oracle("DFI", 1.);
-        assert!(oracle_id.is_ok());
-        client.remove_oracle(&oracle_id.unwrap())?;
+        if client.network == "regtest" {
+            let oracle_id = client.create_oracle("DFI", 1.);
+            assert!(oracle_id.is_ok());
+            client.remove_oracle(&oracle_id.unwrap())?;
+        }
         Ok(())
     }
 }

@@ -71,13 +71,13 @@ impl Client {
         &self,
         address: &str,
         symbol: (&str, &str),
-        amount: (u32, u32),
+        amount: (f64, f64),
     ) -> Result<String> {
         self.call::<String>(
             "addpoolliquidity",
             &[
                 json!({
-                    "*": [format!("{}@{}", amount.0, symbol.0), format!("{}@{}", amount.1, symbol.1)]
+                    "*": [format!("{:.8}@{}", amount.0, symbol.0), format!("{:.8}@{}", amount.1, symbol.1)]
                 }),
                 address.into(),
             ],

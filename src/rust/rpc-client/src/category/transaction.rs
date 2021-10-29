@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct TransactionResult {
     pub amount: f64,
     pub fee: f64,
-    pub confirmations: u64,
+    pub confirmations: i64,
     pub trusted: Option<bool>,
     pub blockhash: Option<String>,
     pub blockindex: Option<u64>,
@@ -34,14 +34,16 @@ pub struct Detail {
 }
 
 impl Client {
-    pub fn await_n_confirmations(&self, tx_hash: &str, n_confirmations: u64) -> Result<()> {
-        for _ in 0..132 {
-            // 132 * 5 == 11min. Max duration for a tx to be confirmed
+    pub fn await_n_confirmations(&self, tx_hash: &str, n_confirmations: i64) -> Result<()> {
+        for i in 0..1320 {
             let tx_info = self.call::<TransactionResult>("gettransaction", &[tx_hash.into()])?;
             if tx_info.confirmations < n_confirmations {
-                std::thread::sleep(std::time::Duration::from_secs(5));
+                std::thread::sleep(std::time::Duration::from_secs(1));
             } else {
                 return Ok(());
+            }
+            if i % 60 == 0 {
+                println!("Been waiting on tx {} for {} seconds...", tx_hash, i);
             }
         }
         Err(anyhow!(

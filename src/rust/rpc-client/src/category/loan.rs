@@ -38,11 +38,31 @@ pub struct TokenIdSymbol {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+// #[serde(rename_all = "camelCase")]
 pub struct GetLoanInfoResult {
-    pub loan_schemes: Vec<LoanSchemeId>,
-    pub collateral_tokens: Vec<TokenIdSymbol>,
-    pub loan_tokens: Vec<TokenIdSymbol>,
+    pub currentpriceblock: i64,
+    pub nextpriceblock: i64,
+    pub defaults: LoanInfoDefaults,
+    pub totals: LoanInfoTotals,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoanInfoDefaults {
+    pub scheme: String,
+    pub maxpricedeviationpct: f32,
+    pub minoraclesperprice: u32,
+    pub fixedintervalblocks: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoanInfoTotals {
+    pub schemes: u32,
+    pub collateraltokens: u32,
+    pub collateralvalueinusd: f64,
+    pub loantokens: u32,
+    pub loanvalueinusd: f64,
+    pub openvaults: u32,
+    pub openauctions: u32,
 }
 
 impl Client {
@@ -51,6 +71,10 @@ impl Client {
             .into_iter()
             .find(|scheme| scheme.default == true)
             .context("Could not get default loan scheme")
+    }
+
+    pub fn get_loan_scheme(&self, scheme_id: &str) -> Result<LoanScheme> {
+        self.call::<LoanScheme>("getloanscheme", &[scheme_id.into()])
     }
 
     pub fn set_default_loan_schemes(&self, scheme_id: &str) -> Result<LoanScheme> {
@@ -94,17 +118,13 @@ impl Client {
         )
     }
 
-    pub fn set_collateral_tokens(&self, tokens: &[&str]) -> Result<()> {
-        for &token in tokens {
-            self.create_token(token)?;
-            let data = json!({
-                "token": token,
-                "factor": 1,
-                "fixedIntervalPriceId": format!("{}/USD", token)
-            });
-            self.call::<String>("setcollateraltoken", &[data])?;
-        }
-        Ok(())
+    pub fn set_collateral_tokens(&self, token: &str) -> Result<String> {
+        let data = json!({
+            "token": token,
+            "factor": 1,
+            "fixedIntervalPriceId": format!("{}/USD", token)
+        });
+        self.call::<String>("setcollateraltoken", &[data])
     }
 
     pub fn list_collateral_tokens(&self) -> Result<ListCollateralToken> {
@@ -150,8 +170,11 @@ mod test {
     #[test]
     fn get_default_loan_scheme() -> Result<()> {
         let client = Client::from_env()?;
-        let loan_scheme = client.get_default_loan_scheme()?;
-        assert_eq!(loan_scheme.default, true);
+        let list_loan_schemes = client.list_loan_schemes()?;
+        if list_loan_schemes.len() > 0 {
+            let loan_scheme = client.get_default_loan_scheme()?;
+            assert_eq!(loan_scheme.default, true);
+        }
         Ok(())
     }
 
@@ -159,13 +182,6 @@ mod test {
     fn get_loan_info() -> Result<()> {
         let client = Client::from_env()?;
         client.get_loan_info()?;
-        Ok(())
-    }
-
-    #[test]
-    fn get_collateral_token() -> Result<()> {
-        let client = Client::from_env()?;
-        client.get_collateral_token("DFI")?;
         Ok(())
     }
 }
