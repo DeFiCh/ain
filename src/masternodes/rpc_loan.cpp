@@ -907,7 +907,7 @@ UniValue destroyloanscheme(const JSONRPCRequest& request) {
 UniValue listloanschemes(const JSONRPCRequest& request) {
 
     RPCHelpMan{"listloanschemes",
-               "List all available loan schemes\n",
+               "List all available loan schemes.\n",
                {},
                RPCResult{
                        "[                         (json array of objects)\n"
@@ -963,7 +963,7 @@ UniValue listloanschemes(const JSONRPCRequest& request) {
 UniValue getloanscheme(const JSONRPCRequest& request) {
 
     RPCHelpMan{"getloanscheme",
-               "Sets the default loan scheme.\n",
+               "Returns information about loan scheme.\n",
                {
                     {"id", RPCArg::Type::STR, RPCArg::Optional::NO, "Unique identifier of the loan scheme (8 chars max)."},
                },

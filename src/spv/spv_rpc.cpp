@@ -1163,7 +1163,7 @@ UniValue spv_fundaddress(const JSONRPCRequest& request)
             {"address", RPCArg::Type::NUM, RPCArg::Optional::NO, "Bitcoin address to fund"},
         },
         RPCResult{
-            "\"txid\"                  (string) The transaction id.\n"
+            "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
         },
         RPCExamples{
             HelpExampleCli("spv_fundaddress", "\"address\"")
