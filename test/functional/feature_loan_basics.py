@@ -255,7 +255,7 @@ class LoanTakeLoanTest (DefiTestFramework):
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['1.00000114@' + symbolTSLA, '2.00000266@' + symbolGOOGL]))
         assert_equal(sorted(vaultInfo['interestAmounts']), sorted(['0.00000266@GOOGL','0.00000114@TSLA']))
-        assert_equal(vaultInfo['interestValueUSD'], Decimal('0.00003800'))
+        assert_equal(vaultInfo['interestValue'], Decimal('0.00003800'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2'))
 
@@ -329,7 +329,7 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(sorted(vaultInfo['loanAmounts']), sorted(['1.00000456@' + symbolTSLA, '2.00001064@' + symbolGOOGL]))
-        assert_equal(vaultInfo['interestValueUSD'], Decimal('0.00015200'))
+        assert_equal(vaultInfo['interestValue'], Decimal('0.00015200'))
         assert_equal(sorted(vaultInfo['interestAmounts']), sorted(['0.00001064@GOOGL','0.00000456@TSLA']))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idTSLA], Decimal('1.00000000'))
         assert_equal(self.nodes[0].getaccount(account0, {}, True)[idGOOGL], Decimal('2.00000000'))
@@ -410,8 +410,8 @@ class LoanTakeLoanTest (DefiTestFramework):
 
         vaultInfo = self.nodes[0].getvault(vaultId)
         assert_equal(vaultInfo['collateralAmounts'], [])
-        assert_equal(vaultInfo['collateralValueUSD'], Decimal('0.00000000'))
-        assert_equal(vaultInfo['loanValueUSD'], Decimal('0.00000000'))
+        assert_equal(vaultInfo['collateralValue'], Decimal('0.00000000'))
+        assert_equal(vaultInfo['loanValue'], Decimal('0.00000000'))
 
 if __name__ == '__main__':
     LoanTakeLoanTest().main()
