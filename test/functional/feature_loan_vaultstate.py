@@ -163,8 +163,8 @@ class VaultStateTest (DefiTestFramework):
 
         vault1 = self.nodes[0].getvault(vaultId1)
         listvaults = self.nodes[0].listvaults()
-        assert_equal(vault1["state"], "inliquidation")
-        assert_equal(listvaults[0]["state"], "inliquidation")
+        assert_equal(vault1["state"], "inLiquidation")
+        assert_equal(listvaults[0]["state"], "inLiquidation")
 
         auctionlist = self.nodes[0].listauctions()
         assert_equal(auctionlist[0]["liquidationHeight"], 570)
@@ -192,8 +192,8 @@ class VaultStateTest (DefiTestFramework):
 
         vault1 = self.nodes[0].getvault(vaultId1)
         listvaults = self.nodes[0].listvaults()
-        assert_equal(vault1["state"], "mayliquidate")
-        assert_equal(listvaults[0]["state"], "mayliquidate")
+        assert_equal(vault1["state"], "mayLiquidate")
+        assert_equal(listvaults[0]["state"], "mayLiquidate")
 
         self.nodes[0].generate(6) # let vault enter liquidation state
 
@@ -204,8 +204,8 @@ class VaultStateTest (DefiTestFramework):
 
         vault1 = self.nodes[0].getvault(vaultId1)
         listvaults = self.nodes[0].listvaults()
-        assert_equal(vault1["state"], "inliquidation")
-        assert_equal(listvaults[0]["state"], "inliquidation")
+        assert_equal(vault1["state"], "inLiquidation")
+        assert_equal(listvaults[0]["state"], "inLiquidation")
 
 if __name__ == '__main__':
     VaultStateTest().main()

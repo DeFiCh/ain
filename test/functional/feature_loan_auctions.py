@@ -179,7 +179,7 @@ class AuctionsTest (DefiTestFramework):
         self.nodes[0].setoracledata(oracle_id1, timestamp, oracle1_prices)
         self.nodes[0].generate(12) # let price update and trigger liquidation of vault
         vault2 = self.nodes[0].getvault(vaultId2)
-        assert_equal(vault2["state"], "inliquidation")
+        assert_equal(vault2["state"], "inLiquidation")
         assert_equal(vault2["batches"][0]["collaterals"], ['49.99999980@DFI', '49.99999980@BTC'])
         assert_equal(vault2["batches"][1]["collaterals"], ['10.00000020@DFI', '10.00000020@BTC'])
 
@@ -192,7 +192,7 @@ class AuctionsTest (DefiTestFramework):
         assert_equal(vault2["state"], "active")
         assert_equal(interest[0]["interestPerBlock"], Decimal(vault2["interestAmounts"][0].split('@')[0]))
         assert_greater_than(Decimal(vault2["collateralAmounts"][0].split('@')[0]), Decimal(10.00000020))
-        assert_equal(vault2["currentRatio"], 265)
+        assert_equal(vault2["collateralRatio"], 265)
         self.nodes[0].paybackloan({
                     'vaultId': vaultId2,
                     'from': account,

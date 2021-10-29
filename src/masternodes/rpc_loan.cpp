@@ -1257,14 +1257,14 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto totalCollateralTokens = static_cast<int>(listcollateraltokens(request).size());
 
     totalsObj.pushKV("schemes", totalLoanSchemes);
-    totalsObj.pushKV("collateraltokens", totalCollateralTokens);
-    totalsObj.pushKV("collateralvalueinusd", ValueFromUint(totalCollateralValue));
+    totalsObj.pushKV("collateralTokens", totalCollateralTokens);
+    totalsObj.pushKV("collateralValueUSD", ValueFromUint(totalCollateralValue));
     auto totalLoanTokens = static_cast<int>(listloantokens(request).size());
-    totalsObj.pushKV("loantokens", totalLoanTokens);
-    totalsObj.pushKV("loanvalueinusd", ValueFromUint(totalLoanValue));
-    totalsObj.pushKV("openvaults", totalVaults);
+    totalsObj.pushKV("loanTokens", totalLoanTokens);
+    totalsObj.pushKV("loanValueUSD", ValueFromUint(totalLoanValue));
+    totalsObj.pushKV("openVaults", totalVaults);
     auto totalAuctions = static_cast<int>(listauctions(request).size());
-    totalsObj.pushKV("openauctions", totalAuctions);
+    totalsObj.pushKV("openAuctions", totalAuctions);
 
     UniValue defaultsObj{UniValue::VOBJ};
     auto defaultScheme = pcustomcsview->GetDefaultLoanScheme();
@@ -1272,15 +1272,15 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
         defaultsObj.pushKV("scheme", "");
     else
         defaultsObj.pushKV("scheme", *defaultScheme);
-    defaultsObj.pushKV("maxpricedeviationpct", ValueFromUint(pcustomcsview->GetPriceDeviation() * 100));
+    defaultsObj.pushKV("maxPriceDeviation", ValueFromUint(pcustomcsview->GetPriceDeviation() * 100));
     auto minLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
-    defaultsObj.pushKV("minoraclesperprice", minLiveOracles);
-    defaultsObj.pushKV("fixedintervalblocks", int(pcustomcsview->GetIntervalBlock()));
+    defaultsObj.pushKV("minOraclesPerPrice", minLiveOracles);
+    defaultsObj.pushKV("fixedIntervalBlocks", int(pcustomcsview->GetIntervalBlock()));
 
 
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
-    ret.pushKV("currentpriceblock", (int)priceBlocks.first);
-    ret.pushKV("nextpriceblock", (int)priceBlocks.second);
+    ret.pushKV("currentPriceBlock", (int)priceBlocks.first);
+    ret.pushKV("nextPriceBlock", (int)priceBlocks.second);
     ret.pushKV("defaults", defaultsObj);
     ret.pushKV("totals", totalsObj);
 
