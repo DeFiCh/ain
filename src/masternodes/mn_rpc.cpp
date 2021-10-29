@@ -535,7 +535,7 @@ UniValue setgovheight(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"setgovheight",
-               "\nChange governance variable at height: ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_BLOCK_INTERVAL, ORACLE_DEVIATION\n",
+               "\nChange governance variable at height: ICX_TAKERFEE_PER_BTC, LP_LOAN_TOKEN_SPLITS, LP_SPLITS, ORACLE_DEVIATION\n",
                {
                        {"variables", RPCArg::Type::OBJ, RPCArg::Optional::NO, "Object with variable",
                         {
