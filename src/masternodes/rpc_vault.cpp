@@ -212,8 +212,10 @@ UniValue createvault(const JSONRPCRequest& request) {
                 },
                 RPCExamples{
                    HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv") +
+                   HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv \"\"") +
                    HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv LOAN0001") +
                    HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv") +
+                   HelpExampleCli("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv, \"\"") +
                    HelpExampleRpc("createvault", "2MzfSNCkjgCbNLen14CYrVtwGomfDA5AGYv, LOAN0001")
                 },
     }.Check(request);
@@ -368,7 +370,7 @@ UniValue closevault(const JSONRPCRequest& request) {
 UniValue listvaults(const JSONRPCRequest& request) {
 
     RPCHelpMan{"listvaults",
-               "List all available vaults\n",
+               "List all available vaults.\n",
                {
                     {
                        "options", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
@@ -383,7 +385,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
                             },
                             {
                                 "state", RPCArg::Type::STR, RPCArg::Optional::OMITTED,
-                                "Wether the vault is under a given state. (default = 'Collateralized')"
+                                "Wether the vault is under a given state. (default = 'unknown')"
                             },
                         },
                     },
@@ -495,7 +497,7 @@ UniValue listvaults(const JSONRPCRequest& request) {
 UniValue getvault(const JSONRPCRequest& request) {
 
     RPCHelpMan{"getvault",
-               "Returns information about vault\n",
+               "Returns information about vault.\n",
                 {
                     {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "vault hex id",},
                 },
@@ -526,7 +528,7 @@ UniValue updatevault(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"updatevault",
-               "\nCreates (and submits to local node and network) a `update vault transaction`, \n"
+               "\nCreates (and submits to local node and network) an `update vault transaction`, \n"
                "and saves vault updates to database.\n"
                "The last optional argument (may be empty array) is an array of specific UTXOs to spend." +
                HelpRequiringPassphrase(pwallet) + "\n",
@@ -661,7 +663,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"deposittovault",
-               "Deposit collateral token amount to vault\n" +
+               "Deposit collateral token amount to vault.\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                     {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vault id"},
@@ -679,7 +681,7 @@ UniValue deposittovault(const JSONRPCRequest& request) {
                     }
                },
                RPCResult{
-                    "\"txid\"                  (string) The transaction id.\n"
+                    "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
                        HelpExampleCli("deposittovault",
@@ -747,7 +749,7 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"withdrawfromvault",
-               "Withdraw collateral token amount from vault\n" +
+               "Withdraw collateral token amount from vault.\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                     {"vaultId", RPCArg::Type::STR, RPCArg::Optional::NO, "Vault id"},
@@ -765,7 +767,7 @@ UniValue withdrawfromvault(const JSONRPCRequest& request) {
                     }
                },
                RPCResult{
-                    "\"txid\"                  (string) The transaction id.\n"
+                    "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
                        HelpExampleCli("withdrawfromvault",
@@ -845,7 +847,7 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{"placeauctionbid",
-               "Bid to vault in auction\n" +
+               "Bid to vault in auction.\n" +
                HelpRequiringPassphrase(pwallet) + "\n",
                {
                     {"vaultId", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Vault id"},
@@ -864,7 +866,7 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
                     }
                },
                RPCResult{
-                    "\"txid\"                  (string) The transaction id.\n"
+                    "\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"
                },
                RPCExamples{
                        HelpExampleCli("placeauctionbid",
@@ -927,7 +929,7 @@ UniValue placeauctionbid(const JSONRPCRequest& request) {
 UniValue listauctions(const JSONRPCRequest& request) {
 
     RPCHelpMan{"listauctions",
-               "List all available auctions\n",
+               "List all available auctions.\n",
                {
                    {
                        "pagination", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
