@@ -853,7 +853,9 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView& view, const std::string& token,
         return Res::Err("all live oracles which meet specified request, have zero weight");
     }
 
-    return ResVal<CAmount>((weightedSum / arith_uint256(sumWeights)).GetLow64(), Res::Ok());
+    ResVal<CAmount> res((weightedSum / arith_uint256(sumWeights)).GetLow64(), Res::Ok());
+    LogPrint(BCLog::LOAN, "%s(): %s/%s=%lld\n", __func__, token, currency, *res.val);
+    return res;
 }
 
 namespace {
@@ -1043,6 +1045,7 @@ UniValue getfixedintervalprice(const JSONRPCRequest& request) {
     auto pairId = DecodePriceFeedUni(objPrice);
 
     LOCK(cs_main);
+    LogPrint(BCLog::ORACLE,"%s()->", __func__);  /* Continued */
     auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
     if(!fixedPrice)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
