@@ -126,7 +126,7 @@ public:
         consensus.EunosHeight = 894000; // 3rd June 2021
         consensus.EunosKampungHeight = 895743;
         consensus.EunosPayaHeight = 1072000; // Aug 05, 2021.
-        consensus.FortCanningHeight = std::numeric_limits<int>::max();
+        consensus.FortCanningHeight = 1367000; // Nov 15, 2021.
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
