@@ -993,10 +993,17 @@ UniValue getloanscheme(const JSONRPCRequest& request) {
     if (!loanScheme)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot find existing loan scheme with id " + loanSchemeId);
 
+    auto defaultLoan = pcustomcsview->GetDefaultLoanScheme();
+
     UniValue result{UniValue::VOBJ};
     result.pushKV("id", loanSchemeId);
     result.pushKV("mincolratio", static_cast<uint64_t>(loanScheme->ratio));
     result.pushKV("interestrate", ValueFromAmount(loanScheme->rate));
+    if (defaultLoan && *defaultLoan == loanSchemeId) {
+        result.pushKV("default", true);
+    } else {
+        result.pushKV("default", false);
+    }
 
     return result;
 }
