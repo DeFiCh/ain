@@ -1352,7 +1352,6 @@ public:
             }
             // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
             if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
-                auto intervalVar = dynamic_cast<ORACLE_BLOCK_INTERVAL*>(var.get());
                 const auto diff = height % mnview.GetIntervalBlock();
                 if (diff != 0) {
                     // Store as pending change
