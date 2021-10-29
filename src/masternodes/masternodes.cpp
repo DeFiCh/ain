@@ -897,6 +897,26 @@ bool CCustomCSView::CalculateOwnerRewards(CScript const & owner, uint32_t target
     return UpdateBalancesHeight(owner, targetHeight);
 }
 
+double CCollateralLoans::calcRatio(uint64_t maxRatio) const
+{
+    return !totalLoans ? double(maxRatio) : double(totalCollaterals) / totalLoans;
+}
+
+uint32_t CCollateralLoans::ratio() const
+{
+    constexpr auto maxRatio = std::numeric_limits<uint32_t>::max();
+    auto ratio = calcRatio(maxRatio) * 100;
+    return ratio > maxRatio ? maxRatio : uint32_t(lround(ratio));
+}
+
+CAmount CCollateralLoans::precisionRatio() const
+{
+    constexpr auto maxRatio = std::numeric_limits<CAmount>::max();
+    auto ratio = calcRatio(maxRatio);
+    const auto precision = COIN * 100;
+    return ratio > maxRatio / precision ? -COIN : CAmount(ratio * precision);
+}
+
 ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vaultId, CBalances const& collaterals, uint32_t height, int64_t blockTime, bool useNextPrice, bool requireLivePrice)
 {
     auto vault = GetVault(vaultId);
