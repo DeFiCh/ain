@@ -23,9 +23,9 @@ namespace {
             case VaultState::Frozen:
                 return "frozen";
             case VaultState::InLiquidation:
-                return "inliquidation";
+                return "inLiquidation";
             case VaultState::MayLiquidate:
-                return "mayliquidate";
+                return "mayLiquidate";
             case VaultState::Unknown:
                 return "unknown";
         }
@@ -35,8 +35,8 @@ namespace {
     {
         if (stateStr == "active") return VaultState::Active;
         if (stateStr == "frozen") return VaultState::Frozen;
-        if (stateStr == "inliquidation") return VaultState::InLiquidation;
-        if (stateStr == "mayliquidate") return VaultState::MayLiquidate;
+        if (stateStr == "inLiquidation") return VaultState::InLiquidation;
+        if (stateStr == "mayLiquidate") return VaultState::MayLiquidate;
         return VaultState::Unknown;
     }
 
