@@ -39,6 +39,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "auction-bot"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chain-params",
+ "defi-rpc",
+ "serde_json",
+ "structopt",
+]
+
+[[package]]
 name = "base64-compat"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -82,6 +93,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
+name = "chain-params"
+version = "0.1.0"
+
+[[package]]
 name = "clap"
 version = "2.33.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -97,30 +112,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "defi-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "defi-rpc",
- "structopt",
-]
-
-[[package]]
 name = "defi-rpc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "jsonrpc",
  "serde",
- "serde_json",
-]
-
-[[package]]
-name = "defi-test"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "defi-rpc",
  "serde_json",
 ]
 
@@ -588,6 +585,7 @@ name = "test-loan-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chain-params",
  "defi-rpc",
  "serde_json",
  "structopt",

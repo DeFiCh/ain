@@ -1,9 +1,9 @@
 [workspace]
 
 members = [
-    "cli",
     "evm",
     "rpc-client",
-    "tests",
-    "test-loan-cli"
+    "test-loan-cli",
+    "auction-bot",
+    "chain-params"
 ]
