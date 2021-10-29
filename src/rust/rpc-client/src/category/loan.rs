@@ -38,31 +38,35 @@ pub struct TokenIdSymbol {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-// #[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct GetLoanInfoResult {
-    pub currentpriceblock: i64,
-    pub nextpriceblock: i64,
+    pub current_price_block: i64,
+    pub next_price_block: i64,
     pub defaults: LoanInfoDefaults,
     pub totals: LoanInfoTotals,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LoanInfoDefaults {
     pub scheme: String,
-    pub maxpricedeviationpct: f32,
-    pub minoraclesperprice: u32,
-    pub fixedintervalblocks: u32,
+    pub max_price_deviation_pct: f32,
+    pub min_oracles_per_price: u32,
+    pub fixed_interval_blocks: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LoanInfoTotals {
     pub schemes: u32,
-    pub collateraltokens: u32,
-    pub collateralvalueinusd: f64,
-    pub loantokens: u32,
-    pub loanvalueinusd: f64,
-    pub openvaults: u32,
-    pub openauctions: u32,
+    pub collateral_tokens: u32,
+    #[serde(rename="collateralValueUSD")]
+    pub collateral_value_usd: f64,
+    pub loan_tokens: u32,
+    #[serde(rename="loanValueUSD")]
+    pub loan_value_usd: f64,
+    pub open_vaults: u32,
+    pub open_auctions: u32,
 }
 
 impl Client {
