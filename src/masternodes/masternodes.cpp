@@ -936,13 +936,13 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
                 return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
             if (rate->height > height)
                 return Res::Err("Trying to read loans in the past");
-            LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->", __func__); /* Continued */
+            LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
             auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
             if (!priceFeed)
                 return std::move(priceFeed);
             if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation()))
                 return Res::Err("No live fixed prices for %s/%s", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
-            LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->", __func__); /* Continued */
+            LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->%s->", __func__, token->symbol); /* Continued */
             auto value = loan.second + TotalInterest(*rate, height);
             auto price = priceFeed.val->priceRecord[int(useNextPrice)];
             auto amount = MultiplyAmounts(price, value);
@@ -957,20 +957,21 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
     }
 
     for (const auto& col : collaterals.balances) {
-        auto token = HasLoanSetCollateralToken({col.first, height});
-        if (!token)
+        auto collToken = HasLoanSetCollateralToken({col.first, height});
+        if (!collToken)
             return Res::Err("Collateral token with id (%s) does not exist!", col.first.ToString());
-        LogPrint(BCLog::ORACLE,"\t\t%s()->for_collaterals->", __func__); /* Continued */
-        auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
+        auto token = GetToken(col.first);
+        if (token) LogPrint(BCLog::ORACLE,"\t\t%s()->for_collaterals->%s->", __func__, token->symbol); /* Continued */
+        auto priceFeed = GetFixedIntervalPrice(collToken->fixedIntervalPriceId);
         if (!priceFeed)
             return std::move(priceFeed);
         if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation()))
-            return Res::Err("No live fixed prices for %s/%s", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
+            return Res::Err("No live fixed prices for %s/%s", collToken->fixedIntervalPriceId.first, collToken->fixedIntervalPriceId.second);
         auto price = priceFeed.val->priceRecord[int(useNextPrice)];
         auto amount = MultiplyAmounts(price, col.second);
         if (price > COIN && amount < col.second)
             return Res::Err("Value/price too high (%s/%s)", GetDecimaleString(col.second), GetDecimaleString(price));
-        amount = MultiplyAmounts(token->factor, amount);
+        amount = MultiplyAmounts(collToken->factor, amount);
         auto prevCollaterals = ret.totalCollaterals;
         ret.totalCollaterals += amount;
         if (prevCollaterals > ret.totalCollaterals)

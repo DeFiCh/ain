@@ -210,7 +210,7 @@ CAmount TotalInterest(const CInterestRate& rate, uint32_t height)
 {
     CAmount interest = rate.interestToHeight + ((height - rate.height) * rate.interestPerBlock);
 
-    LogPrint(BCLog::LOAN, "%s(): height %d - interest %lld\n", __func__, height, interest);
+    LogPrint(BCLog::LOAN, "%s(): CInterestRate{.height=%d, .perBlock=%d, .toHeight=%d}, height %d - totalInterest %d\n", __func__, rate.height, rate.interestPerBlock, rate.interestToHeight, height, interest);
     return interest;
 }
 
