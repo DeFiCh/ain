@@ -9,6 +9,7 @@ description = "DeFichain decantralized loans helper CLI"
 
 [dependencies]
 defi-rpc = { path = '../rpc-client' }
+chain-params = { path = '../chain-params' }
 serde_json = "1"
 anyhow = "1.0.44"
 structopt = "0.3"
