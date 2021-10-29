@@ -2011,7 +2011,7 @@ public:
 
         fixedIntervalPrice.priceRecord[1] = price;
         fixedIntervalPrice.timestamp = time;
-        LogPrint(BCLog::LOAN,"CLoanSetCollateralTokenMessage()->"); /* Continued */
+        LogPrint(BCLog::ORACLE,"CLoanSetCollateralTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if(!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
@@ -2037,7 +2037,7 @@ public:
             return Res::Err(nextPrice.msg);
         fixedIntervalPrice.priceRecord[1] = nextPrice;
         fixedIntervalPrice.timestamp = time;
-        LogPrint(BCLog::LOAN,"CLoanSetLoanTokenMessage()->"); /* Continued */
+        LogPrint(BCLog::ORACLE,"CLoanSetLoanTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if(!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
@@ -2532,7 +2532,7 @@ public:
             res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, kv.second);
             if (!res)
                 return res;
-            LogPrint(BCLog::LOAN,"CLoanTakeLoanMessage()->%s->", loanToken->symbol); /* Continued */
+            LogPrint(BCLog::ORACLE,"CLoanTakeLoanMessage()->%s->", loanToken->symbol); /* Continued */
             auto priceFeed = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);

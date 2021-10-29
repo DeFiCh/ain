@@ -916,7 +916,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
                 return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
             if (rate->height > height)
                 return Res::Err("Trying to read loans in the past");
-            LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->", __func__); /* Continued */
+            LogPrint(BCLog::ORACLE,"\t\t%s()->for_loans->", __func__); /* Continued */
             auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
             if (!priceFeed)
                 return std::move(priceFeed);
@@ -940,7 +940,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
         auto token = HasLoanSetCollateralToken({col.first, height});
         if (!token)
             return Res::Err("Collateral token with id (%s) does not exist!", col.first.ToString());
-        LogPrint(BCLog::LOAN,"\t\t%s()->for_collaterals->", __func__); /* Continued */
+        LogPrint(BCLog::ORACLE,"\t\t%s()->for_collaterals->", __func__); /* Continued */
         auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
         if (!priceFeed)
             return std::move(priceFeed);
