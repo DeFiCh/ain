@@ -1242,6 +1242,7 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0;
     pcustomcsview->ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
+        LogPrint(BCLog::LOAN,"getloaninfo()->Vault(%s):\n", vaultId.GetHex());
         auto rate = pcustomcsview->GetLoanCollaterals(vaultId, collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
         if (rate)
         {
@@ -1276,7 +1277,6 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
     auto minLiveOracles = Params().NetworkIDString() == CBaseChainParams::REGTEST ? 1 : 2;
     defaultsObj.pushKV("minoraclesperprice", minLiveOracles);
     defaultsObj.pushKV("fixedintervalblocks", int(pcustomcsview->GetIntervalBlock()));
-
 
     auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
     ret.pushKV("currentpriceblock", (int)priceBlocks.first);
@@ -1326,6 +1326,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
 
     std::map<DCT_ID, std::pair<CAmount, CAmount> > interest;
 
+    LogPrint(BCLog::LOAN,"%s():\n", __func__);
     pcustomcsview->ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate rate)
     {
         auto vault = pcustomcsview->GetVault(vaultId);
@@ -1338,6 +1339,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         if (!token)
             return true;
 
+        LogPrint(BCLog::LOAN,"\t\tVault(%s)->", vaultId.GetHex()); /* Continued */
         interest[tokenId].first += TotalInterest(rate, height);
         interest[tokenId].second += rate.interestPerBlock;
 

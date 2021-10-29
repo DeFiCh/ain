@@ -208,7 +208,10 @@ CAmount InterestPerBlock(CAmount amount, CAmount tokenInterest, CAmount schemeIn
 
 CAmount TotalInterest(const CInterestRate& rate, uint32_t height)
 {
-    return rate.interestToHeight + ((height - rate.height) * rate.interestPerBlock);
+    CAmount interest = rate.interestToHeight + ((height - rate.height) * rate.interestPerBlock);
+
+    LogPrint(BCLog::LOAN, "%s(): height %d - interest %lld\n", __func__, height, interest);
+    return interest;
 }
 
 Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std::string& loanSchemeID, DCT_ID id, CAmount loanIncreased)
@@ -229,6 +232,7 @@ Res CLoanView::StoreInterest(uint32_t height, const CVaultId& vaultId, const std
         return Res::Err("Cannot store height in the past");
     }
     if (rate.height) {
+        LogPrint(BCLog::LOAN,"%s():\n", __func__);
         rate.interestToHeight = TotalInterest(rate, height);
     }
     rate.height = height;
@@ -258,6 +262,7 @@ Res CLoanView::EraseInterest(uint32_t height, const CVaultId& vaultId, const std
     if (rate.height == 0) {
         return Res::Err("Data mismatch height == 0");
     }
+    LogPrint(BCLog::LOAN,"%s():\n", __func__);
     rate.interestToHeight = std::max(CAmount{0}, TotalInterest(rate, height) - interestDecreased);
     rate.height = height;
     rate.interestPerBlock = std::max(CAmount{0}, rate.interestPerBlock - InterestPerBlock(loanDecreased, token->interest, scheme->rate));

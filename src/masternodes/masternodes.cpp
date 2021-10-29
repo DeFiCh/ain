@@ -916,11 +916,13 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
                 return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
             if (rate->height > height)
                 return Res::Err("Trying to read loans in the past");
+            LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->", __func__); /* Continued */
             auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
             if (!priceFeed)
                 return std::move(priceFeed);
             if (requireLivePrice && !priceFeed.val->isLive(GetPriceDeviation()))
                 return Res::Err("No live fixed prices for %s/%s", token->fixedIntervalPriceId.first, token->fixedIntervalPriceId.second);
+            LogPrint(BCLog::LOAN,"\t\t%s()->for_loans->", __func__); /* Continued */
             auto value = loan.second + TotalInterest(*rate, height);
             auto price = priceFeed.val->priceRecord[int(useNextPrice)];
             auto amount = MultiplyAmounts(price, value);
@@ -938,6 +940,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
         auto token = HasLoanSetCollateralToken({col.first, height});
         if (!token)
             return Res::Err("Collateral token with id (%s) does not exist!", col.first.ToString());
+        LogPrint(BCLog::LOAN,"\t\t%s()->for_collaterals->", __func__); /* Continued */
         auto priceFeed = GetFixedIntervalPrice(token->fixedIntervalPriceId);
         if (!priceFeed)
             return std::move(priceFeed);
@@ -955,6 +958,7 @@ ResVal<CCollateralLoans> CCustomCSView::GetLoanCollaterals(CVaultId const& vault
         ret.collaterals.push_back({col.first, amount});
     }
 
+    LogPrint(BCLog::LOAN, "\t\t%s(): totalCollaterals - %lld, totalLoans - %lld, ratio - %d\n",  __func__, ret.totalCollaterals, ret.totalLoans, ret.ratio());
     return ResVal<CCollateralLoans>(ret, Res::Ok());
 }
 

@@ -135,6 +135,7 @@ namespace {
         bool requireLivePrice = vaultState != VaultState::Frozen;
 
         bool useNextPrice = false;
+        LogPrint(BCLog::LOAN,"%s():\n", __func__);
         auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
 
         uint32_t ratio = 0;
@@ -162,6 +163,7 @@ namespace {
                 if (!token) continue;
                 auto rate = pcustomcsview->GetInterestRate(vaultId, loan.first);
                 if (!rate) continue;
+                LogPrint(BCLog::LOAN,"%s()->%s->", __func__, token->symbol); /* Continued */
                 auto totalInterest = TotalInterest(*rate, height + 1);
                 auto value = loan.second + totalInterest;
                 if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {

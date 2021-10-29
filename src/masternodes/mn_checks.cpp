@@ -2004,12 +2004,14 @@ public:
 
         CFixedIntervalPrice fixedIntervalPrice;
         fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
+        LogPrint(BCLog::LOAN, "CLoanSetCollateralTokenMessage()->"); /* Continued */
         auto price = GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
         if(!price)
             return Res::Err(price.msg);
 
         fixedIntervalPrice.priceRecord[1] = price;
         fixedIntervalPrice.timestamp = time;
+        LogPrint(BCLog::LOAN,"CLoanSetCollateralTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if(!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
@@ -2035,6 +2037,7 @@ public:
             return Res::Err(nextPrice.msg);
         fixedIntervalPrice.priceRecord[1] = nextPrice;
         fixedIntervalPrice.timestamp = time;
+        LogPrint(BCLog::LOAN,"CLoanSetLoanTokenMessage()->"); /* Continued */
         auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
         if(!resSetFixedPrice)
             return Res::Err(resSetFixedPrice.msg);
@@ -2366,6 +2369,7 @@ public:
             if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
                 for (int i = 0; i < 2; i++) {
                     bool useNextPrice = i > 0, requireLivePrice = true;
+                    LogPrint(BCLog::LOAN,"CUpdateVaultMessage():\n");
                     auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
@@ -2410,6 +2414,7 @@ public:
 
         bool useNextPrice = false, requireLivePrice = false;
         auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
+        LogPrint(BCLog::LOAN,"CDepositToVaultMessage():\n");
         auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
         if (!collateralsLoans)
             return std::move(collateralsLoans);
@@ -2461,6 +2466,7 @@ public:
                 for (int i = 0; i < 2; i++) {
                     // check collaterals for active and next price
                     bool useNextPrice = i > 0, requireLivePrice = true;
+                    LogPrint(BCLog::LOAN,"CWithdrawFromVaultMessage():\n");
                     auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                     if (!collateralsLoans)
                         return std::move(collateralsLoans);
@@ -2526,7 +2532,7 @@ public:
             res = mnview.StoreInterest(height, obj.vaultId, vault->schemeId, tokenId, kv.second);
             if (!res)
                 return res;
-
+            LogPrint(BCLog::LOAN,"CLoanTakeLoanMessage()->%s->", loanToken->symbol); /* Continued */
             auto priceFeed = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
             if (!priceFeed)
                 return Res::Err(priceFeed.msg);
@@ -2564,6 +2570,7 @@ public:
         for (int i = 0; i < 2; i++) {
             // check ratio against current and active price
             bool useNextPrice = i > 0, requireLivePrice = true;
+            LogPrint(BCLog::LOAN,"CLoanTakeLoanMessage():\n");
             auto collateralsLoans = mnview.GetLoanCollaterals(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
             if (!collateralsLoans)
                 return std::move(collateralsLoans);
@@ -2614,6 +2621,7 @@ public:
             if (!rate)
                 return Res::Err("Cannot get interest rate for this token (%s)!", loanToken->symbol);
 
+            LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
             auto subInterest = TotalInterest(*rate, height);
             auto subLoan = kv.second - subInterest;
 
@@ -2628,7 +2636,7 @@ public:
             res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{kv.first, subLoan});
             if (!res)
                 return res;
-
+            LogPrint(BCLog::LOAN,"CLoanPaybackMessage()->%s->", loanToken->symbol); /* Continued */
             res = mnview.EraseInterest(height, obj.vaultId, vault->schemeId, tokenId, subLoan, subInterest);
             if (!res)
                 return res;
@@ -2646,6 +2654,7 @@ public:
             // burn interest Token->USD->DFI->burnAddress
             if (subInterest)
             {
+                LogPrint(BCLog::LOAN, "CLoanTakeLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n", loanToken->symbol, subInterest, height);
                 res = SwapToDFIOverUSD(mnview, kv.first, subInterest, obj.from, consensus.burnAddress, height);
                 if (!res)
                     return res;
