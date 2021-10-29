@@ -105,21 +105,7 @@ class PriceUpdateTest (DefiTestFramework):
 
         # Create vault
         vaultId1 = self.nodes[0].createvault(account, 'LOAN1') # default loan scheme
-        self.nodes[0].generate(1)
-
-        # deposit DFI and BTC to vault1
-        try:
-            self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("No live fixed prices for DFI/USD" in errorString)
-
-        try:
-            self.nodes[0].deposittovault(vaultId1, account, '1000@BTC')
-        except JSONRPCException as e:
-            errorString = e.error['message']
-        assert("No live fixed prices for BTC/USD" in errorString)
-        self.nodes[0].generate(5)
+        self.nodes[0].generate(6)
 
         self.nodes[0].deposittovault(vaultId1, account, '1000@DFI')
         self.nodes[0].generate(1)
