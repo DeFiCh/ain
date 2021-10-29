@@ -101,7 +101,7 @@ class VaultTest (DefiTestFramework):
         assert_equal(vault1["loanAmounts"], [])
         assert_equal(vault1["collateralValue"], Decimal(0))
         assert_equal(vault1["loanValue"], Decimal(0))
-        assert_equal(vault1["currentRatio"], -1)
+        assert_equal(vault1["currentRatio"], Decimal('-1.00000000'))
 
         # updateVault
 

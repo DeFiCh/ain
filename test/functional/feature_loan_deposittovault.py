@@ -216,7 +216,7 @@ class DepositToVaultTest (DefiTestFramework):
         assert_equal(vault1['loanAmounts'], ['0.50000009@TSLA'])
         assert_equal(vault1['collateralValue'], Decimal(2.00000000))
         assert_greater_than(Decimal(0.50000009), vault1['loanValue'])
-        assert_equal(vault1['currentRatio'], 400)
+        assert_equal(vault1['currentRatio'], Decimal('399.99992800'))
 
 
         # make vault enter under liquidation state

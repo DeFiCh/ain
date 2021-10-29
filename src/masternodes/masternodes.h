@@ -301,16 +301,18 @@ public:
     struct BtcTx { static constexpr uint8_t prefix() { return 'x'; } };
 };
 
-struct CCollateralLoans { // in USD
+class CCollateralLoans { // in USD
+
+    double calcRatio(uint64_t maxRatio) const;
+
+public:
     uint64_t totalCollaterals;
     uint64_t totalLoans;
     std::vector<CTokenAmount> collaterals;
     std::vector<CTokenAmount> loans;
 
-    uint32_t ratio() const {
-        if (!totalLoans) return std::numeric_limits<uint32_t>::max();
-        return lround(double(totalCollaterals) / totalLoans * 100);
-    }
+    uint32_t ratio() const;
+    CAmount precisionRatio() const;
 };
 
 template<typename T>

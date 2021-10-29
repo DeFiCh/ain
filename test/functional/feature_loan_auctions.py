@@ -147,12 +147,13 @@ class AuctionsTest (DefiTestFramework):
         self.nodes[0].generate(12) # let price update and trigger liquidation of vault
 
         auctionlist = self.nodes[0].listauctions()
+        assert_equal(len(auctionlist), 1)
         assert_equal(auctionlist[0]["liquidationHeight"], 570)
 
         self.nodes[0].generate(36) # let auction end without bids
         auctionlist = self.nodes[0].listauctions()
-        assert_equal(auctionlist[0]["liquidationHeight"], 607)
         assert_equal(len(auctionlist), 1)
+        assert_equal(auctionlist[0]["liquidationHeight"], 607)
 
         # Case 2
         # reset prices
@@ -192,7 +193,7 @@ class AuctionsTest (DefiTestFramework):
         assert_equal(vault2["state"], "active")
         assert_equal(interest[0]["interestPerBlock"], Decimal(vault2["interestAmounts"][0].split('@')[0]))
         assert_greater_than(Decimal(vault2["collateralAmounts"][0].split('@')[0]), Decimal(10.00000020))
-        assert_equal(vault2["currentRatio"], 265)
+        assert_equal(vault2["currentRatio"], Decimal("264.70111158"))
         self.nodes[0].paybackloan({
                     'vaultId': vaultId2,
                     'from': account,

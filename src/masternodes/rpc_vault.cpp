@@ -97,11 +97,10 @@ namespace {
     UniValue AuctionToJSON(const CVaultId& vaultId, const CAuctionData& data) {
         UniValue auctionObj{UniValue::VOBJ};
         auto vault = pcustomcsview->GetVault(vaultId);
-        auto vaultState = GetVaultState(vaultId, *vault);
         auctionObj.pushKV("vaultId", vaultId.GetHex());
         auctionObj.pushKV("loanSchemeId", vault->schemeId);
         auctionObj.pushKV("ownerAddress", ScriptToString(vault->ownerAddress));
-        auctionObj.pushKV("state", VaultStateToString(vaultState));
+        auctionObj.pushKV("state", VaultStateToString(VaultState::InLiquidation));
         auctionObj.pushKV("liquidationHeight", int64_t(data.liquidationHeight));
         auctionObj.pushKV("batchCount", int64_t(data.batchCount));
         auctionObj.pushKV("liquidationPenalty", ValueFromAmount(data.liquidationPenalty * 100));
@@ -123,34 +122,24 @@ namespace {
             return result;
         }
 
-        UniValue collValue{UniValue::VSTR};
-        UniValue loanValue{UniValue::VSTR};
-        UniValue interestValue{UniValue::VSTR};
+        UniValue ratioValue{0}, collValue{0}, loanValue{0}, interestValue{0};
 
-        auto blockTime = ::ChainActive()[height]->GetBlockTime();
         auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
         if (!collaterals)
             collaterals = CBalances{};
 
-        bool requireLivePrice = vaultState != VaultState::Frozen;
-
-        bool useNextPrice = false;
+        auto blockTime = ::ChainActive().Tip()->GetBlockTime();
+        bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
         auto rate = pcustomcsview->GetLoanCollaterals(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice);
-
-        uint32_t ratio = 0;
 
         if (rate) {
             collValue = ValueFromUint(rate.val->totalCollaterals);
             loanValue = ValueFromUint(rate.val->totalLoans);
-            ratio = rate.val->ratio();
+            ratioValue = ValueFromAmount(rate.val->precisionRatio());
         }
 
-        UniValue collateralBalances{UniValue::VARR};
         UniValue loanBalances{UniValue::VARR};
         UniValue interestAmounts{UniValue::VARR};
-
-        if (collaterals)
-            collateralBalances = AmountsToJSON(collaterals->balances);
 
         if (auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
             TAmounts totalBalances{};
@@ -180,13 +169,13 @@ namespace {
         result.pushKV("loanSchemeId", vault.schemeId);
         result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
         result.pushKV("state", VaultStateToString(vaultState));
-        result.pushKV("collateralAmounts", collateralBalances);
+        result.pushKV("collateralAmounts", AmountsToJSON(collaterals->balances));
         result.pushKV("loanAmounts", loanBalances);
         result.pushKV("interestAmounts", interestAmounts);
         result.pushKV("collateralValue", collValue);
         result.pushKV("loanValue", loanValue);
         result.pushKV("interestValue", interestValue);
-        result.pushKV("currentRatio", (int)ratio);
+        result.pushKV("currentRatio", ratioValue);
         return result;
     }
 }
@@ -476,26 +465,23 @@ UniValue listvaults(const JSONRPCRequest& request) {
 
     LOCK(cs_main);
 
-    pcustomcsview->ForEachVault([&](const CVaultId& id, const CVaultData& data) {
+    pcustomcsview->ForEachVault([&](const CVaultId& vaultId, const CVaultData& data) {
         if (!ownerAddress.empty() && ownerAddress != data.ownerAddress) {
             return false;
         }
-        auto currentVaultState = GetVaultState(id, data);
 
-        if (
-            (loanSchemeId.empty() || loanSchemeId == data.schemeId)
-            && (state == currentVaultState || state == VaultState::Unknown)
-            ) {
+        auto vaultState = GetVaultState(vaultId, data);
+
+        if ((loanSchemeId.empty() || loanSchemeId == data.schemeId)
+        && (state == VaultState::Unknown || state == vaultState)) {
             UniValue vaultObj{UniValue::VOBJ};
-            vaultObj.pushKV("vaultId", id.GetHex());
+            vaultObj.pushKV("vaultId", vaultId.GetHex());
             vaultObj.pushKV("ownerAddress", ScriptToString(data.ownerAddress));
             vaultObj.pushKV("loanSchemeId", data.schemeId);
-            vaultObj.pushKV("state", VaultStateToString(currentVaultState));
+            vaultObj.pushKV("state", VaultStateToString(vaultState));
             valueArr.push_back(vaultObj);
-
             limit--;
         }
-
         return limit != 0;
     }, start, ownerAddress);
 
@@ -523,9 +509,8 @@ UniValue getvault(const JSONRPCRequest& request) {
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
 
     LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview); // don't write into actual DB
 
-    auto vault = mnview.GetVault(vaultId);
+    auto vault = pcustomcsview->GetVault(vaultId);
     if (!vault) {
         throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Vault <%s> not found", vaultId.GetHex()));
     }
