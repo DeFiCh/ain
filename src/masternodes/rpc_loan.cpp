@@ -1266,10 +1266,10 @@ UniValue getloaninfo(const JSONRPCRequest& request) {
 
     totalsObj.pushKV("schemes", totalLoanSchemes);
     totalsObj.pushKV("collateralTokens", totalCollateralTokens);
-    totalsObj.pushKV("collateralValueUSD", ValueFromUint(totalCollateralValue));
+    totalsObj.pushKV("collateralValue", ValueFromUint(totalCollateralValue));
     auto totalLoanTokens = static_cast<int>(listloantokens(request).size());
     totalsObj.pushKV("loanTokens", totalLoanTokens);
-    totalsObj.pushKV("loanValueUSD", ValueFromUint(totalLoanValue));
+    totalsObj.pushKV("loanValue", ValueFromUint(totalLoanValue));
     totalsObj.pushKV("openVaults", totalVaults);
     auto totalAuctions = static_cast<int>(listauctions(request).size());
     totalsObj.pushKV("openAuctions", totalAuctions);
