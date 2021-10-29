@@ -56,6 +56,8 @@ namespace BCLog {
         STAKING     = (1 << 21),
         ANCHORING   = (1 << 22),
         SPV         = (1 << 23),
+        ORACLE      = (1 << 24),
+        LOAN        = (1 << 25),
         ALL         = ~(uint32_t)0,
     };
 

@@ -147,6 +147,7 @@ Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice& fixedIntervalP
     if (!WriteBy<FixedIntervalPriceKey>(fixedIntervalPrice.priceFeedId, fixedIntervalPrice)) {
         return Res::Err("failed to set new price feed <%s/%s>", fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second);
     }
+    LogPrint(BCLog::ORACLE, "%s(): %s/%s, active - %lld, next - %lld\n", __func__, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, fixedIntervalPrice.priceRecord[0], fixedIntervalPrice.priceRecord[1]);
 
     return Res::Ok();
 }
@@ -158,6 +159,7 @@ ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurre
         return Res::Err("fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceId.first, fixedIntervalPriceId.second);
     }
 
+    LogPrint(BCLog::ORACLE, "%s(): %s/%s, active - %lld, next - %lld\n", __func__, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, fixedIntervalPrice.priceRecord[0], fixedIntervalPrice.priceRecord[1]);
     return ResVal<CFixedIntervalPrice>(fixedIntervalPrice, Res::Ok());
 }
 

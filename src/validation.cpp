@@ -3047,6 +3047,7 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
 
     if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
+        LogPrint(BCLog::LOAN,"ProcessLoanEvents()->ForEachVaultCollateral():\n"); /* Continued */
         cache.ForEachVaultCollateral([&](const CVaultId& vaultId, const CBalances& collaterals) {
             auto collateral = cache.GetLoanCollaterals(vaultId, collaterals, pindex->nHeight, pindex->nTime, useNextPrice, requireLivePrice);
             if (!collateral) {
@@ -3069,9 +3070,11 @@ void CChainState::ProcessLoanEvents(const CBlockIndex* pindex, CCustomCSView& ca
             for (const auto& loan : loanTokens->balances) {
                 auto rate = cache.GetInterestRate(vaultId, loan.first);
                 assert(rate);
+                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 auto subInterest = TotalInterest(*rate, pindex->nHeight);
                 totalInterest.Add({loan.first, subInterest});
                 cache.SubLoanToken(vaultId, {loan.first, loan.second});
+                LogPrint(BCLog::LOAN,"\t\t"); /* Continued */
                 cache.EraseInterest(pindex->nHeight, vaultId, vault->schemeId, loan.first, loan.second, subInterest);
             }
             for (const auto& col : collaterals.balances) {
@@ -3202,7 +3205,7 @@ void CChainState::ProcessOracleEvents(const CBlockIndex* pindex, CCustomCSView& 
         if (aggregatePrice) {
             fixedIntervalPrice.priceRecord[1] = aggregatePrice;
         } else {
-            LogPrintf("Error: No aggregate price available: %s\n", aggregatePrice.msg);
+            LogPrint(BCLog::ORACLE,"ProcessOracleEvents(): No aggregate price available: %s\n", aggregatePrice.msg);
         }
         auto res = cache.SetFixedIntervalPrice(fixedIntervalPrice);
         if (!res) {
