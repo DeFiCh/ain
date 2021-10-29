@@ -231,7 +231,7 @@ class DepositToVaultTest (DefiTestFramework):
 
         self.nodes[0].generate(6) # let fixed price be stable and check vault is now underLiquidation state
         vault1 = self.nodes[1].getvault(vaultId1)
-        assert_equal(vault1['state'], "inliquidation")
+        assert_equal(vault1['state'], "inLiquidation")
 
         # try to deposit mor BTC breaking 50% DFI condition
         try:

@@ -88,9 +88,9 @@ class LoanSetLoanTokenTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        loantokens = self.nodes[0].listloantokens()
+        loanTokens = self.nodes[0].listloantokens()
 
-        assert_equal(len(loantokens), 1)
+        assert_equal(len(loanTokens), 1)
 
         loanToken = self.nodes[0].getloantoken("TSLAAAA")
         tokenId = list(loanToken["token"])[0]
@@ -108,8 +108,8 @@ class LoanSetLoanTokenTest (DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        loantokens = self.nodes[0].listloantokens()
-        assert_equal(len(loantokens), 1)
+        loanTokens = self.nodes[0].listloantokens()
+        assert_equal(len(loanTokens), 1)
 
         loanToken = self.nodes[0].getloantoken("TSLA")
         tokenId = list(loanToken["token"])[0]
